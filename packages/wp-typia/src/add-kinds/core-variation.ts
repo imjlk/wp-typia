@@ -19,6 +19,12 @@ const CORE_VARIATION_MISSING_BLOCK_MESSAGE =
   '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.';
 
 const CORE_VARIATION_BLOCK_NAME_PATTERN = /^[^/\s]+\/[^/\s]+$/u;
+const CORE_VARIATION_POSITIONAL_TARGET_DIAGNOSTICS = {
+  empty: () =>
+    'The first positional argument (target block name) requires a block name.',
+  invalidFormat: () =>
+    'The first positional argument (target block name) must use <namespace/block-slug> format.',
+} as const;
 
 function formatCoreVariationMissingPositionalNameMessage(
   blockName: string,
@@ -32,6 +38,9 @@ function formatCoreVariationMissingPositionalNameMessage(
 
 function resolveCoreVariationInputs(context: AddKindExecutionContext): {
   targetBlockName: string;
+  targetBlockNameDiagnostics:
+    | '--block'
+    | typeof CORE_VARIATION_POSITIONAL_TARGET_DIAGNOSTICS;
   variationName: string;
 } {
   const positionalTargetBlockName = context.positionalArgs?.[1];
@@ -47,6 +56,7 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
 
     return {
       targetBlockName: positionalTargetBlockName,
+      targetBlockNameDiagnostics: CORE_VARIATION_POSITIONAL_TARGET_DIAGNOSTICS,
       variationName: positionalVariationName,
     };
   }
@@ -81,6 +91,7 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
 
   return {
     targetBlockName: targetBlockFlag,
+    targetBlockNameDiagnostics: '--block',
     variationName,
   };
 }
@@ -102,7 +113,7 @@ export const coreVariationAddKindEntry =
     description: 'Add an editor-side variation for an existing core or external block',
     nameLabel: 'Variation name',
     async prepareExecution(context) {
-      const { targetBlockName, variationName } =
+      const { targetBlockName, targetBlockNameDiagnostics, variationName } =
         resolveCoreVariationInputs(context);
 
       return createNamedExecutionPlan(context, {
@@ -110,6 +121,7 @@ export const coreVariationAddKindEntry =
           context.addRuntime.runAddCoreVariationCommand({
             cwd,
             targetBlockName,
+            targetBlockNameDiagnostics,
             variationName: name,
           }),
         getValues: (result) => ({

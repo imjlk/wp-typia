@@ -5,6 +5,7 @@ import {
 	PATTERN_TAG_PATTERN,
 	type PatternCatalogScope,
 } from "./pattern-catalog.js";
+import type { FullBlockNameDiagnostics } from "./block-targets.js";
 
 export { ADD_KIND_IDS } from "./cli-add-kind-ids.js";
 export type { AddKindId } from "./cli-add-kind-ids.js";
@@ -162,11 +163,14 @@ export interface RunAddVariationCommandOptions {
  *
  * @property cwd Working directory used to resolve the nearest official workspace.
  * @property targetBlockName Full `namespace/block` name that receives the variation.
+ * @property targetBlockNameDiagnostics Optional diagnostics for positional target
+ * block names. Omitted callers keep legacy target diagnostics.
  * @property variationName Human-entered variation name normalized into a slug.
  */
 export interface RunAddCoreVariationCommandOptions {
 	cwd?: string;
 	targetBlockName: string;
+	targetBlockNameDiagnostics?: string | FullBlockNameDiagnostics;
 	variationName: string;
 }
 

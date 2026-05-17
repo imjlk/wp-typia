@@ -167,6 +167,16 @@ test('shared block target helpers preserve workspace target diagnostics', () => 
   expect(() => assertFullBlockName('counter-card', '--from')).toThrow(
     '`--from` must use <namespace/block-slug> format.',
   );
+  expect(() =>
+    assertFullBlockName('counter-card', {
+      empty: () =>
+        'The first positional argument (target block name) requires a block name.',
+      invalidFormat: () =>
+        'The first positional argument (target block name) must use <namespace/block-slug> format.',
+    }),
+  ).toThrow(
+    'The first positional argument (target block name) must use <namespace/block-slug> format.',
+  );
   expect(resolveWorkspaceTargetBlockName('counter-card', 'demo-space', '--to')).toEqual({
     blockName: 'demo-space/counter-card',
     blockSlug: 'counter-card',

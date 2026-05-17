@@ -2,6 +2,20 @@ import { normalizeBlockSlug } from "./scaffold-identifiers.js";
 
 const FULL_BLOCK_NAME_PATTERN = /^[a-z0-9-]+\/[a-z0-9-]+$/u;
 
+/**
+ * Caller-owned error messages for full block name validation.
+ */
+export interface FullBlockNameDiagnostics {
+	/**
+	 * Message returned when the candidate block name is empty.
+	 */
+	empty: () => string;
+	/**
+	 * Message returned when the candidate is not `namespace/block-slug`.
+	 */
+	invalidFormat: () => string;
+}
+
 export interface WorkspaceBlockTargetName {
 	blockName: string;
 	blockSlug: string;
@@ -14,21 +28,39 @@ export interface WorkspaceBlockTargetDiagnostics {
 	namespaceMismatch: (input: string, actualNamespace: string, expectedNamespace: string) => string;
 }
 
+function resolveFullBlockNameDiagnostics(
+	diagnostics: string | FullBlockNameDiagnostics,
+): FullBlockNameDiagnostics {
+	if (typeof diagnostics !== "string") {
+		return diagnostics;
+	}
+
+	return {
+		empty: () => `\`${diagnostics}\` requires a block name.`,
+		invalidFormat: () =>
+			`\`${diagnostics}\` must use <namespace/block-slug> format.`,
+	};
+}
+
 /**
  * Validate a full `namespace/block-slug` block name.
  *
  * @param blockName Candidate block name.
- * @param flagName CLI flag name used in diagnostics.
+ * @param diagnostics CLI flag name or diagnostic builders for caller-owned UX.
  * @returns The trimmed full block name.
  * @throws {Error} When the block name is empty or not a full block name.
  */
-export function assertFullBlockName(blockName: string, flagName: string): string {
+export function assertFullBlockName(
+	blockName: string,
+	diagnostics: string | FullBlockNameDiagnostics,
+): string {
+	const messages = resolveFullBlockNameDiagnostics(diagnostics);
 	const trimmed = blockName.trim();
 	if (!trimmed) {
-		throw new Error(`\`${flagName}\` requires a block name.`);
+		throw new Error(messages.empty());
 	}
 	if (!FULL_BLOCK_NAME_PATTERN.test(trimmed)) {
-		throw new Error(`\`${flagName}\` must use <namespace/block-slug> format.`);
+		throw new Error(messages.invalidFormat());
 	}
 
 	return trimmed;
