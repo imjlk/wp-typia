@@ -10,7 +10,10 @@ import {
   COMPOUND_INNER_BLOCKS_PRESET_IDS,
   getCompoundInnerBlocksPresetDefinition,
 } from '@wp-typia/project-tools/compound-inner-blocks';
-import { EDITOR_PLUGIN_SLOT_IDS } from '@wp-typia/project-tools/cli-add';
+import {
+  EDITOR_PLUGIN_SLOT_IDS,
+  PATTERN_CATALOG_SCOPE_IDS,
+} from '@wp-typia/project-tools/cli-add';
 import { HOOKED_BLOCK_POSITION_IDS } from '@wp-typia/project-tools/hooked-blocks';
 
 import { getAddKindOptions, getAddNameLabel } from '../add-kind-registry';
@@ -78,6 +81,21 @@ const persistencePolicyOptions: SelectOption[] = [
   },
   { name: 'public', description: 'Public token policy', value: 'public' },
 ];
+
+const PATTERN_CATALOG_SCOPE_DESCRIPTIONS: Record<
+  (typeof PATTERN_CATALOG_SCOPE_IDS)[number],
+  string
+> = {
+  full: 'Register a full-page or general pattern. Tags and thumbnails are available through CLI flags.',
+  section: 'Register a section pattern. Requires a section role below.',
+};
+
+const patternCatalogScopeOptions: SelectOption[] =
+  PATTERN_CATALOG_SCOPE_IDS.map((scope) => ({
+    description: PATTERN_CATALOG_SCOPE_DESCRIPTIONS[scope],
+    name: scope,
+    value: scope,
+  }));
 
 const compoundInnerBlocksPresetOptions: SelectOption[] =
   COMPOUND_INNER_BLOCKS_PRESET_IDS.map((value) => ({
@@ -248,6 +266,37 @@ function AddFlowFields({
             label: 'InnerBlocks preset',
             name: 'inner-blocks-preset' satisfies AddSelectFieldName,
             options: compoundInnerBlocksPresetOptions,
+          })
+        : null,
+      visibleFields.has('scope')
+        ? createElement(FirstPartySelectField, {
+            ...getWrappedFieldNeighbors(orderedVisibleFields, 'scope'),
+            key: 'scope',
+            label: 'Pattern catalog scope',
+            name: 'scope' satisfies AddSelectFieldName,
+            options: patternCatalogScopeOptions,
+          })
+        : null,
+      visibleFields.has('section-role')
+        ? createElement(FirstPartyTextField, {
+            ...getWrappedFieldNeighbors(orderedVisibleFields, 'section-role'),
+            description:
+              'Required when scope is section; leave blank for full patterns.',
+            key: 'section-role',
+            label: 'Section role',
+            name: 'section-role',
+            placeholder: 'hero',
+          })
+        : null,
+      visibleFields.has('catalog-title')
+        ? createElement(FirstPartyTextField, {
+            ...getWrappedFieldNeighbors(orderedVisibleFields, 'catalog-title'),
+            description:
+              'Defaults to the pattern slug title. Use --tag, --tags, or --thumbnail-url for additional catalog metadata.',
+            key: 'catalog-title',
+            label: 'Catalog title',
+            name: 'catalog-title',
+            placeholder: 'Homepage Hero',
           })
         : null,
       visibleFields.has('block') && !targetBlockUsesSelect

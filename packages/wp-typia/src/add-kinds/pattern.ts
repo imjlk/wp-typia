@@ -5,7 +5,7 @@ import {
 import {
   defineAddKindRegistryEntry,
   type AddKindExecutionContext,
-  NAME_ONLY_VISIBLE_FIELDS,
+  PATTERN_CATALOG_VISIBLE_FIELDS,
   requireAddKindName,
   type AddPatternResult,
 } from '../add-kind-registry-shared';
@@ -29,14 +29,7 @@ export const patternAddKindEntry =
       title: 'Added workspace pattern',
     },
     description: 'Add a PHP block pattern shell',
-    hiddenStringSubmitFields: [
-      'catalog-title',
-      'scope',
-      'section-role',
-      'tag',
-      'tags',
-      'thumbnail-url',
-    ],
+    hiddenStringSubmitFields: ['tag', 'tags', 'thumbnail-url'],
     nameLabel: 'Pattern name',
     async prepareExecution(context) {
       const name = requireAddKindName(context, PATTERN_MISSING_NAME_MESSAGE);
@@ -77,7 +70,7 @@ export const patternAddKindEntry =
     supportsDryRun: true,
     usage:
       'wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--tag <tag>...] [--thumbnail-url <url>] [--dry-run]',
-    visibleFieldNames: () => NAME_ONLY_VISIBLE_FIELDS,
+    visibleFieldNames: () => PATTERN_CATALOG_VISIBLE_FIELDS,
   });
 
 function createInvalidPatternArgumentError(message: string) {

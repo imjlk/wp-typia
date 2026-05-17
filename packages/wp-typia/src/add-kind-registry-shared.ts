@@ -15,7 +15,10 @@ export type AddKindExecutionResultBase = {
 export type AddFieldName =
   | 'kind'
   | 'name'
+  | 'catalog-title'
   | 'source'
+  | 'section-role'
+  | 'scope'
   | 'type'
   | 'template'
   | 'block'
@@ -165,6 +168,13 @@ export const BLOCK_VISIBLE_FIELD_ORDER = [
 export const NAME_ONLY_VISIBLE_FIELDS = [
   'kind',
   'name',
+] as const satisfies ReadonlyArray<AddFieldName>;
+export const PATTERN_CATALOG_VISIBLE_FIELDS = [
+  'kind',
+  'name',
+  'scope',
+  'section-role',
+  'catalog-title',
 ] as const satisfies ReadonlyArray<AddFieldName>;
 export const NAME_SOURCE_VISIBLE_FIELDS = [
   'kind',
