@@ -1,5 +1,11 @@
 # @wp-typia/project-tools
 
+## 0.24.3 — 2026-05-17
+
+### Patch changes
+
+- [27b24b58](https://github.com/imjlk/wp-typia/commit/27b24b582e2b8d9a4a5fa874dc65a7aba99bab93) Split create scaffold CLI orchestration into focused file, emission, output, and validation helpers. — Thanks @imjlk!
+
 ## 0.24.2 — 2026-05-17
 
 ### Patch changes
