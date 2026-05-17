@@ -26,6 +26,37 @@ function hasStableMarkerAttribute<TAttributes extends BlockAttributes>(
   return STABLE_VARIATION_MARKER_ATTRIBUTES.some((key) => key in attributes);
 }
 
+function stringifyActiveMarkerValue(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function createActiveMarker(
+  entry: BlockVariationRegistrationEntry,
+): string | undefined {
+  const isActive = entry.variation.isActive;
+
+  if (!Array.isArray(isActive) || isActive.length === 0) {
+    return undefined;
+  }
+
+  const attributes = isObjectRecord(entry.variation.attributes)
+    ? entry.variation.attributes
+    : {};
+
+  return [...isActive]
+    .sort()
+    .map((attribute) => {
+      const value = attribute in attributes ? attributes[attribute] : "";
+
+      return `${attribute}=${stringifyActiveMarkerValue(value)}`;
+    })
+    .join("|");
+}
+
 export function createVariationDiagnostics<
   TAttributes extends BlockAttributes,
 >(
@@ -97,9 +128,7 @@ export function createCollectionDiagnostics(
 
   for (const entry of entries) {
     const nameKey = `${entry.blockName}:${entry.variation.name}`;
-    const activeMarker = Array.isArray(entry.variation.isActive)
-      ? entry.variation.isActive.join("|")
-      : undefined;
+    const activeMarker = createActiveMarker(entry);
 
     if (seenNames.has(nameKey)) {
       diagnostics.push({

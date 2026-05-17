@@ -280,7 +280,7 @@ describe("defineVariations", () => {
 		expect(source).toContain("registerBlockVariation(blockName, variation);");
 	});
 
-	test("detects duplicate variation names and active discriminators", () => {
+	test("detects duplicate variation names and overlapping active discriminators", () => {
 		const first = defineVariation<ParagraphAttributes>("core/paragraph", {
 			attributes: {
 				className: "is-style-first",
@@ -297,7 +297,7 @@ describe("defineVariations", () => {
 			name: "example-duplicate",
 			title: "Second",
 		});
-		const duplicateMarker = defineVariation<ParagraphAttributes>("core/paragraph", {
+		const distinctMarker = defineVariation<ParagraphAttributes>("core/paragraph", {
 			attributes: {
 				className: "is-style-third",
 			},
@@ -305,20 +305,33 @@ describe("defineVariations", () => {
 			name: "example-third",
 			title: "Third",
 		});
+		const duplicateMarker = defineVariation<ParagraphAttributes>("core/paragraph", {
+			attributes: {
+				className: "is-style-first",
+			},
+			isActive: ["className"],
+			name: "example-first-copy",
+			title: "First Copy",
+		});
 		const diagnostics: BlockVariationDiagnostic[] = [];
+		const distinctDiagnostics: BlockVariationDiagnostic[] = [];
 
 		expect(() => defineVariations([first, duplicateName] as const)).toThrow(
 			'Duplicate block variation name "example-duplicate"',
 		);
+		defineVariations([first, distinctMarker] as const, {
+			onDiagnostic: (diagnostic) => distinctDiagnostics.push(diagnostic),
+		});
 		defineVariations([first, duplicateMarker] as const, {
 			onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
 		});
 
+		expect(distinctDiagnostics).toEqual([]);
 		expect(diagnostics).toMatchObject([
 			{
 				code: "duplicate-active-marker",
 				severity: "warning",
-				variationName: "example-third",
+				variationName: "example-first-copy",
 			},
 		]);
 	});
