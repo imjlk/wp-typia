@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/project-tools",
-  "version": "0.24.2",
+  "version": "0.24.3",
   "description": "Project orchestration and programmatic tooling for wp-typia",
   "packageManager": "bun@1.3.11",
   "type": "module",

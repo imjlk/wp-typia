@@ -1,5 +1,13 @@
 # wp-typia
 
+## 0.24.3 — 2026-05-17
+
+### Patch changes
+
+- [e3b205b7](https://github.com/imjlk/wp-typia/commit/e3b205b7b0f185848e7ace4f2928970665045b75) Expose optional pattern catalog tags and thumbnail fields in the interactive add flow. — Thanks @imjlk!
+- [cd5ce7c4](https://github.com/imjlk/wp-typia/commit/cd5ce7c4e2a6b2288f4fa9d721165f86e1938c6a) Split interactive add flow field rendering into focused add-kind field groups. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.3
+
 ## 0.24.2 — 2026-05-17
 
 ### Patch changes
