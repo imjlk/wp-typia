@@ -8,6 +8,12 @@ import {
 	isBuiltInTemplateId,
 } from "./template-registry.js";
 
+/**
+ * Validate the project directory argument before template resolution.
+ *
+ * @param projectInput Raw project directory input from the CLI.
+ * @throws Error when the input is empty or points at the current/parent directory.
+ */
 export function validateCreateProjectInput(projectInput: string) {
 	const normalizedProjectInput = projectInput.trim();
 	if (normalizedProjectInput.length === 0) {
@@ -26,6 +32,12 @@ export function validateCreateProjectInput(projectInput: string) {
 	}
 }
 
+/**
+ * Collect warnings for project directory names that are awkward in shells.
+ *
+ * @param projectDir Absolute target project directory.
+ * @returns User-facing warning messages for non-fatal directory concerns.
+ */
 export function collectProjectDirectoryWarnings(projectDir: string): string[] {
 	const warnings: string[] = [];
 	const projectName = path.basename(projectDir);
@@ -47,6 +59,13 @@ export function collectProjectDirectoryWarnings(projectDir: string): string[] {
 	return warnings;
 }
 
+/**
+ * Determine whether a template should resolve persistence-related options.
+ *
+ * @param templateId Resolved template id.
+ * @param options Explicit persistence flags provided by the caller.
+ * @returns True when persistence defaults or prompts should be applied.
+ */
 export function templateUsesPersistenceSettings(
 	templateId: string,
 	options: {
@@ -79,6 +98,12 @@ function createTemplateLabel(templateId: string): string {
 		: `"${templateId}"`;
 }
 
+/**
+ * Collect warnings for flags that do not apply to the selected template.
+ *
+ * @param options Template id and raw CLI flags that may be ignored.
+ * @returns User-facing warnings for non-fatal capability mismatches.
+ */
 export function collectTemplateCapabilityWarnings(options: {
 	queryPostType?: string;
 	templateId: string;
@@ -135,6 +160,12 @@ function templateSupportsAlternateRenderTargets(options: {
 	});
 }
 
+/**
+ * Validate create flags that depend on the selected template capability set.
+ *
+ * @param options Raw create flags plus the resolved template id.
+ * @throws Error when a flag is unsupported for the selected template.
+ */
 export function validateCreateFlagContract(options: {
 	alternateRenderTargets?: string;
 	dataStorageMode?: string;
@@ -211,6 +242,13 @@ function parseSelectableValue<T extends string>(
 	);
 }
 
+/**
+ * Resolve an optional string selection from explicit input, prompts, or defaults.
+ *
+ * @param options Selection configuration including allowed values and prompt hooks.
+ * @returns The resolved value, or undefined when resolution is disabled.
+ * @throws Error when an explicit value is not in the allowed set.
+ */
 export async function resolveOptionalSelection<T extends string>({
 	defaultValue,
 	explicitValue,
@@ -236,7 +274,7 @@ export async function resolveOptionalSelection<T extends string>({
 		return undefined;
 	}
 
-	if (explicitValue) {
+	if (explicitValue !== undefined) {
 		return parseSelectableValue(label, explicitValue, isValue, allowedValues);
 	}
 
@@ -251,6 +289,12 @@ export async function resolveOptionalSelection<T extends string>({
 	return defaultValue;
 }
 
+/**
+ * Resolve an optional boolean flag from explicit input, prompts, or defaults.
+ *
+ * @param options Boolean selection configuration and optional prompt hook.
+ * @returns The resolved boolean value.
+ */
 export async function resolveOptionalBooleanFlag({
 	defaultValue = false,
 	disabled = false,

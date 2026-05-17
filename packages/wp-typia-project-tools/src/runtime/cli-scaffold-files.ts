@@ -5,6 +5,12 @@ import { formatNonEmptyTargetDirectoryError } from "./scaffold-bootstrap.js";
 import { pathExists } from "./fs-async.js";
 import { readJsonFile } from "./json-utils.js";
 
+/**
+ * List every file emitted under a scaffold project using POSIX-style paths.
+ *
+ * @param rootDir Root project directory to scan recursively.
+ * @returns Sorted relative file paths suitable for dry-run preview output.
+ */
 export async function listRelativeProjectFiles(
 	rootDir: string,
 ): Promise<string[]> {
@@ -31,6 +37,13 @@ export async function listRelativeProjectFiles(
 	return relativeFiles.sort((left, right) => left.localeCompare(right));
 }
 
+/**
+ * Ensure a dry-run target would be legal before rendering into a temp preview.
+ *
+ * @param projectDir Real target project directory requested by the user.
+ * @param allowExistingDir Whether existing target directories are allowed.
+ * @throws Error when the target exists, is non-empty, and is not allowed.
+ */
 export async function assertDryRunTargetDirectoryReady(
 	projectDir: string,
 	allowExistingDir: boolean,
@@ -45,6 +58,12 @@ export async function assertDryRunTargetDirectoryReady(
 	}
 }
 
+/**
+ * Read script names from the package manifest emitted by a scaffold run.
+ *
+ * @param projectDir Generated project directory containing package.json.
+ * @returns Script names, or undefined when the manifest is absent or invalid.
+ */
 export async function readGeneratedPackageScripts(
 	projectDir: string,
 ): Promise<string[] | undefined> {

@@ -662,6 +662,23 @@ test("runScaffoldFlow rejects unsupported persistence policies", async () => {
   );
 });
 
+test("runScaffoldFlow rejects empty explicit persistence selections", async () => {
+  await expect(
+    runScaffoldFlow({
+      cwd: tempRoot,
+      dataStorageMode: "",
+      dryRun: true,
+      noInstall: true,
+      packageManager: "npm",
+      projectInput: "demo-persistence-empty-data-storage",
+      templateId: "persistence",
+      yes: true,
+    })
+  ).rejects.toThrow(
+    'Unsupported data storage mode "". Expected one of: post-meta, custom-table'
+  );
+});
+
 test("runScaffoldFlow rejects persistence-only create flags for non-persistence templates", async () => {
   await expect(
     runScaffoldFlow({

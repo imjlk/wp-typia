@@ -12,24 +12,69 @@ import {
 import { getPrimaryDevelopmentScript } from "./local-dev-presets.js";
 import type { PackageManagerId } from "./package-managers.js";
 
+/**
+ * Inputs used to build CLI next-step commands after scaffolding succeeds.
+ */
 export interface ScaffoldNextStepsOptions {
+	/**
+	 * Whether install instructions should be printed because install was skipped.
+	 */
 	noInstall: boolean;
+	/**
+	 * Package manager used to format install and run commands.
+	 */
 	packageManager: PackageManagerId;
+	/**
+	 * Absolute scaffold target directory.
+	 */
 	projectDir: string;
+	/**
+	 * Project path exactly as provided to the CLI.
+	 */
 	projectInput: string;
+	/**
+	 * Resolved template id used to choose the primary development script.
+	 */
 	templateId: string;
 }
 
+/**
+ * Inputs used to compute optional onboarding guidance after scaffolding.
+ */
 export interface ScaffoldOptionalOnboardingOptions {
+	/**
+	 * Script names discovered from the generated package manifest.
+	 */
 	availableScripts?: string[];
+	/**
+	 * Package manager used to format optional commands.
+	 */
 	packageManager: PackageManagerId;
+	/**
+	 * Resolved template id used to select template-specific guidance.
+	 */
 	templateId: string;
+	/**
+	 * Whether compound persistence support is present in generated variables.
+	 */
 	compoundPersistenceEnabled?: boolean;
 }
 
+/**
+ * User-facing optional onboarding copy and command list.
+ */
 export interface OptionalOnboardingGuidance {
+	/**
+	 * Full note shown in the detailed completion output.
+	 */
 	note: string;
+	/**
+	 * Short note shown in compact completion output.
+	 */
 	shortNote: string;
+	/**
+	 * Optional follow-up commands to show after next steps.
+	 */
 	steps: string[];
 }
 
