@@ -4,20 +4,35 @@ import type {
   BlockVariationScope,
 } from "./registration.js";
 import {
-  createWordPressBlockApiCompatibilityManifest,
   type WordPressBlockApiCompatibilityDiagnostic,
-  type WordPressBlockApiCompatibilityFeature,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
 } from "./compatibility.js";
 import {
-  getDiagnosticSeverity,
-  handleDiagnostics,
   type DiagnosticLogger,
 } from "./shared/diagnostics.js";
 import { isObjectRecord } from "./shared/object-utils.js";
 import { normalizeStaticRegistrationValue } from "./shared/static-registration.js";
+import {
+  createCollectionDiagnostics,
+  createVariationDiagnostics,
+  handleVariationDiagnostics,
+} from "./variations-diagnostics.js";
+import {
+  collectBlockVariationCompatibilityFeatures,
+  createBlockVariationCompatibilityManifest,
+  createBlockVariationCompatibilityManifestFromSettings,
+} from "./variations-manifest.js";
+import {
+  resolveDefineVariationSettings,
+  splitDefineVariationInput,
+} from "./variations-settings.js";
+
+export {
+  collectBlockVariationCompatibilityFeatures,
+  createBlockVariationCompatibilityManifest,
+};
 
 export type BlockVariationAttributeMap<
   TAttributes extends BlockAttributes = BlockAttributes,
@@ -153,194 +168,6 @@ export interface CreateBlockVariationRegistrationSourceOptions {
   readonly importSource?: string;
 }
 
-const DEFINE_VARIATION_INLINE_OPTION_KEYS = new Set<string>([
-  "allowMissingIsActive",
-  "logger",
-  "minVersion",
-  "minWordPress",
-  "onDiagnostic",
-  "requireIsActive",
-  "strict",
-]);
-
-const STABLE_VARIATION_MARKER_ATTRIBUTES = [
-  "className",
-  "namespace",
-  "wpTypiaVariation",
-] as const;
-
-function splitDefineVariationInput<
-  TAttributes extends BlockAttributes,
-  TVariation extends BlockVariationDefinition<TAttributes> &
-    DefineVariationInlineOptions,
->(variation: TVariation): {
-  inlineOptions: DefineVariationInlineOptions;
-  variation: StripDefineVariationOptions<TVariation> &
-    BlockVariationDefinition<TAttributes>;
-} {
-  const inlineOptions: DefineVariationInlineOptions = {};
-  const normalizedVariation: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(variation)) {
-    if (DEFINE_VARIATION_INLINE_OPTION_KEYS.has(key)) {
-      Object.assign(inlineOptions, { [key]: value });
-      continue;
-    }
-
-    normalizedVariation[key] = value;
-  }
-
-  return {
-    inlineOptions,
-    variation: normalizedVariation as StripDefineVariationOptions<TVariation> &
-      BlockVariationDefinition<TAttributes>,
-  };
-}
-
-function resolveDefineVariationSettings(
-  inlineOptions: DefineVariationInlineOptions,
-  options: DefineVariationOptions,
-): {
-  compatibility: WordPressCompatibilitySettings;
-  diagnostics: {
-    allowMissingIsActive: boolean;
-    requireIsActive: boolean;
-    strict: boolean;
-  };
-  logger: DefineVariationOptions["logger"];
-  onDiagnostic: DefineVariationOptions["onDiagnostic"];
-} {
-  const compatibility: WordPressCompatibilitySettings = {};
-  const allowUnknownFutureKeys = options.allowUnknownFutureKeys;
-  const minVersion =
-    options.minVersion ??
-    options.minWordPress ??
-    inlineOptions.minVersion ??
-    inlineOptions.minWordPress;
-  const strict = options.strict ?? inlineOptions.strict ?? true;
-
-  if (allowUnknownFutureKeys !== undefined) {
-    Object.assign(compatibility, { allowUnknownFutureKeys });
-  }
-  if (minVersion !== undefined) {
-    Object.assign(compatibility, { minVersion });
-  }
-  Object.assign(compatibility, { strict });
-
-  return {
-    compatibility,
-    diagnostics: {
-      allowMissingIsActive:
-        options.allowMissingIsActive ?? inlineOptions.allowMissingIsActive ?? false,
-      requireIsActive:
-        options.requireIsActive ?? inlineOptions.requireIsActive ?? true,
-      strict,
-    },
-    logger: options.logger ?? inlineOptions.logger,
-    onDiagnostic: options.onDiagnostic ?? inlineOptions.onDiagnostic,
-  };
-}
-
-export function collectBlockVariationCompatibilityFeatures(): readonly WordPressBlockApiCompatibilityFeature[] {
-  return [
-    {
-      area: "blockVariations",
-      feature: "editorRegistration",
-    },
-  ];
-}
-
-export function createBlockVariationCompatibilityManifest(
-  settings: DefineVariationOptions = {},
-): WordPressBlockApiCompatibilityManifest {
-  const resolved = resolveDefineVariationSettings({}, settings);
-
-  return createWordPressBlockApiCompatibilityManifest(
-    collectBlockVariationCompatibilityFeatures(),
-    resolved.compatibility,
-  );
-}
-
-function hasStableMarkerAttribute<TAttributes extends BlockAttributes>(
-  attributes: BlockVariationDefinition<TAttributes>["attributes"],
-): boolean {
-  if (!isObjectRecord(attributes)) {
-    return false;
-  }
-
-  return STABLE_VARIATION_MARKER_ATTRIBUTES.some((key) => key in attributes);
-}
-
-function createVariationDiagnostics<TAttributes extends BlockAttributes>(
-  blockName: string,
-  variation: BlockVariationDefinition<TAttributes>,
-  options: ReturnType<typeof resolveDefineVariationSettings>["diagnostics"],
-): readonly BlockVariationAuthoringDiagnostic[] {
-  const diagnostics: BlockVariationAuthoringDiagnostic[] = [];
-  const variationName = variation.name;
-  const attributes = variation.attributes;
-  const isActive = variation.isActive;
-
-  if (
-    options.requireIsActive &&
-    !options.allowMissingIsActive &&
-    !variation.isDefault &&
-    isActive === undefined
-  ) {
-    diagnostics.push({
-      blockName,
-      code: "missing-is-active",
-      message: `Block variation "${variationName}" for "${blockName}" does not declare isActive; add an active discriminator or set allowMissingIsActive.`,
-      severity: "warning",
-      variationName,
-    });
-  }
-
-  if (
-    options.requireIsActive &&
-    !options.allowMissingIsActive &&
-    !variation.isDefault &&
-    isActive === undefined &&
-    !hasStableMarkerAttribute(attributes)
-  ) {
-    diagnostics.push({
-      blockName,
-      code: "missing-stable-marker",
-      message: `Block variation "${variationName}" for "${blockName}" has no stable marker attribute such as className, namespace, or wpTypiaVariation.`,
-      severity: "warning",
-      variationName,
-    });
-  }
-
-  if (Array.isArray(isActive)) {
-    for (const attribute of isActive) {
-      if (!isObjectRecord(attributes) || !(attribute in attributes)) {
-        diagnostics.push({
-          attribute,
-          blockName,
-          code: "unknown-is-active-attribute",
-          message: `Block variation "${variationName}" for "${blockName}" uses isActive attribute "${attribute}" that is not present in its attributes.`,
-          severity: "warning",
-          variationName,
-        });
-      }
-    }
-  }
-
-  return diagnostics;
-}
-
-function handleVariationDiagnostics(
-  diagnostics: readonly BlockVariationDiagnostic[],
-  onDiagnostic: DefineVariationOptions["onDiagnostic"],
-  logger: DefineVariationOptions["logger"],
-): void {
-  handleDiagnostics(diagnostics, onDiagnostic, {
-    failureHeading: "WordPress block variation check failed:",
-    logger,
-  });
-}
-
 export function getDefinedVariationMetadata(
   variation: unknown,
 ): DefinedBlockVariationMetadata | undefined {
@@ -390,13 +217,12 @@ export function defineVariation<
 >(
   blockName: TBlockName,
   variation: TVariation,
-	options: DefineVariationOptions = {},
+  options: DefineVariationOptions = {},
 ): DefinedBlockVariation<TBlockName, TAttributes, TVariation> {
-	const { inlineOptions, variation: normalizedVariation } =
-		splitDefineVariationInput<TAttributes, TVariation>(variation);
+  const { inlineOptions, variation: normalizedVariation } =
+    splitDefineVariationInput<TAttributes, TVariation>(variation);
   const resolved = resolveDefineVariationSettings(inlineOptions, options);
-  const manifest = createWordPressBlockApiCompatibilityManifest(
-    collectBlockVariationCompatibilityFeatures(),
+  const manifest = createBlockVariationCompatibilityManifestFromSettings(
     resolved.compatibility,
   );
   const diagnostics = [
@@ -426,51 +252,6 @@ export function defineVariation<
     TAttributes,
     TVariation
   >;
-}
-
-function createCollectionDiagnostics(
-  entries: readonly BlockVariationRegistrationEntry[],
-  strict: boolean,
-): readonly BlockVariationAuthoringDiagnostic[] {
-  const diagnostics: BlockVariationAuthoringDiagnostic[] = [];
-  const seenNames = new Map<string, BlockVariationRegistrationEntry>();
-  const seenActiveMarkers = new Map<string, BlockVariationRegistrationEntry>();
-
-  for (const entry of entries) {
-    const nameKey = `${entry.blockName}:${entry.variation.name}`;
-    const activeMarker = Array.isArray(entry.variation.isActive)
-      ? entry.variation.isActive.join("|")
-      : undefined;
-
-    if (seenNames.has(nameKey)) {
-      diagnostics.push({
-        blockName: entry.blockName,
-        code: "duplicate-variation-name",
-        message: `Duplicate block variation name "${entry.variation.name}" for "${entry.blockName}".`,
-        severity: getDiagnosticSeverity(strict),
-        variationName: entry.variation.name,
-      });
-    }
-    seenNames.set(nameKey, entry);
-
-    if (activeMarker && activeMarker.length > 0) {
-      const markerKey = `${entry.blockName}:${activeMarker}`;
-      const existing = seenActiveMarkers.get(markerKey);
-
-      if (existing) {
-        diagnostics.push({
-          blockName: entry.blockName,
-          code: "duplicate-active-marker",
-          message: `Block variations "${existing.variation.name}" and "${entry.variation.name}" for "${entry.blockName}" share the same isActive discriminator "${activeMarker}".`,
-          severity: "warning",
-          variationName: entry.variation.name,
-        });
-      }
-      seenActiveMarkers.set(markerKey, entry);
-    }
-  }
-
-  return diagnostics;
 }
 
 export function createBlockVariationRegistrationPlan(
