@@ -654,6 +654,64 @@ describe('wp-typia add command bridge', () => {
     }
   }, 15_000);
 
+  test('core-variation missing arguments distinguish positional and flag usage', async () => {
+    const cases = [
+      {
+        flags: {},
+        message: [
+          '`wp-typia add core-variation core/group` is missing <name>.',
+          'Usage: wp-typia add core-variation <block-name> <name>',
+          'Alternative: wp-typia add core-variation <name> --block <namespace/block>',
+        ].join('\n'),
+        name: 'core/group',
+        positionalArgs: ['core-variation', 'core/group'],
+      },
+      {
+        flags: {},
+        message:
+          '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.',
+        name: 'section-hero',
+        positionalArgs: ['core-variation', 'section-hero'],
+      },
+      {
+        flags: {},
+        message:
+          '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.',
+        name: 'core/group/extra',
+        positionalArgs: ['core-variation', 'core/group/extra'],
+      },
+    ] satisfies Array<{
+      flags: Record<string, unknown>;
+      message: string;
+      name: string;
+      positionalArgs: string[];
+    }>;
+
+    for (const { flags, message, name, positionalArgs } of cases) {
+      let error: unknown;
+
+      try {
+        await executeAddCommand({
+          cwd: path.join(tempRoot, 'outside-workspace'),
+          emitOutput: false,
+          flags,
+          interactive: false,
+          kind: 'core-variation',
+          name,
+          positionalArgs,
+        });
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as { code?: string }).code).toBe(
+        CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
+      );
+      expect((error as Error).message).toBe(message);
+    }
+  });
+
   test('rest-resource missing-name guidance separates generated and manual modes', async () => {
     let error: unknown;
 

@@ -18,6 +18,18 @@ const CORE_VARIATION_MISSING_NAME_MESSAGE =
 const CORE_VARIATION_MISSING_BLOCK_MESSAGE =
   '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.';
 
+const CORE_VARIATION_BLOCK_NAME_PATTERN = /^[^/\s]+\/[^/\s]+$/u;
+
+function formatCoreVariationMissingPositionalNameMessage(
+  blockName: string,
+): string {
+  return [
+    `\`wp-typia add core-variation ${blockName}\` is missing <name>.`,
+    'Usage: wp-typia add core-variation <block-name> <name>',
+    'Alternative: wp-typia add core-variation <name> --block <namespace/block>',
+  ].join('\n');
+}
+
 function resolveCoreVariationInputs(context: AddKindExecutionContext): {
   targetBlockName: string;
   variationName: string;
@@ -39,13 +51,20 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
     };
   }
 
-  if (
-    context.name?.includes('/') &&
-    !readOptionalStrictStringFlag(context.flags, 'block')
-  ) {
+  const targetBlockFlag = readOptionalStrictStringFlag(context.flags, 'block');
+  const missingPositionalNameTarget =
+    context.name !== undefined &&
+    positionalTargetBlockName === context.name &&
+    CORE_VARIATION_BLOCK_NAME_PATTERN.test(context.name)
+      ? context.name
+      : undefined;
+
+  if (missingPositionalNameTarget && !targetBlockFlag) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
-      CORE_VARIATION_MISSING_NAME_MESSAGE,
+      formatCoreVariationMissingPositionalNameMessage(
+        missingPositionalNameTarget,
+      ),
     );
   }
 
@@ -53,8 +72,7 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
     context,
     CORE_VARIATION_MISSING_NAME_MESSAGE,
   );
-  const targetBlockName = readOptionalStrictStringFlag(context.flags, 'block');
-  if (!targetBlockName) {
+  if (!targetBlockFlag) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
       CORE_VARIATION_MISSING_BLOCK_MESSAGE,
@@ -62,7 +80,7 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
   }
 
   return {
-    targetBlockName,
+    targetBlockName: targetBlockFlag,
     variationName,
   };
 }
