@@ -53,6 +53,7 @@ async function executeWorkspaceAddWithOptionalDryRun<TResult>(options: {
   buildCompletion: (
     result: TResult,
   ) => ReturnType<typeof buildAddCompletionPayload>;
+  buildDryRunSummaryLines?: (result: TResult) => string[] | undefined;
   cwd: string;
   dryRun: boolean;
   emitOutput: boolean | undefined;
@@ -81,6 +82,7 @@ async function executeWorkspaceAddWithOptionalDryRun<TResult>(options: {
     buildAddDryRunPayload({
       completion,
       fileOperations: simulated!.fileOperations,
+      summaryLines: options.buildDryRunSummaryLines?.(result),
     }),
     {
       emitOutput: options.emitOutput ?? true,
@@ -108,6 +110,7 @@ function executePreparedAddKind<TKey extends AddKindId>(
         values: plan.getValues(result),
         warnings: plan.getWarnings?.(result),
       }),
+    buildDryRunSummaryLines: (result) => plan.getDryRunSummaryLines?.(result),
     cwd: context.cwd,
     dryRun: context.dryRun,
     emitOutput: context.emitOutput,

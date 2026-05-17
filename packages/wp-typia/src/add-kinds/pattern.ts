@@ -34,18 +34,26 @@ export const patternAddKindEntry =
     nameLabel: 'Pattern name',
     async prepareExecution(context) {
       const name = requireAddKindName(context, PATTERN_MISSING_NAME_MESSAGE);
-      const scope = resolvePatternScopeFlag(context);
-      const sectionRole = resolvePatternSectionRoleFlag(context, scope);
-      const catalogTitle =
+      const rawScope =
+        typeof context.flags.scope === 'string' ? context.flags.scope : undefined;
+      const rawSectionRole =
+        typeof context.flags['section-role'] === 'string'
+          ? context.flags['section-role']
+          : undefined;
+      const rawCatalogTitle =
         typeof context.flags['catalog-title'] === 'string'
           ? context.flags['catalog-title']
           : undefined;
-      const tags =
-        normalizePatternTagFlags(context.flags.tags, context.flags.tag);
-      const thumbnailUrl =
+      const rawThumbnailUrl =
         typeof context.flags['thumbnail-url'] === 'string'
           ? context.flags['thumbnail-url']
           : undefined;
+      const scope = resolvePatternScopeFlag(context);
+      const sectionRole = resolvePatternSectionRoleFlag(context, scope);
+      const catalogTitle = rawCatalogTitle;
+      const tags =
+        normalizePatternTagFlags(context.flags.tags, context.flags.tag);
+      const thumbnailUrl = rawThumbnailUrl;
 
       return {
         execute: (cwd) =>
@@ -57,6 +65,14 @@ export const patternAddKindEntry =
             sectionRole,
             tags,
             thumbnailUrl,
+          }),
+        getDryRunSummaryLines: (result: AddPatternResult) =>
+          buildPatternCatalogDryRunSummaryLines(result, {
+            rawCatalogTitle,
+            rawScope,
+            rawSectionRole,
+            rawTags: tags,
+            rawThumbnailUrl,
           }),
         getValues: (result: AddPatternResult) => ({
           contentFile: result.contentFile,
@@ -169,4 +185,128 @@ function normalizePatternTagFlags(
     ...collectStringFlagValues(tagFlag),
   ];
   return tags.length > 0 ? tags : undefined;
+}
+
+function quoteValue(value: string): string {
+  return `"${value}"`;
+}
+
+function formatTags(tags: readonly string[]): string {
+  return tags.length > 0 ? tags.join(', ') : 'no tags';
+}
+
+function collectPatternTagTokens(tags: readonly string[] | undefined): string[] {
+  return (tags ?? [])
+    .flatMap((tag) => tag.split(','))
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+}
+
+function valuesMatch(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function createNormalizationNote(options: {
+  fieldLabel: string;
+  rawValue: string | undefined;
+  resolvedValue: string | undefined;
+}): string | undefined {
+  const rawValue = options.rawValue;
+  if (
+    rawValue === undefined ||
+    rawValue.trim().length === 0 ||
+    !options.resolvedValue ||
+    rawValue === options.resolvedValue
+  ) {
+    return undefined;
+  }
+
+  return `${options.fieldLabel} normalized from ${quoteValue(
+    rawValue,
+  )} to ${quoteValue(options.resolvedValue)}.`;
+}
+
+function collectPatternCatalogNormalizationNotes(
+  result: AddPatternResult,
+  options: {
+    rawCatalogTitle?: string;
+    rawScope?: string;
+    rawSectionRole?: string;
+    rawTags?: readonly string[];
+    rawThumbnailUrl?: string;
+  },
+): string[] {
+  const notes = [
+    createNormalizationNote({
+      fieldLabel: 'Scope',
+      rawValue: options.rawScope,
+      resolvedValue: result.patternScope,
+    }),
+    createNormalizationNote({
+      fieldLabel: 'Section role',
+      rawValue: options.rawSectionRole,
+      resolvedValue: result.sectionRole,
+    }),
+    createNormalizationNote({
+      fieldLabel: 'Title',
+      rawValue: options.rawCatalogTitle,
+      resolvedValue: result.title,
+    }),
+    createNormalizationNote({
+      fieldLabel: 'Thumbnail URL',
+      rawValue: options.rawThumbnailUrl,
+      resolvedValue: result.thumbnailUrl,
+    }),
+  ].filter((note): note is string => typeof note === 'string');
+  const rawTags = collectPatternTagTokens(options.rawTags);
+  if (rawTags.length > 0 && !valuesMatch(rawTags, result.tags)) {
+    notes.push(
+      `Tags normalized from ${quoteValue(formatTags(rawTags))} to ${quoteValue(
+        formatTags(result.tags),
+      )}.`,
+    );
+  }
+
+  return notes;
+}
+
+function buildPatternCatalogDryRunSummaryLines(
+  result: AddPatternResult,
+  options: {
+    rawCatalogTitle?: string;
+    rawScope?: string;
+    rawSectionRole?: string;
+    rawTags?: readonly string[];
+    rawThumbnailUrl?: string;
+  },
+): string[] {
+  const catalogLines = [
+    '',
+    'Catalog metadata:',
+    `  Scope: ${result.patternScope}`,
+    ...(result.sectionRole ? [`  Section role: ${result.sectionRole}`] : []),
+    `  Title: ${result.title}`,
+    ...(result.tags.length > 0 ? [`  Tags: ${formatTags(result.tags)}`] : []),
+    ...(result.thumbnailUrl
+      ? [`  Thumbnail URL: ${result.thumbnailUrl}`]
+      : []),
+  ];
+  const normalizationNotes = collectPatternCatalogNormalizationNotes(
+    result,
+    options,
+  );
+
+  if (normalizationNotes.length === 0) {
+    return catalogLines;
+  }
+
+  return [
+    ...catalogLines,
+    '',
+    'Normalization notes:',
+    ...normalizationNotes.map((note) => `  ${note}`),
+  ];
 }

@@ -902,6 +902,56 @@ describe('wp-typia add command bridge', () => {
     }
   });
 
+  test('pattern dry-run previews resolved catalog metadata and normalization notes', async () => {
+    const projectDir = path.join(tempRoot, 'demo-pattern-dry-run-metadata');
+
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+
+    const payload = await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {
+        'catalog-title': 'Hero Layout',
+        'dry-run': true,
+        scope: 'section',
+        'section-role': 'My Hero Section!!',
+        tag: ['Hero'],
+        tags: ['Hero,landing', 'gallery'],
+        'thumbnail-url': './thumbnails/hero.png',
+      },
+      interactive: false,
+      kind: 'pattern',
+      name: 'hero-layout',
+    });
+
+    expect(payload?.title).toContain('Dry run for workspace pattern');
+    expect(payload?.summaryLines).toEqual(
+      expect.arrayContaining([
+        'Catalog metadata:',
+        '  Scope: section',
+        '  Section role: my-hero-section',
+        '  Title: Hero Layout',
+        '  Tags: gallery, hero, landing',
+        '  Thumbnail URL: ./thumbnails/hero.png',
+        'Normalization notes:',
+        '  Section role normalized from "My Hero Section!!" to "my-hero-section".',
+        '  Tags normalized from "Hero, landing, gallery, Hero" to "gallery, hero, landing".',
+      ]),
+    );
+    expect(payload?.optionalLines).toEqual(
+      expect.arrayContaining([
+        'write src/patterns/sections/hero-layout.php',
+        'update scripts/block-config.ts',
+      ]),
+    );
+    expect(
+      fs.existsSync(
+        path.join(projectDir, 'src', 'patterns', 'sections', 'hero-layout.php'),
+      ),
+    ).toBe(false);
+  });
+
   test('every registered add kind currently advertises dry-run support', () => {
     expect(ADD_KIND_IDS.every((kind) => supportsAddKindDryRun(kind))).toBe(
       true,
