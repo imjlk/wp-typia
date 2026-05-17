@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { ADD_FLOW_FIELD_GROUPS } from "../src/ui/add-flow-field-groups";
 import {
 	getVisibleAddFieldNames,
 	isAddPersistenceTemplate,
@@ -115,6 +116,22 @@ describe("first-party TUI interaction models", () => {
 		]);
 		expect(isAddPersistenceTemplate("compound")).toBe(true);
 		expect(isAddPersistenceTemplate("basic")).toBe(false);
+	});
+
+	test("add flow delegates visible surfaces to focused field groups", () => {
+		expect(ADD_FLOW_FIELD_GROUPS.map((group) => group.id)).toEqual([
+			"shared",
+			"compound-block",
+			"pattern-catalog",
+			"target-block",
+			"transform-target",
+			"binding-source",
+			"rest-resource",
+			"post-meta",
+			"hooked-block",
+			"editor-plugin",
+			"persistence",
+		]);
 	});
 
 	test("add flow strips hidden fields from submit payloads", () => {
