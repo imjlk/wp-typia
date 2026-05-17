@@ -277,7 +277,7 @@ describe("first-party TUI interaction models", () => {
 				"catalog-title": " Homepage Hero ",
 				kind: "pattern",
 				name: "hero-photo",
-				scope: " section ",
+				scope: "section",
 				"section-role": " hero ",
 				tag: " hero ",
 				tags: " landing,featured ",

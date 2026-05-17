@@ -557,10 +557,23 @@ describe('command option metadata helpers', () => {
         'persistence-policy': 'public',
         position: 'after',
         scope: 'section',
-        slot: 'sidebar',
+        slot: 'PluginSidebar',
         tag: ['featured', 'landing'],
         tags: ['hero,landing'],
         template: 'compound',
+      }).success,
+    ).toBe(true);
+    expect(
+      addFlowSchema.safeParse({
+        'data-storage': '',
+        'inner-blocks-preset': '',
+        kind: 'block',
+        name: 'hero-card',
+        'persistence-policy': '',
+        position: '',
+        scope: '',
+        slot: '',
+        template: '',
       }).success,
     ).toBe(true);
 
@@ -597,7 +610,7 @@ describe('command option metadata helpers', () => {
         'interactivity',
         'persistence',
         'compound',
-      ]) {
+      ] as const) {
         for (const fieldName of getVisibleAddFieldNames({ kind, template })) {
           visibleFieldNames.add(fieldName);
         }
