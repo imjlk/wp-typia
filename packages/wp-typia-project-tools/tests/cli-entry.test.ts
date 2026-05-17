@@ -141,6 +141,32 @@ describe("@wp-typia/project-tools scaffold CLI flow", () => {
     throw new Error("Expected callback to throw.");
   }
 
+test("cli scaffold flow keeps orchestration separate from file and emission helpers", () => {
+  const runtimeDir = path.join(import.meta.dir, "..", "src", "runtime");
+  const cliScaffold = fs.readFileSync(
+    path.join(runtimeDir, "cli-scaffold.ts"),
+    "utf8"
+  );
+  const scaffoldFiles = fs.readFileSync(
+    path.join(runtimeDir, "cli-scaffold-files.ts"),
+    "utf8"
+  );
+  const scaffoldEmission = fs.readFileSync(
+    path.join(runtimeDir, "cli-scaffold-emission.ts"),
+    "utf8"
+  );
+
+  expect(cliScaffold).toContain('from "./cli-scaffold-emission.js"');
+  expect(cliScaffold).toContain('from "./cli-scaffold-files.js"');
+  expect(cliScaffold).toContain('from "./cli-scaffold-output.js"');
+  expect(cliScaffold).toContain('from "./cli-scaffold-validation.js"');
+  expect(cliScaffold).not.toContain('from "node:fs"');
+  expect(cliScaffold).not.toContain('from "./temp-roots.js"');
+  expect(cliScaffold).not.toContain("readJsonFile");
+  expect(scaffoldFiles).toContain("readGeneratedPackageScripts");
+  expect(scaffoldEmission).toContain("scaffoldProject");
+});
+
 test("CLI diagnostics do not classify unknown template variants as missing templates", () => {
   const diagnostic = serializeCliDiagnosticError(
     createCliCommandError({
@@ -633,6 +659,23 @@ test("runScaffoldFlow rejects unsupported persistence policies", async () => {
     })
   ).rejects.toThrow(
     'Unsupported persistence policy "invalid". Expected one of: authenticated, public'
+  );
+});
+
+test("runScaffoldFlow rejects empty explicit persistence selections", async () => {
+  await expect(
+    runScaffoldFlow({
+      cwd: tempRoot,
+      dataStorageMode: "",
+      dryRun: true,
+      noInstall: true,
+      packageManager: "npm",
+      projectInput: "demo-persistence-empty-data-storage",
+      templateId: "persistence",
+      yes: true,
+    })
+  ).rejects.toThrow(
+    'Unsupported data storage mode "". Expected one of: post-meta, custom-table'
   );
 });
 
