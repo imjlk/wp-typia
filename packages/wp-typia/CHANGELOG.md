@@ -1,5 +1,14 @@
 # wp-typia
 
+## 0.24.4 — 2026-05-17
+
+### Patch changes
+
+- [89cd7ae1](https://github.com/imjlk/wp-typia/commit/89cd7ae11bf0b55c88b9beccbb3f881bcc49383a) Clarify positional core-variation target diagnostics while preserving flag-style block validation messages. — Thanks @imjlk!
+- [2cd9ccf7](https://github.com/imjlk/wp-typia/commit/2cd9ccf7d25754ead6ef86dcd3264a891aa4d98d) Show resolved pattern catalog metadata and normalization notes in add-pattern dry-run output. — Thanks @imjlk!
+- [19e77fc9](https://github.com/imjlk/wp-typia/commit/19e77fc9cb44f417ac443685d035320de135380a) Preserve repeatable add option arrays when requested and validate interactive add flow select fields with enum-backed schemas. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.4
+
 ## 0.24.3 — 2026-05-17
 
 ### Patch changes

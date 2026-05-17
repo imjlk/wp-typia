@@ -1,5 +1,11 @@
 # @wp-typia/project-tools
 
+## 0.24.4 — 2026-05-17
+
+### Patch changes
+
+- [89cd7ae1](https://github.com/imjlk/wp-typia/commit/89cd7ae11bf0b55c88b9beccbb3f881bcc49383a) Clarify positional core-variation target diagnostics while preserving flag-style block validation messages. — Thanks @imjlk!
+
 ## 0.24.3 — 2026-05-17
 
 ### Patch changes
