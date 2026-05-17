@@ -15,131 +15,44 @@ import type {
 import type { FlexWrap, LayoutType, Orientation } from "../block-editor/layout.js";
 import type { SpacingAxis, SpacingDimension } from "../block-editor/spacing.js";
 import {
-  createWordPressBlockApiCompatibilityManifest,
   type WordPressBlockApiCompatibilityDiagnostic,
-  type WordPressBlockApiCompatibilityFeature,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
 } from "./compatibility.js";
+import { handleDefineSupportsDiagnostics } from "./supports-diagnostics.js";
 import {
-  handleDiagnostics,
+  BLOCK_SUPPORT_FEATURES,
+  SPACING_SUPPORT_KEYS,
+  TYPOGRAPHY_SUPPORT_KEYS,
+  type BlockSupportFeature,
+  type SpacingSupportKey,
+  type TypographySupportKey,
+} from "./supports-features.js";
+import {
+  collectBlockSupportsCompatibilityFeatures,
+  createBlockSupportsCompatibilityManifest,
+} from "./supports-manifest.js";
+import {
+  resolveDefineSupportsSettings,
+  splitDefineSupportsInput,
+} from "./supports-settings.js";
+export {
+  BLOCK_SUPPORT_FEATURES,
+  SPACING_SUPPORT_KEYS,
+  TYPOGRAPHY_SUPPORT_KEYS,
+  collectBlockSupportsCompatibilityFeatures,
+  createBlockSupportsCompatibilityManifest,
+};
+export type {
+  BlockSupportFeature,
+  SpacingSupportKey,
+  TypographySupportKey,
+};
+import {
   type DiagnosticLogger,
 } from "./shared/diagnostics.js";
-import {
-  isNonArrayObject,
-  isObjectRecord,
-} from "./shared/object-utils.js";
-
-/**
- * Derived from Gutenberg block support keys and commonly used block.json
- * support sections.
- */
-export type BlockSupportFeature =
-  | 'align'
-  | 'alignWide'
-  | 'allowedBlocks'
-  | 'anchor'
-  | 'ariaLabel'
-  | 'autoRegister'
-  | 'background'
-  | 'border'
-  | 'className'
-  | 'color'
-  | 'contentRole'
-  | 'customClassName'
-  | 'dimensions'
-  | 'filter'
-  | 'html'
-  | 'inserter'
-  | 'interactivity'
-  | 'js'
-  | 'layout'
-  | 'lightbox'
-  | 'listView'
-  | 'lock'
-  | 'locking'
-  | 'multiple'
-  | 'position'
-  | 'renaming'
-  | 'reusable'
-  | 'shadow'
-  | 'spacing'
-  | 'splitting'
-  | 'visibility'
-  | 'typography';
-
-export const BLOCK_SUPPORT_FEATURES = [
-  'align',
-  'alignWide',
-  'allowedBlocks',
-  'anchor',
-  'ariaLabel',
-  'autoRegister',
-  'background',
-  'border',
-  'className',
-  'color',
-  'contentRole',
-  'customClassName',
-  'dimensions',
-  'filter',
-  'html',
-  'inserter',
-  'interactivity',
-  'js',
-  'layout',
-  'lightbox',
-  'listView',
-  'lock',
-  'locking',
-  'multiple',
-  'position',
-  'renaming',
-  'reusable',
-  'shadow',
-  'spacing',
-  'splitting',
-  'typography',
-  'visibility',
-] as const satisfies readonly BlockSupportFeature[];
-
-export type TypographySupportKey =
-  | 'fontFamily'
-  | 'fontSize'
-  | 'fontStyle'
-  | 'fontWeight'
-  | 'letterSpacing'
-  | 'lineHeight'
-  | 'dropCap'
-  | 'textAlign'
-  | 'textColumns'
-  | 'textDecoration'
-  | 'textTransform'
-  | 'writingMode';
-
-export const TYPOGRAPHY_SUPPORT_KEYS = [
-  'fontFamily',
-  'fontSize',
-  'fontStyle',
-  'fontWeight',
-  'letterSpacing',
-  'lineHeight',
-  'dropCap',
-  'textAlign',
-  'textColumns',
-  'textDecoration',
-  'textTransform',
-  'writingMode',
-] as const satisfies readonly TypographySupportKey[];
-
-export type SpacingSupportKey = 'blockGap' | 'margin' | 'padding';
-
-export const SPACING_SUPPORT_KEYS = [
-  'blockGap',
-  'margin',
-  'padding',
-] as const satisfies readonly SpacingSupportKey[];
+import { isObjectRecord } from "./shared/object-utils.js";
 
 type BlockSupportDefaultControls<TFeature extends string> = Readonly<
   Partial<Record<TFeature, boolean>> & Record<string, boolean | undefined>
@@ -460,208 +373,6 @@ export type SupportAttributesFromBlockSupports<TSupports> =
       HasSupport<TSupports, "shadow">,
       BlockStyleAttributeSupportAttributes
     >;
-
-const KNOWN_BLOCK_SUPPORT_FEATURES = new Set<string>(BLOCK_SUPPORT_FEATURES);
-const DEFINE_SUPPORTS_INLINE_OPTION_KEYS = new Set<string>([
-  "allowUnknownFutureKeys",
-  "logger",
-  "minVersion",
-  "minWordPress",
-  "onDiagnostic",
-  "strict",
-]);
-const COLOR_COMPATIBILITY_SUPPORT_KEYS = [
-  "button",
-  "enableContrastChecker",
-  "heading",
-] as const;
-const TYPOGRAPHY_COMPATIBILITY_SUPPORT_KEYS = [
-  "fontSize",
-  "letterSpacing",
-  "lineHeight",
-  "textAlign",
-  "textDecoration",
-  "textTransform",
-] as const satisfies readonly TypographySupportKey[];
-const TOP_LEVEL_COMPATIBILITY_SUPPORT_KEYS = [
-  "allowedBlocks",
-  "background",
-  "contentRole",
-  "dimensions",
-  "listView",
-  "position",
-  "renaming",
-  "shadow",
-  "visibility",
-] as const satisfies readonly BlockSupportFeature[];
-
-function isEnabledSupportValue(value: unknown): boolean {
-  return value !== false && value !== null && value !== undefined;
-}
-
-function isEnabledTopLevelSupportValue(value: unknown): boolean {
-  if (!isObjectRecord(value)) {
-    return isNonArrayObject(value) ? false : isEnabledSupportValue(value);
-  }
-
-  return Object.entries(value).some(
-    ([key, nestedValue]) =>
-      !key.startsWith("__experimental") &&
-      isEnabledSupportValue(nestedValue),
-  );
-}
-
-function hasEnabledNestedSupport(
-  section: unknown,
-  key: string,
-): boolean {
-  return isObjectRecord(section) && isEnabledSupportValue(section[key]);
-}
-
-function addCompatibilityFeature(
-  features: WordPressBlockApiCompatibilityFeature[],
-  seen: Set<string>,
-  feature: string,
-): void {
-  const id = `blockSupports.${feature}`;
-
-  if (seen.has(id)) {
-    return;
-  }
-
-  seen.add(id);
-  features.push({
-    area: "blockSupports",
-    feature,
-  });
-}
-
-export function collectBlockSupportsCompatibilityFeatures(
-  supports: BlockSupportsInput,
-): readonly WordPressBlockApiCompatibilityFeature[] {
-  const features: WordPressBlockApiCompatibilityFeature[] = [];
-  const seen = new Set<string>();
-
-  for (const key of TOP_LEVEL_COMPATIBILITY_SUPPORT_KEYS) {
-    if (isEnabledTopLevelSupportValue(supports[key])) {
-      addCompatibilityFeature(features, seen, key);
-    }
-  }
-
-  const spacing = supports.spacing;
-  for (const key of SPACING_SUPPORT_KEYS) {
-    if (hasEnabledNestedSupport(spacing, key)) {
-      addCompatibilityFeature(features, seen, `spacing.${key}`);
-    }
-  }
-
-  const typography = supports.typography;
-  for (const key of TYPOGRAPHY_COMPATIBILITY_SUPPORT_KEYS) {
-    if (hasEnabledNestedSupport(typography, key)) {
-      addCompatibilityFeature(features, seen, `typography.${key}`);
-    }
-  }
-
-  const color = supports.color;
-  if (isObjectRecord(color)) {
-    for (const key of COLOR_COMPATIBILITY_SUPPORT_KEYS) {
-      if (isEnabledSupportValue(color[key])) {
-        addCompatibilityFeature(features, seen, `color.${key}`);
-      }
-    }
-  }
-
-  if (hasEnabledNestedSupport(supports.filter, "duotone")) {
-    addCompatibilityFeature(features, seen, "filter.duotone");
-  }
-
-  for (const key of Object.keys(supports)) {
-    if (
-      !KNOWN_BLOCK_SUPPORT_FEATURES.has(key) &&
-      !DEFINE_SUPPORTS_INLINE_OPTION_KEYS.has(key) &&
-      isEnabledTopLevelSupportValue(supports[key])
-    ) {
-      addCompatibilityFeature(features, seen, key);
-    }
-  }
-
-  return features;
-}
-
-function splitDefineSupportsInput<TSupports extends BlockSupportsInput>(
-  supports: TSupports & DefineSupportsInlineOptions,
-): {
-  inlineOptions: DefineSupportsInlineOptions;
-  supports: StripDefineSupportsOptions<TSupports> & BlockSupportsInput;
-} {
-  const normalizedSupports: Record<string, unknown> = {};
-  const inlineOptions: DefineSupportsInlineOptions = {};
-
-  for (const [key, value] of Object.entries(supports)) {
-    if (DEFINE_SUPPORTS_INLINE_OPTION_KEYS.has(key)) {
-      Object.assign(inlineOptions, { [key]: value });
-      continue;
-    }
-
-    normalizedSupports[key] = value;
-  }
-
-  return {
-    inlineOptions,
-    supports: normalizedSupports as StripDefineSupportsOptions<TSupports> &
-      BlockSupportsInput,
-  };
-}
-
-function resolveDefineSupportsSettings(
-  inlineOptions: DefineSupportsInlineOptions,
-  options: DefineSupportsOptions,
-): WordPressCompatibilitySettings {
-  const settings: WordPressCompatibilitySettings = {};
-  const allowUnknownFutureKeys =
-    options.allowUnknownFutureKeys ?? inlineOptions.allowUnknownFutureKeys;
-  const minVersion =
-    options.minVersion ??
-    options.minWordPress ??
-    inlineOptions.minVersion ??
-    inlineOptions.minWordPress;
-  const strict = options.strict ?? inlineOptions.strict;
-
-  if (allowUnknownFutureKeys !== undefined) {
-    Object.assign(settings, { allowUnknownFutureKeys });
-  }
-  if (minVersion !== undefined) {
-    Object.assign(settings, { minVersion });
-  }
-  if (strict !== undefined) {
-    Object.assign(settings, { strict });
-  }
-
-  return settings;
-}
-
-export function createBlockSupportsCompatibilityManifest(
-  supports: BlockSupportsInput,
-  settings: DefineSupportsOptions = {},
-): WordPressBlockApiCompatibilityManifest {
-  const compatibilitySettings = resolveDefineSupportsSettings({}, settings);
-
-  return createWordPressBlockApiCompatibilityManifest(
-    collectBlockSupportsCompatibilityFeatures(supports),
-    compatibilitySettings,
-  );
-}
-
-function handleDefineSupportsDiagnostics(
-  diagnostics: readonly WordPressBlockApiCompatibilityDiagnostic[],
-  onDiagnostic: DefineSupportsOptions["onDiagnostic"],
-  logger: DefineSupportsOptions["logger"],
-): void {
-  handleDiagnostics(diagnostics, onDiagnostic, {
-    failureHeading: "WordPress block supports compatibility check failed:",
-    logger,
-  });
-}
 
 export function getDefinedSupportsCompatibilityManifest(
   supports: unknown,
