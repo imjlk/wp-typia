@@ -55,6 +55,7 @@ export type AddKindExecutionPlan<
   TResult extends AddKindExecutionResultBase = AddKindExecutionResultBase,
 > = {
   execute: (cwd: string) => Promise<TResult>;
+  getDryRunSummaryLines?: (result: TResult) => string[] | undefined;
   getValues: (result: TResult) => Record<string, string>;
   getWarnings?: (result: TResult) => string[] | undefined;
   warnLine?: PrintLine;

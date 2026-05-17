@@ -66,6 +66,7 @@ export function buildAddDryRunPayload(
   options: {
     completion: AlternateBufferCompletionPayload;
     fileOperations: string[];
+    summaryLines?: string[];
   },
   markerOptions?: OutputMarkerOptions,
 ): AlternateBufferCompletionPayload {
@@ -73,6 +74,10 @@ export function buildAddDryRunPayload(
     options.completion.title,
     'success',
   ).replace(/^Added\s*/u, '');
+  const summaryLines = [
+    ...(options.completion.summaryLines ?? []),
+    ...(options.summaryLines ?? []),
+  ];
 
   return {
     optionalLines: options.fileOperations,
@@ -80,7 +85,7 @@ export function buildAddDryRunPayload(
       'No workspace files were changed because --dry-run was enabled. Re-run without --dry-run to apply this add command.',
     optionalTitle: `Planned workspace updates (${options.fileOperations.length}):`,
     preambleLines: options.completion.preambleLines,
-    summaryLines: options.completion.summaryLines,
+    summaryLines: summaryLines.length > 0 ? summaryLines : undefined,
     title: formatOutputMarker(
       'dryRun',
       `Dry run for ${normalizedTitle || 'workspace add command'}`,
