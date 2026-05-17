@@ -106,6 +106,13 @@ describe("first-party TUI interaction models", () => {
 			"anchor",
 			"position",
 		]);
+		expect(getVisibleAddFieldNames({ kind: "pattern" })).toEqual([
+			"kind",
+			"name",
+			"scope",
+			"section-role",
+			"catalog-title",
+		]);
 		expect(isAddPersistenceTemplate("compound")).toBe(true);
 		expect(isAddPersistenceTemplate("basic")).toBe(false);
 	});
@@ -251,15 +258,21 @@ describe("first-party TUI interaction models", () => {
 				"catalog-title": " Homepage Hero ",
 				kind: "pattern",
 				name: "hero-photo",
+				scope: " section ",
+				"section-role": " hero ",
 				tag: " hero ",
 				tags: " landing,featured ",
+				"thumbnail-url": " ./thumbnail.png ",
 			}),
 		).toEqual({
 			"catalog-title": "Homepage Hero",
 			kind: "pattern",
 			name: "hero-photo",
+			scope: "section",
+			"section-role": "hero",
 			tag: "hero",
 			tags: "landing,featured",
+			"thumbnail-url": "./thumbnail.png",
 		});
 
 		expect(
