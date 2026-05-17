@@ -1,5 +1,11 @@
 # @wp-typia/block-types
 
+## 0.3.2 — 2026-05-17
+
+### Patch changes
+
+- [719eda98](https://github.com/imjlk/wp-typia/commit/719eda98ad2fac2d3f4600e388b9bf247d149a10) Split block support, variation, and binding internals by responsibility. — Thanks @imjlk!
+
 ## 0.3.1 — 2026-05-16
 
 ### Patch changes

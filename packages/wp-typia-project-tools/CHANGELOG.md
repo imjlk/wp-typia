@@ -1,5 +1,12 @@
 # @wp-typia/project-tools
 
+## 0.24.2 — 2026-05-17
+
+### Patch changes
+
+- [e8b28778](https://github.com/imjlk/wp-typia/commit/e8b28778a77d6d31070600d26b142a580879aad2) Tighten pattern scaffold flag normalization, validation, and docs. — Thanks @imjlk!
+- Updated dependencies: block-types (npm)@0.3.2
+
 ## 0.24.1 — 2026-05-16
 
 ### Patch changes

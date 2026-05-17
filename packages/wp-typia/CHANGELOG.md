@@ -1,5 +1,15 @@
 # wp-typia
 
+## 0.24.2 — 2026-05-17
+
+### Patch changes
+
+- [223b823d](https://github.com/imjlk/wp-typia/commit/223b823de94dba18e7fcd514995192e7b3aca9a2) Clarify missing-name diagnostics for incomplete positional core-variation add usage. — Thanks @imjlk!
+- [1cc39128](https://github.com/imjlk/wp-typia/commit/1cc39128569b20fda0ec3b7cfc2296cc2034a6f1) Expose key pattern catalog metadata fields in the interactive add pattern flow. — Thanks @imjlk!
+- [e8b28778](https://github.com/imjlk/wp-typia/commit/e8b28778a77d6d31070600d26b142a580879aad2) Tighten pattern scaffold flag normalization, validation, and docs. — Thanks @imjlk!
+- [da0d3a08](https://github.com/imjlk/wp-typia/commit/da0d3a0860ebf05e6c2822db3b1c843073dfbb5e) Share CLI option argv walking and guard add option schema drift. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.2
+
 ## 0.24.1 — 2026-05-16
 
 ### Patch changes
