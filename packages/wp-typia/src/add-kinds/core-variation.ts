@@ -18,13 +18,15 @@ const CORE_VARIATION_MISSING_NAME_MESSAGE =
 const CORE_VARIATION_MISSING_BLOCK_MESSAGE =
   '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.';
 
+const CORE_VARIATION_BLOCK_NAME_PATTERN = /^[^/\s]+\/[^/\s]+$/u;
+
 function formatCoreVariationMissingPositionalNameMessage(
   blockName: string,
 ): string {
   return [
     `\`wp-typia add core-variation ${blockName}\` is missing <name>.`,
     'Usage: wp-typia add core-variation <block-name> <name>',
-    'Alternative: wp-typia add core-variation <name> --block <block-name>',
+    'Alternative: wp-typia add core-variation <name> --block <namespace/block>',
   ].join('\n');
 }
 
@@ -53,7 +55,7 @@ function resolveCoreVariationInputs(context: AddKindExecutionContext): {
   const missingPositionalNameTarget =
     context.name !== undefined &&
     positionalTargetBlockName === context.name &&
-    context.name.includes('/')
+    CORE_VARIATION_BLOCK_NAME_PATTERN.test(context.name)
       ? context.name
       : undefined;
 

@@ -661,7 +661,7 @@ describe('wp-typia add command bridge', () => {
         message: [
           '`wp-typia add core-variation core/group` is missing <name>.',
           'Usage: wp-typia add core-variation <block-name> <name>',
-          'Alternative: wp-typia add core-variation <name> --block <block-name>',
+          'Alternative: wp-typia add core-variation <name> --block <namespace/block>',
         ].join('\n'),
         name: 'core/group',
         positionalArgs: ['core-variation', 'core/group'],
@@ -672,6 +672,13 @@ describe('wp-typia add command bridge', () => {
           '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.',
         name: 'section-hero',
         positionalArgs: ['core-variation', 'section-hero'],
+      },
+      {
+        flags: {},
+        message:
+          '`wp-typia add core-variation` requires <block-name>. Usage: wp-typia add core-variation <block-name> <name> or wp-typia add core-variation <name> --block <namespace/block>.',
+        name: 'core/group/extra',
+        positionalArgs: ['core-variation', 'core/group/extra'],
       },
     ] satisfies Array<{
       flags: Record<string, unknown>;
