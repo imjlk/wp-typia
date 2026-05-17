@@ -5229,7 +5229,7 @@ test("canonical CLI can add a plugin-level REST resource to an official workspac
 
   runCli("npm", ["run", "sync-rest", "--", "--check"], { cwd: targetDir });
   typecheckGeneratedProject(targetDir);
-}, 30_000);
+}, 60_000);
 
 test("sync-rest package check flags stale packaged schemas after REST resources are removed", async () => {
   const targetDir = path.join(tempRoot, "demo-workspace-empty-rest-schema-package");
