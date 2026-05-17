@@ -712,6 +712,98 @@ describe('wp-typia add command bridge', () => {
     }
   });
 
+  test('core-variation preserves positional and flag block diagnostics', async () => {
+    const capturedOptions: Record<string, unknown>[] = [];
+    const addRuntime = ({
+      runAddCoreVariationCommand: async (options: Record<string, unknown>) => {
+        capturedOptions.push(options);
+
+        return {
+          projectDir: String(options.cwd),
+          targetBlockName: String(options.targetBlockName),
+          variationFile: 'src/editor-plugins/core-variations/core-group/hero.ts',
+          variationSlug: String(options.variationName),
+        };
+      },
+    } as unknown) as AddKindExecutionContext['addRuntime'];
+    const baseContext = {
+      addRuntime,
+      cwd: '/tmp/wp-typia-core-variation',
+      getOrCreatePrompt: async () => {
+        throw new Error('prompt should not be used');
+      },
+      isInteractiveSession: false,
+      warnLine: () => {},
+    } satisfies Pick<
+      AddKindExecutionContext,
+      | 'addRuntime'
+      | 'cwd'
+      | 'getOrCreatePrompt'
+      | 'isInteractiveSession'
+      | 'warnLine'
+    >;
+
+    const positionalPlan =
+      await ADD_KIND_REGISTRY['core-variation'].prepareExecution({
+        ...baseContext,
+        flags: {},
+        name: 'hero-card',
+        positionalArgs: ['core-variation', 'core-group', 'hero-card'],
+      });
+    await positionalPlan.execute('/tmp/wp-typia-core-variation');
+    const flagPlan = await ADD_KIND_REGISTRY['core-variation'].prepareExecution({
+      ...baseContext,
+      flags: {
+        block: 'core-group',
+      },
+      name: 'hero-card',
+      positionalArgs: ['core-variation', 'hero-card'],
+    });
+    await flagPlan.execute('/tmp/wp-typia-core-variation');
+
+    const positionalDiagnostics = capturedOptions[0]
+      ?.targetBlockNameDiagnostics as {
+      invalidFormat: () => string;
+    };
+    expect(positionalDiagnostics.invalidFormat()).toBe(
+      'The first positional argument (target block name) must use <namespace/block-slug> format.',
+    );
+    expect(capturedOptions[1]?.targetBlockNameDiagnostics).toBe('--block');
+  });
+
+  test('core-variation invalid target diagnostics distinguish positional and flag usage', async () => {
+    const projectDir = path.join(tempRoot, 'demo-core-variation-diagnostics');
+
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+    await expect(
+      executeAddCommand({
+        cwd: projectDir,
+        emitOutput: false,
+        flags: {},
+        interactive: false,
+        kind: 'core-variation',
+        name: 'hero-card',
+        positionalArgs: ['core-variation', 'core-group', 'hero-card'],
+      }),
+    ).rejects.toThrow(
+      'The first positional argument (target block name) must use <namespace/block-slug> format.',
+    );
+    await expect(
+      executeAddCommand({
+        cwd: projectDir,
+        emitOutput: false,
+        flags: {
+          block: 'core-group',
+        },
+        interactive: false,
+        kind: 'core-variation',
+        name: 'hero-card',
+        positionalArgs: ['core-variation', 'hero-card'],
+      }),
+    ).rejects.toThrow('`--block` must use <namespace/block-slug> format.');
+  });
+
   test('rest-resource missing-name guidance separates generated and manual modes', async () => {
     let error: unknown;
 

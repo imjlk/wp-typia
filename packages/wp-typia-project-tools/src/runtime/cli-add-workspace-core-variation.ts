@@ -515,6 +515,7 @@ async function writeCoreVariationRegistry(
 export async function runAddCoreVariationCommand({
 	cwd = process.cwd(),
 	targetBlockName,
+	targetBlockNameDiagnostics = "core-variation target",
 	variationName,
 }: RunAddCoreVariationCommandOptions): Promise<{
 	projectDir: string;
@@ -526,7 +527,7 @@ export async function runAddCoreVariationCommand({
 	const workspace = resolveWorkspaceProject(cwd);
 	const resolvedTargetBlockName = assertFullBlockName(
 		targetBlockName,
-		"core-variation target",
+		targetBlockNameDiagnostics,
 	);
 	const variationSlug = assertValidGeneratedSlug(
 		"Core variation name",
