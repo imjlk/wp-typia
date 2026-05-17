@@ -29,7 +29,8 @@ export const patternAddKindEntry =
       title: 'Added workspace pattern',
     },
     description: 'Add a PHP block pattern shell',
-    hiddenStringSubmitFields: ['tag', 'tags', 'thumbnail-url'],
+    // Repeatable --tag remains CLI-only; the TUI exposes comma-separated --tags.
+    hiddenStringSubmitFields: ['tag'],
     nameLabel: 'Pattern name',
     async prepareExecution(context) {
       const name = requireAddKindName(context, PATTERN_MISSING_NAME_MESSAGE);

@@ -113,6 +113,8 @@ describe("first-party TUI interaction models", () => {
 			"scope",
 			"section-role",
 			"catalog-title",
+			"tags",
+			"thumbnail-url",
 		]);
 		expect(isAddPersistenceTemplate("compound")).toBe(true);
 		expect(isAddPersistenceTemplate("basic")).toBe(false);
