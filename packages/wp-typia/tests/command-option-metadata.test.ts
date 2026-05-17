@@ -272,6 +272,31 @@ describe('command option metadata helpers', () => {
     expect(parsed.positionals).toEqual(['pattern', 'hero-photo']);
   });
 
+  test('keeps repeatable option arrays available through opt-in resolution', () => {
+    const flags = {
+      tag: ['featured', 'hero'],
+      tags: ['hero,landing', 'gallery'],
+    };
+    const flattened = resolveCommandOptionValues(ADD_OPTION_METADATA, {
+      flags,
+      optionNames: ['tag', 'tags'],
+    });
+    const preserved = resolveCommandOptionValues(ADD_OPTION_METADATA, {
+      flags,
+      optionNames: ['tag', 'tags'],
+      preserveArrays: true,
+    });
+
+    expect(flattened).toEqual({
+      tag: 'featured,hero',
+      tags: 'hero,landing,gallery',
+    });
+    expect(preserved).toEqual({
+      tag: ['featured', 'hero'],
+      tags: ['hero,landing', 'gallery'],
+    });
+  });
+
   test('parses manual REST secret flags from shared add metadata', () => {
     const parsed = parseCommandArgvWithMetadata(
       [
@@ -520,6 +545,42 @@ describe('command option metadata helpers', () => {
     );
 
     expect(schemaOptionNames.sort()).toEqual(metadataOptionNames.sort());
+  });
+
+  test('validates add flow select fields against registered option ids', () => {
+    expect(
+      addFlowSchema.safeParse({
+        'data-storage': 'post-meta',
+        'inner-blocks-preset': 'ordered',
+        kind: 'block',
+        name: 'hero-card',
+        'persistence-policy': 'public',
+        position: 'after',
+        scope: 'section',
+        slot: 'sidebar',
+        tag: ['featured', 'landing'],
+        tags: ['hero,landing'],
+        template: 'compound',
+      }).success,
+    ).toBe(true);
+
+    for (const [fieldName, value] of [
+      ['data-storage', 'sqlite'],
+      ['inner-blocks-preset', 'stacked'],
+      ['persistence-policy', 'anonymous'],
+      ['position', 'middle'],
+      ['scope', 'landing'],
+      ['slot', 'toolbar'],
+      ['template', 'workspace'],
+    ] as const) {
+      expect(
+        addFlowSchema.safeParse({
+          kind: 'block',
+          name: 'hero-card',
+          [fieldName]: value,
+        }).success,
+      ).toBe(false);
+    }
   });
 
   test('keeps visible add fields covered by metadata, schema, and layout', () => {

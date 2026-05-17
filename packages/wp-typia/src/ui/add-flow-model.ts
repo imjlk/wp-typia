@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+import { COMPOUND_INNER_BLOCKS_PRESET_IDS } from '@wp-typia/project-tools/compound-inner-blocks';
+import {
+  ADD_BLOCK_TEMPLATE_IDS,
+  EDITOR_PLUGIN_SLOT_IDS,
+  PATTERN_CATALOG_SCOPE_IDS,
+} from '@wp-typia/project-tools/cli-add';
+import { HOOKED_BLOCK_POSITION_IDS } from '@wp-typia/project-tools/hooked-blocks';
+
 import {
   ADD_KIND_IDS,
   type AddFieldName,
@@ -21,6 +29,19 @@ import {
   getFirstPartyViewportHeight,
 } from './first-party-form-model';
 
+export const ADD_FLOW_DATA_STORAGE_IDS = [
+  'custom-table',
+  'post-meta',
+] as const;
+export const ADD_FLOW_PERSISTENCE_POLICY_IDS = [
+  'authenticated',
+  'public',
+] as const;
+
+const repeatableStringFieldSchema = z
+  .union([z.string(), z.array(z.string())])
+  .optional();
+
 export const addFlowSchema = z.object({
   'alternate-render-targets': z.string().optional(),
   anchor: z.string().optional(),
@@ -31,11 +52,11 @@ export const addFlowSchema = z.object({
   'catalog-title': z.string().optional(),
   'controller-class': z.string().optional(),
   'controller-extends': z.string().optional(),
-  'data-storage': z.string().optional(),
+  'data-storage': z.enum(ADD_FLOW_DATA_STORAGE_IDS).optional(),
   'external-layer-id': z.string().optional(),
   'external-layer-source': z.string().optional(),
   from: z.string().optional(),
-  'inner-blocks-preset': z.string().optional(),
+  'inner-blocks-preset': z.enum(COMPOUND_INNER_BLOCKS_PRESET_IDS).optional(),
   kind: z.enum(ADD_KIND_IDS).default('block'),
   manual: z.boolean().optional(),
   'hide-from-rest': z.boolean().optional(),
@@ -48,15 +69,15 @@ export const addFlowSchema = z.object({
   namespace: z.string().optional(),
   path: z.string().optional(),
   'permission-callback': z.string().optional(),
-  'persistence-policy': z.string().optional(),
+  'persistence-policy': z.enum(ADD_FLOW_PERSISTENCE_POLICY_IDS).optional(),
   'post-type': z.string().optional(),
   'post-meta': z.string().optional(),
-  position: z.string().optional(),
+  position: z.enum(HOOKED_BLOCK_POSITION_IDS).optional(),
   'query-type': z.string().optional(),
   'release-zip': z.boolean().optional(),
   'response-type': z.string().optional(),
   'route-pattern': z.string().optional(),
-  scope: z.string().optional(),
+  scope: z.enum(PATTERN_CATALOG_SCOPE_IDS).optional(),
   'section-role': z.string().optional(),
   'secret-field': z.string().optional(),
   'secret-has-value-field': z.string().optional(),
@@ -64,13 +85,13 @@ export const addFlowSchema = z.object({
   'secret-preserve-on-empty': z.string().optional(),
   'secret-state-field': z.string().optional(),
   service: z.string().optional(),
-  slot: z.string().optional(),
+  slot: z.enum(EDITOR_PLUGIN_SLOT_IDS).optional(),
   source: z.string().optional(),
   // Repeatable --tag is a CLI-only round-trip field. Interactive users can
   // enter comma-separated catalog tags through the visible `tags` field.
-  tag: z.string().optional(),
-  tags: z.string().optional(),
-  template: z.string().optional(),
+  tag: repeatableStringFieldSchema,
+  tags: repeatableStringFieldSchema,
+  template: z.enum(ADD_BLOCK_TEMPLATE_IDS).optional(),
   'thumbnail-url': z.string().optional(),
   type: z.string().optional(),
   to: z.string().optional(),

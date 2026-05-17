@@ -381,6 +381,13 @@ export function parseCommandArgvWithMetadata(
   };
 }
 
+/**
+ * Resolve CLI option values from defaults and parsed flags.
+ *
+ * Repeatable string options keep the historical comma-joined value by default
+ * for TUI initial values. Pass `preserveArrays` when downstream code needs the
+ * parsed repeated flag boundaries.
+ */
 export function resolveCommandOptionValues<
   TMetadata extends CommandOptionMetadataMap,
 >(
@@ -389,9 +396,32 @@ export function resolveCommandOptionValues<
     defaults?: Record<string, unknown>;
     flags?: Record<string, unknown>;
     optionNames?: Iterable<keyof TMetadata | string>;
+    preserveArrays: true;
   },
-): Record<string, string | boolean | undefined> {
-  const resolved: Record<string, string | boolean | undefined> = {};
+): Record<string, string | boolean | string[] | undefined>;
+export function resolveCommandOptionValues<
+  TMetadata extends CommandOptionMetadataMap,
+>(
+  metadata: TMetadata,
+  options: {
+    defaults?: Record<string, unknown>;
+    flags?: Record<string, unknown>;
+    optionNames?: Iterable<keyof TMetadata | string>;
+    preserveArrays?: false;
+  },
+): Record<string, string | boolean | undefined>;
+export function resolveCommandOptionValues<
+  TMetadata extends CommandOptionMetadataMap,
+>(
+  metadata: TMetadata,
+  options: {
+    defaults?: Record<string, unknown>;
+    flags?: Record<string, unknown>;
+    optionNames?: Iterable<keyof TMetadata | string>;
+    preserveArrays?: boolean;
+  },
+): Record<string, string | boolean | string[] | undefined> {
+  const resolved: Record<string, string | boolean | string[] | undefined> = {};
   const optionNames =
     options.optionNames ?? (Object.keys(metadata) as Array<keyof TMetadata>);
 
@@ -409,10 +439,12 @@ export function resolveCommandOptionValues<
     }
 
     if (descriptor.repeatable && Array.isArray(value)) {
-      resolved[name] =
-        value.every((item): item is string => typeof item === 'string')
-          ? value.join(',')
-          : undefined;
+      if (!value.every((item): item is string => typeof item === 'string')) {
+        resolved[name] = undefined;
+        continue;
+      }
+
+      resolved[name] = options.preserveArrays ? [...value] : value.join(',');
       continue;
     }
 
