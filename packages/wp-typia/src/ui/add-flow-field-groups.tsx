@@ -274,11 +274,33 @@ function createPatternCatalogFields(
       ? createElement(FirstPartyTextField, {
           ...getFieldNeighbors(context, 'catalog-title'),
           description:
-            'Defaults to the pattern slug title. Use --tag, --tags, or --thumbnail-url for additional catalog metadata.',
+            'Defaults to the pattern slug title. Optional tags and thumbnails can be set below.',
           key: 'catalog-title',
           label: 'Catalog title',
           name: 'catalog-title',
           placeholder: 'Homepage Hero',
+        })
+      : null,
+    isVisible(context, 'tags')
+      ? createElement(FirstPartyTextField, {
+          ...getFieldNeighbors(context, 'tags'),
+          description:
+            'Optional comma-separated catalog tags. The repeatable --tag flag remains CLI-only.',
+          key: 'tags',
+          label: 'Pattern tags',
+          name: 'tags',
+          placeholder: 'hero,landing',
+        })
+      : null,
+    isVisible(context, 'thumbnail-url')
+      ? createElement(FirstPartyTextField, {
+          ...getFieldNeighbors(context, 'thumbnail-url'),
+          description:
+            'Optional catalog thumbnail URL or relative path for this pattern.',
+          key: 'thumbnail-url',
+          label: 'Thumbnail URL',
+          name: 'thumbnail-url',
+          placeholder: './thumbnail.png',
         })
       : null,
   ];

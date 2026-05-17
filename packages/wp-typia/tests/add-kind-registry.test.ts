@@ -517,6 +517,15 @@ test('keeps shared visible-field groups aligned for refactored add kinds', () =>
     'post-meta',
     'meta-path',
   ]);
+  expect(getAddVisibleFieldNames({ kind: 'pattern' })).toEqual([
+    'kind',
+    'name',
+    'scope',
+    'section-role',
+    'catalog-title',
+    'tags',
+    'thumbnail-url',
+  ]);
   expect(getAddVisibleFieldNames({ kind: 'block', template: 'basic' })).toEqual(
     ['kind', 'name', 'template'],
   );

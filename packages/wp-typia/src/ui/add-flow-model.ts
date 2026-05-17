@@ -66,6 +66,8 @@ export const addFlowSchema = z.object({
   service: z.string().optional(),
   slot: z.string().optional(),
   source: z.string().optional(),
+  // Repeatable --tag is a CLI-only round-trip field. Interactive users can
+  // enter comma-separated catalog tags through the visible `tags` field.
   tag: z.string().optional(),
   tags: z.string().optional(),
   template: z.string().optional(),
@@ -99,7 +101,9 @@ const ADD_FIELD_HEIGHTS: Record<AddFieldName, number> = {
   slot: FIRST_PARTY_SELECT_FIELD_BODY_HEIGHT,
   source: FIRST_PARTY_TEXT_FIELD_BODY_HEIGHT,
   scope: FIRST_PARTY_SELECT_FIELD_BODY_HEIGHT,
+  tags: FIRST_PARTY_TEXT_FIELD_BODY_HEIGHT,
   template: FIRST_PARTY_SELECT_FIELD_BODY_HEIGHT,
+  'thumbnail-url': FIRST_PARTY_TEXT_FIELD_BODY_HEIGHT,
   type: FIRST_PARTY_TEXT_FIELD_BODY_HEIGHT,
   to: FIRST_PARTY_TEXT_FIELD_BODY_HEIGHT,
 };

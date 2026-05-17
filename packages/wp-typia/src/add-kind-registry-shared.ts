@@ -19,8 +19,10 @@ export type AddFieldName =
   | 'source'
   | 'section-role'
   | 'scope'
+  | 'tags'
   | 'type'
   | 'template'
+  | 'thumbnail-url'
   | 'block'
   | 'from'
   | 'attribute'
@@ -175,6 +177,8 @@ export const PATTERN_CATALOG_VISIBLE_FIELDS = [
   'scope',
   'section-role',
   'catalog-title',
+  'tags',
+  'thumbnail-url',
 ] as const satisfies ReadonlyArray<AddFieldName>;
 export const NAME_SOURCE_VISIBLE_FIELDS = [
   'kind',
