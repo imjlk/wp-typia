@@ -13,7 +13,10 @@ export {
 	EDITOR_PLUGIN_SLOT_IDS,
 	formatAddHelpText,
 	isAddBlockTemplateId,
+	normalizeBlockSlug,
 	PATTERN_CATALOG_SCOPE_IDS,
+	PATTERN_SECTION_ROLE_PATTERN,
+	PATTERN_TAG_PATTERN,
 	suggestAddBlockTemplateId,
 } from "./cli-add-shared.js";
 export type {

@@ -797,7 +797,7 @@ wp-typia add variation hero-card --block counter-card
 wp-typia add style callout-emphasis --block counter-card
 wp-typia add transform quote-to-counter --from core/quote --to counter-card
 wp-typia add pattern hero-layout
-wp-typia add pattern hero-photo-section --scope section --section-role hero --tags hero,image
+wp-typia add pattern hero-photo-section --scope section --section-role hero --catalog-title "Hero Photo" --tags hero,image --tag featured
 wp-typia add binding-source hero-data
 wp-typia add binding-source hero-data --block counter-card --attribute headline
 wp-typia add ability review-workflow

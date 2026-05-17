@@ -1095,6 +1095,11 @@ test("formatHelpText keeps migration UI flags out of external template usage", (
   );
   expect(helpText).toContain("wp-typia add rest-resource <name>");
   expect(helpText).toContain("wp-typia add post-meta <name>");
+  expect(helpText).toContain("[--tags <tag,...>] [--tag <tag>...]");
+  expect(helpText).toContain('pass `--catalog-title "Hero Photo"`');
+  expect(helpText).toContain(
+    "pass `--tags hero,landing` for a comma-separated tag list"
+  );
   expect(helpText).toContain("--methods <method[,method...]>");
   expect(helpText).toContain("src/ai-features/");
   expect(helpText).toContain("inc/ai-features/");

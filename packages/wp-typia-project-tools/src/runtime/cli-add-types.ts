@@ -1,12 +1,18 @@
 import { suggestCloseId } from "./id-suggestions.js";
 import {
 	PATTERN_CATALOG_SCOPE_IDS,
+	PATTERN_SECTION_ROLE_PATTERN,
+	PATTERN_TAG_PATTERN,
 	type PatternCatalogScope,
 } from "./pattern-catalog.js";
 
 export { ADD_KIND_IDS } from "./cli-add-kind-ids.js";
 export type { AddKindId } from "./cli-add-kind-ids.js";
-export { PATTERN_CATALOG_SCOPE_IDS };
+export {
+	PATTERN_CATALOG_SCOPE_IDS,
+	PATTERN_SECTION_ROLE_PATTERN,
+	PATTERN_TAG_PATTERN,
+};
 export type { PatternCatalogScope };
 
 /**

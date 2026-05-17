@@ -684,6 +684,74 @@ describe('wp-typia add command bridge', () => {
     );
   });
 
+  test('validates pattern scope and section-role flags before workspace resolution', async () => {
+    const cases = [
+      {
+        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+        flags: {
+          scope: 'sidebar',
+        },
+        message:
+          '`--scope` must be one of: full, section. Usage: wp-typia add pattern <name> --scope <full|section>.',
+      },
+      {
+        code: CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
+        flags: {
+          scope: 'section',
+        },
+        message:
+          '`wp-typia add pattern --scope section` requires --section-role <role> because section-scoped patterns need a typed catalog section role.',
+      },
+      {
+        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+        flags: {
+          'section-role': 'hero',
+        },
+        message:
+          '`--section-role` only applies with `--scope section`. Use `--scope section --section-role <role>` or omit `--section-role` for full patterns.',
+      },
+      {
+        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+        flags: {
+          scope: 'section',
+          'section-role': '1hero',
+        },
+        message:
+          '`--section-role` must start with a lowercase letter and contain only lowercase letters, numbers, and hyphens. Section roles apply only with `--scope section`.',
+      },
+      {
+        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+        flags: {
+          scope: 'section',
+          'section-role': '!!!',
+        },
+        message:
+          '`--section-role` must start with a lowercase letter and contain only lowercase letters, numbers, and hyphens. Section roles apply only with `--scope section`.',
+      },
+    ];
+
+    for (const { code, flags, message } of cases) {
+      let error: unknown;
+
+      try {
+        await executeAddCommand({
+          cwd: path.join(tempRoot, 'outside-workspace'),
+          emitOutput: false,
+          flags,
+          interactive: false,
+          kind: 'pattern',
+          name: 'hero-pattern',
+        });
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as { code?: string }).code).toBe(code);
+      expect((error as Error).message).toBe(message);
+    }
+  });
+
   test('every registered add kind currently advertises dry-run support', () => {
     expect(ADD_KIND_IDS.every((kind) => supportsAddKindDryRun(kind))).toBe(
       true,

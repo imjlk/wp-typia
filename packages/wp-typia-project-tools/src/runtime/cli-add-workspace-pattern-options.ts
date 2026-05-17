@@ -1,13 +1,14 @@
 import path from "node:path";
 
 import {
-	assertValidGeneratedSlug,
 	normalizeBlockSlug,
 	type RunAddPatternCommandOptions,
 } from "./cli-add-shared.js";
 import {
 	isValidPatternThumbnailUrl,
 	PATTERN_CATALOG_SCOPE_IDS,
+	PATTERN_SECTION_ROLE_PATTERN,
+	PATTERN_TAG_PATTERN,
 	type PatternCatalogScope,
 } from "./pattern-catalog.js";
 import { toTitleCase } from "./string-case.js";
@@ -22,7 +23,6 @@ export type ResolvedPatternCatalogOptions = {
 };
 
 const PATTERN_CONTENT_FILE_ROOT = "src/patterns/";
-const PATTERN_TAG_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 
 function assertValidPatternRelativePath(
 	label: string,
@@ -90,15 +90,26 @@ function resolvePatternScope(scope: string | undefined): PatternCatalogScope {
 	);
 }
 
-function normalizeOptionalSlug(
-	label: string,
-	value: string | undefined,
-	usage: string,
-): string | undefined {
+/**
+ * Normalize and validate a raw pattern section role before catalog generation.
+ * Non-empty values are normalized with normalizeBlockSlug; valid roles start
+ * with a lowercase letter and then use lowercase letters, numbers, or hyphens.
+ *
+ * @param value Raw section-role input from CLI or programmatic callers.
+ * @returns Normalized role slug, or undefined when the input is empty.
+ * @throws When the normalized role does not match the shared section-role pattern.
+ */
+function normalizePatternSectionRole(value: string | undefined): string | undefined {
 	if (value === undefined || value.trim() === "") {
 		return undefined;
 	}
-	return assertValidGeneratedSlug(label, normalizeBlockSlug(value), usage);
+	const sectionRole = normalizeBlockSlug(value);
+	if (!PATTERN_SECTION_ROLE_PATTERN.test(sectionRole)) {
+		throw new Error(
+			"Pattern section role must start with a lowercase letter and contain only lowercase letters, numbers, and hyphens. Section roles apply only with `--scope section`.",
+		);
+	}
+	return sectionRole;
 }
 
 function normalizePatternTags(tags: readonly string[] | string | undefined): string[] {
@@ -167,18 +178,16 @@ export function resolvePatternCatalogOptions(
 	options: RunAddPatternCommandOptions,
 ): ResolvedPatternCatalogOptions {
 	const patternScope = resolvePatternScope(options.patternScope);
-	const sectionRole = normalizeOptionalSlug(
-		"Pattern section role",
-		options.sectionRole,
-		"wp-typia add pattern <name> --scope section --section-role <role>",
-	);
+	const sectionRole = normalizePatternSectionRole(options.sectionRole);
 	if (patternScope === "section" && !sectionRole) {
 		throw new Error(
-			"`wp-typia add pattern --scope section` requires --section-role <role>.",
+			"`wp-typia add pattern --scope section` requires --section-role <role> because section-scoped patterns need a typed catalog section role.",
 		);
 	}
 	if (patternScope !== "section" && sectionRole) {
-		throw new Error("`--section-role` requires `--scope section`.");
+		throw new Error(
+			"`--section-role` only applies with `--scope section`. Use `--scope section --section-role <role>` or omit `--section-role` for full patterns.",
+		);
 	}
 
 	const title =

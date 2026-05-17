@@ -23,7 +23,7 @@ export function formatAddHelpText(): string {
 	wp-typia add variation <name> --block <block-slug> [--dry-run]
 	wp-typia add style <name> --block <block-slug> [--dry-run]
 	wp-typia add transform <name> --from <namespace/block> --to <block-slug|namespace/block-slug> [--dry-run]
-  wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>|--tag <tag>...] [--thumbnail-url <url>] [--dry-run]
+  wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--tag <tag>...] [--thumbnail-url <url>] [--dry-run]
   wp-typia add binding-source <name> [--block <block-slug|namespace/block-slug> --attribute <attribute>] [--from-post-meta|--post-meta <post-meta> [--meta-path <field>]] [--dry-run]
   wp-typia add contract <name> [--type <ExportedTypeName>] [--dry-run]
   wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <${REST_RESOURCE_METHOD_IDS.join(",")}>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]
@@ -51,7 +51,7 @@ Notes:
   \`add variation\` targets an existing block slug from \`scripts/block-config.ts\`.
   \`add style\` registers a Block Styles option for an existing generated block.
   \`add transform\` adds a block-to-block transform into an existing generated block.
-  \`add pattern\` scaffolds a namespaced PHP pattern shell under \`src/patterns/full/\` or \`src/patterns/sections/\` and records typed catalog metadata in \`PATTERNS\`; pass \`--catalog-title "Hero Photo"\` to override the generated catalog title, and pass \`--tags hero,landing\` or repeat \`--tag hero --tag landing\` to set catalog tags.
+  \`add pattern\` scaffolds a namespaced PHP pattern shell under \`src/patterns/full/\` or \`src/patterns/sections/\` and records typed catalog metadata in \`PATTERNS\`; pass \`--catalog-title "Hero Photo"\` to override the generated catalog title, pass \`--tags hero,landing\` for a comma-separated tag list, and repeat \`--tag hero --tag landing\` for single tag values.
   \`add binding-source\` scaffolds shared PHP and editor registration under \`src/bindings/\`; pass \`--block\` and \`--attribute\` together to declare an end-to-end bindable attribute on an existing generated block. Pass \`--from-post-meta\` or \`--post-meta\` to generate a source backed by a typed post-meta contract; \`--meta-path\` selects one top-level field as the default binding arg.
   \`add contract\` registers a standalone TypeScript wire contract under \`src/contracts/\` and generates a stable JSON Schema artifact without creating PHP route glue.
   \`add rest-resource\` scaffolds plugin-level TypeScript REST contracts under \`src/rest/\` and PHP route glue under \`inc/rest/\`. Use \`--route-pattern\`, \`--permission-callback\`, \`--controller-class\`, and \`--controller-extends\` when an existing WordPress controller or permission model needs to own part of the generated route surface.

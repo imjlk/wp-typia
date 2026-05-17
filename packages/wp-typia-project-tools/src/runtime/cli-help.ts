@@ -28,7 +28,7 @@ export function formatHelpText(): string {
   wp-typia add variation <name> --block <block-slug>
   wp-typia add style <name> --block <block-slug>
   wp-typia add transform <name> --from <namespace/block> --to <block-slug|namespace/block-slug>
-  wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>|--tag <tag>...] [--thumbnail-url <url>]
+  wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--tag <tag>...] [--thumbnail-url <url>]
   wp-typia add binding-source <name> [--block <block-slug|namespace/block-slug> --attribute <attribute>] [--from-post-meta|--post-meta <post-meta> [--meta-path <field>]]
   wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <method[,method...]>]
   wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>]
@@ -69,7 +69,7 @@ Notes:
   \`add variation\` uses an existing workspace block from \`scripts/block-config.ts\`.
   \`add style\` registers a Block Styles option for an existing generated block.
   \`add transform\` adds a block-to-block transform into an existing generated block.
-  \`add pattern\` scaffolds a namespaced PHP pattern shell under \`src/patterns/full/\` or \`src/patterns/sections/\`; pass \`--catalog-title "Hero Photo"\` to override the generated catalog title, and pass \`--tags hero,landing\` or repeat \`--tag hero --tag landing\` to set catalog tags.
+  \`add pattern\` scaffolds a namespaced PHP pattern shell under \`src/patterns/full/\` or \`src/patterns/sections/\`; pass \`--catalog-title "Hero Photo"\` to override the generated catalog title, pass \`--tags hero,landing\` for a comma-separated tag list, and repeat \`--tag hero --tag landing\` for single tag values.
   \`add binding-source\` scaffolds shared PHP and editor registration under \`src/bindings/\`; pass \`--block\` and \`--attribute\` together to declare a bindable generated-block attribute. Pass \`--from-post-meta\` or \`--post-meta\` to back the source from a typed post-meta contract and \`--meta-path\` to choose its default top-level field.
   \`add rest-resource\` scaffolds plugin-level TypeScript REST contracts under \`src/rest/\` and PHP route glue under \`inc/rest/\`.
   \`add rest-resource --manual\` tracks an external/provider REST route with typed schemas, OpenAPI, clients, and drift checks without generating PHP route/controller files while still allowing route-owner metadata such as permission callbacks and controller classes. Settings contracts can add \`--secret-field\` plus \`--secret-preserve-on-empty\` to model write-only credentials and preserve blank submissions.

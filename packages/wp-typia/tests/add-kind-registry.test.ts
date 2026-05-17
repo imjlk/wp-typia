@@ -1,4 +1,9 @@
 import { expect, test } from 'bun:test';
+import {
+  normalizeBlockSlug,
+  PATTERN_CATALOG_SCOPE_IDS,
+  PATTERN_SECTION_ROLE_PATTERN,
+} from '@wp-typia/project-tools/cli-add';
 
 import {
   ADD_KIND_IDS,
@@ -138,6 +143,12 @@ type SharedAddKindIdCompatibility = ExpectTrue<
   IsEqual<keyof typeof ADD_KIND_REGISTRY, AddKindId>
 >;
 
+const PATTERN_FLAG_RUNTIME_HELPERS = {
+  normalizeBlockSlug,
+  PATTERN_CATALOG_SCOPE_IDS,
+  PATTERN_SECTION_ROLE_PATTERN,
+};
+
 const addKindPlanCompatibilityChecks = {
   'admin-view': true,
   block: true,
@@ -221,6 +232,7 @@ test('passes typed pattern catalog flags to the runtime', async () => {
   const capturedOptions: Record<string, unknown>[] = [];
   const plan = await ADD_KIND_REGISTRY.pattern.prepareExecution({
     addRuntime: {
+      ...PATTERN_FLAG_RUNTIME_HELPERS,
       runAddPatternCommand: async (options: Record<string, unknown>) => {
         capturedOptions.push(options);
 
@@ -240,7 +252,7 @@ test('passes typed pattern catalog flags to the runtime', async () => {
     flags: {
       'catalog-title': 'Homepage Hero',
       scope: 'section',
-      'section-role': 'hero',
+      'section-role': 'Hero Role',
       tags: 'landing,hero',
       'thumbnail-url': './thumbnails/hero.png',
     },
@@ -260,15 +272,15 @@ test('passes typed pattern catalog flags to the runtime', async () => {
       cwd: '/tmp/wp-typia-pattern-test',
       patternName: 'hero-photo',
       patternScope: 'section',
-      sectionRole: 'hero',
-      tags: 'landing,hero',
+      sectionRole: 'hero-role',
+      tags: ['landing,hero'],
       thumbnailUrl: './thumbnails/hero.png',
     },
   ]);
   expect(plan.getValues(result)).toMatchObject({
     contentFile: 'src/patterns/sections/hero-photo.php',
     patternScope: 'section',
-    sectionRole: 'hero',
+    sectionRole: 'hero-role',
   });
 });
 
@@ -276,6 +288,7 @@ test('passes repeatable pattern tag flags to the runtime', async () => {
   const capturedOptions: Record<string, unknown>[] = [];
   const plan = await ADD_KIND_REGISTRY.pattern.prepareExecution({
     addRuntime: {
+      ...PATTERN_FLAG_RUNTIME_HELPERS,
       runAddPatternCommand: async (options: Record<string, unknown>) => {
         capturedOptions.push(options);
 

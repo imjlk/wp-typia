@@ -221,6 +221,8 @@ export {
 	extractPatternSectionRolesFromAttributes,
 	formatPatternCatalogDiagnostics,
 	PATTERN_CATALOG_SCOPE_IDS,
+	PATTERN_SECTION_ROLE_PATTERN,
+	PATTERN_TAG_PATTERN,
 	resolvePatternCatalogContentFile,
 	validatePatternCatalog,
 } from "./pattern-catalog.js";

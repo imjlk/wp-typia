@@ -164,12 +164,12 @@ export const ADD_OPTION_METADATA = {
   },
   scope: {
     description:
-      'Pattern catalog scope for pattern workflows (full or section).',
+      'Pattern catalog scope for pattern workflows; one of full or section.',
     type: 'string',
   },
   'section-role': {
     description:
-      'Typed section role for section-scoped pattern catalog entries.',
+      'Typed section role for section-scoped pattern catalog entries; requires --scope section.',
     type: 'string',
   },
   'secret-field': {
@@ -224,13 +224,13 @@ export const ADD_OPTION_METADATA = {
   },
   tags: {
     description:
-      'Comma-separated tags for typed pattern catalog entries; may be repeated.',
+      'Comma-separated tags for typed pattern catalog entries; combine with repeatable --tag for single tags.',
     repeatable: true,
     type: 'string',
   },
   tag: {
     description:
-      'Repeatable singular tag for typed pattern catalog entries.',
+      'Repeatable single tag for typed pattern catalog entries; use --tags for comma-separated lists.',
     repeatable: true,
     type: 'string',
   },

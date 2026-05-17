@@ -15,6 +15,7 @@ import type {
 export {
 	extractPatternSectionRoleMatches,
 	extractPatternSectionRolesFromAttributes,
+	PATTERN_SECTION_ROLE_PATTERN,
 } from "./pattern-catalog-section-roles.js";
 export type {
 	PatternCatalogSectionRoleConvention,
@@ -80,7 +81,7 @@ export type PatternCatalogValidationResult = {
 };
 
 const PATTERN_SLUG_PATTERN = /^[a-z][a-z0-9-]*$/u;
-const PATTERN_TAG_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
+export const PATTERN_TAG_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 const PATTERN_CONTENT_FILE_ROOT = "src/patterns/";
 
 function createPatternCatalogDiagnostic(

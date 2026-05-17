@@ -7,6 +7,7 @@ import {
 	extractPatternSectionRoleMatches,
 	extractPatternSectionRolesFromAttributes,
 	formatPatternCatalogDiagnostics,
+	PATTERN_TAG_PATTERN,
 	resolvePatternCatalogContentFile,
 	validatePatternCatalog,
 } from "../src/runtime/pattern-catalog.js";
@@ -31,6 +32,24 @@ describe("pattern catalog validation", () => {
 		expect(sectionRolesSource).toContain(
 			"export function validatePatternContentSectionRoles",
 		);
+	});
+
+	test("shares one pattern tag validation regex across catalog and add flows", () => {
+		const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+		const catalogSource = fs.readFileSync(
+			path.join(runtimeRoot, "pattern-catalog.ts"),
+			"utf8",
+		);
+		const addOptionsSource = fs.readFileSync(
+			path.join(runtimeRoot, "cli-add-workspace-pattern-options.ts"),
+			"utf8",
+		);
+
+		expect(PATTERN_TAG_PATTERN.test("hero-2")).toBe(true);
+		expect(PATTERN_TAG_PATTERN.test("-hero")).toBe(false);
+		expect(catalogSource).toContain("export const PATTERN_TAG_PATTERN");
+		expect(addOptionsSource).toContain("PATTERN_TAG_PATTERN");
+		expect(addOptionsSource).not.toContain("const PATTERN_TAG_PATTERN");
 	});
 
 	test("accepts a typed full and section pattern catalog", () => {
