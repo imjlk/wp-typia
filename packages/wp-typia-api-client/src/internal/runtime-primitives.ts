@@ -6,7 +6,7 @@ import type { IValidation } from "@typia/interface";
  * @category Types
  */
 export interface ValidationError {
-	description?: string;
+	description?: string | undefined;
 	expected: string;
 	path: string;
 	value: unknown;
@@ -18,7 +18,7 @@ export interface ValidationError {
  * @category Types
  */
 export interface ValidationResult<T> {
-	data?: T;
+	data?: T | undefined;
 	errors: ValidationError[];
 	isValid: boolean;
 }

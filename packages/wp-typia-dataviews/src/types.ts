@@ -169,8 +169,10 @@ export interface DataViewsField<
   TItem extends object = DataViewsRecord,
   TValue = unknown,
 > {
-  readonly description?: string;
-  readonly elements?: readonly DataViewsFieldElement<DataViewsFieldElementValue<TValue>>[];
+  readonly description?: string | undefined;
+  readonly elements?:
+    | readonly DataViewsFieldElement<DataViewsFieldElementValue<TValue>>[]
+    | undefined;
   readonly enableGlobalSearch?: boolean;
   readonly enableHiding?: boolean;
   readonly enableSorting?: boolean;
@@ -191,7 +193,7 @@ export interface DataViewsField<
     right: TItem,
     direction: DataViewsSortDirection,
   ) => number;
-  readonly type?: DataViewsFieldType;
+  readonly type?: DataViewsFieldType | undefined;
 }
 
 export interface DataViewsFilter<
@@ -279,19 +281,19 @@ export type DataViewsConfigField<TItem extends object = DataViewsRecord> =
   | DataViewsResolvedField<TItem>;
 
 export interface DataViewsConfig<TItem extends object = DataViewsRecord> {
-  readonly actions?: readonly DataViewsAction<TItem>[];
+  readonly actions?: readonly DataViewsAction<TItem>[] | undefined;
   readonly data: readonly TItem[];
-  readonly defaultLayouts?: DataViewsDefaultLayouts;
+  readonly defaultLayouts?: DataViewsDefaultLayouts | undefined;
   readonly fields: readonly DataViewsConfigField<TItem>[];
-  readonly getItemId?: (item: TItem) => string;
-  readonly getItemLevel?: (item: TItem) => number;
-  readonly isLoading?: boolean;
-  readonly onChangeView?: (view: DataViewsView<TItem>) => void;
-  readonly paginationInfo?: DataViewsPaginationInfo;
-  readonly search?: boolean;
-  readonly searchLabel?: string;
-  readonly onChangeSelection?: (selection: readonly string[]) => void;
-  readonly selection?: readonly string[];
+  readonly getItemId?: ((item: TItem) => string) | undefined;
+  readonly getItemLevel?: ((item: TItem) => number) | undefined;
+  readonly isLoading?: boolean | undefined;
+  readonly onChangeView?: ((view: DataViewsView<TItem>) => void) | undefined;
+  readonly paginationInfo?: DataViewsPaginationInfo | undefined;
+  readonly search?: boolean | undefined;
+  readonly searchLabel?: string | undefined;
+  readonly onChangeSelection?: ((selection: readonly string[]) => void) | undefined;
+  readonly selection?: readonly string[] | undefined;
   readonly view: DataViewsView<TItem>;
 }
 
@@ -342,11 +344,11 @@ export type DataFormFieldLayout<TItem extends object = DataViewsRecord> =
   | DataFormCardFieldLayout<TItem>;
 
 export interface DataFormField<TItem extends object = DataViewsRecord> {
-  readonly children?: readonly DataFormField<TItem>[];
-  readonly description?: string;
+  readonly children?: readonly DataFormField<TItem>[] | undefined;
+  readonly description?: string | undefined;
   readonly id: DataViewsFieldId<TItem>;
-  readonly label?: string;
-  readonly layout?: DataFormFieldLayout<TItem>;
+  readonly label?: string | undefined;
+  readonly layout?: DataFormFieldLayout<TItem> | undefined;
 }
 
 export interface DataFormConfig<TItem extends object = DataViewsRecord> {
@@ -599,17 +601,17 @@ export type DefinedDataViewsFieldMap<TItem extends object> = Readonly<
 >;
 
 export interface DefinedDataViews<TItem extends object> {
-  readonly actions?: readonly DataViewsAction<TItem>[];
-  readonly defaultLayouts?: DataViewsDefaultLayouts;
+  readonly actions?: readonly DataViewsAction<TItem>[] | undefined;
+  readonly defaultLayouts?: DataViewsDefaultLayouts | undefined;
   readonly defaultView: DataViewsView<TItem>;
   readonly fieldMap: DefinedDataViewsFieldMap<TItem>;
   readonly fields: readonly DataViewsResolvedField<TItem>[];
-  readonly getItemId?: (item: TItem) => string;
-  readonly getItemLevel?: (item: TItem) => number;
-  readonly idField?: DataViewsItemIdField<TItem>;
-  readonly search?: boolean;
-  readonly searchLabel?: string;
-  readonly titleField?: DataViewsFieldId<TItem>;
+  readonly getItemId?: ((item: TItem) => string) | undefined;
+  readonly getItemLevel?: ((item: TItem) => number) | undefined;
+  readonly idField?: DataViewsItemIdField<TItem> | undefined;
+  readonly search?: boolean | undefined;
+  readonly searchLabel?: string | undefined;
+  readonly titleField?: DataViewsFieldId<TItem> | undefined;
   readonly createConfig: (options: DefineDataViewsConfigOptions<TItem>) => DataViewsConfig<TItem>;
   readonly toFormConfig: (options?: DataFormConfigOptions<TItem>) => DataFormConfig<TItem>;
   readonly toQueryArgs: <TQuery extends object = DataViewsQueryArgs>(

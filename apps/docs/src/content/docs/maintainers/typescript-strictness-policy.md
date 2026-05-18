@@ -43,6 +43,13 @@ fails stale allowlist entries once the matching override disappears.
 
 ### Current targeted ratchet
 
+- `packages/wp-typia-api-client/tsconfig.json`
+  - `exactOptionalPropertyTypes: true`
+  - `noUncheckedIndexedAccess: true`
+  - rationale: the transport request builders now omit absent optional
+    properties instead of passing explicit `undefined`, and the shared
+    validation result types document the runtime helpers' existing
+    `undefined`-bearing output shape.
 - `packages/wp-typia-block-types/tsconfig.json`
   - `exactOptionalPropertyTypes: true`
   - `noUncheckedIndexedAccess: true`
@@ -50,6 +57,18 @@ fails stale allowlist entries once the matching override disappears.
     plus the JSON artifact/helper cleanup from `#280`, `#281`, and `#286`,
     reduced the package's cast-heavy boundaries enough for both flags to pass
     cleanly.
+- `packages/wp-typia-dataviews/tsconfig.json`
+  - `exactOptionalPropertyTypes: true`
+  - `noUncheckedIndexedAccess: true`
+  - rationale: the package-owned facade now has focused helpers for DataViews,
+    DataForm, and query adapters, and its public types explicitly reflect the
+    helper output fields that can be present with `undefined` values.
+- `packages/wp-typia-rest/tsconfig.json`
+  - `exactOptionalPropertyTypes: true`
+  - `noUncheckedIndexedAccess: true`
+  - rationale: the WordPress REST transport path now mirrors the api-client
+    optional-property cleanup while preserving the `@wordpress/api-fetch`
+    request shape and React helper call option behavior.
 
 ## Current blockers
 
@@ -58,7 +77,10 @@ Focused trials on `2026-04-15` produced the following result set:
 - `@wp-typia/block-types`: passes `exactOptionalPropertyTypes` and
   `noUncheckedIndexedAccess` cleanly, so the package-level ratchet is now
   enabled.
-- `@wp-typia/block-runtime`: remains deferred for both flags.
+- `@wp-typia/api-client`, `@wp-typia/dataviews`, and `@wp-typia/rest`:
+  passed both flags in the `2026-05-18` focused ratchet and are now enabled.
+- `@wp-typia/block-runtime`: remains deferred for both flags after the
+  `2026-05-18` follow-up trial.
 
 ### `@wp-typia/block-runtime` blockers
 
@@ -66,10 +88,9 @@ Focused trials on `2026-04-15` produced the following result set:
   - optional-property ownership still leaks `undefined` through runtime-facing
     descriptors such as `EditorFieldDescriptor`, `InspectorComponentMap`,
     metadata parsing nodes, validation results, and sync/report option bags
-  - the experiment also surfaced shared-graph fallout in
-    `packages/wp-typia-api-client/src/internal/runtime-primitives.ts`, so a
-    clean ratchet there needs coordinated optional-property cleanup across that
-    boundary rather than a one-off tsconfig flip
+  - the shared api-client fallout is resolved, but block-runtime still needs
+    local descriptor, inspector, metadata, and sync option cleanup before a
+    package-level ratchet is safe
 - `noUncheckedIndexedAccess`
   - remaining hotspots are concentrated in runtime indexing code:
     identifier segments, metadata parser tree walks, diagnostic/root-node
@@ -80,7 +101,8 @@ Focused trials on `2026-04-15` produced the following result set:
 
 ### Current decision
 
-- landed: package-level ratchet for `@wp-typia/block-types`
+- landed: package-level ratchet for `@wp-typia/api-client`,
+  `@wp-typia/block-types`, `@wp-typia/dataviews`, and `@wp-typia/rest`
 - deferred: `@wp-typia/block-runtime`
 - no explicit `@wp-typia/block-runtime` exception is recorded yet
 

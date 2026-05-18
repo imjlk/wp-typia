@@ -162,16 +162,19 @@ function buildQueryRequestOptions<Req>(
   request: unknown,
 ): EndpointTransportRequest {
   const query = encodeGetLikeRequest(request);
-  const resolvedUrl = baseOptions.url
-    ? joinUrlWithQuery(baseOptions.url, query)
-    : undefined;
-  return {
-    ...baseOptions,
-    method: endpoint.method,
-    ...(resolvedUrl
-      ? { path: undefined, url: resolvedUrl }
-      : { path: joinPathWithQuery(baseOptions.path ?? endpoint.path, query) }),
-  };
+  const { path: basePath, url: baseUrl, ...transportOptions } = baseOptions;
+
+  return baseUrl
+    ? {
+        ...transportOptions,
+        method: endpoint.method,
+        url: joinUrlWithQuery(baseUrl, query),
+      }
+    : {
+        ...transportOptions,
+        method: endpoint.method,
+        path: joinPathWithQuery(basePath ?? endpoint.path, query),
+      };
 }
 
 function buildBodyRequestOptions<Req>(
@@ -179,28 +182,31 @@ function buildBodyRequestOptions<Req>(
   baseOptions: Partial<EndpointTransportRequest>,
   request: unknown,
 ): EndpointTransportRequest {
+  const { path: basePath, url: baseUrl, ...transportOptions } = baseOptions;
+  const locationOptions = baseUrl
+    ? { url: baseUrl }
+    : { path: basePath ?? endpoint.path };
+
   if (isFormDataLike(request)) {
     return {
-      ...baseOptions,
+      ...transportOptions,
       body: request,
       method: endpoint.method,
-      ...(baseOptions.url
-        ? { path: undefined, url: baseOptions.url }
-        : { path: baseOptions.path ?? endpoint.path }),
+      ...locationOptions,
     };
   }
 
+  const headers = mergeHeaderInputs(
+    { 'Content-Type': 'application/json' },
+    baseOptions.headers,
+  );
+
   return {
-    ...baseOptions,
+    ...transportOptions,
     body: typeof request === 'string' ? request : JSON.stringify(request),
-    headers: mergeHeaderInputs(
-      { 'Content-Type': 'application/json' },
-      baseOptions.headers,
-    ),
     method: endpoint.method,
-    ...(baseOptions.url
-      ? { path: undefined, url: baseOptions.url }
-      : { path: baseOptions.path ?? endpoint.path }),
+    ...(headers === undefined ? {} : { headers }),
+    ...locationOptions,
   };
 }
 
@@ -270,11 +276,12 @@ function mergeTransportOptions(
   }
 
   const { headers: requestHeaders, ...transportOptions } = requestOptions;
+  const headers = mergeHeaderInputs(baseOptions.headers, requestHeaders);
 
   return {
     ...baseOptions,
     ...transportOptions,
-    headers: mergeHeaderInputs(baseOptions.headers, requestHeaders),
+    ...(headers === undefined ? {} : { headers }),
   };
 }
 
@@ -302,11 +309,13 @@ export function createFetchTransport(
   return async <T = unknown, Parse extends boolean = true>(
     options: EndpointTransportRequest & { parse?: Parse },
   ): Promise<Parse extends false ? Response : T> => {
-    const response = await fetchFn(resolveRequestUrl(options, baseUrl), {
-      body: options.body,
-      headers: mergeHeaderInputs(defaultHeaders, options.headers),
+    const headers = mergeHeaderInputs(defaultHeaders, options.headers);
+    const requestInit: RequestInit = {
       method: options.method ?? 'GET',
-    });
+      ...(options.body === undefined ? {} : { body: options.body }),
+      ...(headers === undefined ? {} : { headers }),
+    };
+    const response = await fetchFn(resolveRequestUrl(options, baseUrl), requestInit);
 
     if (options.parse === false) {
       return response as Parse extends false ? Response : T;
@@ -355,10 +364,11 @@ export function withComputedHeaders(
     const computedHeaders = await resolveHeaders(
       createReadonlyTransportRequest(options),
     );
+    const headers = mergeHeaderInputs(computedHeaders, options.headers);
 
     return transport<T, Parse>({
       ...options,
-      headers: mergeHeaderInputs(computedHeaders, options.headers),
+      ...(headers === undefined ? {} : { headers }),
     });
   };
 }

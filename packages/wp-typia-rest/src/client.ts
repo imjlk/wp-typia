@@ -146,8 +146,8 @@ export function resolveRestRouteUrl(
   routePath: string,
   root = getDefaultRestRoot(),
 ): string {
-  const [pathWithQuery, hash = ''] = routePath.split('#', 2);
-  const [rawPath, rawQuery = ''] = pathWithQuery.split('?', 2);
+  const [pathWithQuery = '', hash = ''] = routePath.split('#', 2);
+  const [rawPath = '', rawQuery = ''] = pathWithQuery.split('?', 2);
   const normalizedRoute = `/${rawPath.replace(/^\/+/, '').replace(/\/+$/, '')}/`;
   const queryParams = new URLSearchParams(rawQuery);
   const resolvedRoot =
@@ -196,12 +196,17 @@ function resolveFetchUrl(options: APIFetchOptions): string {
 async function defaultFetch<T = unknown, Parse extends boolean = true>(
   options: APIFetchOptions<Parse>,
 ): Promise<Parse extends false ? Response : T> {
-  const response = await fetch(resolveFetchUrl(options), {
-    body: options.body as BodyInit | null | undefined,
+  const requestInit: RequestInit = {
     credentials: 'same-origin',
-    headers: options.headers as HeadersInit | undefined,
     method: options.method ?? 'GET',
-  });
+    ...(options.body === undefined
+      ? {}
+      : { body: options.body as BodyInit | null }),
+    ...(options.headers === undefined
+      ? {}
+      : { headers: options.headers as HeadersInit }),
+  };
+  const response = await fetch(resolveFetchUrl(options), requestInit);
 
   if (options.parse === false) {
     return response as Parse extends false ? Response : T;
@@ -229,16 +234,26 @@ function buildQueryRequestOptions<Req>(
   request: unknown,
 ): APIFetchOptions {
   const query = encodeGetLikeRequest(request);
-  const resolvedUrl = baseOptions.url
-    ? joinUrlWithQuery(baseOptions.url, query)
-    : undefined;
-  return {
-    ...baseOptions,
-    method: endpoint.method,
-    ...(resolvedUrl
-      ? { path: undefined, url: resolvedUrl }
-      : { path: joinPathWithQuery(baseOptions.path ?? endpoint.path, query) }),
-  };
+  const {
+    headers: baseHeaders,
+    path: basePath,
+    url: baseUrl,
+    ...fetchOptions
+  } = baseOptions;
+
+  return baseUrl
+    ? {
+        ...fetchOptions,
+        ...(baseHeaders === undefined ? {} : { headers: baseHeaders }),
+        method: endpoint.method,
+        url: joinUrlWithQuery(baseUrl, query),
+      }
+    : {
+        ...fetchOptions,
+        ...(baseHeaders === undefined ? {} : { headers: baseHeaders }),
+        method: endpoint.method,
+        path: joinPathWithQuery(basePath ?? endpoint.path, query),
+      };
 }
 
 function buildBodyRequestOptions<Req>(
@@ -246,28 +261,37 @@ function buildBodyRequestOptions<Req>(
   baseOptions: Partial<APIFetchOptions>,
   request: unknown,
 ): APIFetchOptions {
+  const {
+    headers: baseHeaders,
+    path: basePath,
+    url: baseUrl,
+    ...fetchOptions
+  } = baseOptions;
+  const locationOptions = baseUrl
+    ? { url: baseUrl }
+    : { path: basePath ?? endpoint.path };
+
   if (isFormDataLike(request)) {
     return {
-      ...baseOptions,
+      ...fetchOptions,
       body: request as FormData,
+      ...(baseHeaders === undefined ? {} : { headers: baseHeaders }),
       method: endpoint.method,
-      ...(baseOptions.url
-        ? { path: undefined, url: baseOptions.url }
-        : { path: baseOptions.path ?? endpoint.path }),
+      ...locationOptions,
     };
   }
 
+  const headers = mergeHeaderInputs(
+    { 'Content-Type': 'application/json' },
+    baseHeaders as HeadersInit | undefined,
+  );
+
   return {
-    ...baseOptions,
+    ...fetchOptions,
     body: typeof request === 'string' ? request : JSON.stringify(request),
-    headers: mergeHeaderInputs(
-      { 'Content-Type': 'application/json' },
-      baseOptions.headers as HeadersInit | undefined,
-    ),
+    ...(headers === undefined ? {} : { headers }),
     method: endpoint.method,
-    ...(baseOptions.url
-      ? { path: undefined, url: baseOptions.url }
-      : { path: baseOptions.path ?? endpoint.path }),
+    ...locationOptions,
   };
 }
 
@@ -346,11 +370,12 @@ function mergeFetchOptions(
   }
 
   const { headers: requestHeaders, ...transportOptions } = requestOptions;
+  const headers = mergeHeaderInputs(baseOptions.headers, requestHeaders);
 
   return {
     ...baseOptions,
     ...transportOptions,
-    headers: mergeHeaderInputs(baseOptions.headers, requestHeaders),
+    ...(headers === undefined ? {} : { headers }),
   };
 }
 

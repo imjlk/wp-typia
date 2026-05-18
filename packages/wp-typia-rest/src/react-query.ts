@@ -122,12 +122,14 @@ export function useEndpointQuery<Req, Res, Selected = Res>(
 
       try {
         const callOptions = latest.resolveCallOptions?.();
+        const fetchFn = callOptions?.fetchFn ?? latest.fetchFn;
+        const requestOptions = callOptions?.requestOptions;
         const validation = await latest.client.__runQuery(
           latest.cacheKey,
           () =>
             callEndpoint(latest.endpoint, latest.request, {
-              fetchFn: callOptions?.fetchFn ?? latest.fetchFn,
-              requestOptions: callOptions?.requestOptions,
+              ...(fetchFn === undefined ? {} : { fetchFn }),
+              ...(requestOptions === undefined ? {} : { requestOptions }),
             }),
           { force, staleTime: latest.staleTime },
         );
