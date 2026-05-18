@@ -400,6 +400,7 @@ bun run lint:repo
 bun run lint:fix
 bun run format:check
 bun run format:write
+bun run test:repo:fast
 bun run ci:local
 ```
 
@@ -407,6 +408,7 @@ bun run ci:local
 - `bun run lint:fix` applies autofixes in that same root ESLint scope
 - `bun run format:check` runs the non-mutating Prettier gate for repo-owned docs, config, and policy files
 - `bun run format:write` applies that same repo-owned Prettier scope
+- `bun run test:repo:fast` runs the no-build source and policy lane for lightweight local feedback
 - `bun run ci:local` keeps the non-E2E maintainer preflight aligned with CI
 
 ## Reference Apps
@@ -474,6 +476,7 @@ bun run lint:repo
 bun run format:check
 bun run maintenance-automation:validate
 bun run typecheck
+bun run test:repo:fast
 bun run test:repo
 bun run build
 bun run ci:local
@@ -512,6 +515,10 @@ bun run examples:test:e2e
 `bun run ci:local` is the recommended maintainer pre-PR command. It mirrors the
 fast CI path for changesets, publish validation, linting, typechecking, tests,
 and builds, but intentionally excludes `wp-env` startup and Playwright E2E.
+For the quickest no-build loop before that full preflight, use
+`bun run test:repo:fast`; it keeps policy/source package coverage while leaving
+example Webpack builds, generated-project smoke, package-contract builds, and
+E2E in the broader lanes.
 
 Command map:
 
@@ -522,6 +529,7 @@ Command map:
 | `bun run format:check`                    | Non-mutating Prettier check for repo-owned files  |
 | `bun run formatting-policy:validate`      | Validates the documented formatter/toolchain gate |
 | `bun run maintenance-automation:validate` | Validates Dependabot and audit workflow policy    |
+| `bun run test:repo:fast`                  | No-build source and policy feedback lane          |
 | `bun run test:repo`                       | Root unit and CLI test aggregation                |
 | `bun run test:all`                        | Legacy alias for `test:repo` (still no E2E)       |
 | `bun run ci:local`                        | Fast maintainer preflight without E2E/wp-env      |

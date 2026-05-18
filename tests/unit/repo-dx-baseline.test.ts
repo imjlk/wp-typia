@@ -28,6 +28,9 @@ describe('repository DX baseline', () => {
     );
     expect(scripts['test:repo']).toBe('bun run test');
     expect(scripts['test:all']).toBe('bun run test:repo');
+    expect(scripts['test:repo:fast']).toBe(
+      'node scripts/run-fast-feedback-tests.mjs',
+    );
     expect(scripts['ci:local']).toBeDefined();
     expect(scripts['ci:local']).toContain(
       'bun run maintenance-automation:validate',
@@ -71,6 +74,33 @@ describe('repository DX baseline', () => {
     expect(
       fs.existsSync(path.join(repoRoot, 'scripts', 'run-examples-lint.mjs')),
     ).toBe(true);
+  });
+
+  test('fast repo test lane avoids build-oriented coverage paths', () => {
+    const runner = fs.readFileSync(
+      path.join(repoRoot, 'scripts', 'run-fast-feedback-tests.mjs'),
+      'utf8',
+    );
+    const fastPathBlock =
+      runner.match(
+        /const FAST_TEST_PATHS = Object\.freeze\(\[([\s\S]*?)\]\);/,
+      )?.[1] ?? '';
+
+    expect(fastPathBlock).toContain('packages/wp-typia-api-client/tests');
+    expect(fastPathBlock).toContain(
+      'packages/wp-typia-dataviews/tests/query-adapter.test.ts',
+    );
+    expect(fastPathBlock).toContain('tests/unit/repo-dx-baseline.test.ts');
+    expect(fastPathBlock).not.toContain("'tests/unit/sync-types.test.ts',");
+    expect(fastPathBlock).not.toContain(
+      "'packages/wp-typia-dataviews/tests/type-contracts.test.ts',",
+    );
+    expect(fastPathBlock).not.toContain(
+      "'packages/wp-typia-rest/tests/package-contracts.test.ts',",
+    );
+    expect(fastPathBlock).not.toContain(
+      "'packages/wp-typia-block-types/tests/package-contracts.test.ts',",
+    );
   });
 
   test('WordPress example workspaces keep the ESLint 8 compat wrapper', () => {
@@ -306,6 +336,7 @@ describe('repository DX baseline', () => {
     expect(readme).toContain('bun run ci:local');
     expect(readme).toContain('bun run lint:fix');
     expect(readme).toContain('bun run format:write');
+    expect(readme).toContain('bun run test:repo:fast');
     expect(readme).toContain(
       '[Block Generator Architecture](https://imjlk.github.io/wp-typia/architecture/block-generator-architecture/)',
     );
@@ -338,6 +369,7 @@ describe('repository DX baseline', () => {
     expect(contributing).toContain('Formatting ownership is also explicit');
     expect(contributing).toContain('bun run lint:fix');
     expect(contributing).toContain('bun run format:write');
+    expect(contributing).toContain('bun run test:repo:fast');
     expect(contributing).toContain('Maintenance automation is explicit too');
     expect(contributing).toContain('bun run lint:repo');
     expect(contributing).toContain('bun run maintenance-automation:validate');

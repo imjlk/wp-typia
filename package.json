@@ -43,6 +43,7 @@
     "test": "bun run test:unit && bun run test:cli",
     "test:repo": "bun run test",
     "test:all": "bun run test:repo",
+    "test:repo:fast": "node scripts/run-fast-feedback-tests.mjs",
     "test:quick": "bun run test:unit && bun run --filter @wp-typia/block-types test && bun run --filter @wp-typia/dataviews test && bun run --filter @wp-typia/rest test && bun run --filter @wp-typia/api-client test",
     "test:quick:project-tools": "bun run --filter @wp-typia/project-tools test:quick",
     "test:profile": "node scripts/profile-test-feedback.mjs",

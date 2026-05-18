@@ -21,6 +21,7 @@ bun run maintenance-automation:validate
 bun run formatting-policy:validate
 bun run lint:all
 bun run typecheck
+bun run test:repo:fast
 bun run test:repo
 bun run build
 bun run ci:local
@@ -40,6 +41,7 @@ Quick command map:
 - `bun run format:write` = mutating Prettier write pass for that same repo-owned file set
 - `bun run maintenance-automation:validate` = verifies Dependabot and audit workflow policy
 - `bun run formatting-policy:validate` = verifies the documented Prettier/CI baseline
+- `bun run test:repo:fast` = no-build source and policy lane for lightweight local feedback
 - `bun run test:repo` = root unit + CLI test aggregation
 - `bun run test:all` = legacy alias for `bun run test:repo` and still excludes E2E
 - `bun run ci:local` = fast maintainer preflight mirroring the non-E2E CI path
@@ -80,6 +82,13 @@ See [`docs/maintenance-automation-policy.md`](https://imjlk.github.io/wp-typia/m
 `bun run ci:local` is the recommended maintainer pre-PR command. It deliberately
 stops short of `wp-env` startup and Playwright E2E so everyday local checks stay
 fast.
+
+Use `bun run test:repo:fast` as the first local signal for docs, policy, script,
+and small runtime/package-source edits. It skips package builds, example Webpack
+builds, generated-project smoke, package-contract suites that require built
+artifacts, and E2E; keep using `bun run test:quick`, `bun run test:repo`, and
+`bun run build` before merging changes that touch generated artifacts, sync
+flows, package manifests, or example runtime behavior.
 
 For generated project smoke checks:
 
