@@ -29,11 +29,11 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 		reason:
 			"workspace inventory and generated workspace asset helpers used by add/doctor/migrations and exported workspace selection flows use the TypeScript compiler API at runtime",
 		requiredTypeScriptImportFiles: [
-			"src/runtime/cli-add-workspace-binding-source.ts",
-			"src/runtime/cli-init-plan.ts",
-			"src/runtime/ts-property-names.ts",
-			"src/runtime/workspace-inventory-parser-entries.ts",
-			"src/runtime/workspace-inventory-parser.ts",
+			"src/runtime/add/cli-add-workspace-binding-source.ts",
+			"src/runtime/cli/cli-init-plan.ts",
+			"src/runtime/shared/ts-property-names.ts",
+			"src/runtime/workspace/workspace-inventory-parser-entries.ts",
+			"src/runtime/workspace/workspace-inventory-parser.ts",
 		],
 		runtimeSourceRoots: ["src/runtime"],
 		typescriptPlacement: TYPESCRIPT_DEPENDENCY_POLICY.dependency,
