@@ -48,6 +48,7 @@ const projectToolsAddKindIdsModulePath =
     'wp-typia-project-tools',
     'src',
     'runtime',
+    'add',
     'cli-add-kind-ids.ts',
   );
 const checkOnly = process.argv.includes('--check');
