@@ -2,6 +2,8 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "rootDir": "./src",
     "types": []
   },

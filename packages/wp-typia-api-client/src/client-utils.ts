@@ -72,7 +72,7 @@ export function joinPathWithQuery(path: string, query: string): string {
 		return path;
 	}
 
-	const [pathWithoutHash, hash = ""] = path.split("#", 2);
+	const [pathWithoutHash = "", hash = ""] = path.split("#", 2);
 	const nextPath = pathWithoutHash.includes("?")
 		? `${pathWithoutHash}&${query}`
 		: `${pathWithoutHash}?${query}`;
@@ -85,7 +85,7 @@ export function joinUrlWithQuery(url: string, query: string): string {
 		return url;
 	}
 
-	const [urlWithoutHash, hash = ""] = url.split("#", 2);
+	const [urlWithoutHash = "", hash = ""] = url.split("#", 2);
 	const nextUrl = urlWithoutHash.includes("?")
 		? `${urlWithoutHash}&${query}`
 		: `${urlWithoutHash}?${query}`;

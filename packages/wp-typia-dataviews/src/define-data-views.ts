@@ -214,14 +214,16 @@ function normalizeDataViewsFieldValidation<TItem extends object, TValue>(
   if (schema?.enum !== undefined || schema?.const !== undefined) {
     schemaValidation.elements = true;
   }
-  if (schema?.max !== undefined || schema?.maximum !== undefined) {
-    schemaValidation.max = schema.max ?? schema.maximum;
+  const max = schema?.max ?? schema?.maximum;
+  if (max !== undefined) {
+    schemaValidation.max = max;
   }
   if (schema?.maxLength !== undefined) {
     schemaValidation.maxLength = schema.maxLength;
   }
-  if (schema?.min !== undefined || schema?.minimum !== undefined) {
-    schemaValidation.min = schema.min ?? schema.minimum;
+  const min = schema?.min ?? schema?.minimum;
+  if (min !== undefined) {
+    schemaValidation.min = min;
   }
   if (schema?.minLength !== undefined) {
     schemaValidation.minLength = schema.minLength;

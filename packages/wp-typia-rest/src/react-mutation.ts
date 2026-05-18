@@ -88,9 +88,11 @@ export function useEndpointMutation<Req, Res, Context = unknown>(
           ? await latest.onMutate(variables, latest.client)
           : undefined;
         const callOptions = latest.resolveCallOptions?.(variables);
+        const fetchFn = callOptions?.fetchFn ?? latest.fetchFn;
+        const requestOptions = callOptions?.requestOptions;
         const result = await callEndpoint(latest.endpoint, variables, {
-          fetchFn: callOptions?.fetchFn ?? latest.fetchFn,
-          requestOptions: callOptions?.requestOptions,
+          ...(fetchFn === undefined ? {} : { fetchFn }),
+          ...(requestOptions === undefined ? {} : { requestOptions }),
         });
         setValidation(result);
 
