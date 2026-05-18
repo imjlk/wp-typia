@@ -18,6 +18,12 @@ const SUITES = Object.freeze([
     note: 'Baseline unit coverage without package builds.',
   },
   {
+    name: 'repo:test:repo:fast',
+    command: 'bun',
+    args: ['run', 'test:repo:fast'],
+    note: 'No-build source and policy lane for lightweight local feedback.',
+  },
+  {
     name: 'repo:test:quick',
     command: 'bun',
     args: ['run', 'test:quick'],
