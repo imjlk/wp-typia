@@ -1,17 +1,12 @@
-import { defineCommand } from '@bunli/core';
+import path from 'node:path';
 
-import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
 import {
-  emitCliDiagnosticFailure,
-  prefersStructuredCliOutput,
-} from '../cli-diagnostic-output';
-import {
-  buildCommandOptions,
-  MCP_OPTION_METADATA,
-} from '../command-option-metadata';
-import { getMcpSchemaSources } from '../config';
+  CLI_DIAGNOSTIC_CODES,
+  createCliCommandError,
+} from '@wp-typia/project-tools/cli-diagnostics';
+
+import { getMcpSchemaSources, type WpTypiaUserConfig } from '../config';
 import { loadMcpToolGroups, syncMcpSchemas } from '../mcp';
-import { resolveCommandPrintLine } from './output-adapters';
 import type { PrintLine } from '../print-line';
 
 type McpToolGroupSummary = {
@@ -21,6 +16,15 @@ type McpToolGroupSummary = {
 };
 
 type McpSyncResult = Awaited<ReturnType<typeof syncMcpSchemas>>;
+
+export type DispatchMcpCommandOptions = {
+  cwd: string;
+  flags: Record<string, unknown>;
+  format?: string;
+  positionals: string[];
+  printLine: PrintLine;
+  userConfig: WpTypiaUserConfig;
+};
 
 export function printMcpToolGroupSummary(
   summary: McpToolGroupSummary[],
@@ -43,76 +47,81 @@ export function printMcpSyncSummary(
   );
 }
 
-export const mcpCommand = defineCommand({
-  defaultFormat: 'json',
-  description: 'Inspect or sync schema-driven MCP metadata for wp-typia.',
-  handler: async (args) => {
-    const subcommand = args.positional[0] ?? 'list';
-    const prefersStructuredOutput = prefersStructuredCliOutput(args);
-    const printLine = resolveCommandPrintLine(args);
-    const userConfig =
-      args.context?.store?.wpTypiaUserConfig &&
-      typeof args.context.store.wpTypiaUserConfig === 'object'
-        ? args.context.store.wpTypiaUserConfig
-        : {};
-    const schemaSources = getMcpSchemaSources(userConfig);
+function buildMcpToolGroupSummary(
+  groups: Awaited<ReturnType<typeof loadMcpToolGroups>>,
+): McpToolGroupSummary[] {
+  return groups.map((group) => ({
+    namespace: group.namespace,
+    toolCount: group.tools.length,
+    tools: group.tools.map((tool) => tool.name),
+  }));
+}
 
-    if (schemaSources.length === 0) {
-      emitCliDiagnosticFailure(args, {
-        code: CLI_DIAGNOSTIC_CODES.CONFIGURATION_MISSING,
-        command: 'mcp',
-        detailLines: [
-          'No MCP schema sources are configured. Add `mcp.schemaSources` in ~/.config/wp-typia/config.json, .wp-typiarc(.json), or package.json#wp-typia.',
-        ],
-      });
+function throwMissingMcpSchemaSources(): never {
+  throw createCliCommandError({
+    code: CLI_DIAGNOSTIC_CODES.CONFIGURATION_MISSING,
+    command: 'mcp',
+    detailLines: [
+      'No MCP schema sources are configured. Add `mcp.schemaSources` in ~/.config/wp-typia/config.json, .wp-typiarc(.json), or package.json#wp-typia.',
+    ],
+  });
+}
+
+function throwUnknownMcpSubcommand(subcommand: string): never {
+  throw createCliCommandError({
+    code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
+    command: 'mcp',
+    detailLines: [`Unknown mcp subcommand "${subcommand}". Expected list or sync.`],
+  });
+}
+
+export async function dispatchMcpCommand({
+  cwd,
+  flags,
+  format,
+  positionals,
+  printLine,
+  userConfig,
+}: DispatchMcpCommandOptions): Promise<void> {
+  const subcommand = positionals[1] ?? 'list';
+  const schemaSources = getMcpSchemaSources(userConfig);
+  const structured = format === 'json';
+
+  if (schemaSources.length === 0) {
+    throwMissingMcpSchemaSources();
+  }
+
+  try {
+    if (subcommand === 'list') {
+      const groups = await loadMcpToolGroups(cwd, schemaSources);
+      const summary = buildMcpToolGroupSummary(groups);
+      if (structured) {
+        printLine(JSON.stringify({ groups: summary }, null, 2));
+        return;
+      }
+      printMcpToolGroupSummary(summary, printLine);
       return;
     }
 
-    try {
-      if (subcommand === 'list') {
-        const groups = await loadMcpToolGroups(args.cwd, schemaSources);
-        const summary = groups.map((group) => ({
-          namespace: group.namespace,
-          toolCount: group.tools.length,
-          tools: group.tools.map((tool) => tool.name),
-        }));
-        if (prefersStructuredOutput) {
-          args.output({ groups: summary });
-          return;
-        }
-        printMcpToolGroupSummary(summary, printLine);
+    if (subcommand === 'sync') {
+      const outputDir =
+        typeof flags['output-dir'] === 'string'
+          ? flags['output-dir']
+          : path.join(cwd, '.wp-typia', 'mcp');
+      const result = await syncMcpSchemas(cwd, schemaSources, outputDir);
+      if (structured) {
+        printLine(JSON.stringify({ sync: result }, null, 2));
         return;
       }
-
-      if (subcommand === 'sync') {
-        const outputDir =
-          (args.flags['output-dir'] as string | undefined) ??
-          `${args.cwd}/.bunli/mcp`;
-        const result = await syncMcpSchemas(args.cwd, schemaSources, outputDir);
-        if (prefersStructuredOutput) {
-          args.output({ sync: result });
-          return;
-        }
-        printMcpSyncSummary(result, printLine);
-        return;
-      }
-
-      emitCliDiagnosticFailure(args, {
-        code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
-        command: 'mcp',
-        detailLines: [
-          `Unknown mcp subcommand "${subcommand}". Expected list or sync.`,
-        ],
-      });
-    } catch (error) {
-      emitCliDiagnosticFailure(args, {
-        command: 'mcp',
-        error,
-      });
+      printMcpSyncSummary(result, printLine);
+      return;
     }
-  },
-  name: 'mcp',
-  options: buildCommandOptions(MCP_OPTION_METADATA),
-});
 
-export default mcpCommand;
+    throwUnknownMcpSubcommand(subcommand);
+  } catch (error) {
+    throw createCliCommandError({
+      command: 'mcp',
+      error,
+    });
+  }
+}

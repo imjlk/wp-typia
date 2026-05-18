@@ -1,8 +1,8 @@
 import type { CommandOptionMetadataMap } from './types';
 
 /**
- * Shared `wp-typia create` option metadata used by both the Bunli command
- * definitions and the Node fallback parser/help surface.
+ * Shared `wp-typia create` option metadata used by the Gunshi runtime parser
+ * and help surface.
  */
 export const CREATE_OPTION_METADATA = {
   'alternate-render-targets': {

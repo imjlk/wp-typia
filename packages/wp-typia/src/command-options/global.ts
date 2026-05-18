@@ -1,7 +1,7 @@
 import type { CommandOptionMetadataMap } from './types';
 
 /**
- * Global option metadata used by Node fallback parsing before command dispatch.
+ * Global option metadata used by portable CLI parsing before command dispatch.
  */
 export const GLOBAL_OPTION_METADATA = {
   config: {

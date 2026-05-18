@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import packageJson from "../package.json";
-import { bunliConfig } from "../bunli.config";
 import {
 	getStandaloneBinaryFilename,
 	getStandaloneCompileTarget,
@@ -38,7 +37,7 @@ function readFlagValue(argv: string[], flagName: string): string | undefined {
 	return undefined;
 }
 
-async function runBunliGenerate() {
+async function runRoutingGenerate() {
 	const bunExecutable = resolveBunExecutable();
 	const generateResult = spawnSync(bunExecutable, ["run", "generate"], {
 		cwd: packageRoot,
@@ -51,20 +50,13 @@ async function runBunliGenerate() {
 	}
 
 	throw new Error(
-		`Failed to generate Bunli command metadata for standalone builds${
+		`Failed to generate wp-typia command metadata for standalone builds${
 			generateResult.error ? ` (${generateResult.error.message})` : ""
 		}.`,
 	);
 }
 
 async function buildStandaloneRuntime() {
-	const buildConfig = bunliConfig.build;
-	if (!buildConfig?.entry) {
-		throw new Error(
-			"wp-typia bunli.config.ts is missing build.entry for standalone builds.",
-		);
-	}
-
 	const argv = process.argv.slice(2);
 	const resolvedTargets = parseStandaloneTargets(
 		readFlagValue(argv, "--targets"),
@@ -73,9 +65,9 @@ async function buildStandaloneRuntime() {
 		packageRoot,
 		readFlagValue(argv, "--outdir") ?? "dist-standalone",
 	);
-	const entrypoint = path.resolve(packageRoot, buildConfig.entry);
+	const entrypoint = path.resolve(packageRoot, "src", "gunshi-cli.ts");
 
-	await runBunliGenerate();
+	await runRoutingGenerate();
 	await ensureRuntimeBuildDependencies();
 	await fs.rm(outdir, { force: true, recursive: true });
 

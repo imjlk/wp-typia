@@ -23,7 +23,7 @@ describe("publish runtime maps", () => {
 		);
 
 		expect(() => preparePublishedRuntimeMaps(packageRoot)).toThrow(
-			`Cannot prepare runtime source maps: missing ${path.join(packageRoot, "dist-bunli")}`,
+			`Cannot prepare runtime source maps: missing ${path.join(packageRoot, "dist")}`,
 		);
 	});
 
@@ -35,7 +35,7 @@ describe("publish runtime maps", () => {
 		const packageRoot = fs.mkdtempSync(
 			path.join(os.tmpdir(), "wp-typia-runtime-maps-roundtrip-"),
 		);
-		const mapPath = path.join(packageRoot, "dist-bunli", "cli.js.map");
+		const mapPath = path.join(packageRoot, "dist", "cli.js.map");
 
 		writeText(mapPath, "demo-map");
 		preparePublishedRuntimeMaps(packageRoot);
@@ -67,7 +67,7 @@ describe("publish runtime maps", () => {
 			path.join(backupRoot, "manifest.json"),
 			JSON.stringify({ files: ["cli.js.map"] }, null, 2),
 		);
-		fs.mkdirSync(path.join(packageRoot, "dist-bunli"), { recursive: true });
+		fs.mkdirSync(path.join(packageRoot, "dist"), { recursive: true });
 
 		expect(() => restorePublishedRuntimeMaps(packageRoot)).toThrow(
 			"Missing runtime source map backup: cli.js.map",

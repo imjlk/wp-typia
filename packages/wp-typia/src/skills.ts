@@ -1,0 +1,402 @@
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import {
+  COMMAND_OPTION_METADATA_BY_GROUP,
+  type CommandOptionMetadataMap,
+} from './command-option-metadata';
+import { WP_TYPIA_COMMAND_REGISTRY } from './command-registry';
+
+export type SkillAgent = {
+  detectPath: string;
+  globalSkillsDir: string;
+  name: string;
+  projectSkillsDir: string;
+  universal: boolean;
+};
+
+export type SkillAgentSummary = {
+  globalSkillsDir: string;
+  name: string;
+  projectSkillsDir: string;
+  universal: boolean;
+};
+
+export type SkillCommandSummary = {
+  description?: string;
+  name: string;
+  options: string[];
+  subcommands: string[];
+};
+
+export type SkillsListResult = {
+  agents: SkillAgentSummary[];
+  commands: SkillCommandSummary[];
+};
+
+export type SkillInstall = {
+  agent: string;
+  mode: 'copy' | 'symlink';
+  path: string;
+};
+
+export type SkillsSyncResult = {
+  agents: SkillInstall[];
+  paths: string[];
+  updated: boolean;
+};
+
+type SkillRuntime = {
+  dataHome: () => string;
+  homeDir: () => string;
+};
+
+const defaultSkillRuntime: SkillRuntime = {
+  dataHome: () =>
+    process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
+  homeDir: () => os.homedir(),
+};
+
+function configHome(home: string): string {
+  return process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+}
+
+function codexHome(home: string): string {
+  return process.env.CODEX_HOME?.trim() || path.join(home, '.codex');
+}
+
+function claudeHome(home: string): string {
+  return process.env.CLAUDE_CONFIG_DIR?.trim() || path.join(home, '.claude');
+}
+
+export function getBuiltinSkillAgents(
+  runtime: SkillRuntime = defaultSkillRuntime,
+): SkillAgent[] {
+  const home = runtime.homeDir();
+  const xdgConfigHome = configHome(home);
+  const resolvedCodexHome = codexHome(home);
+  const resolvedClaudeHome = claudeHome(home);
+
+  return [
+    {
+      detectPath: path.join(xdgConfigHome, 'amp'),
+      globalSkillsDir: path.join(xdgConfigHome, 'agents', 'skills'),
+      name: 'Amp',
+      projectSkillsDir: '.agents/skills',
+      universal: true,
+    },
+    {
+      detectPath: resolvedCodexHome,
+      globalSkillsDir: path.join(resolvedCodexHome, 'skills'),
+      name: 'Codex',
+      projectSkillsDir: '.agents/skills',
+      universal: true,
+    },
+    {
+      detectPath: path.join(home, '.cursor'),
+      globalSkillsDir: path.join(home, '.cursor', 'skills'),
+      name: 'Cursor',
+      projectSkillsDir: '.agents/skills',
+      universal: true,
+    },
+    {
+      detectPath: path.join(home, '.gemini'),
+      globalSkillsDir: path.join(home, '.gemini', 'skills'),
+      name: 'Gemini CLI',
+      projectSkillsDir: '.agents/skills',
+      universal: true,
+    },
+    {
+      detectPath: path.join(xdgConfigHome, 'opencode'),
+      globalSkillsDir: path.join(xdgConfigHome, 'opencode', 'skills'),
+      name: 'OpenCode',
+      projectSkillsDir: '.agents/skills',
+      universal: true,
+    },
+    {
+      detectPath: resolvedClaudeHome,
+      globalSkillsDir: path.join(resolvedClaudeHome, 'skills'),
+      name: 'Claude Code',
+      projectSkillsDir: '.claude/skills',
+      universal: false,
+    },
+    {
+      detectPath: path.join(home, '.continue'),
+      globalSkillsDir: path.join(home, '.continue', 'skills'),
+      name: 'Continue',
+      projectSkillsDir: '.continue/skills',
+      universal: false,
+    },
+    {
+      detectPath: path.join(home, '.codeium', 'windsurf'),
+      globalSkillsDir: path.join(home, '.codeium', 'windsurf', 'skills'),
+      name: 'Windsurf',
+      projectSkillsDir: '.windsurf/skills',
+      universal: false,
+    },
+  ];
+}
+
+export function detectSkillAgents(
+  agents = getBuiltinSkillAgents(),
+): SkillAgent[] {
+  return agents.filter((agent) => fs.existsSync(agent.detectPath));
+}
+
+function summarizeAgent(agent: SkillAgent): SkillAgentSummary {
+  return {
+    globalSkillsDir: agent.globalSkillsDir,
+    name: agent.name,
+    projectSkillsDir: agent.projectSkillsDir,
+    universal: agent.universal,
+  };
+}
+
+function optionNamesForGroups(
+  groupNames: readonly (keyof typeof COMMAND_OPTION_METADATA_BY_GROUP)[],
+): string[] {
+  const options = new Set<string>();
+  for (const groupName of groupNames) {
+    const metadata: CommandOptionMetadataMap =
+      COMMAND_OPTION_METADATA_BY_GROUP[groupName];
+    for (const optionName of Object.keys(metadata)) {
+      options.add(optionName);
+    }
+  }
+  return [...options].sort();
+}
+
+export function getSkillCommandSummaries(): SkillCommandSummary[] {
+  return WP_TYPIA_COMMAND_REGISTRY.map((command) => ({
+    description: 'description' in command ? command.description : undefined,
+    name: command.name,
+    options: optionNamesForGroups(command.optionGroups),
+    subcommands: 'subcommands' in command ? [...(command.subcommands ?? [])] : [],
+  }));
+}
+
+export function listSkills(): SkillsListResult {
+  return {
+    agents: detectSkillAgents().map(summarizeAgent),
+    commands: getSkillCommandSummaries(),
+  };
+}
+
+function renderFrontmatter(fields: Record<string, string>): string {
+  return [
+    '---',
+    ...Object.entries(fields).map(([key, value]) =>
+      key === 'name' && /^[a-z0-9][a-z0-9-]*$/u.test(value)
+        ? `${key}: ${value}`
+        : `${key}: ${JSON.stringify(value)}`,
+    ),
+    '---',
+  ].join('\n');
+}
+
+export function generateSkillMarkdown(): string {
+  const commands = getSkillCommandSummaries();
+  const lines = [
+    renderFrontmatter({
+      description: 'wp-typia scaffolding and project workflow commands.',
+      name: 'wp-typia',
+    }),
+    '',
+    '# wp-typia',
+    '',
+    'Use `wp-typia` for WordPress block scaffolding, retrofit planning, generated-project sync, migrations, diagnostics, MCP metadata, shell completions, and skill installation.',
+    '',
+    '## Commands',
+    '',
+  ];
+
+  for (const command of commands) {
+    lines.push(`- \`wp-typia ${command.name}\`: ${command.description ?? command.name}`);
+    if (command.subcommands.length > 0) {
+      lines.push(`  Subcommands: ${command.subcommands.join(', ')}`);
+    }
+    if (command.options.length > 0) {
+      lines.push(`  Options: ${command.options.map((option) => `--${option}`).join(', ')}`);
+    }
+  }
+
+  lines.push(
+    '',
+    'Prefer `--format json` for automation and agent-readable diagnostics.',
+    '',
+  );
+
+  return `${lines.join('\n')}\n`;
+}
+
+function stalenessCacheKey(
+  name: string,
+  isGlobal: boolean,
+  cwd: string,
+  canonicalBase: string,
+): string {
+  const scope = isGlobal
+    ? `global:${path.resolve(canonicalBase)}`
+    : `local:${path.resolve(cwd)}`;
+  const scopeHash = createHash('sha256').update(scope).digest('hex').slice(0, 8);
+  return `${name}-${scopeHash}`;
+}
+
+function statePath(cacheKey: string, runtime: SkillRuntime): string {
+  return path.join(runtime.dataHome(), 'wp-typia', `${cacheKey}-skills.json`);
+}
+
+function readState(
+  cacheKey: string,
+  runtime: SkillRuntime,
+): { agentKey?: string; hash: string } | undefined {
+  try {
+    const state = JSON.parse(fs.readFileSync(statePath(cacheKey, runtime), 'utf8'));
+    if (typeof state?.hash !== 'string') {
+      return undefined;
+    }
+    return {
+      agentKey: typeof state.agentKey === 'string' ? state.agentKey : undefined,
+      hash: state.hash,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeState(
+  cacheKey: string,
+  state: { agentKey: string; hash: string },
+  runtime: SkillRuntime,
+): void {
+  const filePath = statePath(cacheKey, runtime);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(
+    filePath,
+    `${JSON.stringify({ ...state, at: new Date().toISOString() }, null, 2)}\n`,
+    'utf8',
+  );
+}
+
+function computeAgentKey(
+  agents: SkillAgent[],
+  canonicalDir: string,
+  skillName: string,
+  isGlobal: boolean,
+  cwd: string,
+): string {
+  const targets = agents
+    .map((agent) =>
+      isGlobal
+        ? path.join(agent.globalSkillsDir, skillName)
+        : path.join(cwd, agent.projectSkillsDir, skillName),
+    )
+    .filter((target) => target !== canonicalDir)
+    .sort();
+  return createHash('sha256')
+    .update(JSON.stringify(targets))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+function removeExisting(target: string): void {
+  try {
+    const stat = fs.lstatSync(target);
+    if (stat.isSymbolicLink()) {
+      fs.unlinkSync(target);
+      return;
+    }
+    fs.rmSync(target, { force: true, recursive: true });
+  } catch {
+    // Target does not exist.
+  }
+}
+
+function resolveParent(dir: string): string {
+  try {
+    return fs.realpathSync(dir);
+  } catch {
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return dir;
+    }
+    try {
+      return path.join(fs.realpathSync(parent), path.relative(parent, dir));
+    } catch {
+      return dir;
+    }
+  }
+}
+
+export async function syncSkills(options: {
+  cwd?: string;
+  force?: boolean;
+  global?: boolean;
+  runtime?: SkillRuntime;
+} = {}): Promise<SkillsSyncResult> {
+  const runtime = options.runtime ?? defaultSkillRuntime;
+  const cwd = options.cwd ?? process.cwd();
+  const isGlobal = options.global ?? true;
+  const skillName = 'wp-typia';
+  const canonicalBase = path.join(
+    isGlobal ? runtime.homeDir() : cwd,
+    '.agents',
+    'skills',
+  );
+  const canonicalDir = path.join(canonicalBase, skillName);
+  const detectedAgents = detectSkillAgents(getBuiltinSkillAgents(runtime));
+  const agentKey = computeAgentKey(
+    detectedAgents,
+    canonicalDir,
+    skillName,
+    isGlobal,
+    cwd,
+  );
+  const content = generateSkillMarkdown();
+  const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+  const cacheKey = stalenessCacheKey(skillName, isGlobal, cwd, canonicalBase);
+  const previousState = readState(cacheKey, runtime);
+
+  if (!options.force && previousState?.hash === hash && previousState.agentKey === agentKey) {
+    return { agents: [], paths: [], updated: false };
+  }
+
+  await fsp.mkdir(canonicalDir, { recursive: true });
+  await fsp.writeFile(path.join(canonicalDir, 'SKILL.md'), content, 'utf8');
+
+  const installs: SkillInstall[] = [];
+  for (const agent of detectedAgents) {
+    const agentSkillsDir = isGlobal
+      ? agent.globalSkillsDir
+      : path.join(cwd, agent.projectSkillsDir);
+    const agentDir = path.join(agentSkillsDir, skillName);
+    if (agentDir === canonicalDir) {
+      continue;
+    }
+
+    try {
+      removeExisting(agentDir);
+      fs.mkdirSync(path.dirname(agentDir), { recursive: true });
+      const relativeTarget = path.relative(
+        resolveParent(path.dirname(agentDir)),
+        resolveParent(canonicalDir),
+      );
+      fs.symlinkSync(relativeTarget, agentDir);
+      installs.push({ agent: agent.name, mode: 'symlink', path: agentDir });
+    } catch {
+      fs.cpSync(canonicalDir, agentDir, { recursive: true });
+      installs.push({ agent: agent.name, mode: 'copy', path: agentDir });
+    }
+  }
+
+  writeState(cacheKey, { agentKey, hash }, runtime);
+
+  return {
+    agents: installs,
+    paths: [canonicalDir],
+    updated: true,
+  };
+}

@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "types": ["bun-types", "node"]
   },
-  "include": ["src/**/*", ".bunli/**/*"]
+  "include": ["src/**/*"]
 }

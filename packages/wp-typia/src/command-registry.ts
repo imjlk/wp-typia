@@ -5,18 +5,14 @@ export const WP_TYPIA_POSITIONAL_ALIAS_USAGE = 'wp-typia <project-dir>';
 export const WP_TYPIA_CANONICAL_MIGRATE_USAGE = 'wp-typia migrate <subcommand>';
 export const WP_TYPIA_DEPRECATED_MIGRATIONS_USAGE =
   'wp-typia migrations <subcommand>';
-export const WP_TYPIA_BUNLI_MIGRATION_DOC =
-  'https://imjlk.github.io/wp-typia/maintainers/bunli-cli-migration/';
 
 export const WP_TYPIA_COMMAND_REGISTRY = [
   {
     commandTree: true,
     description: 'Scaffold a new wp-typia project.',
-    interactiveRuntime: true,
     name: 'create',
     nodeFallback: true,
     optionGroups: ['create'],
-    requiresBunRuntime: false,
   },
   {
     commandTree: true,
@@ -25,7 +21,6 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     name: 'init',
     nodeFallback: true,
     optionGroups: ['init'],
-    requiresBunRuntime: false,
   },
   {
     commandTree: true,
@@ -33,27 +28,22 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     name: 'sync',
     nodeFallback: true,
     optionGroups: ['sync'],
-    requiresBunRuntime: false,
     subcommands: ['ai'],
   },
   {
     commandTree: true,
     description: 'Extend an official wp-typia workspace.',
-    interactiveRuntime: true,
     name: 'add',
     nodeFallback: true,
     optionGroups: ['add'],
-    requiresBunRuntime: false,
     subcommands: ADD_KIND_IDS,
   },
   {
     commandTree: true,
     description: 'Run migration workflows.',
-    interactiveRuntime: true,
     name: 'migrate',
     nodeFallback: true,
     optionGroups: ['migrate'],
-    requiresBunRuntime: false,
     subcommands: [
       'init',
       'snapshot',
@@ -73,7 +63,6 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     name: 'templates',
     nodeFallback: true,
     optionGroups: ['templates'],
-    requiresBunRuntime: false,
     subcommands: ['list', 'inspect'],
   },
   {
@@ -82,15 +71,13 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     name: 'doctor',
     nodeFallback: true,
     optionGroups: ['doctor'],
-    requiresBunRuntime: false,
   },
   {
     commandTree: true,
     description: 'Inspect or sync schema-driven MCP metadata.',
     name: 'mcp',
-    nodeFallback: false,
+    nodeFallback: true,
     optionGroups: ['mcp'],
-    requiresBunRuntime: true,
     subcommands: ['list', 'sync'],
   },
   {
@@ -98,35 +85,31 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     name: 'help',
     nodeFallback: true,
     optionGroups: [],
-    requiresBunRuntime: false,
   },
   {
     commandTree: false,
     name: 'version',
     nodeFallback: true,
     optionGroups: [],
-    requiresBunRuntime: false,
   },
   {
     commandTree: false,
     name: 'skills',
-    nodeFallback: false,
-    optionGroups: [],
-    requiresBunRuntime: true,
+    nodeFallback: true,
+    optionGroups: ['skills'],
+    subcommands: ['list', 'sync'],
   },
   {
     commandTree: false,
     name: 'completions',
-    nodeFallback: false,
+    nodeFallback: true,
     optionGroups: [],
-    requiresBunRuntime: true,
   },
   {
     commandTree: false,
     name: 'complete',
-    nodeFallback: false,
+    nodeFallback: true,
     optionGroups: [],
-    requiresBunRuntime: true,
   },
 ] as const;
 
@@ -144,10 +127,6 @@ export type WpTypiaNodeFallbackCommandName = Extract<
   WpTypiaCommandRegistryEntry,
   { nodeFallback: true }
 >['name'];
-export type WpTypiaInteractiveRuntimeCommandName = Extract<
-  WpTypiaCommandRegistryEntry,
-  { interactiveRuntime: true }
->['name'];
 export type WpTypiaTopLevelCommandName = WpTypiaCommandTreeEntry['name'];
 
 export const WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES =
@@ -160,27 +139,10 @@ export const WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES =
     (command) => command.name,
   ) as readonly WpTypiaNodeFallbackCommandName[];
 
-export const WP_TYPIA_INTERACTIVE_RUNTIME_TOP_LEVEL_COMMAND_NAMES =
-  WP_TYPIA_COMMAND_REGISTRY.filter(
-    (
-      command,
-    ): command is Extract<
-      WpTypiaCommandRegistryEntry,
-      { interactiveRuntime: true }
-    > => 'interactiveRuntime' in command && command.interactiveRuntime,
-  ).map(
-    (command) => command.name,
-  ) as readonly WpTypiaInteractiveRuntimeCommandName[];
-
 export const WP_TYPIA_TOP_LEVEL_COMMAND_NAMES =
   WP_TYPIA_COMMAND_REGISTRY.filter((command) => command.commandTree).map(
     (command) => command.name,
   ) as readonly WpTypiaTopLevelCommandName[];
-
-export const WP_TYPIA_BUN_REQUIRED_TOP_LEVEL_COMMAND_NAMES =
-  WP_TYPIA_COMMAND_REGISTRY.filter((command) => command.requiresBunRuntime).map(
-    (command) => command.name,
-  ) as readonly WpTypiaReservedTopLevelCommandName[];
 
 export const WP_TYPIA_FUTURE_COMMAND_TREE: ReadonlyArray<{
   description: string;

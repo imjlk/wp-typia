@@ -12,7 +12,7 @@ function getPublishRuntimeMapPaths(packageRoot) {
 
 	return {
 		backupRoot,
-		distRoot: path.join(packageRoot, "dist-bunli"),
+		distRoot: path.join(packageRoot, "dist"),
 		manifestPath: path.join(backupRoot, "manifest.json"),
 	};
 }

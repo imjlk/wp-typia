@@ -7,9 +7,9 @@ import { runUtf8Command } from '../../../tests/helpers/process-utils';
 import { createBlockExternalFixturePath } from '../../wp-typia-project-tools/tests/helpers/scaffold-test-harness.js';
 import {
   entryPath,
-  fullRuntimeEntrypoint,
   parseJsonObjectFromOutput,
   runCapturedCommand,
+  runtimeEntrypoint,
   withoutAIAgentEnv,
   withoutLocalBunEnv,
 } from './cli-package-test-helpers';
@@ -238,7 +238,9 @@ test('rejects typo-like positional alias invocations with extra arguments', () =
 });
 
 test('formats create failures with a shared non-interactive diagnostic block', () => {
-  const result = runCapturedCommand('node', [entryPath, 'create']);
+  const result = runCapturedCommand('node', [entryPath, 'create'], {
+    env: withoutAIAgentEnv(),
+  });
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Error: wp-typia create failed');
@@ -358,10 +360,10 @@ test('emits a machine-readable unknown-template error code for removed built-in 
   }
 });
 
-test('emits a machine-readable missing-argument error code for create in Bun runtime JSON mode', () => {
+test('emits a machine-readable missing-argument error code for create in Gunshi runtime JSON mode', () => {
   const result = runCapturedCommand(
-    'bun',
-    [fullRuntimeEntrypoint, 'create', '--format', 'json'],
+    process.execPath,
+    [runtimeEntrypoint, 'create', '--format', 'json'],
     {
       env: withoutAIAgentEnv(),
     },

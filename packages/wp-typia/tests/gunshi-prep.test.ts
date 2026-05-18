@@ -1,0 +1,181 @@
+import { describe, expect, test } from 'bun:test';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
+
+import { COMMAND_ROUTING_METADATA } from '../src/command-option-metadata';
+import {
+  WP_TYPIA_CANONICAL_CREATE_USAGE,
+  WP_TYPIA_CANONICAL_MIGRATE_USAGE,
+  WP_TYPIA_FUTURE_COMMAND_TREE,
+  WP_TYPIA_POSITIONAL_ALIAS_USAGE,
+  WP_TYPIA_TOP_LEVEL_COMMAND_NAMES,
+  normalizeWpTypiaArgv,
+} from '../src/command-contract';
+import { ADD_KIND_IDS } from '../src/add-kind-registry';
+import {
+  longValueOptions,
+  shortValueOptions,
+} from '../bin/routing-metadata.generated.js';
+
+const packageRoot = path.resolve(import.meta.dir, '..');
+const packageManifest = JSON.parse(
+  fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
+);
+const runtimeDependencyHelperSource = fs.readFileSync(
+  path.join(packageRoot, 'scripts', 'runtime-build-dependencies.ts'),
+  'utf8',
+);
+
+describe('wp-typia Gunshi runtime preparation', () => {
+  function expectMissingOptionValue(callback: () => unknown): void {
+    let caught: unknown;
+    try {
+      callback();
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toMatchObject({
+      code: CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
+    });
+  }
+
+  function expectInvalidArgument(
+    callback: () => unknown,
+    message: RegExp,
+  ): void {
+    let caught: unknown;
+    try {
+      callback();
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toMatchObject({
+      code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    });
+    expect((caught as Error).message).toMatch(message);
+  }
+
+  test('ships the Node-first Gunshi runtime without Bunli package surfaces', () => {
+    expect(packageManifest.bin['wp-typia']).toBe('bin/wp-typia.js');
+    expect(packageManifest.files).toContain('dist/');
+    expect(packageManifest.files).not.toContain('dist-bunli/');
+    expect(packageManifest.dependencies.gunshi).toBe('0.32.0');
+    expect(packageManifest.dependencies['@gunshi/plugin-completion']).toBe(
+      '0.32.0',
+    );
+    expect(packageManifest.dependencies['@bunli/core']).toBeUndefined();
+    expect(packageManifest.devDependencies.bunli).toBeUndefined();
+    expect(packageManifest.optionalDependencies).toBeUndefined();
+    expect(packageManifest.scripts.generate).toBe(
+      'node scripts/generate-routing-metadata.mjs',
+    );
+    expect(packageManifest.scripts.build).toBe(
+      'bun run generate && bun scripts/build-runtime.ts',
+    );
+    expect(fs.existsSync(path.join(packageRoot, 'src', 'gunshi-cli.ts'))).toBe(
+      true,
+    );
+    expect(fs.existsSync(path.join(packageRoot, 'src', 'cli.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(packageRoot, 'bunli.config.ts'))).toBe(
+      false,
+    );
+  });
+
+  test('routing metadata stays generated for portable CLI parsing', () => {
+    expect(longValueOptions).toEqual(COMMAND_ROUTING_METADATA.longValueOptions);
+    expect(shortValueOptions).toEqual(
+      COMMAND_ROUTING_METADATA.shortValueOptions,
+    );
+  });
+
+  test('validates routing metadata with node', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['scripts/generate-routing-metadata.mjs', '--check'],
+      {
+        cwd: packageRoot,
+        encoding: 'utf8',
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+  });
+
+  test('future command tree preserves the reserved top-level taxonomy', () => {
+    const commandNames = WP_TYPIA_FUTURE_COMMAND_TREE.map(
+      (command) => command.name,
+    );
+
+    expect(commandNames).toEqual([...WP_TYPIA_TOP_LEVEL_COMMAND_NAMES]);
+    expect(commandNames).toContain('mcp');
+    expect(WP_TYPIA_FUTURE_COMMAND_TREE).toContainEqual({
+      description: 'Scaffold a new wp-typia project.',
+      name: 'create',
+      subcommands: undefined,
+    });
+  });
+
+  test('future command tree exposes every supported add kind', () => {
+    const addCommand = WP_TYPIA_FUTURE_COMMAND_TREE.find(
+      (command) => command.name === 'add',
+    );
+
+    expect(addCommand?.subcommands).toEqual([...ADD_KIND_IDS]);
+  });
+
+  test('normalizes canonical create and migrate aliases before runtime dispatch', () => {
+    expect(normalizeWpTypiaArgv(['demo-block'])).toEqual(['create', 'demo-block']);
+    expectInvalidArgument(
+      () => normalizeWpTypiaArgv(['migrations', 'plan']),
+      /`wp-typia migrations` was removed/,
+    );
+    expect(WP_TYPIA_CANONICAL_CREATE_USAGE).toBe(
+      'wp-typia create <project-dir>',
+    );
+    expect(WP_TYPIA_POSITIONAL_ALIAS_USAGE).toBe('wp-typia <project-dir>');
+    expect(WP_TYPIA_CANONICAL_MIGRATE_USAGE).toBe(
+      'wp-typia migrate <subcommand>',
+    );
+  });
+
+  test('preserves value-taking option parsing for command normalization', () => {
+    expectMissingOptionValue(() =>
+      normalizeWpTypiaArgv(['create', 'demo-block', '--config']),
+    );
+    expectInvalidArgument(
+      () => normalizeWpTypiaArgv(['--template', 'basic', 'temlates', 'list']),
+      /positional alias only accepts a single project directory/,
+    );
+    expect(normalizeWpTypiaArgv(['mcp', 'sync', '--output-dir=.cache/mcp']))
+      .toEqual(['mcp', 'sync', '--output-dir=.cache/mcp']);
+  });
+
+  test('runtime build dependency helper keeps package runtime aliases explicit', () => {
+    expect(runtimeDependencyHelperSource).toContain(
+      '"@wp-typia/project-tools/cli-diagnostics"',
+    );
+    expect(runtimeDependencyHelperSource).toContain('WP_TYPIA_EXTERNALS');
+  });
+
+  test('publish source-map helper uses the neutral dist runtime', () => {
+    const source = fs.readFileSync(
+      path.join(packageRoot, 'scripts', 'publish-runtime-maps.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('path.join(packageRoot, "dist")');
+    expect(source).not.toContain('dist-bunli');
+  });
+
+  test('mcp sync defaults to the wp-typia metadata directory', () => {
+    const source = fs.readFileSync(path.join(packageRoot, 'src', 'mcp.ts'), 'utf8');
+
+    expect(source).toContain("path.join(cwd, '.wp-typia', 'mcp')");
+  });
+});
