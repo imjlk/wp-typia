@@ -16,17 +16,24 @@ const PACKAGE_VERSIONS_SOURCE = fs.readFileSync(
 	),
 	"utf8",
 );
+const PACKAGE_VERSIONS_SHARED_SOURCE = fs.readFileSync(
+	path.resolve(
+		import.meta.dir,
+		"../../packages/wp-typia-project-tools/src/runtime/shared/package-versions.ts",
+	),
+	"utf8",
+);
 const FS_ASYNC_SOURCE = fs.readFileSync(
 	path.resolve(
 		import.meta.dir,
-		"../../packages/wp-typia-project-tools/src/runtime/fs-async.ts",
+		"../../packages/wp-typia-project-tools/src/runtime/shared/fs-async.ts",
 	),
 	"utf8",
 );
 const JSON_UTILS_SOURCE = fs.readFileSync(
 	path.resolve(
 		import.meta.dir,
-		"../../packages/wp-typia-project-tools/src/runtime/json-utils.ts",
+		"../../packages/wp-typia-project-tools/src/runtime/shared/json-utils.ts",
 	),
 	"utf8",
 );
@@ -52,16 +59,23 @@ async function importPackageVersionsModule(options: {
 }> {
 	const tempRoot = createTempDir("wp-typia-package-versions-");
 	const runtimeDir = path.join(tempRoot, "runtime");
+	const runtimeSharedDir = path.join(runtimeDir, "shared");
+	const runtimeTemplatesDir = path.join(runtimeDir, "templates");
 
-	fs.mkdirSync(runtimeDir, { recursive: true });
+	fs.mkdirSync(runtimeSharedDir, { recursive: true });
+	fs.mkdirSync(runtimeTemplatesDir, { recursive: true });
 	writeTextFile(
 		path.join(runtimeDir, "package-versions.ts"),
 		PACKAGE_VERSIONS_SOURCE,
 	);
-	writeTextFile(path.join(runtimeDir, "fs-async.ts"), FS_ASYNC_SOURCE);
-	writeTextFile(path.join(runtimeDir, "json-utils.ts"), JSON_UTILS_SOURCE);
 	writeTextFile(
-		path.join(runtimeDir, "template-registry.js"),
+		path.join(runtimeSharedDir, "package-versions.ts"),
+		PACKAGE_VERSIONS_SHARED_SOURCE,
+	);
+	writeTextFile(path.join(runtimeSharedDir, "fs-async.ts"), FS_ASYNC_SOURCE);
+	writeTextFile(path.join(runtimeSharedDir, "json-utils.ts"), JSON_UTILS_SOURCE);
+	writeTextFile(
+		path.join(runtimeTemplatesDir, "template-registry.js"),
 		`export const PROJECT_TOOLS_PACKAGE_ROOT = ${JSON.stringify(options.createPackageRoot)};\n`,
 	);
 

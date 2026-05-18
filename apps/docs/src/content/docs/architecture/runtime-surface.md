@@ -106,6 +106,10 @@ This document is descriptive, not normative. For support guarantees, see
   structural/code emitters, the non-mutating
   `inspectBlockGeneration(...)` tool contract, and the preferred schema project
   imports.
+  Its source-level `src/runtime/*.ts` files remain stable compatibility
+  facades, while implementation ownership now sits behind focused internal
+  folders: `add/`, `cli/`, `doctor/`, `migration/`, `schema/`, `shared/`,
+  `templates/`, and `workspace/`.
   Built-in templates no longer ship structural, TS/TSX, style, or block-local
   `render.php` Mustache files for those generated artifacts. The higher-level
   generator architecture record lives in

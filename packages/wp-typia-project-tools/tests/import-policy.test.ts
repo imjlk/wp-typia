@@ -4,6 +4,17 @@ import * as path from 'node:path';
 
 const packageRoot = path.resolve(import.meta.dir, '..');
 const repoRoot = path.resolve(packageRoot, '..', '..');
+const projectToolsRuntimeRoot = path.join(packageRoot, 'src', 'runtime');
+const projectToolsRuntimeDomains = [
+  'add',
+  'cli',
+  'doctor',
+  'migration',
+  'schema',
+  'shared',
+  'templates',
+  'workspace',
+] as const;
 
 describe('@wp-typia/project-tools import policy', () => {
   test('exports project orchestration helpers without re-exporting generated runtime helpers', async () => {
@@ -298,6 +309,32 @@ describe('@wp-typia/project-tools import policy', () => {
     );
   });
 
+  test('runtime root keeps stable facades above focused domain folders', () => {
+    for (const domain of projectToolsRuntimeDomains) {
+      expect(
+        fs.statSync(path.join(projectToolsRuntimeRoot, domain)).isDirectory(),
+      ).toBe(true);
+    }
+
+    const facadeFiles = fs
+      .readdirSync(projectToolsRuntimeRoot)
+      .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+      .sort();
+    const facadeLineCount = facadeFiles.reduce((total, entry) => {
+      const source = fs.readFileSync(
+        path.join(projectToolsRuntimeRoot, entry),
+        'utf8',
+      );
+      expect(source.trim()).toMatch(
+        /^export \* from "\.\/(?:add|cli|doctor|migration|schema|shared|templates|workspace)\//,
+      );
+      return total + source.trim().split('\n').length;
+    }, 0);
+
+    expect(facadeFiles.length).toBeGreaterThan(200);
+    expect(facadeLineCount).toBeLessThan(400);
+  });
+
   test('shared migration contracts and workspace template identity have a single owner', () => {
     const blockRuntimePackageManifest = JSON.parse(
       fs.readFileSync(
@@ -311,23 +348,23 @@ describe('@wp-typia/project-tools import policy', () => {
       ),
     ) as { exports?: Record<string, unknown> };
     const migrationTypesSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'runtime', 'migration-types.ts'),
+      path.join(projectToolsRuntimeRoot, 'migration', 'migration-types.ts'),
       'utf8',
     );
     const templateRegistrySource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'runtime', 'template-registry.ts'),
+      path.join(projectToolsRuntimeRoot, 'templates', 'template-registry.ts'),
       'utf8',
     );
     const templateSourceSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'runtime', 'template-source.ts'),
+      path.join(projectToolsRuntimeRoot, 'templates', 'template-source.ts'),
       'utf8',
     );
     const cliScaffoldSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'runtime', 'cli-scaffold.ts'),
+      path.join(projectToolsRuntimeRoot, 'templates', 'cli-scaffold.ts'),
       'utf8',
     );
     const scaffoldSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'runtime', 'scaffold.ts'),
+      path.join(projectToolsRuntimeRoot, 'templates', 'scaffold.ts'),
       'utf8',
     );
 

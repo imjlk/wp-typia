@@ -27,6 +27,9 @@ Implementation note:
 - The shared implementation now lives in `@wp-typia/block-runtime/schema-core`.
 - Shared manifest/migration contract types now live in
   `@wp-typia/block-runtime/migration-types`.
+- `src/runtime/*.ts` files are stable compatibility facades. The implementation
+  lives under focused internal ownership folders: `add/`, `cli/`, `doctor/`,
+  `migration/`, `schema/`, `shared/`, `templates/`, and `workspace/`.
 - The public `doctor` surface still lives on `@wp-typia/project-tools`, while
   environment and workspace checks now sit behind focused helper modules.
 - These splits are maintainability refactors behind stable public facades. Keep

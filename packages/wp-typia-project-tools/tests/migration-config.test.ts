@@ -31,7 +31,7 @@ test("migration arg parser accepts plan and wizard commands", () => {
 });
 
 test("migrations runtime keeps command parsing and maintenance helpers in dedicated modules", () => {
-	const runtimeDir = path.join(import.meta.dir, "../src/runtime");
+	const runtimeDir = path.join(import.meta.dir, "../src/runtime/migration");
 	const migrationsSource = fs.readFileSync(
 		path.join(runtimeDir, "migrations.ts"),
 		"utf8",

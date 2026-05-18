@@ -3,18 +3,19 @@ import fs from "node:fs";
 import path from "node:path";
 
 const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+const migrationRuntimeRoot = path.join(runtimeRoot, "migration");
 
 test("migration runtime source keeps planning and generated-artifact helpers in dedicated modules", () => {
 	const migrationsSource = fs.readFileSync(
-		path.join(runtimeRoot, "migrations.ts"),
+		path.join(migrationRuntimeRoot, "migrations.ts"),
 		"utf8",
 	);
 	const planningSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-planning.ts"),
+		path.join(migrationRuntimeRoot, "migration-planning.ts"),
 		"utf8",
 	);
 	const generatedArtifactsSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-generated-artifacts.ts"),
+		path.join(migrationRuntimeRoot, "migration-generated-artifacts.ts"),
 		"utf8",
 	);
 
@@ -42,27 +43,27 @@ test("migration runtime source keeps planning and generated-artifact helpers in 
 
 test("migration project barrel delegates layout, config parsing, and workspace helpers", () => {
 	const projectSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project.ts"),
+		path.join(migrationRuntimeRoot, "migration-project.ts"),
 		"utf8",
 	);
 	const configSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project-config-source.ts"),
+		path.join(migrationRuntimeRoot, "migration-project-config-source.ts"),
 		"utf8",
 	);
 	const layoutSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project-layout.ts"),
+		path.join(migrationRuntimeRoot, "migration-project-layout.ts"),
 		"utf8",
 	);
 	const layoutDiscoverySource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project-layout-discovery.ts"),
+		path.join(migrationRuntimeRoot, "migration-project-layout-discovery.ts"),
 		"utf8",
 	);
 	const layoutPathsSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project-layout-paths.ts"),
+		path.join(migrationRuntimeRoot, "migration-project-layout-paths.ts"),
 		"utf8",
 	);
 	const workspaceSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-project-workspace.ts"),
+		path.join(migrationRuntimeRoot, "migration-project-workspace.ts"),
 		"utf8",
 	);
 
@@ -90,19 +91,19 @@ test("migration project barrel delegates layout, config parsing, and workspace h
 
 test("migration render barrel delegates renderer families to focused modules", () => {
 	const renderBarrelSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-render.ts"),
+		path.join(migrationRuntimeRoot, "migration-render.ts"),
 		"utf8",
 	);
 	const diffRuleSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-render-diff-rule.ts"),
+		path.join(migrationRuntimeRoot, "migration-render-diff-rule.ts"),
 		"utf8",
 	);
 	const generatedSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-render-generated.ts"),
+		path.join(migrationRuntimeRoot, "migration-render-generated.ts"),
 		"utf8",
 	);
 	const executionSource = fs.readFileSync(
-		path.join(runtimeRoot, "migration-render-execution.ts"),
+		path.join(migrationRuntimeRoot, "migration-render-execution.ts"),
 		"utf8",
 	);
 

@@ -129,7 +129,14 @@ describe('package version cache invalidation', () => {
 
   test('reads package manifest metadata and contents through one file descriptor', () => {
     const packageVersionsSource = fs.readFileSync(
-      path.join(import.meta.dir, '..', 'src', 'runtime', 'package-versions.ts'),
+      path.join(
+        import.meta.dir,
+        '..',
+        'src',
+        'runtime',
+        'shared',
+        'package-versions.ts',
+      ),
       'utf8',
     );
 
@@ -223,6 +230,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-ability.ts',
       ),
       'utf8',
@@ -233,6 +241,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-ability-scaffold.ts',
       ),
       'utf8',
@@ -243,6 +252,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-ability-anchors.ts',
       ),
       'utf8',
@@ -253,6 +263,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-admin-view.ts',
       ),
       'utf8',
@@ -263,6 +274,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-admin-view-scaffold.ts',
       ),
       'utf8',
@@ -273,6 +285,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-integration-env.ts',
       ),
       'utf8',
@@ -283,6 +296,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'add',
         'cli-add-workspace-integration-env-package-json.ts',
       ),
       'utf8',
@@ -293,6 +307,7 @@ describe('package version cache invalidation', () => {
         '..',
         'src',
         'runtime',
+        'templates',
         'local-dev-presets.ts',
       ),
       'utf8',
@@ -356,10 +371,16 @@ describe('package version cache invalidation', () => {
     expect(localDevPresetsSource).not.toContain(
       '["@wordpress/env"] = "^11.2.0"',
     );
-    expect(abilityRuntimeSource).not.toContain('from "./package-versions.js"');
-    expect(abilityScaffoldSource).not.toContain('from "./package-versions.js"');
-    expect(abilityAnchorsSource).toContain('from "./package-versions.js"');
-    expect(adminViewScaffoldSource).toContain("from './package-versions.js'");
+    expect(abilityRuntimeSource).not.toContain('../shared/package-versions.js');
+    expect(abilityScaffoldSource).not.toContain(
+      '../shared/package-versions.js',
+    );
+    expect(abilityAnchorsSource).toContain(
+      '../shared/package-versions.js',
+    );
+    expect(adminViewScaffoldSource).toContain(
+      "from '../shared/package-versions.js'",
+    );
     expect(adminViewScaffoldSource).toContain(
       'resolveManagedPackageVersionRange',
     );
