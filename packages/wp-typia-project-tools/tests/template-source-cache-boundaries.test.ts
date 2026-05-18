@@ -8,15 +8,21 @@ import {
   parseExternalTemplateCachePruneMarker,
 } from '../src/runtime/template-source-cache-markers.js'
 
-const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime')
+const templateRuntimeRoot = path.join(
+  import.meta.dir,
+  '..',
+  'src',
+  'runtime',
+  'templates',
+)
 
 test('template source cache delegates environment policy to a focused module', () => {
   const cacheSource = fs.readFileSync(
-    path.join(runtimeRoot, 'template-source-cache.ts'),
+    path.join(templateRuntimeRoot, 'template-source-cache.ts'),
     'utf8',
   )
   const policySource = fs.readFileSync(
-    path.join(runtimeRoot, 'template-source-cache-policy.ts'),
+    path.join(templateRuntimeRoot, 'template-source-cache-policy.ts'),
     'utf8',
   )
 
@@ -43,7 +49,7 @@ test('template source cache delegates environment policy to a focused module', (
 
 test('template source cache uses crypto randomness for temporary cache entries', () => {
   const cacheSource = fs.readFileSync(
-    path.join(runtimeRoot, 'template-source-cache.ts'),
+    path.join(templateRuntimeRoot, 'template-source-cache.ts'),
     'utf8',
   )
 
@@ -55,11 +61,11 @@ test('template source cache uses crypto randomness for temporary cache entries',
 
 test('template source cache delegates marker parsing and serialization to a focused module', () => {
   const cacheSource = fs.readFileSync(
-    path.join(runtimeRoot, 'template-source-cache.ts'),
+    path.join(templateRuntimeRoot, 'template-source-cache.ts'),
     'utf8',
   )
   const markerSource = fs.readFileSync(
-    path.join(runtimeRoot, 'template-source-cache-markers.ts'),
+    path.join(templateRuntimeRoot, 'template-source-cache-markers.ts'),
     'utf8',
   )
 

@@ -604,32 +604,39 @@ export const BLOCKS: WorkspaceBlockConfig[] = [
 });
 
 test("workspace inventory section descriptors support optional interface and const halves", () => {
+  const runtimeDir = path.join(
+    import.meta.dir,
+    "..",
+    "src",
+    "runtime",
+    "workspace",
+  );
   const barrelSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory.ts"),
+    path.join(runtimeDir, "workspace-inventory.ts"),
     "utf8"
   );
   const parserSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-parser.ts"),
+    path.join(runtimeDir, "workspace-inventory-parser.ts"),
     "utf8"
   );
   const parserEntriesSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-parser-entries.ts"),
+    path.join(runtimeDir, "workspace-inventory-parser-entries.ts"),
     "utf8"
   );
   const parserValidationSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-parser-validation.ts"),
+    path.join(runtimeDir, "workspace-inventory-parser-validation.ts"),
     "utf8"
   );
   const sectionDescriptorSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-section-descriptors.ts"),
+    path.join(runtimeDir, "workspace-inventory-section-descriptors.ts"),
     "utf8"
   );
   const mutationsSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-mutations.ts"),
+    path.join(runtimeDir, "workspace-inventory-mutations.ts"),
     "utf8"
   );
   const templatesSource = fs.readFileSync(
-    path.join(import.meta.dir, "..", "src", "runtime", "workspace-inventory-templates.ts"),
+    path.join(runtimeDir, "workspace-inventory-templates.ts"),
     "utf8"
   );
 

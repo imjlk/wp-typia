@@ -84,8 +84,8 @@ public package roots and subpaths.
 
 Do not import split helper files such as inspector type/model/control modules,
 metadata-core sync/client-render modules, schema-core document/projection
-helpers, or CLI runtime-bridge helpers directly. Those are implementation
-details behind the supported facades.
+helpers, `@wp-typia/project-tools` domain folders, or CLI runtime-bridge helpers
+directly. Those are implementation details behind the supported facades.
 
 ## Programmatic project tooling
 
@@ -103,6 +103,13 @@ manager, starter manifest, schema/OpenAPI project helpers, the `BlockSpec` /
 the build-time `typia.llm` adapter target, and the emitter-owned built-in
 structural/source path where built-in templates no longer ship structural,
 TS/TSX, style, or block-local `render.php` Mustache files.
+
+Inside the package, `src/runtime/*.ts` stays as the compatibility facade layer
+that backs documented subpaths such as `@wp-typia/project-tools/cli-add`.
+Implementation modules live in focused internal folders: `add/`, `cli/`,
+`doctor/`, `migration/`, `schema/`, `shared/`, `templates/`, and `workspace/`.
+Those folders are ownership boundaries for maintainers, not supported import
+paths for consumers.
 
 For the architecture record behind that boundary, including the staged
 non-mutating tool-facing contract and current phase map, see

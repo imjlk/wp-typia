@@ -1037,7 +1037,7 @@ test("local create-block subset paths scaffold into a pnpm-ready wp-typia projec
 });
 
 test("template-source-remote preserves existing package.json.mustache wp-typia pins when patching remote manifests", () => {
-  const runtimeDir = path.join(packageRoot, "src", "runtime");
+  const runtimeDir = path.join(packageRoot, "src", "runtime", "templates");
   const templateSourceRemote = fs.readFileSync(
     path.join(runtimeDir, "template-source-remote.ts"),
     "utf8"
@@ -1841,7 +1841,7 @@ test("malformed remote projectType metadata surfaces a direct validation diagnos
 });
 
 test("workspace template package identity is defined once and imported by runtime callers", () => {
-  const runtimeDir = path.join(packageRoot, "src", "runtime");
+  const runtimeDir = path.join(packageRoot, "src", "runtime", "templates");
   const templateRegistry = fs.readFileSync(
     path.join(runtimeDir, "template-registry.ts"),
     "utf8"
@@ -1877,7 +1877,7 @@ test("workspace template package identity is defined once and imported by runtim
 });
 
 test("template-source stays as a facade over dedicated locator, seed, and normalization helpers", () => {
-  const runtimeDir = path.join(packageRoot, "src", "runtime");
+  const runtimeDir = path.join(packageRoot, "src", "runtime", "templates");
   const templateSource = fs.readFileSync(
     path.join(runtimeDir, "template-source.ts"),
     "utf8"
@@ -1889,7 +1889,7 @@ test("template-source stays as a facade over dedicated locator, seed, and normal
 });
 
 test("template-source-normalization stays as a facade over external and remote helper modules", () => {
-  const runtimeDir = path.join(packageRoot, "src", "runtime");
+  const runtimeDir = path.join(packageRoot, "src", "runtime", "templates");
   const templateSourceNormalization = fs.readFileSync(
     path.join(runtimeDir, "template-source-normalization.ts"),
     "utf8"
@@ -1923,7 +1923,7 @@ test("template-source-normalization stays as a facade over external and remote h
 });
 
 test("template source copy filters use async filesystem probes", () => {
-  const runtimeDir = path.join(packageRoot, "src", "runtime");
+  const runtimeDir = path.join(packageRoot, "src", "runtime", "templates");
   const templateSourceExternal = fs.readFileSync(
     path.join(runtimeDir, "template-source-external.ts"),
     "utf8"

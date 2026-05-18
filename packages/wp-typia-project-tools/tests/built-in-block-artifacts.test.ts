@@ -642,63 +642,63 @@ describe('built-in block artifacts', () => {
     cleanupScaffoldTempRoot(tempRoot);
   });
 
-  test('built-in code artifact assembly keeps template bodies in family modules', () => {
-    const assemblySource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-artifacts.ts',
-      ),
-      'utf8',
-    );
-    const templateBarrelSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates.ts',
-      ),
-      'utf8',
-    );
-    const basicTemplateSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates/basic.ts',
-      ),
-      'utf8',
-    );
-    const compoundTemplateSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates/compound.ts',
-      ),
-      'utf8',
-    );
-    const compoundParentTemplateSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates/compound-parent.ts',
-      ),
-      'utf8',
-    );
-    const compoundChildTemplateSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates/compound-child.ts',
-      ),
-      'utf8',
-    );
-    const compoundPersistenceTemplateSource = fs.readFileSync(
-      path.join(
-        import.meta.dir,
-        '..',
-        'src/runtime/built-in-block-code-templates/compound-persistence.ts',
-      ),
-      'utf8',
-    );
+	test('built-in code artifact assembly keeps template bodies in family modules', () => {
+		const assemblySource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-artifacts.ts',
+			),
+			'utf8',
+		);
+		const templateBarrelSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates.ts',
+			),
+			'utf8',
+		);
+		const basicTemplateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates/basic.ts',
+			),
+			'utf8',
+		);
+		const compoundTemplateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates/compound.ts',
+			),
+			'utf8',
+		);
+		const compoundParentTemplateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates/compound-parent.ts',
+			),
+			'utf8',
+		);
+		const compoundChildTemplateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates/compound-child.ts',
+			),
+			'utf8',
+		);
+		const compoundPersistenceTemplateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'src/runtime/templates/built-in-block-code-templates/compound-persistence.ts',
+			),
+			'utf8',
+		);
 
     expect(assemblySource).toContain(
       'from "./built-in-block-code-templates.js"',

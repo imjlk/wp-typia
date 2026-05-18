@@ -142,7 +142,13 @@ describe("@wp-typia/project-tools scaffold CLI flow", () => {
   }
 
 test("cli scaffold flow keeps orchestration separate from file and emission helpers", () => {
-  const runtimeDir = path.join(import.meta.dir, "..", "src", "runtime");
+  const runtimeDir = path.join(
+    import.meta.dir,
+    "..",
+    "src",
+    "runtime",
+    "templates",
+  );
   const cliScaffold = fs.readFileSync(
     path.join(runtimeDir, "cli-scaffold.ts"),
     "utf8"

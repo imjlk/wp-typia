@@ -1,7 +1,1 @@
-/**
- * Re-exports the metadata model types and helpers from `@wp-typia/block-runtime`.
- * This adapter keeps the public project-tools runtime path stable while the
- * implementation is consolidated in block-runtime.
- * @module
- */
-export * from "@wp-typia/block-runtime/metadata-model";
+export * from "./schema/metadata-model.js";
