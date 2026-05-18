@@ -87,9 +87,14 @@ describe('repository DX baseline', () => {
       )?.[1] ?? '';
 
     expect(fastPathBlock).toContain('packages/wp-typia-api-client/tests');
-    expect(fastPathBlock).toContain('packages/wp-typia-dataviews/tests');
+    expect(fastPathBlock).toContain(
+      'packages/wp-typia-dataviews/tests/query-adapter.test.ts',
+    );
     expect(fastPathBlock).toContain('tests/unit/repo-dx-baseline.test.ts');
     expect(fastPathBlock).not.toContain("'tests/unit/sync-types.test.ts',");
+    expect(fastPathBlock).not.toContain(
+      "'packages/wp-typia-dataviews/tests/type-contracts.test.ts',",
+    );
     expect(fastPathBlock).not.toContain(
       "'packages/wp-typia-rest/tests/package-contracts.test.ts',",
     );
