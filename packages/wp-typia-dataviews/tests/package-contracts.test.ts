@@ -45,4 +45,17 @@ describe("@wp-typia/dataviews package contracts", () => {
       "@wordpress/dataviews/build-style/style.css",
     );
   });
+
+  test("keeps the source root as a narrow facade over focused modules", () => {
+    const indexSource = readFileSync(resolve(packageRoot, "src/index.ts"), "utf8");
+
+    expect(indexSource).toContain('from "./types.js"');
+    expect(indexSource).toContain('from "./define-data-views.js"');
+    expect(indexSource).toContain('from "./query-adapter.js"');
+    expect(indexSource).toContain('from "./data-form.js"');
+    expect(indexSource).toContain('from "./wordpress-assets.js"');
+    expect(indexSource).not.toContain("function normalizeDataViewsFieldType");
+    expect(indexSource).not.toContain("function mergeDataViewsSortQuery");
+    expect(indexSource).not.toContain("function normalizeDataFormField");
+  });
 });
