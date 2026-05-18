@@ -153,6 +153,36 @@ async function waitForAssertion(
     : new Error('Timed out waiting for assertion to pass.');
 }
 
+function isExpectedReactErrorBoundaryNotice(args: readonly unknown[]): boolean {
+  return args.some(
+    (arg) =>
+      typeof arg === 'string' &&
+      arg.includes('The above error occurred in the <Harness> component:') &&
+      arg.includes(
+        'Consider adding an error boundary to your tree to customize error handling behavior.',
+      ),
+  );
+}
+
+async function withExpectedReactErrorBoundaryNoticeSuppressed<T>(
+  action: () => Promise<T>,
+): Promise<T> {
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    if (isExpectedReactErrorBoundaryNotice(args)) {
+      return;
+    }
+
+    originalError(...args);
+  };
+
+  try {
+    return await action();
+  } finally {
+    console.error = originalError;
+  }
+}
+
 afterEach(() => {
   for (const unmount of [...activeUnmounts]) {
     void unmount();
@@ -183,9 +213,13 @@ describe('@wp-typia/rest/react', () => {
             ),
     });
 
-    await expect(
-      createHookRenderer(() => useEndpointQuery(endpoint, { title: 'Hello' })),
-    ).rejects.toBeInstanceOf(RestQueryHookUsageError);
+    await withExpectedReactErrorBoundaryNoticeSuppressed(async () => {
+      await expect(
+        createHookRenderer(() =>
+          useEndpointQuery(endpoint, { title: 'Hello' }),
+        ),
+      ).rejects.toBeInstanceOf(RestQueryHookUsageError);
+    });
   });
 
   test('useEndpointQuery performs the initial fetch and reuses cached data across consumers', async () => {
