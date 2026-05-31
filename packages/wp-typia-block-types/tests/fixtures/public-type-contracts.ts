@@ -81,6 +81,7 @@ import {
 import {
 	BLOCK_VARIATION_SCOPES,
 	registerScaffoldBlockType,
+	type BlockAttributeSchema,
 	type BlockConfiguration,
 	type BlockEditProps,
 	type BlockVariation,
@@ -312,6 +313,21 @@ type HeadingVariationAttributes = {
 	className?: string;
 	level?: number;
 };
+type GalleryAttributes = {
+	items: Array<{ label: string }>;
+	tags: string[];
+};
+
+const galleryAttributeSchema = {
+	items: {
+		default: [{ label: "Featured" }],
+		type: "array",
+	},
+	tags: {
+		default: ["featured"],
+		type: "array",
+	},
+} satisfies BlockAttributeSchema<GalleryAttributes>;
 
 const paragraphVariation = defineVariation<ParagraphVariationAttributes>(
 	"core/paragraph",
@@ -497,6 +513,7 @@ void profileMetadataContract;
 void profilePhpRegistrationSource;
 void profileEditorRegistrationSource;
 void profileRegistrationEntry;
+void galleryAttributeSchema;
 void paragraphVariation;
 void headingVariation;
 void proseGroupVariation;

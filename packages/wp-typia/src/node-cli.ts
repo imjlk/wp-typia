@@ -143,6 +143,17 @@ async function loadNodeCliConfig(
   return config;
 }
 
+function commandNeedsNodeCliConfig(
+  command: string | undefined,
+  subcommand: string | undefined,
+): boolean {
+  return (
+    command === 'create' ||
+    command === 'mcp' ||
+    (command === 'add' && subcommand === 'block')
+  );
+}
+
 function parseArgv(argv: string[]) {
   return parseCommandArgvWithMetadata(argv, {
     extraBooleanOptionNames: NODE_FALLBACK_BOOLEAN_OPTION_NAMES,
@@ -438,20 +449,24 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const config = await loadNodeCliConfig(process.cwd(), configOverridePath);
-  const mergedFlags = await applyNodeFallbackConfigDefaults(
-    command,
-    subcommand,
-    rawMergedFlags,
-    config,
-  );
-
   const commandDispatcher =
     command &&
     NODE_FALLBACK_COMMAND_DISPATCHERS[
       command as NodeFallbackExecutableCommandName
     ];
   if (commandDispatcher) {
+    const configNeeded = commandNeedsNodeCliConfig(command, subcommand);
+    const config = configNeeded
+      ? await loadNodeCliConfig(process.cwd(), configOverridePath)
+      : {};
+    const mergedFlags = configNeeded
+      ? await applyNodeFallbackConfigDefaults(
+          command,
+          subcommand,
+          rawMergedFlags,
+          config,
+        )
+      : rawMergedFlags;
     await commandDispatcher({
       config,
       cwd: process.cwd(),

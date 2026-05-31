@@ -838,6 +838,72 @@ describe('Gunshi CLI core routing', () => {
     }
   });
 
+  test('keeps config-independent commands from parsing cwd config', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-config-lazy-');
+    writeJson(path.join(tempRoot, '.wp-typiarc.json'), {
+      create: {
+        'dry-run': 'yes',
+      },
+    });
+
+    try {
+      const skillsResult = await captureNodeCli(
+        ['skills', 'list', '--format', 'json'],
+        { cwd: tempRoot },
+      );
+      const skillsPayload = JSON.parse(skillsResult.stdout) as {
+        agents?: unknown[];
+        commands?: unknown[];
+      };
+
+      expect(skillsResult.error).toBeUndefined();
+      expect(skillsResult.exitCode).toBe(0);
+      expect(skillsResult.stderr).toBe('');
+      expect(Array.isArray(skillsPayload.agents)).toBe(true);
+      expect(Array.isArray(skillsPayload.commands)).toBe(true);
+
+      const completionResult = await captureNodeCli(['completions', 'bash'], {
+        cwd: tempRoot,
+      });
+
+      expect(completionResult.error).toBeUndefined();
+      expect(completionResult.exitCode).toBe(0);
+      expect(completionResult.stderr).toBe('');
+      expect(completionResult.stdout).toContain('wp-typia complete -- bash');
+
+      const mcpResult = await captureNodeCli(
+        ['mcp', 'list', '--format', 'json'],
+        {
+          cwd: tempRoot,
+          entrypoint: true,
+        },
+      );
+      const mcpError = JSON.parse(mcpResult.stderr) as {
+        error?: {
+          code?: string;
+          command?: string;
+          detailLines?: string[];
+        };
+        ok?: boolean;
+      };
+
+      expect(mcpResult.error).toBeUndefined();
+      expect(mcpResult.exitCode).toBe(1);
+      expect(mcpResult.stdout).toBe('');
+      expect(mcpError.ok).toBe(false);
+      expect(mcpError.error?.command).toBe('mcp');
+      expect(mcpError.error?.code).toBe('invalid-argument');
+      expect(mcpError.error?.detailLines?.join('\n')).toContain(
+        'create.dry-run',
+      );
+      expect(mcpError.error?.detailLines?.join('\n')).toContain(
+        'expected boolean',
+      );
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
   test('captures structured entrypoint errors on stderr', async () => {
     const result = await captureNodeCli(['create', '--format', 'json'], {
       entrypoint: true,

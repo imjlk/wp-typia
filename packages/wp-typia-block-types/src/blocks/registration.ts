@@ -31,9 +31,7 @@ export type BlockAttribute<TValue = unknown> = Omit<
 export type BlockAttributeSchema<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = {
-  [K in keyof TAttributes]: BlockAttribute<
-    TAttributes[K] extends Array<infer TItem> ? TItem : TAttributes[K]
-  >;
+  [K in keyof TAttributes]: BlockAttribute<TAttributes[K]>;
 };
 
 export type BlockSaveProps<
