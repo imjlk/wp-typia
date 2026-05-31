@@ -281,25 +281,45 @@ function writeState(
   );
 }
 
-function computeAgentKey(
+function getAgentSkillDirs(
   agents: SkillAgent[],
   canonicalDir: string,
   skillName: string,
   isGlobal: boolean,
   cwd: string,
-): string {
-  const targets = agents
+): string[] {
+  return agents
     .map((agent) =>
       isGlobal
         ? path.join(agent.globalSkillsDir, skillName)
         : path.join(cwd, agent.projectSkillsDir, skillName),
     )
-    .filter((target) => target !== canonicalDir)
-    .sort();
+    .filter((target) => target !== canonicalDir);
+}
+
+function computeAgentKey(targets: string[]): string {
   return createHash('sha256')
-    .update(JSON.stringify(targets))
+    .update(JSON.stringify([...targets].sort()))
     .digest('hex')
     .slice(0, 16);
+}
+
+function skillTargetsAreCurrent(
+  canonicalDir: string,
+  agentDirs: string[],
+  content: string,
+): boolean {
+  for (const targetDir of [canonicalDir, ...agentDirs]) {
+    try {
+      if (fs.readFileSync(path.join(targetDir, 'SKILL.md'), 'utf8') !== content) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function removeExisting(target: string): void {
@@ -348,19 +368,25 @@ export async function syncSkills(options: {
   );
   const canonicalDir = path.join(canonicalBase, skillName);
   const detectedAgents = detectSkillAgents(getBuiltinSkillAgents(runtime));
-  const agentKey = computeAgentKey(
+  const agentDirs = getAgentSkillDirs(
     detectedAgents,
     canonicalDir,
     skillName,
     isGlobal,
     cwd,
   );
+  const agentKey = computeAgentKey(agentDirs);
   const content = generateSkillMarkdown();
   const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
   const cacheKey = stalenessCacheKey(skillName, isGlobal, cwd, canonicalBase);
   const previousState = readState(cacheKey, runtime);
 
-  if (!options.force && previousState?.hash === hash && previousState.agentKey === agentKey) {
+  if (
+    !options.force &&
+    previousState?.hash === hash &&
+    previousState.agentKey === agentKey &&
+    skillTargetsAreCurrent(canonicalDir, agentDirs, content)
+  ) {
     return { agents: [], paths: [], updated: false };
   }
 

@@ -404,6 +404,32 @@ describe('wp-typia package', () => {
     expect(output.trim()).toBe(`wp-typia ${packageManifest.version}`);
   });
 
+  test('preserves short help and version aliases through the canonical bin', () => {
+    const topHelp = runCapturedCommand(process.execPath, [entryPath, '-h'], {
+      env: withoutAIAgentEnv(),
+    });
+    const createHelp = runCapturedCommand(
+      process.execPath,
+      [entryPath, 'create', '-h'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
+    const version = runCapturedCommand(process.execPath, [entryPath, '-v'], {
+      env: withoutAIAgentEnv(),
+    });
+
+    expect(topHelp.status).toBe(0);
+    expect(topHelp.stderr).toBe('');
+    expect(topHelp.stdout).toContain('Runtime: Gunshi CLI');
+    expect(createHelp.status).toBe(0);
+    expect(createHelp.stderr).toBe('');
+    expect(createHelp.stdout).toContain('Usage: wp-typia create');
+    expect(version.status).toBe(0);
+    expect(version.stderr).toBe('');
+    expect(version.stdout.trim()).toBe(`wp-typia ${packageManifest.version}`);
+  });
+
   test('keeps structured version output opt-in through --format json', () => {
     const output = runUtf8Command('node', [
       entryPath,

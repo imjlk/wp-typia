@@ -168,6 +168,27 @@ describe('Gunshi public CLI surfaces', () => {
           path: codexSkill,
         }),
       );
+
+      fs.rmSync(codexSkill, { force: true, recursive: true });
+      const resync = await withProcessEnv(
+        {
+          CODEX_HOME: path.join(home, '.codex'),
+          XDG_CONFIG_HOME: path.join(home, '.config'),
+          XDG_DATA_HOME: dataHome,
+        },
+        () =>
+          syncSkills({
+            cwd,
+            global: true,
+            runtime: {
+              dataHome: () => dataHome,
+              homeDir: () => home,
+            },
+          }),
+      );
+
+      expect(resync.updated).toBe(true);
+      expect(fs.existsSync(path.join(codexSkill, 'SKILL.md'))).toBe(true);
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });
     }

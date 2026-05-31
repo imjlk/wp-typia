@@ -1,4 +1,7 @@
-import { createCliCommandError } from '@wp-typia/project-tools/cli-diagnostics';
+import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliCommandError,
+} from '@wp-typia/project-tools/cli-diagnostics';
 import {
   ALL_COMMAND_OPTION_METADATA,
   ADD_OPTION_METADATA,
@@ -252,6 +255,7 @@ async function dispatchNodeFallbackSkills({
   }
 
   throw createCliCommandError({
+    code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
     command: 'skills',
     detailLines: [
       `Unknown skills subcommand "${subcommand}". Expected list or sync.`,

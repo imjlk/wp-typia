@@ -75,13 +75,33 @@ function completionEntries() {
   }));
 }
 
+function normalizeFallbackShortAliases(argv: string[]): string[] {
+  let terminated = false;
+  return argv.map((arg) => {
+    if (terminated) {
+      return arg;
+    }
+    if (arg === '--') {
+      terminated = true;
+      return arg;
+    }
+    if (arg === '-h') {
+      return '--help';
+    }
+    if (arg === '-v') {
+      return '--version';
+    }
+    return arg;
+  });
+}
+
 export async function runGunshiCli(
   argv = process.argv.slice(2),
 ): Promise<void> {
   applyStandaloneSupportRoot();
 
   if (!shouldUseGunshiCompletion(argv)) {
-    await runNodeCli(argv);
+    await runNodeCli(normalizeFallbackShortAliases(argv));
     return;
   }
 

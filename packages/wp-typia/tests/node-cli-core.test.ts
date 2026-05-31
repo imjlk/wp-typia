@@ -1002,5 +1002,22 @@ describe('Gunshi CLI core routing', () => {
     expect(jsonResult.exitCode).toBe(0);
     expect(jsonResult.stdout).toContain('"agents": [');
     expect(jsonResult.stdout).toContain('"commands": [');
+
+    const unknownResult = await captureNodeCli(
+      ['skills', 'unknown', '--format', 'json'],
+      {
+        entrypoint: true,
+      },
+    );
+    const parsed = JSON.parse(unknownResult.stderr) as {
+      error?: { code?: string; command?: string };
+      ok?: boolean;
+    };
+
+    expect(unknownResult.error).toBeUndefined();
+    expect(unknownResult.exitCode).toBe(1);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error?.code).toBe(CLI_DIAGNOSTIC_CODES.INVALID_COMMAND);
+    expect(parsed.error?.command).toBe('skills');
   });
 });
