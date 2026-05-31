@@ -156,6 +156,15 @@ export function toPascalCase(value: string): string {
     .join('');
 }
 
+function toTypeScriptIdentifierStem(value: string): string {
+  const pascalName = toPascalCase(value);
+  if (pascalName.length === 0) {
+    return 'Generated';
+  }
+
+  return /^[a-zA-Z_$]/u.test(pascalName) ? pascalName : `Mcp${pascalName}`;
+}
+
 export function escapeString(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
@@ -381,7 +390,7 @@ function generatedCommentLines(comment: string): string[] {
 }
 
 function generateCommandSchema(command: MCPCommandMetadata): string {
-  const baseName = toPascalCase(command.name);
+  const baseName = toTypeScriptIdentifierStem(command.name);
   const lines = [
     ...generatedCommentLines(command.description || command.toolName),
     `export const ${baseName}Schema = z.object({`,

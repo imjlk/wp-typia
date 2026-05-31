@@ -395,6 +395,39 @@ describe('Gunshi public CLI surfaces', () => {
     }
   });
 
+  test('syncs MCP schemas with digit-starting tool identifiers', async () => {
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-mcp-digit-'),
+    );
+    const schemaPath = path.join(tempRoot, 'tools.json');
+
+    try {
+      writeJson(schemaPath, {
+        namespace: '123-mcp',
+        tools: [
+          {
+            description: 'Export a numbered tool.',
+            name: '123-export',
+          },
+        ],
+      });
+
+      const result = await syncMcpSchemas(tempRoot, [
+        { namespace: 'wp', path: schemaPath },
+      ]);
+      const generated = fs.readFileSync(
+        path.join(result.outputDir, 'mcp-123-mcp.gen.ts'),
+        'utf8',
+      );
+
+      expect(generated).toContain('export const Mcp123Mcp123ExportSchema');
+      expect(generated).toContain('export type Mcp123Mcp123ExportFlags');
+      expect(generated).not.toContain('export const 123Mcp123ExportSchema');
+    } finally {
+      fs.rmSync(tempRoot, { force: true, recursive: true });
+    }
+  });
+
   test('rejects malformed MCP schema sources with diagnostic codes', async () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-mcp-invalid-'),
