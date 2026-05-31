@@ -150,7 +150,7 @@ export function toFlagName(propertyName: string): string {
 
 export function toPascalCase(value: string): string {
   return value
-    .split(/[-:_]/)
+    .split(/[^a-zA-Z0-9]+/u)
     .filter(Boolean)
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
     .join('');
@@ -347,10 +347,34 @@ function zodSchemaForOption(
   return schema;
 }
 
+function hashNamespace(namespace: string): string {
+  let hash = 2166136261;
+  for (const char of namespace) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function toGeneratedModuleBasename(namespace: string): string {
+  const safeNamespace =
+    namespace
+      .replace(/[^a-zA-Z0-9._-]+/gu, '-')
+      .replace(/^-+|-+$/gu, '') || 'namespace';
+
+  return safeNamespace === namespace
+    ? `mcp-${safeNamespace}`
+    : `mcp-${safeNamespace}-${hashNamespace(namespace)}`;
+}
+
+function generatedCommentLines(comment: string): string[] {
+  return comment.split(/\r\n?|\n/gu).map((line) => `// ${line}`);
+}
+
 function generateCommandSchema(command: MCPCommandMetadata): string {
   const baseName = toPascalCase(command.name);
   const lines = [
-    `// ${command.description || command.toolName}`,
+    ...generatedCommentLines(command.description || command.toolName),
     `export const ${baseName}Schema = z.object({`,
   ];
 
@@ -419,7 +443,9 @@ function generateIndexFile(toolGroups: MCPToolGroup[]): string {
 
   for (const group of toolGroups) {
     if (group.namespace && group.tools.length > 0) {
-      lines.push(`export * from './mcp-${group.namespace}.gen.js';`);
+      lines.push(
+        `export * from './${toGeneratedModuleBasename(group.namespace)}.gen.js';`,
+      );
     }
   }
 
@@ -436,7 +462,7 @@ async function generateMcpTypes(
       continue;
     }
     await fs.writeFile(
-      path.join(outputDir, `mcp-${group.namespace}.gen.ts`),
+      path.join(outputDir, `${toGeneratedModuleBasename(group.namespace)}.gen.ts`),
       generateNamespaceTypes(group.namespace, group.tools),
       'utf8',
     );
