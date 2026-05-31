@@ -120,12 +120,12 @@ describe('Gunshi public CLI surfaces', () => {
       fs.mkdirSync(cwd, { recursive: true });
 
       const commands = getSkillCommandSummaries();
-      expect(commands.find((command) => command.name === 'skills')).toMatchObject(
-        {
-          options: ['force', 'global', 'local'],
-          subcommands: ['list', 'sync'],
-        },
-      );
+      expect(
+        commands.find((command) => command.name === 'skills'),
+      ).toMatchObject({
+        options: ['force', 'global', 'local'],
+        subcommands: ['list', 'sync'],
+      });
       expect(commands.find((command) => command.name === 'mcp')).toMatchObject({
         subcommands: ['list', 'sync'],
       });
@@ -189,6 +189,70 @@ describe('Gunshi public CLI surfaces', () => {
 
       expect(resync.updated).toBe(true);
       expect(fs.existsSync(path.join(codexSkill, 'SKILL.md'))).toBe(true);
+
+      fs.rmSync(codexSkill, { force: true, recursive: true });
+      fs.mkdirSync(codexSkill, { recursive: true });
+      fs.writeFileSync(path.join(codexSkill, 'SKILL.md'), '# Custom skill\n');
+      const preserved = await withProcessEnv(
+        {
+          CODEX_HOME: path.join(home, '.codex'),
+          XDG_CONFIG_HOME: path.join(home, '.config'),
+          XDG_DATA_HOME: dataHome,
+        },
+        () =>
+          syncSkills({
+            cwd,
+            global: true,
+            runtime: {
+              dataHome: () => dataHome,
+              homeDir: () => home,
+            },
+          }),
+      );
+
+      expect(preserved.agents).toContainEqual(
+        expect.objectContaining({
+          agent: 'Codex',
+          mode: 'skipped',
+          path: codexSkill,
+          reason: expect.stringContaining('not managed by wp-typia'),
+        }),
+      );
+      expect(fs.readFileSync(path.join(codexSkill, 'SKILL.md'), 'utf8')).toBe(
+        '# Custom skill\n',
+      );
+
+      const generatedSkill = fs.readFileSync(canonicalSkill, 'utf8');
+      fs.writeFileSync(path.join(codexSkill, 'SKILL.md'), generatedSkill);
+      fs.writeFileSync(path.join(codexSkill, 'NOTES.md'), 'keep me\n');
+      const extraFileDataHome = path.join(tempRoot, 'data-extra-file');
+      const preservedExtraFile = await withProcessEnv(
+        {
+          CODEX_HOME: path.join(home, '.codex'),
+          XDG_CONFIG_HOME: path.join(home, '.config'),
+          XDG_DATA_HOME: extraFileDataHome,
+        },
+        () =>
+          syncSkills({
+            cwd,
+            global: true,
+            runtime: {
+              dataHome: () => extraFileDataHome,
+              homeDir: () => home,
+            },
+          }),
+      );
+
+      expect(preservedExtraFile.agents).toContainEqual(
+        expect.objectContaining({
+          agent: 'Codex',
+          mode: 'skipped',
+          path: codexSkill,
+        }),
+      );
+      expect(fs.readFileSync(path.join(codexSkill, 'NOTES.md'), 'utf8')).toBe(
+        'keep me\n',
+      );
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });
     }
@@ -254,11 +318,14 @@ describe('Gunshi public CLI surfaces', () => {
         'utf8',
       );
 
-      expect(defaultSync.outputDir).toBe(path.join(tempRoot, '.wp-typia', 'mcp'));
+      expect(defaultSync.outputDir).toBe(
+        path.join(tempRoot, '.wp-typia', 'mcp'),
+      );
       expect(defaultSync.commandCount).toBe(1);
       expect(customSync.outputDir).toBe(customDir);
-      expect(fs.existsSync(path.join(defaultSync.outputDir, 'mcp-index.gen.ts')))
-        .toBe(true);
+      expect(
+        fs.existsSync(path.join(defaultSync.outputDir, 'mcp-index.gen.ts')),
+      ).toBe(true);
       expect(registry[0]?.namespace).toBe('wp');
       expect(registry[0]?.tools[0]?.name).toBe('wp:create-block');
       expect(registry[0]?.tools[0]?.options).toHaveProperty('block-name');
@@ -278,7 +345,9 @@ describe('Gunshi public CLI surfaces', () => {
   });
 
   test('syncs MCP schemas with path-like namespaces and multiline descriptions', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-mcp-safe-'));
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-mcp-safe-'),
+    );
     const schemaPath = path.join(tempRoot, 'tools.json');
 
     try {
@@ -294,17 +363,17 @@ describe('Gunshi public CLI surfaces', () => {
       ]);
       const generatedFile = fs
         .readdirSync(result.outputDir)
-        .find((file) =>
-          /^mcp-my-plugin-v1-[a-z0-9]+\.gen\.ts$/u.test(file),
-        );
+        .find((file) => /^mcp-my-plugin-v1-[a-z0-9]+\.gen\.ts$/u.test(file));
 
       expect(generatedFile).toBeDefined();
       if (!generatedFile) {
-        throw new Error('Expected syncMcpSchemas to generate a safe namespace file.');
+        throw new Error(
+          'Expected syncMcpSchemas to generate a safe namespace file.',
+        );
       }
-      expect(
-        fs.existsSync(path.join(result.outputDir, 'mcp-my-plugin')),
-      ).toBe(false);
+      expect(fs.existsSync(path.join(result.outputDir, 'mcp-my-plugin'))).toBe(
+        false,
+      );
 
       const generated = fs.readFileSync(
         path.join(result.outputDir, generatedFile),

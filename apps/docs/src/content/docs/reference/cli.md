@@ -129,7 +129,7 @@ the throw site instead of extending the fallback classifier.
 | `template-source-timeout`    | External template resolution timed out.                  | Retry with a reachable source, local path, or cached package.           |
 | `template-source-too-large`  | External template content exceeded the safety limit.     | Reduce the package size or use a smaller template layer.                |
 | `unknown-template`           | The requested template id is not registered.             | Run `wp-typia templates list` and use one of the listed ids.            |
-| `unsupported-command`        | The current runtime cannot execute that command surface. | Use a current npm package or standalone wp-typia binary.                 |
+| `unsupported-command`        | The current runtime cannot execute that command surface. | Use a current npm package or standalone wp-typia binary.                |
 
 ## `create`
 

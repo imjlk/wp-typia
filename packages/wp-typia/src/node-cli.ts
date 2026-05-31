@@ -175,18 +175,16 @@ async function dispatchNodeFallbackCompletion({
 const dispatchNodeFallbackAddLazy: NodeFallbackCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackAdd } = await import(
-    './node-fallback/dispatchers/add'
-  );
+  const { dispatchNodeFallbackAdd } =
+    await import('./node-fallback/dispatchers/add');
   await dispatchNodeFallbackAdd(context);
 };
 
 const dispatchNodeFallbackCreateLazy: NodeFallbackCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackCreate } = await import(
-    './node-fallback/dispatchers/create'
-  );
+  const { dispatchNodeFallbackCreate } =
+    await import('./node-fallback/dispatchers/create');
   await dispatchNodeFallbackCreate(context);
 };
 
@@ -200,9 +198,8 @@ const dispatchNodeFallbackDoctorLazy: NodeFallbackCommandDispatcher = async (
 const dispatchNodeFallbackTemplatesLazy: NodeFallbackCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackTemplates } = await import(
-    './node-fallback/templates'
-  );
+  const { dispatchNodeFallbackTemplates } =
+    await import('./node-fallback/templates');
   await dispatchNodeFallbackTemplates(context);
 };
 
@@ -249,7 +246,10 @@ async function dispatchNodeFallbackSkills({
     }
     printLine(`Synced skills to ${result.paths.length} location(s).`);
     for (const install of result.agents) {
-      printLine(`  ${install.agent}: ${install.mode} -> ${install.path}`);
+      const reason = install.reason ? ` (${install.reason})` : '';
+      printLine(
+        `  ${install.agent}: ${install.mode} -> ${install.path}${reason}`,
+      );
     }
     return;
   }
@@ -373,9 +373,7 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
       cwd,
       flags: mergedFlags,
       format:
-        typeof mergedFlags.format === 'string'
-          ? mergedFlags.format
-          : undefined,
+        typeof mergedFlags.format === 'string' ? mergedFlags.format : undefined,
       positionals,
       printLine,
       userConfig: config,

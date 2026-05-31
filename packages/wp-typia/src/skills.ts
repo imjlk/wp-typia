@@ -39,8 +39,9 @@ export type SkillsListResult = {
 
 export type SkillInstall = {
   agent: string;
-  mode: 'copy' | 'symlink';
+  mode: 'copy' | 'skipped' | 'symlink';
   path: string;
+  reason?: string;
 };
 
 export type SkillsSyncResult = {
@@ -59,6 +60,8 @@ const defaultSkillRuntime: SkillRuntime = {
     process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
   homeDir: () => os.homedir(),
 };
+const GENERATED_SKILL_MARKER = '.wp-typia-skill.json';
+const SKILL_FILE = 'SKILL.md';
 
 function configHome(home: string): string {
   return process.env.XDG_CONFIG_HOME || path.join(home, '.config');
@@ -174,7 +177,8 @@ export function getSkillCommandSummaries(): SkillCommandSummary[] {
     description: 'description' in command ? command.description : undefined,
     name: command.name,
     options: optionNamesForGroups(command.optionGroups),
-    subcommands: 'subcommands' in command ? [...(command.subcommands ?? [])] : [],
+    subcommands:
+      'subcommands' in command ? [...(command.subcommands ?? [])] : [],
   }));
 }
 
@@ -214,12 +218,16 @@ export function generateSkillMarkdown(): string {
   ];
 
   for (const command of commands) {
-    lines.push(`- \`wp-typia ${command.name}\`: ${command.description ?? command.name}`);
+    lines.push(
+      `- \`wp-typia ${command.name}\`: ${command.description ?? command.name}`,
+    );
     if (command.subcommands.length > 0) {
       lines.push(`  Subcommands: ${command.subcommands.join(', ')}`);
     }
     if (command.options.length > 0) {
-      lines.push(`  Options: ${command.options.map((option) => `--${option}`).join(', ')}`);
+      lines.push(
+        `  Options: ${command.options.map((option) => `--${option}`).join(', ')}`,
+      );
     }
   }
 
@@ -241,7 +249,10 @@ function stalenessCacheKey(
   const scope = isGlobal
     ? `global:${path.resolve(canonicalBase)}`
     : `local:${path.resolve(cwd)}`;
-  const scopeHash = createHash('sha256').update(scope).digest('hex').slice(0, 8);
+  const scopeHash = createHash('sha256')
+    .update(scope)
+    .digest('hex')
+    .slice(0, 8);
   return `${name}-${scopeHash}`;
 }
 
@@ -254,7 +265,9 @@ function readState(
   runtime: SkillRuntime,
 ): { agentKey?: string; hash: string } | undefined {
   try {
-    const state = JSON.parse(fs.readFileSync(statePath(cacheKey, runtime), 'utf8'));
+    const state = JSON.parse(
+      fs.readFileSync(statePath(cacheKey, runtime), 'utf8'),
+    );
     if (typeof state?.hash !== 'string') {
       return undefined;
     }
@@ -311,7 +324,9 @@ function skillTargetsAreCurrent(
 ): boolean {
   for (const targetDir of [canonicalDir, ...agentDirs]) {
     try {
-      if (fs.readFileSync(path.join(targetDir, 'SKILL.md'), 'utf8') !== content) {
+      if (
+        fs.readFileSync(path.join(targetDir, SKILL_FILE), 'utf8') !== content
+      ) {
         return false;
       }
     } catch {
@@ -320,6 +335,96 @@ function skillTargetsAreCurrent(
   }
 
   return true;
+}
+
+function skillFileMatches(targetDir: string, content: string): boolean {
+  try {
+    return (
+      fs.readFileSync(path.join(targetDir, SKILL_FILE), 'utf8') === content
+    );
+  } catch {
+    return false;
+  }
+}
+
+function hasGeneratedSkillMarker(targetDir: string): boolean {
+  try {
+    const marker = JSON.parse(
+      fs.readFileSync(path.join(targetDir, GENERATED_SKILL_MARKER), 'utf8'),
+    );
+    return marker?.tool === 'wp-typia' && marker?.skill === 'wp-typia';
+  } catch {
+    return false;
+  }
+}
+
+function isEmptyDirectory(targetDir: string): boolean {
+  try {
+    const stat = fs.lstatSync(targetDir);
+    return stat.isDirectory() && fs.readdirSync(targetDir).length === 0;
+  } catch {
+    return false;
+  }
+}
+
+function skillTargetLooksGenerated(
+  targetDir: string,
+  content: string,
+): boolean {
+  try {
+    const stat = fs.lstatSync(targetDir);
+    if (stat.isSymbolicLink()) {
+      return skillFileMatches(targetDir, content);
+    }
+    if (!stat.isDirectory() || !skillFileMatches(targetDir, content)) {
+      return false;
+    }
+
+    const generatedEntries = new Set([GENERATED_SKILL_MARKER, SKILL_FILE]);
+    return fs
+      .readdirSync(targetDir)
+      .every((entry) => generatedEntries.has(entry));
+  } catch {
+    return false;
+  }
+}
+
+function canReplaceSkillTarget(
+  targetDir: string,
+  content: string,
+  force: boolean,
+): boolean {
+  if (force) {
+    return true;
+  }
+
+  try {
+    fs.lstatSync(targetDir);
+  } catch {
+    return true;
+  }
+
+  return (
+    hasGeneratedSkillMarker(targetDir) ||
+    skillTargetLooksGenerated(targetDir, content) ||
+    isEmptyDirectory(targetDir)
+  );
+}
+
+function writeGeneratedSkillMarker(targetDir: string, hash: string): void {
+  fs.writeFileSync(
+    path.join(targetDir, GENERATED_SKILL_MARKER),
+    `${JSON.stringify(
+      {
+        hash,
+        skill: 'wp-typia',
+        tool: 'wp-typia',
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
 }
 
 function removeExisting(target: string): void {
@@ -351,12 +456,14 @@ function resolveParent(dir: string): string {
   }
 }
 
-export async function syncSkills(options: {
-  cwd?: string;
-  force?: boolean;
-  global?: boolean;
-  runtime?: SkillRuntime;
-} = {}): Promise<SkillsSyncResult> {
+export async function syncSkills(
+  options: {
+    cwd?: string;
+    force?: boolean;
+    global?: boolean;
+    runtime?: SkillRuntime;
+  } = {},
+): Promise<SkillsSyncResult> {
   const runtime = options.runtime ?? defaultSkillRuntime;
   const cwd = options.cwd ?? process.cwd();
   const isGlobal = options.global ?? true;
@@ -391,7 +498,8 @@ export async function syncSkills(options: {
   }
 
   await fsp.mkdir(canonicalDir, { recursive: true });
-  await fsp.writeFile(path.join(canonicalDir, 'SKILL.md'), content, 'utf8');
+  await fsp.writeFile(path.join(canonicalDir, SKILL_FILE), content, 'utf8');
+  writeGeneratedSkillMarker(canonicalDir, hash);
 
   const installs: SkillInstall[] = [];
   for (const agent of detectedAgents) {
@@ -400,6 +508,15 @@ export async function syncSkills(options: {
       : path.join(cwd, agent.projectSkillsDir);
     const agentDir = path.join(agentSkillsDir, skillName);
     if (agentDir === canonicalDir) {
+      continue;
+    }
+    if (!canReplaceSkillTarget(agentDir, content, Boolean(options.force))) {
+      installs.push({
+        agent: agent.name,
+        mode: 'skipped',
+        path: agentDir,
+        reason: 'existing skill is not managed by wp-typia',
+      });
       continue;
     }
 
