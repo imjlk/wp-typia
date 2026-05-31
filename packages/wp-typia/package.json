@@ -14,10 +14,8 @@
     "package.json"
   ],
   "scripts": {
-    "generate:routing": "node scripts/generate-routing-metadata.mjs",
-    "validate:routing": "node scripts/generate-routing-metadata.mjs --check",
-    "generate": "node scripts/generate-routing-metadata.mjs",
-    "build": "bun run generate && bun scripts/build-runtime.ts",
+    "generate": "bun scripts/build-runtime.ts",
+    "build": "bun run generate",
     "build:standalone": "bun scripts/build-standalone-runtime.ts --targets native --outdir ./dist-standalone",
     "build:standalone:release": "bun scripts/build-standalone-runtime.ts --targets darwin-arm64,darwin-x64,linux-arm64,linux-x64,windows-x64 --outdir ./.cache/standalone/raw",
     "dev": "bun run build && node bin/wp-typia.js",

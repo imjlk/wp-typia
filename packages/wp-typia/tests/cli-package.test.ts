@@ -500,7 +500,7 @@ describe('wp-typia package', () => {
           {
             name: 'wp-typia',
             scripts: {
-              build: 'bun run generate && bun scripts/build-runtime.ts',
+              build: 'bun run generate',
             },
             type: 'module',
           },
@@ -796,12 +796,12 @@ process.exit(0);
       tarball?.files.some(
         (entry) => entry.path === 'bin/routing-metadata.generated.js',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       tarball?.files.some(
         (entry) => entry.path === 'bin/routing-metadata.generated.d.ts',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       tarball?.files.some((entry) => entry.path === 'bin/argv-walker.js'),
     ).toBe(true);

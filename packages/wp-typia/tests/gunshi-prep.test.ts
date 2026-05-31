@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
 
-import { COMMAND_ROUTING_METADATA } from '../src/command-option-metadata';
 import {
   WP_TYPIA_CANONICAL_CREATE_USAGE,
   WP_TYPIA_CANONICAL_MIGRATE_USAGE,
@@ -15,10 +13,6 @@ import {
   normalizeWpTypiaArgv,
 } from '../src/command-contract';
 import { ADD_KIND_IDS } from '../src/add-kind-registry';
-import {
-  longValueOptions,
-  shortValueOptions,
-} from '../bin/routing-metadata.generated.js';
 import { shouldUseGunshiCompletion } from '../src/gunshi-cli';
 import { syncMcpSchemas } from '../src/mcp';
 
@@ -74,12 +68,10 @@ describe('wp-typia Gunshi runtime preparation', () => {
     expect(packageManifest.dependencies['@bunli/core']).toBeUndefined();
     expect(packageManifest.devDependencies.bunli).toBeUndefined();
     expect(packageManifest.optionalDependencies).toBeUndefined();
-    expect(packageManifest.scripts.generate).toBe(
-      'node scripts/generate-routing-metadata.mjs',
-    );
-    expect(packageManifest.scripts.build).toBe(
-      'bun run generate && bun scripts/build-runtime.ts',
-    );
+    expect(packageManifest.scripts.generate).toBe('bun scripts/build-runtime.ts');
+    expect(packageManifest.scripts.build).toBe('bun run generate');
+    expect(packageManifest.scripts['generate:routing']).toBeUndefined();
+    expect(packageManifest.scripts['validate:routing']).toBeUndefined();
     expect(fs.existsSync(path.join(packageRoot, 'src', 'gunshi-cli.ts'))).toBe(
       true,
     );
@@ -87,27 +79,6 @@ describe('wp-typia Gunshi runtime preparation', () => {
     expect(fs.existsSync(path.join(packageRoot, 'bunli.config.ts'))).toBe(
       false,
     );
-  });
-
-  test('routing metadata stays generated for portable CLI parsing', () => {
-    expect(longValueOptions).toEqual(COMMAND_ROUTING_METADATA.longValueOptions);
-    expect(shortValueOptions).toEqual(
-      COMMAND_ROUTING_METADATA.shortValueOptions,
-    );
-  });
-
-  test('validates routing metadata with node', () => {
-    const result = spawnSync(
-      process.execPath,
-      ['scripts/generate-routing-metadata.mjs', '--check'],
-      {
-        cwd: packageRoot,
-        encoding: 'utf8',
-      },
-    );
-
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe('');
   });
 
   test('routes completion plugin usage to Node runtimes only', () => {
