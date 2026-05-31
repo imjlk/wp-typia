@@ -192,6 +192,16 @@ describe('Gunshi public CLI surfaces', () => {
                 minimum: 1,
                 type: 'integer',
               },
+              enabled: {
+                minimum: 1,
+                type: 'boolean',
+              },
+              severity: {
+                enum: [1],
+                maximum: 5,
+                minimum: 1,
+                type: 'integer',
+              },
             },
             required: ['blockName'],
             type: 'object',
@@ -232,6 +242,14 @@ describe('Gunshi public CLI surfaces', () => {
       expect(registry[0]?.tools[0]?.name).toBe('wp:create-block');
       expect(registry[0]?.tools[0]?.options).toHaveProperty('block-name');
       expect(generated).toContain("import { z } from 'zod';");
+      expect(generated).toContain(
+        "'count': z.coerce.number().int().min(1).default(1),",
+      );
+      expect(generated).toContain("'enabled': z.boolean().optional(),");
+      expect(generated).toContain("'severity': z.literal(1).optional(),");
+      expect(generated).not.toContain('z.union([z.literal(1)])');
+      expect(generated).not.toContain('z.boolean().min(');
+      expect(generated).not.toContain('z.literal(1).min(');
       expect(generated).not.toContain('@bunli');
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });

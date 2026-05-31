@@ -11,9 +11,9 @@ bunx wp-typia --help
 wp-typia --version
 ```
 
-The published binary keeps common non-interactive commands available through the
-Node fallback runtime. Bun-powered command surfaces such as `mcp`, `skills`, and
-shell `completions` require Bun 1.3.11+ or the standalone release binary.
+The published binary runs through the Node-first Gunshi runtime. Bun remains the
+repository development and build toolchain, but npm-installed CLI commands such
+as `mcp`, `skills`, and shell `completions` do not require a local Bun binary.
 
 ## Global flags
 

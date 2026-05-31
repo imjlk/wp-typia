@@ -979,11 +979,28 @@ describe('Gunshi CLI core routing', () => {
   });
 
   test('runs first-party skills commands through the runtime dispatcher', async () => {
-    const result = await captureNodeCli(['skills', 'list']);
+    const textResult = await captureNodeCli([
+      'skills',
+      'list',
+      '--format',
+      'text',
+    ]);
 
-    expect(result.error).toBeUndefined();
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('"agents": [');
-    expect(result.stdout).toContain('"commands": [');
+    expect(textResult.error).toBeUndefined();
+    expect(textResult.exitCode).toBe(0);
+    expect(textResult.stdout).toMatch(/Detected|No agents detected/);
+    expect(textResult.stdout).not.toContain('"commands": [');
+
+    const jsonResult = await captureNodeCli([
+      'skills',
+      'list',
+      '--format',
+      'json',
+    ]);
+
+    expect(jsonResult.error).toBeUndefined();
+    expect(jsonResult.exitCode).toBe(0);
+    expect(jsonResult.stdout).toContain('"agents": [');
+    expect(jsonResult.stdout).toContain('"commands": [');
   });
 });

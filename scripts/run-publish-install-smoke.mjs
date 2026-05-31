@@ -177,17 +177,17 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 
 		if (packageName === "wp-typia") {
 			const tarballEntries = run(tarCommand, ["-tf", tarballPath]).trim().split("\n");
-			if (!tarballEntries.includes("package/dist-bunli/cli.js")) {
-				throw new Error("Packed wp-typia tarball is missing package/dist-bunli/cli.js.");
+			if (!tarballEntries.includes("package/dist/cli.js")) {
+				throw new Error("Packed wp-typia tarball is missing package/dist/cli.js.");
 			}
-			if (!tarballEntries.includes("package/dist-bunli/.bunli/commands.gen.js")) {
+			if (tarballEntries.some((entry) => entry.startsWith("package/dist-bunli/"))) {
 				throw new Error(
-					"Packed wp-typia tarball is missing package/dist-bunli/.bunli/commands.gen.js.",
+					"Packed wp-typia tarball should no longer publish package/dist-bunli artifacts.",
 				);
 			}
-			if (tarballEntries.includes("package/.bunli/commands.gen.ts")) {
+			if (tarballEntries.some((entry) => entry.includes("/.bunli/"))) {
 				throw new Error(
-					"Packed wp-typia tarball should no longer publish package/.bunli/commands.gen.ts.",
+					"Packed wp-typia tarball should no longer publish Bunli generated artifacts.",
 				);
 			}
 			if (tarballEntries.includes("package/src/cli.ts")) {

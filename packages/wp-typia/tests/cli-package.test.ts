@@ -638,7 +638,7 @@ process.exit(0);
   test('runs former Bun-only commands through the Gunshi CLI without Bun', () => {
     const result = runCapturedCommand(
       process.execPath,
-      [entryPath, 'skills', 'list'],
+      [entryPath, 'skills', 'list', '--format', 'json'],
       {
         env: withoutLocalBunEnv(),
       },
@@ -1031,12 +1031,25 @@ process.exit(0);
   });
 
   test('exposes skills listing through the Gunshi CLI surface', () => {
-    const output = runUtf8Command('node', [entryPath, 'skills', 'list'], {
-      env: withoutAIAgentEnv(),
-    });
+    const output = runUtf8Command(
+      'node',
+      [entryPath, 'skills', 'list', '--format', 'text'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
+    const jsonOutput = runUtf8Command(
+      'node',
+      [entryPath, 'skills', 'list', '--format', 'json'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
 
-    expect(output).toContain('"agents": [');
     expect(output).toMatch(/Detected|No agents detected/);
+    expect(output).not.toContain('"commands": [');
+    expect(jsonOutput).toContain('"agents": [');
+    expect(jsonOutput).toContain('"commands": [');
   });
 
   test('fails mcp list with actionable config guidance when no schema sources are configured', () => {

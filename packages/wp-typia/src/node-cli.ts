@@ -214,18 +214,19 @@ async function dispatchNodeFallbackSkills({
 
   if (subcommand === 'list') {
     const result = listSkills();
-    if (!structured) {
-      if (result.agents.length === 0) {
-        printLine('No agents detected.');
-      } else {
-        printLine(`Detected ${result.agents.length} agent(s):`);
-        for (const agent of result.agents) {
-          printLine(`  ${agent.name}${agent.universal ? ' (universal)' : ''}`);
-          printLine(`    ${agent.projectSkillsDir}`);
-        }
+    if (structured) {
+      printLine(JSON.stringify(result, null, 2));
+      return;
+    }
+    if (result.agents.length === 0) {
+      printLine('No agents detected.');
+    } else {
+      printLine(`Detected ${result.agents.length} agent(s):`);
+      for (const agent of result.agents) {
+        printLine(`  ${agent.name}${agent.universal ? ' (universal)' : ''}`);
+        printLine(`    ${agent.projectSkillsDir}`);
       }
     }
-    printLine(JSON.stringify(result, null, 2));
     return;
   }
 

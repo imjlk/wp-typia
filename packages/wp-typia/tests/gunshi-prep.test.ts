@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
 
@@ -18,6 +19,7 @@ import {
   longValueOptions,
   shortValueOptions,
 } from '../bin/routing-metadata.generated.js';
+import { syncMcpSchemas } from '../src/mcp';
 
 const packageRoot = path.resolve(import.meta.dir, '..');
 const packageManifest = JSON.parse(
@@ -173,9 +175,32 @@ describe('wp-typia Gunshi runtime preparation', () => {
     expect(source).not.toContain('dist-bunli');
   });
 
-  test('mcp sync defaults to the wp-typia metadata directory', () => {
-    const source = fs.readFileSync(path.join(packageRoot, 'src', 'mcp.ts'), 'utf8');
+  test('mcp sync defaults to the wp-typia metadata directory', async () => {
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-gunshi-mcp-default-'),
+    );
+    const schemaPath = path.join(tempRoot, 'tools.json');
 
-    expect(source).toContain("path.join(cwd, '.wp-typia', 'mcp')");
+    try {
+      fs.writeFileSync(
+        schemaPath,
+        `${JSON.stringify([{ name: 'CreateBlock' }], null, 2)}\n`,
+        'utf8',
+      );
+
+      const result = await syncMcpSchemas(tempRoot, [
+        { namespace: 'wp', path: schemaPath },
+      ]);
+
+      expect(result.outputDir).toBe(path.join(tempRoot, '.wp-typia', 'mcp'));
+      expect(fs.existsSync(path.join(result.outputDir, 'registry.json'))).toBe(
+        true,
+      );
+      expect(fs.existsSync(path.join(result.outputDir, 'mcp-wp.gen.ts'))).toBe(
+        true,
+      );
+    } finally {
+      fs.rmSync(tempRoot, { force: true, recursive: true });
+    }
   });
 });

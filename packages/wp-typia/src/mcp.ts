@@ -287,8 +287,15 @@ function zodSchemaForOption(
   option: MCPCommandMetadata['options'][string],
 ): string {
   let schema: string;
+  const hasEnumValues = Boolean(option.enumValues?.length);
   if (option.enumValues && option.enumValues.length > 0) {
-    if (option.enumValues.every((value) => typeof value === 'string')) {
+    if (option.enumValues.length === 1) {
+      const value = option.enumValues[0]!;
+      schema =
+        typeof value === 'string'
+          ? `z.literal('${escapeString(value)}')`
+          : `z.literal(${value})`;
+    } else if (option.enumValues.every((value) => typeof value === 'string')) {
       schema = `z.enum([${option.enumValues
         .map((value) => `'${escapeString(String(value))}'`)
         .join(', ')}])`;
@@ -327,10 +334,12 @@ function zodSchemaForOption(
     }
   }
 
-  if (option.minimum !== undefined) {
+  const supportsNumericBounds =
+    !hasEnumValues && (option.type === 'integer' || option.type === 'number');
+  if (option.minimum !== undefined && supportsNumericBounds) {
     schema += `.min(${option.minimum})`;
   }
-  if (option.maximum !== undefined) {
+  if (option.maximum !== undefined && supportsNumericBounds) {
     schema += `.max(${option.maximum})`;
   }
   if (option.hasDefault && option.default !== undefined) {

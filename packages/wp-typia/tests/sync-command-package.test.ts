@@ -519,7 +519,7 @@ describe('wp-typia sync package command', () => {
 
   test('emits a machine-readable outside-project-root error code for sync in Gunshi runtime JSON mode', () => {
     const tempRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'wp-typia-bun-sync-json-'),
+      path.join(os.tmpdir(), 'wp-typia-gunshi-sync-json-'),
     );
 
     try {

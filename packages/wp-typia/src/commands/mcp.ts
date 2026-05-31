@@ -3,6 +3,7 @@ import path from 'node:path';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliCommandError,
+  isCliDiagnosticError,
 } from '@wp-typia/project-tools/cli-diagnostics';
 
 import { getMcpSchemaSources, type WpTypiaUserConfig } from '../config';
@@ -91,6 +92,10 @@ export async function dispatchMcpCommand({
     throwMissingMcpSchemaSources();
   }
 
+  if (subcommand !== 'list' && subcommand !== 'sync') {
+    throwUnknownMcpSubcommand(subcommand);
+  }
+
   try {
     if (subcommand === 'list') {
       const groups = await loadMcpToolGroups(cwd, schemaSources);
@@ -116,9 +121,10 @@ export async function dispatchMcpCommand({
       printMcpSyncSummary(result, printLine);
       return;
     }
-
-    throwUnknownMcpSubcommand(subcommand);
   } catch (error) {
+    if (isCliDiagnosticError(error)) {
+      throw error;
+    }
     throw createCliCommandError({
       command: 'mcp',
       error,
