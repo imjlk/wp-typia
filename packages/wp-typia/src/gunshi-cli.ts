@@ -49,9 +49,17 @@ function hasFlagBeforeTerminator(argv: string[], flag: string): boolean {
   return false;
 }
 
-function shouldUseGunshiCompletion(argv: string[]): boolean {
+type RuntimeVersions = {
+  bun?: string | undefined;
+};
+
+export function shouldUseGunshiCompletion(
+  argv: string[],
+  versions: RuntimeVersions = process.versions,
+): boolean {
   const [command] = argv;
   return (
+    typeof versions.bun !== 'string' &&
     command === 'complete' &&
     !hasFlagBeforeTerminator(argv, '--help') &&
     !hasFlagBeforeTerminator(argv, '-h') &&

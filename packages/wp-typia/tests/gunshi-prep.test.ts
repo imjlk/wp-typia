@@ -19,6 +19,7 @@ import {
   longValueOptions,
   shortValueOptions,
 } from '../bin/routing-metadata.generated.js';
+import { shouldUseGunshiCompletion } from '../src/gunshi-cli';
 import { syncMcpSchemas } from '../src/mcp';
 
 const packageRoot = path.resolve(import.meta.dir, '..');
@@ -107,6 +108,24 @@ describe('wp-typia Gunshi runtime preparation', () => {
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
+  });
+
+  test('routes completion plugin usage to Node runtimes only', () => {
+    const nodeVersions = { ...process.versions, bun: undefined };
+    const bunVersions = { ...process.versions, bun: '1.3.11' };
+
+    expect(shouldUseGunshiCompletion(['complete', 'bash'], nodeVersions)).toBe(
+      true,
+    );
+    expect(shouldUseGunshiCompletion(['complete', 'bash'], bunVersions)).toBe(
+      false,
+    );
+    expect(
+      shouldUseGunshiCompletion(['completions', 'bash'], nodeVersions),
+    ).toBe(false);
+    expect(shouldUseGunshiCompletion(['complete', '--help'], nodeVersions)).toBe(
+      false,
+    );
   });
 
   test('future command tree preserves the reserved top-level taxonomy', () => {
