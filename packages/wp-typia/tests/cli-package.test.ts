@@ -1273,6 +1273,8 @@ process.exit(0);
         configPath,
         'mcp',
         'list',
+        '--format',
+        'json',
       ]);
       const parsed = JSON.parse(output) as {
         groups: Array<{
