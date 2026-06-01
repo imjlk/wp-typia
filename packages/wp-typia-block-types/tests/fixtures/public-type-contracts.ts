@@ -317,6 +317,7 @@ type GalleryAttributes = {
 	items: Array<{ label: string }>;
 	tags: string[];
 };
+type AttributeLessAttributes = Record<never, never>;
 
 const galleryAttributeSchema = {
 	items: {
@@ -389,6 +390,15 @@ const registrationResult: RegisterBlockTypeResult<ExampleAttributes> =
 	registerScaffoldBlockType<ExampleAttributes>(
 		"wp-typia/example-block",
 		configuration,
+	);
+const attributeLessConfiguration = {
+	category: "widgets",
+	title: "Attribute-less block",
+} satisfies BlockConfiguration<AttributeLessAttributes>;
+const _attributeLessRegistrationResult: RegisterBlockTypeResult<AttributeLessAttributes> =
+	registerScaffoldBlockType<AttributeLessAttributes>(
+		"wp-typia/attribute-less-block",
+		attributeLessConfiguration,
 	);
 
 const content = editProps.attributes.content;

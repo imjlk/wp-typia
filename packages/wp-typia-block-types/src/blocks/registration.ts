@@ -58,12 +58,22 @@ export type BlockExample<
   viewportWidth?: number;
 };
 
+type BlockConfigurationAttributes<
+  TAttributes extends BlockAttributes,
+> = keyof TAttributes extends never
+  ? {
+      attributes?: BlockAttributeSchema<TAttributes>;
+    }
+  : {
+      attributes: BlockAttributeSchema<TAttributes>;
+    };
+
 export type BlockConfiguration<
   TAttributes extends BlockAttributes = BlockAttributes,
-> = Omit<WordPressBlockConfiguration<TAttributes>, 'attributes' | 'example'> & {
-  attributes: BlockAttributeSchema<TAttributes>;
-  example?: BlockExample<TAttributes>;
-};
+> = Omit<WordPressBlockConfiguration<TAttributes>, 'attributes' | 'example'> &
+  BlockConfigurationAttributes<TAttributes> & {
+    example?: BlockExample<TAttributes>;
+  };
 
 export type BlockDeprecation<
   TNewAttributes extends BlockAttributes = BlockAttributes,
