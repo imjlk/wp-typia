@@ -45,18 +45,17 @@ Configuration files:
 Compatibility notes:
 
 - `@wp-typia/project-tools` is the canonical programmatic project orchestration package
-- the published CLI now ships built `dist-bunli` runtimes, and the canonical Node bin uses a Node-safe fallback runtime for non-TUI `create`/`add`/`migrate`, `doctor`, `sync`, `--version`, `--help`, and template inspection without requiring a locally installed Bun binary
-- if `wp-typia --help` says `Runtime: Node fallback`, you are on that Bun-free path. You get human-readable help/output, common non-interactive project workflows, and lighter prompt behavior where interactive fallback is still supported
+- the published CLI now ships a built `dist` Gunshi runtime, and the canonical Node bin supports `create`, `add`, `migrate`, `doctor`, `sync`, `skills`, `completions`, `mcp`, `--version`, `--help`, and template inspection without requiring a locally installed Bun binary
+- Bun remains supported for repository development, tests, and builds, while Node is the canonical npm runtime for the published CLI
 - when you request machine-readable output with `--format json`, CLI failures now include a stable `error.code` field so wrappers and CI can branch without parsing English text
 - the stable machine-handled branching key is `error.code`. Structured context like `error.command`, `error.kind`, and `error.tag` may also be useful to consumers, while free-form text like `error.message`, `error.summary`, and `error.detailLines` stays human-facing guidance and can evolve without notice
-- when that Node fallback prompts interactively, it intentionally stays lighter than the Bun/OpenTUI flow: numbered lists, option label/value matching, inline validation retries, and redraw commands for the current choices: `?` for the short reprint shortcut, `help` for the explicit redraw command, and `list` for users who expect option listing semantics
-- Bunli-specific command surfaces such as `skills`, `completions`, and `mcp` still run through the built `dist-bunli/cli.js` artifact and require Bun when you use the npm package directly; if you want the full Bunli/OpenTUI runtime story without a local Bun install, prefer the standalone installer from the latest GitHub Release
+- interactive TUI rendering has been removed from the published CLI; flag-driven, text, and JSON workflows remain supported
 - standalone release assets are published per platform together with checksum manifests and install scripts: `install-wp-typia.sh` for macOS/Linux and `install-wp-typia.ps1` for Windows
 - internal runtime-bridge helper modules are implementation details; integrations
   should target the CLI or `@wp-typia/project-tools`, not CLI internals
 
 Maintainers: see [`docs/bunli-cli-migration.md`](https://imjlk.github.io/wp-typia/maintainers/bunli-cli-migration/)
-for the active CLI ownership contract and the staged Bunli cutover plan.
+for the active CLI ownership contract and Gunshi migration notes.
 
 Project meta docs:
 

@@ -405,7 +405,7 @@ describe('command option metadata helpers', () => {
 
   test('parses mcp output-dir flags from shared metadata', () => {
     const spaced = parseCommandArgvWithMetadata(
-      ['mcp', 'sync', '--output-dir', '.bunli/mcp'],
+      ['mcp', 'sync', '--output-dir', '.wp-typia/generated-mcp'],
       {
         extraBooleanOptionNames: ['help', 'version'],
         parser: buildCommandOptionParser(
@@ -425,7 +425,7 @@ describe('command option metadata helpers', () => {
       },
     );
 
-    expect(spaced.flags['output-dir']).toBe('.bunli/mcp');
+    expect(spaced.flags['output-dir']).toBe('.wp-typia/generated-mcp');
     expect(spaced.positionals).toEqual(['mcp', 'sync']);
     expect(inline.flags['output-dir']).toBe('.cache/mcp');
     expect(inline.positionals).toEqual(['mcp', 'sync']);

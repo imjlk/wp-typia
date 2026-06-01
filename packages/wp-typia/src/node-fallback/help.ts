@@ -6,7 +6,9 @@ import {
   DOCTOR_OPTION_METADATA,
   formatNodeFallbackOptionHelp,
   INIT_OPTION_METADATA,
+  MCP_OPTION_METADATA,
   MIGRATE_OPTION_METADATA,
+  SKILLS_OPTION_METADATA,
   SYNC_OPTION_METADATA,
   TEMPLATES_OPTION_METADATA,
   type CommandOptionMetadataMap,
@@ -25,9 +27,9 @@ export const STANDALONE_GUIDANCE_LINE =
   'Prefer not to install Bun? Use the standalone wp-typia binary from the GitHub release assets.';
 
 export const NODE_FALLBACK_RUNTIME_SUMMARY_LINES = [
-  'Runtime: Node fallback',
-  'Human-readable fallback for common non-interactive create/init/add/migrate flows, doctor, sync, templates, --help, and --version when Bun is unavailable.',
-  `Install Bun 1.3.11+ or use \`bunx wp-typia ...\` for the full Bunli/OpenTUI runtime and Bun-only command surfaces such as \`skills\`, \`completions\`, and \`mcp\`. ${STANDALONE_GUIDANCE_LINE}`,
+  'Runtime: Gunshi CLI',
+  'Portable Node-first runtime for create/init/add/migrate flows, doctor, sync, templates, MCP metadata, skills, completions, --help, and --version.',
+  `TUI rendering was removed from the published CLI path. ${STANDALONE_GUIDANCE_LINE}`,
   'Output markers: WP_TYPIA_ASCII=1 forces ASCII markers, WP_TYPIA_ASCII=0 opts back into Unicode markers, and non-empty NO_COLOR requests ASCII markers when WP_TYPIA_ASCII is unset.',
 ];
 
@@ -98,6 +100,13 @@ const NODE_FALLBACK_COMMAND_HELP_CONFIG = {
     heading: 'Usage: wp-typia doctor [--format json] [--workspace-only]',
     optionMetadata: DOCTOR_OPTION_METADATA,
   },
+  mcp: {
+    bodyLines: [
+      'Inspect or sync schema-driven MCP metadata from configured mcp.schemaSources. The default sync output is .wp-typia/mcp; pass --output-dir for a custom path.',
+    ],
+    heading: 'Usage: wp-typia mcp <list|sync>',
+    optionMetadata: MCP_OPTION_METADATA,
+  },
   init: {
     bodyLines: [
       'Preview-by-default retrofit planner for existing WordPress block or plugin projects. Re-run with --apply to write package.json updates and helper scripts.',
@@ -109,6 +118,13 @@ const NODE_FALLBACK_COMMAND_HELP_CONFIG = {
     heading: `Usage: ${WP_TYPIA_CANONICAL_MIGRATE_USAGE}`,
     optionMetadata: MIGRATE_OPTION_METADATA,
   },
+  skills: {
+    bodyLines: [
+      'List detected coding agents or generate a compact wp-typia SKILL.md from command metadata.',
+    ],
+    heading: 'Usage: wp-typia skills <list|sync>',
+    optionMetadata: SKILLS_OPTION_METADATA,
+  },
   sync: {
     heading: 'Usage: wp-typia sync [ai]',
     optionMetadata: SYNC_OPTION_METADATA,
@@ -116,6 +132,16 @@ const NODE_FALLBACK_COMMAND_HELP_CONFIG = {
   templates: {
     heading: 'wp-typia templates <list|inspect>',
     optionMetadata: TEMPLATES_OPTION_METADATA,
+  },
+  complete: {
+    bodyLines: ['Generate shell completion scripts for bash, zsh, fish, or powershell.'],
+    heading: 'Usage: wp-typia complete <shell>',
+    optionMetadata: {},
+  },
+  completions: {
+    bodyLines: ['Legacy alias for `wp-typia complete <shell>`.'],
+    heading: 'Usage: wp-typia completions <shell>',
+    optionMetadata: {},
   },
 } satisfies Record<NodeFallbackExecutableCommandName, NodeFallbackCommandHelpConfig>;
 

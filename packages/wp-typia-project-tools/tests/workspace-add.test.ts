@@ -582,6 +582,8 @@ test("canonical CLI rejects add-block external layers that emit workspace-level 
         "basic",
         "--external-layer-source",
         templateLayerFixturePath,
+        "--format",
+        "text",
       ],
       {
         cwd: targetDir,

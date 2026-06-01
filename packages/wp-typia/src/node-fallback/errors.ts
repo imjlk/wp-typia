@@ -36,12 +36,12 @@ export function throwUnsupportedNodeFallbackCommand(command: string): never {
     command: command,
     detailLines: [
       [
-        `The Bun-free fallback runtime does not support \`${command}\` yet.`,
-        'Supported without Bun: `--version`, `--help`, non-interactive `create`/`init`/`add`/`migrate`, `doctor`, `sync`, `templates list`, and `templates inspect`.',
-        `Install Bun 1.3.11+ or use \`bunx wp-typia ...\` for the full Bunli-powered runtime. ${STANDALONE_GUIDANCE_LINE}`,
+        `The wp-typia CLI does not support \`${command}\`.`,
+        'Supported commands: `--version`, `--help`, `create`, `init`, `add`, `migrate`, `doctor`, `sync`, `templates`, `mcp`, `skills`, `complete`, and `completions`.',
+        STANDALONE_GUIDANCE_LINE,
       ].join(' '),
     ],
-    summary: 'This command requires the Bun-powered runtime.',
+    summary: 'Unsupported wp-typia command.',
   });
 }
 

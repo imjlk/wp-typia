@@ -16,12 +16,11 @@ import {
 import { runUtf8Command } from '../../../tests/helpers/process-utils';
 import {
   entryPath,
-  fullRuntimeEntrypoint,
   packageRoot,
   parseJsonArrayFromOutput,
   parseJsonObjectFromOutput,
   runCapturedCommand,
-  shouldRouteTestInvocationToFullRuntime,
+  runtimeEntrypoint,
   withoutAIAgentEnv,
   withoutLocalBunEnv,
 } from './cli-package-test-helpers';
@@ -53,38 +52,6 @@ const runtimeBridgeStartupSources = [
     fs.readFileSync(path.join(packageRoot, 'src', fileName), 'utf8'),
   ),
 ];
-const doctorCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'doctor.ts'),
-  'utf8',
-);
-const createCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'create.ts'),
-  'utf8',
-);
-const addCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'add.ts'),
-  'utf8',
-);
-const syncCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'sync.ts'),
-  'utf8',
-);
-const migrateCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'migrate.ts'),
-  'utf8',
-);
-const initCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'init.ts'),
-  'utf8',
-);
-const templatesCommandSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'templates.ts'),
-  'utf8',
-);
-const outputAdaptersSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'commands', 'output-adapters.ts'),
-  'utf8',
-);
 const mcpCommandSource = fs.readFileSync(
   path.join(packageRoot, 'src', 'commands', 'mcp.ts'),
   'utf8',
@@ -101,16 +68,8 @@ const nodeFallbackErrorsSource = fs.readFileSync(
   path.join(packageRoot, 'src', 'node-fallback', 'errors.ts'),
   'utf8',
 );
-const cliSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'cli.ts'),
-  'utf8',
-);
-const addFlowSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'ui', 'add-flow.tsx'),
-  'utf8',
-);
-const createFlowSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'ui', 'create-flow.tsx'),
+const gunshiCliSource = fs.readFileSync(
+  path.join(packageRoot, 'src', 'gunshi-cli.ts'),
   'utf8',
 );
 
@@ -193,25 +152,11 @@ describe('wp-typia package', () => {
     ).toBeDefined();
   });
 
-  test('keeps CLI React dependencies dedupe-friendly for Bunli peers', () => {
-    expect(packageManifest.dependencies.react).toBe(
-      packageManifest.dependencies['react-dom'],
-    );
-    expect(packageManifest.dependencies.react).toMatch(/^\^/);
-    expect(packageManifest.dependencies['react-dom']).toMatch(/^\^/);
-  });
-
   test('avoids eager project-tools root imports on CLI startup paths', () => {
     for (const source of runtimeBridgeStartupSources) {
       expect(source).not.toMatch(/from ["']@wp-typia\/project-tools["']/);
     }
-    expect(doctorCommandSource).not.toMatch(
-      /from ["']@wp-typia\/project-tools["']/,
-    );
-    expect(addFlowSource).not.toMatch(/from ["']@wp-typia\/project-tools["']/);
-    expect(createFlowSource).not.toMatch(
-      /from ["']@wp-typia\/project-tools["']/,
-    );
+    expect(gunshiCliSource).not.toMatch(/from ["']@wp-typia\/project-tools["']/);
   });
 
   test('derives fallback parsing and first-party initial values from shared metadata helpers', () => {
@@ -222,97 +167,18 @@ describe('wp-typia package', () => {
     expect(nodeCliSource).not.toContain('const STRING_FLAG_NAMES = new Set([');
     expect(nodeCliSource).not.toContain('const BOOLEAN_FLAG_NAMES = new Set([');
     expect(nodeCliSource).not.toContain('const SHORT_FLAG_MAP = new Map<');
-    expect(createCommandSource).toContain('resolveCommandOptionValues');
-    expect(addCommandSource).toContain('resolveCommandOptionValues');
-    expect(migrateCommandSource).toContain('resolveCommandOptionValues');
-    expect(mcpCommandSource).toContain('buildCommandOptions');
-    expect(mcpCommandSource).toContain('MCP_OPTION_METADATA');
+    expect(gunshiCliSource).toContain("from 'gunshi'");
     expect(mcpCommandSource).toContain('printMcpToolGroupSummary');
     expect(mcpCommandSource).not.toContain('console.log');
     expect(mcpCommandSource).not.toContain('schema: z.string().optional()');
   });
 
-  test('gates interactive TUI rendering on real terminal capability and avoids hard exit short-circuits', () => {
-    expect(createCommandSource).toContain('supportsInteractiveTui');
-    expect(addCommandSource).toContain('supportsInteractiveTui');
-    expect(migrateCommandSource).toContain('supportsInteractiveTui');
-    expect(createCommandSource).not.toMatch(
-      /typeof\s+Bun\s*!==\s*["']undefined["']/,
-    );
-    expect(addCommandSource).not.toMatch(
-      /typeof\s+Bun\s*!==\s*["']undefined["']/,
-    );
-    expect(migrateCommandSource).not.toMatch(
-      /typeof\s+Bun\s*!==\s*["']undefined["']/,
-    );
+  test('keeps CLI entrypoints on exit-code based error handling', () => {
     expect(nodeFallbackErrorsSource).toContain('process.exitCode = 1');
     expect(nodeCliSource).toContain('handleNodeFallbackEntrypointError');
     expect(nodeCliSource).not.toMatch(/process\.exit\s*\(\s*1\s*\)/);
-    expect(cliSource).toContain('process.exitCode = 1');
-    expect(cliSource).not.toMatch(/process\.exit\s*\(\s*1\s*\)/);
-  });
-
-  test('routes interactive create/add/migrate invocations to the Bunli runtime when Bun and a TTY are available', () => {
-    expect(shouldRouteTestInvocationToFullRuntime([])).toBe(false);
-    expect(shouldRouteTestInvocationToFullRuntime(['create'])).toBe(true);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create', '--dry-run']),
-    ).toBe(true);
-    expect(shouldRouteTestInvocationToFullRuntime(['add'])).toBe(true);
-    expect(shouldRouteTestInvocationToFullRuntime(['migrate'])).toBe(true);
-    expect(shouldRouteTestInvocationToFullRuntime(['demo-block'])).toBe(true);
-    expect(shouldRouteTestInvocationToFullRuntime(['mcp', 'list'])).toBe(true);
-
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create'], {
-        hasWorkingBun: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create'], {
-        hasBuiltRuntime: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create'], {
-        isTTY: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create'], {
-        term: 'dumb',
-      }),
-    ).toBe(false);
-    expect(shouldRouteTestInvocationToFullRuntime(['create', '--help'])).toBe(
-      false,
-    );
-    expect(shouldRouteTestInvocationToFullRuntime(['create', '-h'])).toBe(
-      false,
-    );
-    expect(
-      shouldRouteTestInvocationToFullRuntime([
-        'create',
-        '--help=false',
-        '--help',
-      ]),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime([
-        'create',
-        'demo-block',
-        '--format',
-        'json',
-      ]),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create', 'demo-block', '--yes']),
-    ).toBe(false);
-    expect(
-      shouldRouteTestInvocationToFullRuntime(['create', 'demo-block', '-y']),
-    ).toBe(false);
-    expect(shouldRouteTestInvocationToFullRuntime(['temlates', 'list'])).toBe(
-      false,
-    );
+    expect(gunshiCliSource).toContain('runGunshiCliEntrypoint');
+    expect(gunshiCliSource).not.toMatch(/process\.exit\s*\(\s*1\s*\)/);
   });
 
   test('renders help output through the canonical bin', () => {
@@ -337,7 +203,7 @@ describe('wp-typia package', () => {
     for (const commandName of WP_TYPIA_TOP_LEVEL_COMMAND_NAMES) {
       expect(helpOutput).toContain(commandName);
     }
-    expect(helpOutput).toContain('Runtime: Node fallback');
+    expect(helpOutput).toContain('Runtime: Gunshi CLI');
     expect(helpOutput).toContain('non-empty NO_COLOR requests ASCII markers');
     expect(helpOutput).toContain('create: Scaffold a new wp-typia project.');
     expect(createHelpOutput).toContain('--external-layer-source');
@@ -434,7 +300,7 @@ describe('wp-typia package', () => {
     }
   });
 
-  test('applies retrofit init through the canonical bin in Node fallback JSON mode', () => {
+  test('applies retrofit init through the canonical bin in Gunshi CLI JSON mode', () => {
     const fixtureRoot = createRetrofitInitFixture();
 
     try {
@@ -531,9 +397,37 @@ describe('wp-typia package', () => {
   });
 
   test('renders a human-readable version line through the canonical bin', () => {
-    const output = runUtf8Command('node', [entryPath, '--version']);
+    const output = runUtf8Command('node', [entryPath, '--version'], {
+      env: withoutAIAgentEnv(),
+    });
 
     expect(output.trim()).toBe(`wp-typia ${packageManifest.version}`);
+  });
+
+  test('preserves short help and version aliases through the canonical bin', () => {
+    const topHelp = runCapturedCommand(process.execPath, [entryPath, '-h'], {
+      env: withoutAIAgentEnv(),
+    });
+    const createHelp = runCapturedCommand(
+      process.execPath,
+      [entryPath, 'create', '-h'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
+    const version = runCapturedCommand(process.execPath, [entryPath, '-v'], {
+      env: withoutAIAgentEnv(),
+    });
+
+    expect(topHelp.status).toBe(0);
+    expect(topHelp.stderr).toBe('');
+    expect(topHelp.stdout).toContain('Runtime: Gunshi CLI');
+    expect(createHelp.status).toBe(0);
+    expect(createHelp.stderr).toBe('');
+    expect(createHelp.stdout).toContain('Usage: wp-typia create');
+    expect(version.status).toBe(0);
+    expect(version.stderr).toBe('');
+    expect(version.stdout.trim()).toBe(`wp-typia ${packageManifest.version}`);
   });
 
   test('keeps structured version output opt-in through --format json', () => {
@@ -606,7 +500,7 @@ describe('wp-typia package', () => {
           {
             name: 'wp-typia',
             scripts: {
-              build: 'bun run generate && bun scripts/build-bunli-runtime.ts',
+              build: 'bun run generate',
             },
             type: 'module',
           },
@@ -616,12 +510,12 @@ describe('wp-typia package', () => {
         'utf8',
       );
       fs.writeFileSync(
-        path.join(sourcePackageRoot, 'scripts', 'build-bunli-runtime.ts'),
+        path.join(sourcePackageRoot, 'scripts', 'build-runtime.ts'),
         'export {};\n',
         'utf8',
       );
       fs.writeFileSync(
-        path.join(sourcePackageRoot, 'src', 'cli.ts'),
+        path.join(sourcePackageRoot, 'src', 'gunshi-cli.ts'),
         'export {};\n',
         'utf8',
       );
@@ -729,14 +623,14 @@ process.exit(0);
     expect(noCommandResult.stdout).toContain(
       'No command provided. Run wp-typia --help for usage information.',
     );
-    expect(noCommandResult.stdout).toContain('Runtime: Node fallback');
+    expect(noCommandResult.stdout).toContain('Runtime: Gunshi CLI');
     expect(helpResult.status).toBe(0);
     expect(helpResult.stderr).toBe('');
     expect(helpResult.stdout).not.toContain('No command provided.');
     expect(helpResult.stdout).toContain(
       'Canonical CLI package for wp-typia scaffolding',
     );
-    expect(helpResult.stdout).toContain('Runtime: Node fallback');
+    expect(helpResult.stdout).toContain('Runtime: Gunshi CLI');
     expect(helpResult.stdout).toContain('standalone wp-typia binary');
     expect(helpResult.stdout).toContain(
       'WP_TYPIA_ASCII=1 forces ASCII markers',
@@ -748,7 +642,7 @@ process.exit(0);
     expect(createHelpResult.stdout).toContain('--alternate-render-targets');
   });
 
-  test('keeps every node-fallback registry command wired to the fallback help path', () => {
+  test('keeps every runtime registry command wired to the fallback help path', () => {
     for (const commandName of WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES) {
       const argv =
         commandName === 'help' || commandName === 'version'
@@ -762,65 +656,35 @@ process.exit(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).not.toContain('does not support');
       if (commandName !== 'version') {
-        expect(result.stdout).toContain('Runtime: Node fallback');
+        expect(result.stdout).toContain('Runtime: Gunshi CLI');
       }
     }
   });
 
-  test('guides Bun-only commands toward standalone binaries when Bun is unavailable', () => {
+  test('runs former Bun-only commands through the Gunshi CLI without Bun', () => {
     const result = runCapturedCommand(
       process.execPath,
-      [entryPath, 'skills', 'list'],
+      [entryPath, 'skills', 'list', '--format', 'json'],
       {
         env: withoutLocalBunEnv(),
       },
     );
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('requires Bun');
-    expect(result.stderr).toContain(
-      'Install Bun locally, run with bunx, or set BUN_BIN',
-    );
-    expect(result.stderr).toContain('standalone wp-typia binary');
-    expect(result.stderr).toContain('GitHub release assets');
-  });
-
-  test('normalizes --help <bun-only-command> into command help when Bun is available', () => {
-    const result = runCapturedCommand(process.execPath, [entryPath, '--help', 'mcp']);
-    const parsed = JSON.parse(result.stdout.trim()) as {
-      data?: { path?: string[]; text?: string; type?: string };
-      ok?: boolean;
-    };
 
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
-    expect(parsed.ok).toBe(true);
-    expect(parsed.data?.type).toBe('help');
-    expect(parsed.data?.path).toEqual(['mcp']);
-    expect(parsed.data?.text).toContain('Usage: wp-typia mcp [options]');
+    expect(result.stdout).toContain('"agents": [');
+    expect(result.stdout).toContain('"commands": [');
   });
 
-  test('keeps --help <bun-only-command> on clear Bun guidance when Bun is unavailable', () => {
-    const result = runCapturedCommand(
-      process.execPath,
-      [entryPath, '--help', 'mcp'],
-      {
-        env: withoutLocalBunEnv(),
-      },
-    );
+  test('normalizes --help <runtime-command> into command help', () => {
+    const result = runCapturedCommand(process.execPath, [entryPath, '--help', 'mcp']);
 
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('requires Bun');
-    expect(result.stderr).not.toContain('BunliValidationError');
-    expect(result.stderr).toContain(
-      'Install Bun locally, run with bunx, or set BUN_BIN',
-    );
-    expect(result.stderr).toContain('standalone wp-typia binary');
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('Usage: wp-typia mcp <list|sync>');
   });
 
-  test('keeps value-taking options from being mistaken for Bun-only commands', () => {
+  test('keeps value-taking options from being mistaken for runtime commands', () => {
     const targetDir = path.join(
       os.tmpdir(),
       `wp-typia-mcp-namespace-${Date.now()}`,
@@ -846,40 +710,14 @@ process.exit(0);
     );
 
     expect(result.status).toBe(0);
-    expect(result.stderr).not.toContain('requires Bun');
+    expect(result.stderr).not.toContain('Unsupported wp-typia command');
     expect(fs.existsSync(path.join(targetDir, 'package.json'))).toBe(true);
     expect(fs.existsSync(path.join(targetDir, 'src', 'block.json'))).toBe(true);
   });
 
-  test('derives Bunli and Node fallback option metadata from the same source', () => {
-    expect(createCommandSource).toContain(
-      'buildCommandOptions(CREATE_OPTION_METADATA)',
-    );
-    expect(addCommandSource).toContain(
-      'buildCommandOptions(ADD_OPTION_METADATA)',
-    );
-    expect(initCommandSource).toContain(
-      'buildCommandOptions(INIT_OPTION_METADATA)',
-    );
-    expect(syncCommandSource).toContain(
-      'buildCommandOptions(SYNC_OPTION_METADATA)',
-    );
-    expect(doctorCommandSource).toContain(
-      'buildCommandOptions(DOCTOR_OPTION_METADATA)',
-    );
-    expect(doctorCommandSource).toContain('args.flags["workspace-only"]');
-    expect(migrateCommandSource).toContain(
-      'buildCommandOptions(MIGRATE_OPTION_METADATA)',
-    );
-    expect(migrateCommandSource).toContain('resolveCommandPrintLine');
-    expect(migrateCommandSource).toMatch(
-      /executeMigrateCommand\(\{[\s\S]*printLine,/,
-    );
+  test('derives Gunshi CLI option metadata from the shared runtime parser', () => {
     expect(nodeCliSource).toMatch(
       /migrate:\s*async\s*\(\{[\s\S]*printLine,[\s\S]*executeMigrateCommand\(\{[\s\S]*printLine,/,
-    );
-    expect(templatesCommandSource).toContain(
-      'buildCommandOptions(TEMPLATES_OPTION_METADATA)',
     );
     expect(nodeCliSource).toMatch(/from ['"]\.\/command-option-metadata['"]/);
     expect(nodeCliSource).toContain("from './node-fallback/help'");
@@ -907,37 +745,15 @@ process.exit(0);
     expect(nodeFallbackHelpSource).toContain(
       'optionMetadata: TEMPLATES_OPTION_METADATA',
     );
-  });
-
-  test('passes explicit output adapters from Bunli command handlers into runtime bridges', () => {
-    expect(outputAdaptersSource).toContain('resolveCommandOutputAdapters');
-    expect(outputAdaptersSource).toContain('process.stdout.write');
-    expect(outputAdaptersSource).toContain('process.stderr.write');
-
-    expect(addCommandSource).toContain('resolveCommandOutputAdapters');
-    expect(addCommandSource).toMatch(
-      /executeAddCommand\(\{[\s\S]*printLine,[\s\S]*warnLine,/,
+    expect(nodeFallbackHelpSource).toContain(
+      'optionMetadata: MCP_OPTION_METADATA',
     );
-    expect(createCommandSource).toContain('resolveCommandOutputAdapters');
-    expect(createCommandSource).toMatch(
-      /executeCreateCommand\(\{[\s\S]*printLine,[\s\S]*warnLine,/,
-    );
-    expect(initCommandSource).toContain('resolveCommandOutputAdapters');
-    expect(initCommandSource).toMatch(
-      /executeInitCommand\([\s\S]*\{[\s\S]*printLine,[\s\S]*warnLine,/,
-    );
-    expect(migrateCommandSource).toContain('resolveCommandPrintLine');
-    expect(migrateCommandSource).toMatch(
-      /executeMigrateCommand\(\{[\s\S]*printLine,/,
-    );
-    expect(templatesCommandSource).toContain('resolveCommandPrintLine');
-    expect(templatesCommandSource).toMatch(
-      /executeTemplatesCommand\(\{[\s\S]*\},\s*printLine\)/,
+    expect(nodeFallbackHelpSource).toContain(
+      'optionMetadata: SKILLS_OPTION_METADATA',
     );
   });
 
-  test('packs a built dist-bunli runtime for the published CLI entrypoint', () => {
-    const rootSegment = path.basename(os.homedir());
+  test('packs a built dist runtime for the published CLI entrypoint', () => {
     const packDestination = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-pack-'),
     );
@@ -968,20 +784,7 @@ process.exit(0);
     >(packResult.stdout);
     const tarball = parsed[0];
     expect(
-      tarball?.files.some((entry) => entry.path === 'dist-bunli/cli.js'),
-    ).toBe(true);
-    expect(
-      tarball?.files.some(
-        (entry) => entry.path === 'dist-bunli/.bunli/commands.gen.js',
-      ),
-    ).toBe(true);
-    expect(
-      tarball?.files.some((entry) =>
-        entry.path.startsWith('dist-bunli/.bunli/tree-sitter-'),
-      ),
-    ).toBe(true);
-    expect(
-      tarball?.files.some((entry) => entry.path === 'dist-bunli/node-cli.js'),
+      tarball?.files.some((entry) => entry.path === 'dist/cli.js'),
     ).toBe(true);
     expect(tarball?.files.some((entry) => entry.path.endsWith('.map'))).toBe(
       false,
@@ -993,12 +796,12 @@ process.exit(0);
       tarball?.files.some(
         (entry) => entry.path === 'bin/routing-metadata.generated.js',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       tarball?.files.some(
         (entry) => entry.path === 'bin/routing-metadata.generated.d.ts',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       tarball?.files.some((entry) => entry.path === 'bin/argv-walker.js'),
     ).toBe(true);
@@ -1006,28 +809,18 @@ process.exit(0);
       tarball?.files.some((entry) => entry.path === 'bin/argv-walker.d.ts'),
     ).toBe(true);
     expect(
-      tarball?.files.some((entry) => entry.path === 'bunli.config.ts'),
+      tarball?.files.some((entry) => entry.path === 'bin/runtime-routing.js'),
     ).toBe(false);
     expect(
-      tarball?.files.some((entry) =>
-        entry.path.startsWith(`dist-bunli/${rootSegment}/`),
-      ),
+      tarball?.files.some((entry) => entry.path === 'bunli.config.ts'),
     ).toBe(false);
     expect(
       tarball?.files.some((entry) => entry.path === '.bunli/commands.gen.ts'),
     ).toBe(false);
-    expect(tarball?.files.some((entry) => entry.path === 'src/cli.ts')).toBe(
-      false,
+    expect(tarball?.files.some((entry) => entry.path === 'src/cli.ts')).toBe(false);
+    expect(fs.existsSync(path.join(packageRoot, 'dist', 'cli.js.map'))).toBe(
+      true,
     );
-    expect(
-      fs.existsSync(path.join(packageRoot, 'dist-bunli', 'cli.js.map')),
-    ).toBe(true);
-    expect(
-      fs.existsSync(
-        path.join(packageRoot, 'dist-bunli', '.bunli', 'commands.gen.js.map'),
-      ),
-    ).toBe(true);
-
   }, 30000);
 
   test('rejects the removed migrations alias with actionable guidance', () => {
@@ -1036,7 +829,7 @@ process.exit(0);
     ).toThrow(/removed in favor of `wp-typia migrate`/);
   });
 
-  test('rejects invalid output formats before Node fallback command execution', () => {
+  test('rejects invalid output formats before Gunshi CLI command execution', () => {
     const cases = [
       ['create', 'demo-format', '--dry-run', '--format', 'jso'],
       ['add', 'block', 'promo-card', '--dry-run', '--format', 'jso'],
@@ -1058,7 +851,7 @@ process.exit(0);
     }
   });
 
-  test('preserves command metadata for invalid templates subcommands in Node fallback JSON mode', async () => {
+  test('preserves command metadata for invalid templates subcommands in Gunshi CLI JSON mode', async () => {
     await expect(
       runNodeCli(['templates', 'unknown', '--format', 'json']),
     ).rejects.toMatchObject({
@@ -1074,7 +867,9 @@ process.exit(0);
   });
 
   test('formats migrate failures with a shared non-interactive diagnostic block', () => {
-    const result = runCapturedCommand('node', [entryPath, 'migrate', 'init']);
+    const result = runCapturedCommand('node', [entryPath, 'migrate', 'init'], {
+      env: withoutAIAgentEnv(),
+    });
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('Error: wp-typia migrate failed');
@@ -1254,24 +1049,39 @@ process.exit(0);
     expect(helpOutput).toContain('wp-typia migrate init');
   });
 
-  test('exposes shell completions through the Bunli plugin surface', () => {
+  test('exposes shell completions through the Gunshi CLI surface', () => {
     const output = runUtf8Command('node', [entryPath, 'completions', 'bash']);
 
     expect(output).toContain('# bash completion for wp-typia');
     expect(output).toContain('wp-typia complete --');
   });
 
-  test('exposes skills listing through the Bunli plugin surface', () => {
-    const output = runUtf8Command('node', [entryPath, 'skills', 'list']);
+  test('exposes skills listing through the Gunshi CLI surface', () => {
+    const output = runUtf8Command(
+      'node',
+      [entryPath, 'skills', 'list', '--format', 'text'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
+    const jsonOutput = runUtf8Command(
+      'node',
+      [entryPath, 'skills', 'list', '--format', 'json'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
 
-    expect(output).toContain('"agents": [');
     expect(output).toMatch(/Detected|No agents detected/);
+    expect(output).not.toContain('"commands": [');
+    expect(jsonOutput).toContain('"agents": [');
+    expect(jsonOutput).toContain('"commands": [');
   });
 
   test('fails mcp list with actionable config guidance when no schema sources are configured', () => {
     const result = runCapturedCommand(
-      'bun',
-      [fullRuntimeEntrypoint, 'mcp', 'list'],
+      process.execPath,
+      [runtimeEntrypoint, 'mcp', 'list'],
       {
         env: withoutAIAgentEnv(),
       },
@@ -1376,7 +1186,7 @@ process.exit(0);
     }
   });
 
-  test('rejects invalid output formats before Bun runtime command execution', () => {
+  test('rejects invalid output formats before Gunshi runtime command execution', () => {
     const cases = [
       ['create', 'demo-format', '--dry-run', '--format', 'jso'],
       ['add', 'block', 'promo-card', '--dry-run', '--format', 'jso'],
@@ -1387,7 +1197,7 @@ process.exit(0);
     ];
 
     for (const args of cases) {
-      const result = runCapturedCommand('bun', [fullRuntimeEntrypoint, ...args], {
+      const result = runCapturedCommand(process.execPath, [runtimeEntrypoint, ...args], {
         env: withoutAIAgentEnv(),
       });
 
@@ -1398,10 +1208,10 @@ process.exit(0);
     }
   });
 
-  test('accepts text as the public human-readable format in Bun runtime', () => {
+  test('accepts text as the public human-readable format in Gunshi runtime', () => {
     const result = runCapturedCommand(
-      'bun',
-      [fullRuntimeEntrypoint, 'create', '--format', 'text'],
+      process.execPath,
+      [runtimeEntrypoint, 'create', '--format', 'text'],
       {
         env: withoutAIAgentEnv(),
       },
@@ -1414,10 +1224,10 @@ process.exit(0);
     expect(result.stderr).not.toContain('Supported values:');
   });
 
-  test('emits a machine-readable missing-argument error code for top-level config parsing in Bun runtime JSON mode', () => {
+  test('emits a machine-readable missing-argument error code for top-level config parsing in Gunshi runtime JSON mode', () => {
     const result = runCapturedCommand(
-      'bun',
-      [fullRuntimeEntrypoint, '--config', '--format', 'json'],
+      process.execPath,
+      [runtimeEntrypoint, '--config', '--format', 'json'],
       {
         env: withoutAIAgentEnv(),
       },
@@ -1435,11 +1245,11 @@ process.exit(0);
     expect(parsed.error?.code).toBe('missing-argument');
   });
 
-  test('emits a machine-readable invalid-argument error code for positional-alias typos after value options in Bun runtime JSON mode', () => {
+  test('emits a machine-readable invalid-argument error code for positional-alias typos after value options in Gunshi runtime JSON mode', () => {
     const result = runCapturedCommand(
-      'bun',
+      process.execPath,
       [
-        fullRuntimeEntrypoint,
+        runtimeEntrypoint,
         '--template',
         'basic',
         'temlates',
@@ -1502,6 +1312,8 @@ process.exit(0);
         configPath,
         'mcp',
         'list',
+        '--format',
+        'json',
       ]);
       const parsed = JSON.parse(output) as {
         groups: Array<{
@@ -1605,7 +1417,9 @@ process.exit(0);
   });
 
   test('renders human-readable template discovery hints for flags and workspace aliasing', () => {
-    const output = runUtf8Command('node', [entryPath, 'templates', 'list']);
+    const output = runUtf8Command('node', [entryPath, 'templates', 'list'], {
+      env: withoutAIAgentEnv(),
+    });
 
     expect(output).toContain(
       'Supports: --alternate-render-targets • --data-storage • --persistence-policy • external layers',
@@ -1615,18 +1429,16 @@ process.exit(0);
   });
 
   test('keeps human-readable template inspect output focused on logical layers', () => {
-    const basicOutput = runUtf8Command('node', [
-      entryPath,
-      'templates',
-      'inspect',
-      'basic',
-    ]);
-    const workspaceOutput = runUtf8Command('node', [
-      entryPath,
-      'templates',
-      'inspect',
-      'workspace',
-    ]);
+    const basicOutput = runUtf8Command(
+      'node',
+      [entryPath, 'templates', 'inspect', 'basic'],
+      { env: withoutAIAgentEnv() },
+    );
+    const workspaceOutput = runUtf8Command(
+      'node',
+      [entryPath, 'templates', 'inspect', 'workspace'],
+      { env: withoutAIAgentEnv() },
+    );
 
     expect(basicOutput).toStartWith('basic\n');
     expect(basicOutput).not.toContain(
@@ -1649,7 +1461,7 @@ process.exit(0);
     expect(workspaceOutput).not.toContain('Overlay path:');
   });
 
-  test('stops parsing global flags after -- in the Node fallback', () => {
+  test('stops parsing global flags after -- in the Gunshi CLI', () => {
     const parsed = parseGlobalFlags(['templates', 'list', '--', '--format']);
 
     expect(parsed.flags).toEqual({});
@@ -1702,7 +1514,7 @@ process.exit(0);
     expect(parsed.template?.description).toContain('official empty workspace');
   });
 
-  test('rejects unknown short options in the Node fallback parser', () => {
+  test('rejects unknown short options in the Gunshi CLI parser', () => {
     const result = runCapturedCommand(
       process.execPath,
       [entryPath, 'create', '-x', 'demo-short-flag'],

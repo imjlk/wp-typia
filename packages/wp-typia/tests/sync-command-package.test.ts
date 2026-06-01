@@ -6,9 +6,9 @@ import path from 'node:path';
 import { runUtf8Command } from '../../../tests/helpers/process-utils';
 import {
   entryPath,
-  fullRuntimeEntrypoint,
   parseJsonObjectFromOutput,
   runCapturedCommand,
+  runtimeEntrypoint,
   withoutAIAgentEnv,
   withoutLocalBunEnv,
 } from './cli-package-test-helpers';
@@ -517,15 +517,15 @@ describe('wp-typia sync package command', () => {
     expect(parsed.error?.code).toBe('invalid-command');
   });
 
-  test('emits a machine-readable outside-project-root error code for sync in Bun runtime JSON mode', () => {
+  test('emits a machine-readable outside-project-root error code for sync in Gunshi runtime JSON mode', () => {
     const tempRoot = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'wp-typia-bun-sync-json-'),
+      path.join(os.tmpdir(), 'wp-typia-gunshi-sync-json-'),
     );
 
     try {
       const result = runCapturedCommand(
-        'bun',
-        [fullRuntimeEntrypoint, 'sync', '--format', 'json'],
+        process.execPath,
+        [runtimeEntrypoint, 'sync', '--format', 'json'],
         {
           cwd: tempRoot,
           env: withoutAIAgentEnv(),

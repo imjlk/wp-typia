@@ -138,14 +138,14 @@ function getRuntimeDependencyBuildSteps(): RuntimeDependencyBuildStep[] {
 export function resolveBunExecutable(): string {
 	if (typeof Bun === "undefined") {
 		throw new Error(
-			"wp-typia Bun runtime recovery requires Bun to be available.",
+			"wp-typia source checkout recovery requires Bun to be available.",
 		);
 	}
 
 	const resolvedBunExecutable = Bun.which("bun");
 	if (!resolvedBunExecutable) {
 		throw new Error(
-			"wp-typia Bun runtime recovery could not locate the `bun` executable.",
+			"wp-typia source checkout recovery could not locate the `bun` executable.",
 		);
 	}
 

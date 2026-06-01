@@ -4,12 +4,41 @@ import * as path from "node:path";
 
 import { runUtf8Command } from "../../../../tests/helpers/process-utils";
 
+const AI_AGENT_ENV_KEYS = [
+	"AGENT",
+	"AMP_CURRENT_THREAD_ID",
+	"CLAUDE_CODE",
+	"CLAUDECODE",
+	"CODEX_CI",
+	"CODEX_SANDBOX",
+	"CODEX_THREAD_ID",
+	"CURSOR_AGENT",
+	"GEMINI_CLI",
+	"OPENCODE",
+] as const;
+
+function buildCliTestEnv(env: NodeJS.ProcessEnv | undefined) {
+	const nextEnv = {
+		...process.env,
+		...env,
+	};
+	for (const key of AI_AGENT_ENV_KEYS) {
+		if (env?.[key] === undefined) {
+			delete nextEnv[key];
+		}
+	}
+	return nextEnv;
+}
+
 export function runCli(
 	command: string,
 	args: string[],
 	options: Parameters<typeof runUtf8Command>[2] = {},
 ) {
-	return runUtf8Command(command, args, options);
+	return runUtf8Command(command, args, {
+		...options,
+		env: buildCliTestEnv(options.env),
+	});
 }
 
 export function getCommandErrorMessage(run: () => string): string {
@@ -44,6 +73,7 @@ export function runCapturedCli(
 	return spawnSync(command, args, {
 		...options,
 		encoding: "utf8",
+		env: buildCliTestEnv(options.env),
 	});
 }
 

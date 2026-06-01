@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
 
@@ -14,6 +14,21 @@ import {
   normalizeCliOutputFormatArgv,
   validateCliOutputFormatArgv,
 } from '../src/cli-output-format';
+
+const AI_ENV_KEYS = [
+  'AGENT',
+  'AMP_CURRENT_THREAD_ID',
+  'CLAUDE_CODE',
+  'CLAUDECODE',
+  'CODEX_CI',
+  'CODEX_SANDBOX',
+  'CODEX_THREAD_ID',
+  'CURSOR_AGENT',
+  'GEMINI_CLI',
+  'OPENCODE',
+] as const;
+
+let originalAIAgentEnv: Map<string, string | undefined>;
 
 function captureStderr(callback: () => void): {
   exitCode: string | number | undefined;
@@ -42,8 +57,25 @@ function captureStderr(callback: () => void): {
 }
 
 describe('CLI structured diagnostic output', () => {
+  beforeEach(() => {
+    originalAIAgentEnv = new Map(
+      AI_ENV_KEYS.map((key) => [key, process.env[key]]),
+    );
+    for (const key of AI_ENV_KEYS) {
+      delete process.env[key];
+    }
+  });
+
   afterEach(() => {
     process.exitCode = 0;
+    for (const key of AI_ENV_KEYS) {
+      const value = originalAIAgentEnv.get(key);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   test('detects explicit structured format requests before argv terminators', () => {

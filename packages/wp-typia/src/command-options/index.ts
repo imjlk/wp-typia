@@ -5,5 +5,6 @@ export { GLOBAL_OPTION_METADATA } from './global';
 export { INIT_OPTION_METADATA } from './init';
 export { MCP_OPTION_METADATA } from './mcp';
 export { MIGRATE_OPTION_METADATA } from './migrate';
+export { SKILLS_OPTION_METADATA } from './skills';
 export { SYNC_OPTION_METADATA } from './sync';
 export { TEMPLATES_OPTION_METADATA } from './templates';

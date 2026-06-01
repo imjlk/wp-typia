@@ -55,9 +55,8 @@ curl -fsSL https://github.com/imjlk/wp-typia/releases/latest/download/install-wp
 `wp-typia <project-dir>` remains available as a backward-compatible alias to
 `create` when `<project-dir>` is the only positional argument.
 
-If you want the full interactive Bunli/OpenTUI runtime without keeping Bun
-installed locally, prefer the standalone installers published with each GitHub
-Release:
+For a portable install that does not require a local Bun installation, prefer
+the standalone installers published with each GitHub Release:
 
 - macOS / Linux: `curl -fsSL https://github.com/imjlk/wp-typia/releases/latest/download/install-wp-typia.sh | sh`
 - Windows: `irm https://github.com/imjlk/wp-typia/releases/latest/download/install-wp-typia.ps1 | iex`

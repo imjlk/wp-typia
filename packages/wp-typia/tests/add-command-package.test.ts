@@ -18,6 +18,43 @@ import {
   withoutLocalBunEnv,
 } from './cli-package-test-helpers';
 
+const AI_ENV_KEYS = [
+  'AGENT',
+  'AMP_CURRENT_THREAD_ID',
+  'CLAUDE_CODE',
+  'CLAUDECODE',
+  'CODEX_CI',
+  'CODEX_SANDBOX',
+  'CODEX_THREAD_ID',
+  'CURSOR_AGENT',
+  'GEMINI_CLI',
+  'OPENCODE',
+] as const;
+
+async function withAIAgentEnvCleared(
+  callback: () => Promise<void>,
+): Promise<void> {
+  const previous = new Map(
+    AI_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
+  for (const key of AI_ENV_KEYS) {
+    delete process.env[key];
+  }
+
+  try {
+    await callback();
+  } finally {
+    for (const key of AI_ENV_KEYS) {
+      const value = previous.get(key);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 test('requires --block for add variation', () => {
   expect(() =>
     runUtf8Command('node', [entryPath, 'add', 'variation', 'promo-card']),
@@ -66,12 +103,13 @@ test('requires --anchor and --position for add hooked-block', () => {
 });
 
 test('formats add failures with a shared non-interactive diagnostic block', () => {
-  const result = runCapturedCommand('node', [
-    entryPath,
-    'add',
-    'variation',
-    'promo-card',
-  ]);
+  const result = runCapturedCommand(
+    'node',
+    [entryPath, 'add', 'variation', 'promo-card'],
+    {
+      env: withoutAIAgentEnv(),
+    },
+  );
 
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('Error: wp-typia add failed');
@@ -210,7 +248,9 @@ test('node fallback source entry treats missing add kinds as an error while prin
   };
 
   try {
-    await expect(runNodeCli(['add'])).rejects.toThrow('wp-typia add failed');
+    await withAIAgentEnvCleared(async () => {
+      await expect(runNodeCli(['add'])).rejects.toThrow('wp-typia add failed');
+    });
     expect(capturedStdout.join('\n')).toContain('Usage:');
     expect(capturedStdout.join('\n')).toContain(
       'wp-typia add admin-view <name>',

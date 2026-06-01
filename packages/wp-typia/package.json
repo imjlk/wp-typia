@@ -9,26 +9,20 @@
   },
   "files": [
     "bin/",
-    "dist-bunli/",
+    "dist/",
     "README.md",
     "package.json"
   ],
   "scripts": {
-    "generate:routing": "node scripts/generate-routing-metadata.mjs",
-    "validate:routing": "node scripts/generate-routing-metadata.mjs --check",
-    "generate": "node scripts/generate-routing-metadata.mjs && bun scripts/generate-bunli-metadata.ts",
-    "build": "bun run generate && bun scripts/build-bunli-runtime.ts",
+    "generate": "bun scripts/build-runtime.ts",
+    "build": "bun run generate",
     "build:standalone": "bun scripts/build-standalone-runtime.ts --targets native --outdir ./dist-standalone",
     "build:standalone:release": "bun scripts/build-standalone-runtime.ts --targets darwin-arm64,darwin-x64,linux-arm64,linux-x64,windows-x64 --outdir ./.cache/standalone/raw",
-    "bunli:generate": "bun run generate",
-    "bunli:build": "bun run build",
-    "bunli:dev": "bun src/cli.ts",
-    "bunli:test": "bun test tests/*.test.ts",
     "dev": "bun run build && node bin/wp-typia.js",
     "standalone:prepare-release-assets": "bun scripts/prepare-standalone-release-assets.ts --input-dir ./.cache/standalone/raw --outdir ./.cache/standalone/release-assets",
     "test": "cd ../wp-typia-project-tools && bun run build && cd ../wp-typia && bun run build && bun test tests/*.test.ts",
     "test:coverage": "cd ../wp-typia-project-tools && bun run build && cd ../wp-typia && bun run build && bun test tests/*.test.ts --coverage --coverage-reporter=lcov --coverage-dir=coverage",
-    "clean": "rm -rf .bunli .cache/standalone .pack-backup dist-bunli dist-standalone",
+    "clean": "rm -rf .cache/standalone .pack-backup dist dist-standalone",
     "prepack": "bun run build && node ./scripts/publish-runtime-maps.mjs prepare",
     "postpack": "node ./scripts/publish-runtime-maps.mjs restore"
   },
@@ -60,34 +54,13 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@bunli/core": "0.9.0",
-    "@bunli/plugin-ai-detect": "0.6.4",
-    "@bunli/plugin-completions": "0.3.5",
-    "@bunli/plugin-config": "0.4.4",
-    "@bunli/plugin-mcp": "0.2.5",
-    "@bunli/plugin-skills": "0.1.0",
-    "@bunli/runtime": "0.3.1",
-    "@bunli/tui": "0.6.0",
-    "@bunli/utils": "0.6.0",
+    "@gunshi/plugin-completion": "0.32.0",
     "@wp-typia/api-client": "^0.4.5",
     "@wp-typia/project-tools": "0.24.4",
-    "better-result": "^2.7.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "gunshi": "0.32.0",
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "@bunli/generator": "0.6.5",
-    "@bunli/test": "0.6.0",
-    "bunli": "0.9.0",
     "typescript": "^5.9.2"
-  },
-  "optionalDependencies": {
-    "@opentui/core-darwin-arm64": "0.1.97",
-    "@opentui/core-darwin-x64": "0.1.97",
-    "@opentui/core-linux-arm64": "0.1.97",
-    "@opentui/core-linux-x64": "0.1.97",
-    "@opentui/core-win32-arm64": "0.1.97",
-    "@opentui/core-win32-x64": "0.1.97"
   }
 }

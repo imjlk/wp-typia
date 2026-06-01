@@ -11,9 +11,9 @@ bunx wp-typia --help
 wp-typia --version
 ```
 
-The published binary keeps common non-interactive commands available through the
-Node fallback runtime. Bun-powered command surfaces such as `mcp`, `skills`, and
-shell `completions` require Bun 1.3.11+ or the standalone release binary.
+The published binary runs through the Node-first Gunshi runtime. Bun remains the
+repository development and build toolchain, but npm-installed CLI commands such
+as `mcp`, `skills`, and shell `completions` do not require a local Bun binary.
 
 ## Global flags
 
@@ -129,7 +129,7 @@ the throw site instead of extending the fallback classifier.
 | `template-source-timeout`    | External template resolution timed out.                  | Retry with a reachable source, local path, or cached package.           |
 | `template-source-too-large`  | External template content exceeded the safety limit.     | Reduce the package size or use a smaller template layer.                |
 | `unknown-template`           | The requested template id is not registered.             | Run `wp-typia templates list` and use one of the listed ids.            |
-| `unsupported-command`        | The current runtime cannot execute that command surface. | Install Bun 1.3.11+ or use the standalone wp-typia binary if required.  |
+| `unsupported-command`        | The current runtime cannot execute that command surface. | Use a current npm package or standalone wp-typia binary.                |
 
 ## `create`
 
@@ -463,18 +463,19 @@ Common flags:
 `migrate` is the canonical command. The older `migrations` alias is no longer
 supported.
 
-## Bun-powered utility commands
+## Node-first utility commands
 
-These commands require the Bun-powered runtime.
+These commands run through the published Node-first Gunshi runtime and do not
+require a local Bun binary.
 
 ```bash
 wp-typia mcp list
-wp-typia mcp sync --output-dir .bunli/mcp
+wp-typia mcp sync
 wp-typia skills list
 wp-typia skills sync
 wp-typia completions zsh
 ```
 
 `mcp` reads configured `mcp.schemaSources` and can emit MCP metadata for
-downstream tooling. `skills` and `completions` are provided by the Bunli plugin
-surface.
+downstream tooling. `mcp sync` writes to `.wp-typia/mcp` by default, and
+`skills` plus `completions` are first-party CLI surfaces.

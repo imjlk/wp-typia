@@ -32,6 +32,7 @@ export type CommandOptionGroupName =
   | 'init'
   | 'migrate'
   | 'mcp'
+  | 'skills'
   | 'sync'
   | 'doctor'
   | 'templates';

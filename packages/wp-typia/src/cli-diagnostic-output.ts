@@ -3,6 +3,7 @@ import {
   serializeCliDiagnosticError,
   type CliDiagnosticCode,
 } from '@wp-typia/project-tools/cli-diagnostics';
+import { detectAIAgents } from './ai-agent-detection';
 import { resolveEntrypointCliCommand } from './cli-command-resolution';
 import { isSupportedCliOutputFormat } from './cli-output-format';
 
@@ -34,6 +35,8 @@ function writeStructuredCliJsonToStderr(
 }
 
 export function prefersStructuredCliArgv(argv: string[]): boolean {
+  let explicitFormat: string | undefined;
+
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (!arg) {
@@ -41,19 +44,27 @@ export function prefersStructuredCliArgv(argv: string[]): boolean {
     }
 
     if (arg === '--') {
-      return false;
+      break;
     }
 
     if (arg === '--format') {
-      return argv[index + 1] === 'json';
+      explicitFormat = argv[index + 1];
+      if (explicitFormat && !explicitFormat.startsWith('-')) {
+        index += 1;
+      }
+      continue;
     }
 
     if (arg.startsWith('--format=')) {
-      return arg.slice('--format='.length) === 'json';
+      explicitFormat = arg.slice('--format='.length);
     }
   }
 
-  return false;
+  if (explicitFormat) {
+    return explicitFormat === 'json';
+  }
+
+  return detectAIAgents().isAIAgent;
 }
 
 export function prefersStructuredCliOutput(
@@ -65,7 +76,8 @@ export function prefersStructuredCliOutput(
 
   return (
     Boolean(args.agent) ||
-    Boolean(args.context?.store?.isAIAgent)
+    Boolean(args.context?.store?.isAIAgent) ||
+    detectAIAgents().isAIAgent
   );
 }
 

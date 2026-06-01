@@ -1,15 +1,14 @@
 import { registerBlockType } from '@wordpress/blocks';
 import type {
-  Block as WordPressRegisteredBlockType,
+  Block as WordPressBlockInstance,
   BlockAttribute as WordPressBlockAttribute,
   BlockConfiguration as WordPressBlockConfiguration,
   BlockDeprecation as WordPressBlockDeprecation,
   BlockEditProps as WordPressBlockEditProps,
-  BlockInstance as WordPressBlockInstance,
   BlockSaveProps as WordPressBlockSaveProps,
+  BlockType as WordPressRegisteredBlockType,
   BlockVariation as WordPressBlockVariation,
   BlockVariationScope as WordPressBlockVariationScope,
-  InnerBlockTemplate as WordPressInnerBlockTemplate,
 } from '@wordpress/blocks';
 
 /**
@@ -21,7 +20,19 @@ import type {
  */
 export type BlockAttributes = Record<string, any>;
 
-export type BlockAttribute<TValue = unknown> = WordPressBlockAttribute<TValue>;
+export type BlockAttribute<TValue = unknown> = Omit<
+  WordPressBlockAttribute,
+  'default' | 'query'
+> & {
+  default?: TValue;
+  query?: Record<string, BlockAttribute>;
+};
+
+export type BlockAttributeSchema<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> = {
+  [K in keyof TAttributes]: BlockAttribute<TAttributes[K]>;
+};
 
 export type BlockSaveProps<
   TAttributes extends BlockAttributes = BlockAttributes,
@@ -31,9 +42,38 @@ export type BlockEditProps<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = WordPressBlockEditProps<TAttributes>;
 
+export type BlockExampleInnerBlock<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> = {
+  attributes?: Partial<TAttributes> | Record<string, unknown>;
+  innerBlocks?: BlockExampleInnerBlock[];
+  name: string;
+};
+
+export type BlockExample<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> = {
+  attributes?: Partial<TAttributes>;
+  innerBlocks?: BlockExampleInnerBlock[];
+  viewportWidth?: number;
+};
+
+type BlockConfigurationAttributes<
+  TAttributes extends BlockAttributes,
+> = keyof TAttributes extends never
+  ? {
+      attributes?: BlockAttributeSchema<TAttributes>;
+    }
+  : {
+      attributes: BlockAttributeSchema<TAttributes>;
+    };
+
 export type BlockConfiguration<
   TAttributes extends BlockAttributes = BlockAttributes,
-> = WordPressBlockConfiguration<TAttributes>;
+> = Omit<WordPressBlockConfiguration<TAttributes>, 'attributes' | 'example'> &
+  BlockConfigurationAttributes<TAttributes> & {
+    example?: BlockExample<TAttributes>;
+  };
 
 export type BlockDeprecation<
   TNewAttributes extends BlockAttributes = BlockAttributes,
@@ -49,7 +89,11 @@ export type BlockInstance<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = WordPressBlockInstance<TAttributes>;
 
-export type BlockInnerTemplate = WordPressInnerBlockTemplate;
+export type BlockInnerTemplate = [
+  name: string,
+  attributes?: Partial<BlockAttributes>,
+  innerBlocks?: BlockInnerTemplate[],
+];
 
 export type BlockTemplate = BlockInnerTemplate[];
 
@@ -96,6 +140,8 @@ export function registerScaffoldBlockType<
 ): RegisterBlockTypeResult<TAttributes> {
   return registerBlockType(
     blockName,
-    settings as WordPressBlockConfiguration<Record<string, unknown>>,
+    settings as unknown as Partial<
+      WordPressRegisteredBlockType<Record<string, unknown>>
+    >,
   ) as RegisterBlockTypeResult<TAttributes>;
 }

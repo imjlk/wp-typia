@@ -1210,7 +1210,13 @@ test("runScaffoldFlow does not prompt for migration UI on external templates", a
 });
 
 test("node entry exposes templates and doctor commands", () => {
-  const templatesOutput = runCli("node", [entryPath, "templates", "list"]);
+  const templatesOutput = runCli("node", [
+    entryPath,
+    "templates",
+    "list",
+    "--format",
+    "text",
+  ]);
   const doctorOutput = runCli("node", [entryPath, "doctor", "--format", "json"]);
 
   expect(templatesOutput).toContain("basic");
@@ -1349,7 +1355,7 @@ test("node entry supports external layer flags for built-in create scaffolds", (
   );
 });
 
-test("node entry exposes fallback help and rejects the removed migrations alias", () => {
+test("node entry exposes portable CLI help and rejects the removed migrations alias", () => {
   const helpOutput = runCli("node", [entryPath, "--help"]);
   const doctorHelpOutput = runCli("node", [entryPath, "doctor", "--help"]);
   const doctorHelpAliasOutput = runCli("node", [entryPath, "help", "doctor"]);
@@ -1357,7 +1363,7 @@ test("node entry exposes fallback help and rejects the removed migrations alias"
     runCli("node", [entryPath, "migrations", "init"], { stdio: "pipe" })
   );
 
-  expect(helpOutput).toContain("Runtime: Node fallback");
+  expect(helpOutput).toContain("Runtime: Gunshi CLI");
   expect(helpOutput).toContain("Scaffold a new wp-typia project.");
   expect(helpOutput).toContain("Run migration workflows.");
   expect(helpOutput).toContain(
@@ -1379,7 +1385,13 @@ test("node entry exposes fallback help and rejects the removed migrations alias"
 });
 
 test("bun entry exposes templates and doctor commands", () => {
-  const templatesOutput = runCli("bun", [entryPath, "templates", "list"]);
+  const templatesOutput = runCli("bun", [
+    entryPath,
+    "templates",
+    "list",
+    "--format",
+    "text",
+  ]);
   const doctorOutput = runCli("bun", [entryPath, "doctor", "--format", "json"]);
 
   expect(templatesOutput).toContain("basic");
@@ -1394,14 +1406,14 @@ test("bun entry exposes templates and doctor commands", () => {
   expect(doctorOutput).toContain('"label": "Template basic"');
 });
 
-test("bun entry exposes fallback help and rejects the removed migrations alias", () => {
+test("bun entry exposes portable CLI help and rejects the removed migrations alias", () => {
   const helpOutput = runCli("bun", [entryPath, "--help"]);
   const doctorHelpOutput = runCli("bun", [entryPath, "doctor", "--help"]);
   const errorMessage = getCommandErrorMessage(() =>
     runCli("bun", [entryPath, "migrations", "init"], { stdio: "pipe" })
   );
 
-  expect(helpOutput).toContain("Runtime: Node fallback");
+  expect(helpOutput).toContain("Runtime: Gunshi CLI");
   expect(helpOutput).toContain("Scaffold a new wp-typia project.");
   expect(helpOutput).toContain("Run migration workflows.");
   expect(helpOutput).toContain(
@@ -1526,6 +1538,8 @@ test("node entry rejects built-in variant flags before scaffolding", () => {
       "node",
       [
         entryPath,
+        "--format",
+        "text",
         "demo-basic-invalid-variant",
         "--template",
         "basic",
@@ -1573,7 +1587,17 @@ test("node entry warns about awkward project directory names", () => {
   const targetDir = path.join(tempRoot, "node cool block!");
   const result = runCapturedCli(
     "node",
-    [entryPath, "create", targetDir, "--template", "basic", "--yes", "--no-install"],
+    [
+      entryPath,
+      "create",
+      targetDir,
+      "--template",
+      "basic",
+      "--yes",
+      "--no-install",
+      "--format",
+      "text",
+    ],
     {
       stdio: "pipe",
     }

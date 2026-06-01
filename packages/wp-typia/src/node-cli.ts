@@ -1,4 +1,7 @@
-import { createCliCommandError } from '@wp-typia/project-tools/cli-diagnostics';
+import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliCommandError,
+} from '@wp-typia/project-tools/cli-diagnostics';
 import {
   ALL_COMMAND_OPTION_METADATA,
   ADD_OPTION_METADATA,
@@ -8,34 +11,35 @@ import {
   parseCommandArgvWithMetadata,
   resolveCommandOptionValues,
 } from './command-option-metadata';
+import { detectAIAgents } from './ai-agent-detection';
 import {
   normalizeCliOutputFormatArgv,
   validateCliOutputFormatArgv,
 } from './cli-output-format';
+import { renderCompletionScript } from './completions';
 import {
   getAddBlockDefaults,
   getCreateDefaults,
   loadWpTypiaUserConfig,
   loadWpTypiaUserConfigFromSource,
   mergeWpTypiaUserConfig,
+  type WpTypiaUserConfig,
 } from './config';
 import { extractWpTypiaConfigOverride } from './config-override';
+import { dispatchMcpCommand } from './commands/mcp';
 import type { PrintLine } from './print-line';
-import {
-  executeInitCommand,
-  executeMigrateCommand,
-  executeSyncCommand,
-} from './runtime-bridge';
+import { executeInitCommand } from './runtime-bridge-init';
+import { executeMigrateCommand } from './runtime-bridge-migrate';
 import {
   buildStructuredInitSuccessPayload,
   buildSyncDryRunPayload,
   printCompletionPayload,
 } from './runtime-bridge-output';
-import { resolveSyncExecutionTarget } from './runtime-bridge-sync';
+import {
+  executeSyncCommand,
+  resolveSyncExecutionTarget,
+} from './runtime-bridge-sync';
 import { normalizeWpTypiaArgv } from './command-contract';
-import { dispatchNodeFallbackDoctor } from './node-fallback/doctor';
-import { dispatchNodeFallbackAdd } from './node-fallback/dispatchers/add';
-import { dispatchNodeFallbackCreate } from './node-fallback/dispatchers/create';
 import {
   createNodeFallbackNoCommandCliError,
   handleNodeFallbackEntrypointError,
@@ -46,7 +50,7 @@ import {
   renderGeneralHelp,
   renderNoCommandHelp,
 } from './node-fallback/help';
-import { dispatchNodeFallbackTemplates } from './node-fallback/templates';
+import { listSkills, syncSkills } from './skills';
 import type {
   NodeFallbackCommandDispatcher,
   NodeFallbackDispatchContext,
@@ -101,18 +105,8 @@ async function applyNodeFallbackConfigDefaults(
   command: string | undefined,
   subcommand: string | undefined,
   flags: Record<string, unknown>,
-  configOverridePath: string | undefined,
-  cwd: string,
+  config: WpTypiaUserConfig,
 ): Promise<Record<string, unknown>> {
-  let config = await loadWpTypiaUserConfig(cwd);
-  if (configOverridePath) {
-    const overrideConfig = await loadWpTypiaUserConfigFromSource(
-      cwd,
-      configOverridePath,
-    );
-    config = mergeWpTypiaUserConfig(config, overrideConfig);
-  }
-
   if (command === 'create') {
     return {
       ...flags,
@@ -136,6 +130,33 @@ async function applyNodeFallbackConfigDefaults(
   return flags;
 }
 
+async function loadNodeCliConfig(
+  cwd: string,
+  configOverridePath: string | undefined,
+): Promise<WpTypiaUserConfig> {
+  let config = await loadWpTypiaUserConfig(cwd);
+  if (configOverridePath) {
+    const overrideConfig = await loadWpTypiaUserConfigFromSource(
+      cwd,
+      configOverridePath,
+    );
+    config = mergeWpTypiaUserConfig(config, overrideConfig);
+  }
+
+  return config;
+}
+
+function commandNeedsNodeCliConfig(
+  command: string | undefined,
+  subcommand: string | undefined,
+): boolean {
+  return (
+    command === 'create' ||
+    command === 'mcp' ||
+    (command === 'add' && subcommand === 'block')
+  );
+}
+
 function parseArgv(argv: string[]) {
   return parseCommandArgvWithMetadata(argv, {
     extraBooleanOptionNames: NODE_FALLBACK_BOOLEAN_OPTION_NAMES,
@@ -143,10 +164,111 @@ function parseArgv(argv: string[]) {
   });
 }
 
+async function dispatchNodeFallbackCompletion({
+  positionals,
+  printLine,
+}: NodeFallbackDispatchContext): Promise<void> {
+  const shell = positionals[1];
+  printLine(renderCompletionScript(shell));
+}
+
+const dispatchNodeFallbackAddLazy: NodeFallbackCommandDispatcher = async (
+  context,
+) => {
+  const { dispatchNodeFallbackAdd } =
+    await import('./node-fallback/dispatchers/add');
+  await dispatchNodeFallbackAdd(context);
+};
+
+const dispatchNodeFallbackCreateLazy: NodeFallbackCommandDispatcher = async (
+  context,
+) => {
+  const { dispatchNodeFallbackCreate } =
+    await import('./node-fallback/dispatchers/create');
+  await dispatchNodeFallbackCreate(context);
+};
+
+const dispatchNodeFallbackDoctorLazy: NodeFallbackCommandDispatcher = async (
+  context,
+) => {
+  const { dispatchNodeFallbackDoctor } = await import('./node-fallback/doctor');
+  await dispatchNodeFallbackDoctor(context);
+};
+
+const dispatchNodeFallbackTemplatesLazy: NodeFallbackCommandDispatcher = async (
+  context,
+) => {
+  const { dispatchNodeFallbackTemplates } =
+    await import('./node-fallback/templates');
+  await dispatchNodeFallbackTemplates(context);
+};
+
+async function dispatchNodeFallbackSkills({
+  cwd,
+  mergedFlags,
+  positionals,
+  printLine,
+}: NodeFallbackDispatchContext): Promise<void> {
+  const subcommand = positionals[1] ?? 'list';
+  const structured = mergedFlags.format === 'json';
+
+  if (subcommand === 'list') {
+    const result = listSkills();
+    if (structured) {
+      printLine(JSON.stringify(result, null, 2));
+      return;
+    }
+    if (result.agents.length === 0) {
+      printLine('No agents detected.');
+    } else {
+      printLine(`Detected ${result.agents.length} agent(s):`);
+      for (const agent of result.agents) {
+        printLine(`  ${agent.name}${agent.universal ? ' (universal)' : ''}`);
+        printLine(`    ${agent.projectSkillsDir}`);
+      }
+    }
+    return;
+  }
+
+  if (subcommand === 'sync') {
+    const result = await syncSkills({
+      cwd,
+      force: Boolean(mergedFlags.force),
+      global: mergedFlags.local ? false : true,
+    });
+    if (structured) {
+      printLine(JSON.stringify(result, null, 2));
+      return;
+    }
+    if (!result.updated) {
+      printLine('Skills are up to date.');
+      return;
+    }
+    printLine(`Synced skills to ${result.paths.length} location(s).`);
+    for (const install of result.agents) {
+      const reason = install.reason ? ` (${install.reason})` : '';
+      printLine(
+        `  ${install.agent}: ${install.mode} -> ${install.path}${reason}`,
+      );
+    }
+    return;
+  }
+
+  throw createCliCommandError({
+    code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
+    command: 'skills',
+    detailLines: [
+      `Unknown skills subcommand "${subcommand}". Expected list or sync.`,
+    ],
+  });
+}
+
 const NODE_FALLBACK_COMMAND_DISPATCHERS = {
-  add: dispatchNodeFallbackAdd,
-  create: dispatchNodeFallbackCreate,
-  doctor: dispatchNodeFallbackDoctor,
+  add: dispatchNodeFallbackAddLazy,
+  complete: dispatchNodeFallbackCompletion,
+  completions: dispatchNodeFallbackCompletion,
+  create: dispatchNodeFallbackCreateLazy,
+  doctor: dispatchNodeFallbackDoctorLazy,
   init: async ({
     cwd,
     mergedFlags,
@@ -240,7 +362,25 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
       });
     }
   },
-  templates: dispatchNodeFallbackTemplates,
+  mcp: async ({
+    config,
+    cwd,
+    mergedFlags,
+    positionals,
+    printLine,
+  }: NodeFallbackDispatchContext) => {
+    await dispatchMcpCommand({
+      cwd,
+      flags: mergedFlags,
+      format:
+        typeof mergedFlags.format === 'string' ? mergedFlags.format : undefined,
+      positionals,
+      printLine,
+      userConfig: config,
+    });
+  },
+  skills: dispatchNodeFallbackSkills,
+  templates: dispatchNodeFallbackTemplatesLazy,
 } satisfies Record<
   NodeFallbackExecutableCommandName,
   NodeFallbackCommandDispatcher
@@ -256,9 +396,14 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
   );
   const { argv: cliArgv, flags } = parseGlobalFlags(outputFormatArgv);
   const { flags: commandFlags, positionals } = parseArgv(cliArgv);
+  const aiDetection = detectAIAgents();
+  const globalFlags =
+    flags.format === undefined && aiDetection.isAIAgent
+      ? { ...flags, format: 'json' }
+      : flags;
   const rawMergedFlags: Record<string, unknown> = {
     ...commandFlags,
-    ...flags,
+    ...globalFlags,
   };
   const [command, subcommand] = positionals;
   const helpRequested =
@@ -307,21 +452,26 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const mergedFlags = await applyNodeFallbackConfigDefaults(
-    command,
-    subcommand,
-    rawMergedFlags,
-    configOverridePath,
-    process.cwd(),
-  );
-
   const commandDispatcher =
     command &&
     NODE_FALLBACK_COMMAND_DISPATCHERS[
       command as NodeFallbackExecutableCommandName
     ];
   if (commandDispatcher) {
+    const configNeeded = commandNeedsNodeCliConfig(command, subcommand);
+    const config = configNeeded
+      ? await loadNodeCliConfig(process.cwd(), configOverridePath)
+      : {};
+    const mergedFlags = configNeeded
+      ? await applyNodeFallbackConfigDefaults(
+          command,
+          subcommand,
+          rawMergedFlags,
+          config,
+        )
+      : rawMergedFlags;
     await commandDispatcher({
+      config,
       cwd: process.cwd(),
       mergedFlags,
       positionals,

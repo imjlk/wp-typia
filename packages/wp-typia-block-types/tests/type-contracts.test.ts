@@ -52,5 +52,6 @@ describe("@wp-typia/block-types type contracts", () => {
 		expect(fixtureSource).toContain("defineBindingSource");
 		expect(fixtureSource).toContain("Binding<typeof profileDataSource");
 		expect(fixtureSource).toContain("registerScaffoldBlockType");
+		expect(fixtureSource).toContain("BlockAttributeSchema<GalleryAttributes>");
 	});
 });

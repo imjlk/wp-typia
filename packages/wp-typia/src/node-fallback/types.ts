@@ -1,4 +1,5 @@
 import type { WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES } from '../command-contract';
+import type { WpTypiaUserConfig } from '../config';
 import type { PrintLine } from '../print-line';
 
 export type NodeFallbackGlobalFlags = {
@@ -15,6 +16,7 @@ export type NodeFallbackExecutableCommandName = Exclude<
 >;
 
 export type NodeFallbackDispatchContext = {
+  config: WpTypiaUserConfig;
   cwd: string;
   mergedFlags: Record<string, unknown>;
   positionals: string[];

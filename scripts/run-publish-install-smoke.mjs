@@ -22,6 +22,7 @@ const PACKAGE_CHAIN = [
 	["packages/wp-typia-dataviews", "@wp-typia/dataviews"],
 	["packages/wp-typia-block-runtime", "@wp-typia/block-runtime"],
 	["packages/wp-typia-project-tools", "@wp-typia/project-tools"],
+	["packages/create-workspace-template", "@wp-typia/create-workspace-template"],
 	["packages/wp-typia", "wp-typia"],
 ];
 const GENERATED_PROJECT_OVERRIDE_PACKAGES = [
@@ -30,6 +31,8 @@ const GENERATED_PROJECT_OVERRIDE_PACKAGES = [
 	"@wp-typia/block-types",
 	"@wp-typia/dataviews",
 	"@wp-typia/block-runtime",
+	"@wp-typia/project-tools",
+	"wp-typia",
 ];
 const npmCommand = getNpmCommand();
 const tarCommand = getTarCommand();
@@ -177,17 +180,17 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 
 		if (packageName === "wp-typia") {
 			const tarballEntries = run(tarCommand, ["-tf", tarballPath]).trim().split("\n");
-			if (!tarballEntries.includes("package/dist-bunli/cli.js")) {
-				throw new Error("Packed wp-typia tarball is missing package/dist-bunli/cli.js.");
+			if (!tarballEntries.includes("package/dist/cli.js")) {
+				throw new Error("Packed wp-typia tarball is missing package/dist/cli.js.");
 			}
-			if (!tarballEntries.includes("package/dist-bunli/.bunli/commands.gen.js")) {
+			if (tarballEntries.some((entry) => entry.startsWith("package/dist-bunli/"))) {
 				throw new Error(
-					"Packed wp-typia tarball is missing package/dist-bunli/.bunli/commands.gen.js.",
+					"Packed wp-typia tarball should no longer publish package/dist-bunli artifacts.",
 				);
 			}
-			if (tarballEntries.includes("package/.bunli/commands.gen.ts")) {
+			if (tarballEntries.some((entry) => entry.includes("/.bunli/"))) {
 				throw new Error(
-					"Packed wp-typia tarball should no longer publish package/.bunli/commands.gen.ts.",
+					"Packed wp-typia tarball should no longer publish Bunli generated artifacts.",
 				);
 			}
 			if (tarballEntries.includes("package/src/cli.ts")) {
@@ -199,6 +202,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	fs.mkdirSync(projectDir, { recursive: true });
 	writeJson(path.join(projectDir, "package.json"), {
 		dependencies: {
+			"@wp-typia/create-workspace-template": `file:${tarballs.get("@wp-typia/create-workspace-template")}`,
 			"@wp-typia/dataviews": `file:${tarballs.get("@wp-typia/dataviews")}`,
 			"wp-typia": `file:${tarballs.get("wp-typia")}`,
 		},
@@ -216,7 +220,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	run("bun", ["install"], { cwd: projectDir });
 
 	const cliPath = getInstalledWpTypiaCliPath(projectDir);
-	const versionOutput = run(process.execPath, [cliPath, "--version"], {
+	const versionOutput = run(process.execPath, [cliPath, "--version", "--format", "text"], {
 		cwd: projectDir,
 		env: createNodeOnlyEnv(),
 	}).trim();
@@ -489,7 +493,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	typecheckGeneratedProject(compoundDir);
 
 	process.stdout.write(
-		`Verified published-install smoke for wp-typia ${parsed.data.version}, bundled Bunli metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,
+		`Verified published-install smoke for wp-typia ${parsed.data.version}, portable CLI metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,
 	);
 });
 

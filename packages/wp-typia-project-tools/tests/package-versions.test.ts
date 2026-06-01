@@ -333,9 +333,9 @@ describe('package version cache invalidation', () => {
 
     expect(DEFAULT_WORDPRESS_ABILITIES_VERSION).toBe('^0.10.0');
     expect(DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION).toBe('^0.9.0');
-    expect(DEFAULT_WORDPRESS_CORE_DATA_VERSION).toBe('^7.44.0');
-    expect(DEFAULT_WORDPRESS_DATA_VERSION).toBe('^9.28.0');
-    expect(DEFAULT_WORDPRESS_DATAVIEWS_VERSION).toBe('^14.1.0');
+    expect(DEFAULT_WORDPRESS_CORE_DATA_VERSION).toBe('~7.46.0');
+    expect(DEFAULT_WORDPRESS_DATA_VERSION).toBe('~10.46.0');
+    expect(DEFAULT_WORDPRESS_DATAVIEWS_VERSION).toBe('~14.3.0');
     expect(DEFAULT_WORDPRESS_ENV_VERSION).toBe('^11.2.0');
     expect(DEFAULT_WP_TYPIA_DATAVIEWS_VERSION).toBe(
       `^${dataViewsPackageJson.version}`,

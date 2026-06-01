@@ -13,6 +13,19 @@ import {
 } from '../src/cli-error-messages';
 import { runNodeCli, runNodeCliEntrypoint } from '../src/node-cli';
 
+const AI_AGENT_ENV_KEYS = [
+  'AGENT',
+  'AMP_CURRENT_THREAD_ID',
+  'CLAUDE_CODE',
+  'CLAUDECODE',
+  'CODEX_CI',
+  'CODEX_SANDBOX',
+  'CODEX_THREAD_ID',
+  'CURSOR_AGENT',
+  'GEMINI_CLI',
+  'OPENCODE',
+] as const;
+
 async function captureNodeCli(
   argv: string[],
   options: {
@@ -31,10 +44,16 @@ async function captureNodeCli(
   const originalLog = console.log;
   const originalStderrWrite = process.stderr.write;
   const originalWarn = console.warn;
+  const originalAgentEnv = new Map(
+    AI_AGENT_ENV_KEYS.map((key) => [key, process.env[key]]),
+  );
   const stderr: string[] = [];
   const stdout: string[] = [];
   let error: unknown;
 
+  for (const key of AI_AGENT_ENV_KEYS) {
+    delete process.env[key];
+  }
   process.exitCode = 0;
   console.log = (...args: unknown[]) => {
     stdout.push(args.map(String).join(' '));
@@ -84,6 +103,14 @@ async function captureNodeCli(
     console.warn = originalWarn;
     process.stderr.write = originalStderrWrite;
     process.exitCode = originalExitCode;
+    for (const key of AI_AGENT_ENV_KEYS) {
+      const value = originalAgentEnv.get(key);
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   }
 }
 
@@ -99,7 +126,7 @@ function writeJson(filePath: string, value: unknown): void {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
-describe('Node fallback CLI core routing', () => {
+describe('Gunshi CLI core routing', () => {
   afterEach(() => {
     process.exitCode = 0;
   });
@@ -117,7 +144,7 @@ describe('Node fallback CLI core routing', () => {
     expect(result.stdout).toContain(
       'Canonical CLI package for wp-typia scaffolding',
     );
-    expect(result.stdout).toContain('Runtime: Node fallback');
+    expect(result.stdout).toContain('Runtime: Gunshi CLI');
     expect(result.stdout).toContain('Commands:');
 
     const directResult = await captureNodeCli([]);
@@ -182,14 +209,14 @@ describe('Node fallback CLI core routing', () => {
     expect(createHelp.error).toBeUndefined();
     expect(createHelp.exitCode).toBe(0);
     expect(createHelp.stdout).toContain('Usage: wp-typia create <project-dir>');
-    expect(createHelp.stdout).toContain('Runtime: Node fallback');
+    expect(createHelp.stdout).toContain('Runtime: Gunshi CLI');
     expect(createHelp.stdout).toContain('Supported flags:');
     expect(createHelp.stdout).toContain('--template');
 
     expect(commandHelp.error).toBeUndefined();
     expect(commandHelp.exitCode).toBe(0);
     expect(commandHelp.stdout).toContain('wp-typia templates <list|inspect>');
-    expect(commandHelp.stdout).toContain('Runtime: Node fallback');
+    expect(commandHelp.stdout).toContain('Runtime: Gunshi CLI');
     expect(commandHelp.stdout).toContain('Supported flags:');
     expect(commandHelp.stdout).toContain('--id');
   });
@@ -224,10 +251,6 @@ describe('Node fallback CLI core routing', () => {
         'dispatchers',
         'create.ts',
       ),
-      'utf8',
-    );
-    const createCommandSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'commands', 'create.ts'),
       'utf8',
     );
     const runtimeBridgeSource = fs.readFileSync(
@@ -268,15 +291,15 @@ describe('Node fallback CLI core routing', () => {
     );
 
     expect(nodeCliSource).toContain(
-      "from './node-fallback/dispatchers/add'",
+      "'./node-fallback/dispatchers/add'",
     );
     expect(nodeCliSource).toContain(
-      "from './node-fallback/dispatchers/create'",
+      "'./node-fallback/dispatchers/create'",
     );
-    expect(nodeCliSource).toContain("from './node-fallback/doctor'");
+    expect(nodeCliSource).toContain("'./node-fallback/doctor'");
     expect(nodeCliSource).toContain("from './node-fallback/errors'");
     expect(nodeCliSource).toContain("from './node-fallback/help'");
-    expect(nodeCliSource).toContain("from './node-fallback/templates'");
+    expect(nodeCliSource).toContain("'./node-fallback/templates'");
     expect(nodeCliSource).toContain("from './node-fallback/version'");
     expect(nodeCliSource).not.toContain('formatAddHelpText');
     expect(nodeCliSource).not.toContain('function renderVersion');
@@ -296,9 +319,6 @@ describe('Node fallback CLI core routing', () => {
       'export async function dispatchNodeFallbackCreate',
     );
     expect(createDispatcherSource).toContain(
-      'buildMissingCreateProjectDirDetailLines',
-    );
-    expect(createCommandSource).toContain(
       'buildMissingCreateProjectDirDetailLines',
     );
     expect(runtimeBridgeSource).toContain("from './runtime-bridge-add'");
@@ -818,6 +838,72 @@ describe('Node fallback CLI core routing', () => {
     }
   });
 
+  test('keeps config-independent commands from parsing cwd config', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-config-lazy-');
+    writeJson(path.join(tempRoot, '.wp-typiarc.json'), {
+      create: {
+        'dry-run': 'yes',
+      },
+    });
+
+    try {
+      const skillsResult = await captureNodeCli(
+        ['skills', 'list', '--format', 'json'],
+        { cwd: tempRoot },
+      );
+      const skillsPayload = JSON.parse(skillsResult.stdout) as {
+        agents?: unknown[];
+        commands?: unknown[];
+      };
+
+      expect(skillsResult.error).toBeUndefined();
+      expect(skillsResult.exitCode).toBe(0);
+      expect(skillsResult.stderr).toBe('');
+      expect(Array.isArray(skillsPayload.agents)).toBe(true);
+      expect(Array.isArray(skillsPayload.commands)).toBe(true);
+
+      const completionResult = await captureNodeCli(['completions', 'bash'], {
+        cwd: tempRoot,
+      });
+
+      expect(completionResult.error).toBeUndefined();
+      expect(completionResult.exitCode).toBe(0);
+      expect(completionResult.stderr).toBe('');
+      expect(completionResult.stdout).toContain('wp-typia complete -- bash');
+
+      const mcpResult = await captureNodeCli(
+        ['mcp', 'list', '--format', 'json'],
+        {
+          cwd: tempRoot,
+          entrypoint: true,
+        },
+      );
+      const mcpError = JSON.parse(mcpResult.stderr) as {
+        error?: {
+          code?: string;
+          command?: string;
+          detailLines?: string[];
+        };
+        ok?: boolean;
+      };
+
+      expect(mcpResult.error).toBeUndefined();
+      expect(mcpResult.exitCode).toBe(1);
+      expect(mcpResult.stdout).toBe('');
+      expect(mcpError.ok).toBe(false);
+      expect(mcpError.error?.command).toBe('mcp');
+      expect(mcpError.error?.code).toBe('invalid-argument');
+      expect(mcpError.error?.detailLines?.join('\n')).toContain(
+        'create.dry-run',
+      );
+      expect(mcpError.error?.detailLines?.join('\n')).toContain(
+        'expected boolean',
+      );
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
   test('captures structured entrypoint errors on stderr', async () => {
     const result = await captureNodeCli(['create', '--format', 'json'], {
       entrypoint: true,
@@ -892,13 +978,46 @@ describe('Node fallback CLI core routing', () => {
     }
   });
 
-  test('keeps Bun-only top-level commands on the unsupported-command diagnostic path', async () => {
-    const result = await captureNodeCli(['skills', 'list']);
+  test('runs first-party skills commands through the runtime dispatcher', async () => {
+    const textResult = await captureNodeCli([
+      'skills',
+      'list',
+      '--format',
+      'text',
+    ]);
 
-    expect(result.stdout).toBe('');
-    expect(result.error).toMatchObject({
-      code: 'unsupported-command',
-      command: 'skills',
-    });
+    expect(textResult.error).toBeUndefined();
+    expect(textResult.exitCode).toBe(0);
+    expect(textResult.stdout).toMatch(/Detected|No agents detected/);
+    expect(textResult.stdout).not.toContain('"commands": [');
+
+    const jsonResult = await captureNodeCli([
+      'skills',
+      'list',
+      '--format',
+      'json',
+    ]);
+
+    expect(jsonResult.error).toBeUndefined();
+    expect(jsonResult.exitCode).toBe(0);
+    expect(jsonResult.stdout).toContain('"agents": [');
+    expect(jsonResult.stdout).toContain('"commands": [');
+
+    const unknownResult = await captureNodeCli(
+      ['skills', 'unknown', '--format', 'json'],
+      {
+        entrypoint: true,
+      },
+    );
+    const parsed = JSON.parse(unknownResult.stderr) as {
+      error?: { code?: string; command?: string };
+      ok?: boolean;
+    };
+
+    expect(unknownResult.error).toBeUndefined();
+    expect(unknownResult.exitCode).toBe(1);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error?.code).toBe(CLI_DIAGNOSTIC_CODES.INVALID_COMMAND);
+    expect(parsed.error?.command).toBe('skills');
   });
 });

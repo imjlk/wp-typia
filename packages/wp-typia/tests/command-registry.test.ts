@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test';
 
 import { COMMAND_OPTION_METADATA_BY_GROUP } from '../src/command-option-metadata';
 import {
-  WP_TYPIA_BUN_REQUIRED_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_COMMAND_OPTION_GROUP_NAMES_BY_TOP_LEVEL_COMMAND,
   WP_TYPIA_COMMAND_REGISTRY,
   WP_TYPIA_FUTURE_COMMAND_TREE,
@@ -22,18 +21,12 @@ describe('wp-typia command registry metadata', () => {
     const nodeFallbackNames = WP_TYPIA_COMMAND_REGISTRY.filter(
       (command) => command.nodeFallback,
     ).map((command) => command.name);
-    const bunRequiredNames = WP_TYPIA_COMMAND_REGISTRY.filter(
-      (command) => command.requiresBunRuntime,
-    ).map((command) => command.name);
 
     expect(new Set(commandNames).size).toBe(commandNames.length);
     expect(WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES).toEqual(commandNames);
     expect(WP_TYPIA_TOP_LEVEL_COMMAND_NAMES).toEqual(commandTreeNames);
     expect(WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES).toEqual(
       nodeFallbackNames,
-    );
-    expect(WP_TYPIA_BUN_REQUIRED_TOP_LEVEL_COMMAND_NAMES).toEqual(
-      bunRequiredNames,
     );
   });
 

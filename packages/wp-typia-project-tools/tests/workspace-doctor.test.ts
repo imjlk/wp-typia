@@ -191,7 +191,7 @@ test("doctor reports iframe/API v3 compatibility warnings without failing", asyn
       .replace(/\buseBlockProps\b/gu, "usePlainBlockProps")}\nconst iframeLayout = { parent: [], top: 0 };\ndocument.body.classList.contains('wp-admin');\n`,
     "utf8"
   );
-  const humanOutput = runCli("node", [entryPath, "doctor"], {
+  const humanOutput = runCli("node", [entryPath, "doctor", "--format", "text"], {
     cwd: targetDir,
   });
   expect(humanOutput).toContain("WARN Block iframe API version counter-card");
