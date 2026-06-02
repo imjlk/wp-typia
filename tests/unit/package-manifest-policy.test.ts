@@ -217,6 +217,33 @@ describe("validatePackageManifestPolicy", () => {
 		);
 	});
 
+	test("fails when publishable packages keep removed Bunli/OpenTUI runtime leftovers", () => {
+		const repoRoot = createManifestRepo();
+		const cliPackageJsonPath = path.join(repoRoot, "packages/wp-typia/package.json");
+		const cliPackageJson = JSON.parse(fs.readFileSync(cliPackageJsonPath, "utf8"));
+		cliPackageJson.dependencies["@bunli/core"] = "^0.8.0";
+		cliPackageJson.devDependencies = {
+			"@opentui/core": "^0.1.0",
+		};
+		writeJson(cliPackageJsonPath, cliPackageJson);
+
+		const restConfigPath = path.join(repoRoot, "packages/wp-typia-rest/bunli.config.ts");
+		fs.writeFileSync(restConfigPath, "export default {};\n", "utf8");
+
+		const result = validatePackageManifestPolicy(repoRoot);
+
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain(
+			"packages/wp-typia-rest/bunli.config.ts should not exist; publishable packages must not keep Bunli/OpenTUI runtime config files.",
+		);
+		expect(result.errors).toContain(
+			"packages/wp-typia/package.json must not declare dependencies.@bunli/core; Bunli/OpenTUI runtime packages were removed from publishable packages.",
+		);
+		expect(result.errors).toContain(
+			"packages/wp-typia/package.json must not declare devDependencies.@opentui/core; Bunli/OpenTUI runtime packages were removed from publishable packages.",
+		);
+	});
+
 	test("fails when a sanctioned workspace protocol wrapper is a no-op", () => {
 		const repoRoot = createManifestRepo();
 		const publishManifestPath = path.join(

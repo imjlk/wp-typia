@@ -388,8 +388,8 @@ export function parseCommandArgvWithMetadata(
  * Resolve CLI option values from defaults and parsed flags.
  *
  * Repeatable string options keep the historical comma-joined value by default
- * for TUI initial values. Pass `preserveArrays` when downstream code needs the
- * parsed repeated flag boundaries.
+ * for form initial values. Pass `preserveArrays` when downstream code needs
+ * the parsed repeated flag boundaries.
  */
 export function resolveCommandOptionValues<
   TMetadata extends CommandOptionMetadataMap,
