@@ -5,9 +5,9 @@ import {
 import type { DoctorExitPolicy } from '@wp-typia/project-tools/cli-doctor';
 import { executeDoctorCommand } from '../runtime-bridge';
 import type { PrintLine } from '../print-line';
-import type { NodeFallbackDispatchContext } from './types';
+import type { PortableCliDispatchContext } from './types';
 
-async function renderNodeFallbackDoctorJson(
+async function renderPortableCliDoctorJson(
   cwd: string,
   exitPolicy: DoctorExitPolicy,
   printLine: PrintLine,
@@ -39,14 +39,14 @@ async function renderNodeFallbackDoctorJson(
   }
 }
 
-export async function dispatchNodeFallbackDoctor({
+export async function dispatchPortableCliDoctor({
   cwd,
   mergedFlags,
   printLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   const exitPolicy = mergedFlags['workspace-only'] ? 'workspace-only' : 'strict';
   if (mergedFlags.format === 'json') {
-    await renderNodeFallbackDoctorJson(cwd, exitPolicy, printLine);
+    await renderPortableCliDoctorJson(cwd, exitPolicy, printLine);
     return;
   }
   await executeDoctorCommand(cwd, { exitPolicy });

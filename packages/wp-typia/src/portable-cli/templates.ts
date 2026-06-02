@@ -7,11 +7,11 @@ import {
   listTemplates,
 } from '@wp-typia/project-tools/cli-templates';
 import { executeTemplatesCommand } from '../runtime-bridge';
-import type { NodeFallbackDispatchContext, NodeFallbackGlobalFlags } from './types';
+import type { PortableCliDispatchContext, PortableCliGlobalFlags } from './types';
 
-function renderNodeFallbackTemplatesJson(
-  printLine: NodeFallbackDispatchContext['printLine'],
-  flags: NodeFallbackGlobalFlags,
+function renderPortableCliTemplatesJson(
+  printLine: PortableCliDispatchContext['printLine'],
+  flags: PortableCliGlobalFlags,
   subcommand: string,
 ) {
   if (subcommand === 'list') {
@@ -54,11 +54,11 @@ function renderNodeFallbackTemplatesJson(
   );
 }
 
-export async function dispatchNodeFallbackTemplates({
+export async function dispatchPortableCliTemplates({
   mergedFlags,
   positionals,
   printLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   const subcommand = positionals[1];
   const templateId =
     typeof mergedFlags.id === 'string'
@@ -75,7 +75,7 @@ export async function dispatchNodeFallbackTemplates({
     });
   }
   if (mergedFlags.format === 'json') {
-    renderNodeFallbackTemplatesJson(
+    renderPortableCliTemplatesJson(
       printLine,
       {
         format: mergedFlags.format as string | undefined,

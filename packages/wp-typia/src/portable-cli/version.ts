@@ -1,7 +1,7 @@
 import packageJson from '../../package.json';
 import type { PrintLine } from '../print-line';
 
-export function renderNodeFallbackVersion(
+export function renderPortableCliVersion(
   printLine: PrintLine,
   options: {
     format?: string;

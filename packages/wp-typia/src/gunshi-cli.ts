@@ -7,7 +7,7 @@ import { cli, define } from 'gunshi';
 
 import packageJson from '../package.json';
 import { WP_TYPIA_COMMAND_REGISTRY } from './command-registry';
-import { handleNodeFallbackEntrypointError } from './node-fallback/errors';
+import { handlePortableCliEntrypointError } from './portable-cli/errors';
 import { runNodeCli } from './node-cli';
 
 const PROJECT_TOOLS_PACKAGE_ROOT_ENV = 'WP_TYPIA_PROJECT_TOOLS_PACKAGE_ROOT';
@@ -128,7 +128,7 @@ export async function runGunshiCliEntrypoint(
   try {
     await runGunshiCli(argv);
   } catch (error) {
-    await handleNodeFallbackEntrypointError(error, argv);
+    await handlePortableCliEntrypointError(error, argv);
   }
 }
 

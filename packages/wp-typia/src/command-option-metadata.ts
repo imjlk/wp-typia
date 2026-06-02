@@ -125,7 +125,7 @@ export function collectOptionNamesByType(
     .map(([name]) => name);
 }
 
-export function formatNodeFallbackOptionHelp(
+export function formatPortableCliOptionHelp(
   metadata: CommandOptionMetadataMap,
 ): string[] {
   return Object.entries(metadata).map(([name, option]) => {

@@ -8,15 +8,15 @@ import {
   extractCompletionProjectDir,
 } from '../../runtime-bridge-output';
 import { buildMissingCreateProjectDirDetailLines } from '../../cli-error-messages';
-import type { NodeFallbackDispatchContext } from '../types';
+import type { PortableCliDispatchContext } from '../types';
 
-export async function dispatchNodeFallbackCreate({
+export async function dispatchPortableCliCreate({
   cwd,
   mergedFlags,
   positionals,
   printLine,
   warnLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   const projectDir = positionals[1];
   if (!projectDir) {
     throw createCliCommandError({
