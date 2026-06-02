@@ -5,7 +5,7 @@ import {
   WP_TYPIA_COMMAND_OPTION_GROUP_NAMES_BY_TOP_LEVEL_COMMAND,
   WP_TYPIA_COMMAND_REGISTRY,
   WP_TYPIA_FUTURE_COMMAND_TREE,
-  WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES,
+  WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_TOP_LEVEL_COMMAND_NAMES,
 } from '../src/command-registry';
@@ -18,15 +18,15 @@ describe('wp-typia command registry metadata', () => {
     const commandTreeNames = WP_TYPIA_COMMAND_REGISTRY.filter(
       (command) => command.commandTree,
     ).map((command) => command.name);
-    const nodeFallbackNames = WP_TYPIA_COMMAND_REGISTRY.filter(
-      (command) => command.nodeFallback,
+    const portableCliNames = WP_TYPIA_COMMAND_REGISTRY.filter(
+      (command) => command.portableCli,
     ).map((command) => command.name);
 
     expect(new Set(commandNames).size).toBe(commandNames.length);
     expect(WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES).toEqual(commandNames);
     expect(WP_TYPIA_TOP_LEVEL_COMMAND_NAMES).toEqual(commandTreeNames);
-    expect(WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES).toEqual(
-      nodeFallbackNames,
+    expect(WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES).toEqual(
+      portableCliNames,
     );
   });
 

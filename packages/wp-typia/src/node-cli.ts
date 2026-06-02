@@ -41,28 +41,28 @@ import {
 } from './runtime-bridge-sync';
 import { normalizeWpTypiaArgv } from './command-contract';
 import {
-  createNodeFallbackNoCommandCliError,
-  handleNodeFallbackEntrypointError,
-  throwUnsupportedNodeFallbackCommand,
-} from './node-fallback/errors';
+  createPortableCliNoCommandCliError,
+  handlePortableCliEntrypointError,
+  throwUnsupportedPortableCliCommand,
+} from './portable-cli/errors';
 import {
-  NODE_FALLBACK_HELP_RENDERERS,
+  PORTABLE_CLI_HELP_RENDERERS,
   renderGeneralHelp,
   renderNoCommandHelp,
-} from './node-fallback/help';
+} from './portable-cli/help';
 import { listSkills, syncSkills } from './skills';
 import type {
-  NodeFallbackCommandDispatcher,
-  NodeFallbackDispatchContext,
-  NodeFallbackExecutableCommandName,
-  NodeFallbackGlobalFlags,
-} from './node-fallback/types';
-import { renderNodeFallbackVersion } from './node-fallback/version';
+  PortableCliCommandDispatcher,
+  PortableCliDispatchContext,
+  PortableCliExecutableCommandName,
+  PortableCliGlobalFlags,
+} from './portable-cli/types';
+import { renderPortableCliVersion } from './portable-cli/version';
 
-const NODE_FALLBACK_OPTION_PARSER = buildCommandOptionParser(
+const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
 );
-const NODE_FALLBACK_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
+const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -85,11 +85,11 @@ export function hasFlagBeforeTerminator(argv: string[], flag: string): boolean {
 
 export function parseGlobalFlags(argv: string[]): {
   argv: string[];
-  flags: NodeFallbackGlobalFlags;
+  flags: PortableCliGlobalFlags;
 } {
   const { argv: nextArgv, flags } = extractKnownOptionValuesFromArgv(argv, {
     optionNames: ['format', 'id'],
-    parser: NODE_FALLBACK_OPTION_PARSER,
+    parser: PORTABLE_CLI_OPTION_PARSER,
   });
 
   return {
@@ -101,7 +101,7 @@ export function parseGlobalFlags(argv: string[]): {
   };
 }
 
-async function applyNodeFallbackConfigDefaults(
+async function applyPortableCliConfigDefaults(
   command: string | undefined,
   subcommand: string | undefined,
   flags: Record<string, unknown>,
@@ -159,56 +159,56 @@ function commandNeedsNodeCliConfig(
 
 function parseArgv(argv: string[]) {
   return parseCommandArgvWithMetadata(argv, {
-    extraBooleanOptionNames: NODE_FALLBACK_BOOLEAN_OPTION_NAMES,
-    parser: NODE_FALLBACK_OPTION_PARSER,
+    extraBooleanOptionNames: PORTABLE_CLI_BOOLEAN_OPTION_NAMES,
+    parser: PORTABLE_CLI_OPTION_PARSER,
   });
 }
 
-async function dispatchNodeFallbackCompletion({
+async function dispatchPortableCliCompletion({
   positionals,
   printLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   const shell = positionals[1];
   printLine(renderCompletionScript(shell));
 }
 
-const dispatchNodeFallbackAddLazy: NodeFallbackCommandDispatcher = async (
+const dispatchPortableCliAddLazy: PortableCliCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackAdd } =
-    await import('./node-fallback/dispatchers/add');
-  await dispatchNodeFallbackAdd(context);
+  const { dispatchPortableCliAdd } =
+    await import('./portable-cli/dispatchers/add');
+  await dispatchPortableCliAdd(context);
 };
 
-const dispatchNodeFallbackCreateLazy: NodeFallbackCommandDispatcher = async (
+const dispatchPortableCliCreateLazy: PortableCliCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackCreate } =
-    await import('./node-fallback/dispatchers/create');
-  await dispatchNodeFallbackCreate(context);
+  const { dispatchPortableCliCreate } =
+    await import('./portable-cli/dispatchers/create');
+  await dispatchPortableCliCreate(context);
 };
 
-const dispatchNodeFallbackDoctorLazy: NodeFallbackCommandDispatcher = async (
+const dispatchPortableCliDoctorLazy: PortableCliCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackDoctor } = await import('./node-fallback/doctor');
-  await dispatchNodeFallbackDoctor(context);
+  const { dispatchPortableCliDoctor } = await import('./portable-cli/doctor');
+  await dispatchPortableCliDoctor(context);
 };
 
-const dispatchNodeFallbackTemplatesLazy: NodeFallbackCommandDispatcher = async (
+const dispatchPortableCliTemplatesLazy: PortableCliCommandDispatcher = async (
   context,
 ) => {
-  const { dispatchNodeFallbackTemplates } =
-    await import('./node-fallback/templates');
-  await dispatchNodeFallbackTemplates(context);
+  const { dispatchPortableCliTemplates } =
+    await import('./portable-cli/templates');
+  await dispatchPortableCliTemplates(context);
 };
 
-async function dispatchNodeFallbackSkills({
+async function dispatchPortableCliSkills({
   cwd,
   mergedFlags,
   positionals,
   printLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   const subcommand = positionals[1] ?? 'list';
   const structured = mergedFlags.format === 'json';
 
@@ -263,19 +263,19 @@ async function dispatchNodeFallbackSkills({
   });
 }
 
-const NODE_FALLBACK_COMMAND_DISPATCHERS = {
-  add: dispatchNodeFallbackAddLazy,
-  complete: dispatchNodeFallbackCompletion,
-  completions: dispatchNodeFallbackCompletion,
-  create: dispatchNodeFallbackCreateLazy,
-  doctor: dispatchNodeFallbackDoctorLazy,
+const PORTABLE_CLI_COMMAND_DISPATCHERS = {
+  add: dispatchPortableCliAddLazy,
+  complete: dispatchPortableCliCompletion,
+  completions: dispatchPortableCliCompletion,
+  create: dispatchPortableCliCreateLazy,
+  doctor: dispatchPortableCliDoctorLazy,
   init: async ({
     cwd,
     mergedFlags,
     positionals,
     printLine,
     warnLine,
-  }: NodeFallbackDispatchContext) => {
+  }: PortableCliDispatchContext) => {
     const plan = await executeInitCommand(
       {
         apply: Boolean(mergedFlags.apply),
@@ -303,7 +303,7 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
     mergedFlags,
     positionals,
     printLine,
-  }: NodeFallbackDispatchContext) => {
+  }: PortableCliDispatchContext) => {
     await executeMigrateCommand({
       command: positionals[1],
       cwd,
@@ -317,7 +317,7 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
     positionals,
     printLine,
     warnLine,
-  }: NodeFallbackDispatchContext) => {
+  }: PortableCliDispatchContext) => {
     try {
       const syncTarget = resolveSyncExecutionTarget(positionals[1]);
       const sync = await executeSyncCommand({
@@ -368,7 +368,7 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
     mergedFlags,
     positionals,
     printLine,
-  }: NodeFallbackDispatchContext) => {
+  }: PortableCliDispatchContext) => {
     await dispatchMcpCommand({
       cwd,
       flags: mergedFlags,
@@ -379,11 +379,11 @@ const NODE_FALLBACK_COMMAND_DISPATCHERS = {
       userConfig: config,
     });
   },
-  skills: dispatchNodeFallbackSkills,
-  templates: dispatchNodeFallbackTemplatesLazy,
+  skills: dispatchPortableCliSkills,
+  templates: dispatchPortableCliTemplatesLazy,
 } satisfies Record<
-  NodeFallbackExecutableCommandName,
-  NodeFallbackCommandDispatcher
+  PortableCliExecutableCommandName,
+  PortableCliCommandDispatcher
 >;
 
 export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
@@ -413,7 +413,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
     hasFlagBeforeTerminator(cliArgv, '--version') || command === 'version';
 
   if (cliArgv.length === 0) {
-    const noCommandError = createNodeFallbackNoCommandCliError();
+    const noCommandError = createPortableCliNoCommandCliError();
     if (rawMergedFlags.format !== 'json') {
       renderNoCommandHelp(printLine);
     }
@@ -423,8 +423,8 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
   if (helpRequested) {
     if (helpTarget) {
       const helpRenderer =
-        NODE_FALLBACK_HELP_RENDERERS[
-          helpTarget as NodeFallbackExecutableCommandName
+        PORTABLE_CLI_HELP_RENDERERS[
+          helpTarget as PortableCliExecutableCommandName
         ];
       if (helpRenderer) {
         helpRenderer(printLine);
@@ -443,7 +443,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
   }
 
   if (versionRequested) {
-    renderNodeFallbackVersion(printLine, {
+    renderPortableCliVersion(printLine, {
       format:
         typeof rawMergedFlags.format === 'string'
           ? rawMergedFlags.format
@@ -454,8 +454,8 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
 
   const commandDispatcher =
     command &&
-    NODE_FALLBACK_COMMAND_DISPATCHERS[
-      command as NodeFallbackExecutableCommandName
+    PORTABLE_CLI_COMMAND_DISPATCHERS[
+      command as PortableCliExecutableCommandName
     ];
   if (commandDispatcher) {
     const configNeeded = commandNeedsNodeCliConfig(command, subcommand);
@@ -463,7 +463,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
       ? await loadNodeCliConfig(process.cwd(), configOverridePath)
       : {};
     const mergedFlags = configNeeded
-      ? await applyNodeFallbackConfigDefaults(
+      ? await applyPortableCliConfigDefaults(
           command,
           subcommand,
           rawMergedFlags,
@@ -481,7 +481,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  throwUnsupportedNodeFallbackCommand(command ?? '(missing)');
+  throwUnsupportedPortableCliCommand(command ?? '(missing)');
 }
 
 export async function runNodeCliEntrypoint(
@@ -490,6 +490,6 @@ export async function runNodeCliEntrypoint(
   try {
     await runNodeCli(argv);
   } catch (error) {
-    await handleNodeFallbackEntrypointError(error, argv);
+    await handlePortableCliEntrypointError(error, argv);
   }
 }

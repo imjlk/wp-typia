@@ -187,7 +187,7 @@ describe('Gunshi CLI core routing', () => {
     );
   });
 
-  test('routes explicit help flags and help targets to the fallback help renderers', async () => {
+  test('routes explicit help flags and help targets to the portable CLI help renderers', async () => {
     const generalHelp = await captureNodeCli(['--help']);
     const addHelp = await captureNodeCli(['help', 'add']);
     const createHelp = await captureNodeCli(['--help', 'create']);
@@ -233,21 +233,21 @@ describe('Gunshi CLI core routing', () => {
     expect(result.stdout).not.toContain('Usage: wp-typia create <project-dir>');
   });
 
-  test('keeps historical node-fallback dispatcher and help modules focused', () => {
+  test('keeps portable CLI dispatcher and help modules focused', () => {
     const packageRoot = path.resolve(import.meta.dir, '..');
     const nodeCliSource = fs.readFileSync(
       path.join(packageRoot, 'src', 'node-cli.ts'),
       'utf8',
     );
     const addDispatcherSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'dispatchers', 'add.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'dispatchers', 'add.ts'),
       'utf8',
     );
     const createDispatcherSource = fs.readFileSync(
       path.join(
         packageRoot,
         'src',
-        'node-fallback',
+        'portable-cli',
         'dispatchers',
         'create.ts',
       ),
@@ -262,23 +262,23 @@ describe('Gunshi CLI core routing', () => {
       'utf8',
     );
     const helpSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'help.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'help.ts'),
       'utf8',
     );
     const versionSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'version.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'version.ts'),
       'utf8',
     );
     const templatesSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'templates.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'templates.ts'),
       'utf8',
     );
     const doctorSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'doctor.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'doctor.ts'),
       'utf8',
     );
     const errorsSource = fs.readFileSync(
-      path.join(packageRoot, 'src', 'node-fallback', 'errors.ts'),
+      path.join(packageRoot, 'src', 'portable-cli', 'errors.ts'),
       'utf8',
     );
     const cliErrorMessagesSource = fs.readFileSync(
@@ -291,16 +291,16 @@ describe('Gunshi CLI core routing', () => {
     );
 
     expect(nodeCliSource).toContain(
-      "'./node-fallback/dispatchers/add'",
+      "'./portable-cli/dispatchers/add'",
     );
     expect(nodeCliSource).toContain(
-      "'./node-fallback/dispatchers/create'",
+      "'./portable-cli/dispatchers/create'",
     );
-    expect(nodeCliSource).toContain("'./node-fallback/doctor'");
-    expect(nodeCliSource).toContain("from './node-fallback/errors'");
-    expect(nodeCliSource).toContain("from './node-fallback/help'");
-    expect(nodeCliSource).toContain("'./node-fallback/templates'");
-    expect(nodeCliSource).toContain("from './node-fallback/version'");
+    expect(nodeCliSource).toContain("'./portable-cli/doctor'");
+    expect(nodeCliSource).toContain("from './portable-cli/errors'");
+    expect(nodeCliSource).toContain("from './portable-cli/help'");
+    expect(nodeCliSource).toContain("'./portable-cli/templates'");
+    expect(nodeCliSource).toContain("from './portable-cli/version'");
     expect(nodeCliSource).not.toContain('formatAddHelpText');
     expect(nodeCliSource).not.toContain('function renderVersion');
     expect(nodeCliSource).not.toContain('function renderTemplatesJson');
@@ -310,13 +310,13 @@ describe('Gunshi CLI core routing', () => {
     expect(nodeCliSource).not.toContain('getTemplateById');
     expect(nodeCliSource).not.toContain('getDoctorChecks');
     expect(addDispatcherSource).toContain(
-      'export async function dispatchNodeFallbackAdd',
+      'export async function dispatchPortableCliAdd',
     );
     expect(addDispatcherSource).toContain('buildMissingAddKindDetailLines');
     expect(addDispatcherSource).toContain('shouldPrintMissingAddKindHelp');
     expect(addDispatcherSource).not.toContain('formatAddKindUsagePlaceholder');
     expect(createDispatcherSource).toContain(
-      'export async function dispatchNodeFallbackCreate',
+      'export async function dispatchPortableCliCreate',
     );
     expect(createDispatcherSource).toContain(
       'buildMissingCreateProjectDirDetailLines',
@@ -335,20 +335,20 @@ describe('Gunshi CLI core routing', () => {
     );
     expect(helpSource).toContain("import { printBlock } from '../print-block'");
     expect(helpSource).not.toContain('export function printBlock');
-    expect(versionSource).toContain('export function renderNodeFallbackVersion');
+    expect(versionSource).toContain('export function renderPortableCliVersion');
     expect(versionSource).toContain("import packageJson from '../../package.json'");
     expect(templatesSource).toContain(
-      'export async function dispatchNodeFallbackTemplates',
+      'export async function dispatchPortableCliTemplates',
     );
-    expect(templatesSource).toContain('function renderNodeFallbackTemplatesJson');
+    expect(templatesSource).toContain('function renderPortableCliTemplatesJson');
     expect(doctorSource).toContain(
-      'export async function dispatchNodeFallbackDoctor',
+      'export async function dispatchPortableCliDoctor',
     );
-    expect(doctorSource).toContain('function renderNodeFallbackDoctorJson');
+    expect(doctorSource).toContain('function renderPortableCliDoctorJson');
     expect(errorsSource).toContain(
-      'export async function handleNodeFallbackEntrypointError',
+      'export async function handlePortableCliEntrypointError',
     );
-    expect(errorsSource).toContain('throwUnsupportedNodeFallbackCommand');
+    expect(errorsSource).toContain('throwUnsupportedPortableCliCommand');
     expect(printBlockSource).toContain(
       'export function printBlock(printLine: PrintLine, lines: string[])',
     );

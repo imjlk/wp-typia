@@ -11,9 +11,9 @@ import {
   buildStructuredCompletionSuccessPayload,
   extractCompletionProjectDir,
 } from '../../runtime-bridge-output';
-import type { NodeFallbackDispatchContext } from '../types';
+import type { PortableCliDispatchContext } from '../types';
 
-function resolveNodeFallbackAddName(
+function resolvePortableCliAddName(
   positionals: readonly string[],
 ): string | undefined {
   if (positionals[1] === 'core-variation' && positionals[3]) {
@@ -23,13 +23,13 @@ function resolveNodeFallbackAddName(
   return positionals[2];
 }
 
-export async function dispatchNodeFallbackAdd({
+export async function dispatchPortableCliAdd({
   cwd,
   mergedFlags,
   positionals,
   printLine,
   warnLine,
-}: NodeFallbackDispatchContext): Promise<void> {
+}: PortableCliDispatchContext): Promise<void> {
   if (!positionals[1]) {
     if (shouldPrintMissingAddKindHelp({ format: mergedFlags.format })) {
       const { formatAddHelpText } =
@@ -46,7 +46,7 @@ export async function dispatchNodeFallbackAdd({
   // Add-specific normalization stays here: map positionals to kind/name and
   // switch JSON mode to structured completion output.
   const kind = positionals[1];
-  const name = resolveNodeFallbackAddName(positionals);
+  const name = resolvePortableCliAddName(positionals);
   const positionalArgs = positionals.slice(1);
 
   if (mergedFlags.format === 'json') {

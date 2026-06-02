@@ -368,7 +368,7 @@ describe('alternate-buffer completion output helpers', () => {
     expect(lines[0]).toContain('wp-typia migrate init');
   });
 
-  test('create progress formatter keeps fallback status lines readable', () => {
+  test('create progress formatter keeps portable CLI status lines readable', () => {
     expect(
       formatCreateProgressLine(
         {

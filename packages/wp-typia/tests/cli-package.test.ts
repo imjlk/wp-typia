@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 import {
-  WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES,
+  WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_TOP_LEVEL_COMMAND_NAMES,
 } from '../src/command-contract';
 import {
@@ -60,12 +60,12 @@ const nodeCliSource = fs.readFileSync(
   path.join(packageRoot, 'src', 'node-cli.ts'),
   'utf8',
 );
-const nodeFallbackHelpSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'node-fallback', 'help.ts'),
+const portableCliHelpSource = fs.readFileSync(
+  path.join(packageRoot, 'src', 'portable-cli', 'help.ts'),
   'utf8',
 );
-const nodeFallbackErrorsSource = fs.readFileSync(
-  path.join(packageRoot, 'src', 'node-fallback', 'errors.ts'),
+const portableCliErrorsSource = fs.readFileSync(
+  path.join(packageRoot, 'src', 'portable-cli', 'errors.ts'),
   'utf8',
 );
 const gunshiCliSource = fs.readFileSync(
@@ -159,7 +159,7 @@ describe('wp-typia package', () => {
     expect(gunshiCliSource).not.toMatch(/from ["']@wp-typia\/project-tools["']/);
   });
 
-  test('derives fallback parsing and first-party initial values from shared metadata helpers', () => {
+  test('derives portable CLI parsing and first-party initial values from shared metadata helpers', () => {
     expect(nodeCliSource).toContain('parseCommandArgvWithMetadata');
     expect(nodeCliSource).toContain('resolveCommandOptionValues');
     expect(nodeCliSource).toContain('normalizeCliOutputFormatArgv');
@@ -174,8 +174,8 @@ describe('wp-typia package', () => {
   });
 
   test('keeps CLI entrypoints on exit-code based error handling', () => {
-    expect(nodeFallbackErrorsSource).toContain('process.exitCode = 1');
-    expect(nodeCliSource).toContain('handleNodeFallbackEntrypointError');
+    expect(portableCliErrorsSource).toContain('process.exitCode = 1');
+    expect(nodeCliSource).toContain('handlePortableCliEntrypointError');
     expect(nodeCliSource).not.toMatch(/process\.exit\s*\(\s*1\s*\)/);
     expect(gunshiCliSource).toContain('runGunshiCliEntrypoint');
     expect(gunshiCliSource).not.toMatch(/process\.exit\s*\(\s*1\s*\)/);
@@ -642,8 +642,8 @@ process.exit(0);
     expect(createHelpResult.stdout).toContain('--alternate-render-targets');
   });
 
-  test('keeps every runtime registry command wired to the fallback help path', () => {
-    for (const commandName of WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES) {
+  test('keeps every runtime registry command wired to the portable CLI help path', () => {
+    for (const commandName of WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES) {
       const argv =
         commandName === 'help' || commandName === 'version'
           ? [entryPath, commandName]
@@ -720,35 +720,35 @@ process.exit(0);
       /migrate:\s*async\s*\(\{[\s\S]*printLine,[\s\S]*executeMigrateCommand\(\{[\s\S]*printLine,/,
     );
     expect(nodeCliSource).toMatch(/from ['"]\.\/command-option-metadata['"]/);
-    expect(nodeCliSource).toContain("from './node-fallback/help'");
-    expect(nodeFallbackHelpSource).toContain(
-      'renderNodeFallbackCommandHelp(printLine, config)',
+    expect(nodeCliSource).toContain("from './portable-cli/help'");
+    expect(portableCliHelpSource).toContain(
+      'renderPortableCliCommandHelp(printLine, config)',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: CREATE_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: INIT_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: ADD_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: SYNC_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: DOCTOR_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: MIGRATE_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: TEMPLATES_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: MCP_OPTION_METADATA',
     );
-    expect(nodeFallbackHelpSource).toContain(
+    expect(portableCliHelpSource).toContain(
       'optionMetadata: SKILLS_OPTION_METADATA',
     );
   });
@@ -1468,7 +1468,7 @@ process.exit(0);
     expect(parsed.argv).toEqual(['templates', 'list', '--', '--format']);
   });
 
-  test('ignores fallback help/version flags after --', () => {
+  test('ignores portable CLI help/version flags after --', () => {
     expect(hasFlagBeforeTerminator(['create', '--help'], '--help')).toBe(true);
     expect(hasFlagBeforeTerminator(['create', '--', '--help'], '--help')).toBe(
       false,

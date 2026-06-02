@@ -8,29 +8,29 @@ import {
 import { prefersStructuredCliArgv } from '../cli-diagnostic-output';
 import { resolveCanonicalCommandContext } from '../command-contract';
 import {
-  NODE_FALLBACK_NO_COMMAND_REASON_LINE,
+  PORTABLE_CLI_NO_COMMAND_REASON_LINE,
   STANDALONE_GUIDANCE_LINE,
 } from './help';
 
-export function createNodeFallbackNoCommandCliError() {
+export function createPortableCliNoCommandCliError() {
   return createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
     command: 'wp-typia',
-    detailLines: [NODE_FALLBACK_NO_COMMAND_REASON_LINE],
+    detailLines: [PORTABLE_CLI_NO_COMMAND_REASON_LINE],
     summary: 'No command was provided.',
   });
 }
 
-function isNodeFallbackNoCommandCliDiagnostic(error: unknown): boolean {
+function isPortableCliNoCommandCliDiagnostic(error: unknown): boolean {
   return (
     isCliDiagnosticError(error) &&
     error.code === CLI_DIAGNOSTIC_CODES.INVALID_COMMAND &&
     error.command === 'wp-typia' &&
-    error.detailLines.includes(NODE_FALLBACK_NO_COMMAND_REASON_LINE)
+    error.detailLines.includes(PORTABLE_CLI_NO_COMMAND_REASON_LINE)
   );
 }
 
-export function throwUnsupportedNodeFallbackCommand(command: string): never {
+export function throwUnsupportedPortableCliCommand(command: string): never {
   throw createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.UNSUPPORTED_COMMAND,
     command: command,
@@ -45,7 +45,7 @@ export function throwUnsupportedNodeFallbackCommand(command: string): never {
   });
 }
 
-export async function handleNodeFallbackEntrypointError(
+export async function handlePortableCliEntrypointError(
   error: unknown,
   argv: string[],
 ): Promise<void> {
@@ -67,7 +67,7 @@ export async function handleNodeFallbackEntrypointError(
     process.exitCode = 1;
     return;
   }
-  if (isNodeFallbackNoCommandCliDiagnostic(error)) {
+  if (isPortableCliNoCommandCliDiagnostic(error)) {
     // Human no-command output already includes the explanatory line and help.
     process.exitCode = 1;
     return;

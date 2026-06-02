@@ -11,7 +11,7 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     commandTree: true,
     description: 'Scaffold a new wp-typia project.',
     name: 'create',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['create'],
   },
   {
@@ -19,14 +19,14 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     description:
       'Preview or apply the minimum retrofit plan for an existing project.',
     name: 'init',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['init'],
   },
   {
     commandTree: true,
     description: 'Run the common generated-project sync workflow.',
     name: 'sync',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['sync'],
     subcommands: ['ai'],
   },
@@ -34,7 +34,7 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     commandTree: true,
     description: 'Extend an official wp-typia workspace.',
     name: 'add',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['add'],
     subcommands: ADD_KIND_IDS,
   },
@@ -42,7 +42,7 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     commandTree: true,
     description: 'Run migration workflows.',
     name: 'migrate',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['migrate'],
     subcommands: [
       'init',
@@ -61,7 +61,7 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     commandTree: true,
     description: 'Inspect scaffold templates.',
     name: 'templates',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['templates'],
     subcommands: ['list', 'inspect'],
   },
@@ -69,46 +69,46 @@ export const WP_TYPIA_COMMAND_REGISTRY = [
     commandTree: true,
     description: 'Run repository and project diagnostics.',
     name: 'doctor',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['doctor'],
   },
   {
     commandTree: true,
     description: 'Inspect or sync schema-driven MCP metadata.',
     name: 'mcp',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['mcp'],
     subcommands: ['list', 'sync'],
   },
   {
     commandTree: false,
     name: 'help',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: [],
   },
   {
     commandTree: false,
     name: 'version',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: [],
   },
   {
     commandTree: false,
     name: 'skills',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: ['skills'],
     subcommands: ['list', 'sync'],
   },
   {
     commandTree: false,
     name: 'completions',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: [],
   },
   {
     commandTree: false,
     name: 'complete',
-    nodeFallback: true,
+    portableCli: true,
     optionGroups: [],
   },
 ] as const;
@@ -123,9 +123,9 @@ export type WpTypiaCommandTreeEntry = Extract<
   WpTypiaCommandRegistryEntry,
   { commandTree: true }
 >;
-export type WpTypiaNodeFallbackCommandName = Extract<
+export type WpTypiaPortableCliCommandName = Extract<
   WpTypiaCommandRegistryEntry,
-  { nodeFallback: true }
+  { portableCli: true }
 >['name'];
 export type WpTypiaTopLevelCommandName = WpTypiaCommandTreeEntry['name'];
 
@@ -134,10 +134,10 @@ export const WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES =
     (command) => command.name,
   ) as readonly WpTypiaReservedTopLevelCommandName[];
 
-export const WP_TYPIA_NODE_FALLBACK_TOP_LEVEL_COMMAND_NAMES =
-  WP_TYPIA_COMMAND_REGISTRY.filter((command) => command.nodeFallback).map(
+export const WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES =
+  WP_TYPIA_COMMAND_REGISTRY.filter((command) => command.portableCli).map(
     (command) => command.name,
-  ) as readonly WpTypiaNodeFallbackCommandName[];
+  ) as readonly WpTypiaPortableCliCommandName[];
 
 export const WP_TYPIA_TOP_LEVEL_COMMAND_NAMES =
   WP_TYPIA_COMMAND_REGISTRY.filter((command) => command.commandTree).map(

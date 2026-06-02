@@ -83,8 +83,8 @@ test('keeps add-kind formatting helpers below the execution registry', () => {
     path.join(packageRoot, 'src', 'cli-error-messages.ts'),
     'utf8',
   );
-  const nodeFallbackHelpSource = fs.readFileSync(
-    path.join(packageRoot, 'src', 'node-fallback', 'help.ts'),
+  const portableCliHelpSource = fs.readFileSync(
+    path.join(packageRoot, 'src', 'portable-cli', 'help.ts'),
     'utf8',
   );
 
@@ -101,8 +101,8 @@ test('keeps add-kind formatting helpers below the execution registry', () => {
   expect(cliErrorMessagesSource).not.toContain(
     "from './add-kind-registry'",
   );
-  expect(nodeFallbackHelpSource).toContain("from '../add-kind-ids'");
-  expect(nodeFallbackHelpSource).not.toContain(
+  expect(portableCliHelpSource).toContain("from '../add-kind-ids'");
+  expect(portableCliHelpSource).not.toContain(
     "from '../add-kind-registry'",
   );
 });

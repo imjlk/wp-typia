@@ -4,7 +4,7 @@ import {
   ADD_OPTION_METADATA,
   CREATE_OPTION_METADATA,
   DOCTOR_OPTION_METADATA,
-  formatNodeFallbackOptionHelp,
+  formatPortableCliOptionHelp,
   INIT_OPTION_METADATA,
   MCP_OPTION_METADATA,
   MIGRATE_OPTION_METADATA,
@@ -21,12 +21,12 @@ import {
 } from '../command-contract';
 import type { PrintLine } from '../print-line';
 import { printBlock } from '../print-block';
-import type { NodeFallbackExecutableCommandName } from './types';
+import type { PortableCliExecutableCommandName } from './types';
 
 export const STANDALONE_GUIDANCE_LINE =
   'Standalone wp-typia binaries are available from the GitHub release assets.';
 
-export const NODE_FALLBACK_RUNTIME_SUMMARY_LINES = [
+export const PORTABLE_CLI_RUNTIME_SUMMARY_LINES = [
   'Runtime: Node-first wp-typia CLI',
   'Gunshi provides the `complete` integration; the command registry owns shared dispatch and diagnostics.',
   'Supported command surfaces include create/init/add/migrate flows, doctor, sync, templates, MCP metadata, skills, completions, --help, and --version.',
@@ -34,10 +34,10 @@ export const NODE_FALLBACK_RUNTIME_SUMMARY_LINES = [
   'Output markers: WP_TYPIA_ASCII=1 forces ASCII markers, WP_TYPIA_ASCII=0 opts back into Unicode markers, and non-empty NO_COLOR requests ASCII markers when WP_TYPIA_ASCII is unset.',
 ];
 
-export const NODE_FALLBACK_NO_COMMAND_REASON_LINE =
+export const PORTABLE_CLI_NO_COMMAND_REASON_LINE =
   'No command provided. Run wp-typia --help for usage information.';
 
-export type NodeFallbackCommandHelpConfig = {
+export type PortableCliCommandHelpConfig = {
   bodyLines?: string[];
   heading: string;
   optionMetadata: CommandOptionMetadataMap;
@@ -49,7 +49,7 @@ export function renderGeneralHelp(printLine: PrintLine) {
     '',
     'Canonical CLI package for wp-typia scaffolding and project workflows.',
     '',
-    ...NODE_FALLBACK_RUNTIME_SUMMARY_LINES,
+    ...PORTABLE_CLI_RUNTIME_SUMMARY_LINES,
     '',
     'Commands:',
     ...WP_TYPIA_FUTURE_COMMAND_TREE.map(
@@ -65,26 +65,26 @@ export function renderGeneralHelp(printLine: PrintLine) {
 }
 
 export function renderNoCommandHelp(printLine: PrintLine) {
-  printBlock(printLine, [NODE_FALLBACK_NO_COMMAND_REASON_LINE, '']);
+  printBlock(printLine, [PORTABLE_CLI_NO_COMMAND_REASON_LINE, '']);
   renderGeneralHelp(printLine);
 }
 
-export function renderNodeFallbackCommandHelp(
+export function renderPortableCliCommandHelp(
   printLine: PrintLine,
-  config: NodeFallbackCommandHelpConfig,
+  config: PortableCliCommandHelpConfig,
 ) {
   printBlock(printLine, [
     config.heading,
     '',
-    ...NODE_FALLBACK_RUNTIME_SUMMARY_LINES,
+    ...PORTABLE_CLI_RUNTIME_SUMMARY_LINES,
     '',
     ...(config.bodyLines ? [...config.bodyLines, ''] : []),
     'Supported flags:',
-    ...formatNodeFallbackOptionHelp(config.optionMetadata),
+    ...formatPortableCliOptionHelp(config.optionMetadata),
   ]);
 }
 
-const NODE_FALLBACK_COMMAND_HELP_CONFIG = {
+const PORTABLE_CLI_COMMAND_HELP_CONFIG = {
   add: {
     bodyLines: [`Supported kinds: ${formatAddKindList()}`],
     heading: 'Usage: wp-typia add <kind> <name>',
@@ -144,11 +144,11 @@ const NODE_FALLBACK_COMMAND_HELP_CONFIG = {
     heading: 'Usage: wp-typia completions <shell>',
     optionMetadata: {},
   },
-} satisfies Record<NodeFallbackExecutableCommandName, NodeFallbackCommandHelpConfig>;
+} satisfies Record<PortableCliExecutableCommandName, PortableCliCommandHelpConfig>;
 
-export const NODE_FALLBACK_HELP_RENDERERS = Object.fromEntries(
-  Object.entries(NODE_FALLBACK_COMMAND_HELP_CONFIG).map(([command, config]) => [
+export const PORTABLE_CLI_HELP_RENDERERS = Object.fromEntries(
+  Object.entries(PORTABLE_CLI_COMMAND_HELP_CONFIG).map(([command, config]) => [
     command,
-    (printLine: PrintLine) => renderNodeFallbackCommandHelp(printLine, config),
+    (printLine: PrintLine) => renderPortableCliCommandHelp(printLine, config),
   ]),
-) as Record<NodeFallbackExecutableCommandName, (printLine: PrintLine) => void>;
+) as Record<PortableCliExecutableCommandName, (printLine: PrintLine) => void>;
