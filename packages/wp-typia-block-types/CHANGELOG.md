@@ -1,5 +1,11 @@
 # @wp-typia/block-types
 
+## 0.3.3 — 2026-06-02
+
+### Patch changes
+
+- [ab140e2b](https://github.com/imjlk/wp-typia/commit/ab140e2bf6d394331f65a861937c55b3b9d096b6) Migrate the wp-typia CLI runtime from Bunli/OpenTUI to a Node-first Gunshi entrypoint while keeping Bun as the development and build toolchain, and align block registration facade types with current WordPress block declarations. — Thanks @imjlk!
+
 ## 0.3.2 — 2026-05-17
 
 ### Patch changes

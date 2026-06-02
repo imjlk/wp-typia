@@ -1,5 +1,11 @@
 # `@wp-typia/api-client`
 
+## 0.4.6 — 2026-06-02
+
+### Patch changes
+
+- [25c7d51c](https://github.com/imjlk/wp-typia/commit/25c7d51c5ee424d7fa6dfee8b951d434719804d7) Enable the next package-level TypeScript strictness ratchet for the smaller runtime packages. — Thanks @imjlk!
+
 ## 0.4.5 — 2026-04-18
 
 ### Patch changes

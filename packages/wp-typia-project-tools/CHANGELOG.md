@@ -1,5 +1,13 @@
 # @wp-typia/project-tools
 
+## 0.24.5 — 2026-06-02
+
+### Patch changes
+
+- [ab140e2b](https://github.com/imjlk/wp-typia/commit/ab140e2bf6d394331f65a861937c55b3b9d096b6) Pin generated WordPress dependency ranges to React 18-compatible Gutenberg package lines so npm installs do not float to React 19-only releases unexpectedly. — Thanks @imjlk!
+- [5b8f9ae6](https://github.com/imjlk/wp-typia/commit/5b8f9ae63ec8baab9b24f2b166343d401e400a26) Refactor internal project-tools runtime modules into focused domain folders while preserving the existing public facade import paths. — Thanks @imjlk!
+- Updated dependencies: api-client (npm)@0.4.6, block-runtime (npm)@0.7.1, block-types (npm)@0.3.3, rest (npm)@0.3.14
+
 ## 0.24.4 — 2026-05-17
 
 ### Patch changes
