@@ -144,7 +144,7 @@ describe('Gunshi CLI core routing', () => {
     expect(result.stdout).toContain(
       'Canonical CLI package for wp-typia scaffolding',
     );
-    expect(result.stdout).toContain('Runtime: Gunshi CLI');
+    expect(result.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(result.stdout).toContain('Commands:');
 
     const directResult = await captureNodeCli([]);
@@ -196,7 +196,7 @@ describe('Gunshi CLI core routing', () => {
     expect(generalHelp.error).toBeUndefined();
     expect(generalHelp.exitCode).toBe(0);
     expect(generalHelp.stdout).toContain('Commands:');
-    expect(generalHelp.stdout).toContain('standalone wp-typia binary');
+    expect(generalHelp.stdout).toContain('Standalone wp-typia binaries');
     expect(generalHelp.stdout).not.toContain('No command provided.');
 
     expect(addHelp.error).toBeUndefined();
@@ -209,14 +209,14 @@ describe('Gunshi CLI core routing', () => {
     expect(createHelp.error).toBeUndefined();
     expect(createHelp.exitCode).toBe(0);
     expect(createHelp.stdout).toContain('Usage: wp-typia create <project-dir>');
-    expect(createHelp.stdout).toContain('Runtime: Gunshi CLI');
+    expect(createHelp.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(createHelp.stdout).toContain('Supported flags:');
     expect(createHelp.stdout).toContain('--template');
 
     expect(commandHelp.error).toBeUndefined();
     expect(commandHelp.exitCode).toBe(0);
     expect(commandHelp.stdout).toContain('wp-typia templates <list|inspect>');
-    expect(commandHelp.stdout).toContain('Runtime: Gunshi CLI');
+    expect(commandHelp.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(commandHelp.stdout).toContain('Supported flags:');
     expect(commandHelp.stdout).toContain('--id');
   });

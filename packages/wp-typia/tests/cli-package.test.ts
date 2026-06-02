@@ -203,7 +203,7 @@ describe('wp-typia package', () => {
     for (const commandName of WP_TYPIA_TOP_LEVEL_COMMAND_NAMES) {
       expect(helpOutput).toContain(commandName);
     }
-    expect(helpOutput).toContain('Runtime: Gunshi CLI');
+    expect(helpOutput).toContain('Runtime: Node-first wp-typia CLI');
     expect(helpOutput).toContain('non-empty NO_COLOR requests ASCII markers');
     expect(helpOutput).toContain('create: Scaffold a new wp-typia project.');
     expect(createHelpOutput).toContain('--external-layer-source');
@@ -421,7 +421,7 @@ describe('wp-typia package', () => {
 
     expect(topHelp.status).toBe(0);
     expect(topHelp.stderr).toBe('');
-    expect(topHelp.stdout).toContain('Runtime: Gunshi CLI');
+    expect(topHelp.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(createHelp.status).toBe(0);
     expect(createHelp.stderr).toBe('');
     expect(createHelp.stdout).toContain('Usage: wp-typia create');
@@ -623,15 +623,15 @@ process.exit(0);
     expect(noCommandResult.stdout).toContain(
       'No command provided. Run wp-typia --help for usage information.',
     );
-    expect(noCommandResult.stdout).toContain('Runtime: Gunshi CLI');
+    expect(noCommandResult.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(helpResult.status).toBe(0);
     expect(helpResult.stderr).toBe('');
     expect(helpResult.stdout).not.toContain('No command provided.');
     expect(helpResult.stdout).toContain(
       'Canonical CLI package for wp-typia scaffolding',
     );
-    expect(helpResult.stdout).toContain('Runtime: Gunshi CLI');
-    expect(helpResult.stdout).toContain('standalone wp-typia binary');
+    expect(helpResult.stdout).toContain('Runtime: Node-first wp-typia CLI');
+    expect(helpResult.stdout).toContain('Standalone wp-typia binaries');
     expect(helpResult.stdout).toContain(
       'WP_TYPIA_ASCII=1 forces ASCII markers',
     );
@@ -656,7 +656,7 @@ process.exit(0);
       expect(result.stderr).toBe('');
       expect(result.stdout).not.toContain('does not support');
       if (commandName !== 'version') {
-        expect(result.stdout).toContain('Runtime: Gunshi CLI');
+        expect(result.stdout).toContain('Runtime: Node-first wp-typia CLI');
       }
     }
   });
