@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/rest",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Typed WordPress REST helpers powered by Typia validation",
   "type": "module",
   "main": "dist/index.js",

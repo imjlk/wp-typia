@@ -1,5 +1,11 @@
 # @wp-typia/create-workspace-template
 
+## 0.18.1 — 2026-06-02
+
+### Patch changes
+
+- [ab140e2b](https://github.com/imjlk/wp-typia/commit/ab140e2bf6d394331f65a861937c55b3b9d096b6) Pin generated WordPress dependency ranges to React 18-compatible Gutenberg package lines so npm installs do not float to React 19-only releases unexpectedly. — Thanks @imjlk!
+
 ## 0.18.0 — 2026-05-15
 
 ### Minor changes

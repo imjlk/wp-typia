@@ -1,5 +1,13 @@
 # wp-typia
 
+## 0.24.5 — 2026-06-02
+
+### Patch changes
+
+- [ab140e2b](https://github.com/imjlk/wp-typia/commit/ab140e2bf6d394331f65a861937c55b3b9d096b6) Migrate the wp-typia CLI runtime from Bunli/OpenTUI to a Node-first Gunshi entrypoint while keeping Bun as the development and build toolchain, and align block registration facade types with current WordPress block declarations. — Thanks @imjlk!
+- [5b8f9ae6](https://github.com/imjlk/wp-typia/commit/5b8f9ae63ec8baab9b24f2b166343d401e400a26) Keep the CLI release lane aligned with the planned project-tools runtime domain refactor patch. — Thanks @imjlk!
+- Updated dependencies: api-client (npm)@0.4.6, project-tools (npm)@0.24.5
+
 ## 0.24.4 — 2026-05-17
 
 ### Patch changes

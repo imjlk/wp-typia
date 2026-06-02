@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/block-types",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Shared WordPress block semantic types derived from Gutenberg and unofficial declarations",
   "type": "module",
   "main": "dist/index.js",

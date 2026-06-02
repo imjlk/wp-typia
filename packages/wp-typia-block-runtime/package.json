@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/block-runtime",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Generated-project runtime and metadata sync helpers for wp-typia",
   "type": "module",
   "main": "dist/index.js",
@@ -139,7 +139,7 @@
     }
   },
   "dependencies": {
-    "@wp-typia/api-client": "^0.4.5",
+    "@wp-typia/api-client": "^0.4.6",
     "ajv": "^8.18.0",
     "typescript": "^5.9.2"
   },
