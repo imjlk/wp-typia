@@ -1363,7 +1363,7 @@ test("node entry exposes portable CLI help and rejects the removed migrations al
     runCli("node", [entryPath, "migrations", "init"], { stdio: "pipe" })
   );
 
-  expect(helpOutput).toContain("Runtime: Gunshi CLI");
+  expect(helpOutput).toContain("Runtime: Node-first wp-typia CLI");
   expect(helpOutput).toContain("Scaffold a new wp-typia project.");
   expect(helpOutput).toContain("Run migration workflows.");
   expect(helpOutput).toContain(
@@ -1413,7 +1413,7 @@ test("bun entry exposes portable CLI help and rejects the removed migrations ali
     runCli("bun", [entryPath, "migrations", "init"], { stdio: "pipe" })
   );
 
-  expect(helpOutput).toContain("Runtime: Gunshi CLI");
+  expect(helpOutput).toContain("Runtime: Node-first wp-typia CLI");
   expect(helpOutput).toContain("Scaffold a new wp-typia project.");
   expect(helpOutput).toContain("Run migration workflows.");
   expect(helpOutput).toContain(

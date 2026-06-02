@@ -24,12 +24,13 @@ import { printBlock } from '../print-block';
 import type { NodeFallbackExecutableCommandName } from './types';
 
 export const STANDALONE_GUIDANCE_LINE =
-  'Prefer not to install Bun? Use the standalone wp-typia binary from the GitHub release assets.';
+  'Standalone wp-typia binaries are available from the GitHub release assets.';
 
 export const NODE_FALLBACK_RUNTIME_SUMMARY_LINES = [
-  'Runtime: Gunshi CLI',
-  'Portable Node-first runtime for create/init/add/migrate flows, doctor, sync, templates, MCP metadata, skills, completions, --help, and --version.',
-  `TUI rendering was removed from the published CLI path. ${STANDALONE_GUIDANCE_LINE}`,
+  'Runtime: Node-first wp-typia CLI',
+  'Gunshi provides the `complete` integration; the command registry owns shared dispatch and diagnostics.',
+  'Supported command surfaces include create/init/add/migrate flows, doctor, sync, templates, MCP metadata, skills, completions, --help, and --version.',
+  STANDALONE_GUIDANCE_LINE,
   'Output markers: WP_TYPIA_ASCII=1 forces ASCII markers, WP_TYPIA_ASCII=0 opts back into Unicode markers, and non-empty NO_COLOR requests ASCII markers when WP_TYPIA_ASCII is unset.',
 ];
 
