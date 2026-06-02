@@ -233,7 +233,7 @@ describe('Gunshi CLI core routing', () => {
     expect(result.stdout).not.toContain('Usage: wp-typia create <project-dir>');
   });
 
-  test('keeps Node fallback dispatcher and help modules focused', () => {
+  test('keeps historical node-fallback dispatcher and help modules focused', () => {
     const packageRoot = path.resolve(import.meta.dir, '..');
     const nodeCliSource = fs.readFileSync(
       path.join(packageRoot, 'src', 'node-cli.ts'),
@@ -357,7 +357,7 @@ describe('Gunshi CLI core routing', () => {
     );
   });
 
-  test('prints human and structured version output from the fallback runtime', async () => {
+  test('prints human and structured version output from the portable CLI runtime', async () => {
     const human = await captureNodeCli(['--version']);
     const text = await captureNodeCli(['version', '--format', 'text']);
     const legacyToon = await captureNodeCli(['version', '--format', 'toon']);
@@ -387,7 +387,7 @@ describe('Gunshi CLI core routing', () => {
     expect(parsed.data?.version).toBe(packageJson.version);
   });
 
-  test('dispatches create dry-runs through the Node fallback runtime', async () => {
+  test('dispatches create dry-runs through the portable CLI runtime', async () => {
     const tempRoot = createTempRoot('wp-typia-node-create-');
 
     try {
@@ -430,7 +430,7 @@ describe('Gunshi CLI core routing', () => {
     }
   });
 
-  test('routes Node fallback completion warnings through stderr', async () => {
+  test('routes portable CLI completion warnings through stderr', async () => {
     const tempRoot = createTempRoot('wp-typia-node-init-warning-');
     writeJson(path.join(tempRoot, 'package.json'), {
       name: 'node-init-warning',
@@ -494,7 +494,7 @@ describe('Gunshi CLI core routing', () => {
     expect(parsed.error?.detailLines).toEqual(buildMissingAddKindDetailLines());
   });
 
-  test('dispatches init structured previews from the Node fallback runtime', async () => {
+  test('dispatches init structured previews from the portable CLI runtime', async () => {
     const tempRoot = createTempRoot('wp-typia-node-init-');
 
     try {
@@ -524,7 +524,7 @@ describe('Gunshi CLI core routing', () => {
     }
   });
 
-  test('rejects invalid output formats before Node fallback dispatch', async () => {
+  test('rejects invalid output formats before portable CLI dispatch', async () => {
     const result = await captureNodeCli(['templates', 'list', '--format', 'jso']);
 
     expect(result.stdout).toBe('');
@@ -539,7 +539,7 @@ describe('Gunshi CLI core routing', () => {
     );
   });
 
-  test('reports missing output format values before Node fallback dispatch', async () => {
+  test('reports missing output format values before portable CLI dispatch', async () => {
     const result = await captureNodeCli(['doctor', '--format']);
 
     expect(result.stdout).toBe('');

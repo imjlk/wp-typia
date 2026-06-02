@@ -121,7 +121,7 @@ test('formats add failures with a shared non-interactive diagnostic block', () =
   );
 });
 
-test('emits structured add completion output in Node fallback JSON mode', async () => {
+test('emits structured add completion output in portable CLI JSON mode', async () => {
   const projectDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'wp-typia-add-json-'),
   );
@@ -179,7 +179,7 @@ test('emits structured add completion output in Node fallback JSON mode', async 
   }
 });
 
-test('preserves add diagnostic metadata in Node fallback JSON mode on failure', () => {
+test('preserves add diagnostic metadata in portable CLI JSON mode on failure', () => {
   const result = runCapturedCommand(
     process.execPath,
     [entryPath, 'add', 'variation', 'promo-card', '--format', 'json'],
@@ -218,7 +218,7 @@ test('treats missing add kinds as an error while still printing help text', () =
   );
 });
 
-test('node fallback rest-resource missing-name output keeps usage split by mode', () => {
+test('portable CLI rest-resource missing-name output keeps usage split by mode', () => {
   const result = runCapturedCommand(
     process.execPath,
     [entryPath, 'add', 'rest-resource'],
@@ -240,7 +240,7 @@ test('node fallback rest-resource missing-name output keeps usage split by mode'
   expect(result.stderr).not.toContain(' or wp-typia add rest-resource ');
 });
 
-test('node fallback source entry treats missing add kinds as an error while printing add help', async () => {
+test('portable CLI source entry treats missing add kinds as an error while printing add help', async () => {
   const originalLog = console.log;
   const capturedStdout: string[] = [];
   console.log = (line = '') => {

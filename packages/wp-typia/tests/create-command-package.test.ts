@@ -14,7 +14,7 @@ import {
   withoutLocalBunEnv,
 } from './cli-package-test-helpers';
 
-test('emits structured create completion output in Node fallback JSON mode', () => {
+test('emits structured create completion output in portable CLI JSON mode', () => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'wp-typia-create-json-'),
   );
@@ -75,7 +75,7 @@ test('emits structured create completion output in Node fallback JSON mode', () 
   }
 });
 
-test('honors NO_COLOR for ASCII-safe status markers through the Node fallback bin', () => {
+test('honors NO_COLOR for ASCII-safe status markers through the portable CLI bin', () => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'wp-typia-no-color-markers-'),
   );
@@ -253,7 +253,7 @@ test('formats create failures with a shared non-interactive diagnostic block', (
   );
 });
 
-test('emits a machine-readable missing-argument error code for create in Node fallback JSON mode', () => {
+test('emits a machine-readable missing-argument error code for create in portable CLI JSON mode', () => {
   const result = runCapturedCommand(
     process.execPath,
     [entryPath, 'create', '--format', 'json'],
@@ -381,7 +381,7 @@ test('emits a machine-readable missing-argument error code for create in Gunshi 
   expect(parsed.error?.code).toBe('missing-argument');
 });
 
-test('loads baseline create defaults from package.json#wp-typia in the Node fallback', () => {
+test('loads baseline create defaults from package.json#wp-typia in the portable CLI', () => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'wp-typia-node-config-defaults-'),
   );

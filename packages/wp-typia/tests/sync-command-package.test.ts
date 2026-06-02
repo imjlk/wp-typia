@@ -292,7 +292,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('runs sync ai through the dedicated sync-ai script in Node fallback', () => {
+  test('runs sync ai through the dedicated sync-ai script in the portable CLI', () => {
     const { fixtureRoot, logPath } = createSyncFixture({
       scripts: {
         sync: 'node scripts/record.mjs sync',
@@ -317,7 +317,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('previews sync commands without running scripts in Node fallback dry-run JSON mode', () => {
+  test('previews sync commands without running scripts in portable CLI dry-run JSON mode', () => {
     const { fixtureRoot, logPath } = createSyncFixture({
       scripts: {
         'sync-rest': 'node scripts/record.mjs sync-rest',
@@ -360,7 +360,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('previews sync ai commands without running scripts in Node fallback dry-run JSON mode', () => {
+  test('previews sync ai commands without running scripts in portable CLI dry-run JSON mode', () => {
     const { fixtureRoot, logPath } = createSyncFixture({
       scripts: {
         'sync-ai': 'node scripts/record.mjs sync-ai',
@@ -407,7 +407,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('renders sync help with preview-oriented dry-run guidance in Node fallback', () => {
+  test('renders sync help with preview-oriented dry-run guidance in the portable CLI', () => {
     const result = runCapturedCommand(
       process.execPath,
       [entryPath, 'sync', '--help'],
@@ -422,7 +422,7 @@ describe('wp-typia sync package command', () => {
     expect(result.stdout).toContain('--dry-run');
   });
 
-  test('emits a machine-readable outside-project-root error code for sync in Node fallback JSON mode', () => {
+  test('emits a machine-readable outside-project-root error code for sync in portable CLI JSON mode', () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-sync-json-'),
     );
@@ -452,7 +452,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('emits a machine-readable malformed package JSON code for sync in Node fallback JSON mode', () => {
+  test('emits a machine-readable malformed package JSON code for sync in portable CLI JSON mode', () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-sync-malformed-json-'),
     );
@@ -496,7 +496,7 @@ describe('wp-typia sync package command', () => {
     }
   });
 
-  test('emits a machine-readable invalid-command error code for sync subcommands in Node fallback JSON mode', () => {
+  test('emits a machine-readable invalid-command error code for sync subcommands in portable CLI JSON mode', () => {
     const result = runCapturedCommand(
       process.execPath,
       [entryPath, 'sync', 'unknown', '--format', 'json'],

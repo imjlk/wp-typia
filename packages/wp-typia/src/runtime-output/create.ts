@@ -59,7 +59,7 @@ function resolveCreateCompletionPackageManager(
 }
 
 /**
- * Formats a lightweight create-progress line for fallback CLI output.
+ * Formats a lightweight create-progress line for portable CLI output.
  *
  * @param payload User-facing scaffold progress payload.
  * @returns A single readable status line.

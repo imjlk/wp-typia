@@ -11,7 +11,7 @@ import { promises as fsp } from "node:fs";
  * script templates that embed their own path-aware parse handling.
  *
  * This module keeps `cloneJsonValue` local instead of re-exporting the
- * block-runtime helper so Bunli CLI bundles that only need project-tools JSON
+ * block-runtime helper so CLI runtime bundles that only need project-tools JSON
  * readers do not need to resolve the block-runtime subpath at runtime.
  *
  * @module

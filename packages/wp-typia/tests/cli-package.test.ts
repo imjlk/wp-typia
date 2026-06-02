@@ -661,7 +661,7 @@ process.exit(0);
     }
   });
 
-  test('runs former Bun-only commands through the Gunshi CLI without Bun', () => {
+  test('runs portable command surfaces through the Gunshi CLI without Bun', () => {
     const result = runCapturedCommand(
       process.execPath,
       [entryPath, 'skills', 'list', '--format', 'json'],

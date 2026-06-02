@@ -378,12 +378,11 @@ function inferCliDiagnosticCode(options: {
 		return CLI_DIAGNOSTIC_CODES.UNKNOWN_TEMPLATE;
 	}
 	if (
-		/Unknown .*subcommand|Unknown add kind|removed in favor|does not support|The Bun-free fallback runtime does not support|The positional alias only accepts/u.test(
+		/Unknown .*subcommand|Unknown add kind|removed in favor|does not support|The positional alias only accepts/u.test(
 			haystack,
 		)
 	) {
-		return haystack.includes("does not support") ||
-			haystack.includes("The Bun-free fallback runtime does not support")
+		return haystack.includes("does not support")
 			? CLI_DIAGNOSTIC_CODES.UNSUPPORTED_COMMAND
 			: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND;
 	}

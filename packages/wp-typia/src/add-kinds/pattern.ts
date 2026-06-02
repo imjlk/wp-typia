@@ -29,7 +29,7 @@ export const patternAddKindEntry =
       title: 'Added workspace pattern',
     },
     description: 'Add a PHP block pattern shell',
-    // Repeatable --tag remains CLI-only; the TUI exposes comma-separated --tags.
+    // Repeatable --tag remains CLI-only; prompt values use comma-separated --tags.
     hiddenStringSubmitFields: ['tag'],
     nameLabel: 'Pattern name',
     async prepareExecution(context) {
