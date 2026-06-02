@@ -34,8 +34,8 @@ export interface CompoundInnerBlocksPresetDefinition {
 }
 
 /**
- * Canonical preset registry used by the CLI, generated scaffolds, and TUI
- * forms.
+ * Canonical preset registry used by the CLI, generated scaffolds, and
+ * interactive forms.
  */
 export const COMPOUND_INNER_BLOCKS_PRESET_REGISTRY = {
 	freeform: {

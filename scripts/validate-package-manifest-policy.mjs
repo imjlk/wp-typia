@@ -26,6 +26,16 @@ export const BLOCK_TYPES_REGISTRATION_PEER_BASELINE = Object.freeze({
 	"@types/wordpress__blocks": "^12.5.18",
 	"@wordpress/blocks": "^15.2.0",
 });
+const REMOVED_CLI_RUNTIME_CONFIG_FILES = Object.freeze([
+	"bunli.config.cjs",
+	"bunli.config.js",
+	"bunli.config.mjs",
+	"bunli.config.ts",
+	"opentui.config.cjs",
+	"opentui.config.js",
+	"opentui.config.mjs",
+	"opentui.config.ts",
+]);
 const SHARED_PUBLISH_MANIFEST_HELPER_PATTERN = /runPublishManifestCli\s*\(/;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -127,6 +137,49 @@ function validateBlockTypesRegistrationPeerPolicy(repoRoot, runtimePackages, err
 			errors.push(
 				`${relativePath} must declare peerDependencies.${dependencyName}=${JSON.stringify(expectedSpec)} to match the owned block registration facade baseline, found ${JSON.stringify(actualSpec ?? null)}.`,
 			);
+		}
+	}
+}
+
+function isRemovedCliRuntimeDependency(dependencyName) {
+	return (
+		dependencyName === "bunli" ||
+		dependencyName.startsWith("@bunli/") ||
+		dependencyName.startsWith("@opentui/")
+	);
+}
+
+function validateRemovedCliRuntimePolicy(repoRoot, errors) {
+	for (const packageInfo of findPublishablePackages(repoRoot)) {
+		const packageRoot = path.join(repoRoot, packageInfo.packageDir);
+
+		for (const configFileName of REMOVED_CLI_RUNTIME_CONFIG_FILES) {
+			const configPath = path.join(packageRoot, configFileName);
+			if (fs.existsSync(configPath)) {
+				errors.push(
+					`${toRelativePath(repoRoot, configPath)} should not exist; publishable packages must not keep Bunli/OpenTUI runtime config files.`,
+				);
+			}
+		}
+
+		const manifest = readJson(packageInfo.packageJsonPath);
+		const relativeManifestPath = toRelativePath(repoRoot, packageInfo.packageJsonPath);
+
+		for (const field of DEPENDENCY_FIELDS) {
+			const section = manifest[field];
+			if (!section || typeof section !== "object") {
+				continue;
+			}
+
+			for (const dependencyName of Object.keys(section)) {
+				if (!isRemovedCliRuntimeDependency(dependencyName)) {
+					continue;
+				}
+
+				errors.push(
+					`${relativeManifestPath} must not declare ${field}.${dependencyName}; Bunli/OpenTUI runtime packages were removed from publishable packages.`,
+				);
+			}
 		}
 	}
 }
@@ -235,6 +288,7 @@ export function validatePackageManifestPolicy(repoRoot = DEFAULT_REPO_ROOT) {
 	validateRuntimeDependencyPolicy(repoRoot, runtimePackages, errors);
 	validateUnusedDevDependencyPolicy(runtimePackages, errors);
 	validateBlockTypesRegistrationPeerPolicy(repoRoot, runtimePackages, errors);
+	validateRemovedCliRuntimePolicy(repoRoot, errors);
 
 	return {
 		errors,
