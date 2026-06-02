@@ -151,7 +151,7 @@ catch contract.
 These areas are not covered by the generated-project compatibility promise:
 
 - CLI implementation internals
-- Bunli command composition
+- CLI command composition internals
 - template rendering internals
 - Mustache-vs-emitter implementation details below the current generator boundary
 - project-scaffold orchestration internals

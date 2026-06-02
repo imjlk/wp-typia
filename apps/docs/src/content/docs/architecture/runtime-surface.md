@@ -8,7 +8,8 @@ This document is descriptive, not normative. For support guarantees, see
 ## Current exported surfaces
 
 - `wp-typia`
-  CLI package and Bunli command tree.
+  Node-first CLI package, command registry, help surface, completions, skills,
+  MCP metadata, and bin entry.
 - `@wp-typia/api-client`
 - `@wp-typia/api-client/client-utils`
 - `@wp-typia/api-client/runtime-primitives`
@@ -96,10 +97,14 @@ This document is descriptive, not normative. For support guarantees, see
   surface is the canonical convenience entry, `./client` is the focused
   transport/runtime entry, `./http` is the focused decoder entry, and `./react`
   owns hooks.
-- `wp-typia` owns the CLI, help, TUI, completions, skills, MCP, and bin entry.
-- `wp-typia` keeps its public CLI flow stable while the internal runtime bridge
-  now delegates focused output and sync helpers behind the facade. That split is
-  an implementation detail, not a new CLI surface area.
+- `wp-typia` owns the Node-first CLI runtime, help, completions, skills, MCP,
+  command registry, Gunshi completion integration, and bin entry.
+- General command dispatch is currently owned by the existing command
+  registry/custom dispatcher. Gunshi is part of the CLI runtime where
+  applicable, with `complete` routed through the Gunshi completion integration;
+  `completions` remains the legacy alias. The internal runtime bridge delegates
+  focused output and sync helpers behind the facade. Those splits are
+  implementation details, not new CLI surface areas.
 - `@wp-typia/project-tools` owns scaffold, add-block, migrate, template,
   doctor, package-manager, starter-manifest, the typed generator boundary, the
   opt-in WordPress AI and `typia.llm` adapter emitters, the built-in

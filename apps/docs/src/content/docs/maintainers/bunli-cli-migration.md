@@ -8,10 +8,22 @@ and the project-tools split.
 ## Current state
 
 - `packages/wp-typia` owns the published CLI package, top-level command
-  taxonomy, help surface, Gunshi runtime entrypoint, and `bin/wp-typia.js`.
+  taxonomy, help surface, Gunshi integration, command dispatch facade, and
+  `bin/wp-typia.js`.
 - The authored runtime lives in `packages/wp-typia/src/gunshi-cli.ts` and
   `packages/wp-typia/src/node-cli.ts`, and is compiled into
   `packages/wp-typia/dist/cli.js` for the published package.
+- `runGunshiCli()` is the published entrypoint wrapper. It applies standalone
+  support setup and routes Node `wp-typia complete <shell>` requests through the
+  Gunshi completion plugin.
+- General command dispatch is still owned by `runNodeCli()`, the shared command
+  registry, and the custom dispatchers. That path owns global flag parsing,
+  config defaults, AI-agent structured-output defaults, shared diagnostics, and
+  the public command handlers for `create`, `init`, `sync`, `add`, `migrate`,
+  `templates`, `doctor`, `mcp`, `skills`, and the legacy `completions` alias.
+- This is the current maintained boundary after the migration, not a temporary
+  compatibility lane. Future parser work should document any change that moves
+  general command dispatch away from the registry/custom dispatcher layer.
 - `packages/wp-typia/bin/wp-typia.js` must launch built artifacts only:
   `dist/cli.js` plus the generated `bin/` routing helpers. It must not shell
   out to source TypeScript.
@@ -139,7 +151,11 @@ to the canonical `create` surface in docs and review notes.
   `bufferMode: "alternate"`, or OpenTUI lifecycle helpers.
 - Flag-driven text and JSON flows are the supported user-facing surfaces.
 
-## Canonical Gunshi command tree
+## Canonical CLI command surface
+
+The command surface below is registry-owned today. Gunshi owns the Node
+completion integration for `complete`; `completions` remains supported as the
+legacy alias through the shared dispatcher.
 
 - `create`
 - `init`

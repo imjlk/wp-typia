@@ -196,7 +196,7 @@ export default defineConfig({
           label: 'Maintainers',
           items: [
             {
-              label: 'Bunli CLI Migration',
+              label: 'Gunshi Runtime Contract',
               link: '/maintainers/bunli-cli-migration/',
             },
             {
