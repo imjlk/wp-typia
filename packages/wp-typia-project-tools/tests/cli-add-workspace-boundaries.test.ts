@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime');
+const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 
 test('cli-add-workspace delegates workspace add workflows to focused helpers', () => {
   const addWorkspaceSource = fs.readFileSync(
@@ -915,7 +915,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(adminViewScaffoldSource).toContain(
     "from './cli-add-workspace-admin-view-templates.js'",
   );
-  expect(adminViewScaffoldSource).toContain("from './package-versions.js'");
+  expect(adminViewScaffoldSource).toContain("from '../shared/package-versions.js'");
   expect(adminViewScaffoldSource).toContain(
     'async function ensureAdminViewBootstrapAnchors(',
   );

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const runtimeRoot = resolve(import.meta.dir, "..", "src", "runtime");
+const runtimeRoot = resolve(import.meta.dir, "..", "src", "runtime", "templates");
 
 test("built-in block artifacts delegate type and document helpers to focused modules", () => {
 	const artifactSource = readFileSync(

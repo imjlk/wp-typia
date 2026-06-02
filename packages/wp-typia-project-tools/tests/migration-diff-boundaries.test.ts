@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const sourceRoot = resolve(import.meta.dir, "..", "src", "runtime");
+const sourceRoot = resolve(import.meta.dir, "..", "src", "runtime", "migration");
 
 test("migration-diff keeps rename and transform helpers in dedicated modules", () => {
 	const migrationDiffSource = readFileSync(

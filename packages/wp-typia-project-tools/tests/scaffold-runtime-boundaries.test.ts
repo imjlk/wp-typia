@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 
-const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime", "templates");
 
 test("scaffold runtime delegates identifier, document, bootstrap, and package helpers to focused modules", () => {
 	const scaffoldSource = fs.readFileSync(
@@ -66,8 +66,10 @@ test("scaffold runtime delegates identifier, document, bootstrap, and package he
 	expect(documentsSource).toContain("export function mergeTextLines(");
 	expect(bootstrapSource).toContain("export async function ensureScaffoldDirectory(");
 	expect(bootstrapSource).toContain("export async function applyWorkspaceMigrationCapability(");
-	expect(bootstrapSource).toContain('from "./package-json-types.js"');
-	expect(packageManagerFilesSource).toContain('from "./package-json-types.js"');
+	expect(bootstrapSource).toContain('from "../shared/package-json-types.js"');
+	expect(packageManagerFilesSource).toContain(
+		'from "../shared/package-json-types.js"',
+	);
 	expect(packageManagerFilesSource).toContain("export async function normalizePackageJson(");
 	expect(packageManagerFilesSource).toContain("export async function defaultInstallDependencies(");
 });

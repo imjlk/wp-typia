@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 
-const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime", "add");
 
 test("cli-add-block delegates config generation and legacy validator repair to focused modules", () => {
 	const addBlockSource = fs.readFileSync(
