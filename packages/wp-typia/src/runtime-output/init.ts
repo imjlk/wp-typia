@@ -1,4 +1,4 @@
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   type OutputMarkerOptions,
@@ -9,12 +9,12 @@ import type { StructuredInitPlan } from './types';
  * Builds the completion payload shown after an init preview or apply succeeds.
  *
  * @param plan Retrofit init plan for one project directory.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildInitCompletionPayload(
   plan: StructuredInitPlan,
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const changeLines = [
     ...plan.packageChanges.addDevDependencies.map(
       (dependency) =>

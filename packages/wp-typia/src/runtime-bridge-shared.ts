@@ -1,4 +1,4 @@
-import type { AlternateBufferCompletionPayload } from './ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './runtime-output/types';
 import { printCompletionPayload } from './runtime-bridge-output';
 import type { PrintLine } from './print-line';
 
@@ -31,13 +31,13 @@ export function shouldWrapCliCommandError(options: {
 }
 
 export function emitCompletion(
-  payload: AlternateBufferCompletionPayload,
+  payload: RuntimeCompletionPayload,
   options: {
     emitOutput: boolean;
     printLine: PrintLine;
     warnLine?: PrintLine;
   },
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   if (options.emitOutput) {
     printCompletionPayload(payload, {
       printLine: options.printLine,

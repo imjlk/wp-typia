@@ -9,7 +9,7 @@ import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
 } from '@wp-typia/project-tools/cli-diagnostics';
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   type OutputMarkerOptions,
@@ -79,7 +79,7 @@ export function formatCreateProgressLine(
  * Builds the completion payload shown after a create flow succeeds.
  *
  * @param flow Resolved create-flow data including onboarding steps and warnings.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildCreateCompletionPayload(
   flow: {
@@ -100,7 +100,7 @@ export function buildCreateCompletionPayload(
     };
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const packageManager = resolveCreateCompletionPackageManager(
     flow.packageManager,
   );
@@ -136,7 +136,7 @@ export function buildCreateCompletionPayload(
  * Builds the completion payload shown after a dry-run create flow succeeds.
  *
  * @param flow Resolved create-flow data including the non-mutating scaffold plan.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildCreateDryRunPayload(
   flow: {
@@ -156,7 +156,7 @@ export function buildCreateDryRunPayload(
     };
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   let dependencyInstallLine: string;
   switch (flow.plan.dependencyInstall) {
     case 'skipped-by-flag':

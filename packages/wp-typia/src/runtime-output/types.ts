@@ -5,6 +5,17 @@ export type CreateProgressPayload = {
   title: string;
 };
 
+export type RuntimeCompletionPayload = {
+  nextSteps?: string[];
+  optionalLines?: string[];
+  optionalNote?: string;
+  optionalTitle?: string;
+  preambleLines?: string[];
+  summaryLines?: string[];
+  title: string;
+  warningLines?: string[];
+};
+
 export type StructuredCompletionSuccessPayload = {
   ok: true;
   data: {

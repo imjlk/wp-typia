@@ -1,4 +1,4 @@
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   type OutputMarkerOptions,
@@ -6,14 +6,14 @@ import {
 import type { PrintLine } from '../print-line';
 
 /**
- * Prints a formatted alternate-buffer completion payload to the provided writers.
+ * Prints a formatted runtime completion payload to the provided writers.
  *
  * @param payload Structured completion payload to render.
  * @param options Optional line printers for normal output and warnings.
  * @returns Nothing.
  */
 export function printCompletionPayload(
-  payload: AlternateBufferCompletionPayload,
+  payload: RuntimeCompletionPayload,
   options: {
     markerOptions?: OutputMarkerOptions;
     printLine?: PrintLine;

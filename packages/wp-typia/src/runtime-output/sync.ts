@@ -1,5 +1,5 @@
 import type { PackageManagerId } from '@wp-typia/project-tools/package-managers';
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   type OutputMarkerOptions,
@@ -9,7 +9,7 @@ import {
  * Builds the completion payload shown after a dry-run sync preview.
  *
  * @param options Planned sync execution metadata plus the preview command list.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildSyncDryRunPayload(
   options: {
@@ -22,7 +22,7 @@ export function buildSyncDryRunPayload(
     target?: 'ai' | 'default';
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const targetSuffix = options.target === 'ai' ? ' ai' : '';
   const targetSummary =
     options.target === 'ai'

@@ -1,4 +1,4 @@
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import { stripLeadingOutputMarker } from '../output-markers';
 import { buildInitCompletionPayload } from './init';
 import type {
@@ -33,7 +33,7 @@ const PROJECT_DIRECTORY_SUMMARY_PREFIX = 'Project directory: ';
  * @returns The runtime-resolved project directory, or undefined when absent.
  */
 export function extractCompletionProjectDir(
-  completion: AlternateBufferCompletionPayload | void,
+  completion: RuntimeCompletionPayload | void,
 ): string | undefined {
   const projectDir = completion?.summaryLines
     ?.find((line) => line.startsWith(PROJECT_DIRECTORY_SUMMARY_PREFIX))
@@ -50,7 +50,7 @@ export function extractCompletionProjectDir(
  * @returns A marker-free payload suitable for structured CLI success output.
  */
 export function serializeCompletionPayload(
-  payload: AlternateBufferCompletionPayload,
+  payload: RuntimeCompletionPayload,
 ): SerializableCompletionPayload {
   return {
     nextSteps: toNonEmptyArray(payload.nextSteps),
@@ -74,7 +74,7 @@ export function serializeCompletionPayload(
  */
 export function buildStructuredCompletionSuccessPayload(
   command: string,
-  completion: AlternateBufferCompletionPayload | void,
+  completion: RuntimeCompletionPayload | void,
   metadata: Record<string, unknown> = {},
 ): StructuredCompletionSuccessPayload {
   const serializedCompletion = completion
