@@ -21,7 +21,12 @@ import {
   SYNC_OPTION_METADATA,
   TEMPLATES_OPTION_METADATA,
 } from '../src/command-option-metadata';
-import { ADD_KIND_IDS } from '../src/add-kind-registry';
+import {
+  ADD_KIND_IDS,
+  getAddHiddenBooleanSubmitFieldNames,
+  getAddHiddenStringSubmitFieldNames,
+  getAddVisibleFieldNames,
+} from '../src/add-kind-registry';
 import { ADD_OPTION_METADATA as FOCUSED_ADD_OPTION_METADATA } from '../src/command-options/add';
 import { CREATE_OPTION_METADATA as FOCUSED_CREATE_OPTION_METADATA } from '../src/command-options/create';
 import { DOCTOR_OPTION_METADATA as FOCUSED_DOCTOR_OPTION_METADATA } from '../src/command-options/doctor';
@@ -31,11 +36,6 @@ import { MCP_OPTION_METADATA as FOCUSED_MCP_OPTION_METADATA } from '../src/comma
 import { MIGRATE_OPTION_METADATA as FOCUSED_MIGRATE_OPTION_METADATA } from '../src/command-options/migrate';
 import { SYNC_OPTION_METADATA as FOCUSED_SYNC_OPTION_METADATA } from '../src/command-options/sync';
 import { TEMPLATES_OPTION_METADATA as FOCUSED_TEMPLATES_OPTION_METADATA } from '../src/command-options/templates';
-import {
-  addFlowSchema,
-  getAddFieldLayoutNames,
-  getVisibleAddFieldNames,
-} from '../src/ui/add-flow-model';
 
 describe('command option metadata helpers', () => {
   function expectDiagnosticCode(
@@ -133,7 +133,7 @@ describe('command option metadata helpers', () => {
     expect(resolved.template).toBe('basic');
   });
 
-  test('supports option subsets for add-flow initial values', () => {
+  test('supports option subsets for add command initial values', () => {
     const resolved = resolveCommandOptionValues(ADD_OPTION_METADATA, {
       defaults: {
         'data-storage': 'post-meta',
@@ -536,71 +536,9 @@ describe('command option metadata helpers', () => {
     ]);
   });
 
-  test('keeps add option metadata aligned with interactive schema fields', () => {
-    const metadataOptionNames = Object.keys(ADD_OPTION_METADATA).filter(
-      (optionName) => optionName !== 'dry-run',
-    );
-    const schemaOptionNames = Object.keys(addFlowSchema.shape).filter(
-      (fieldName) => fieldName !== 'kind' && fieldName !== 'name',
-    );
-
-    expect(schemaOptionNames.sort()).toEqual(metadataOptionNames.sort());
-  });
-
-  test('validates add flow select fields against registered option ids', () => {
-    expect(
-      addFlowSchema.safeParse({
-        'data-storage': 'post-meta',
-        'inner-blocks-preset': 'ordered',
-        kind: 'block',
-        name: 'hero-card',
-        'persistence-policy': 'public',
-        position: 'after',
-        scope: 'section',
-        slot: 'PluginSidebar',
-        tag: ['featured', 'landing'],
-        tags: ['hero,landing'],
-        template: 'compound',
-      }).success,
-    ).toBe(true);
-    expect(
-      addFlowSchema.safeParse({
-        'data-storage': '',
-        'inner-blocks-preset': '',
-        kind: 'block',
-        name: 'hero-card',
-        'persistence-policy': '',
-        position: '',
-        scope: '',
-        slot: '',
-        template: '',
-      }).success,
-    ).toBe(true);
-
-    for (const [fieldName, value] of [
-      ['data-storage', 'sqlite'],
-      ['inner-blocks-preset', 'stacked'],
-      ['persistence-policy', 'anonymous'],
-      ['position', 'middle'],
-      ['scope', 'landing'],
-      ['slot', 'toolbar'],
-      ['template', 'workspace'],
-    ] as const) {
-      expect(
-        addFlowSchema.safeParse({
-          kind: 'block',
-          name: 'hero-card',
-          [fieldName]: value,
-        }).success,
-      ).toBe(false);
-    }
-  });
-
-  test('keeps visible add fields covered by metadata, schema, and layout', () => {
+  test('keeps registered add-kind fields covered by option metadata', () => {
     const metadataOptionNames = new Set(Object.keys(ADD_OPTION_METADATA));
-    const schemaFieldNames = new Set(Object.keys(addFlowSchema.shape));
-    const layoutFieldNames = new Set<string>(getAddFieldLayoutNames());
-    const visibleFieldNames = new Set<string>();
+    const registeredFieldNames = new Set<string>();
     const nonOptionFieldNames = new Set(['kind', 'name']);
 
     for (const kind of ADD_KIND_IDS) {
@@ -610,30 +548,29 @@ describe('command option metadata helpers', () => {
         'interactivity',
         'persistence',
         'compound',
+        'query-loop',
       ] as const) {
-        for (const fieldName of getVisibleAddFieldNames({ kind, template })) {
-          visibleFieldNames.add(fieldName);
+        for (const fieldName of getAddVisibleFieldNames({ kind, template })) {
+          registeredFieldNames.add(fieldName);
         }
+      }
+      for (const fieldName of getAddHiddenBooleanSubmitFieldNames(kind)) {
+        registeredFieldNames.add(fieldName);
+      }
+      for (const fieldName of getAddHiddenStringSubmitFieldNames(kind)) {
+        registeredFieldNames.add(fieldName);
       }
     }
 
-    const missingMetadata = [...visibleFieldNames]
+    const missingMetadata = [...registeredFieldNames]
       .filter(
         (fieldName) =>
           !nonOptionFieldNames.has(fieldName) &&
           !metadataOptionNames.has(fieldName),
       )
       .sort();
-    const missingSchema = [...visibleFieldNames]
-      .filter((fieldName) => !schemaFieldNames.has(fieldName))
-      .sort();
-    const missingLayout = [...visibleFieldNames]
-      .filter((fieldName) => !layoutFieldNames.has(fieldName))
-      .sort();
 
     expect(missingMetadata).toEqual([]);
-    expect(missingSchema).toEqual([]);
-    expect(missingLayout).toEqual([]);
   });
 
   test('throws diagnostic-coded errors for parser option failures', () => {
