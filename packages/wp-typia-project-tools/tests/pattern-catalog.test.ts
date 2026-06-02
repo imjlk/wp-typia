@@ -14,7 +14,7 @@ import {
 
 describe("pattern catalog validation", () => {
 	test("keeps section role content validation in a focused runtime module", () => {
-		const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+		const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime", "add");
 		const catalogSource = fs.readFileSync(
 			path.join(runtimeRoot, "pattern-catalog.ts"),
 			"utf8",
@@ -35,7 +35,7 @@ describe("pattern catalog validation", () => {
 	});
 
 	test("shares one pattern tag validation regex across catalog and add flows", () => {
-		const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime");
+		const runtimeRoot = path.join(import.meta.dir, "..", "src", "runtime", "add");
 		const catalogSource = fs.readFileSync(
 			path.join(runtimeRoot, "pattern-catalog.ts"),
 			"utf8",

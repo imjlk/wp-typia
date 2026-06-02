@@ -26,7 +26,19 @@ afterAll(() => {
 });
 
 function readRuntimeSource(fileName: string): string {
-  return fs.readFileSync(path.join(runtimeRoot, fileName), 'utf8');
+  const sourcePath = path.join(runtimeRoot, fileName);
+  const source = fs.readFileSync(sourcePath, 'utf8');
+  const facadeMatch = source
+    .trim()
+    .match(/^export \* from ["']\.\/(.+)\.js["'];$/u);
+  if (!facadeMatch) {
+    return source;
+  }
+
+  return fs.readFileSync(
+    path.join(path.dirname(sourcePath), `${facadeMatch[1]}.ts`),
+    'utf8',
+  );
 }
 
 test('runtime helper modules own filesystem and TypeScript property-name helpers', () => {

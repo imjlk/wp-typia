@@ -6,7 +6,8 @@ import { join, resolve } from "node:path";
 import { runDoctor } from "../src/runtime/cli-doctor.js";
 import { resolveWorkspaceBootstrapPath } from "../src/runtime/cli-doctor-workspace-shared.js";
 
-const sourceRoot = resolve(import.meta.dir, "..", "src", "runtime");
+const sourceRoot = resolve(import.meta.dir, "..", "src", "runtime", "doctor");
+const migrationRoot = resolve(import.meta.dir, "..", "src", "runtime", "migration");
 
 test("cli-doctor keeps environment and workspace checks in dedicated modules", () => {
 	const cliDoctorSource = readFileSync(resolve(sourceRoot, "cli-doctor.ts"), "utf8");
@@ -75,7 +76,7 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 		"utf8",
 	);
 	const migrationDoctorSource = readFileSync(
-		resolve(sourceRoot, "migration-maintenance-verify.ts"),
+		resolve(migrationRoot, "migration-maintenance-verify.ts"),
 		"utf8",
 	);
 
@@ -162,7 +163,7 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	expect(workspacePackageSource).toContain(
 		"export async function prepareWorkspacePackageDoctorSnapshot(",
 	);
-	expect(workspacePackageSource).toContain('from "./fs-async.js"');
+	expect(workspacePackageSource).toContain('from "../shared/fs-async.js"');
 	expect(workspacePackageSource).toContain("Promise.all([");
 	expect(workspacePackageSource).not.toMatch(
 		/\bfs\.(?:existsSync|readFileSync|readdirSync)\b/u,

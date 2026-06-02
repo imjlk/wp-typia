@@ -32,7 +32,7 @@ import {
 } from '../src/runtime/cli-add-validation.js';
 import type { WorkspaceInventory } from '../src/runtime/workspace-inventory.js';
 
-const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime');
+const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-add-shared-'));
 
 afterAll(() => {
@@ -87,7 +87,7 @@ test('shared add runtime keeps compatibility exports around focused modules', ()
   expect(sharedSource).toContain('export * from "./cli-add-block-json.js";');
   expect(sharedSource).toContain('export * from "./cli-add-collision.js";');
   expect(sharedSource).toContain('export * from "./cli-add-help.js";');
-  expect(sharedSource).toContain('from "./scaffold-identifiers.js"');
+  expect(sharedSource).toContain('from "../templates/scaffold-identifiers.js"');
   expect(sharedSource).not.toContain('export interface RunAddBlockCommandOptions');
   expect(sharedSource).not.toContain('export function assertValidGeneratedSlug');
   expect(sharedSource).not.toContain('export async function patchFile');

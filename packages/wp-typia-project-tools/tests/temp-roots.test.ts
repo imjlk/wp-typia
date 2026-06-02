@@ -68,7 +68,7 @@ describe("@wp-typia/project-tools temp root management", () => {
 
 	test("documents why process-exit cleanup ignores rm failures", async () => {
 		const source = await fs.promises.readFile(
-			new URL("../src/runtime/temp-roots.ts", import.meta.url),
+			new URL("../src/runtime/shared/temp-roots.ts", import.meta.url),
 			"utf8",
 		);
 

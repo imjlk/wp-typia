@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime');
+const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'schema');
 
 test('typia-llm delegates rendering, sync, projection, and OpenAPI constraint helpers to focused modules', () => {
   const facadeSource = fs.readFileSync(
