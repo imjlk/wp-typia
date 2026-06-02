@@ -13,6 +13,10 @@ and the project-tools split.
 - The authored runtime lives in `packages/wp-typia/src/gunshi-cli.ts` and
   `packages/wp-typia/src/node-cli.ts`, and is compiled into
   `packages/wp-typia/dist/cli.js` for the published package.
+- `packages/wp-typia/src/node-fallback/**` is a historical internal path and
+  symbol namespace retained to avoid a broad rename. It now houses portable CLI
+  dispatcher/help modules and should not be described in user-facing text as a
+  secondary runtime.
 - `runGunshiCli()` is the published entrypoint wrapper. It applies standalone
   support setup and routes Node `wp-typia complete <shell>` requests through the
   Gunshi completion plugin.
