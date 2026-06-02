@@ -45,18 +45,21 @@ Use **`wp-typia`** when you need a block that will grow:
 ## Quick Start
 
 ```bash
-bunx wp-typia create my-block
-# or
 npx wp-typia create my-block
-# or install the full standalone CLI first
+# or use Bun as the package runner
+bunx wp-typia create my-block
+# or install the standalone CLI first
 curl -fsSL https://github.com/imjlk/wp-typia/releases/latest/download/install-wp-typia.sh | sh
 ```
+
+The npm-installed CLI runs on the Node-first runtime. `bunx` is supported as a
+package-runner convenience, not as a runtime requirement for `wp-typia`.
 
 `wp-typia <project-dir>` remains available as a backward-compatible alias to
 `create` when `<project-dir>` is the only positional argument.
 
-For a portable install that does not require a local Bun installation, prefer
-the standalone installers published with each GitHub Release:
+For an install outside package runners, use the standalone installers published
+with each GitHub Release:
 
 - macOS / Linux: `curl -fsSL https://github.com/imjlk/wp-typia/releases/latest/download/install-wp-typia.sh | sh`
 - Windows: `irm https://github.com/imjlk/wp-typia/releases/latest/download/install-wp-typia.ps1 | iex`

@@ -86,8 +86,8 @@ secondary imports compared with the core package roots and primary subpaths.
 The CLI is the primary entrypoint for new users.
 
 ```bash
-bunx wp-typia create my-block
 npx wp-typia create my-block
+bunx wp-typia create my-block
 ```
 
 For command-by-command usage and flags, see the
