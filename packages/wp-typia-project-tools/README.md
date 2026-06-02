@@ -4,7 +4,7 @@ Programmatic project orchestration package for `wp-typia`.
 
 Package roles:
 
-- `wp-typia` owns the CLI, help, TUI, completions, skills, MCP, and bin entry.
+- `wp-typia` owns the CLI, help, completions, skills, MCP, and bin entry.
 - `@wp-typia/project-tools` owns scaffold, add-block, migrate, template, doctor, and schema project helpers.
   It also owns the typed generator boundary via `BlockSpec`, `BlockGeneratorService`,
   and `inspectBlockGeneration(...)`,

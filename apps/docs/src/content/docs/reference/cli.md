@@ -11,9 +11,10 @@ bunx wp-typia --help
 wp-typia --version
 ```
 
-The published binary runs through the Node-first Gunshi runtime. Bun remains the
-repository development and build toolchain, but npm-installed CLI commands such
-as `mcp`, `skills`, and shell `completions` do not require a local Bun binary.
+The published binary runs through the Node-first CLI runtime. Bun remains the
+repository development and build toolchain, and `bunx` remains a supported
+package-runner invocation, but npm-installed CLI commands such as `mcp`,
+`skills`, and shell `completions` do not require a local Bun binary.
 
 ## Global flags
 
@@ -465,7 +466,7 @@ supported.
 
 ## Node-first utility commands
 
-These commands run through the published Node-first Gunshi runtime and do not
+These commands run through the published Node-first CLI runtime and do not
 require a local Bun binary.
 
 ```bash
