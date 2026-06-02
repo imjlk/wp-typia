@@ -1,4 +1,4 @@
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   type OutputMarkerOptions,
@@ -8,7 +8,7 @@ import {
  * Builds the completion payload shown after a migrate command succeeds.
  *
  * @param options Completed migrate command metadata plus rendered lines.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildMigrationCompletionPayload(
   options: {
@@ -16,7 +16,7 @@ export function buildMigrationCompletionPayload(
     lines: string[];
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const summaryLines = options.lines.filter((line) => line.trim().length > 0);
 
   return {

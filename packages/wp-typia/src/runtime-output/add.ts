@@ -8,7 +8,7 @@ import {
   buildAddKindCompletionDetails,
   type AddKindId,
 } from '../add-kind-registry';
-import type { AlternateBufferCompletionPayload } from '../ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './types';
 import {
   formatOutputMarker,
   stripLeadingOutputMarker,
@@ -19,7 +19,7 @@ import {
  * Builds the completion payload shown after an add flow succeeds.
  *
  * @param options Add-flow kind plus normalized values to summarize.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildAddCompletionPayload(
   options: {
@@ -30,7 +30,7 @@ export function buildAddCompletionPayload(
     warnings?: string[];
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const verificationLines = [
     formatPackageExecCommand(
       options.packageManager ?? inferPackageManagerId(options.projectDir),
@@ -60,16 +60,16 @@ export function buildAddCompletionPayload(
  * Builds the completion payload shown after a dry-run add flow succeeds.
  *
  * @param options Existing add completion metadata plus the planned file updates.
- * @returns A structured alternate-buffer completion payload.
+ * @returns A structured runtime completion payload.
  */
 export function buildAddDryRunPayload(
   options: {
-    completion: AlternateBufferCompletionPayload;
+    completion: RuntimeCompletionPayload;
     fileOperations: string[];
     summaryLines?: string[];
   },
   markerOptions?: OutputMarkerOptions,
-): AlternateBufferCompletionPayload {
+): RuntimeCompletionPayload {
   const normalizedTitle = stripLeadingOutputMarker(
     options.completion.title,
     'success',

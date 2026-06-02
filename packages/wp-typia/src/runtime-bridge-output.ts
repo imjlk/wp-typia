@@ -1,6 +1,7 @@
 export type {
   CreateProgressPayload,
   InitPlanLayoutKind,
+  RuntimeCompletionPayload,
   SerializableCompletionPayload,
   StructuredCompletionSuccessPayload,
   StructuredInitPlan,

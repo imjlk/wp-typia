@@ -70,7 +70,7 @@ afterAll(() => {
   fs.rmSync(tempRoot, { force: true, recursive: true });
 });
 
-describe('alternate-buffer completion output helpers', () => {
+describe('runtime completion output helpers', () => {
   test('keeps create progress payload type single-sourced across bridge exports', () => {
     expect(runtimeBridgeOutputTypeCompatibilityChecks).toEqual({
       createProgressPayload: true,

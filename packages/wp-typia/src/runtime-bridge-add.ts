@@ -18,7 +18,7 @@ import {
   shouldPrintMissingAddKindHelp,
 } from './cli-error-messages';
 import { simulateWorkspaceAddDryRun } from './runtime-bridge-add-dry-run';
-import type { AlternateBufferCompletionPayload } from './ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './runtime-output/types';
 import {
   buildAddCompletionPayload,
   buildAddDryRunPayload,
@@ -60,7 +60,7 @@ async function executeWorkspaceAddWithOptionalDryRun<TResult>(options: {
   execute: (cwd: string) => Promise<TResult>;
   printLine: PrintLine;
   warnLine?: PrintLine;
-}): Promise<AlternateBufferCompletionPayload | void> {
+}): Promise<RuntimeCompletionPayload | void> {
   const simulated = options.dryRun
     ? await simulateWorkspaceAddDryRun({
         cwd: options.cwd,
@@ -101,7 +101,7 @@ function executePreparedAddKind<TKey extends AddKindId>(
     printLine: PrintLine;
   },
   plan: AddKindExecutionPlan<any>,
-): Promise<AlternateBufferCompletionPayload | void> {
+): Promise<RuntimeCompletionPayload | void> {
   return executeWorkspaceAddWithOptionalDryRun({
     buildCompletion: (result) =>
       buildAddCompletionPayload({
@@ -129,7 +129,7 @@ async function executePlannedAddKind<TKey extends AddKindId>(
     emitOutput: boolean | undefined;
     printLine: PrintLine;
   },
-): Promise<AlternateBufferCompletionPayload | void> {
+): Promise<RuntimeCompletionPayload | void> {
   const plan = await getAddKindExecutionPlan(kind, executionContext);
   return executePreparedAddKind(
     kind,
@@ -149,7 +149,7 @@ export async function executeAddCommand({
   printLine = console.log as PrintLine,
   prompt,
   warnLine = console.warn as PrintLine,
-}: AddExecutionInput): Promise<AlternateBufferCompletionPayload | void> {
+}: AddExecutionInput): Promise<RuntimeCompletionPayload | void> {
   let activePrompt: ReadlinePrompt | undefined;
   const dryRun = Boolean(flags['dry-run']);
 

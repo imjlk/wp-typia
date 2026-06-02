@@ -1,5 +1,5 @@
 import type { ReadlinePrompt } from '@wp-typia/project-tools/cli-prompt';
-import type { AlternateBufferCompletionPayload } from './ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './runtime-output/types';
 import {
   buildCreateCompletionPayload,
   buildCreateDryRunPayload,
@@ -76,7 +76,7 @@ export async function executeCreateCommand({
   printLine = console.log as PrintLine,
   prompt,
   warnLine = console.warn as PrintLine,
-}: CreateExecutionInput): Promise<AlternateBufferCompletionPayload> {
+}: CreateExecutionInput): Promise<RuntimeCompletionPayload> {
   let activePrompt: ReadlinePrompt | undefined;
 
   try {

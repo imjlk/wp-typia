@@ -1,5 +1,5 @@
 import type { ReadlinePrompt } from '@wp-typia/project-tools/cli-prompt';
-import type { AlternateBufferCompletionPayload } from './ui/alternate-buffer-lifecycle';
+import type { RuntimeCompletionPayload } from './runtime-output/types';
 import { buildMigrationCompletionPayload } from './runtime-bridge-output';
 import { readOptionalLooseStringFlag } from './cli-string-flags';
 import type { PrintLine } from './print-line';
@@ -31,7 +31,7 @@ export async function executeMigrateCommand({
   printLine = defaultPrintLine,
   prompt,
   renderLine,
-}: MigrateExecutionInput): Promise<AlternateBufferCompletionPayload | void> {
+}: MigrateExecutionInput): Promise<RuntimeCompletionPayload | void> {
   try {
     const { formatMigrationHelpText, parseMigrationArgs, runMigrationCommand } =
       await loadMigrationsRuntime();
