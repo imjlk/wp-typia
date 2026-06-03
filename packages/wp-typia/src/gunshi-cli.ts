@@ -60,12 +60,17 @@ export function shouldUseGunshiCompletion(
   const [command] = argv;
   return (
     typeof versions.bun !== 'string' &&
-    command === 'complete' &&
+    (command === 'complete' || command === 'completions') &&
     !hasFlagBeforeTerminator(argv, '--help') &&
     !hasFlagBeforeTerminator(argv, '-h') &&
     !hasFlagBeforeTerminator(argv, '--version') &&
     !hasFlagBeforeTerminator(argv, '-v')
   );
+}
+
+function normalizeGunshiCompletionArgv(argv: string[]): string[] {
+  const [command, ...rest] = argv;
+  return command === 'completions' ? ['complete', ...rest] : argv;
 }
 
 function completionEntries() {
@@ -105,7 +110,7 @@ export async function runGunshiCli(
     return;
   }
 
-  await cli(argv, wpTypiaGunshiCommand, {
+  await cli(normalizeGunshiCompletionArgv(argv), wpTypiaGunshiCommand, {
     fallbackToEntry: true,
     name: 'wp-typia',
     plugins: [
