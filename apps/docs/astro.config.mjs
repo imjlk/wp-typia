@@ -197,7 +197,7 @@ export default defineConfig({
           items: [
             {
               label: 'Gunshi Runtime Contract',
-              link: '/maintainers/bunli-cli-migration/',
+              link: '/maintainers/gunshi-runtime-contract/',
             },
             {
               label: 'Gunshi Dispatch RFC',

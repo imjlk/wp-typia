@@ -49,7 +49,7 @@ Configuration files:
 Compatibility notes:
 
 - `@wp-typia/project-tools` is the canonical programmatic project orchestration package
-- the published CLI ships a built `dist` runtime, and the canonical Node bin supports `create`, `add`, `migrate`, `doctor`, `sync`, `skills`, `completions`, `mcp`, `--version`, `--help`, and template inspection without requiring a locally installed Bun binary
+- the published CLI ships a built `dist` runtime, and the canonical Node bin supports `create`, `add`, `migrate`, `doctor`, `sync`, `skills`, `complete`, the legacy `completions` alias, `mcp`, `--version`, `--help`, and template inspection without requiring a locally installed Bun binary
 - Bun remains supported for repository development, tests, and builds, while Node is the canonical npm runtime for the published CLI
 - when you request machine-readable output with `--format json`, CLI failures now include a stable `error.code` field so wrappers and CI can branch without parsing English text
 - the stable machine-handled branching key is `error.code`. Structured context like `error.command`, `error.kind`, and `error.tag` may also be useful to consumers, while free-form text like `error.message`, `error.summary`, and `error.detailLines` stays human-facing guidance and can evolve without notice
@@ -57,8 +57,8 @@ Compatibility notes:
 - internal runtime-bridge helper modules are implementation details; integrations
   should target the CLI or `@wp-typia/project-tools`, not CLI internals
 
-Maintainers: see [`docs/bunli-cli-migration.md`](https://imjlk.github.io/wp-typia/maintainers/bunli-cli-migration/)
-for historical Gunshi migration notes.
+Maintainers: see [`docs/gunshi-runtime-contract.md`](https://imjlk.github.io/wp-typia/maintainers/gunshi-runtime-contract/)
+for the Gunshi runtime contract.
 
 Project meta docs:
 

@@ -473,9 +473,10 @@ wp-typia mcp list
 wp-typia mcp sync
 wp-typia skills list
 wp-typia skills sync
-wp-typia completions zsh
+wp-typia complete zsh
 ```
 
 `mcp` reads configured `mcp.schemaSources` and can emit MCP metadata for
 downstream tooling. `mcp sync` writes to `.wp-typia/mcp` by default, and
-`skills` plus `completions` are first-party CLI surfaces.
+`skills` plus `complete` are first-party CLI surfaces. `completions` remains
+available as a legacy alias for `complete`.

@@ -52,7 +52,7 @@ Release publishing is intentionally package-only and rerun-safe. Example builds 
 Example-specific root commands use the `examples:*` namespace so the boundary between product packages and the reference app stays explicit.
 
 Maintainers: the completed Gunshi CLI migration record for `packages/wp-typia` lives in
-[`docs/bunli-cli-migration.md`](../maintainers/bunli-cli-migration.md).
+[`docs/gunshi-runtime-contract.md`](../maintainers/gunshi-runtime-contract.md).
 
 ## Template Model
 
