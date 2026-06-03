@@ -1302,6 +1302,38 @@ process.exit(0);
     expect(parsed.error?.code).toBe('invalid-argument');
   });
 
+  test('emits machine-readable top-level typo suggestions without consuming create aliases', () => {
+    const result = runCapturedCommand(
+      process.execPath,
+      [runtimeEntrypoint, 'docotr', '--format', 'json'],
+      {
+        env: withoutAIAgentEnv(),
+      },
+    );
+    const parsed = JSON.parse(result.stderr.trim()) as {
+      error?: {
+        code?: string;
+        command?: string;
+        detailLines?: string[];
+        kind?: string;
+      };
+      ok?: boolean;
+    };
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error?.kind).toBe('command-execution');
+    expect(parsed.error?.command).toBe('docotr');
+    expect(parsed.error?.code).toBe('invalid-argument');
+    expect(parsed.error?.detailLines?.join('\n')).toContain(
+      'Did you mean "doctor"?',
+    );
+    expect(parsed.error?.detailLines?.join('\n')).toContain(
+      'wp-typia create docotr',
+    );
+  });
+
   test('loads MCP schema sources from an explicit --config override', () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-mcp-config-'),
