@@ -131,6 +131,75 @@ function hasUnknownOptionBefore(argv: string[], endIndex: number): boolean {
   return false;
 }
 
+function getEditDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = new Array<number>(right.length + 1);
+
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    current[0] = leftIndex + 1;
+
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex] === right[rightIndex] ? 0 : 1;
+      current[rightIndex + 1] = Math.min(
+        current[rightIndex] + 1,
+        previous[rightIndex + 1] + 1,
+        previous[rightIndex] + substitutionCost,
+      );
+    }
+
+    for (let index = 0; index < current.length; index += 1) {
+      previous[index] = current[index] as number;
+    }
+  }
+
+  return previous[right.length] as number;
+}
+
+function suggestTopLevelCommandTypo(
+  value: string,
+): WpTypiaReservedTopLevelCommandName | null {
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedValue.length < 4) {
+    return null;
+  }
+
+  let bestCandidate: {
+    command: WpTypiaReservedTopLevelCommandName;
+    distance: number;
+  } | null = null;
+
+  for (const command of WP_TYPIA_RESERVED_TOP_LEVEL_COMMAND_NAMES) {
+    const normalizedCommand = command.toLowerCase();
+    const distance = getEditDistance(normalizedValue, normalizedCommand);
+    if (distance > 2) {
+      continue;
+    }
+    if (
+      distance > 1 &&
+      normalizedValue[0] !== normalizedCommand[0]
+    ) {
+      continue;
+    }
+    if (bestCandidate === null || distance < bestCandidate.distance) {
+      bestCandidate = { command, distance };
+    }
+  }
+
+  return bestCandidate?.command ?? null;
+}
+
+function assertNoLikelyTopLevelCommandTypo(value: string): void {
+  const suggestion = suggestTopLevelCommandTypo(value);
+  if (!suggestion) {
+    return;
+  }
+
+  throw createCliDiagnosticCodeError(
+    CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    `Unknown top-level command "${value}". Did you mean "${suggestion}"? If you meant to create a project named "${value}", run \`${WP_TYPIA_CANONICAL_CREATE_USAGE.replace('<project-dir>', value)}\`.`,
+  );
+}
+
 export function resolveCanonicalCommandContext(argv: string[]): string {
   const positionalIndexes = collectPositionalIndexes(
     argv,
@@ -151,6 +220,10 @@ export function resolveCanonicalCommandContext(argv: string[]): string {
   }
 
   if (isReservedTopLevelCommandName(firstPositional)) {
+    return firstPositional;
+  }
+
+  if (suggestTopLevelCommandTypo(firstPositional)) {
     return firstPositional;
   }
 
@@ -291,6 +364,7 @@ export function normalizeWpTypiaArgv(argv: string[]): string[] {
   }
 
   assertPositionalAliasProjectDir(firstPositional);
+  assertNoLikelyTopLevelCommandTypo(firstPositional);
 
   const normalizedArgv = [
     ...argv.slice(0, firstPositionalIndex),

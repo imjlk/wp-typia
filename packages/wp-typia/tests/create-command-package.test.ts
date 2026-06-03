@@ -237,6 +237,17 @@ test('rejects typo-like positional alias invocations with extra arguments', () =
   expect(result.stderr).toContain('`list`');
 });
 
+test('rejects single positional command typos with create alias guidance', () => {
+  const result = runCapturedCommand('node', [entryPath, 'docotr'], {
+    env: withoutAIAgentEnv(),
+  });
+
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('Unknown top-level command "docotr".');
+  expect(result.stderr).toContain('Did you mean "doctor"?');
+  expect(result.stderr).toContain('wp-typia create docotr');
+});
+
 test('formats create failures with a shared non-interactive diagnostic block', () => {
   const result = runCapturedCommand('node', [entryPath, 'create'], {
     env: withoutAIAgentEnv(),

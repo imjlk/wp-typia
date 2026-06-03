@@ -123,9 +123,17 @@ describe('wp-typia Gunshi runtime preparation', () => {
 
   test('normalizes canonical create and migrate aliases before runtime dispatch', () => {
     expect(normalizeWpTypiaArgv(['demo-block'])).toEqual(['create', 'demo-block']);
+    expect(normalizeWpTypiaArgv(['storybook'])).toEqual([
+      'create',
+      'storybook',
+    ]);
     expectInvalidArgument(
       () => normalizeWpTypiaArgv(['migrations', 'plan']),
       /`wp-typia migrations` was removed/,
+    );
+    expectInvalidArgument(
+      () => normalizeWpTypiaArgv(['docotr']),
+      /Did you mean "doctor"/,
     );
     expect(WP_TYPIA_CANONICAL_CREATE_USAGE).toBe(
       'wp-typia create <project-dir>',
