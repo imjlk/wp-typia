@@ -155,6 +155,17 @@ function getEditDistance(left: string, right: string): number {
   return previous[right.length] as number;
 }
 
+function isEdgeInsertionOrDeletionTypo(left: string, right: string): boolean {
+  if (Math.abs(left.length - right.length) !== 1) {
+    return false;
+  }
+
+  const [shorter, longer] =
+    left.length < right.length ? [left, right] : [right, left];
+
+  return longer.startsWith(shorter) || longer.endsWith(shorter);
+}
+
 function suggestTopLevelCommandTypo(
   value: string,
 ): WpTypiaReservedTopLevelCommandName | null {
@@ -172,6 +183,12 @@ function suggestTopLevelCommandTypo(
     const normalizedCommand = command.toLowerCase();
     const distance = getEditDistance(normalizedValue, normalizedCommand);
     if (distance > 2) {
+      continue;
+    }
+    if (
+      distance === 1 &&
+      isEdgeInsertionOrDeletionTypo(normalizedValue, normalizedCommand)
+    ) {
       continue;
     }
     if (

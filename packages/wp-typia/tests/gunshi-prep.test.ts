@@ -127,6 +127,10 @@ describe('wp-typia Gunshi runtime preparation', () => {
       'create',
       'storybook',
     ]);
+    expect(normalizeWpTypiaArgv(['doctors'])).toEqual([
+      'create',
+      'doctors',
+    ]);
     expectInvalidArgument(
       () => normalizeWpTypiaArgv(['migrations', 'plan']),
       /`wp-typia migrations` was removed/,
@@ -134,6 +138,10 @@ describe('wp-typia Gunshi runtime preparation', () => {
     expectInvalidArgument(
       () => normalizeWpTypiaArgv(['docotr']),
       /Did you mean "doctor"/,
+    );
+    expectInvalidArgument(
+      () => normalizeWpTypiaArgv(['temlates']),
+      /Did you mean "templates"/,
     );
     expect(WP_TYPIA_CANONICAL_CREATE_USAGE).toBe(
       'wp-typia create <project-dir>',
