@@ -1,5 +1,11 @@
 # @wp-typia/project-tools
 
+## 0.24.6 — 2026-06-03
+
+### Patch changes
+
+- [9c97d933](https://github.com/imjlk/wp-typia/commit/9c97d933e38a17d38baf6bcffba9307afa769650) Align the managed `@wp-typia/dataviews` fallback range with the published package version. — Thanks @imjlk!
+
 ## 0.24.5 — 2026-06-02
 
 ### Patch changes

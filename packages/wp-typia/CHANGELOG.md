@@ -1,5 +1,15 @@
 # wp-typia
 
+## 0.24.6 — 2026-06-03
+
+### Patch changes
+
+- [bc07995b](https://github.com/imjlk/wp-typia/commit/bc07995b0b9d957e5f35d144c4c8c7e2004fe414) Add focused short flags for common `wp-typia add` options and make `--tags` the documented pattern tag flag while preserving `--tag` as a legacy parser alias. — Thanks @imjlk!
+- [9c97d933](https://github.com/imjlk/wp-typia/commit/9c97d933e38a17d38baf6bcffba9307afa769650) Align the managed `@wp-typia/dataviews` fallback range with the published package version. — Thanks @imjlk!
+- [22bf6035](https://github.com/imjlk/wp-typia/commit/22bf60358dc969e7afd72c632eebb0a47174182c) Route the legacy `wp-typia completions <shell>` alias through the same Gunshi completion output as `wp-typia complete <shell>`. — Thanks @imjlk!
+- [49dae4e6](https://github.com/imjlk/wp-typia/commit/49dae4e613d64647a5fde81a92d50619093e1614) Reject likely top-level command typos before treating them as positional create aliases, while preserving intentional `wp-typia <project-dir>` usage. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.6
+
 ## 0.24.5 — 2026-06-02
 
 ### Patch changes
