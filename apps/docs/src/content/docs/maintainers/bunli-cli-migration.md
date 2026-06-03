@@ -191,6 +191,9 @@ completion integration, while the command registry and portable CLI dispatcher
 handle parsing, help, diagnostics, config loading, structured-output defaults,
 and command execution.
 
+For the future migration gates and command-by-command opt-in shape, see the
+[Gunshi-native Dispatch Migration RFC](./gunshi-dispatch-rfc.md).
+
 A future Gunshi-native dispatch migration should start only after these
 prerequisites are in place:
 

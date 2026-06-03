@@ -200,6 +200,10 @@ export default defineConfig({
               link: '/maintainers/bunli-cli-migration/',
             },
             {
+              label: 'Gunshi Dispatch RFC',
+              link: '/maintainers/gunshi-dispatch-rfc/',
+            },
+            {
               label: 'Core Data Adapter Boundary',
               link: '/maintainers/core-data-adapter-boundary/',
             },
