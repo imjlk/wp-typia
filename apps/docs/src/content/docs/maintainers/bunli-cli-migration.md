@@ -17,13 +17,13 @@ and the project-tools split.
   and help modules. User-facing text should describe this as the maintained CLI
   runtime path, not as a secondary runtime.
 - `runGunshiCli()` is the published entrypoint wrapper. It applies standalone
-  support setup and routes Node `wp-typia complete <shell>` requests through the
-  Gunshi completion plugin.
+  support setup and routes Node `wp-typia complete <shell>` plus the legacy
+  `wp-typia completions <shell>` alias through the Gunshi completion plugin.
 - General command dispatch is still owned by `runNodeCli()`, the shared command
   registry, and the custom dispatchers. That path owns global flag parsing,
   config defaults, AI-agent structured-output defaults, shared diagnostics, and
   the public command handlers for `create`, `init`, `sync`, `add`, `migrate`,
-  `templates`, `doctor`, `mcp`, `skills`, and the legacy `completions` alias.
+  `templates`, `doctor`, `mcp`, and `skills`.
 - This is the current maintained boundary after the migration, not a temporary
   compatibility lane. Future parser work should document any change that moves
   general command dispatch away from the registry/custom dispatcher layer.
@@ -158,7 +158,8 @@ to the canonical `create` surface in docs and review notes.
 
 The command surface below is registry-owned today. Gunshi owns the Node
 completion integration for `complete`; `completions` remains supported as the
-legacy alias through the shared dispatcher.
+legacy alias and is normalized onto that same Gunshi completion path for shell
+script output.
 
 - `create`
 - `init`
@@ -181,3 +182,24 @@ Compatibility alias:
 Breaking change:
 
 - `wp-typia migrations` is removed. Use `wp-typia migrate` instead.
+
+## Gunshi dispatch roadmap
+
+Do not treat "migrate to Gunshi" as a license to move general command dispatch
+piecemeal. The maintained boundary is intentionally split: Gunshi handles
+completion integration, while the command registry and portable CLI dispatcher
+handle parsing, help, diagnostics, config loading, structured-output defaults,
+and command execution.
+
+A future Gunshi-native dispatch migration should start only after these
+prerequisites are in place:
+
+- parity tests for every public command and supported alias
+- option metadata ownership that avoids duplicate flag definitions
+- help output parity for top-level, command, and subcommand help
+- JSON/text diagnostic parity, including top-level parser failures
+- AI-agent structured-output compatibility
+- completion parity for `complete`, `completions`, and `complete -- ...`
+
+Until then, new behavior should be added through the registry/custom dispatcher
+path unless the behavior is specifically part of shell completion integration.

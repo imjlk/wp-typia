@@ -101,10 +101,10 @@ This document is descriptive, not normative. For support guarantees, see
   command registry, Gunshi completion integration, and bin entry.
 - General command dispatch is currently owned by the existing command
   registry/custom dispatcher. Gunshi is part of the CLI runtime where
-  applicable, with `complete` routed through the Gunshi completion integration;
-  `completions` remains the legacy alias. The internal runtime bridge delegates
-  focused output and sync helpers behind the facade. Those splits are
-  implementation details, not new CLI surface areas.
+  applicable, with `complete <shell>` and the legacy `completions <shell>` alias
+  normalized through the Gunshi completion integration. The internal runtime
+  bridge delegates focused output and sync helpers behind the facade. Those
+  splits are implementation details, not new CLI surface areas.
 - `@wp-typia/project-tools` owns scaffold, add-block, migrate, template,
   doctor, package-manager, starter-manifest, the typed generator boundary, the
   opt-in WordPress AI and `typia.llm` adapter emitters, the built-in
@@ -138,3 +138,25 @@ This document is descriptive, not normative. For support guarantees, see
   types/model/controls, metadata-core artifact/client-render/sync-routines, and
   schema-core auth/document/projection helpers into focused internal modules for
   maintainability.
+
+## CLI dispatch boundary
+
+The published `wp-typia` entrypoint is Node-first and starts in
+`runGunshiCli()`, but that does not mean every command is Gunshi-native today.
+The current boundary is:
+
+- Gunshi owns the completion integration for `complete <shell>`,
+  `completions <shell>`, and dynamic completion requests routed through
+  `complete -- ...`.
+- The shared command registry owns the public command taxonomy, option metadata,
+  and completion entry labels.
+- The portable CLI dispatcher owns parsing, global flag normalization, help
+  rendering, config loading, AI-agent structured-output defaults, diagnostics,
+  and command execution.
+- `@wp-typia/project-tools` owns the reusable project orchestration logic behind
+  create, add, sync, migrate, templates, and doctor flows.
+
+Moving more command dispatch into Gunshi would be a future architecture change,
+not a cleanup task. That work should land only after parity tests cover help
+output, option parsing, aliases, JSON/text diagnostics, AI-agent structured
+output defaults, and every public command listed in the registry.
