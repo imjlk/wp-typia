@@ -165,8 +165,10 @@ function optionNamesForGroups(
   for (const groupName of groupNames) {
     const metadata: CommandOptionMetadataMap =
       COMMAND_OPTION_METADATA_BY_GROUP[groupName];
-    for (const optionName of Object.keys(metadata)) {
-      options.add(optionName);
+    for (const [optionName, option] of Object.entries(metadata)) {
+      if (!option.hidden) {
+        options.add(optionName);
+      }
     }
   }
   return [...options].sort();

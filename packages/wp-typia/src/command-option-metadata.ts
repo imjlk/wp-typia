@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
@@ -85,37 +84,6 @@ export const ALL_COMMAND_OPTION_METADATA = collectCommandOptionMetadata(
   ...COMMAND_OPTION_GROUP_NAMES,
 );
 
-export function buildCommandOptions<TOptions extends CommandOptionMetadataMap>(
-  metadata: TOptions,
-): Record<
-  string,
-  {
-    argumentKind?: 'flag';
-    description: string;
-    repeatable?: boolean;
-    schema: z.ZodTypeAny;
-    short?: string;
-  }
-> {
-  return Object.fromEntries(
-    Object.entries(metadata).map(([name, option]) => [
-      name,
-      {
-        ...(option.argumentKind ? { argumentKind: option.argumentKind } : {}),
-        description: option.description,
-        ...(option.repeatable ? { repeatable: true } : {}),
-        schema:
-          option.type === 'boolean'
-            ? z.boolean().default(false)
-            : option.repeatable
-              ? z.union([z.string(), z.array(z.string())]).optional()
-              : z.string().optional(),
-        ...(option.short ? { short: option.short } : {}),
-      },
-    ]),
-  );
-}
-
 export function collectOptionNamesByType(
   metadata: CommandOptionMetadataMap,
   type: CommandOptionMetadata['type'],
@@ -128,10 +96,12 @@ export function collectOptionNamesByType(
 export function formatPortableCliOptionHelp(
   metadata: CommandOptionMetadataMap,
 ): string[] {
-  return Object.entries(metadata).map(([name, option]) => {
-    const short = option.short ? `, -${option.short}` : '';
-    return `- --${name}${short}: ${option.description}`;
-  });
+  return Object.entries(metadata)
+    .filter(([, option]) => !option.hidden)
+    .map(([name, option]) => {
+      const short = option.short ? `, -${option.short}` : '';
+      return `- --${name}${short}: ${option.description}`;
+    });
 }
 
 export function buildCommandOptionParser(

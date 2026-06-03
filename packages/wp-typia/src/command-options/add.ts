@@ -26,6 +26,7 @@ export const ADD_OPTION_METADATA = {
   block: {
     description:
       'Target block slug/name for variation, core-variation, style, and end-to-end binding-source workflows.',
+    short: 'b',
     type: 'string',
   },
   'catalog-title': {
@@ -51,6 +52,7 @@ export const ADD_OPTION_METADATA = {
     argumentKind: 'flag',
     description:
       'Preview workspace file updates and completion guidance without writing them.',
+    short: 'd',
     type: 'boolean',
   },
   'external-layer-id': {
@@ -112,6 +114,7 @@ export const ADD_OPTION_METADATA = {
   },
   namespace: {
     description: 'REST namespace for rest-resource and ai-feature workflows.',
+    short: 'n',
     type: 'string',
   },
   'permission-callback': {
@@ -215,6 +218,7 @@ export const ADD_OPTION_METADATA = {
   template: {
     description:
       'Optional built-in block family for the new block; interactive flows let you choose it when omitted and non-interactive runs default to basic.',
+    short: 't',
     type: 'string',
   },
   'thumbnail-url': {
@@ -224,13 +228,14 @@ export const ADD_OPTION_METADATA = {
   },
   tags: {
     description:
-      'Comma-separated tags for typed pattern catalog entries; combine with repeatable --tag for single tags.',
+      'Comma-separated tags for typed pattern catalog entries.',
     repeatable: true,
     type: 'string',
   },
   tag: {
     description:
-      'Repeatable single tag for typed pattern catalog entries; use --tags for comma-separated lists.',
+      'Legacy repeatable single-tag alias for typed pattern catalog entries; prefer --tags.',
+    hidden: true,
     repeatable: true,
     type: 'string',
   },
