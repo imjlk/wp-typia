@@ -29,7 +29,7 @@ export const patternAddKindEntry =
       title: 'Added workspace pattern',
     },
     description: 'Add a PHP block pattern shell',
-    // Repeatable --tag remains CLI-only; prompt values use comma-separated --tags.
+    // Legacy repeatable --tag remains CLI-only; prompt values use comma-separated --tags.
     hiddenStringSubmitFields: ['tag'],
     nameLabel: 'Pattern name',
     async prepareExecution(context) {
@@ -86,7 +86,7 @@ export const patternAddKindEntry =
     sortOrder: 60,
     supportsDryRun: true,
     usage:
-      'wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--tag <tag>...] [--thumbnail-url <url>] [--dry-run]',
+      'wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--thumbnail-url <url>] [--dry-run]',
     visibleFieldNames: () => PATTERN_CATALOG_VISIBLE_FIELDS,
   });
 

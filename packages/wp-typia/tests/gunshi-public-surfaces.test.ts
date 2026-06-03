@@ -129,6 +129,12 @@ describe('Gunshi public CLI surfaces', () => {
       expect(commands.find((command) => command.name === 'mcp')).toMatchObject({
         subcommands: ['list', 'sync'],
       });
+      expect(commands.find((command) => command.name === 'add')?.options).toContain(
+        'tags',
+      );
+      expect(
+        commands.find((command) => command.name === 'add')?.options,
+      ).not.toContain('tag');
 
       const result = await withProcessEnv(
         {

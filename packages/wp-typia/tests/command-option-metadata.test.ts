@@ -180,6 +180,37 @@ describe('command option metadata helpers', () => {
     expect(parsed.positionals).toEqual(['binding-source', 'hero-data']);
   });
 
+  test('parses focused add short flags from shared metadata', () => {
+    const parsed = parseCommandArgvWithMetadata(
+      [
+        'block',
+        'counter-card',
+        '-t',
+        'basic',
+        '-b',
+        'core/group',
+        '-n',
+        'demo/v1',
+        '-d',
+      ],
+      {
+        extraBooleanOptionNames: ['help', 'version'],
+        parser: buildCommandOptionParser(
+          GLOBAL_OPTION_METADATA,
+          ADD_OPTION_METADATA,
+        ),
+      },
+    );
+
+    expect(parsed.flags).toEqual({
+      block: 'core/group',
+      'dry-run': true,
+      namespace: 'demo/v1',
+      template: 'basic',
+    });
+    expect(parsed.positionals).toEqual(['block', 'counter-card']);
+  });
+
   test('parses plugin QA profile flags from shared create and add metadata', () => {
     const createParsed = parseCommandArgvWithMetadata(
       ['--template', 'workspace', '--profile', 'plugin-qa', 'demo-plugin'],
@@ -346,6 +377,15 @@ describe('command option metadata helpers', () => {
     );
     expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
       '- --secret-preserve-on-empty: Whether blank manual settings secret submissions should preserve the stored secret (true by default).',
+    );
+    expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
+      '- --template, -t: Optional built-in block family for the new block; interactive flows let you choose it when omitted and non-interactive runs default to basic.',
+    );
+    expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
+      '- --dry-run, -d: Preview workspace file updates and completion guidance without writing them.',
+    );
+    expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).not.toContain(
+      '- --tag: Legacy repeatable single-tag alias for typed pattern catalog entries; prefer --tags.',
     );
   });
 
