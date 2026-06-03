@@ -1050,10 +1050,38 @@ process.exit(0);
   });
 
   test('exposes shell completions through the Gunshi CLI surface', () => {
-    const output = runUtf8Command('node', [entryPath, 'completions', 'bash']);
+    const completeOutput = runUtf8Command('node', [
+      entryPath,
+      'complete',
+      'bash',
+    ]);
+    const completionsOutput = runUtf8Command('node', [
+      entryPath,
+      'completions',
+      'bash',
+    ]);
 
-    expect(output).toContain('# bash completion for wp-typia');
-    expect(output).toContain('wp-typia complete --');
+    expect(completionsOutput).toBe(completeOutput);
+    expect(completionsOutput).toContain('# bash completion for wp-typia');
+    expect(completionsOutput).toContain(' complete --');
+  });
+
+  test('keeps completion alias output aligned for zsh and fish', () => {
+    for (const shell of ['zsh', 'fish']) {
+      const completeOutput = runUtf8Command('node', [
+        entryPath,
+        'complete',
+        shell,
+      ]);
+      const completionsOutput = runUtf8Command('node', [
+        entryPath,
+        'completions',
+        shell,
+      ]);
+
+      expect(completionsOutput).toBe(completeOutput);
+      expect(completionsOutput).toContain(' complete --');
+    }
   });
 
   test('exposes skills listing through the Gunshi CLI surface', () => {

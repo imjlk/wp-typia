@@ -93,7 +93,7 @@ describe('wp-typia Gunshi runtime preparation', () => {
     );
     expect(
       shouldUseGunshiCompletion(['completions', 'bash'], nodeVersions),
-    ).toBe(false);
+    ).toBe(true);
     expect(shouldUseGunshiCompletion(['complete', '--help'], nodeVersions)).toBe(
       false,
     );
