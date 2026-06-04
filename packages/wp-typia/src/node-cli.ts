@@ -245,11 +245,20 @@ async function dispatchPortableCliSkills({
       printLine('Skills are up to date.');
       return;
     }
-    printLine(`Synced skills to ${result.paths.length} location(s).`);
+    if (result.paths.length > 0) {
+      printLine(`Synced skills to ${result.paths.length} location(s).`);
+    }
     for (const install of result.agents) {
       const reason = install.reason ? ` (${install.reason})` : '';
       printLine(
         `  ${install.agent}: ${install.mode} -> ${install.path}${reason}`,
+      );
+    }
+    if (result.gitignore?.updated) {
+      printLine(
+        `Updated .gitignore for generated local skills: ${result.gitignore.entries.join(
+          ', ',
+        )}`,
       );
     }
     return;

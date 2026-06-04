@@ -264,6 +264,73 @@ describe('Gunshi public CLI surfaces', () => {
     }
   });
 
+  test('syncs local skills and maintains the generated skill gitignore entry', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-skills-'));
+    const home = path.join(tempRoot, 'home');
+    const cwd = path.join(tempRoot, 'project');
+    const dataHome = path.join(tempRoot, 'data');
+    const gitignorePath = path.join(cwd, '.gitignore');
+
+    try {
+      fs.mkdirSync(path.join(home, '.codex'), { recursive: true });
+      fs.mkdirSync(path.join(home, '.claude'), { recursive: true });
+      fs.mkdirSync(path.join(home, '.continue'), { recursive: true });
+      fs.mkdirSync(path.join(home, '.codeium', 'windsurf'), {
+        recursive: true,
+      });
+      fs.mkdirSync(cwd, { recursive: true });
+      fs.writeFileSync(gitignorePath, 'node_modules\r\n', 'utf8');
+
+      const env = {
+        CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
+        CODEX_HOME: path.join(home, '.codex'),
+        XDG_CONFIG_HOME: path.join(home, '.config'),
+        XDG_DATA_HOME: dataHome,
+      };
+      const runtime = {
+        dataHome: () => dataHome,
+        homeDir: () => home,
+      };
+      const result = await withProcessEnv(env, () =>
+        syncSkills({ cwd, global: false, runtime }),
+      );
+      const gitignore = fs.readFileSync(gitignorePath, 'utf8');
+
+      expect(result.updated).toBe(true);
+      expect(result.gitignore).toEqual({
+        entries: ['.agents/skills/wp-typia/'],
+        path: gitignorePath,
+        updated: true,
+      });
+      expect(gitignore).toBe('node_modules\r\n.agents/skills/wp-typia/\r\n');
+      expect(gitignore).not.toContain('.claude/skills');
+      expect(gitignore).not.toContain('.continue/skills');
+      expect(gitignore).not.toContain('.windsurf/skills');
+
+      const resync = await withProcessEnv(env, () =>
+        syncSkills({ cwd, global: false, runtime }),
+      );
+      const idempotentGitignore = fs.readFileSync(gitignorePath, 'utf8');
+
+      expect(resync.updated).toBe(false);
+      expect(resync.gitignore).toEqual({
+        entries: ['.agents/skills/wp-typia/'],
+        path: gitignorePath,
+        updated: false,
+      });
+      expect(idempotentGitignore).toBe(gitignore);
+
+      const globalSync = await withProcessEnv(env, () =>
+        syncSkills({ cwd, global: true, runtime }),
+      );
+
+      expect(globalSync.gitignore).toBeUndefined();
+      expect(fs.readFileSync(gitignorePath, 'utf8')).toBe(gitignore);
+    } finally {
+      fs.rmSync(tempRoot, { force: true, recursive: true });
+    }
+  });
+
   test('syncs MCP schemas to the new default directory and custom output directory', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-mcp-'));
     const schemaPath = path.join(tempRoot, 'tools.json');
