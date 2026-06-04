@@ -222,6 +222,7 @@ describe('Gunshi CLI core routing', () => {
     const addHelp = await captureNodeCli(['help', 'add']);
     const createHelp = await captureNodeCli(['--help', 'create']);
     const commandHelp = await captureNodeCli(['help', 'templates']);
+    const skillsHelp = await captureNodeCli(['skills', '--help']);
 
     expect(generalHelp.error).toBeUndefined();
     expect(generalHelp.exitCode).toBe(0);
@@ -249,6 +250,12 @@ describe('Gunshi CLI core routing', () => {
     expect(commandHelp.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(commandHelp.stdout).toContain('Supported flags:');
     expect(commandHelp.stdout).toContain('--id');
+
+    expect(skillsHelp.error).toBeUndefined();
+    expect(skillsHelp.exitCode).toBe(0);
+    expect(skillsHelp.stdout).toContain('Usage: wp-typia skills <list|sync>');
+    expect(skillsHelp.stdout).toContain('.agents/skills/wp-typia/');
+    expect(skillsHelp.stdout).toContain('.gitignore');
   });
 
   test('renders focused guidance for unknown help targets without dispatching commands', async () => {

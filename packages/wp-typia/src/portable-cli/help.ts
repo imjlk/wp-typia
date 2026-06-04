@@ -136,6 +136,7 @@ const PORTABLE_CLI_COMMAND_HELP_CONFIG = {
   skills: {
     bodyLines: [
       'List detected coding agents or generate a compact wp-typia SKILL.md from command metadata.',
+      'Use --local to install project-local skills; generated universal skills under .agents/skills/wp-typia/ are added to .gitignore.',
     ],
     heading: 'Usage: wp-typia skills <list|sync>',
     optionMetadata: SKILLS_OPTION_METADATA,
