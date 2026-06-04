@@ -260,6 +260,7 @@ describe('Gunshi CLI core routing', () => {
 
   test('renders focused guidance for unknown help targets without dispatching commands', async () => {
     const result = await captureNodeCli(['help', 'definitely-not-a-command']);
+    const typoResult = await captureNodeCli(['help', 'docotr']);
     const structuredResult = await captureNodeCli([
       '--format',
       'json',
@@ -275,6 +276,14 @@ describe('Gunshi CLI core routing', () => {
     expect(result.stdout).toContain('Supported commands: create, init, sync');
     expect(result.stdout).toContain('wp-typia --help');
     expect(result.stdout).not.toContain('Usage: wp-typia create <project-dir>');
+
+    expect(typoResult.error).toBeUndefined();
+    expect(typoResult.exitCode).toBe(0);
+    expect(typoResult.stdout).toContain('Unknown help target "docotr".');
+    expect(typoResult.stdout).toContain(
+      'Did you mean "doctor"? Run wp-typia doctor --help.',
+    );
+    expect(typoResult.stdout).toContain('Supported commands: create, init, sync');
 
     expect(structuredResult.error).toBeUndefined();
     expect(structuredResult.exitCode).toBe(0);

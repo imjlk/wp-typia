@@ -19,6 +19,7 @@ import {
   WP_TYPIA_FUTURE_COMMAND_TREE,
   WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_POSITIONAL_ALIAS_USAGE,
+  suggestTopLevelCommandTypo,
 } from '../command-contract';
 import type { PrintLine } from '../print-line';
 import { printBlock } from '../print-block';
@@ -74,8 +75,13 @@ export function renderUnknownHelpTarget(
   printLine: PrintLine,
   target: string,
 ) {
+  const suggestion = suggestTopLevelCommandTypo(target);
+
   printBlock(printLine, [
     `Unknown help target "${target}".`,
+    ...(suggestion
+      ? [`Did you mean "${suggestion}"? Run wp-typia ${suggestion} --help.`]
+      : []),
     `Supported commands: ${WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES.join(
       ', ',
     )}.`,
