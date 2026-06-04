@@ -480,6 +480,7 @@ wp-typia mcp list
 wp-typia mcp sync
 wp-typia skills list
 wp-typia skills sync
+wp-typia skills sync --local
 wp-typia complete zsh
 ```
 
@@ -487,3 +488,9 @@ wp-typia complete zsh
 downstream tooling. `mcp sync` writes to `.wp-typia/mcp` by default, and
 `skills` plus `complete` are first-party CLI surfaces. `completions` remains
 available as a legacy alias for `complete`.
+
+`skills sync` installs global skills by default. `skills sync --local` writes
+project-local skill files, adds the generated universal skill path
+`.agents/skills/wp-typia/` to the project `.gitignore` when missing, and leaves
+agent-specific local skill directories such as `.claude/skills` or
+`.continue/skills` under user control.
