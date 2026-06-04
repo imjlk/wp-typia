@@ -566,6 +566,86 @@ describe('wp-typia add command bridge', () => {
     ).toBe(true);
   }, 30_000);
 
+  test('interactive plain add prompts for required fields after kind selection', async () => {
+    const projectDir = path.join(
+      tempRoot,
+      'demo-add-interactive-required-fields',
+    );
+    const selectedPrompts: string[] = [];
+    const textPrompts: string[] = [];
+    const promptValues = new Map([
+      ['Style name', 'callout-emphasis'],
+      ['Target block', 'counter-card'],
+    ]);
+    const prompt: ReadlinePrompt = {
+      close() {},
+      async select<T extends string>(
+        message: string,
+        options: Array<{ value: T }>,
+      ) {
+        selectedPrompts.push(message);
+        if (message === 'Select what to add') {
+          expect(options.map((option) => String(option.value))).toEqual([
+            ...ADD_KIND_IDS,
+          ]);
+          return 'style' as T;
+        }
+        throw new Error(`Unexpected select prompt: ${message}`);
+      },
+      async text(message, defaultValue, validate) {
+        textPrompts.push(message);
+        expect(defaultValue).toBe('');
+        expect(validate?.('')).toBe(`${message} is required.`);
+        const value = promptValues.get(message);
+        if (!value) {
+          throw new Error(`Unexpected text prompt: ${message}`);
+        }
+        expect(validate?.(value)).toBe(true);
+        return value;
+      },
+    };
+
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+    await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {
+        template: 'basic',
+      },
+      interactive: false,
+      kind: 'block',
+      name: 'counter-card',
+    });
+
+    const payload = await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {},
+      interactive: true,
+      prompt,
+    });
+
+    expect(selectedPrompts).toEqual(['Select what to add']);
+    expect(textPrompts).toEqual(['Style name', 'Target block']);
+    expect(payload?.summaryLines).toContain(
+      'Block style: callout-emphasis',
+    );
+    expect(payload?.summaryLines).toContain('Target block: counter-card');
+    expect(
+      fs.existsSync(
+        path.join(
+          projectDir,
+          'src',
+          'blocks',
+          'counter-card',
+          'styles',
+          'callout-emphasis.ts',
+        ),
+      ),
+    ).toBe(true);
+  }, 30_000);
+
   test('interactive add block validates the missing name before prompting', async () => {
     const projectDir = path.join(tempRoot, 'demo-add-interactive-missing-name');
     const selectedPrompts: string[] = [];
