@@ -13,6 +13,8 @@ import { readOptionalLooseStringFlag } from '../cli-string-flags';
 
 const PATTERN_MISSING_NAME_MESSAGE =
   '`wp-typia add pattern` requires <name>. Usage: wp-typia add pattern <name>.';
+const LEGACY_TAG_FLAG_WARNING =
+  '--tag is deprecated; use repeatable --tags instead.';
 
 export const patternAddKindEntry =
   defineAddKindRegistryEntry<AddPatternResult>({
@@ -54,6 +56,9 @@ export const patternAddKindEntry =
       const tags =
         normalizePatternTagFlags(context.flags.tags, context.flags.tag);
       const thumbnailUrl = rawThumbnailUrl;
+      if (context.flags.tag !== undefined && context.flags.format !== 'json') {
+        context.warnLine(LEGACY_TAG_FLAG_WARNING);
+      }
 
       return {
         execute: (cwd) =>

@@ -217,7 +217,7 @@ describe('wp-typia package', () => {
     expect(addHelpOutput).toContain('--external-layer-id');
     expect(addHelpOutput).toContain('--alternate-render-targets');
     expect(addHelpOutput).toContain(
-      'interactive flows let you choose it when omitted and non-interactive runs default to basic',
+      'one of basic, interactivity, persistence, or compound. Defaults to basic in non-interactive runs',
     );
     expect(addHelpOutput).toContain('admin-view');
     expect(addHelpOutput).toContain('ability');
