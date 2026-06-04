@@ -326,8 +326,9 @@ describe('Gunshi CLI core routing', () => {
     expect(addDispatcherSource).toContain(
       'export async function dispatchPortableCliAdd',
     );
-    expect(addDispatcherSource).toContain('buildMissingAddKindDetailLines');
-    expect(addDispatcherSource).toContain('shouldPrintMissingAddKindHelp');
+    expect(addDispatcherSource).toContain('executeAddCommand');
+    expect(addDispatcherSource).not.toContain('buildMissingAddKindDetailLines');
+    expect(addDispatcherSource).not.toContain('shouldPrintMissingAddKindHelp');
     expect(addDispatcherSource).not.toContain('formatAddKindUsagePlaceholder');
     expect(createDispatcherSource).toContain(
       'export async function dispatchPortableCliCreate',
@@ -336,6 +337,7 @@ describe('Gunshi CLI core routing', () => {
       'buildMissingCreateProjectDirDetailLines',
     );
     expect(runtimeBridgeSource).toContain("from './runtime-bridge-add'");
+    expect(runtimeBridgeAddSource).toContain('getAddKindOptions');
     expect(runtimeBridgeAddSource).toContain('formatMissingAddKindDetailLine');
     expect(runtimeBridgeAddSource).toContain('shouldPrintMissingAddKindHelp');
     expect(cliErrorMessagesSource).toContain(

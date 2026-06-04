@@ -9,7 +9,9 @@ import {
   type AddKindExecutionContext,
   type AddKindId,
   formatAddKindList,
+  getAddKindOptions,
   getAddKindExecutionPlan,
+  getAddNameLabel,
   isAddKindId,
   supportsAddKindDryRun,
 } from './add-kind-registry';
@@ -138,6 +140,10 @@ async function executePlannedAddKind<TKey extends AddKindId>(
   );
 }
 
+function contextAllowsInteractivePrompts(flags: Record<string, unknown>): boolean {
+  return flags.format !== 'json';
+}
+
 export async function executeAddCommand({
   cwd,
   emitOutput = true,
@@ -156,8 +162,38 @@ export async function executeAddCommand({
   try {
     const addRuntime = await loadCliAddRuntime();
     const isInteractiveSession = interactive ?? isInteractiveTerminal();
+    const getOrCreatePrompt = async () => {
+      if (activePrompt) {
+        return activePrompt;
+      }
 
-    if (!kind) {
+      const { createReadlinePrompt } = await loadCliPromptRuntime();
+      activePrompt = prompt ?? createReadlinePrompt();
+      return activePrompt;
+    };
+    let resolvedKind = kind;
+    let resolvedName = name;
+    let promptedForKind = false;
+
+    if (
+      !resolvedKind &&
+      isInteractiveSession &&
+      contextAllowsInteractivePrompts(flags)
+    ) {
+      const kindPrompt = await getOrCreatePrompt();
+      resolvedKind = await kindPrompt.select(
+        'Select what to add',
+        getAddKindOptions().map((option) => ({
+          hint: option.description,
+          label: option.name,
+          value: option.value,
+        })),
+        1,
+      );
+      promptedForKind = true;
+    }
+
+    if (!resolvedKind) {
       if (shouldPrintMissingAddKindHelp({ emitOutput })) {
         printLine(addRuntime.formatAddHelpText());
       }
@@ -166,16 +202,24 @@ export async function executeAddCommand({
         formatMissingAddKindDetailLine(),
       );
     }
-    if (!isAddKindId(kind)) {
+    if (!isAddKindId(resolvedKind)) {
       throw createCliDiagnosticCodeError(
         CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
-        `Unknown add kind "${kind}". Expected one of: ${formatAddKindList()}.`,
+        `Unknown add kind "${resolvedKind}". Expected one of: ${formatAddKindList()}.`,
       );
     }
-    if (dryRun && !supportsAddKindDryRun(kind)) {
+    if (!resolvedName && promptedForKind) {
+      const namePrompt = await getOrCreatePrompt();
+      resolvedName = await namePrompt.text(getAddNameLabel(resolvedKind), '', (value) =>
+        value.trim().length > 0
+          ? true
+          : `${getAddNameLabel(resolvedKind)} is required.`,
+      );
+    }
+    if (dryRun && !supportsAddKindDryRun(resolvedKind)) {
       throw createCliDiagnosticCodeError(
         CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-        `\`wp-typia add ${kind}\` does not support \`--dry-run\` yet.`,
+        `\`wp-typia add ${resolvedKind}\` does not support \`--dry-run\` yet.`,
       );
     }
 
@@ -183,21 +227,13 @@ export async function executeAddCommand({
       addRuntime,
       cwd,
       flags,
-      getOrCreatePrompt: async () => {
-        if (activePrompt) {
-          return activePrompt;
-        }
-
-        const { createReadlinePrompt } = await loadCliPromptRuntime();
-        activePrompt = prompt ?? createReadlinePrompt();
-        return activePrompt;
-      },
+      getOrCreatePrompt,
       isInteractiveSession,
-      name,
+      name: resolvedName,
       positionalArgs,
       warnLine,
     };
-    return await executePlannedAddKind(kind, executionContext, {
+    return await executePlannedAddKind(resolvedKind, executionContext, {
       cwd,
       dryRun,
       emitOutput,
