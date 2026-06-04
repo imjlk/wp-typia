@@ -1,5 +1,15 @@
 # wp-typia
 
+## 0.24.7 — 2026-06-04
+
+### Patch changes
+
+- [054d769e](https://github.com/imjlk/wp-typia/commit/054d769efa49976efa9c8a0cdb2c377ce4ecbb1c) Prompt for an add kind when `wp-typia add` runs in an interactive terminal without a kind argument. — Thanks @imjlk!
+- [c7a94624](https://github.com/imjlk/wp-typia/commit/c7a946245d0143c7c280315a11768c02a4d4e3a1) Ignore generated local universal skills when running `wp-typia skills sync --local`. — Thanks @imjlk!
+- [addbff55](https://github.com/imjlk/wp-typia/commit/addbff5536a42bc9a74a715ab6df0b0e7788932e) Document local skills sync gitignore handling in CLI help and reference docs. — Thanks @imjlk!
+- [2659cfa6](https://github.com/imjlk/wp-typia/commit/2659cfa6506d5d5b308d20318a7400d286f8781e) Clarify add flag help, warn on legacy `--tag`, and make unknown help targets more actionable. — Thanks @imjlk!
+- [8a1abfcb](https://github.com/imjlk/wp-typia/commit/8a1abfcb6766369bb4322f525fdc78d49d7cfbf4) Support boolean-only short flag clusters while rejecting clusters that include value-taking short flags. — Thanks @imjlk!
+
 ## 0.24.6 — 2026-06-03
 
 ### Patch changes
