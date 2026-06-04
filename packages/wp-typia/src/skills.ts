@@ -44,8 +44,15 @@ export type SkillInstall = {
   reason?: string;
 };
 
+export type SkillsGitignoreUpdate = {
+  entries: string[];
+  path: string;
+  updated: boolean;
+};
+
 export type SkillsSyncResult = {
   agents: SkillInstall[];
+  gitignore?: SkillsGitignoreUpdate;
   paths: string[];
   updated: boolean;
 };
@@ -61,6 +68,7 @@ const defaultSkillRuntime: SkillRuntime = {
   homeDir: () => os.homedir(),
 };
 const GENERATED_SKILL_MARKER = '.wp-typia-skill.json';
+const LOCAL_SKILL_GITIGNORE_ENTRY = '.agents/skills/wp-typia/';
 const SKILL_FILE = 'SKILL.md';
 
 function configHome(home: string): string {
@@ -458,6 +466,45 @@ function resolveParent(dir: string): string {
   }
 }
 
+function detectLineEnding(content: string): string {
+  return content.includes('\r\n') ? '\r\n' : '\n';
+}
+
+async function ensureLocalSkillsGitignore(
+  cwd: string,
+): Promise<SkillsGitignoreUpdate> {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  const entries = [LOCAL_SKILL_GITIGNORE_ENTRY];
+  let content = '';
+  let exists = true;
+
+  try {
+    content = await fsp.readFile(gitignorePath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+    exists = false;
+  }
+
+  const lines = content.split(/\r?\n/u).map((line) => line.trim());
+  const missingEntries = entries.filter((entry) => !lines.includes(entry));
+  if (missingEntries.length === 0) {
+    return { entries, path: gitignorePath, updated: false };
+  }
+
+  const lineEnding = exists ? detectLineEnding(content) : '\n';
+  let nextContent = content;
+  if (nextContent.length > 0 && !nextContent.endsWith('\n')) {
+    nextContent += lineEnding;
+  }
+  nextContent += missingEntries.map((entry) => `${entry}${lineEnding}`).join('');
+
+  await fsp.writeFile(gitignorePath, nextContent, 'utf8');
+
+  return { entries, path: gitignorePath, updated: true };
+}
+
 export async function syncSkills(
   options: {
     cwd?: string;
@@ -489,6 +536,7 @@ export async function syncSkills(
   const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
   const cacheKey = stalenessCacheKey(skillName, isGlobal, cwd, canonicalBase);
   const previousState = readState(cacheKey, runtime);
+  const gitignore = isGlobal ? undefined : await ensureLocalSkillsGitignore(cwd);
 
   if (
     !options.force &&
@@ -496,7 +544,12 @@ export async function syncSkills(
     previousState.agentKey === agentKey &&
     skillTargetsAreCurrent(canonicalDir, agentDirs, content)
   ) {
-    return { agents: [], paths: [], updated: false };
+    return {
+      agents: [],
+      gitignore,
+      paths: [],
+      updated: Boolean(gitignore?.updated),
+    };
   }
 
   await fsp.mkdir(canonicalDir, { recursive: true });
@@ -541,6 +594,7 @@ export async function syncSkills(
 
   return {
     agents: installs,
+    gitignore,
     paths: [canonicalDir],
     updated: true,
   };

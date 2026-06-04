@@ -114,6 +114,36 @@ async function captureNodeCli(
   }
 }
 
+async function withProcessEnv<T>(
+  overrides: Partial<NodeJS.ProcessEnv>,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = new Map<string, string | undefined>();
+
+  for (const key of Object.keys(overrides)) {
+    previous.set(key, process.env[key]);
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+
+  try {
+    return await callback();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
 function createTempRoot(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
@@ -1035,5 +1065,65 @@ describe('Gunshi CLI core routing', () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.error?.code).toBe(CLI_DIAGNOSTIC_CODES.INVALID_COMMAND);
     expect(parsed.error?.command).toBe('skills');
+  });
+
+  test('reports generated local skill gitignore updates in text and json output', async () => {
+    const tempRoot = createTempRoot('wp-typia-skills-cli-');
+    const home = path.join(tempRoot, 'home');
+    const textCwd = path.join(tempRoot, 'text-project');
+    const jsonCwd = path.join(tempRoot, 'json-project');
+    const dataHome = path.join(tempRoot, 'data');
+
+    try {
+      fs.mkdirSync(path.join(home, '.codex'), { recursive: true });
+      fs.mkdirSync(textCwd, { recursive: true });
+      fs.mkdirSync(jsonCwd, { recursive: true });
+
+      const env = {
+        CODEX_HOME: path.join(home, '.codex'),
+        XDG_CONFIG_HOME: path.join(home, '.config'),
+        XDG_DATA_HOME: dataHome,
+      };
+      const textResult = await withProcessEnv(env, () =>
+        captureNodeCli(['skills', 'sync', '--local'], { cwd: textCwd }),
+      );
+
+      expect(textResult.error).toBeUndefined();
+      expect(textResult.exitCode).toBe(0);
+      expect(textResult.stderr).toBe('');
+      expect(textResult.stdout).toContain(
+        'Updated .gitignore for generated local skills: .agents/skills/wp-typia/',
+      );
+      expect(
+        fs.readFileSync(path.join(textCwd, '.gitignore'), 'utf8'),
+      ).toContain('.agents/skills/wp-typia/');
+
+      const jsonResult = await withProcessEnv(env, () =>
+        captureNodeCli(['skills', 'sync', '--local', '--format', 'json'], {
+          cwd: jsonCwd,
+        }),
+      );
+      const parsed = JSON.parse(jsonResult.stdout) as {
+        gitignore?: { entries?: string[]; path?: string; updated?: boolean };
+        paths?: string[];
+        updated?: boolean;
+      };
+
+      expect(jsonResult.error).toBeUndefined();
+      expect(jsonResult.exitCode).toBe(0);
+      expect(jsonResult.stderr).toBe('');
+      expect(parsed.updated).toBe(true);
+      const resolvedJsonCwd = fs.realpathSync(jsonCwd);
+      expect(parsed.paths).toContain(
+        path.join(resolvedJsonCwd, '.agents', 'skills', 'wp-typia'),
+      );
+      expect(parsed.gitignore).toEqual({
+        entries: ['.agents/skills/wp-typia/'],
+        path: path.join(resolvedJsonCwd, '.gitignore'),
+        updated: true,
+      });
+    } finally {
+      removeTempRoot(tempRoot);
+    }
   });
 });
