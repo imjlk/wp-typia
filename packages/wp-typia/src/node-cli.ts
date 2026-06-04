@@ -49,6 +49,7 @@ import {
   PORTABLE_CLI_HELP_RENDERERS,
   renderGeneralHelp,
   renderNoCommandHelp,
+  renderUnknownHelpTarget,
 } from './portable-cli/help';
 import { listSkills, syncSkills } from './skills';
 import type {
@@ -438,7 +439,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
       renderGeneralHelp(printLine);
       return;
     }
-    renderGeneralHelp(printLine);
+    renderUnknownHelpTarget(printLine, helpTarget);
     return;
   }
 

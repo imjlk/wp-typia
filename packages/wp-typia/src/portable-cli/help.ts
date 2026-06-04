@@ -17,6 +17,7 @@ import {
   WP_TYPIA_CANONICAL_CREATE_USAGE,
   WP_TYPIA_CANONICAL_MIGRATE_USAGE,
   WP_TYPIA_FUTURE_COMMAND_TREE,
+  WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES,
   WP_TYPIA_POSITIONAL_ALIAS_USAGE,
 } from '../command-contract';
 import type { PrintLine } from '../print-line';
@@ -67,6 +68,19 @@ export function renderGeneralHelp(printLine: PrintLine) {
 export function renderNoCommandHelp(printLine: PrintLine) {
   printBlock(printLine, [PORTABLE_CLI_NO_COMMAND_REASON_LINE, '']);
   renderGeneralHelp(printLine);
+}
+
+export function renderUnknownHelpTarget(
+  printLine: PrintLine,
+  target: string,
+) {
+  printBlock(printLine, [
+    `Unknown help target "${target}".`,
+    `Supported commands: ${WP_TYPIA_PORTABLE_CLI_TOP_LEVEL_COMMAND_NAMES.join(
+      ', ',
+    )}.`,
+    'Run wp-typia --help for general usage.',
+  ]);
 }
 
 export function renderPortableCliCommandHelp(

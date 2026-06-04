@@ -286,6 +286,7 @@ test('passes typed pattern catalog flags to the runtime', async () => {
 
 test('passes repeatable pattern tag flags to the runtime', async () => {
   const capturedOptions: Record<string, unknown>[] = [];
+  const warnings: string[] = [];
   const plan = await ADD_KIND_REGISTRY.pattern.prepareExecution({
     addRuntime: {
       ...PATTERN_FLAG_RUNTIME_HELPERS,
@@ -314,7 +315,9 @@ test('passes repeatable pattern tag flags to the runtime', async () => {
     },
     isInteractiveSession: false,
     name: 'hero-photo',
-    warnLine: () => {},
+    warnLine: (line) => {
+      warnings.push(line);
+    },
   });
 
   await plan.execute('/tmp/wp-typia-pattern-repeatable-test');
@@ -329,6 +332,45 @@ test('passes repeatable pattern tag flags to the runtime', async () => {
       thumbnailUrl: undefined,
     },
   ]);
+  expect(warnings).toEqual([
+    '--tag is deprecated; use repeatable --tags instead.',
+  ]);
+});
+
+test('does not warn for legacy pattern tag flags in structured output', async () => {
+  const warnings: string[] = [];
+  const plan = await ADD_KIND_REGISTRY.pattern.prepareExecution({
+    addRuntime: {
+      ...PATTERN_FLAG_RUNTIME_HELPERS,
+      runAddPatternCommand: async (options: Record<string, unknown>) => ({
+        contentFile: 'src/patterns/full/hero-photo.php',
+        patternScope: 'full',
+        patternSlug: String(options.patternName),
+        projectDir: String(options.cwd),
+        tags: Array.isArray(options.tags)
+          ? options.tags.map(String)
+          : String(options.tags).split(','),
+        title: 'Hero Photo',
+      }),
+    } as unknown as AddKindExecutionContext['addRuntime'],
+    cwd: '/tmp/wp-typia-pattern-json-repeatable-test',
+    flags: {
+      format: 'json',
+      tag: ['featured'],
+    },
+    getOrCreatePrompt: async () => {
+      throw new Error('pattern add-kind should not prompt in this test');
+    },
+    isInteractiveSession: false,
+    name: 'hero-photo',
+    warnLine: (line) => {
+      warnings.push(line);
+    },
+  });
+
+  await plan.execute('/tmp/wp-typia-pattern-json-repeatable-test');
+
+  expect(warnings).toEqual([]);
 });
 
 test('surfaces core-variation runtime warnings through the add plan', async () => {

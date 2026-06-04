@@ -99,8 +99,11 @@ export function formatPortableCliOptionHelp(
   return Object.entries(metadata)
     .filter(([, option]) => !option.hidden)
     .map(([name, option]) => {
-      const short = option.short ? `, -${option.short}` : '';
-      return `- --${name}${short}: ${option.description}`;
+      const valueLabel = option.type === 'string' ? ' <value>' : '';
+      const short = option.short
+        ? `, -${option.short}${valueLabel}`
+        : '';
+      return `- --${name}${valueLabel}${short}: ${option.description}`;
     });
 }
 
