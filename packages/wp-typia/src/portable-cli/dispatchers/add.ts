@@ -1,11 +1,4 @@
-import {
-  CLI_DIAGNOSTIC_CODES,
-  createCliCommandError,
-} from '@wp-typia/project-tools/cli-diagnostics';
-import {
-  buildMissingAddKindDetailLines,
-  shouldPrintMissingAddKindHelp,
-} from '../../cli-error-messages';
+import { createCliCommandError } from '@wp-typia/project-tools/cli-diagnostics';
 import { executeAddCommand } from '../../runtime-bridge';
 import {
   buildStructuredCompletionSuccessPayload,
@@ -30,19 +23,6 @@ export async function dispatchPortableCliAdd({
   printLine,
   warnLine,
 }: PortableCliDispatchContext): Promise<void> {
-  if (!positionals[1]) {
-    if (shouldPrintMissingAddKindHelp({ format: mergedFlags.format })) {
-      const { formatAddHelpText } =
-        await import('@wp-typia/project-tools/cli-add');
-      printLine(formatAddHelpText());
-    }
-    throw createCliCommandError({
-      code: CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
-      command: 'add',
-      detailLines: buildMissingAddKindDetailLines(),
-    });
-  }
-
   // Add-specific normalization stays here: map positionals to kind/name and
   // switch JSON mode to structured completion output.
   const kind = positionals[1];

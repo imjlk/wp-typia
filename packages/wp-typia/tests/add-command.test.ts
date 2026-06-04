@@ -505,6 +505,67 @@ describe('wp-typia add command bridge', () => {
     ).toBe(true);
   }, 30_000);
 
+  test('interactive plain add prompts for kind and selected kind name', async () => {
+    const projectDir = path.join(tempRoot, 'demo-add-interactive-kind-prompt');
+    const selectedPrompts: string[] = [];
+    const textPrompts: string[] = [];
+    const prompt: ReadlinePrompt = {
+      close() {},
+      async select<T extends string>(
+        message: string,
+        options: Array<{ value: T }>,
+      ) {
+        selectedPrompts.push(message);
+        if (message === 'Select what to add') {
+          expect(options.map((option) => String(option.value))).toEqual([
+            ...ADD_KIND_IDS,
+          ]);
+          return 'block' as T;
+        }
+        if (message === 'Select a block template') {
+          expect(options.map((option) => String(option.value))).toEqual([
+            'basic',
+            'interactivity',
+            'persistence',
+            'compound',
+          ]);
+          return 'basic' as T;
+        }
+        throw new Error(`Unexpected select prompt: ${message}`);
+      },
+      async text(message, defaultValue, validate) {
+        textPrompts.push(message);
+        expect(defaultValue).toBe('');
+        expect(validate?.('')).toBe('Block name is required.');
+        expect(validate?.('prompted-card')).toBe(true);
+        return 'prompted-card';
+      },
+    };
+
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+
+    const payload = await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {},
+      interactive: true,
+      prompt,
+    });
+
+    expect(selectedPrompts).toEqual([
+      'Select what to add',
+      'Select a block template',
+    ]);
+    expect(textPrompts).toEqual(['Block name']);
+    expect(payload?.summaryLines).toContain('Template family: basic');
+    expect(
+      fs.existsSync(
+        path.join(projectDir, 'src', 'blocks', 'prompted-card', 'block.json'),
+      ),
+    ).toBe(true);
+  }, 30_000);
+
   test('interactive add block validates the missing name before prompting', async () => {
     const projectDir = path.join(tempRoot, 'demo-add-interactive-missing-name');
     const selectedPrompts: string[] = [];
