@@ -211,6 +211,62 @@ describe('command option metadata helpers', () => {
     expect(parsed.positionals).toEqual(['block', 'counter-card']);
   });
 
+  test('supports boolean-only short flag clusters', () => {
+    const parsed = parseCommandArgvWithMetadata(['block', 'counter-card', '-dy'], {
+      extraBooleanOptionNames: ['help', 'version'],
+      parser: buildCommandOptionParser(
+        GLOBAL_OPTION_METADATA,
+        ADD_OPTION_METADATA,
+        CREATE_OPTION_METADATA,
+      ),
+    });
+
+    expect(parsed.flags).toEqual({
+      'dry-run': true,
+      yes: true,
+    });
+    expect(parsed.positionals).toEqual(['block', 'counter-card']);
+  });
+
+  test('rejects clustered value-taking or unknown short flags', () => {
+    const parser = buildCommandOptionParser(
+      GLOBAL_OPTION_METADATA,
+      ADD_OPTION_METADATA,
+      CREATE_OPTION_METADATA,
+    );
+
+    expectDiagnosticCode(
+      () => parseCommandArgvWithMetadata(['block', 'counter-card', '-dt'], {
+        parser,
+      }),
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'Short flag cluster `-dt` contains value-taking short flag `-t`; spell value flags separately.',
+    );
+    expectDiagnosticCode(
+      () => parseCommandArgvWithMetadata(['block', 'counter-card', '-dz'], {
+        parser,
+      }),
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'Unknown option `-z`.',
+    );
+  });
+
+  test('preserves short flag clusters after the argv terminator', () => {
+    const parsed = parseCommandArgvWithMetadata(
+      ['block', 'counter-card', '--', '-dy'],
+      {
+        parser: buildCommandOptionParser(
+          GLOBAL_OPTION_METADATA,
+          ADD_OPTION_METADATA,
+          CREATE_OPTION_METADATA,
+        ),
+      },
+    );
+
+    expect(parsed.flags).toEqual({});
+    expect(parsed.positionals).toEqual(['block', 'counter-card', '-dy']);
+  });
+
   test('parses plugin QA profile flags from shared create and add metadata', () => {
     const createParsed = parseCommandArgvWithMetadata(
       ['--template', 'workspace', '--profile', 'plugin-qa', 'demo-plugin'],
@@ -520,6 +576,7 @@ describe('command option metadata helpers', () => {
         '--format=json',
         '-c',
         'wp-typia.config.ts',
+        '-dy',
         '-z',
         '--',
         '--id',
@@ -538,6 +595,7 @@ describe('command option metadata helpers', () => {
     expect(extracted.argv).toEqual([
       '--unknown',
       'value',
+      '-dy',
       '-z',
       '--',
       '--id',

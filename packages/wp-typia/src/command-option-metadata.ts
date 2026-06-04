@@ -201,6 +201,16 @@ function createUnknownOptionError(
   );
 }
 
+function createValueShortFlagClusterError(
+  clusterLabel: string,
+  optionLabel: string,
+): ReturnType<typeof createCliDiagnosticCodeError> {
+  return createCliDiagnosticCodeError(
+    CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    `Short flag cluster \`${clusterLabel}\` contains value-taking short flag \`${optionLabel}\`; spell value flags separately.`,
+  );
+}
+
 function walkArgvOptions(
   argv: string[],
   options: {
@@ -231,6 +241,24 @@ function walkArgvOptions(
     if (arg === '--') {
       nextArgv.push(...argv.slice(index + (options.strict ? 1 : 0)));
       break;
+    }
+
+    if (arg.length > 2 && arg.startsWith('-') && !arg.startsWith('--')) {
+      if (!options.strict) {
+        nextArgv.push(arg);
+        continue;
+      }
+      for (const shortName of arg.slice(1)) {
+        const shortFlag = options.parser.shortFlagMap.get(shortName);
+        if (!shortFlag) {
+          throw createUnknownOptionError(`-${shortName}`);
+        }
+        if (shortFlag.type !== 'boolean') {
+          throw createValueShortFlagClusterError(arg, `-${shortName}`);
+        }
+        flags[shortFlag.name] = true;
+      }
+      continue;
     }
 
     if (arg.length === 2 && arg.startsWith('-')) {

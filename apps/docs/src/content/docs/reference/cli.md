@@ -32,6 +32,13 @@ The legacy internal value `toon` remains accepted as a compatibility alias for
 human-readable output, but help and invalid-format guidance advertise the public
 `text` spelling instead.
 
+Boolean short flags can be clustered when every character is a valid boolean
+flag for the current CLI parser. For example, `-dy` is accepted as `-d -y` when
+both `-d` and `-y` are valid boolean flags for that invocation. Value-taking
+short flags must stay separate, such as `-t basic`, `-b core/group`,
+`-n vendor/v1`, `-p npm`, or `-c wp-typia.config.ts`; clusters containing a
+value flag are rejected.
+
 ## Configuration Files
 
 `wp-typia` loads user config from `~/.config/wp-typia/config.json`,
