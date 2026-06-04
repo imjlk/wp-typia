@@ -1,5 +1,12 @@
 # wp-typia
 
+## 0.24.8 — 2026-06-04
+
+### Patch changes
+
+- [c358987e](https://github.com/imjlk/wp-typia/commit/c358987e09cc2d3d487950621132384a112c7aa4) Suggest close command names for unknown `wp-typia help <target>` requests. — Thanks @imjlk!
+- [bc4a041d](https://github.com/imjlk/wp-typia/commit/bc4a041d79b23221166e57efdab525c327d08c72) Prompt for required add fields when interactive `wp-typia add` users select kinds such as style, variation, transform, hooked-block, core-variation, or post-meta. — Thanks @imjlk!
+
 ## 0.24.7 — 2026-06-04
 
 ### Patch changes
