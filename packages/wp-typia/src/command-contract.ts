@@ -166,7 +166,7 @@ function isEdgeInsertionOrDeletionTypo(left: string, right: string): boolean {
   return longer.startsWith(shorter) || longer.endsWith(shorter);
 }
 
-function suggestTopLevelCommandTypo(
+export function suggestTopLevelCommandTypo(
   value: string,
 ): WpTypiaReservedTopLevelCommandName | null {
   const normalizedValue = value.trim().toLowerCase();
