@@ -4,6 +4,7 @@ import {
   createCliDiagnosticCodeError,
 } from '@wp-typia/project-tools/cli-diagnostics';
 import {
+  type AddFieldName,
   type AddKindExecutionPlan,
   type AddKindExecutionPlanFor,
   type AddKindExecutionContext,
@@ -50,6 +51,31 @@ const loadCliAddRuntime = () => import('@wp-typia/project-tools/cli-add');
 const loadCliPromptRuntime = () => import('@wp-typia/project-tools/cli-prompt');
 const loadWorkspaceProjectRuntime = () =>
   import('@wp-typia/project-tools/workspace-project');
+
+type RequiredPromptableAddFieldName = Extract<
+  AddFieldName,
+  'anchor' | 'block' | 'from' | 'position' | 'post-type' | 'to'
+>;
+
+const REQUIRED_FIELD_PROMPTS_BY_ADD_KIND: Partial<
+  Record<AddKindId, readonly RequiredPromptableAddFieldName[]>
+> = {
+  'core-variation': ['block'],
+  'hooked-block': ['anchor', 'position'],
+  'post-meta': ['post-type'],
+  style: ['block'],
+  transform: ['from', 'to'],
+  variation: ['block'],
+};
+
+const REQUIRED_FIELD_PROMPT_LABELS = {
+  anchor: 'Anchor block',
+  block: 'Target block',
+  from: 'Source block',
+  position: 'Hook position',
+  'post-type': 'Post type',
+  to: 'Target block',
+} as const satisfies Record<RequiredPromptableAddFieldName, string>;
 
 async function executeWorkspaceAddWithOptionalDryRun<TResult>(options: {
   buildCompletion: (
@@ -144,6 +170,37 @@ function contextAllowsInteractivePrompts(flags: Record<string, unknown>): boolea
   return flags.format !== 'json';
 }
 
+function shouldPromptForRequiredAddField(
+  flags: Record<string, unknown>,
+  fieldName: RequiredPromptableAddFieldName,
+): boolean {
+  const value = flags[fieldName];
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim().length === 0)
+  );
+}
+
+async function promptForRequiredAddFields(options: {
+  flags: Record<string, unknown>;
+  getOrCreatePrompt: () => Promise<ReadlinePrompt>;
+  kind: AddKindId;
+}): Promise<void> {
+  const requiredFields = REQUIRED_FIELD_PROMPTS_BY_ADD_KIND[options.kind] ?? [];
+  for (const fieldName of requiredFields) {
+    if (!shouldPromptForRequiredAddField(options.flags, fieldName)) {
+      continue;
+    }
+
+    const label = REQUIRED_FIELD_PROMPT_LABELS[fieldName];
+    const fieldPrompt = await options.getOrCreatePrompt();
+    options.flags[fieldName] = await fieldPrompt.text(label, '', (value) =>
+      value.trim().length > 0 ? true : `${label} is required.`,
+    );
+  }
+}
+
 export async function executeAddCommand({
   cwd,
   emitOutput = true,
@@ -157,7 +214,8 @@ export async function executeAddCommand({
   warnLine = console.warn as PrintLine,
 }: AddExecutionInput): Promise<RuntimeCompletionPayload | void> {
   let activePrompt: ReadlinePrompt | undefined;
-  const dryRun = Boolean(flags['dry-run']);
+  const resolvedFlags = { ...flags };
+  const dryRun = Boolean(resolvedFlags['dry-run']);
 
   try {
     const addRuntime = await loadCliAddRuntime();
@@ -178,7 +236,7 @@ export async function executeAddCommand({
     if (
       !resolvedKind &&
       isInteractiveSession &&
-      contextAllowsInteractivePrompts(flags)
+      contextAllowsInteractivePrompts(resolvedFlags)
     ) {
       const kindPrompt = await getOrCreatePrompt();
       resolvedKind = await kindPrompt.select(
@@ -216,6 +274,13 @@ export async function executeAddCommand({
           : `${getAddNameLabel(resolvedKind)} is required.`,
       );
     }
+    if (promptedForKind) {
+      await promptForRequiredAddFields({
+        flags: resolvedFlags,
+        getOrCreatePrompt,
+        kind: resolvedKind,
+      });
+    }
     if (dryRun && !supportsAddKindDryRun(resolvedKind)) {
       throw createCliDiagnosticCodeError(
         CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
@@ -226,7 +291,7 @@ export async function executeAddCommand({
     const executionContext: AddKindExecutionContext = {
       addRuntime,
       cwd,
-      flags,
+      flags: resolvedFlags,
       getOrCreatePrompt,
       isInteractiveSession,
       name: resolvedName,
