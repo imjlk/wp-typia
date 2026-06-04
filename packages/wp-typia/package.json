@@ -1,6 +1,6 @@
 {
   "name": "wp-typia",
-  "version": "0.24.7",
+  "version": "0.24.8",
   "description": "Canonical CLI package for wp-typia scaffolding and project workflows",
   "packageManager": "bun@1.3.11",
   "type": "module",
