@@ -179,6 +179,52 @@ test('emits structured add completion output in portable CLI JSON mode', async (
   }
 });
 
+test('emits legacy pattern tag warnings in portable CLI JSON completion output', async () => {
+  const projectDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'wp-typia-add-pattern-json-'),
+  );
+
+  try {
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+
+    const result = runCapturedCommand(
+      process.execPath,
+      [
+        entryPath,
+        'add',
+        'pattern',
+        'hero-photo',
+        '--tag',
+        'featured',
+        '--format',
+        'json',
+      ],
+      {
+        cwd: projectDir,
+        env: withoutLocalBunEnv(),
+      },
+    );
+    const parsed = parseJsonObjectFromOutput<{
+      data?: {
+        completion?: {
+          warningLines?: string[];
+        };
+      };
+      ok?: boolean;
+    }>(result.stdout);
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data?.completion?.warningLines).toEqual([
+      '--tag is deprecated; use repeatable --tags instead.',
+    ]);
+  } finally {
+    fs.rmSync(projectDir, { force: true, recursive: true });
+  }
+});
+
 test('preserves add diagnostic metadata in portable CLI JSON mode on failure', () => {
   const result = runCapturedCommand(
     process.execPath,

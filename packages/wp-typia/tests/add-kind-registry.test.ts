@@ -337,7 +337,7 @@ test('passes repeatable pattern tag flags to the runtime', async () => {
   ]);
 });
 
-test('does not warn for legacy pattern tag flags in structured output', async () => {
+test('surfaces legacy pattern tag flags through structured output warnings', async () => {
   const warnings: string[] = [];
   const plan = await ADD_KIND_REGISTRY.pattern.prepareExecution({
     addRuntime: {
@@ -368,9 +368,12 @@ test('does not warn for legacy pattern tag flags in structured output', async ()
     },
   });
 
-  await plan.execute('/tmp/wp-typia-pattern-json-repeatable-test');
+  const result = await plan.execute('/tmp/wp-typia-pattern-json-repeatable-test');
 
   expect(warnings).toEqual([]);
+  expect(plan.getWarnings?.(result)).toEqual([
+    '--tag is deprecated; use repeatable --tags instead.',
+  ]);
 });
 
 test('surfaces core-variation runtime warnings through the add plan', async () => {
