@@ -646,37 +646,115 @@ describe('wp-typia add command bridge', () => {
     ).toBe(true);
   }, 30_000);
 
-  test('interactive add block validates the missing name before prompting', async () => {
+  test('interactive explicit add block prompts for a missing name', async () => {
     const projectDir = path.join(tempRoot, 'demo-add-interactive-missing-name');
     const selectedPrompts: string[] = [];
+    const textPrompts: string[] = [];
     const prompt: ReadlinePrompt = {
       close() {},
-      async select(message: string) {
+      async select<T extends string>(
+        message: string,
+        options: Array<{ value: T }>,
+      ) {
         selectedPrompts.push(message);
-        throw new Error('select() should not be called before name validation');
+        expect(message).toBe('Select a block template');
+        expect(options.map((option) => String(option.value))).toEqual([
+          'basic',
+          'interactivity',
+          'persistence',
+          'compound',
+        ]);
+        return 'basic' as T;
       },
-      async text() {
-        throw new Error('text() should not be called before name validation');
+      async text(message, defaultValue, validate) {
+        textPrompts.push(message);
+        expect(defaultValue).toBe('');
+        expect(validate?.('')).toBe('Block name is required.');
+        expect(validate?.('prompted-explicit-card')).toBe(true);
+        return 'prompted-explicit-card';
       },
     };
 
     await scaffoldOfficialWorkspace(projectDir);
     linkWorkspaceNodeModules(projectDir);
 
-    await expect(
-      executeAddCommand({
-        cwd: projectDir,
-        emitOutput: false,
-        flags: {},
-        interactive: true,
-        kind: 'block',
-        prompt,
-      }),
-    ).rejects.toThrow(
-      '`wp-typia add block` requires <name>. Usage: wp-typia add block <name> [--template <basic|interactivity|persistence|compound>]',
-    );
-    expect(selectedPrompts).toEqual([]);
-  }, 15_000);
+    const payload = await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {},
+      interactive: true,
+      kind: 'block',
+      prompt,
+    });
+
+    expect(selectedPrompts).toEqual(['Select a block template']);
+    expect(textPrompts).toEqual(['Block name']);
+    expect(payload?.summaryLines).toContain('Template family: basic');
+    expect(
+      fs.existsSync(
+        path.join(
+          projectDir,
+          'src',
+          'blocks',
+          'prompted-explicit-card',
+          'block.json',
+        ),
+      ),
+    ).toBe(true);
+  }, 30_000);
+
+  test('interactive hooked-block prompts for position with select options', async () => {
+    const projectDir = path.join(tempRoot, 'demo-add-hooked-position-select');
+    const selectedPrompts: string[] = [];
+    const prompt: ReadlinePrompt = {
+      close() {},
+      async select<T extends string>(
+        message: string,
+        options: Array<{ value: T }>,
+      ) {
+        selectedPrompts.push(message);
+        expect(message).toBe('Hook position');
+        expect(options.map((option) => String(option.value))).toEqual([
+          'before',
+          'after',
+          'firstChild',
+          'lastChild',
+        ]);
+        return 'before' as T;
+      },
+      async text() {
+        throw new Error('text() should not be used for hook position');
+      },
+    };
+
+    await scaffoldOfficialWorkspace(projectDir);
+    linkWorkspaceNodeModules(projectDir);
+    await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {
+        template: 'basic',
+      },
+      interactive: false,
+      kind: 'block',
+      name: 'counter-card',
+    });
+
+    const payload = await executeAddCommand({
+      cwd: projectDir,
+      emitOutput: false,
+      flags: {
+        anchor: 'core/post-content',
+      },
+      interactive: true,
+      kind: 'hooked-block',
+      name: 'counter-card',
+      prompt,
+    });
+
+    expect(selectedPrompts).toEqual(['Hook position']);
+    expect(payload?.summaryLines).toContain('Position: before');
+  }, 30_000);
 
   test('aligns missing kind help output with the bridge emitOutput context', async () => {
     const printedHumanLines: string[] = [];

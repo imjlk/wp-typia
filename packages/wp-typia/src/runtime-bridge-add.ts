@@ -1,4 +1,5 @@
 import type { ReadlinePrompt } from '@wp-typia/project-tools/cli-prompt';
+import { HOOKED_BLOCK_POSITION_IDS } from '@wp-typia/project-tools/hooked-blocks';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
@@ -195,6 +196,19 @@ async function promptForRequiredAddFields(options: {
 
     const label = REQUIRED_FIELD_PROMPT_LABELS[fieldName];
     const fieldPrompt = await options.getOrCreatePrompt();
+    if (fieldName === 'position') {
+      options.flags[fieldName] = await fieldPrompt.select(
+        label,
+        HOOKED_BLOCK_POSITION_IDS.map((position) => ({
+          hint: `Insert relative to the anchor block as ${position}`,
+          label: position,
+          value: position,
+        })),
+        2,
+      );
+      continue;
+    }
+
     options.flags[fieldName] = await fieldPrompt.text(label, '', (value) =>
       value.trim().length > 0 ? true : `${label} is required.`,
     );
@@ -231,7 +245,6 @@ export async function executeAddCommand({
     };
     let resolvedKind = kind;
     let resolvedName = name;
-    let promptedForKind = false;
 
     if (
       !resolvedKind &&
@@ -248,7 +261,6 @@ export async function executeAddCommand({
         })),
         1,
       );
-      promptedForKind = true;
     }
 
     if (!resolvedKind) {
@@ -266,7 +278,11 @@ export async function executeAddCommand({
         `Unknown add kind "${resolvedKind}". Expected one of: ${formatAddKindList()}.`,
       );
     }
-    if (!resolvedName && promptedForKind) {
+    if (
+      !resolvedName &&
+      isInteractiveSession &&
+      contextAllowsInteractivePrompts(resolvedFlags)
+    ) {
       const namePrompt = await getOrCreatePrompt();
       resolvedName = await namePrompt.text(getAddNameLabel(resolvedKind), '', (value) =>
         value.trim().length > 0
@@ -274,7 +290,10 @@ export async function executeAddCommand({
           : `${getAddNameLabel(resolvedKind)} is required.`,
       );
     }
-    if (promptedForKind) {
+    if (
+      isInteractiveSession &&
+      contextAllowsInteractivePrompts(resolvedFlags)
+    ) {
       await promptForRequiredAddFields({
         flags: resolvedFlags,
         getOrCreatePrompt,

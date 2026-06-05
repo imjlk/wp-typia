@@ -56,7 +56,9 @@ export const patternAddKindEntry =
       const tags =
         normalizePatternTagFlags(context.flags.tags, context.flags.tag);
       const thumbnailUrl = rawThumbnailUrl;
-      if (context.flags.tag !== undefined && context.flags.format !== 'json') {
+      const legacyTagWarning =
+        context.flags.tag !== undefined ? LEGACY_TAG_FLAG_WARNING : undefined;
+      if (legacyTagWarning && context.flags.format !== 'json') {
         context.warnLine(LEGACY_TAG_FLAG_WARNING);
       }
 
@@ -85,6 +87,10 @@ export const patternAddKindEntry =
           patternScope: result.patternScope,
           ...(result.sectionRole ? { sectionRole: result.sectionRole } : {}),
         }),
+        getWarnings: () =>
+          context.flags.format === 'json' && legacyTagWarning
+            ? [legacyTagWarning]
+            : undefined,
         warnLine: context.warnLine,
       };
     },
