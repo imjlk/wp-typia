@@ -3,11 +3,17 @@ import type {
 	WorkspaceInventoryEntriesKey,
 	WorkspaceInventorySectionFlagKey,
 } from "./workspace-inventory-types.js";
+import type { ScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
 
 /**
  * Literal value shape accepted by descriptor-driven inventory entry fields.
  */
-export type InventoryEntryFieldValue = string | string[] | boolean | undefined;
+export type InventoryEntryFieldValue =
+	| string
+	| string[]
+	| boolean
+	| ScaffoldCompatibilityConfig
+	| undefined;
 
 /**
  * Context passed to custom field validators while parsing one inventory entry.
@@ -20,7 +26,7 @@ export type InventoryEntryFieldValidationContext = {
 
 type InventoryEntryFieldDescriptor = {
 	key: string;
-	kind?: "boolean" | "string" | "stringArray";
+	kind?: "boolean" | "compatibilityConfig" | "string" | "stringArray";
 	required?: boolean;
 	validate?: (
 		value: InventoryEntryFieldValue,
