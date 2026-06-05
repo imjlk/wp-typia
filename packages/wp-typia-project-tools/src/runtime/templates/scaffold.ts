@@ -39,6 +39,9 @@ import { resolveTemplateSource } from "./template-source.js";
 import {
 	BlockGeneratorService,
 } from "./block-generator-service.js";
+import type {
+	ScaffoldWordPressTargetVersion,
+} from "./scaffold-compatibility.js";
 import { getTemplateVariables } from "./scaffold-template-variables.js";
 import { getScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
 import type {
@@ -244,6 +247,7 @@ interface ScaffoldProjectOptions {
 	withMigrationUi?: boolean;
 	withTestPreset?: boolean;
 	withWpEnv?: boolean;
+	wpVersion?: ScaffoldWordPressTargetVersion;
 }
 
 export interface ScaffoldProjectResult {
@@ -385,6 +389,7 @@ export async function scaffoldProject({
 	withMigrationUi = false,
 	withTestPreset = false,
 	withWpEnv = false,
+	wpVersion,
 }: ScaffoldProjectOptions): Promise<ScaffoldProjectResult> {
 	const resolvedTemplateId = normalizeTemplateSelection(templateId);
 	const resolvedPackageManager = getPackageManager(packageManager).id;
@@ -425,6 +430,7 @@ export async function scaffoldProject({
 			withMigrationUi,
 			withTestPreset,
 			withWpEnv,
+			wpVersion,
 		});
 		const validated = await blockGeneratorService.validate({ plan });
 		const rendered = await blockGeneratorService.render({ validated });
@@ -441,11 +447,17 @@ export async function scaffoldProject({
 		);
 	}
 
-	const variables = getTemplateVariables(resolvedTemplateId, {
-		...answers,
-		dataStorageMode: dataStorageMode ?? answers.dataStorageMode,
-		persistencePolicy: persistencePolicy ?? answers.persistencePolicy,
-	});
+	const variables = getTemplateVariables(
+		resolvedTemplateId,
+		{
+			...answers,
+			dataStorageMode: dataStorageMode ?? answers.dataStorageMode,
+			persistencePolicy: persistencePolicy ?? answers.persistencePolicy,
+		},
+		{
+			wpVersion,
+		},
+	);
 	await reportScaffoldProgress(onProgress, {
 		detail: "Loading template files, variants, and external package metadata when needed.",
 		phase: "resolve-template",

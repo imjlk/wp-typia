@@ -31,7 +31,15 @@ import {
   toSnakeCase,
 } from '../shared/string-case.js';
 import { attachScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
-import { resolveScaffoldCompatibilityPolicy } from "./scaffold-compatibility.js";
+import {
+  createScaffoldCompatibilityBaseline,
+  resolveScaffoldCompatibilityPolicy,
+  type ScaffoldWordPressTargetVersion,
+} from "./scaffold-compatibility.js";
+
+export interface GetTemplateVariablesOptions {
+  wpVersion?: ScaffoldWordPressTargetVersion;
+}
 
 /**
  * Build the normalized template variables used by scaffold rendering.
@@ -43,6 +51,7 @@ import { resolveScaffoldCompatibilityPolicy } from "./scaffold-compatibility.js"
 export function getTemplateVariables(
   templateId: string,
   answers: ScaffoldAnswers,
+  options: GetTemplateVariablesOptions = {},
 ): ScaffoldTemplateVariables {
   if (isBuiltInTemplateId(templateId)) {
     return buildTemplateVariablesFromBlockSpec(
@@ -51,6 +60,7 @@ export function getTemplateVariables(
         dataStorageMode: answers.dataStorageMode,
         persistencePolicy: answers.persistencePolicy,
         templateId,
+        wpVersion: options.wpVersion,
       }),
     );
   }
@@ -103,7 +113,9 @@ export function getTemplateVariables(
     templateId === 'persistence' || compoundPersistenceEnabled
       ? answers.persistencePolicy ?? 'authenticated'
       : 'authenticated';
-  const compatibility = resolveScaffoldCompatibilityPolicy([]);
+  const compatibility = resolveScaffoldCompatibilityPolicy([], {
+    baseline: createScaffoldCompatibilityBaseline(options.wpVersion),
+  });
 
   const flatVariables: FlatScaffoldTemplateVariables = {
     alternateRenderTargetsCsv: '',

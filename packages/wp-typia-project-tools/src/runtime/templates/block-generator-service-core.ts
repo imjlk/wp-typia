@@ -183,6 +183,7 @@ export class BlockGeneratorService {
 		withMigrationUi = false,
 		withTestPreset = false,
 		withWpEnv = false,
+		wpVersion,
 	}: PlanBlockInput): Promise<PlanBlockResult> {
 		return {
 			spec: createBuiltInBlockSpec({
@@ -194,6 +195,7 @@ export class BlockGeneratorService {
 				withMigrationUi,
 				withTestPreset,
 				withWpEnv,
+				wpVersion,
 			}),
 			target: {
 				allowExistingDir,

@@ -274,6 +274,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
       );
       expect(generatedValidatorToolkit).not.toContain('typia.createValidate');
       expect(generatedPluginBootstrap).toContain('Plugin Name:       Demo Npm');
+      expect(generatedPluginBootstrap).toContain('Requires at least: 6.7');
+      expect(generatedPluginBootstrap).toContain('Tested up to:      7.0');
       expect(generatedPluginBootstrap).toContain('Text Domain:       demo-npm');
       expect(generatedPluginBootstrap).toContain('load_plugin_textdomain(');
       expect(generatedPluginBootstrap).toContain(
@@ -328,6 +330,36 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(buildOutput).not.toContain('non-specified generic argument');
     },
     { timeout: 40_000 },
+  );
+
+  test(
+    'scaffoldProject can target the legacy WordPress 6.9 plugin header',
+    async () => {
+      const targetDir = path.join(tempRoot, 'demo-wp69-target');
+
+      await scaffoldProject({
+        projectDir: targetDir,
+        templateId: 'basic',
+        packageManager: 'npm',
+        noInstall: true,
+        wpVersion: '6.9',
+        answers: {
+          author: 'Test Runner',
+          description: 'Demo WordPress 6.9 target block',
+          namespace: 'demo-space',
+          slug: 'demo-wp69-target',
+          title: 'Demo WP 6.9 Target',
+        },
+      });
+
+      const generatedPluginBootstrap = fs.readFileSync(
+        path.join(targetDir, 'demo-wp69-target.php'),
+        'utf8',
+      );
+
+      expect(generatedPluginBootstrap).toContain('Requires at least: 6.7');
+      expect(generatedPluginBootstrap).toContain('Tested up to:      6.9');
+    },
   );
 
   test(

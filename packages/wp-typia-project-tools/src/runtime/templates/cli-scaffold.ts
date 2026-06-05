@@ -47,6 +47,9 @@ import {
 	resolveLocalCliPathOption,
 	normalizeOptionalCliString,
 } from "../cli/cli-validation.js";
+import {
+	resolveScaffoldWordPressTargetVersion,
+} from "./scaffold-compatibility.js";
 
 export { getNextSteps, getOptionalOnboarding } from "./cli-scaffold-output.js";
 export type {
@@ -93,6 +96,7 @@ interface RunScaffoldFlowOptions {
 	withMigrationUi?: boolean;
 	withTestPreset?: boolean;
 	withWpEnv?: boolean;
+	wpVersion?: string;
 	yes?: boolean;
 }
 
@@ -139,6 +143,7 @@ export async function runScaffoldFlow({
 	withMigrationUi,
 	withTestPreset,
 	withWpEnv,
+	wpVersion,
 }: RunScaffoldFlowOptions) {
 	const normalizedExternalLayerId =
 		normalizeOptionalCliString(externalLayerId);
@@ -212,6 +217,7 @@ export async function runScaffoldFlow({
 			isInteractive,
 			selectPackageManager,
 		});
+		const resolvedWpVersion = resolveScaffoldWordPressTargetVersion(wpVersion);
 		const resolvedWithWpEnv =
 			resolvedProfile === "plugin-qa"
 				? true
@@ -276,6 +282,7 @@ export async function runScaffoldFlow({
 			withMigrationUi: resolvedWithMigrationUi,
 			withTestPreset: resolvedWithTestPreset,
 			withWpEnv: resolvedWithWpEnv,
+			wpVersion: resolvedWpVersion,
 		} satisfies ScaffoldEmissionOptions;
 		const resolvedResult = dryRun
 			? await buildScaffoldDryRunPlan(emissionOptions)

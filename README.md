@@ -58,6 +58,11 @@ package-runner convenience, not as a runtime requirement for `wp-typia`.
 `wp-typia <project-dir>` remains available as a backward-compatible alias to
 `create` when `<project-dir>` is the only positional argument.
 
+New scaffolds target WordPress 7.0 for generated `Tested up to` plugin headers
+by default. Use `--wp-version 6.9` when you need the legacy 6.9 target. The
+generated `Requires at least` header still follows the selected features' hard
+floor instead of being raised only because the target is 7.0.
+
 For an install outside package runners, use the standalone installers published
 with each GitHub Release:
 
@@ -175,6 +180,7 @@ Typia manifests.
 
 ```bash
 npx wp-typia create my-block --template basic --package-manager pnpm --yes --no-install
+npx wp-typia create my-block --template basic --wp-version 6.9 --package-manager npm --yes --no-install
 npx wp-typia create my-block --template interactivity --package-manager npm --yes --no-install
 npx wp-typia create my-block --template persistence --data-storage custom-table --persistence-policy authenticated --package-manager bun --yes --no-install
 npx wp-typia create my-block --template persistence --data-storage custom-table --persistence-policy public --package-manager npm --yes --no-install

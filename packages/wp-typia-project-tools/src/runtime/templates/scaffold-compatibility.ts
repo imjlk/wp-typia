@@ -13,6 +13,10 @@ import {
   resolveAiFeatureCapabilityPlan,
 } from '../add/ai-feature-capability.js';
 import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliDiagnosticCodeError,
+} from '../cli/cli-diagnostics.js';
+import {
   parseVersionFloorParts,
   pickHigherVersionFloor,
 } from '../shared/version-floor.js';
@@ -33,6 +37,14 @@ export interface ScaffoldCompatibilityPolicy {
   capabilityPlan: ResolvedAiFeatureCapabilityPlan;
   pluginHeader: ScaffoldPluginHeaderCompatibility;
 }
+
+export const SCAFFOLD_WORDPRESS_TARGET_VERSIONS = ['6.9', '7.0'] as const;
+
+export type ScaffoldWordPressTargetVersion =
+  (typeof SCAFFOLD_WORDPRESS_TARGET_VERSIONS)[number];
+
+export const DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION: ScaffoldWordPressTargetVersion =
+  '7.0';
 
 /**
  * Serializable compatibility metadata stored in generated workspace inventory.
@@ -67,6 +79,41 @@ export const DEFAULT_SCAFFOLD_COMPATIBILITY: ScaffoldPluginHeaderCompatibility =
     requiresPhp: '8.0',
     testedUpTo: '6.9',
   };
+
+export function isScaffoldWordPressTargetVersion(
+  value: string,
+): value is ScaffoldWordPressTargetVersion {
+  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(value);
+}
+
+export function resolveScaffoldWordPressTargetVersion(
+  value?: string,
+): ScaffoldWordPressTargetVersion {
+  if (value === undefined || value.trim().length === 0) {
+    return DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION;
+  }
+
+  const normalized = value.trim();
+  if (isScaffoldWordPressTargetVersion(normalized)) {
+    return normalized;
+  }
+
+  throw createCliDiagnosticCodeError(
+    CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    `Unsupported --wp-version "${value}". Expected one of: ${SCAFFOLD_WORDPRESS_TARGET_VERSIONS.join(', ')}.`,
+  );
+}
+
+export function createScaffoldCompatibilityBaseline(
+  wpVersion?: ScaffoldWordPressTargetVersion,
+): ScaffoldPluginHeaderCompatibility {
+  const testedUpTo = wpVersion ?? DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION;
+
+  return {
+    ...DEFAULT_SCAFFOLD_COMPATIBILITY,
+    testedUpTo,
+  };
+}
 
 /**
  * Optional WordPress AI Client surface used by server-only AI feature scaffold.

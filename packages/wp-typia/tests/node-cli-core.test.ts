@@ -243,6 +243,7 @@ describe('Gunshi CLI core routing', () => {
     expect(createHelp.stdout).toContain('Runtime: Node-first wp-typia CLI');
     expect(createHelp.stdout).toContain('Supported flags:');
     expect(createHelp.stdout).toContain('--template');
+    expect(createHelp.stdout).toContain('--wp-version');
 
     expect(commandHelp.error).toBeUndefined();
     expect(commandHelp.exitCode).toBe(0);
