@@ -1,6 +1,7 @@
 import ts from "typescript";
 
 import { getPropertyNameText } from "../shared/ts-property-names.js";
+import { parseVersionFloorParts } from "../shared/version-floor.js";
 import {
 	assertParsedInventoryEntry,
 	type InventoryEntryFieldValue,
@@ -210,6 +211,27 @@ function getOptionalNestedStringProperty(
 	return expression.text;
 }
 
+function getOptionalVersionFloorProperty(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+	context: string,
+): string | undefined {
+	const value = getOptionalNestedStringProperty(objectLiteral, key, context);
+	if (value === undefined) {
+		return undefined;
+	}
+
+	try {
+		parseVersionFloorParts(value);
+	} catch {
+		throw new Error(
+			`${context}.${key} must be a dotted numeric version such as "6.7" or "8.1.2" in scripts/block-config.ts.`,
+		);
+	}
+
+	return value;
+}
+
 function getRequiredStringArrayProperty(
 	objectLiteral: ts.ObjectLiteralExpression,
 	key: string,
@@ -250,12 +272,12 @@ function parseCompatibilityConfigLiteral(
 		);
 	}
 
-	const php = getOptionalNestedStringProperty(
+	const php = getOptionalVersionFloorProperty(
 		hardMinimumsObject,
 		"php",
 		`${context}.hardMinimums`,
 	);
-	const wordpress = getOptionalNestedStringProperty(
+	const wordpress = getOptionalVersionFloorProperty(
 		hardMinimumsObject,
 		"wordpress",
 		`${context}.hardMinimums`,

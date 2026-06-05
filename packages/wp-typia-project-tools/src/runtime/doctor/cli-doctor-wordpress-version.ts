@@ -2,14 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseScaffoldBlockMetadata } from "@wp-typia/block-runtime/blocks";
-import ts from "typescript";
+import { WORDPRESS_BLOCK_API_COMPATIBILITY } from "@wp-typia/block-types/blocks/compatibility";
 
 import {
 	createDoctorCheck,
 	resolveWorkspaceBootstrapPath,
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
-import { getPropertyNameText } from "../shared/ts-property-names.js";
 import {
 	compareVersionFloors,
 	pickHigherVersionFloor,
@@ -46,14 +45,37 @@ const WORDPRESS_VERSION_CHECK_CODES = {
 	testedTarget: "wp-typia.workspace.wordpress.tested-target",
 } as const;
 
-const BLOCK_METADATA_WORDPRESS_FLOORS = {
-	blockHooks: "6.4",
-	supportsInteractivity: "6.5",
-	supportsSplitting: "6.5",
-} as const;
-
 function isEnabledMetadataValue(value: unknown): boolean {
 	return value !== undefined && value !== false && value !== null;
+}
+
+function getNestedMetadataValue(
+	object: Record<string, unknown> | undefined,
+	key: string,
+): unknown {
+	if (!object) {
+		return undefined;
+	}
+	if (Object.prototype.hasOwnProperty.call(object, key)) {
+		return object[key];
+	}
+
+	return key
+		.split(".")
+		.reduce<unknown>((current, segment) => {
+			if (
+				current === null ||
+				typeof current !== "object" ||
+				Array.isArray(current)
+			) {
+				return undefined;
+			}
+
+			const record = current as Record<string, unknown>;
+			return Object.prototype.hasOwnProperty.call(record, segment)
+				? record[segment]
+				: undefined;
+		}, object);
 }
 
 function getBootstrapHeaderValue(
@@ -96,6 +118,22 @@ function pushRequirement(
 		label,
 		version,
 	});
+}
+
+function pushBlockApiRequirement(
+	requirements: WordPressVersionRequirement[],
+	labelPrefix: string,
+	entry: { label: string; since: string },
+): void {
+	pushRequirement(requirements, `${labelPrefix} ${entry.label}`, entry.since);
+}
+
+function readExistingTextFile(filePath: string): string | undefined {
+	if (!fs.existsSync(filePath)) {
+		return undefined;
+	}
+
+	return fs.readFileSync(filePath, "utf8");
 }
 
 function collectBlockMetadataRequirements(
@@ -141,26 +179,31 @@ function collectBlockMetadataRequirements(
 			continue;
 		}
 
-		if (isEnabledMetadataValue(blockJson.supports?.interactivity)) {
-			pushRequirement(
-				requirements,
-				`Block ${block.slug} supports.interactivity`,
-				BLOCK_METADATA_WORDPRESS_FLOORS.supportsInteractivity,
-			);
+		for (const [feature, entry] of Object.entries(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports,
+		)) {
+			if (isEnabledMetadataValue(getNestedMetadataValue(blockJson.supports, feature))) {
+				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+			}
 		}
-		if (isEnabledMetadataValue(blockJson.supports?.splitting)) {
-			pushRequirement(
-				requirements,
-				`Block ${block.slug} supports.splitting`,
-				BLOCK_METADATA_WORDPRESS_FLOORS.supportsSplitting,
-			);
+
+		for (const [feature, entry] of Object.entries(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockMetadata,
+		)) {
+			if (isEnabledMetadataValue(getNestedMetadataValue(blockJson, feature))) {
+				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+			}
 		}
-		if (blockJson.blockHooks !== undefined) {
-			pushRequirement(
-				requirements,
-				`Block ${block.slug} blockHooks`,
-				BLOCK_METADATA_WORDPRESS_FLOORS.blockHooks,
-			);
+
+		for (const [feature, entry] of Object.entries(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings,
+		)) {
+			if (
+				(entry.runtime as readonly string[]).includes("block-json") &&
+				isEnabledMetadataValue(getNestedMetadataValue(blockJson, feature))
+			) {
+				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+			}
 		}
 	}
 
@@ -170,122 +213,87 @@ function collectBlockMetadataRequirements(
 	};
 }
 
-function findExportedArrayLiteral(
-	sourceFile: ts.SourceFile,
-	exportName: string,
-): ts.ArrayLiteralExpression | null {
-	for (const statement of sourceFile.statements) {
-		if (
-			!ts.isVariableStatement(statement) ||
-			!statement.modifiers?.some(
-				(modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-			)
-		) {
-			continue;
-		}
-
-		for (const declaration of statement.declarationList.declarations) {
-			if (
-				ts.isIdentifier(declaration.name) &&
-				declaration.name.text === exportName &&
-				declaration.initializer &&
-				ts.isArrayLiteralExpression(declaration.initializer)
-			) {
-				return declaration.initializer;
-			}
-		}
-	}
-
-	return null;
-}
-
-function getObjectProperty(
-	objectLiteral: ts.ObjectLiteralExpression,
-	key: string,
-): ts.Expression | undefined {
-	for (const property of objectLiteral.properties) {
-		if (!ts.isPropertyAssignment(property)) {
-			continue;
-		}
-		if (getPropertyNameText(property.name) === key) {
-			return property.initializer;
-		}
-	}
-
-	return undefined;
-}
-
-function getObjectLiteralProperty(
-	objectLiteral: ts.ObjectLiteralExpression | undefined,
-	key: string,
-): ts.ObjectLiteralExpression | undefined {
-	const property = objectLiteral ? getObjectProperty(objectLiteral, key) : undefined;
-	return property && ts.isObjectLiteralExpression(property) ? property : undefined;
-}
-
-function getStringLiteralProperty(
-	objectLiteral: ts.ObjectLiteralExpression,
-	key: string,
-): string | undefined {
-	const property = getObjectProperty(objectLiteral, key);
-	return property && ts.isStringLiteralLike(property) ? property.text : undefined;
-}
-
 function collectInventoryCompatibilityRequirements(
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const issues: string[] = [];
 	const requirements: WordPressVersionRequirement[] = [];
-	const sourceFile = ts.createSourceFile(
-		"scripts/block-config.ts",
-		inventory.source,
-		ts.ScriptTarget.Latest,
-		true,
-		ts.ScriptKind.TS,
-	);
 
-	for (const section of [
-		{ exportName: "ABILITIES", label: "Ability" },
-		{ exportName: "AI_FEATURES", label: "AI feature" },
-	] as const) {
-		const arrayLiteral = findExportedArrayLiteral(sourceFile, section.exportName);
-		if (!arrayLiteral) {
-			continue;
-		}
-
-		arrayLiteral.elements.forEach((element, elementIndex) => {
-			if (!ts.isObjectLiteralExpression(element)) {
-				return;
-			}
-			const slug =
-				getStringLiteralProperty(element, "slug") ?? `entry ${elementIndex + 1}`;
-			const compatibility = getObjectLiteralProperty(element, "compatibility");
-			const hardMinimums = getObjectLiteralProperty(
-				compatibility,
-				"hardMinimums",
-			);
-			const wordpressMinimum = hardMinimums
-				? getObjectProperty(hardMinimums, "wordpress")
-				: undefined;
-			if (wordpressMinimum === undefined) {
-				return;
-			}
-			if (!ts.isStringLiteralLike(wordpressMinimum)) {
-				issues.push(
-					`${section.exportName}[${elementIndex}].compatibility.hardMinimums.wordpress must be a string literal.`,
-				);
-				return;
-			}
-
+	for (const ability of inventory.abilities) {
+		const wordpressMinimum = ability.compatibility?.hardMinimums.wordpress;
+		if (wordpressMinimum) {
 			requirements.push({
-				label: `${section.label} ${slug} compatibility metadata`,
-				version: wordpressMinimum.text,
+				label: `Ability ${ability.slug} compatibility metadata`,
+				version: wordpressMinimum,
 			});
-		});
+		}
+	}
+
+	for (const aiFeature of inventory.aiFeatures) {
+		const wordpressMinimum = aiFeature.compatibility?.hardMinimums.wordpress;
+		if (wordpressMinimum) {
+			requirements.push({
+				label: `AI feature ${aiFeature.slug} compatibility metadata`,
+				version: wordpressMinimum,
+			});
+		}
 	}
 
 	return {
-		issues,
+		issues: [],
+		requirements,
+	};
+}
+
+function collectBindingSourceRequirements(
+	workspace: WorkspaceProject,
+	inventory: WorkspaceInventory,
+): WordPressVersionRequirementCollection {
+	const requirements: WordPressVersionRequirement[] = [];
+	const bindingEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings;
+
+	for (const bindingSource of inventory.bindingSources) {
+		pushBlockApiRequirement(
+			requirements,
+			`Binding source ${bindingSource.slug}`,
+			bindingEntries.serverRegistration,
+		);
+		pushBlockApiRequirement(
+			requirements,
+			`Binding source ${bindingSource.slug}`,
+			bindingEntries.editorRegistration,
+		);
+
+		const editorFilePath = path.join(
+			workspace.projectDir,
+			bindingSource.editorFile,
+		);
+		if (readExistingTextFile(editorFilePath)?.includes("getFieldsList")) {
+			pushBlockApiRequirement(
+				requirements,
+				`Binding source ${bindingSource.slug}`,
+				bindingEntries.editorFieldsList,
+			);
+		}
+
+		const serverFilePath = path.join(
+			workspace.projectDir,
+			bindingSource.serverFile,
+		);
+		if (
+			readExistingTextFile(serverFilePath)?.includes(
+				"block_bindings_supported_attributes_",
+			)
+		) {
+			pushBlockApiRequirement(
+				requirements,
+				`Binding source ${bindingSource.slug}`,
+				bindingEntries.supportedAttributesFilter,
+			);
+		}
+	}
+
+	return {
+		issues: [],
 		requirements,
 	};
 }
@@ -295,13 +303,22 @@ function collectWordPressVersionRequirements(
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
 	const blockRequirements = collectBlockMetadataRequirements(workspace, inventory);
+	const bindingRequirements = collectBindingSourceRequirements(
+		workspace,
+		inventory,
+	);
 	const inventoryRequirements =
 		collectInventoryCompatibilityRequirements(inventory);
 
 	return {
-		issues: [...blockRequirements.issues, ...inventoryRequirements.issues],
+		issues: [
+			...blockRequirements.issues,
+			...bindingRequirements.issues,
+			...inventoryRequirements.issues,
+		],
 		requirements: [
 			...blockRequirements.requirements,
+			...bindingRequirements.requirements,
 			...inventoryRequirements.requirements,
 		],
 	};
