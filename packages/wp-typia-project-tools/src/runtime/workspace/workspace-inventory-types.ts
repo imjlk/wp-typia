@@ -1,3 +1,5 @@
+import type { ScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
+
 export interface WorkspaceBlockInventoryEntry {
 	apiTypesFile?: string;
 	attributeTypeName?: string;
@@ -122,6 +124,7 @@ export interface WorkspacePostMetaInventoryEntry {
  */
 export interface WorkspaceAbilityInventoryEntry {
 	clientFile: string;
+	compatibility?: ScaffoldCompatibilityConfig;
 	configFile: string;
 	dataFile: string;
 	inputSchemaFile: string;
@@ -144,6 +147,7 @@ export interface WorkspaceAiFeatureInventoryEntry {
 	aiSchemaFile: string;
 	apiFile: string;
 	clientFile: string;
+	compatibility?: ScaffoldCompatibilityConfig;
 	dataFile: string;
 	namespace: string;
 	openApiFile: string;

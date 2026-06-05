@@ -288,6 +288,17 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 				"src/ai-features/brief-suggestions/ai-schemas/feature-result.ai.schema.json",
 			apiFile: "src/ai-features/brief-suggestions/api.ts",
 			clientFile: "src/ai-features/brief-suggestions/api-client.ts",
+			compatibility: {
+				hardMinimums: {},
+				mode: "optional",
+				optionalFeatureIds: ["wordpress-ai-client"],
+				optionalFeatures: ["WordPress AI Client"],
+				requiredFeatureIds: [],
+				requiredFeatures: [],
+				runtimeGates: [
+					"WordPress AI Client: wordpress-core-feature WordPress AI Client",
+				],
+			},
 			dataFile: "src/ai-features/brief-suggestions/data.ts",
 			namespace: "demo-space/v1",
 			openApiFile: "src/ai-features/brief-suggestions/api.openapi.json",

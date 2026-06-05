@@ -243,6 +243,8 @@ function demo_space_enqueue_workflow_abilities() {
 			'outputTypeName: "ReviewWorkflowAbilityOutput"',
 		);
 		expect(blockConfigSource).toContain('"mode": "required"');
+		expect(blockConfigSource).toContain('"hardMinimums": {');
+		expect(blockConfigSource).toContain('"wordpress": "7.0"');
 		expect(blockConfigSource).toContain("WordPress Abilities API");
 		expect(blockConfigSource).toContain("@wordpress/core-abilities");
 		expect(bootstrapSource).toContain("Requires at least: 7.0");
@@ -290,6 +292,27 @@ function demo_space_enqueue_workflow_abilities() {
 		expect(phpSource).toContain("output.schema.json");
 		expect(abilityEntry).toEqual({
 			clientFile: "src/abilities/review-workflow/client.ts",
+			compatibility: {
+				hardMinimums: {
+					wordpress: "7.0",
+				},
+				mode: "required",
+				optionalFeatureIds: [],
+				optionalFeatures: [],
+				requiredFeatureIds: [
+					"wordpress-server-abilities",
+					"wordpress-core-abilities",
+				],
+				requiredFeatures: [
+					"WordPress Abilities API",
+					"@wordpress/core-abilities",
+				],
+				runtimeGates: [
+					"WordPress Abilities API: php-function wp_register_ability",
+					"WordPress Abilities API: php-function wp_register_ability_category",
+					"@wordpress/core-abilities: script-package @wordpress/core-abilities",
+				],
+			},
 			configFile: "src/abilities/review-workflow/ability.config.json",
 			dataFile: "src/abilities/review-workflow/data.ts",
 			inputSchemaFile: "src/abilities/review-workflow/input.schema.json",
@@ -352,6 +375,34 @@ function demo_space_enqueue_workflow_abilities() {
 				(check) => check.label === "Ability review-workflow",
 			)?.status,
 		).toBe("pass");
+
+		const wordpressVersionDoctorOutput = runCli(
+			"node",
+			[entryPath, "doctor", "--wp-version-check", "--format", "json"],
+			{
+				cwd: targetDir,
+			},
+		);
+		const wordpressVersionDoctorChecks = parseJsonObjectFromOutput<{
+			checks: Array<{ code?: string; detail: string; status: string }>;
+			summary: { exitCode: 0 | 1; exitFailureCount: number };
+		}>(wordpressVersionDoctorOutput);
+		const featureMinimumCheck = wordpressVersionDoctorChecks.checks.find(
+			(check) => check.code === "wp-typia.workspace.wordpress.feature-minimum",
+		);
+		const testedTargetCheck = wordpressVersionDoctorChecks.checks.find(
+			(check) => check.code === "wp-typia.workspace.wordpress.tested-target",
+		);
+		expect(wordpressVersionDoctorChecks.summary.exitCode).toBe(0);
+		expect(wordpressVersionDoctorChecks.summary.exitFailureCount).toBe(0);
+		expect(featureMinimumCheck?.status).toBe("pass");
+		expect(featureMinimumCheck?.detail).toContain("Requires at least 7.0");
+		expect(featureMinimumCheck?.detail).toContain("feature floor 7.0");
+		expect(featureMinimumCheck?.detail).toContain(
+			"Ability review-workflow compatibility metadata",
+		);
+		expect(testedTargetCheck?.status).toBe("pass");
+		expect(testedTargetCheck?.detail).toContain("Tested up to 7.0");
 
 		runGeneratedScript(targetDir, "scripts/sync-abilities.ts", ["--check"]);
 		typecheckGeneratedProject(targetDir);

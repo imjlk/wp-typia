@@ -7,6 +7,7 @@ import {
 	type InventoryEntryParserDescriptor,
 	type InventorySectionDescriptor,
 } from "./workspace-inventory-parser-validation.js";
+import type { ScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
 
 function findExportedArrayLiteral(
 	sourceFile: ts.SourceFile,
@@ -142,6 +143,179 @@ function getOptionalBooleanProperty(
 	return undefined;
 }
 
+function findObjectPropertyExpression(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+): ts.Expression | undefined {
+	for (const property of objectLiteral.properties) {
+		if (!ts.isPropertyAssignment(property)) {
+			continue;
+		}
+		if (getPropertyNameText(property.name) === key) {
+			return property.initializer;
+		}
+	}
+
+	return undefined;
+}
+
+function getRequiredObjectLiteralProperty(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+	context: string,
+): ts.ObjectLiteralExpression {
+	const expression = findObjectPropertyExpression(objectLiteral, key);
+	if (!expression) {
+		throw new Error(`${context}.${key} is required in scripts/block-config.ts.`);
+	}
+	if (!ts.isObjectLiteralExpression(expression)) {
+		throw new Error(
+			`${context}.${key} must be an object literal in scripts/block-config.ts.`,
+		);
+	}
+	return expression;
+}
+
+function getRequiredStringProperty(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+	context: string,
+): string {
+	const expression = findObjectPropertyExpression(objectLiteral, key);
+	if (!expression) {
+		throw new Error(`${context}.${key} is required in scripts/block-config.ts.`);
+	}
+	if (!ts.isStringLiteralLike(expression)) {
+		throw new Error(
+			`${context}.${key} must be a string literal in scripts/block-config.ts.`,
+		);
+	}
+	return expression.text;
+}
+
+function getOptionalNestedStringProperty(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+	context: string,
+): string | undefined {
+	const expression = findObjectPropertyExpression(objectLiteral, key);
+	if (!expression) {
+		return undefined;
+	}
+	if (!ts.isStringLiteralLike(expression)) {
+		throw new Error(
+			`${context}.${key} must be a string literal in scripts/block-config.ts.`,
+		);
+	}
+	return expression.text;
+}
+
+function getRequiredStringArrayProperty(
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+	context: string,
+): string[] {
+	const expression = findObjectPropertyExpression(objectLiteral, key);
+	if (!expression) {
+		throw new Error(`${context}.${key} is required in scripts/block-config.ts.`);
+	}
+	if (!ts.isArrayLiteralExpression(expression)) {
+		throw new Error(
+			`${context}.${key} must be an array literal in scripts/block-config.ts.`,
+		);
+	}
+	return expression.elements.map((element, itemIndex) => {
+		if (!ts.isStringLiteralLike(element)) {
+			throw new Error(
+				`${context}.${key}[${itemIndex}] must be a string literal in scripts/block-config.ts.`,
+			);
+		}
+		return element.text;
+	});
+}
+
+function parseCompatibilityConfigLiteral(
+	objectLiteral: ts.ObjectLiteralExpression,
+	context: string,
+): ScaffoldCompatibilityConfig {
+	const hardMinimumsObject = getRequiredObjectLiteralProperty(
+		objectLiteral,
+		"hardMinimums",
+		context,
+	);
+	const mode = getRequiredStringProperty(objectLiteral, "mode", context);
+	if (mode !== "baseline" && mode !== "optional" && mode !== "required") {
+		throw new Error(
+			`${context}.mode must be baseline, optional, or required in scripts/block-config.ts.`,
+		);
+	}
+
+	const php = getOptionalNestedStringProperty(
+		hardMinimumsObject,
+		"php",
+		`${context}.hardMinimums`,
+	);
+	const wordpress = getOptionalNestedStringProperty(
+		hardMinimumsObject,
+		"wordpress",
+		`${context}.hardMinimums`,
+	);
+
+	return {
+		hardMinimums: {
+			...(php ? { php } : {}),
+			...(wordpress ? { wordpress } : {}),
+		},
+		mode,
+		optionalFeatureIds: getRequiredStringArrayProperty(
+			objectLiteral,
+			"optionalFeatureIds",
+			context,
+		),
+		optionalFeatures: getRequiredStringArrayProperty(
+			objectLiteral,
+			"optionalFeatures",
+			context,
+		),
+		requiredFeatureIds: getRequiredStringArrayProperty(
+			objectLiteral,
+			"requiredFeatureIds",
+			context,
+		),
+		requiredFeatures: getRequiredStringArrayProperty(
+			objectLiteral,
+			"requiredFeatures",
+			context,
+		),
+		runtimeGates: getRequiredStringArrayProperty(
+			objectLiteral,
+			"runtimeGates",
+			context,
+		),
+	};
+}
+
+function getOptionalCompatibilityConfigProperty(
+	entryName: string,
+	elementIndex: number,
+	objectLiteral: ts.ObjectLiteralExpression,
+	key: string,
+): ScaffoldCompatibilityConfig | undefined {
+	const expression = findObjectPropertyExpression(objectLiteral, key);
+	if (!expression) {
+		return undefined;
+	}
+	if (!ts.isObjectLiteralExpression(expression)) {
+		throw new Error(
+			`${entryName}[${elementIndex}].${key} must be an object literal in scripts/block-config.ts.`,
+		);
+	}
+	return parseCompatibilityConfigLiteral(
+		expression,
+		`${entryName}[${elementIndex}].${key}`,
+	);
+}
+
 function parseInventoryEntries<T extends object>(
 	arrayLiteral: ts.ArrayLiteralExpression,
 	descriptor: InventoryEntryParserDescriptor,
@@ -164,6 +338,13 @@ function parseInventoryEntries<T extends object>(
 							element,
 							field.key,
 						)
+					: kind === "compatibilityConfig"
+						? getOptionalCompatibilityConfigProperty(
+								descriptor.entryName,
+								elementIndex,
+								element,
+								field.key,
+							)
 					: kind === "boolean"
 						? getOptionalBooleanProperty(
 								descriptor.entryName,

@@ -424,6 +424,7 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 				entryName: "ABILITIES",
 				fields: [
 					{ key: "clientFile", required: true },
+					{ key: "compatibility", kind: "compatibilityConfig" },
 					{ key: "configFile", required: true },
 					{ key: "dataFile", required: true },
 					{ key: "inputSchemaFile", required: true },
@@ -459,6 +460,7 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 					{ key: "aiSchemaFile", required: true },
 					{ key: "apiFile", required: true },
 					{ key: "clientFile", required: true },
+					{ key: "compatibility", kind: "compatibilityConfig" },
 					{ key: "dataFile", required: true },
 					{ key: "namespace", required: true },
 					{ key: "openApiFile", required: true },
