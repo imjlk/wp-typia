@@ -131,11 +131,11 @@ test('writes WordPress target plugin headers through the portable CLI bin', () =
     expect(wp70Result.status).toBe(0);
     expect(wp70Result.stderr).toBe('');
     expect(wp70Bootstrap).toContain('Requires at least: 6.7');
-    expect(wp70Bootstrap).toContain('Tested up to:      7.0');
+    expect(wp70Bootstrap).toMatch(/Tested up to:\s+7\.0/);
     expect(wp69Result.status).toBe(0);
     expect(wp69Result.stderr).toBe('');
     expect(wp69Bootstrap).toContain('Requires at least: 6.7');
-    expect(wp69Bootstrap).toContain('Tested up to:      6.9');
+    expect(wp69Bootstrap).toMatch(/Tested up to:\s+6\.9/);
   } finally {
     fs.rmSync(tempRoot, { force: true, recursive: true });
   }

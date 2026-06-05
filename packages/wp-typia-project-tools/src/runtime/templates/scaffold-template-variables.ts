@@ -37,7 +37,13 @@ import {
   type ScaffoldWordPressTargetVersion,
 } from "./scaffold-compatibility.js";
 
+/**
+ * Optional overrides for scaffold template variable generation.
+ */
 export interface GetTemplateVariablesOptions {
+  /**
+   * WordPress target version used for generated plugin `Tested up to` headers.
+   */
   wpVersion?: ScaffoldWordPressTargetVersion;
 }
 
@@ -46,6 +52,7 @@ export interface GetTemplateVariablesOptions {
  *
  * @param templateId Selected scaffold template identifier.
  * @param answers Normalized scaffold answers collected from defaults, flags, and prompts.
+ * @param options Optional compatibility overrides used while building variables.
  * @returns Template variables ready for file interpolation and generated artifacts.
  */
 export function getTemplateVariables(
