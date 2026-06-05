@@ -56,7 +56,7 @@ For example, this project config:
 {
   "wordpress": {
     "minVersion": "6.7",
-    "testedVersions": ["6.7", "6.8", "6.9"]
+    "testedVersions": ["6.7", "6.8", "6.9", "7.0"]
   },
   "compatibility": {
     "strict": true,
@@ -145,6 +145,7 @@ Scaffold a new project.
 
 ```bash
 wp-typia create <project-dir> --template basic --package-manager npm --yes
+wp-typia create <project-dir> --template basic --wp-version 6.9 --package-manager npm --yes
 wp-typia create <project-dir> --template persistence --data-storage custom-table --persistence-policy public
 wp-typia create <project-dir> --template workspace
 wp-typia create <project-dir> --template workspace --profile plugin-qa
@@ -156,6 +157,7 @@ Common flags:
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--template <id \| path \| github:... \| npm-package>` | Template id or external template source. Built-ins include `basic`, `interactivity`, `persistence`, `compound`, `query-loop`, and the `workspace` alias. |
 | `--package-manager <bun \| npm \| pnpm \| yarn>`       | Package manager for generated install and script commands.                                                                                               |
+| `--wp-version <6.9 \| 7.0>`                            | WordPress target for generated `Tested up to` plugin headers. Defaults to `7.0`; use `6.9` for legacy scaffold output.                                   |
 | `--yes`                                                | Accept non-interactive defaults.                                                                                                                         |
 | `--no-install`                                         | Skip dependency installation.                                                                                                                            |
 | `--dry-run`                                            | Preview generated files without writing the target directory.                                                                                            |
@@ -177,6 +179,12 @@ Common flags:
 
 The positional alias `wp-typia <project-dir>` remains available only for
 unambiguous create invocations with a single local project directory.
+
+`wp-typia create` defaults generated plugin `Tested up to` headers to WordPress
+7.0. This target does not by itself raise `Requires at least`; the minimum
+header stays at the selected scaffold feature floor, such as the baseline 6.7
+for a basic scaffold. Pass `--wp-version 6.9` to reproduce legacy 6.9 target
+headers.
 
 ### Generated slug casing and acronyms
 

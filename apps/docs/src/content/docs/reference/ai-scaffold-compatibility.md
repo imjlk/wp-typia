@@ -9,11 +9,15 @@ capability.
 
 ## Baseline
 
-Generated non-AI projects keep the current baseline:
+Generated non-AI projects keep the current hard-floor baseline:
 
 - WordPress `Requires at least: 6.7`
-- WordPress `Tested up to: 6.9`
 - PHP `Requires PHP: 8.0`
+
+`wp-typia create` targets WordPress 7.0 for generated `Tested up to` plugin
+headers by default. Use `--wp-version 6.9` to restore the legacy 6.9 target.
+Changing the target does not by itself raise `Requires at least`; required
+scaffold capabilities still own the hard floor.
 
 The baseline also applies to optional AI features. Optional features must use
 runtime gates and graceful degradation instead of raising the plugin header

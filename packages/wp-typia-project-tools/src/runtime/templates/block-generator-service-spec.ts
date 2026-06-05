@@ -29,7 +29,12 @@ import {
 	buildFrontendCssClassName,
 	resolveScaffoldIdentifiers,
 } from "./scaffold-identifiers.js";
-import { resolveScaffoldCompatibilityPolicy } from "./scaffold-compatibility.js";
+import {
+	createScaffoldCompatibilityBaseline,
+	DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION,
+	resolveScaffoldCompatibilityPolicy,
+	type ScaffoldWordPressTargetVersion,
+} from "./scaffold-compatibility.js";
 import { attachScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
 import type {
 	DataStorageMode,
@@ -80,6 +85,7 @@ export interface BlockSpec {
 		withMigrationUi: boolean;
 		withTestPreset: boolean;
 		withWpEnv: boolean;
+		wpVersion: ScaffoldWordPressTargetVersion;
 	};
 	template: {
 		description: string;
@@ -121,6 +127,7 @@ export interface PlanBlockInput {
 	queryPostType?: string;
 	withTestPreset?: boolean;
 	withWpEnv?: boolean;
+	wpVersion?: ScaffoldWordPressTargetVersion;
 }
 
 export interface PlanBlockResult {
@@ -211,6 +218,7 @@ export function createBuiltInBlockSpec({
 	withMigrationUi = false,
 	withTestPreset = false,
 	withWpEnv = false,
+	wpVersion,
 }: Omit<PlanBlockInput, "allowExistingDir" | "cwd" | "noInstall" | "packageManager" | "projectDir" | "variant">): BlockSpec {
 	const template = getTemplateById(templateId);
 	const metadataDefaults = getBuiltInTemplateMetadataDefaults(templateId);
@@ -267,6 +275,7 @@ export function createBuiltInBlockSpec({
 			withMigrationUi,
 			withTestPreset,
 			withWpEnv,
+			wpVersion: wpVersion ?? DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION,
 		},
 		template: {
 			description: template.description,
@@ -312,7 +321,9 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		? spec.persistence.persistencePolicy
 		: "authenticated";
 	const queryVariationNamespace = `${namespace}/${slug}`;
-	const compatibility = resolveScaffoldCompatibilityPolicy([]);
+	const compatibility = resolveScaffoldCompatibilityPolicy([], {
+		baseline: createScaffoldCompatibilityBaseline(spec.runtime.wpVersion),
+	});
 
 	const flatVariables: FlatScaffoldTemplateVariables = {
 		alternateRenderTargetsCsv: formatAlternateRenderTargets(

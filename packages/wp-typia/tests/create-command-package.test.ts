@@ -75,6 +75,72 @@ test('emits structured create completion output in portable CLI JSON mode', () =
   }
 });
 
+test('writes WordPress target plugin headers through the portable CLI bin', () => {
+  const tempRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'wp-typia-create-wp-target-'),
+  );
+
+  try {
+    const wp70Result = runCapturedCommand(
+      process.execPath,
+      [
+        entryPath,
+        'create',
+        'demo-wp70',
+        '--template',
+        'basic',
+        '--package-manager',
+        'npm',
+        '--yes',
+        '--no-install',
+      ],
+      {
+        cwd: tempRoot,
+        env: withoutLocalBunEnv(),
+      },
+    );
+    const wp69Result = runCapturedCommand(
+      process.execPath,
+      [
+        entryPath,
+        'create',
+        'demo-wp69',
+        '--template',
+        'basic',
+        '--package-manager',
+        'npm',
+        '--yes',
+        '--no-install',
+        '--wp-version',
+        '6.9',
+      ],
+      {
+        cwd: tempRoot,
+        env: withoutLocalBunEnv(),
+      },
+    );
+    const wp70Bootstrap = fs.readFileSync(
+      path.join(tempRoot, 'demo-wp70', 'demo-wp70.php'),
+      'utf8',
+    );
+    const wp69Bootstrap = fs.readFileSync(
+      path.join(tempRoot, 'demo-wp69', 'demo-wp69.php'),
+      'utf8',
+    );
+
+    expect(wp70Result.status).toBe(0);
+    expect(wp70Result.stderr).toBe('');
+    expect(wp70Bootstrap).toContain('Requires at least: 6.7');
+    expect(wp70Bootstrap).toMatch(/Tested up to:\s+7\.0/);
+    expect(wp69Result.status).toBe(0);
+    expect(wp69Result.stderr).toBe('');
+    expect(wp69Bootstrap).toContain('Requires at least: 6.7');
+    expect(wp69Bootstrap).toMatch(/Tested up to:\s+6\.9/);
+  } finally {
+    fs.rmSync(tempRoot, { force: true, recursive: true });
+  }
+});
+
 test('honors NO_COLOR for ASCII-safe status markers through the portable CLI bin', () => {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'wp-typia-no-color-markers-'),
@@ -323,6 +389,50 @@ test('emits a machine-readable invalid-argument error code for create variant fa
     expect(parsed.error?.code).toBe('invalid-argument');
     expect(parsed.error?.message).toContain(
       '--variant is only supported for official external template configs',
+    );
+  } finally {
+    fs.rmSync(targetDir, { force: true, recursive: true });
+  }
+});
+
+test('emits a machine-readable invalid-argument error code for unsupported WordPress targets', () => {
+  const targetDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'wp-typia-create-invalid-wp-target-'),
+  );
+  fs.rmSync(targetDir, { force: true, recursive: true });
+
+  try {
+    const result = runCapturedCommand(
+      process.execPath,
+      [
+        entryPath,
+        'create',
+        targetDir,
+        '--template',
+        'basic',
+        '--wp-version',
+        '7.1',
+        '--yes',
+        '--no-install',
+        '--format',
+        'json',
+      ],
+      {
+        env: withoutLocalBunEnv(),
+      },
+    );
+    const parsed = parseJsonObjectFromOutput<{
+      error?: { code?: string; command?: string; message?: string };
+      ok?: boolean;
+    }>(result.stderr);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error?.command).toBe('create');
+    expect(parsed.error?.code).toBe('invalid-argument');
+    expect(parsed.error?.message).toContain(
+      'Unsupported --wp-version "7.1". Expected one of: 6.9, 7.0.',
     );
   } finally {
     fs.rmSync(targetDir, { force: true, recursive: true });

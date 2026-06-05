@@ -170,7 +170,7 @@ test(
     expect(pluginBootstrap).toContain(
       "Text Domain:       demo-persistence-public"
     );
-    expect(pluginBootstrap).toContain("Tested up to:      6.9");
+    expect(pluginBootstrap).toContain("Tested up to:      7.0");
     expect(pluginBootstrap).toContain("Domain Path:       /languages");
     expect(pluginBootstrap).toContain("load_plugin_textdomain(");
     expect(pluginBootstrap).toContain("Pragma', 'no-cache'");
@@ -597,7 +597,7 @@ test(
   expect(pluginBootstrap).toContain(
     "Text Domain:       demo-persistence-authenticated"
   );
-  expect(pluginBootstrap).toContain("Tested up to:      6.9");
+  expect(pluginBootstrap).toContain("Tested up to:      7.0");
   expect(pluginBootstrap).toContain("Domain Path:       /languages");
   expect(pluginBootstrap).toContain("load_plugin_textdomain(");
   expect(pluginBootstrap).toContain(

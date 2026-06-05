@@ -115,6 +115,10 @@ export interface ScaffoldEmissionOptions {
 	 * Whether local wp-env support should be emitted.
 	 */
 	withWpEnv: boolean;
+	/**
+	 * WordPress version target used for generated plugin Tested up to headers.
+	 */
+	wpVersion?: ScaffoldProjectOptions["wpVersion"];
 }
 
 /**

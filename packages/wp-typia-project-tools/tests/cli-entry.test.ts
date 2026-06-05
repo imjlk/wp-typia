@@ -1120,6 +1120,7 @@ test("formatHelpText keeps migration UI flags out of external template usage", (
   expect(helpText).toContain("--inner-blocks-preset");
   expect(helpText).toContain("--template workspace");
   expect(helpText).toContain("--profile <plugin-qa>");
+  expect(helpText).toContain("--wp-version <6.9|7.0>");
   expect(helpText).toContain("--external-layer-source");
   expect(helpText).toContain("--external-layer-id");
   expect(helpText).toContain("@wp-typia/create-workspace-template");

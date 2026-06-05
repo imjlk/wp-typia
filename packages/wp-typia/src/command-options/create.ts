@@ -95,6 +95,11 @@ export const CREATE_OPTION_METADATA = {
     description: 'Include a local wp-env preset.',
     type: 'boolean',
   },
+  'wp-version': {
+    description:
+      'WordPress target for generated plugin headers; one of 6.9 or 7.0. Defaults to 7.0.',
+    type: 'string',
+  },
   yes: {
     argumentKind: 'flag',
     description: 'Accept defaults without prompt fallbacks.',

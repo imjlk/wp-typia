@@ -13,6 +13,10 @@ import {
   resolveAiFeatureCapabilityPlan,
 } from '../add/ai-feature-capability.js';
 import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliDiagnosticCodeError,
+} from '../cli/cli-diagnostics.js';
+import {
   parseVersionFloorParts,
   pickHigherVersionFloor,
 } from '../shared/version-floor.js';
@@ -33,6 +37,23 @@ export interface ScaffoldCompatibilityPolicy {
   capabilityPlan: ResolvedAiFeatureCapabilityPlan;
   pluginHeader: ScaffoldPluginHeaderCompatibility;
 }
+
+/**
+ * Supported WordPress target versions for generated scaffold plugin headers.
+ */
+export const SCAFFOLD_WORDPRESS_TARGET_VERSIONS = ['6.9', '7.0'] as const;
+
+/**
+ * String literal union for scaffold WordPress targets, currently `6.9` or `7.0`.
+ */
+export type ScaffoldWordPressTargetVersion =
+  (typeof SCAFFOLD_WORDPRESS_TARGET_VERSIONS)[number];
+
+/**
+ * Default WordPress target version used when create callers omit `--wp-version`.
+ */
+export const DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION: ScaffoldWordPressTargetVersion =
+  '7.0';
 
 /**
  * Serializable compatibility metadata stored in generated workspace inventory.
@@ -67,6 +88,55 @@ export const DEFAULT_SCAFFOLD_COMPATIBILITY: ScaffoldPluginHeaderCompatibility =
     requiresPhp: '8.0',
     testedUpTo: '6.9',
   };
+
+/**
+ * Return whether a string is one of the supported scaffold WordPress targets.
+ */
+export function isScaffoldWordPressTargetVersion(
+  value: string,
+): value is ScaffoldWordPressTargetVersion {
+  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Resolve CLI input into a supported scaffold WordPress target version.
+ *
+ * Empty input falls back to the default `7.0` target.
+ */
+export function resolveScaffoldWordPressTargetVersion(
+  value?: string,
+): ScaffoldWordPressTargetVersion {
+  if (value === undefined || value.trim().length === 0) {
+    return DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION;
+  }
+
+  const normalized = value.trim();
+  if (isScaffoldWordPressTargetVersion(normalized)) {
+    return normalized;
+  }
+
+  throw createCliDiagnosticCodeError(
+    CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    `Unsupported --wp-version "${value}". Expected one of: ${SCAFFOLD_WORDPRESS_TARGET_VERSIONS.join(', ')}.`,
+  );
+}
+
+/**
+ * Build scaffold header compatibility for the selected WordPress target.
+ *
+ * The selected target controls `Tested up to`; hard minimums remain tied to the
+ * compatibility policy floor.
+ */
+export function createScaffoldCompatibilityBaseline(
+  wpVersion?: ScaffoldWordPressTargetVersion,
+): ScaffoldPluginHeaderCompatibility {
+  const testedUpTo = wpVersion ?? DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION;
+
+  return {
+    ...DEFAULT_SCAFFOLD_COMPATIBILITY,
+    testedUpTo,
+  };
+}
 
 /**
  * Optional WordPress AI Client surface used by server-only AI feature scaffold.

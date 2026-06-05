@@ -221,6 +221,7 @@ export async function executeCreateCommand({
       withMigrationUi: flags['with-migration-ui'] as boolean | undefined,
       withTestPreset: flags['with-test-preset'] as boolean | undefined,
       withWpEnv: flags['with-wp-env'] as boolean | undefined,
+      wpVersion: readOptionalLooseStringFlag(flags, 'wp-version'),
       yes: effectiveYes,
     });
 

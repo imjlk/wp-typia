@@ -15,6 +15,10 @@ The published package executes through the Node-first CLI runtime. `bunx` is a
 supported package-runner invocation, not a requirement for npm-installed
 commands.
 
+Generated scaffolds target WordPress 7.0 for `Tested up to` plugin headers by
+default. Pass `--wp-version 6.9` to restore the legacy 6.9 scaffold target; the
+`Requires at least` header remains tied to the selected feature hard floor.
+
 Extend an existing workspace with:
 
 - `wp-typia add block counter-card --template basic`

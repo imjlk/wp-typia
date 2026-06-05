@@ -825,7 +825,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(pluginBootstrap).toContain(
         "current_user_can( 'read_post', $post->ID )",
       );
-      expect(pluginBootstrap).toContain('Tested up to:      6.9');
+      expect(pluginBootstrap).toContain('Tested up to:      7.0');
       expect(pluginBootstrap).toContain('Domain Path:       /languages');
       expect(pluginBootstrap).toContain('load_plugin_textdomain(');
       expect(pluginBootstrap).toContain(
@@ -1954,7 +1954,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     expect(pluginBootstrap).toContain(
       "permission_callback' => 'demo_compound_public_can_write_publicly'",
     );
-    expect(pluginBootstrap).toContain('Tested up to:      6.9');
+    expect(pluginBootstrap).toContain('Tested up to:      7.0');
     expect(pluginBootstrap).toContain('Domain Path:       /languages');
     expect(pluginBootstrap).toContain('load_plugin_textdomain(');
     expect(pluginBootstrap).toContain(
