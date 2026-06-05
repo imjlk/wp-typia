@@ -38,10 +38,12 @@ const TOP_LEVEL_COMPATIBILITY_SUPPORT_KEYS = [
   "background",
   "contentRole",
   "dimensions",
+  "interactivity",
   "listView",
   "position",
   "renaming",
   "shadow",
+  "splitting",
   "visibility",
 ] as const satisfies readonly BlockSupportFeature[];
 

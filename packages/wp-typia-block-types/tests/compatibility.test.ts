@@ -33,6 +33,21 @@ describe("WordPress block API compatibility matrix", () => {
 			since: "6.6",
 			source: "blockSupportsHandbook",
 		});
+		expect(WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports.interactivity).toMatchObject({
+			runtime: ["block-json", "editor-js"],
+			since: "6.5",
+			source: "blockSupportsHandbook",
+		});
+		expect(WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports.splitting).toMatchObject({
+			runtime: ["block-json", "editor-js"],
+			since: "6.5",
+			source: "blockSupportsHandbook",
+		});
+		expect(WORDPRESS_BLOCK_API_COMPATIBILITY.blockMetadata.blockHooks).toMatchObject({
+			runtime: ["block-json", "php"],
+			since: "6.4",
+			source: "blockMetadataReference",
+		});
 		expect(
 			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations.editorRegistration,
 		).toMatchObject({
@@ -63,6 +78,9 @@ describe("WordPress block API compatibility matrix", () => {
 		expect(WORDPRESS_BLOCK_API_COMPATIBILITY_SOURCES.blockSupportsHandbook).toContain(
 			"developer.wordpress.org",
 		);
+		expect(
+			WORDPRESS_BLOCK_API_COMPATIBILITY_SOURCES.blockMetadataReference,
+		).toContain("developer.wordpress.org");
 	});
 
 	test("compares dotted WordPress versions with missing patch parts as zero", () => {
@@ -160,6 +178,10 @@ describe("WordPress block API compatibility matrix", () => {
 					area: "blockBindings",
 					feature: "futureEditorFieldList",
 				},
+				{
+					area: "blockMetadata",
+					feature: "blockHooks",
+				},
 			],
 			{
 				minVersion: "6.8",
@@ -169,6 +191,7 @@ describe("WordPress block API compatibility matrix", () => {
 
 		expect(manifest.supported.map((feature) => feature.feature)).toEqual([
 			"typography.fontSize",
+			"blockHooks",
 		]);
 		expect(manifest.unsupported.map((feature) => feature.feature)).toEqual([
 			"visibility",

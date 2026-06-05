@@ -3,6 +3,7 @@ export type WordPressVersion =
   | `${number}.${number}.${number}`;
 
 export type WordPressBlockApiCompatibilityArea =
+  | 'blockMetadata'
   | 'blockSupports'
   | 'blockVariations'
   | 'blockBindings';
@@ -88,6 +89,8 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY_SOURCES = {
     'https://developer.wordpress.org/reference/functions/register_block_bindings_source/',
   blockBindingsSupportedAttributes:
     'https://developer.wordpress.org/reference/functions/get_block_bindings_supported_attributes/',
+  blockMetadataReference:
+    'https://developer.wordpress.org/block-editor/reference-guides/block-api/block-metadata/',
   blockSupportsHandbook:
     'https://developer.wordpress.org/block-editor/reference-guides/block-api/block-supports/',
   blockVariationsDevNote:
@@ -101,6 +104,14 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY_SOURCES = {
 } as const;
 
 export const WORDPRESS_BLOCK_API_COMPATIBILITY = {
+  blockMetadata: {
+    blockHooks: {
+      label: 'blockHooks metadata',
+      runtime: ['block-json', 'php'],
+      since: '6.4',
+      source: 'blockMetadataReference',
+    },
+  },
   blockBindings: {
     'metadata.bindings': {
       derivedAttributes: ['metadata'],
@@ -200,6 +211,12 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY = {
       since: '5.9',
       source: 'themeJsonStyleVersions',
     },
+    interactivity: {
+      label: 'supports.interactivity',
+      runtime: ['block-json', 'editor-js'],
+      since: '6.5',
+      source: 'blockSupportsHandbook',
+    },
     listView: {
       label: 'supports.listView',
       runtime: ['block-json', 'editor-js'],
@@ -222,6 +239,12 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY = {
     shadow: {
       derivedAttributes: ['style'],
       label: 'supports.shadow',
+      runtime: ['block-json', 'editor-js'],
+      since: '6.5',
+      source: 'blockSupportsHandbook',
+    },
+    splitting: {
+      label: 'supports.splitting',
       runtime: ['block-json', 'editor-js'],
       since: '6.5',
       source: 'blockSupportsHandbook',
@@ -332,6 +355,9 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY = {
 
 export type WordPressBlockSupportCompatibilityFeature =
   keyof typeof WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports;
+
+export type WordPressBlockMetadataCompatibilityFeature =
+  keyof typeof WORDPRESS_BLOCK_API_COMPATIBILITY.blockMetadata;
 
 export type WordPressBlockVariationCompatibilityFeature =
   keyof typeof WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;

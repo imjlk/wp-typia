@@ -57,6 +57,7 @@ import {
 	createWordPressBlockApiCompatibilityManifest,
 	type WordPressBlockBindingCompatibilityFeature,
 	type WordPressBlockApiCompatibilityFeature,
+	type WordPressBlockMetadataCompatibilityFeature,
 	type WordPressBlockSupportCompatibilityFeature,
 	type WordPressCompatibilitySettings,
 	type WordPressVersion,
@@ -151,6 +152,8 @@ const compatibilityFeature: WordPressBlockApiCompatibilityFeature = {
 };
 const supportCompatibilityFeature: WordPressBlockSupportCompatibilityFeature =
 	"typography.textAlign";
+const metadataCompatibilityFeature: WordPressBlockMetadataCompatibilityFeature =
+	"blockHooks";
 const bindingCompatibilityFeature: WordPressBlockBindingCompatibilityFeature =
 	"editorFieldsList";
 const compatibilityManifest = createWordPressBlockApiCompatibilityManifest(
@@ -504,6 +507,7 @@ void spacingSupportKeys;
 void typographySupportKeys;
 void compatibilityManifest;
 void supportCompatibilityFeature;
+void metadataCompatibilityFeature;
 void bindingCompatibilityFeature;
 void supportsTextAlignSince;
 void proseSupports;

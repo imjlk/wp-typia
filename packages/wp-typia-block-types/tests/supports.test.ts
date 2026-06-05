@@ -183,10 +183,29 @@ describe("defineSupports", () => {
 	test("checks version gates for newer top-level supports", () => {
 		const features = collectBlockSupportsCompatibilityFeatures({
 			contentRole: true,
+			interactivity: true,
 			listView: true,
+			splitting: true,
 		}).map((feature) => feature.feature);
 
-		expect(features).toEqual(["contentRole", "listView"]);
+		expect(features).toEqual([
+			"contentRole",
+			"interactivity",
+			"listView",
+			"splitting",
+		]);
+		expect(() =>
+			defineSupports({
+				minWordPress: "6.4",
+				interactivity: true,
+			}),
+		).toThrow("supports.interactivity requires WordPress 6.5+");
+		expect(() =>
+			defineSupports({
+				minWordPress: "6.4",
+				splitting: true,
+			}),
+		).toThrow("supports.splitting requires WordPress 6.5+");
 		expect(() =>
 			defineSupports({
 				minWordPress: "6.8",
