@@ -1371,14 +1371,15 @@ test("node entry exposes portable CLI help and rejects the removed migrations al
     "Inspect or sync schema-driven MCP metadata."
   );
   expect(doctorHelpOutput).toContain(
-    "Usage: wp-typia doctor [--format json] [--workspace-only]"
+    "Usage: wp-typia doctor [--format json] [--workspace-only] [--wp-version-check]"
   );
   expect(doctorHelpOutput).toContain("Supported flags:");
   expect(doctorHelpOutput).toContain("--format");
   expect(doctorHelpOutput).toContain("--workspace-only");
+  expect(doctorHelpOutput).toContain("--wp-version-check");
   expect(doctorHelpOutput).toContain("machine-readable doctor check output");
   expect(doctorHelpAliasOutput).toContain(
-    "Usage: wp-typia doctor [--format json] [--workspace-only]"
+    "Usage: wp-typia doctor [--format json] [--workspace-only] [--wp-version-check]"
   );
   expect(errorMessage).toContain(
     "`wp-typia migrations` was removed in favor of `wp-typia migrate`."
@@ -1421,11 +1422,12 @@ test("bun entry exposes portable CLI help and rejects the removed migrations ali
     "Inspect or sync schema-driven MCP metadata."
   );
   expect(doctorHelpOutput).toContain(
-    "Usage: wp-typia doctor [--format json] [--workspace-only]"
+    "Usage: wp-typia doctor [--format json] [--workspace-only] [--wp-version-check]"
   );
   expect(doctorHelpOutput).toContain("Supported flags:");
   expect(doctorHelpOutput).toContain("--format");
   expect(doctorHelpOutput).toContain("--workspace-only");
+  expect(doctorHelpOutput).toContain("--wp-version-check");
   expect(doctorHelpOutput).toContain("machine-readable doctor check output");
   expect(errorMessage).toContain(
     "`wp-typia migrations` was removed in favor of `wp-typia migrate`."

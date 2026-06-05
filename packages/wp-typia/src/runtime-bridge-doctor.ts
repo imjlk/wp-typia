@@ -5,6 +5,7 @@ const loadCliDoctorRuntime = () => import('@wp-typia/project-tools/cli-doctor');
 
 type ExecuteDoctorCommandOptions = {
   exitPolicy?: DoctorExitPolicy;
+  wordpressVersionCheck?: boolean;
 };
 
 export async function executeDoctorCommand(
@@ -13,7 +14,10 @@ export async function executeDoctorCommand(
 ): Promise<void> {
   try {
     const { runDoctor } = await loadCliDoctorRuntime();
-    await runDoctor(cwd, { exitPolicy: options.exitPolicy });
+    await runDoctor(cwd, {
+      exitPolicy: options.exitPolicy,
+      wordpressVersionCheck: options.wordpressVersionCheck,
+    });
   } catch (error) {
     throw await wrapCliCommandError('doctor', error);
   }

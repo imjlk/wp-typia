@@ -31,6 +31,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 		requiredTypeScriptImportFiles: [
 			"src/runtime/add/cli-add-workspace-binding-source.ts",
 			"src/runtime/cli/cli-init-plan.ts",
+			"src/runtime/doctor/cli-doctor-wordpress-version.ts",
 			"src/runtime/shared/ts-property-names.ts",
 			"src/runtime/workspace/workspace-inventory-parser-entries.ts",
 			"src/runtime/workspace/workspace-inventory-parser.ts",

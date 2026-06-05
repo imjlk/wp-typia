@@ -71,6 +71,10 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 		resolve(sourceRoot, "cli-doctor-workspace-package.ts"),
 		"utf8",
 	);
+	const workspaceWordPressVersionSource = readFileSync(
+		resolve(sourceRoot, "cli-doctor-wordpress-version.ts"),
+		"utf8",
+	);
 	const workspaceSharedSource = readFileSync(
 		resolve(sourceRoot, "cli-doctor-workspace-shared.ts"),
 		"utf8",
@@ -82,8 +86,9 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 
 	expect(cliDoctorSource).toContain('from "./cli-doctor-environment.js"');
 	expect(cliDoctorSource).toContain('from "./cli-doctor-workspace.js"');
+	expect(cliDoctorSource).toContain("await getWorkspaceDoctorChecks(cwd, {");
 	expect(cliDoctorSource).toContain(
-		'...annotateDoctorChecks(await getWorkspaceDoctorChecks(cwd), "workspace"),',
+		"wordpressVersionCheck: options.wordpressVersionCheck,",
 	);
 	expect(cliDoctorSource).toContain("const defaultDoctorLinePrinter");
 	expect(cliDoctorSource).toContain("process.stdout.write(`${line}\\n`)");
@@ -102,6 +107,7 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	expect(workspaceSource).toContain('from "./cli-doctor-workspace-blocks.js"');
 	expect(workspaceSource).toContain('from "./cli-doctor-workspace-features.js"');
 	expect(workspaceSource).toContain('from "./cli-doctor-workspace-package.js"');
+	expect(workspaceSource).toContain('from "./cli-doctor-wordpress-version.js"');
 	expect(workspaceSource).toContain("intentionally stay synchronous");
 	expect(workspaceSharedSource).toContain("category collectors remain synchronous");
 	expect(migrationDoctorSource).toContain("synchronous maintenance command");
@@ -114,6 +120,10 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	);
 	expect(workspaceSource).toContain(
 		"getWorkspaceFeatureDoctorChecks(workspace, inventory)",
+	);
+	expect(workspaceSource).toContain("getWorkspaceWordPressVersionDoctorChecks(");
+	expect(workspaceWordPressVersionSource).toContain(
+		"export function getWorkspaceWordPressVersionDoctorChecks(",
 	);
 	expect(workspaceBlocksSource).toContain("export function getWorkspaceBlockDoctorChecks(");
 	expect(workspaceBlocksSource).toContain("getWorkspaceBlockCoreDoctorChecks(");

@@ -40,7 +40,7 @@ export function formatHelpText(): string {
   wp-typia migrate <init|snapshot|diff|scaffold|verify|doctor|fixtures|fuzz> [...]
   wp-typia templates list
   wp-typia templates inspect <id>
-  wp-typia doctor
+  wp-typia doctor [--wp-version-check]
   wp-typia mcp <list|sync>
   wp-typia skills <list|sync>
   wp-typia completions <bash|zsh|fish|powershell>
@@ -79,7 +79,7 @@ Notes:
   \`add ai-feature\` scaffolds server-owned AI feature endpoints under \`src/ai-features/\` and PHP route glue under \`inc/ai-features/\`.
   \`add editor-plugin\` scaffolds a document-level editor extension under \`src/editor-plugins/\`; legacy aliases \`PluginSidebar\` and \`PluginDocumentSettingPanel\` resolve to \`sidebar\` and \`document-setting-panel\`.
   \`add hooked-block\` patches an existing workspace block's \`block.json\` \`blockHooks\` metadata.
-  \`wp-typia doctor\` always checks environment readiness and reports when it only ran environment-level diagnostics; official workspace roots also get inventory, source-tree drift, shared convention checks, and iframe/API v3 compatibility checks.
+  \`wp-typia doctor\` always checks environment readiness and reports when it only ran environment-level diagnostics; official workspace roots also get inventory, source-tree drift, shared convention checks, and iframe/API v3 compatibility checks. Pass \`--wp-version-check\` to compare generated feature floors such as block supports, blockHooks, abilities, and AI feature metadata with plugin bootstrap compatibility headers.
   \`wp-typia init\` previews or applies the minimum sync/doctor/migration adoption layer for supported existing layouts; pass \`--package-manager <id>\` to pin emitted scripts and next steps.
   \`wp-typia migrate doctor --all\` checks migration target alignment, snapshots, fixtures, and generated migration artifacts.
   \`migrate\` is the canonical migration command; \`migrations\` is no longer supported.`;

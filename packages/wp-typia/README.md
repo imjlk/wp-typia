@@ -17,7 +17,9 @@ commands.
 
 Generated scaffolds target WordPress 7.0 for `Tested up to` plugin headers by
 default. Pass `--wp-version 6.9` to restore the legacy 6.9 scaffold target; the
-`Requires at least` header remains tied to the selected feature hard floor.
+`Requires at least` header remains tied to the selected feature hard floor. Use
+`wp-typia doctor --wp-version-check` to validate workspace headers against
+generated block, ability, and AI feature metadata.
 
 Extend an existing workspace with:
 

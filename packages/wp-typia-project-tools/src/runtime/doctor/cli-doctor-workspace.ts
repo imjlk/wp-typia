@@ -8,6 +8,9 @@ import {
 	getWorkspaceFeatureDoctorChecks,
 } from "./cli-doctor-workspace-features.js";
 import {
+	getWorkspaceWordPressVersionDoctorChecks,
+} from "./cli-doctor-wordpress-version.js";
+import {
 	getMigrationWorkspaceHintCheck,
 	getWorkspacePackageMetadataCheck,
 	prepareWorkspacePackageDoctorSnapshot,
@@ -29,6 +32,12 @@ import {
 } from "../workspace/workspace-project.js";
 
 import type { DoctorCheck } from "./cli-doctor.js";
+
+/** Options used when collecting workspace-scoped doctor rows. */
+export interface WorkspaceDoctorChecksOptions {
+	/** Include opt-in WordPress feature floor and plugin header checks. */
+	wordpressVersionCheck?: boolean;
+}
 
 function formatWorkspaceInventorySummary(inventory: WorkspaceInventory): string {
 	return [
@@ -57,13 +66,18 @@ function formatWorkspaceInventorySummary(inventory: WorkspaceInventory): string 
  * failing rows are returned early and the remaining checks are skipped.
  * When an official workspace is detected, a passing "Doctor scope" row is
  * emitted first so the remaining package metadata, inventory, source-tree
- * drift, and optional migration hint rows are clearly framed as workspace
- * diagnostics for that run.
+ * drift, optional WordPress version checks, and optional migration hint rows
+ * are clearly framed as workspace diagnostics for that run.
  *
  * @param cwd Working directory expected to host an official workspace.
+ * @param options Optional feature gates for additional workspace doctor rows.
+ * @param options.wordpressVersionCheck Include WordPress feature floor and plugin header checks.
  * @returns Ordered workspace check rows ready for CLI rendering.
  */
-export async function getWorkspaceDoctorChecks(cwd: string): Promise<DoctorCheck[]> {
+export async function getWorkspaceDoctorChecks(
+	cwd: string,
+	options: WorkspaceDoctorChecksOptions = {},
+): Promise<DoctorCheck[]> {
 	const checks: DoctorCheck[] = [];
 
 	let workspace: WorkspaceProject | null = null;
@@ -167,6 +181,11 @@ export async function getWorkspaceDoctorChecks(cwd: string): Promise<DoctorCheck
 		checks.push(...getWorkspaceBlockDoctorChecks(workspace, inventory));
 		checks.push(...getWorkspaceBindingDoctorChecks(workspace, inventory));
 		checks.push(...getWorkspaceFeatureDoctorChecks(workspace, inventory));
+		if (options.wordpressVersionCheck) {
+			checks.push(
+				...getWorkspaceWordPressVersionDoctorChecks(workspace, inventory),
+			);
+		}
 
 		const migrationWorkspaceCheck = getMigrationWorkspaceHintCheck(
 			workspacePackageJson,

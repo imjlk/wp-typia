@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cleanupScaffoldTempRoot, createScaffoldTempRoot, entryPath, getCommandErrorMessage, linkWorkspaceNodeModules, parseJsonObjectFromOutput, runCli, scaffoldOfficialWorkspace, stripPhpFunction, workspaceTemplatePackageManifest } from "./helpers/scaffold-test-harness.js";
+import { cleanupScaffoldTempRoot, createScaffoldTempRoot, entryPath, getCommandErrorMessage, linkWorkspaceNodeModules, parseJsonObjectFromOutput, runCapturedCli, runCli, scaffoldOfficialWorkspace, stripPhpFunction, workspaceTemplatePackageManifest } from "./helpers/scaffold-test-harness.js";
 import { scaffoldProject } from "../src/runtime/index.js";
 import {
   createDoctorRunSummary,
@@ -33,6 +33,37 @@ describe("@wp-typia/project-tools workspace doctor", () => {
     GEMINI_CLI: "",
     OPENCODE: "",
   } satisfies NodeJS.ProcessEnv;
+
+  function getGeneratedBootstrapPath(projectDir: string): string {
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(projectDir, "package.json"), "utf8")
+    ) as { name?: string };
+    const packageBaseName =
+      typeof packageJson.name === "string"
+        ? packageJson.name.split("/").pop()
+        : path.basename(projectDir);
+
+    return path.join(projectDir, `${packageBaseName ?? path.basename(projectDir)}.php`);
+  }
+
+  function replaceBootstrapHeader(
+    projectDir: string,
+    headerName: "Requires at least" | "Tested up to",
+    value: string
+  ): void {
+    const bootstrapPath = getGeneratedBootstrapPath(projectDir);
+    const source = fs.readFileSync(bootstrapPath, "utf8");
+    const escapedHeaderName = headerName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const pattern = new RegExp(
+      `(\\* ${escapedHeaderName}:\\s*)[^\\r\\n]*`,
+      "u"
+    );
+    fs.writeFileSync(
+      bootstrapPath,
+      source.replace(pattern, `$1${value}`),
+      "utf8"
+    );
+  }
 
   afterAll(() => {
     cleanupScaffoldTempRoot(tempRoot);
@@ -231,6 +262,160 @@ test("doctor reports iframe/API v3 compatibility warnings without failing", asyn
     "warn"
   );
 }, 15_000);
+
+test("doctor WordPress version checks stay opt-in and warn on target drift", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-target-warning"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version target warning",
+    slug: "demo-workspace-wp-version-target-warning",
+    title: "Demo Workspace WordPress Version Target Warning",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  replaceBootstrapHeader(targetDir, "Tested up to", "6.9");
+
+  const defaultDoctorOutput = runCli(
+    "node",
+    [entryPath, "doctor", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const defaultDoctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; label: string; status: string }>;
+  }>(defaultDoctorOutput);
+  expect(
+    defaultDoctorChecks.checks.some((check) =>
+      check.code?.startsWith("wp-typia.workspace.wordpress.")
+    )
+  ).toBe(false);
+
+  const flaggedDoctorOutput = runCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const flaggedDoctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+    summary: { exitCode: 0 | 1; warnings: number };
+  }>(flaggedDoctorOutput);
+  const testedTargetCheck = flaggedDoctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.tested-target"
+  );
+
+  expect(flaggedDoctorChecks.summary.exitCode).toBe(0);
+  expect(flaggedDoctorChecks.summary.warnings).toBeGreaterThan(0);
+  expect(testedTargetCheck?.status).toBe("warn");
+  expect(testedTargetCheck?.detail).toContain("Tested up to 6.9");
+  expect(testedTargetCheck?.detail).toContain("WordPress target 7.0");
+}, 15_000);
+
+test("doctor WordPress version check fails when block feature floors exceed headers", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-block-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version block floor",
+    slug: "demo-workspace-wp-version-block-floor",
+    title: "Demo Workspace WordPress Version Block Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli("node", [entryPath, "add", "block", "counter-card"], {
+    cwd: targetDir,
+  });
+
+  const blockJsonPath = path.join(
+    targetDir,
+    "src",
+    "blocks",
+    "counter-card",
+    "block.json"
+  );
+  const blockJson = JSON.parse(fs.readFileSync(blockJsonPath, "utf8")) as {
+    supports?: Record<string, unknown>;
+  };
+  blockJson.supports = {
+    ...blockJson.supports,
+    interactivity: true,
+    splitting: true,
+  };
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.4");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+    summary: { exitCode: 0 | 1; exitFailureCount: number };
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(doctorChecks.summary.exitCode).toBe(1);
+  expect(doctorChecks.summary.exitFailureCount).toBeGreaterThan(0);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("Requires at least 6.4");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 6.5");
+  expect(featureMinimumCheck?.detail).toContain("supports.interactivity");
+  expect(featureMinimumCheck?.detail).toContain("supports.splitting");
+}, 15_000);
+
+test("doctor WordPress version check reads ability inventory compatibility floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-ability-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version ability floor",
+    slug: "demo-workspace-wp-version-ability-floor",
+    title: "Demo Workspace WordPress Version Ability Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli("node", [entryPath, "add", "ability", "summarize-post"], {
+    cwd: targetDir,
+  });
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.9");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("Requires at least 6.9");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 7.0");
+  expect(featureMinimumCheck?.detail).toContain(
+    "Ability summarize-post compatibility metadata"
+  );
+}, 20_000);
 
 test("doctor accepts workspaces that keep binding registries in src/bindings/index.js", async () => {
   const targetDir = path.join(
