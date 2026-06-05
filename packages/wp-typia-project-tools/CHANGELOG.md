@@ -1,5 +1,11 @@
 # @wp-typia/project-tools
 
+## 0.24.8 — 2026-06-05
+
+### Patch changes
+
+- [6f96809d](https://github.com/imjlk/wp-typia/commit/6f96809d13d2faf4faa68558de6cfbeb75cb9e4b) Expand `doctor --wp-version-check` coverage to reuse the shared WordPress block API compatibility matrix for block supports, metadata, and generated binding source feature floors. — Thanks @imjlk!
+
 ## 0.24.7 — 2026-06-05
 
 ### Patch changes
