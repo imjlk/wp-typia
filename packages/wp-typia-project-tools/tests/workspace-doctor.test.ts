@@ -341,7 +341,17 @@ test("doctor WordPress version check fails when block feature floors exceed head
     "block.json"
   );
   const blockJson = JSON.parse(fs.readFileSync(blockJsonPath, "utf8")) as {
+    metadata?: Record<string, unknown>;
     supports?: Record<string, unknown>;
+  };
+  blockJson.metadata = {
+    ...blockJson.metadata,
+    bindings: {
+      headline: {
+        args: { key: "_demo_headline" },
+        source: "core/post-meta",
+      },
+    },
   };
   blockJson.supports = {
     ...blockJson.supports,
@@ -372,9 +382,94 @@ test("doctor WordPress version check fails when block feature floors exceed head
   expect(featureMinimumCheck?.status).toBe("fail");
   expect(featureMinimumCheck?.detail).toContain("Requires at least 6.4");
   expect(featureMinimumCheck?.detail).toContain("feature floor 6.5");
+  expect(featureMinimumCheck?.detail).toContain("block metadata.bindings");
   expect(featureMinimumCheck?.detail).toContain("supports.interactivity");
   expect(featureMinimumCheck?.detail).toContain("supports.splitting");
 }, 15_000);
+
+test("doctor WordPress version check covers shared block API feature floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-shared-block-floors"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version shared block floors",
+    slug: "demo-workspace-wp-version-shared-block-floors",
+    title: "Demo Workspace WordPress Version Shared Block Floors",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli("node", [entryPath, "add", "block", "feature-card"], {
+    cwd: targetDir,
+  });
+
+  const blockJsonPath = path.join(
+    targetDir,
+    "src",
+    "blocks",
+    "feature-card",
+    "block.json"
+  );
+  const blockJson = JSON.parse(fs.readFileSync(blockJsonPath, "utf8")) as {
+    supports?: Record<string, unknown>;
+  };
+  blockJson.supports = {
+    ...blockJson.supports,
+    allowedBlocks: true,
+    contentRole: true,
+    visibility: true,
+  };
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
+
+  const sixNineResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const sixNineChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(sixNineResult.stdout);
+  const sixNineFeatureMinimumCheck = sixNineChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(sixNineResult.status).toBe(1);
+  expect(sixNineFeatureMinimumCheck?.status).toBe("fail");
+  expect(sixNineFeatureMinimumCheck?.detail).toContain("feature floor 6.9");
+  expect(sixNineFeatureMinimumCheck?.detail).toContain("supports.allowedBlocks");
+  expect(sixNineFeatureMinimumCheck?.detail).toContain("supports.contentRole");
+  expect(sixNineFeatureMinimumCheck?.detail).toContain("supports.visibility");
+
+  blockJson.supports = {
+    ...blockJson.supports,
+    listView: true,
+  };
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.9");
+
+  const sevenResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const sevenChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(sevenResult.stdout);
+  const sevenFeatureMinimumCheck = sevenChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(sevenResult.status).toBe(1);
+  expect(sevenFeatureMinimumCheck?.status).toBe("fail");
+  expect(sevenFeatureMinimumCheck?.detail).toContain("feature floor 7.0");
+  expect(sevenFeatureMinimumCheck?.detail).toContain("supports.listView");
+}, 20_000);
 
 test("doctor WordPress version check reads ability inventory compatibility floors", async () => {
   const targetDir = path.join(
@@ -414,6 +509,69 @@ test("doctor WordPress version check reads ability inventory compatibility floor
   expect(featureMinimumCheck?.detail).toContain("feature floor 7.0");
   expect(featureMinimumCheck?.detail).toContain(
     "Ability summarize-post compatibility metadata"
+  );
+}, 20_000);
+
+test("doctor WordPress version check covers binding source API floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-binding-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version binding floor",
+    slug: "demo-workspace-wp-version-binding-floor",
+    title: "Demo Workspace WordPress Version Binding Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    "node",
+    [entryPath, "add", "block", "counter-card", "--template", "basic"],
+    {
+      cwd: targetDir,
+    }
+  );
+  runCli(
+    "node",
+    [
+      entryPath,
+      "add",
+      "binding-source",
+      "hero-data",
+      "--block",
+      "counter-card",
+      "--attribute",
+      "headline",
+    ],
+    {
+      cwd: targetDir,
+    }
+  );
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 6.9");
+  expect(featureMinimumCheck?.detail).toContain(
+    "registerBlockBindingsSource() getFieldsList()"
+  );
+  expect(featureMinimumCheck?.detail).toContain(
+    "block_bindings_supported_attributes filters"
   );
 }, 20_000);
 
@@ -1081,6 +1239,39 @@ export const REST_RESOURCES = [
 ];
 `)
   ).toThrow("REST_RESOURCES[0].methods includes unsupported values: publish.");
+
+  expect(() =>
+    parseWorkspaceInventorySource(`
+export const BLOCKS = [
+  { slug: "counter-card", typesFile: "src/blocks/counter-card/types.ts" },
+];
+export const ABILITIES = [
+  {
+    clientFile: "src/abilities/review-workflow/client.ts",
+    compatibility: {
+      hardMinimums: { wordpress: "7.x" },
+      mode: "required",
+      optionalFeatureIds: [],
+      optionalFeatures: [],
+      requiredFeatureIds: [],
+      requiredFeatures: [],
+      runtimeGates: [],
+    },
+    configFile: "src/abilities/review-workflow/config.ts",
+    dataFile: "src/abilities/review-workflow/data.ts",
+    inputSchemaFile: "src/abilities/review-workflow/input.schema.json",
+    inputTypeName: "ReviewInput",
+    outputSchemaFile: "src/abilities/review-workflow/output.schema.json",
+    outputTypeName: "ReviewOutput",
+    phpFile: "inc/abilities/review-workflow.php",
+    slug: "review-workflow",
+    typesFile: "src/abilities/review-workflow/types.ts",
+  },
+];
+`)
+  ).toThrow(
+    'ABILITIES[0].compatibility.hardMinimums.wordpress must be a dotted numeric version such as "6.7" or "8.1.2" in scripts/block-config.ts.'
+  );
 });
 
 test("async workspace inventory reader matches the sync compatibility reader", async () => {

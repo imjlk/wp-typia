@@ -121,7 +121,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "bun run --filter @wp-typia/api-client build && bun run --filter @wp-typia/block-runtime build && rm -rf dist && tsc -p tsconfig.runtime.json",
+    "build": "bun run --filter @wp-typia/block-types build && bun run --filter @wp-typia/api-client build && bun run --filter @wp-typia/block-runtime build && rm -rf dist && tsc -p tsconfig.runtime.json",
     "prepack": "bun run build && node ./scripts/publish-manifest.mjs prepare",
     "postpack": "node ./scripts/publish-manifest.mjs restore",
     "test": "bun run build && bun test tests/*.test.ts",
