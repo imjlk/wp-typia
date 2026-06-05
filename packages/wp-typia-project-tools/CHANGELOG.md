@@ -1,5 +1,14 @@
 # @wp-typia/project-tools
 
+## 0.24.7 — 2026-06-05
+
+### Patch changes
+
+- [8f34ff4d](https://github.com/imjlk/wp-typia/commit/8f34ff4da23994d9dfb424fd685a05cdfa99e332) Add `wp-typia doctor --wp-version-check` to validate generated WordPress feature floors against plugin bootstrap headers. — Thanks @imjlk!
+- [9430c8d6](https://github.com/imjlk/wp-typia/commit/9430c8d6ca890b768cb792bfe2a757573011a93c) Target WordPress 7.0 scaffold headers by default and add `create --wp-version 6.9` for legacy scaffold output. — Thanks @imjlk!
+- [25b6d073](https://github.com/imjlk/wp-typia/commit/25b6d0735bd3e60b588791dc8c5f2c8cde88ab7f) Preserve generated ability and AI feature compatibility metadata in workspace inventory and verify `wp-typia add ability` passes WordPress 7 doctor checks. — Thanks @imjlk!
+- Updated dependencies: block-types (npm)@0.3.4
+
 ## 0.24.6 — 2026-06-03
 
 ### Patch changes

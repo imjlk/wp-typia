@@ -1,5 +1,11 @@
 # @wp-typia/block-types
 
+## 0.3.4 — 2026-06-05
+
+### Patch changes
+
+- [054b3153](https://github.com/imjlk/wp-typia/commit/054b31537494eea83bd434627d311e3d744d3274) Add WordPress compatibility metadata for interactivity, splitting, and blockHooks features. — Thanks @imjlk!
+
 ## 0.3.3 — 2026-06-02
 
 ### Patch changes
