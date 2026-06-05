@@ -10,6 +10,7 @@ import type { PortableCliDispatchContext } from './types';
 async function renderPortableCliDoctorJson(
   cwd: string,
   exitPolicy: DoctorExitPolicy,
+  wordpressVersionCheck: boolean,
   printLine: PrintLine,
 ): Promise<void> {
   const {
@@ -17,7 +18,7 @@ async function renderPortableCliDoctorJson(
     getDoctorChecks,
     getDoctorExitFailureDetailLines,
   } = await import('@wp-typia/project-tools/cli-doctor');
-  const checks = await getDoctorChecks(cwd);
+  const checks = await getDoctorChecks(cwd, { wordpressVersionCheck });
   const summary = createDoctorRunSummary(checks, { exitPolicy });
   printLine(
     JSON.stringify(
@@ -45,9 +46,15 @@ export async function dispatchPortableCliDoctor({
   printLine,
 }: PortableCliDispatchContext): Promise<void> {
   const exitPolicy = mergedFlags['workspace-only'] ? 'workspace-only' : 'strict';
+  const wordpressVersionCheck = Boolean(mergedFlags['wp-version-check']);
   if (mergedFlags.format === 'json') {
-    await renderPortableCliDoctorJson(cwd, exitPolicy, printLine);
+    await renderPortableCliDoctorJson(
+      cwd,
+      exitPolicy,
+      wordpressVersionCheck,
+      printLine,
+    );
     return;
   }
-  await executeDoctorCommand(cwd, { exitPolicy });
+  await executeDoctorCommand(cwd, { exitPolicy, wordpressVersionCheck });
 }

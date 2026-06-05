@@ -61,7 +61,9 @@ package-runner convenience, not as a runtime requirement for `wp-typia`.
 New scaffolds target WordPress 7.0 for generated `Tested up to` plugin headers
 by default. Use `--wp-version 6.9` when you need the legacy 6.9 target. The
 generated `Requires at least` header still follows the selected features' hard
-floor instead of being raised only because the target is 7.0.
+floor instead of being raised only because the target is 7.0. Run
+`wp-typia doctor --wp-version-check` in a workspace when you want an explicit
+header check against generated block, ability, and AI feature metadata.
 
 For an install outside package runners, use the standalone installers published
 with each GitHub Release:

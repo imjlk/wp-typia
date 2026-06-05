@@ -235,6 +235,7 @@ export type {
 	DoctorExitPolicy,
 	DoctorFailureSummary,
 	DoctorRunSummary,
+	GetDoctorChecksOptions,
 	EditorPluginSlotId,
 	HookedBlockPositionId,
 	ReadlinePrompt,

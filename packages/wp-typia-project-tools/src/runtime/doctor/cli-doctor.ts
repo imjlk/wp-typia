@@ -55,10 +55,17 @@ interface RunDoctorOptions {
 	exitPolicy?: DoctorExitPolicy;
 	renderLine?: (check: DoctorCheck) => void;
 	renderSummaryLine?: (summaryLine: string) => void;
+	wordpressVersionCheck?: boolean;
 }
 
 interface DoctorSummaryOptions {
 	exitPolicy?: DoctorExitPolicy;
+}
+
+/** Options used when collecting doctor checks before rendering. */
+export interface GetDoctorChecksOptions {
+	/** Include opt-in WordPress feature floor and plugin header checks. */
+	wordpressVersionCheck?: boolean;
 }
 
 type DoctorLinePrinter = (line: string) => void;
@@ -125,12 +132,22 @@ function toFailureSummary(
  * patterns, bindings, and optional migration hints) in display order.
  *
  * @param cwd Working directory to validate for writability.
+ * @param options Optional feature gates for additional doctor rows.
+ * @param options.wordpressVersionCheck Include WordPress feature floor and plugin header checks.
  * @returns Ordered doctor check rows ready for CLI rendering.
  */
-export async function getDoctorChecks(cwd: string): Promise<DoctorCheck[]> {
+export async function getDoctorChecks(
+	cwd: string,
+	options: GetDoctorChecksOptions = {},
+): Promise<DoctorCheck[]> {
 	return [
 		...annotateDoctorChecks(await getEnvironmentDoctorChecks(cwd), "environment"),
-		...annotateDoctorChecks(await getWorkspaceDoctorChecks(cwd), "workspace"),
+		...annotateDoctorChecks(
+			await getWorkspaceDoctorChecks(cwd, {
+				wordpressVersionCheck: options.wordpressVersionCheck,
+			}),
+			"workspace",
+		),
 	];
 }
 
@@ -204,6 +221,7 @@ export function createDoctorRunSummary(
  * @param options.exitPolicy Policy deciding which failed checks contribute to the process exit code.
  * @param options.renderLine Optional renderer for each check row. Defaults to the stdout line printer.
  * @param options.renderSummaryLine Optional renderer for the summary row. Defaults to the stdout line printer unless a custom `renderLine` suppresses implicit summary output.
+ * @param options.wordpressVersionCheck Include WordPress feature floor and plugin header checks.
  * @returns The completed list of doctor checks.
  * @throws {Error} When one or more failed checks contribute to the exit code under the active policy.
  */
@@ -216,7 +234,9 @@ export async function runDoctor(
 	const renderSummaryLine =
 		options.renderSummaryLine ??
 		(options.renderLine ? () => undefined : renderDefaultDoctorSummaryLine);
-	const checks = await getDoctorChecks(cwd);
+	const checks = await getDoctorChecks(cwd, {
+		wordpressVersionCheck: options.wordpressVersionCheck,
+	});
 
 	for (const check of checks) {
 		renderLine(check);

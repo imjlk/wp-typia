@@ -15,4 +15,10 @@ export const DOCTOR_OPTION_METADATA = {
       'Fail only on workspace-scoped doctor checks; environment/runtime failures remain advisory in JSON summaries.',
     type: 'boolean',
   },
+  'wp-version-check': {
+    argumentKind: 'flag',
+    description:
+      'Check generated WordPress feature floors against plugin bootstrap headers and the current scaffold target.',
+    type: 'boolean',
+  },
 } as const satisfies CommandOptionMetadataMap;

@@ -116,9 +116,10 @@ const PORTABLE_CLI_COMMAND_HELP_CONFIG = {
   },
   doctor: {
     bodyLines: [
-      'Runs read-only environment readiness checks. Official wp-typia workspace roots also get inventory, source-tree drift, iframe/API v3 compatibility, and shared convention checks. Use --workspace-only for CI gates that should fail only on workspace-scoped checks while keeping environment failures advisory.',
+      'Runs read-only environment readiness checks. Official wp-typia workspace roots also get inventory, source-tree drift, iframe/API v3 compatibility, and shared convention checks. Use --workspace-only for CI gates that should fail only on workspace-scoped checks while keeping environment failures advisory. Use --wp-version-check to compare generated feature floors with plugin bootstrap headers.',
     ],
-    heading: 'Usage: wp-typia doctor [--format json] [--workspace-only]',
+    heading:
+      'Usage: wp-typia doctor [--format json] [--workspace-only] [--wp-version-check]',
     optionMetadata: DOCTOR_OPTION_METADATA,
   },
   mcp: {

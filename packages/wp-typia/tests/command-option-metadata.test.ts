@@ -482,7 +482,7 @@ describe('command option metadata helpers', () => {
 
   test('parses doctor structured output flags from shared metadata', () => {
     const parsed = parseCommandArgvWithMetadata(
-      ['doctor', '--format', 'json', '--workspace-only'],
+      ['doctor', '--format', 'json', '--workspace-only', '--wp-version-check'],
       {
         extraBooleanOptionNames: ['help', 'version'],
         parser: buildCommandOptionParser(
@@ -495,6 +495,7 @@ describe('command option metadata helpers', () => {
     expect(parsed.flags).toEqual({
       format: 'json',
       'workspace-only': true,
+      'wp-version-check': true,
     });
     expect(parsed.positionals).toEqual(['doctor']);
   });

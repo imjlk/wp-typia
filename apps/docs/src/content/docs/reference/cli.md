@@ -411,6 +411,7 @@ Run read-only diagnostics.
 ```bash
 wp-typia doctor
 wp-typia doctor --format json
+wp-typia doctor --wp-version-check
 wp-typia doctor --help
 ```
 
@@ -418,6 +419,12 @@ wp-typia doctor --help
 also get inventory, source-tree drift, and shared convention checks. Use
 `--format json` for CI, IDE, and wrapper integrations that need stable
 machine-readable check results.
+
+Use `--wp-version-check` when you want doctor to compare generated feature
+floors, including block supports, `blockHooks`, abilities, and AI feature
+compatibility metadata, against the plugin bootstrap `Requires at least` and
+`Tested up to` headers. The check is opt-in so existing JSON doctor payloads stay
+stable unless the flag is passed.
 
 Workspace block diagnostics also include iframe/API v3 readiness rows. `WARN`
 rows do not fail `doctor`; treat them as compatibility follow-up before relying

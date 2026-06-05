@@ -41,6 +41,7 @@ export {
 	type DoctorExitPolicy,
 	type DoctorFailureSummary,
 	type DoctorRunSummary,
+	type GetDoctorChecksOptions,
 } from "../doctor/cli-doctor.js";
 export {
 	createCliCommandError,
