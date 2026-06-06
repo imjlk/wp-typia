@@ -9,10 +9,15 @@ import {
 	resolveWorkspaceBootstrapPath,
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
-import { hasPhpFunctionCallWithStringArgumentPrefix } from "../shared/php-utils.js";
+import {
+	hasPhpCodeStringLiteralPrefix,
+	hasPhpFunctionCall,
+	hasPhpFunctionCallWithStringArgumentPrefix,
+} from "../shared/php-utils.js";
 import {
 	hasExecutablePattern,
 	hasUncommentedPattern,
+	maskTypeScriptComments,
 	maskTypeScriptCommentsAndLiterals,
 } from "../shared/ts-source-masking.js";
 import {
@@ -73,7 +78,8 @@ const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
 const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
 	/\bregisterBlockBindingsSource\s*\(/gu;
-const GET_FIELDS_LIST_PROPERTY_PATTERN = /\bgetFieldsList\s*(?:\([^)]*\)\s*\{|:)/u;
+const GET_FIELDS_LIST_PROPERTY_PATTERN =
+	/(?:\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:\s*(?:(?:async\s+)?function(?:\s+\w+)?\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s*)?\([^)]*\)\s*=>)|["']getFieldsList["']\s*:\s*(?:(?:async\s+)?function(?:\s+\w+)?\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s*)?\([^)]*\)\s*=>))/u;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -206,24 +212,35 @@ function findClosingParenthesis(source: string, openIndex: number): number | nul
 }
 
 function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
-	const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+	const structureMaskedSource = maskTypeScriptCommentsAndLiterals(source);
+	const commentMaskedSource = maskTypeScriptComments(source);
 	REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = 0;
 
 	let match: RegExpExecArray | null;
 	while (
-		(match = REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.exec(maskedSource))
+		(match =
+			REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.exec(structureMaskedSource))
 	) {
-		const openIndex = maskedSource.indexOf("(", match.index);
+		const openIndex = structureMaskedSource.indexOf("(", match.index);
 		if (openIndex === -1) {
 			continue;
 		}
 
-		const closeIndex = findClosingParenthesis(maskedSource, openIndex);
+		const closeIndex = findClosingParenthesis(structureMaskedSource, openIndex);
 		if (closeIndex === null) {
 			continue;
 		}
 
-		const callArgumentsSource = maskedSource.slice(openIndex + 1, closeIndex);
+		const maskedCallArgumentsSource = structureMaskedSource.slice(
+			openIndex + 1,
+			closeIndex,
+		);
+		const satisfiesMatch = /\bsatisfies\b/u.exec(maskedCallArgumentsSource);
+		const runtimeArgumentEnd = satisfiesMatch?.index ?? maskedCallArgumentsSource.length;
+		const callArgumentsSource = commentMaskedSource.slice(
+			openIndex + 1,
+			openIndex + 1 + runtimeArgumentEnd,
+		);
 		GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
 		if (GET_FIELDS_LIST_PROPERTY_PATTERN.test(callArgumentsSource)) {
 			return true;
@@ -233,6 +250,18 @@ function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
 	}
 
 	return false;
+}
+
+function hasSupportedAttributesFilterRegistration(source: string): boolean {
+	return (
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			source,
+			"add_filter",
+			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+		) ||
+		(hasPhpFunctionCall(source, "add_filter") &&
+			hasPhpCodeStringLiteralPrefix(source, SUPPORTED_ATTRIBUTES_FILTER_PREFIX))
+	);
 }
 
 function collectBlockMetadataRequirements(
@@ -452,14 +481,7 @@ function collectBindingSourceRequirements(
 			bindingSource.serverFile,
 		);
 		const serverSource = readExistingTextFile(serverFilePath);
-		if (
-			serverSource &&
-			hasPhpFunctionCallWithStringArgumentPrefix(
-				serverSource,
-				"add_filter",
-				SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
-			)
-		) {
+		if (serverSource && hasSupportedAttributesFilterRegistration(serverSource)) {
 			pushBlockApiRequirement(
 				requirements,
 				`Binding source ${bindingSource.slug}`,

@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import {
 	escapeRegex,
 	findPhpFunctionRange,
+	hasPhpCodeStringLiteralPrefix,
 	hasPhpFunctionCall,
 	hasPhpFunctionCallWithStringArgument,
 	hasPhpFunctionCallWithStringArgumentPrefix,
@@ -383,6 +384,26 @@ add_filter(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\nFilters::add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
 			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+});
+
+test("hasPhpCodeStringLiteralPrefix matches only code-mode PHP string literals", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+// 'block_bindings_supported_attributes_demo/comment'
+$fake = "ignored";
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$heredoc = <<<TEXT
+block_bindings_supported_attributes_demo/heredoc
+TEXT;
+`;
+
+	expect(hasPhpCodeStringLiteralPrefix(source, prefix)).toBe(true);
+	expect(
+		hasPhpCodeStringLiteralPrefix(
+			`<?php\n// 'block_bindings_supported_attributes_demo/comment'\n$fake = "ignored";\n`,
 			prefix,
 		),
 	).toBe(false);

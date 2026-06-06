@@ -524,6 +524,86 @@ export function hasPhpFunctionCallWithStringArgumentPrefix(
 	);
 }
 
+/**
+ * Detect a code-mode PHP string literal that starts with a literal prefix.
+ *
+ * This is useful for dynamic hook names stored in variables before a later
+ * global function call consumes the variable.
+ */
+export function hasPhpCodeStringLiteralPrefix(
+	source: string,
+	literalPrefix: string,
+): boolean {
+	let index = 0;
+	while (index < source.length) {
+		if (source.startsWith("<?php", index)) {
+			index += 5;
+			continue;
+		}
+
+		if (source.startsWith("<?", index) || source.startsWith("?>", index)) {
+			index += 2;
+			continue;
+		}
+
+		if (source[index] === "/" && source[index + 1] === "*") {
+			const commentEnd = source.indexOf("*/", index + 2);
+			if (commentEnd === -1) {
+				return false;
+			}
+			index = commentEnd + 2;
+			continue;
+		}
+
+		const literal = parsePhpQuotedStringLiteralAt(source, index);
+		if (literal) {
+			if (literal.value.startsWith(literalPrefix)) {
+				return true;
+			}
+			index = literal.end;
+			continue;
+		}
+
+		if (source[index] === "/" && source[index + 1] === "/") {
+			index = findPhpLineBoundary(source, index + 2).nextStart;
+			continue;
+		}
+
+		if (source[index] === "#" && source[index + 1] !== "[") {
+			index = findPhpLineBoundary(source, index + 1).nextStart;
+			continue;
+		}
+
+		const heredoc = parsePhpHeredocStart(source, index);
+		if (heredoc) {
+			let cursor = heredoc.contentStart;
+			let closingEnd: number | null = null;
+			while (cursor < source.length) {
+				closingEnd = findPhpHeredocClosingEnd(
+					source,
+					cursor,
+					heredoc.delimiter,
+				);
+				if (closingEnd !== null) {
+					break;
+				}
+				cursor = findPhpLineBoundary(source, cursor).nextStart;
+			}
+
+			if (closingEnd === null) {
+				return false;
+			}
+
+			index = findPhpLineBoundary(source, closingEnd).nextStart;
+			continue;
+		}
+
+		index += 1;
+	}
+
+	return false;
+}
+
 function hasPhpFunctionCallWithStringArgumentMatching(
 	source: string,
 	functionName: string,

@@ -851,6 +851,18 @@ test("doctor WordPress version check covers binding source API floors", async ()
     throw new Error("Expected hero-data binding source in workspace inventory");
   }
   const bindingEditorFilePath = path.join(targetDir, bindingSource.editorFile);
+  const bindingServerFilePath = path.join(targetDir, bindingSource.serverFile);
+  const originalBindingServerSource = fs.readFileSync(
+    bindingServerFilePath,
+    "utf8"
+  );
+  const rewrittenBindingServerSource = originalBindingServerSource.replace(
+    /add_filter\(\n\t\t('block_bindings_supported_attributes_[^']+'),/u,
+    "$hook = $1;\n\tadd_filter(\n\t\t$hook,"
+  );
+  expect(rewrittenBindingServerSource).not.toBe(originalBindingServerSource);
+  fs.writeFileSync(bindingServerFilePath, rewrittenBindingServerSource, "utf8");
+
   const originalBindingEditorSource = fs.readFileSync(
     bindingEditorFilePath,
     "utf8"
@@ -862,9 +874,11 @@ test("doctor WordPress version check covers binding source API floors", async ()
     (source: string) =>
       source.replace("getFieldsList() {", "getFieldsList: function () {"),
     (source: string) =>
+      source.replace("getFieldsList() {", "getFieldsList(): BindingField[] {"),
+    (source: string) =>
       source.replace(
         /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},/u,
-        "\tgetFieldsList: () => [],"
+        '\t"getFieldsList": () => [],'
       ),
   ]) {
     const rewrittenBindingEditorSource = transformSource(
@@ -906,6 +920,49 @@ test("doctor WordPress version check covers binding source API floors", async ()
       "block_bindings_supported_attributes filters"
     );
   }
+
+  const sourceWithoutRuntimeGetFieldsList = originalBindingEditorSource.replace(
+    /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},\n/u,
+    ""
+  );
+  expect(sourceWithoutRuntimeGetFieldsList).not.toBe(
+    originalBindingEditorSource
+  );
+  fs.writeFileSync(
+    bindingEditorFilePath,
+    `${sourceWithoutRuntimeGetFieldsList}
+registerBlockBindingsSource( {} satisfies { getFieldsList: () => string[] } );
+`,
+    "utf8"
+  );
+  const typeOnlyResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const typeOnlyDoctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{
+      code?: string;
+      detail: string;
+      label: string;
+      status: string;
+    }>;
+  }>(typeOnlyResult.stdout);
+  const typeOnlyFeatureMinimumCheck = typeOnlyDoctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(typeOnlyResult.status).toBe(1);
+  expect(typeOnlyFeatureMinimumCheck?.status).toBe("fail");
+  expect(typeOnlyFeatureMinimumCheck?.detail).toContain("feature floor 6.9");
+  expect(typeOnlyFeatureMinimumCheck?.detail).not.toContain(
+    "registerBlockBindingsSource() getFieldsList()"
+  );
+  expect(typeOnlyFeatureMinimumCheck?.detail).toContain(
+    "block_bindings_supported_attributes filters"
+  );
 }, 20_000);
 
 test("doctor accepts workspaces that keep binding registries in src/bindings/index.js", async () => {
