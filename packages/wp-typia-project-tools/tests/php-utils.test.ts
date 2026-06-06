@@ -276,6 +276,10 @@ add_filter(
 \t'${filterName}',
 \t'demo_space_supported_attributes'
 );
+add_filter(
+\t"${filterName}",
+\t'demo_space_double_quoted_supported_attributes'
+);
 `;
 
 	expect(
@@ -314,6 +318,10 @@ $fake = 'block_bindings_supported_attributes_demo/string';
 add_filter(
 \t'block_bindings_supported_attributes_core/paragraph',
 \t'demo_space_supported_attributes'
+);
+add_filter(
+\t"block_bindings_supported_attributes_" . $block_type,
+\t'demo_space_dynamic_supported_attributes'
 );
 `;
 

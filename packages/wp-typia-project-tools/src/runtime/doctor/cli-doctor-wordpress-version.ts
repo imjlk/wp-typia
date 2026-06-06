@@ -66,11 +66,12 @@ const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
 } as const satisfies Record<BlockVariationBlockJsonFeature, string>;
 
 const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
-	/^\s*import\s*\{[^}]+\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
+	/^\s*import\s*(?!type[\s{])\{[^}]+\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
 const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
 const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
-	/\bregisterWorkspaceCoreVariations\s*\(/u;
-const GET_FIELDS_LIST_REGISTRATION_PATTERN = /\bgetFieldsList\s*(?:\(|:)/u;
+	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
+const GET_FIELDS_LIST_REGISTRATION_PATTERN =
+	/\bgetFieldsList\s*(?:\(|:\s*(?:async\s*)?\()/u;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -280,6 +281,7 @@ function collectBlockMetadataRequirements(
 }
 
 function hasGeneratedCoreVariationRegistry(projectDir: string): boolean {
+	// Convention: generated core variation registries are rooted at this entrypoint.
 	const registryPath = path.join(
 		projectDir,
 		"src",

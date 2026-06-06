@@ -719,8 +719,26 @@ test("doctor WordPress version check ignores stray core variation TypeScript fil
     path.join(strayCoreVariationDir, "notes.ts"),
     [
       "// This file documents a planned core variation.",
-      "const planned = 'registerBlockVariation(core/group, demo)';",
-      "export default planned;",
+      "export const planned = 'registerBlockVariation(core/group, demo)';",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(
+      targetDir,
+      "src",
+      "editor-plugins",
+      "core-variations",
+      "index.ts"
+    ),
+    [
+      "import { planned } from './core/group/notes';",
+      "import { registerBlockVariation } from '@wordpress/blocks';",
+      "",
+      "export function registerWorkspaceCoreVariations() {",
+      "\tregisterBlockVariation('core/group', planned);",
+      "}",
       "",
     ].join("\n"),
     "utf8"
