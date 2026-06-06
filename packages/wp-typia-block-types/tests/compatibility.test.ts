@@ -56,6 +56,28 @@ describe("WordPress block API compatibility matrix", () => {
 			source: "blockVariationsDevNote",
 		});
 		expect(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations.registrationMetadata,
+		).toMatchObject({
+			runtime: ["editor-js"],
+			since: "5.4",
+			source: "blockVariationsDevNote",
+		});
+		expect(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations
+				.registrationBlockJsonMetadata,
+		).toMatchObject({
+			runtime: ["block-json"],
+			since: "5.9",
+			source: "blockMetadataReference",
+		});
+		expect(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations.registrationMetadataFile,
+		).toMatchObject({
+			runtime: ["block-json", "php"],
+			since: "6.7",
+			source: "blockMetadataReference",
+		});
+		expect(
 			WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings.serverRegistration,
 		).toMatchObject({
 			runtime: ["php"],

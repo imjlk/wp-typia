@@ -343,9 +343,22 @@ export const WORDPRESS_BLOCK_API_COMPATIBILITY = {
     },
     registrationMetadata: {
       label: 'block registration variations metadata',
-      runtime: ['block-json', 'editor-js'],
+      runtime: ['editor-js'],
       since: '5.4',
       source: 'blockVariationsDevNote',
+    },
+    registrationBlockJsonMetadata: {
+      label: 'block.json variations metadata',
+      runtime: ['block-json'],
+      since: '5.9',
+      source: 'blockMetadataReference',
+    },
+    registrationMetadataFile: {
+      fallback: 'Use inline block.json variations or register variations in editor JavaScript.',
+      label: 'block.json variations file metadata',
+      runtime: ['block-json', 'php'],
+      since: '6.7',
+      source: 'blockMetadataReference',
     },
   },
 } as const satisfies Record<
