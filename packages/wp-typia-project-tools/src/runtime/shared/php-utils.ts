@@ -489,6 +489,33 @@ export function hasPhpFunctionCallWithStringArgument(
 	functionName: string,
 	literalArgument: string,
 ): boolean {
+	return hasPhpFunctionCallWithStringArgumentMatching(
+		source,
+		functionName,
+		(value) => value === literalArgument,
+	);
+}
+
+/**
+ * Detect a PHP function call whose first argument is a literal string prefix.
+ */
+export function hasPhpFunctionCallWithStringArgumentPrefix(
+	source: string,
+	functionName: string,
+	literalPrefix: string,
+): boolean {
+	return hasPhpFunctionCallWithStringArgumentMatching(
+		source,
+		functionName,
+		(value) => value.startsWith(literalPrefix),
+	);
+}
+
+function hasPhpFunctionCallWithStringArgumentMatching(
+	source: string,
+	functionName: string,
+	matchesArgument: (value: string) => boolean,
+): boolean {
 	const scanner = createPhpScannerState();
 	let index = 0;
 	while (index < source.length) {
@@ -517,7 +544,7 @@ export function hasPhpFunctionCallWithStringArgument(
 		}
 
 		const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
-		if (argument?.value === literalArgument) {
+		if (argument && matchesArgument(argument.value)) {
 			return true;
 		}
 

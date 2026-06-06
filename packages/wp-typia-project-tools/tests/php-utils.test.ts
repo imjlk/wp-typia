@@ -5,6 +5,7 @@ import {
 	findPhpFunctionRange,
 	hasPhpFunctionCall,
 	hasPhpFunctionCallWithStringArgument,
+	hasPhpFunctionCallWithStringArgumentPrefix,
 	hasPhpFunctionDefinition,
 	quotePhpString,
 	replacePhpFunctionDefinition,
@@ -302,6 +303,29 @@ add_filter( 'other_filter', '${filterName}' );
 
 	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArgumentPrefix matches code-mode literal first argument prefixes", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+// add_filter( 'block_bindings_supported_attributes_demo/comment', 'ignored_comment' );
+$fake = 'block_bindings_supported_attributes_demo/string';
+add_filter(
+\t'block_bindings_supported_attributes_core/paragraph',
+\t'demo_space_supported_attributes'
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(source, "add_filter", prefix),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			source,
+			"add_filter",
+			"block_bindings_supported_attributes_missing/",
+		),
 	).toBe(false);
 });
 

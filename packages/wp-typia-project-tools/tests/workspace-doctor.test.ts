@@ -825,6 +825,21 @@ test("doctor WordPress version check covers binding source API floors", async ()
       cwd: targetDir,
     }
   );
+  const inventory = readWorkspaceInventory(targetDir);
+  const bindingSource = inventory.bindingSources.find(
+    (entry) => entry.slug === "hero-data"
+  );
+  if (!bindingSource) {
+    throw new Error("Expected hero-data binding source in workspace inventory");
+  }
+  const bindingEditorFilePath = path.join(targetDir, bindingSource.editorFile);
+  fs.writeFileSync(
+    bindingEditorFilePath,
+    fs
+      .readFileSync(bindingEditorFilePath, "utf8")
+      .replace("getFieldsList() {", "getFieldsList: () => {"),
+    "utf8"
+  );
   replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
 
   const result = runCapturedCli(

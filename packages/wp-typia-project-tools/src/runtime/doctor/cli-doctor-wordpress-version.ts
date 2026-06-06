@@ -9,7 +9,7 @@ import {
 	resolveWorkspaceBootstrapPath,
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
-import { hasPhpFunctionCallWithStringArgument } from "../shared/php-utils.js";
+import { hasPhpFunctionCallWithStringArgumentPrefix } from "../shared/php-utils.js";
 import {
 	hasExecutablePattern,
 	hasUncommentedPattern,
@@ -70,7 +70,9 @@ const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
 const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
 const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 	/\bregisterWorkspaceCoreVariations\s*\(/u;
-const GET_FIELDS_LIST_CALL_PATTERN = /\bgetFieldsList\s*\(/u;
+const GET_FIELDS_LIST_REGISTRATION_PATTERN = /\bgetFieldsList\s*(?:\(|:)/u;
+const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
+	"block_bindings_supported_attributes_";
 
 function isEnabledMetadataValue(value: unknown): boolean {
 	return value !== undefined && value !== false && value !== null;
@@ -383,7 +385,7 @@ function collectBindingSourceRequirements(
 		const editorSource = readExistingTextFile(editorFilePath);
 		if (
 			editorSource &&
-			hasExecutablePattern(editorSource, GET_FIELDS_LIST_CALL_PATTERN)
+			hasExecutablePattern(editorSource, GET_FIELDS_LIST_REGISTRATION_PATTERN)
 		) {
 			pushBlockApiRequirement(
 				requirements,
@@ -397,13 +399,12 @@ function collectBindingSourceRequirements(
 			bindingSource.serverFile,
 		);
 		const serverSource = readExistingTextFile(serverFilePath);
-		const supportedAttributesFilter = `block_bindings_supported_attributes_${workspace.workspace.namespace}/${bindingSource.block}`;
 		if (
 			serverSource &&
-			hasPhpFunctionCallWithStringArgument(
+			hasPhpFunctionCallWithStringArgumentPrefix(
 				serverSource,
 				"add_filter",
-				supportedAttributesFilter,
+				SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
 			)
 		) {
 			pushBlockApiRequirement(
