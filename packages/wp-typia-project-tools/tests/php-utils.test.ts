@@ -3,7 +3,11 @@ import { expect, test } from "bun:test";
 import {
 	escapeRegex,
 	findPhpFunctionRange,
+	hasPhpCodeStringLiteralPrefix,
 	hasPhpFunctionCall,
+	hasPhpFunctionCallWithAssignedStringPrefixArgument,
+	hasPhpFunctionCallWithStringArgument,
+	hasPhpFunctionCallWithStringArgumentPrefix,
 	hasPhpFunctionDefinition,
 	quotePhpString,
 	replacePhpFunctionDefinition,
@@ -257,6 +261,248 @@ TEXT;
 			"wp_enqueue_script_module",
 		),
 	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
+			`${source}\nif ( $ok ) : wp_enqueue_script_module( 'demo', 'url', array(), null ); endif;\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
+			`${source}\n$scripts->wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			`${source}\nScripts::wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
+	const filterName = "block_bindings_supported_attributes_demo-space/card";
+	const source = `<?php
+// add_filter( '${filterName}', 'ignored_comment' );
+$single = "add_filter( '${filterName}', 'ignored_string' )";
+$double = '${filterName}';
+add_filter(
+\t'other_filter',
+\t'demo_space_other'
+);
+add_filter(
+\t/* generated binding floor */
+\t'${filterName}',
+\t'demo_space_supported_attributes'
+);
+add_filter(
+\t"${filterName}",
+\t'demo_space_double_quoted_supported_attributes'
+);
+add_filter(
+\t'${filterName}' . '_suffix',
+\t'demo_space_concatenated_supported_attributes'
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\nadd_filter( '${filterName}' . '_suffix', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\n$filters->add_filter( '${filterName}', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\nFilters::add_filter( '${filterName}', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", "other_filter"),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\ncase 'x': add_filter( '${filterName}', 'cb' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", "missing_filter"),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArgument ignores comments, strings, heredoc, and non-first arguments", () => {
+	const filterName = "block_bindings_supported_attributes_demo-space/card";
+	const source = `<?php
+// add_filter( '${filterName}', 'ignored_comment' );
+$single = 'add_filter( "${filterName}", "ignored_string" )';
+$double = "${filterName}";
+$heredoc = <<<TEXT
+add_filter( '${filterName}', 'ignored_heredoc' )
+TEXT;
+add_filter( 'other_filter', '${filterName}' );
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArgumentPrefix matches code-mode literal first argument prefixes", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+// add_filter( 'block_bindings_supported_attributes_demo/comment', 'ignored_comment' );
+$fake = 'block_bindings_supported_attributes_demo/string';
+add_filter(
+\t'block_bindings_supported_attributes_core/paragraph',
+\t'demo_space_supported_attributes'
+);
+add_filter(
+\t"block_bindings_supported_attributes_" . $block_type,
+\t'demo_space_dynamic_supported_attributes'
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(source, "add_filter", prefix),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			source,
+			"add_filter",
+			"block_bindings_supported_attributes_missing/",
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\nif ( $ok ) : add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' ); endif;\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\n$register = fn() => add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\n$filters->add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\nFilters::add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithAssignedStringPrefixArgument matches assigned hook variables", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+add_filter( $hook, 'demo_space_supported_attributes' );
+`;
+
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			source,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+add_filter( 'init', 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+add_filter( $hook, 'demo_space_supported_attributes' );
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$hook = 'init';
+add_filter( $hook, 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$hook = $other_hook;
+add_filter( $hook, 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+$filters->add_filter( $hook, 'ignored' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+});
+
+test("hasPhpCodeStringLiteralPrefix matches only code-mode PHP string literals", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+// 'block_bindings_supported_attributes_demo/comment'
+$fake = "ignored";
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$heredoc = <<<TEXT
+block_bindings_supported_attributes_demo/heredoc
+TEXT;
+`;
+
+	expect(hasPhpCodeStringLiteralPrefix(source, prefix)).toBe(true);
+	expect(
+		hasPhpCodeStringLiteralPrefix(
+			`<?php\n// 'block_bindings_supported_attributes_demo/comment'\n$fake = "ignored";\n`,
+			prefix,
+		),
+	).toBe(false);
 });
 
 test("PHP scanner transitions agree between range and call helpers", () => {

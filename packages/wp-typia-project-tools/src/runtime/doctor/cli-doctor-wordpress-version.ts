@@ -10,6 +10,16 @@ import {
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
 import {
+	hasPhpFunctionCallWithAssignedStringPrefixArgument,
+	hasPhpFunctionCallWithStringArgumentPrefix,
+} from "../shared/php-utils.js";
+import {
+	hasExecutablePattern,
+	hasUncommentedPattern,
+	maskTypeScriptComments,
+	maskTypeScriptCommentsAndLiterals,
+} from "../shared/ts-source-masking.js";
+import {
 	compareVersionFloors,
 	pickHigherVersionFloor,
 } from "../shared/version-floor.js";
@@ -60,8 +70,24 @@ const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
 	registrationMetadataFile: "variations",
 } as const satisfies Record<BlockVariationBlockJsonFeature, string>;
 
+const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
+	/^\s*import\s*(?!type\b)\{[\s\S]*?\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
+const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
+const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
+	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
+const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
+	/\bregisterBlockBindingsSource\s*\(/gu;
+const GET_FIELDS_LIST_PROPERTY_PATTERN =
+	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)|(?:async\s+)?["']getFieldsList["']\s*\([^)]*\)|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
+const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
+	"block_bindings_supported_attributes_";
+
 function isEnabledMetadataValue(value: unknown): boolean {
 	return value !== undefined && value !== false && value !== null;
+}
+
+function assertNeverBlockVariationFeature(feature: never): never {
+	throw new Error(`Unhandled block variation metadata feature "${String(feature)}".`);
 }
 
 function isEnabledBlockVariationMetadataFeature(
@@ -75,7 +101,7 @@ function isEnabledBlockVariationMetadataFeature(
 		return typeof value === "string" && value.trim().length > 0;
 	}
 
-	return isEnabledMetadataValue(value);
+	return assertNeverBlockVariationFeature(feature);
 }
 
 function getNestedMetadataValue(
@@ -163,6 +189,431 @@ function readExistingTextFile(filePath: string): string | undefined {
 	}
 
 	return fs.readFileSync(filePath, "utf8");
+}
+
+function isTypeScriptIdentifierPart(character: string | undefined): boolean {
+	return /^[A-Za-z0-9_$]$/u.test(character ?? "");
+}
+
+function skipTypeScriptWhitespace(source: string, index: number): number {
+	let cursor = index;
+	while (/\s/u.test(source[cursor] ?? "")) {
+		cursor += 1;
+	}
+	return cursor;
+}
+
+function findClosingDelimiter(
+	source: string,
+	openIndex: number,
+	openDelimiter: "{" | "(",
+	closeDelimiter: "}" | ")",
+): number | null {
+	let depth = 0;
+	for (let cursor = openIndex; cursor < source.length; cursor += 1) {
+		const character = source[cursor];
+		if (character === openDelimiter) {
+			depth += 1;
+			continue;
+		}
+		if (character === closeDelimiter) {
+			depth -= 1;
+			if (depth === 0) {
+				return cursor;
+			}
+		}
+	}
+
+	return null;
+}
+
+function findTopLevelSatisfiesIndex(source: string): number | null {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < source.length; cursor += 1) {
+		const character = source[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+			continue;
+		}
+		if (
+			braceDepth === 0 &&
+			bracketDepth === 0 &&
+			parenthesisDepth === 0 &&
+			source.startsWith("satisfies", cursor) &&
+			!isTypeScriptIdentifierPart(source[cursor - 1]) &&
+			!isTypeScriptIdentifierPart(source[cursor + "satisfies".length])
+		) {
+			return cursor;
+		}
+	}
+
+	return null;
+}
+
+function isTopLevelObjectPropertyStart(
+	structureMaskedObjectSource: string,
+	index: number,
+): boolean {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < index; cursor += 1) {
+		const character = structureMaskedObjectSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+		}
+	}
+
+	if (braceDepth !== 1 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+		return false;
+	}
+
+	let previousCursor = index - 1;
+	while (
+		previousCursor >= 0 &&
+		/\s/u.test(structureMaskedObjectSource[previousCursor] ?? "")
+	) {
+		previousCursor -= 1;
+	}
+	const previousToken = structureMaskedObjectSource[previousCursor];
+	return previousToken === "{" || previousToken === ",";
+}
+
+function objectLiteralHasGetFieldsListProperty(
+	commentMaskedObjectSource: string,
+	structureMaskedObjectSource: string,
+): boolean {
+	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+	let match: RegExpExecArray | null;
+	while ((match = GET_FIELDS_LIST_PROPERTY_PATTERN.exec(commentMaskedObjectSource))) {
+		if (isTopLevelObjectPropertyStart(structureMaskedObjectSource, match.index)) {
+			GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+			return true;
+		}
+	}
+	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+	return false;
+}
+
+function getRuntimeArgumentEnd(maskedCallArgumentsSource: string): number {
+	return (
+		findTopLevelSatisfiesIndex(maskedCallArgumentsSource) ??
+		maskedCallArgumentsSource.length
+	);
+}
+
+function getFirstObjectArgumentSpan(
+	structureMaskedRuntimeArgumentsSource: string,
+	absoluteStart: number,
+): { end: number; start: number } | undefined {
+	const objectStartOffset = skipTypeScriptWhitespace(
+		structureMaskedRuntimeArgumentsSource,
+		0,
+	);
+	if (structureMaskedRuntimeArgumentsSource[objectStartOffset] !== "{") {
+		return undefined;
+	}
+
+	const objectEndOffset = findClosingDelimiter(
+		structureMaskedRuntimeArgumentsSource,
+		objectStartOffset,
+		"{",
+		"}",
+	);
+	if (objectEndOffset === null) {
+		return undefined;
+	}
+
+	return {
+		end: absoluteStart + objectEndOffset + 1,
+		start: absoluteStart + objectStartOffset,
+	};
+}
+
+function getSimpleRuntimeArgumentIdentifier(
+	structureMaskedRuntimeArgumentsSource: string,
+): string | undefined {
+	const trimmed = structureMaskedRuntimeArgumentsSource.trim();
+	const match = /^([A-Za-z_$][\w$]*)(?:\s+as\b[\s\S]*)?$/u.exec(trimmed);
+	return match?.[1];
+}
+
+function findObjectInitializerStart(
+	structureMaskedSource: string,
+	index: number,
+): number | null {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = index; cursor < structureMaskedSource.length; cursor += 1) {
+		const character = structureMaskedSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+			continue;
+		}
+
+		if (braceDepth !== 0 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+			continue;
+		}
+		if (character === ";") {
+			return null;
+		}
+		if (character !== "=" || structureMaskedSource[cursor + 1] === ">") {
+			continue;
+		}
+
+		const valueStart = skipTypeScriptWhitespace(structureMaskedSource, cursor + 1);
+		return structureMaskedSource[valueStart] === "{" ? valueStart : null;
+	}
+
+	return null;
+}
+
+function isTopLevelTypeScriptPosition(
+	structureMaskedSource: string,
+	index: number,
+): boolean {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < index; cursor += 1) {
+		const character = structureMaskedSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+		}
+	}
+
+	return braceDepth === 0 && bracketDepth === 0 && parenthesisDepth === 0;
+}
+
+function variableObjectHasGetFieldsListProperty(
+	identifier: string,
+	commentMaskedSource: string,
+	structureMaskedSource: string,
+	beforeIndex: number,
+): boolean {
+	const variablePattern =
+		/\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\b/gu;
+	let match: RegExpExecArray | null;
+	let nearestObjectSpan: { end: number; start: number } | undefined;
+
+	while ((match = variablePattern.exec(structureMaskedSource))) {
+		if (match.index >= beforeIndex) {
+			break;
+		}
+		if (match[1] !== identifier) {
+			continue;
+		}
+		if (!isTopLevelTypeScriptPosition(structureMaskedSource, match.index)) {
+			continue;
+		}
+
+		const objectStart = findObjectInitializerStart(
+			structureMaskedSource,
+			match.index + match[0].length,
+		);
+		if (objectStart === null || objectStart >= beforeIndex) {
+			continue;
+		}
+		const objectEnd = findClosingDelimiter(
+			structureMaskedSource,
+			objectStart,
+			"{",
+			"}",
+		);
+		if (objectEnd === null) {
+			continue;
+		}
+
+		nearestObjectSpan = {
+			end: objectEnd + 1,
+			start: objectStart,
+		};
+	}
+
+	return nearestObjectSpan
+		? objectLiteralHasGetFieldsListProperty(
+				commentMaskedSource.slice(
+					nearestObjectSpan.start,
+					nearestObjectSpan.end,
+				),
+				structureMaskedSource.slice(
+					nearestObjectSpan.start,
+					nearestObjectSpan.end,
+				),
+			)
+		: false;
+}
+
+function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
+	const structureMaskedSource = maskTypeScriptCommentsAndLiterals(source);
+	const commentMaskedSource = maskTypeScriptComments(source);
+	REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = 0;
+
+	let match: RegExpExecArray | null;
+	while (
+		(match =
+			REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.exec(structureMaskedSource))
+	) {
+		const openIndex = structureMaskedSource.indexOf("(", match.index);
+		if (openIndex === -1) {
+			continue;
+		}
+
+		const closeIndex = findClosingDelimiter(
+			structureMaskedSource,
+			openIndex,
+			"(",
+			")",
+		);
+		if (closeIndex === null) {
+			continue;
+		}
+
+		const maskedCallArgumentsSource = structureMaskedSource.slice(
+			openIndex + 1,
+			closeIndex,
+		);
+		const runtimeArgumentEnd = getRuntimeArgumentEnd(maskedCallArgumentsSource);
+		const runtimeArgumentsStart = openIndex + 1;
+		const maskedRuntimeArgumentsSource = structureMaskedSource.slice(
+			runtimeArgumentsStart,
+			runtimeArgumentsStart + runtimeArgumentEnd,
+		);
+		const objectArgumentSpan = getFirstObjectArgumentSpan(
+			maskedRuntimeArgumentsSource,
+			runtimeArgumentsStart,
+		);
+		if (
+			objectArgumentSpan &&
+			objectLiteralHasGetFieldsListProperty(
+				commentMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
+				structureMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
+			)
+		) {
+			return true;
+		}
+
+		const runtimeArgumentIdentifier = getSimpleRuntimeArgumentIdentifier(
+			maskedRuntimeArgumentsSource,
+		);
+		if (
+			runtimeArgumentIdentifier &&
+			variableObjectHasGetFieldsListProperty(
+				runtimeArgumentIdentifier,
+				commentMaskedSource,
+				structureMaskedSource,
+				match.index,
+			)
+		) {
+			return true;
+		}
+
+		REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = closeIndex + 1;
+	}
+
+	return false;
+}
+
+function hasSupportedAttributesFilterRegistration(source: string): boolean {
+	return (
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			source,
+			"add_filter",
+			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+		) ||
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			source,
+			"add_filter",
+			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+		)
+	);
 }
 
 function collectBlockMetadataRequirements(
@@ -261,30 +712,25 @@ function collectBlockMetadataRequirements(
 	};
 }
 
-function hasGeneratedCoreVariationModule(
-	directoryPath: string,
-	isRootDirectory = true,
-): boolean {
-	if (!fs.existsSync(directoryPath)) {
+function hasGeneratedCoreVariationRegistry(projectDir: string): boolean {
+	// Convention: generated core variation registries are rooted at this entrypoint.
+	const registryPath = path.join(
+		projectDir,
+		"src",
+		"editor-plugins",
+		"core-variations",
+		"index.ts",
+	);
+	const source = readExistingTextFile(registryPath);
+	if (!source) {
 		return false;
 	}
 
-	for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
-		const entryPath = path.join(directoryPath, entry.name);
-		if (entry.isDirectory() && hasGeneratedCoreVariationModule(entryPath, false)) {
-			return true;
-		}
-		if (
-			!isRootDirectory &&
-			entry.isFile() &&
-			entry.name.endsWith(".ts") &&
-			entry.name !== "index.ts"
-		) {
-			return true;
-		}
-	}
-
-	return false;
+	return (
+		hasUncommentedPattern(source, CORE_VARIATION_REGISTRY_IMPORT_PATTERN) &&
+		hasExecutablePattern(source, REGISTER_BLOCK_VARIATION_CALL_PATTERN) &&
+		hasExecutablePattern(source, REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN)
+	);
 }
 
 function collectVariationRequirements(
@@ -302,13 +748,7 @@ function collectVariationRequirements(
 		);
 	}
 
-	const coreVariationsDir = path.join(
-		workspace.projectDir,
-		"src",
-		"editor-plugins",
-		"core-variations",
-	);
-	if (hasGeneratedCoreVariationModule(coreVariationsDir)) {
+	if (hasGeneratedCoreVariationRegistry(workspace.projectDir)) {
 		pushBlockApiRequirement(
 			requirements,
 			"Core variations editor plugin",
@@ -376,7 +816,11 @@ function collectBindingSourceRequirements(
 			workspace.projectDir,
 			bindingSource.editorFile,
 		);
-		if (readExistingTextFile(editorFilePath)?.includes("getFieldsList")) {
+		const editorSource = readExistingTextFile(editorFilePath);
+		if (
+			editorSource &&
+			hasRegisterBlockBindingsSourceGetFieldsList(editorSource)
+		) {
 			pushBlockApiRequirement(
 				requirements,
 				`Binding source ${bindingSource.slug}`,
@@ -388,11 +832,8 @@ function collectBindingSourceRequirements(
 			workspace.projectDir,
 			bindingSource.serverFile,
 		);
-		if (
-			readExistingTextFile(serverFilePath)?.includes(
-				"block_bindings_supported_attributes_",
-			)
-		) {
+		const serverSource = readExistingTextFile(serverFilePath);
+		if (serverSource && hasSupportedAttributesFilterRegistration(serverSource)) {
 			pushBlockApiRequirement(
 				requirements,
 				`Binding source ${bindingSource.slug}`,

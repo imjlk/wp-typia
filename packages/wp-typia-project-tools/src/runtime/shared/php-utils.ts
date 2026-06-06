@@ -220,6 +220,17 @@ function matchesPhpFunctionCallAt(
 	if (isPhpIdentifierPart(source[index - 1])) {
 		return false;
 	}
+	let previousCursor = index - 1;
+	while (previousCursor >= 0 && /\s/u.test(source[previousCursor] ?? "")) {
+		previousCursor -= 1;
+	}
+	const previousToken = source[previousCursor];
+	if (
+		(previousToken === ">" && source[previousCursor - 1] === "-") ||
+		(previousToken === ":" && source[previousCursor - 1] === ":")
+	) {
+		return false;
+	}
 
 	const cursor = index + functionName.length;
 	if (isPhpIdentifierPart(source[cursor])) {
@@ -228,6 +239,81 @@ function matchesPhpFunctionCallAt(
 	const callStart = skipPhpCallTrivia(source, cursor);
 
 	return callStart !== null && source[callStart] === "(";
+}
+
+function parsePhpQuotedStringLiteralAt(
+	source: string,
+	index: number,
+): { end: number; value: string } | null {
+	const quote = source[index];
+	if (quote !== "'" && quote !== '"') {
+		return null;
+	}
+
+	let cursor = index + 1;
+	let value = "";
+	while (cursor < source.length) {
+		const character = source[cursor];
+		if (character === "\\") {
+			const escapedCharacter = source[cursor + 1];
+			if (escapedCharacter === undefined) {
+				return null;
+			}
+			value += escapedCharacter;
+			cursor += 2;
+			continue;
+		}
+
+		if (character === quote) {
+			return {
+				end: cursor + 1,
+				value,
+			};
+		}
+
+		value += character;
+		cursor += 1;
+	}
+
+	return null;
+}
+
+function parsePhpVariableNameAt(
+	source: string,
+	index: number,
+): { end: number; name: string } | null {
+	if (source[index] !== "$") {
+		return null;
+	}
+
+	const nameStart = index + 1;
+	if (!isPhpIdentifierStart(source[nameStart])) {
+		return null;
+	}
+
+	let cursor = nameStart + 1;
+	while (isPhpIdentifierPart(source[cursor])) {
+		cursor += 1;
+	}
+
+	return {
+		end: cursor,
+		name: source.slice(nameStart, cursor),
+	};
+}
+
+function getPhpFunctionCallFirstArgumentStart(
+	source: string,
+	index: number,
+	functionName: string,
+): number | null {
+	const cursor = index + functionName.length;
+	const callStart = skipPhpCallTrivia(source, cursor);
+	if (callStart === null || source[callStart] !== "(") {
+		return null;
+	}
+
+	return skipPhpCallTrivia(source, callStart + 1);
 }
 
 function createPhpScannerState(): PhpScannerState {
@@ -422,6 +508,311 @@ export function hasPhpFunctionCall(source: string, functionName: string): boolea
 		}
 
 		index += 1;
+	}
+
+	return false;
+}
+
+function isPhpAssignmentOperatorAt(source: string, index: number | null): boolean {
+	if (index === null || source[index] !== "=") {
+		return false;
+	}
+
+	const previousToken = source[index - 1];
+	const nextToken = source[index + 1];
+	return (
+		previousToken !== "=" &&
+		previousToken !== "!" &&
+		previousToken !== "<" &&
+		previousToken !== ">" &&
+		previousToken !== "." &&
+		nextToken !== "=" &&
+		nextToken !== ">"
+	);
+}
+
+function isSupportedPhpAssignedStringSuffix(
+	source: string,
+	index: number,
+): boolean {
+	const nextTokenIndex = skipPhpCallTrivia(source, index);
+	const nextToken =
+		nextTokenIndex === null ? undefined : source[nextTokenIndex];
+	return nextToken === "." || nextToken === ";" || nextToken === undefined;
+}
+
+function getPhpFunctionCallFirstVariableArgumentName(
+	source: string,
+	index: number,
+	functionName: string,
+): string | undefined {
+	const argumentStart = getPhpFunctionCallFirstArgumentStart(
+		source,
+		index,
+		functionName,
+	);
+	if (argumentStart === null) {
+		return undefined;
+	}
+
+	const variable = parsePhpVariableNameAt(source, argumentStart);
+	if (!variable) {
+		return undefined;
+	}
+
+	const argumentEnd = skipPhpCallTrivia(source, variable.end);
+	const nextToken = argumentEnd === null ? undefined : source[argumentEnd];
+	return nextToken === "," || nextToken === ")" || nextToken === undefined
+		? variable.name
+		: undefined;
+}
+
+/**
+ * Detect a PHP function call whose first argument is a variable previously
+ * assigned from a literal string prefix in executable PHP code.
+ */
+export function hasPhpFunctionCallWithAssignedStringPrefixArgument(
+	source: string,
+	functionName: string,
+	literalPrefix: string,
+): boolean {
+	const variablesWithPrefix = new Set<string>();
+	const scanner = createPhpScannerState();
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		const variable = parsePhpVariableNameAt(source, index);
+		if (variable) {
+			const assignmentStart = skipPhpCallTrivia(source, variable.end);
+			if (
+				assignmentStart !== null &&
+				isPhpAssignmentOperatorAt(source, assignmentStart)
+			) {
+				const literalStart = skipPhpCallTrivia(source, assignmentStart + 1);
+				const literal =
+					literalStart === null
+						? null
+						: parsePhpQuotedStringLiteralAt(source, literalStart);
+				if (
+					literal &&
+					literal.value.startsWith(literalPrefix) &&
+					isSupportedPhpAssignedStringSuffix(source, literal.end)
+				) {
+					variablesWithPrefix.add(variable.name);
+					index = literal.end;
+					continue;
+				}
+				variablesWithPrefix.delete(variable.name);
+			}
+		}
+
+		if (matchesPhpFunctionCallAt(source, index, functionName)) {
+			const variableArgumentName = getPhpFunctionCallFirstVariableArgumentName(
+				source,
+				index,
+				functionName,
+			);
+			if (
+				variableArgumentName &&
+				variablesWithPrefix.has(variableArgumentName)
+			) {
+				return true;
+			}
+
+			index += functionName.length;
+			continue;
+		}
+
+		index += 1;
+	}
+
+	return false;
+}
+
+/**
+ * Detect a PHP function call whose first argument is a literal string value.
+ *
+ * This uses the same code-mode scanner as {@link hasPhpFunctionCall}, so
+ * comments, quoted strings, heredoc, and nowdoc content cannot create matches.
+ */
+export function hasPhpFunctionCallWithStringArgument(
+	source: string,
+	functionName: string,
+	literalArgument: string,
+): boolean {
+	return hasPhpFunctionCallWithStringArgumentMatching(
+		source,
+		functionName,
+		(value) => value === literalArgument,
+		{ allowConcatenatedPrefix: false },
+	);
+}
+
+/**
+ * Detect a PHP function call whose first argument starts with a literal string prefix.
+ *
+ * Concatenated expressions are accepted here so dynamic WordPress hooks such as
+ * `'block_bindings_supported_attributes_' . $block_type` remain detectable.
+ */
+export function hasPhpFunctionCallWithStringArgumentPrefix(
+	source: string,
+	functionName: string,
+	literalPrefix: string,
+): boolean {
+	return hasPhpFunctionCallWithStringArgumentMatching(
+		source,
+		functionName,
+		(value) => value.startsWith(literalPrefix),
+		{ allowConcatenatedPrefix: true },
+	);
+}
+
+/**
+ * Detect a code-mode PHP string literal that starts with a literal prefix.
+ *
+ * This is useful for dynamic hook names stored in variables before a later
+ * global function call consumes the variable.
+ */
+export function hasPhpCodeStringLiteralPrefix(
+	source: string,
+	literalPrefix: string,
+): boolean {
+	let index = 0;
+	while (index < source.length) {
+		if (source.startsWith("<?php", index)) {
+			index += 5;
+			continue;
+		}
+
+		if (source.startsWith("<?", index) || source.startsWith("?>", index)) {
+			index += 2;
+			continue;
+		}
+
+		if (source[index] === "/" && source[index + 1] === "*") {
+			const commentEnd = source.indexOf("*/", index + 2);
+			if (commentEnd === -1) {
+				return false;
+			}
+			index = commentEnd + 2;
+			continue;
+		}
+
+		const literal = parsePhpQuotedStringLiteralAt(source, index);
+		if (literal) {
+			if (literal.value.startsWith(literalPrefix)) {
+				return true;
+			}
+			index = literal.end;
+			continue;
+		}
+
+		if (source[index] === "/" && source[index + 1] === "/") {
+			index = findPhpLineBoundary(source, index + 2).nextStart;
+			continue;
+		}
+
+		if (source[index] === "#" && source[index + 1] !== "[") {
+			index = findPhpLineBoundary(source, index + 1).nextStart;
+			continue;
+		}
+
+		const heredoc = parsePhpHeredocStart(source, index);
+		if (heredoc) {
+			let cursor = heredoc.contentStart;
+			let closingEnd: number | null = null;
+			while (cursor < source.length) {
+				closingEnd = findPhpHeredocClosingEnd(
+					source,
+					cursor,
+					heredoc.delimiter,
+				);
+				if (closingEnd !== null) {
+					break;
+				}
+				cursor = findPhpLineBoundary(source, cursor).nextStart;
+			}
+
+			if (closingEnd === null) {
+				return false;
+			}
+
+			index = findPhpLineBoundary(source, closingEnd).nextStart;
+			continue;
+		}
+
+		index += 1;
+	}
+
+	return false;
+}
+
+function hasPhpFunctionCallWithStringArgumentMatching(
+	source: string,
+	functionName: string,
+	matchesArgument: (value: string) => boolean,
+	options: { allowConcatenatedPrefix: boolean },
+): boolean {
+	const scanner = createPhpScannerState();
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		if (!matchesPhpFunctionCallAt(source, index, functionName)) {
+			index += 1;
+			continue;
+		}
+
+		const argumentStart = getPhpFunctionCallFirstArgumentStart(
+			source,
+			index,
+			functionName,
+		);
+		if (argumentStart === null) {
+			index += functionName.length;
+			continue;
+		}
+
+		const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
+		if (!argument) {
+			index += functionName.length;
+			continue;
+		}
+
+		const argumentEnd = skipPhpCallTrivia(source, argument.end);
+		const nextToken = argumentEnd === null ? undefined : source[argumentEnd];
+		const isCompleteLiteralArgument =
+			nextToken === "," || nextToken === ")" || nextToken === undefined;
+		const isSupportedPrefixExpression =
+			options.allowConcatenatedPrefix && nextToken === ".";
+		if (
+			!isCompleteLiteralArgument &&
+			!isSupportedPrefixExpression
+		) {
+			index += functionName.length;
+			continue;
+		}
+
+		if (matchesArgument(argument.value)) {
+			return true;
+		}
+
+		index += functionName.length;
 	}
 
 	return false;
