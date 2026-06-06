@@ -220,6 +220,14 @@ function matchesPhpFunctionCallAt(
 	if (isPhpIdentifierPart(source[index - 1])) {
 		return false;
 	}
+	let previousCursor = index - 1;
+	while (previousCursor >= 0 && /\s/u.test(source[previousCursor] ?? "")) {
+		previousCursor -= 1;
+	}
+	const previousToken = source[previousCursor];
+	if (previousToken === ">" || previousToken === ":") {
+		return false;
+	}
 
 	const cursor = index + functionName.length;
 	if (isPhpIdentifierPart(source[cursor])) {

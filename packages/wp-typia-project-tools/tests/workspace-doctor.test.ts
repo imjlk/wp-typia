@@ -857,13 +857,18 @@ test("doctor WordPress version check covers binding source API floors", async ()
   );
   replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
 
-  for (const replacement of [
-    "getFieldsList: () => {",
-    "getFieldsList: function () {",
+  for (const transformSource of [
+    (source: string) => source.replace("getFieldsList() {", "getFieldsList: () => {"),
+    (source: string) =>
+      source.replace("getFieldsList() {", "getFieldsList: function () {"),
+    (source: string) =>
+      source.replace(
+        /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},/u,
+        "\tgetFieldsList: () => [],"
+      ),
   ]) {
-    const rewrittenBindingEditorSource = originalBindingEditorSource.replace(
-      "getFieldsList() {",
-      replacement
+    const rewrittenBindingEditorSource = transformSource(
+      originalBindingEditorSource
     );
     expect(rewrittenBindingEditorSource).not.toBe(originalBindingEditorSource);
     fs.writeFileSync(

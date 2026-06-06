@@ -259,6 +259,18 @@ TEXT;
 			"wp_enqueue_script_module",
 		),
 	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
+			`${source}\n$scripts->wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			`${source}\nScripts::wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(false);
 });
 
 test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
@@ -292,6 +304,20 @@ add_filter(
 	expect(
 		hasPhpFunctionCallWithStringArgument(
 			`<?php\nadd_filter( '${filterName}' . '_suffix', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\n$filters->add_filter( '${filterName}', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\nFilters::add_filter( '${filterName}', 'ignored' );\n`,
 			"add_filter",
 			filterName,
 		),
@@ -344,6 +370,20 @@ add_filter(
 			source,
 			"add_filter",
 			"block_bindings_supported_attributes_missing/",
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\n$filters->add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\nFilters::add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
+			"add_filter",
+			prefix,
 		),
 	).toBe(false);
 });

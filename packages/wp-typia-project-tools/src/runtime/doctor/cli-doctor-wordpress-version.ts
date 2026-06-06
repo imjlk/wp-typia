@@ -13,6 +13,7 @@ import { hasPhpFunctionCallWithStringArgumentPrefix } from "../shared/php-utils.
 import {
 	hasExecutablePattern,
 	hasUncommentedPattern,
+	maskTypeScriptCommentsAndLiterals,
 } from "../shared/ts-source-masking.js";
 import {
 	compareVersionFloors,
@@ -70,8 +71,9 @@ const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
 const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
 const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
-const GET_FIELDS_LIST_REGISTRATION_PATTERN =
-	/\bgetFieldsList\s*(?:\([^)]*\)\s*\{|:\s*(?:(?:async\s+)?function(?:\s+\w+)?\s*\([^)]*\)|(?:async\s*)?\([^)]*\)\s*=>)\s*\{)/u;
+const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
+	/\bregisterBlockBindingsSource\s*\(/gu;
+const GET_FIELDS_LIST_PROPERTY_PATTERN = /\bgetFieldsList\s*(?:\([^)]*\)\s*\{|:)/u;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -182,6 +184,55 @@ function readExistingTextFile(filePath: string): string | undefined {
 	}
 
 	return fs.readFileSync(filePath, "utf8");
+}
+
+function findClosingParenthesis(source: string, openIndex: number): number | null {
+	let depth = 0;
+	for (let cursor = openIndex; cursor < source.length; cursor += 1) {
+		const character = source[cursor];
+		if (character === "(") {
+			depth += 1;
+			continue;
+		}
+		if (character === ")") {
+			depth -= 1;
+			if (depth === 0) {
+				return cursor;
+			}
+		}
+	}
+
+	return null;
+}
+
+function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
+	const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+	REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = 0;
+
+	let match: RegExpExecArray | null;
+	while (
+		(match = REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.exec(maskedSource))
+	) {
+		const openIndex = maskedSource.indexOf("(", match.index);
+		if (openIndex === -1) {
+			continue;
+		}
+
+		const closeIndex = findClosingParenthesis(maskedSource, openIndex);
+		if (closeIndex === null) {
+			continue;
+		}
+
+		const callArgumentsSource = maskedSource.slice(openIndex + 1, closeIndex);
+		GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+		if (GET_FIELDS_LIST_PROPERTY_PATTERN.test(callArgumentsSource)) {
+			return true;
+		}
+
+		REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = closeIndex + 1;
+	}
+
+	return false;
 }
 
 function collectBlockMetadataRequirements(
@@ -387,7 +438,7 @@ function collectBindingSourceRequirements(
 		const editorSource = readExistingTextFile(editorFilePath);
 		if (
 			editorSource &&
-			hasExecutablePattern(editorSource, GET_FIELDS_LIST_REGISTRATION_PATTERN)
+			hasRegisterBlockBindingsSourceGetFieldsList(editorSource)
 		) {
 			pushBlockApiRequirement(
 				requirements,
