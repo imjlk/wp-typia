@@ -1,5 +1,14 @@
 # wp-typia
 
+## 0.24.12 — 2026-06-06
+
+### Patch changes
+
+- [bc6415d6](https://github.com/imjlk/wp-typia/commit/bc6415d6bde77c18a56f529afe52334861a86212) Fixed `doctor --wp-version-check` feature-floor detection so generated core
+  variations and binding source APIs are recognized from executable registrations
+  instead of comments, string literals, or stray TypeScript files. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.10
+
 ## 0.24.11 — 2026-06-06
 
 ### Patch changes
