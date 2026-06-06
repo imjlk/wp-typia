@@ -226,7 +226,7 @@ function matchesPhpFunctionCallAt(
 	}
 	const previousToken = source[previousCursor];
 	if (
-		previousToken === ">" ||
+		(previousToken === ">" && source[previousCursor - 1] === "-") ||
 		(previousToken === ":" && source[previousCursor - 1] === ":")
 	) {
 		return false;
@@ -276,6 +276,30 @@ function parsePhpQuotedStringLiteralAt(
 	}
 
 	return null;
+}
+
+function parsePhpVariableNameAt(
+	source: string,
+	index: number,
+): { end: number; name: string } | null {
+	if (source[index] !== "$") {
+		return null;
+	}
+
+	const nameStart = index + 1;
+	if (!isPhpIdentifierStart(source[nameStart])) {
+		return null;
+	}
+
+	let cursor = nameStart + 1;
+	while (isPhpIdentifierPart(source[cursor])) {
+		cursor += 1;
+	}
+
+	return {
+		end: cursor,
+		name: source.slice(nameStart, cursor),
+	};
 }
 
 function getPhpFunctionCallFirstArgumentStart(
@@ -481,6 +505,128 @@ export function hasPhpFunctionCall(source: string, functionName: string): boolea
 
 		if (matchesPhpFunctionCallAt(source, index, functionName)) {
 			return true;
+		}
+
+		index += 1;
+	}
+
+	return false;
+}
+
+function isPhpAssignmentOperatorAt(source: string, index: number | null): boolean {
+	if (index === null || source[index] !== "=") {
+		return false;
+	}
+
+	const previousToken = source[index - 1];
+	const nextToken = source[index + 1];
+	return (
+		previousToken !== "=" &&
+		previousToken !== "!" &&
+		previousToken !== "<" &&
+		previousToken !== ">" &&
+		nextToken !== "=" &&
+		nextToken !== ">"
+	);
+}
+
+function isSupportedPhpAssignedStringSuffix(
+	source: string,
+	index: number,
+): boolean {
+	const nextTokenIndex = skipPhpCallTrivia(source, index);
+	const nextToken =
+		nextTokenIndex === null ? undefined : source[nextTokenIndex];
+	return nextToken === "." || nextToken === ";" || nextToken === undefined;
+}
+
+function getPhpFunctionCallFirstVariableArgumentName(
+	source: string,
+	index: number,
+	functionName: string,
+): string | undefined {
+	const argumentStart = getPhpFunctionCallFirstArgumentStart(
+		source,
+		index,
+		functionName,
+	);
+	if (argumentStart === null) {
+		return undefined;
+	}
+
+	const variable = parsePhpVariableNameAt(source, argumentStart);
+	if (!variable) {
+		return undefined;
+	}
+
+	const argumentEnd = skipPhpCallTrivia(source, variable.end);
+	const nextToken = argumentEnd === null ? undefined : source[argumentEnd];
+	return nextToken === "," || nextToken === ")" || nextToken === undefined
+		? variable.name
+		: undefined;
+}
+
+/**
+ * Detect a PHP function call whose first argument is a variable previously
+ * assigned from a literal string prefix in executable PHP code.
+ */
+export function hasPhpFunctionCallWithAssignedStringPrefixArgument(
+	source: string,
+	functionName: string,
+	literalPrefix: string,
+): boolean {
+	const variablesWithPrefix = new Set<string>();
+	const scanner = createPhpScannerState();
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		const variable = parsePhpVariableNameAt(source, index);
+		if (variable) {
+			const assignmentStart = skipPhpCallTrivia(source, variable.end);
+			if (
+				assignmentStart !== null &&
+				isPhpAssignmentOperatorAt(source, assignmentStart)
+			) {
+				const literalStart = skipPhpCallTrivia(source, assignmentStart + 1);
+				const literal =
+					literalStart === null
+						? null
+						: parsePhpQuotedStringLiteralAt(source, literalStart);
+				if (
+					literal &&
+					literal.value.startsWith(literalPrefix) &&
+					isSupportedPhpAssignedStringSuffix(source, literal.end)
+				) {
+					variablesWithPrefix.add(variable.name);
+					index = literal.end;
+					continue;
+				}
+			}
+		}
+
+		if (matchesPhpFunctionCallAt(source, index, functionName)) {
+			const variableArgumentName = getPhpFunctionCallFirstVariableArgumentName(
+				source,
+				index,
+				functionName,
+			);
+			if (
+				variableArgumentName &&
+				variablesWithPrefix.has(variableArgumentName)
+			) {
+				return true;
+			}
+
+			index += functionName.length;
+			continue;
 		}
 
 		index += 1;

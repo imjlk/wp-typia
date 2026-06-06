@@ -668,6 +668,21 @@ test("doctor WordPress version check covers generated core variation registratio
       cwd: targetDir,
     }
   );
+  const registryPath = path.join(
+    targetDir,
+    "src",
+    "editor-plugins",
+    "core-variations",
+    "index.ts"
+  );
+  const originalRegistrySource = fs.readFileSync(registryPath, "utf8");
+  const formattedRegistrySource = originalRegistrySource.replace(
+    /^import\s+\{\s*([^}]+?)\s*\}\s+from\s+(['"]\.\/[^'"]+\/[^'"]+\/[^'"]+['"]);?$/mu,
+    (_, imports: string, specifier: string) =>
+      `import {\n\t${imports.trim()},\n} from ${specifier};`
+  );
+  expect(formattedRegistrySource).not.toBe(originalRegistrySource);
+  fs.writeFileSync(registryPath, formattedRegistrySource, "utf8");
   replaceBootstrapHeader(targetDir, "Requires at least", "5.3");
 
   const result = runCapturedCli(
@@ -888,6 +903,11 @@ test("doctor WordPress version check covers binding source API floors", async ()
         source.replace("getFieldsList() {", "getFieldsList(): BindingField[] {"),
     ],
     [
+      "async quoted method",
+      (source: string) =>
+        source.replace("getFieldsList() {", 'async "getFieldsList"() {'),
+    ],
+    [
       "quoted property",
       (source: string) =>
         source.replace(
@@ -1029,6 +1049,53 @@ registerBlockBindingsSource( {} satisfies { getFieldsList: () => string[] } );
     "registerBlockBindingsSource() getFieldsList()"
   );
   expect(typeOnlyFeatureMinimumCheck?.detail).toContain(
+    "block_bindings_supported_attributes filters"
+  );
+
+  fs.writeFileSync(
+    bindingEditorFilePath,
+    `${sourceWithoutRuntimeGetFieldsList}
+if ( true ) {
+\tconst bindingSourceRegistration = {
+\t\tgetFieldsList() {
+\t\t\treturn [];
+\t\t},
+\t};
+}
+
+registerBlockBindingsSource( bindingSourceRegistration );
+`,
+    "utf8"
+  );
+  const shadowedVariableResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const shadowedVariableDoctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{
+      code?: string;
+      detail: string;
+      label: string;
+      status: string;
+    }>;
+  }>(shadowedVariableResult.stdout);
+  const shadowedVariableFeatureMinimumCheck =
+    shadowedVariableDoctorChecks.checks.find(
+      (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+    );
+
+  expect(shadowedVariableResult.status).toBe(1);
+  expect(shadowedVariableFeatureMinimumCheck?.status).toBe("fail");
+  expect(shadowedVariableFeatureMinimumCheck?.detail).toContain(
+    "feature floor 6.9"
+  );
+  expect(shadowedVariableFeatureMinimumCheck?.detail).not.toContain(
+    "registerBlockBindingsSource() getFieldsList()"
+  );
+  expect(shadowedVariableFeatureMinimumCheck?.detail).toContain(
     "block_bindings_supported_attributes filters"
   );
 }, 20_000);

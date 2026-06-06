@@ -5,6 +5,7 @@ import {
 	findPhpFunctionRange,
 	hasPhpCodeStringLiteralPrefix,
 	hasPhpFunctionCall,
+	hasPhpFunctionCallWithAssignedStringPrefixArgument,
 	hasPhpFunctionCallWithStringArgument,
 	hasPhpFunctionCallWithStringArgumentPrefix,
 	hasPhpFunctionDefinition,
@@ -395,6 +396,13 @@ add_filter(
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\n$register = fn() => add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\n$filters->add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
 			"add_filter",
 			prefix,
@@ -403,6 +411,52 @@ add_filter(
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\nFilters::add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithAssignedStringPrefixArgument matches assigned hook variables", () => {
+	const prefix = "block_bindings_supported_attributes_";
+	const source = `<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+add_filter( $hook, 'demo_space_supported_attributes' );
+`;
+
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			source,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+add_filter( 'init', 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+add_filter( $hook, 'demo_space_supported_attributes' );
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_core/paragraph';
+$filters->add_filter( $hook, 'ignored' );
+`,
 			"add_filter",
 			prefix,
 		),

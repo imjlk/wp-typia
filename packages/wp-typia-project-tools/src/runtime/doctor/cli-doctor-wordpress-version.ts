@@ -10,8 +10,7 @@ import {
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
 import {
-	hasPhpCodeStringLiteralPrefix,
-	hasPhpFunctionCall,
+	hasPhpFunctionCallWithAssignedStringPrefixArgument,
 	hasPhpFunctionCallWithStringArgumentPrefix,
 } from "../shared/php-utils.js";
 import {
@@ -72,14 +71,14 @@ const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
 } as const satisfies Record<BlockVariationBlockJsonFeature, string>;
 
 const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
-	/^\s*import\s*(?!type[\s{])\{[^}]+\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
+	/^\s*import\s*(?!type\b)\{[\s\S]*?\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
 const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
 const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
 const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
 	/\bregisterBlockBindingsSource\s*\(/gu;
 const GET_FIELDS_LIST_PROPERTY_PATTERN =
-	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|["']getFieldsList["']\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
+	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s+)?["']getFieldsList["']\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -190,10 +189,6 @@ function readExistingTextFile(filePath: string): string | undefined {
 	}
 
 	return fs.readFileSync(filePath, "utf8");
-}
-
-function escapeRegExp(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function isTypeScriptIdentifierPart(character: string | undefined): boolean {
@@ -439,22 +434,71 @@ function findObjectInitializerStart(
 	return null;
 }
 
+function isTopLevelTypeScriptPosition(
+	structureMaskedSource: string,
+	index: number,
+): boolean {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < index; cursor += 1) {
+		const character = structureMaskedSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+		}
+	}
+
+	return braceDepth === 0 && bracketDepth === 0 && parenthesisDepth === 0;
+}
+
 function variableObjectHasGetFieldsListProperty(
 	identifier: string,
 	commentMaskedSource: string,
 	structureMaskedSource: string,
+	beforeIndex: number,
 ): boolean {
-	const variablePattern = new RegExp(
-		`\\b(?:export\\s+)?(?:const|let|var)\\s+${escapeRegExp(identifier)}\\b`,
-		"gu",
-	);
+	const variablePattern =
+		/\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\b/gu;
 	let match: RegExpExecArray | null;
+	let nearestObjectSpan: { end: number; start: number } | undefined;
+
 	while ((match = variablePattern.exec(structureMaskedSource))) {
+		if (match.index >= beforeIndex) {
+			break;
+		}
+		if (match[1] !== identifier) {
+			continue;
+		}
+		if (!isTopLevelTypeScriptPosition(structureMaskedSource, match.index)) {
+			continue;
+		}
+
 		const objectStart = findObjectInitializerStart(
 			structureMaskedSource,
 			match.index + match[0].length,
 		);
-		if (objectStart === null) {
+		if (objectStart === null || objectStart >= beforeIndex) {
 			continue;
 		}
 		const objectEnd = findClosingDelimiter(
@@ -467,17 +511,24 @@ function variableObjectHasGetFieldsListProperty(
 			continue;
 		}
 
-		if (
-			objectLiteralHasGetFieldsListProperty(
-				commentMaskedSource.slice(objectStart, objectEnd + 1),
-				structureMaskedSource.slice(objectStart, objectEnd + 1),
-			)
-		) {
-			return true;
-		}
+		nearestObjectSpan = {
+			end: objectEnd + 1,
+			start: objectStart,
+		};
 	}
 
-	return false;
+	return nearestObjectSpan
+		? objectLiteralHasGetFieldsListProperty(
+				commentMaskedSource.slice(
+					nearestObjectSpan.start,
+					nearestObjectSpan.end,
+				),
+				structureMaskedSource.slice(
+					nearestObjectSpan.start,
+					nearestObjectSpan.end,
+				),
+			)
+		: false;
 }
 
 function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
@@ -538,6 +589,7 @@ function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
 				runtimeArgumentIdentifier,
 				commentMaskedSource,
 				structureMaskedSource,
+				match.index,
 			)
 		) {
 			return true;
@@ -556,8 +608,11 @@ function hasSupportedAttributesFilterRegistration(source: string): boolean {
 			"add_filter",
 			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
 		) ||
-		(hasPhpFunctionCall(source, "add_filter") &&
-			hasPhpCodeStringLiteralPrefix(source, SUPPORTED_ATTRIBUTES_FILTER_PREFIX))
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			source,
+			"add_filter",
+			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+		)
 	);
 }
 
