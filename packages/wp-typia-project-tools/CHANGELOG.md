@@ -1,5 +1,14 @@
 # @wp-typia/project-tools
 
+## 0.24.9 — 2026-06-06
+
+### Patch changes
+
+- [df97d9c4](https://github.com/imjlk/wp-typia/commit/df97d9c47a43cd48e459616b7f7a4d52630f190a) Cover block variation metadata and generated variation registrations in
+  `doctor --wp-version-check` by deriving floors from the shared WordPress block
+  API compatibility matrix. — Thanks @imjlk!
+- Updated dependencies: block-types (npm)@0.3.5
+
 ## 0.24.8 — 2026-06-05
 
 ### Patch changes
