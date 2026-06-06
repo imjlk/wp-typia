@@ -855,37 +855,52 @@ test("doctor WordPress version check covers binding source API floors", async ()
     bindingEditorFilePath,
     "utf8"
   );
-  const rewrittenBindingEditorSource = originalBindingEditorSource.replace(
-    "getFieldsList() {",
-    "getFieldsList: () => {"
-  );
-  expect(rewrittenBindingEditorSource).not.toBe(originalBindingEditorSource);
-  fs.writeFileSync(bindingEditorFilePath, rewrittenBindingEditorSource, "utf8");
   replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
 
-  const result = runCapturedCli(
-    "node",
-    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
-    {
-      cwd: targetDir,
-    }
-  );
-  const doctorChecks = parseJsonObjectFromOutput<{
-    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
-  }>(result.stdout);
-  const featureMinimumCheck = doctorChecks.checks.find(
-    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
-  );
+  for (const replacement of [
+    "getFieldsList: () => {",
+    "getFieldsList: function () {",
+  ]) {
+    const rewrittenBindingEditorSource = originalBindingEditorSource.replace(
+      "getFieldsList() {",
+      replacement
+    );
+    expect(rewrittenBindingEditorSource).not.toBe(originalBindingEditorSource);
+    fs.writeFileSync(
+      bindingEditorFilePath,
+      rewrittenBindingEditorSource,
+      "utf8"
+    );
 
-  expect(result.status).toBe(1);
-  expect(featureMinimumCheck?.status).toBe("fail");
-  expect(featureMinimumCheck?.detail).toContain("feature floor 6.9");
-  expect(featureMinimumCheck?.detail).toContain(
-    "registerBlockBindingsSource() getFieldsList()"
-  );
-  expect(featureMinimumCheck?.detail).toContain(
-    "block_bindings_supported_attributes filters"
-  );
+    const result = runCapturedCli(
+      "node",
+      [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+      {
+        cwd: targetDir,
+      }
+    );
+    const doctorChecks = parseJsonObjectFromOutput<{
+      checks: Array<{
+        code?: string;
+        detail: string;
+        label: string;
+        status: string;
+      }>;
+    }>(result.stdout);
+    const featureMinimumCheck = doctorChecks.checks.find(
+      (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+    );
+
+    expect(result.status).toBe(1);
+    expect(featureMinimumCheck?.status).toBe("fail");
+    expect(featureMinimumCheck?.detail).toContain("feature floor 6.9");
+    expect(featureMinimumCheck?.detail).toContain(
+      "registerBlockBindingsSource() getFieldsList()"
+    );
+    expect(featureMinimumCheck?.detail).toContain(
+      "block_bindings_supported_attributes filters"
+    );
+  }
 }, 20_000);
 
 test("doctor accepts workspaces that keep binding registries in src/bindings/index.js", async () => {
