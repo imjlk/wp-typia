@@ -493,11 +493,15 @@ export function hasPhpFunctionCallWithStringArgument(
 		source,
 		functionName,
 		(value) => value === literalArgument,
+		{ allowConcatenatedPrefix: false },
 	);
 }
 
 /**
- * Detect a PHP function call whose first argument is a literal string prefix.
+ * Detect a PHP function call whose first argument starts with a literal string prefix.
+ *
+ * Concatenated expressions are accepted here so dynamic WordPress hooks such as
+ * `'block_bindings_supported_attributes_' . $block_type` remain detectable.
  */
 export function hasPhpFunctionCallWithStringArgumentPrefix(
 	source: string,
@@ -508,6 +512,7 @@ export function hasPhpFunctionCallWithStringArgumentPrefix(
 		source,
 		functionName,
 		(value) => value.startsWith(literalPrefix),
+		{ allowConcatenatedPrefix: true },
 	);
 }
 
@@ -515,6 +520,7 @@ function hasPhpFunctionCallWithStringArgumentMatching(
 	source: string,
 	functionName: string,
 	matchesArgument: (value: string) => boolean,
+	options: { allowConcatenatedPrefix: boolean },
 ): boolean {
 	const scanner = createPhpScannerState();
 	let index = 0;
@@ -544,7 +550,26 @@ function hasPhpFunctionCallWithStringArgumentMatching(
 		}
 
 		const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
-		if (argument && matchesArgument(argument.value)) {
+		if (!argument) {
+			index += functionName.length;
+			continue;
+		}
+
+		const argumentEnd = skipPhpCallTrivia(source, argument.end);
+		const nextToken = argumentEnd === null ? undefined : source[argumentEnd];
+		const isCompleteLiteralArgument =
+			nextToken === "," || nextToken === ")" || nextToken === undefined;
+		const isSupportedPrefixExpression =
+			options.allowConcatenatedPrefix && nextToken === ".";
+		if (
+			!isCompleteLiteralArgument &&
+			!isSupportedPrefixExpression
+		) {
+			index += functionName.length;
+			continue;
+		}
+
+		if (matchesArgument(argument.value)) {
 			return true;
 		}
 

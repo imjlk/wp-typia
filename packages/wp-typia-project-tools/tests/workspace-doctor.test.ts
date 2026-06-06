@@ -851,13 +851,16 @@ test("doctor WordPress version check covers binding source API floors", async ()
     throw new Error("Expected hero-data binding source in workspace inventory");
   }
   const bindingEditorFilePath = path.join(targetDir, bindingSource.editorFile);
-  fs.writeFileSync(
+  const originalBindingEditorSource = fs.readFileSync(
     bindingEditorFilePath,
-    fs
-      .readFileSync(bindingEditorFilePath, "utf8")
-      .replace("getFieldsList() {", "getFieldsList: () => {"),
     "utf8"
   );
+  const rewrittenBindingEditorSource = originalBindingEditorSource.replace(
+    "getFieldsList() {",
+    "getFieldsList: () => {"
+  );
+  expect(rewrittenBindingEditorSource).not.toBe(originalBindingEditorSource);
+  fs.writeFileSync(bindingEditorFilePath, rewrittenBindingEditorSource, "utf8");
   replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
 
   const result = runCapturedCli(

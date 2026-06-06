@@ -280,11 +280,22 @@ add_filter(
 \t"${filterName}",
 \t'demo_space_double_quoted_supported_attributes'
 );
+add_filter(
+\t'${filterName}' . '_suffix',
+\t'demo_space_concatenated_supported_attributes'
+);
 `;
 
 	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
 	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\nadd_filter( '${filterName}' . '_suffix', 'ignored' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", "other_filter"),
 	).toBe(true);

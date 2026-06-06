@@ -71,7 +71,7 @@ const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
 const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 	/^\s*registerWorkspaceCoreVariations\s*\(\s*\)\s*;?\s*$/mu;
 const GET_FIELDS_LIST_REGISTRATION_PATTERN =
-	/\bgetFieldsList\s*(?:\(|:\s*(?:async\s*)?\()/u;
+	/\bgetFieldsList\s*(?:\([^)]*\)\s*\{|:\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{)/u;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
