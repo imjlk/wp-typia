@@ -903,6 +903,14 @@ test("doctor WordPress version check covers binding source API floors", async ()
         source.replace("getFieldsList() {", "getFieldsList(): BindingField[] {"),
     ],
     [
+      "object return type method",
+      (source: string) =>
+        source.replace(
+          "getFieldsList() {",
+          "getFieldsList(): Array<{ label: string; type: string }> {"
+        ),
+    ],
+    [
       "async quoted method",
       (source: string) =>
         source.replace("getFieldsList() {", 'async "getFieldsList"() {'),
@@ -949,6 +957,19 @@ test("doctor WordPress version check covers binding source API floors", async ()
           .replace(
             /\n\} \);\s*$/u,
             "\n};\n\nregisterBlockBindingsSource( bindingSourceRegistration );\n"
+          ),
+    ],
+    [
+      "variable source object with type assertion",
+      (source: string) =>
+        source
+          .replace(
+            "registerBlockBindingsSource( {",
+            "const bindingSourceRegistration = {"
+          )
+          .replace(
+            /\n\} \);\s*$/u,
+            "\n};\n\nregisterBlockBindingsSource( bindingSourceRegistration as unknown );\n"
           ),
     ],
     [

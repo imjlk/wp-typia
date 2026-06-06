@@ -525,6 +525,7 @@ function isPhpAssignmentOperatorAt(source: string, index: number | null): boolea
 		previousToken !== "!" &&
 		previousToken !== "<" &&
 		previousToken !== ">" &&
+		previousToken !== "." &&
 		nextToken !== "=" &&
 		nextToken !== ">"
 	);
@@ -609,6 +610,7 @@ export function hasPhpFunctionCallWithAssignedStringPrefixArgument(
 					index = literal.end;
 					continue;
 				}
+				variablesWithPrefix.delete(variable.name);
 			}
 		}
 

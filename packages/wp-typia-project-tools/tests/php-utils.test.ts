@@ -454,6 +454,28 @@ $hook = 'block_bindings_supported_attributes_core/paragraph';
 	expect(
 		hasPhpFunctionCallWithAssignedStringPrefixArgument(
 			`<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$hook = 'init';
+add_filter( $hook, 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
+$hook = 'block_bindings_supported_attributes_' . $block_type;
+$hook = $other_hook;
+add_filter( $hook, 'demo_space_supported_attributes' );
+`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithAssignedStringPrefixArgument(
+			`<?php
 $hook = 'block_bindings_supported_attributes_core/paragraph';
 $filters->add_filter( $hook, 'ignored' );
 `,

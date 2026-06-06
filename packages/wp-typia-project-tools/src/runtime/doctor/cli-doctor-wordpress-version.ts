@@ -78,7 +78,7 @@ const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
 	/\bregisterBlockBindingsSource\s*\(/gu;
 const GET_FIELDS_LIST_PROPERTY_PATTERN =
-	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s+)?["']getFieldsList["']\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
+	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)|(?:async\s+)?["']getFieldsList["']\s*\([^)]*\)|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -378,7 +378,7 @@ function getSimpleRuntimeArgumentIdentifier(
 	structureMaskedRuntimeArgumentsSource: string,
 ): string | undefined {
 	const trimmed = structureMaskedRuntimeArgumentsSource.trim();
-	const match = /^([A-Za-z_$][\w$]*)$/u.exec(trimmed);
+	const match = /^([A-Za-z_$][\w$]*)(?:\s+as\b[\s\S]*)?$/u.exec(trimmed);
 	return match?.[1];
 }
 
