@@ -225,7 +225,10 @@ function matchesPhpFunctionCallAt(
 		previousCursor -= 1;
 	}
 	const previousToken = source[previousCursor];
-	if (previousToken === ">" || previousToken === ":") {
+	if (
+		previousToken === ">" ||
+		(previousToken === ":" && source[previousCursor - 1] === ":")
+	) {
 		return false;
 	}
 

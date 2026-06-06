@@ -867,20 +867,79 @@ test("doctor WordPress version check covers binding source API floors", async ()
     bindingEditorFilePath,
     "utf8"
   );
+  const getFieldsListMethodBlockPattern =
+    /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},\n\tgetValues/u;
   replaceBootstrapHeader(targetDir, "Requires at least", "6.8");
 
-  for (const transformSource of [
-    (source: string) => source.replace("getFieldsList() {", "getFieldsList: () => {"),
-    (source: string) =>
-      source.replace("getFieldsList() {", "getFieldsList: function () {"),
-    (source: string) =>
-      source.replace("getFieldsList() {", "getFieldsList(): BindingField[] {"),
-    (source: string) =>
-      source.replace(
-        /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},/u,
-        '\t"getFieldsList": () => [],'
-      ),
-  ]) {
+  for (const [label, transformSource] of [
+    [
+      "arrow property",
+      (source: string) =>
+        source.replace("getFieldsList() {", "getFieldsList: () => {"),
+    ],
+    [
+      "function property",
+      (source: string) =>
+        source.replace("getFieldsList() {", "getFieldsList: function () {"),
+    ],
+    [
+      "typed method",
+      (source: string) =>
+        source.replace("getFieldsList() {", "getFieldsList(): BindingField[] {"),
+    ],
+    [
+      "quoted property",
+      (source: string) =>
+        source.replace(
+          getFieldsListMethodBlockPattern,
+          '\t"getFieldsList": () => [],\n\tgetValues'
+        ),
+    ],
+    [
+      "shorthand property",
+      (source: string) =>
+        source
+          .replace(
+            "function resolveBindingSourceValue",
+            "const getFieldsList = () => [];\n\nfunction resolveBindingSourceValue"
+          )
+          .replace(getFieldsListMethodBlockPattern, "\tgetFieldsList,\n\tgetValues"),
+    ],
+    [
+      "function reference property",
+      (source: string) =>
+        source
+          .replace(
+            "function resolveBindingSourceValue",
+            "const buildFieldsList = () => [];\n\nfunction resolveBindingSourceValue"
+          )
+          .replace(
+            getFieldsListMethodBlockPattern,
+            "\tgetFieldsList: buildFieldsList,\n\tgetValues"
+          ),
+    ],
+    [
+      "variable source object",
+      (source: string) =>
+        source
+          .replace(
+            "registerBlockBindingsSource( {",
+            "const bindingSourceRegistration = {"
+          )
+          .replace(
+            /\n\} \);\s*$/u,
+            "\n};\n\nregisterBlockBindingsSource( bindingSourceRegistration );\n"
+          ),
+    ],
+    [
+      "inner satisfies expression",
+      (source: string) =>
+        source.replace(
+          "registerBlockBindingsSource( {",
+          "const metadata = {};\n\nregisterBlockBindingsSource( {\n\tmeta: metadata satisfies Record<string, unknown>,"
+        ),
+    ],
+  ] satisfies Array<[string, (source: string) => string]>) {
     const rewrittenBindingEditorSource = transformSource(
       originalBindingEditorSource
     );
@@ -913,6 +972,15 @@ test("doctor WordPress version check covers binding source API floors", async ()
     expect(result.status).toBe(1);
     expect(featureMinimumCheck?.status).toBe("fail");
     expect(featureMinimumCheck?.detail).toContain("feature floor 6.9");
+    if (
+      !featureMinimumCheck?.detail.includes(
+        "registerBlockBindingsSource() getFieldsList()"
+      )
+    ) {
+      throw new Error(
+        `${label} did not report getFieldsList(): ${featureMinimumCheck?.detail ?? "<missing check>"}`
+      );
+    }
     expect(featureMinimumCheck?.detail).toContain(
       "registerBlockBindingsSource() getFieldsList()"
     );
@@ -922,8 +990,8 @@ test("doctor WordPress version check covers binding source API floors", async ()
   }
 
   const sourceWithoutRuntimeGetFieldsList = originalBindingEditorSource.replace(
-    /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},\n/u,
-    ""
+    getFieldsListMethodBlockPattern,
+    "\tgetValues"
   );
   expect(sourceWithoutRuntimeGetFieldsList).not.toBe(
     originalBindingEditorSource

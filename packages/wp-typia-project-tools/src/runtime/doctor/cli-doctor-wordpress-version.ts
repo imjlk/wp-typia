@@ -79,7 +79,7 @@ const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
 const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
 	/\bregisterBlockBindingsSource\s*\(/gu;
 const GET_FIELDS_LIST_PROPERTY_PATTERN =
-	/(?:\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:\s*(?:(?:async\s+)?function(?:\s+\w+)?\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s*)?\([^)]*\)\s*=>)|["']getFieldsList["']\s*:\s*(?:(?:async\s+)?function(?:\s+\w+)?\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|(?:async\s*)?\([^)]*\)\s*=>))/u;
+	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|["']getFieldsList["']\s*\([^)]*\)\s*(?::\s*[^{};,]+)?\s*\{|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
 	"block_bindings_supported_attributes_";
 
@@ -192,15 +192,36 @@ function readExistingTextFile(filePath: string): string | undefined {
 	return fs.readFileSync(filePath, "utf8");
 }
 
-function findClosingParenthesis(source: string, openIndex: number): number | null {
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function isTypeScriptIdentifierPart(character: string | undefined): boolean {
+	return /^[A-Za-z0-9_$]$/u.test(character ?? "");
+}
+
+function skipTypeScriptWhitespace(source: string, index: number): number {
+	let cursor = index;
+	while (/\s/u.test(source[cursor] ?? "")) {
+		cursor += 1;
+	}
+	return cursor;
+}
+
+function findClosingDelimiter(
+	source: string,
+	openIndex: number,
+	openDelimiter: "{" | "(",
+	closeDelimiter: "}" | ")",
+): number | null {
 	let depth = 0;
 	for (let cursor = openIndex; cursor < source.length; cursor += 1) {
 		const character = source[cursor];
-		if (character === "(") {
+		if (character === openDelimiter) {
 			depth += 1;
 			continue;
 		}
-		if (character === ")") {
+		if (character === closeDelimiter) {
 			depth -= 1;
 			if (depth === 0) {
 				return cursor;
@@ -209,6 +230,254 @@ function findClosingParenthesis(source: string, openIndex: number): number | nul
 	}
 
 	return null;
+}
+
+function findTopLevelSatisfiesIndex(source: string): number | null {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < source.length; cursor += 1) {
+		const character = source[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+			continue;
+		}
+		if (
+			braceDepth === 0 &&
+			bracketDepth === 0 &&
+			parenthesisDepth === 0 &&
+			source.startsWith("satisfies", cursor) &&
+			!isTypeScriptIdentifierPart(source[cursor - 1]) &&
+			!isTypeScriptIdentifierPart(source[cursor + "satisfies".length])
+		) {
+			return cursor;
+		}
+	}
+
+	return null;
+}
+
+function isTopLevelObjectPropertyStart(
+	structureMaskedObjectSource: string,
+	index: number,
+): boolean {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = 0; cursor < index; cursor += 1) {
+		const character = structureMaskedObjectSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+		}
+	}
+
+	if (braceDepth !== 1 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+		return false;
+	}
+
+	let previousCursor = index - 1;
+	while (
+		previousCursor >= 0 &&
+		/\s/u.test(structureMaskedObjectSource[previousCursor] ?? "")
+	) {
+		previousCursor -= 1;
+	}
+	const previousToken = structureMaskedObjectSource[previousCursor];
+	return previousToken === "{" || previousToken === ",";
+}
+
+function objectLiteralHasGetFieldsListProperty(
+	commentMaskedObjectSource: string,
+	structureMaskedObjectSource: string,
+): boolean {
+	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+	let match: RegExpExecArray | null;
+	while ((match = GET_FIELDS_LIST_PROPERTY_PATTERN.exec(commentMaskedObjectSource))) {
+		if (isTopLevelObjectPropertyStart(structureMaskedObjectSource, match.index)) {
+			GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+			return true;
+		}
+	}
+	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+	return false;
+}
+
+function getRuntimeArgumentEnd(maskedCallArgumentsSource: string): number {
+	return (
+		findTopLevelSatisfiesIndex(maskedCallArgumentsSource) ??
+		maskedCallArgumentsSource.length
+	);
+}
+
+function getFirstObjectArgumentSpan(
+	structureMaskedRuntimeArgumentsSource: string,
+	absoluteStart: number,
+): { end: number; start: number } | undefined {
+	const objectStartOffset = skipTypeScriptWhitespace(
+		structureMaskedRuntimeArgumentsSource,
+		0,
+	);
+	if (structureMaskedRuntimeArgumentsSource[objectStartOffset] !== "{") {
+		return undefined;
+	}
+
+	const objectEndOffset = findClosingDelimiter(
+		structureMaskedRuntimeArgumentsSource,
+		objectStartOffset,
+		"{",
+		"}",
+	);
+	if (objectEndOffset === null) {
+		return undefined;
+	}
+
+	return {
+		end: absoluteStart + objectEndOffset + 1,
+		start: absoluteStart + objectStartOffset,
+	};
+}
+
+function getSimpleRuntimeArgumentIdentifier(
+	structureMaskedRuntimeArgumentsSource: string,
+): string | undefined {
+	const trimmed = structureMaskedRuntimeArgumentsSource.trim();
+	const match = /^([A-Za-z_$][\w$]*)$/u.exec(trimmed);
+	return match?.[1];
+}
+
+function findObjectInitializerStart(
+	structureMaskedSource: string,
+	index: number,
+): number | null {
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+
+	for (let cursor = index; cursor < structureMaskedSource.length; cursor += 1) {
+		const character = structureMaskedSource[cursor];
+		if (character === "{") {
+			braceDepth += 1;
+			continue;
+		}
+		if (character === "}") {
+			braceDepth = Math.max(0, braceDepth - 1);
+			continue;
+		}
+		if (character === "[") {
+			bracketDepth += 1;
+			continue;
+		}
+		if (character === "]") {
+			bracketDepth = Math.max(0, bracketDepth - 1);
+			continue;
+		}
+		if (character === "(") {
+			parenthesisDepth += 1;
+			continue;
+		}
+		if (character === ")") {
+			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+			continue;
+		}
+
+		if (braceDepth !== 0 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+			continue;
+		}
+		if (character === ";") {
+			return null;
+		}
+		if (character !== "=" || structureMaskedSource[cursor + 1] === ">") {
+			continue;
+		}
+
+		const valueStart = skipTypeScriptWhitespace(structureMaskedSource, cursor + 1);
+		return structureMaskedSource[valueStart] === "{" ? valueStart : null;
+	}
+
+	return null;
+}
+
+function variableObjectHasGetFieldsListProperty(
+	identifier: string,
+	commentMaskedSource: string,
+	structureMaskedSource: string,
+): boolean {
+	const variablePattern = new RegExp(
+		`\\b(?:export\\s+)?(?:const|let|var)\\s+${escapeRegExp(identifier)}\\b`,
+		"gu",
+	);
+	let match: RegExpExecArray | null;
+	while ((match = variablePattern.exec(structureMaskedSource))) {
+		const objectStart = findObjectInitializerStart(
+			structureMaskedSource,
+			match.index + match[0].length,
+		);
+		if (objectStart === null) {
+			continue;
+		}
+		const objectEnd = findClosingDelimiter(
+			structureMaskedSource,
+			objectStart,
+			"{",
+			"}",
+		);
+		if (objectEnd === null) {
+			continue;
+		}
+
+		if (
+			objectLiteralHasGetFieldsListProperty(
+				commentMaskedSource.slice(objectStart, objectEnd + 1),
+				structureMaskedSource.slice(objectStart, objectEnd + 1),
+			)
+		) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
@@ -226,7 +495,12 @@ function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
 			continue;
 		}
 
-		const closeIndex = findClosingParenthesis(structureMaskedSource, openIndex);
+		const closeIndex = findClosingDelimiter(
+			structureMaskedSource,
+			openIndex,
+			"(",
+			")",
+		);
 		if (closeIndex === null) {
 			continue;
 		}
@@ -235,14 +509,37 @@ function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
 			openIndex + 1,
 			closeIndex,
 		);
-		const satisfiesMatch = /\bsatisfies\b/u.exec(maskedCallArgumentsSource);
-		const runtimeArgumentEnd = satisfiesMatch?.index ?? maskedCallArgumentsSource.length;
-		const callArgumentsSource = commentMaskedSource.slice(
-			openIndex + 1,
-			openIndex + 1 + runtimeArgumentEnd,
+		const runtimeArgumentEnd = getRuntimeArgumentEnd(maskedCallArgumentsSource);
+		const runtimeArgumentsStart = openIndex + 1;
+		const maskedRuntimeArgumentsSource = structureMaskedSource.slice(
+			runtimeArgumentsStart,
+			runtimeArgumentsStart + runtimeArgumentEnd,
 		);
-		GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
-		if (GET_FIELDS_LIST_PROPERTY_PATTERN.test(callArgumentsSource)) {
+		const objectArgumentSpan = getFirstObjectArgumentSpan(
+			maskedRuntimeArgumentsSource,
+			runtimeArgumentsStart,
+		);
+		if (
+			objectArgumentSpan &&
+			objectLiteralHasGetFieldsListProperty(
+				commentMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
+				structureMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
+			)
+		) {
+			return true;
+		}
+
+		const runtimeArgumentIdentifier = getSimpleRuntimeArgumentIdentifier(
+			maskedRuntimeArgumentsSource,
+		);
+		if (
+			runtimeArgumentIdentifier &&
+			variableObjectHasGetFieldsListProperty(
+				runtimeArgumentIdentifier,
+				commentMaskedSource,
+				structureMaskedSource,
+			)
+		) {
 			return true;
 		}
 

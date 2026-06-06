@@ -262,6 +262,12 @@ TEXT;
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
+			`${source}\nif ( $ok ) : wp_enqueue_script_module( 'demo', 'url', array(), null ); endif;\n`,
+			"wp_enqueue_script_module",
+		),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
 			`${source}\n$scripts->wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
 			"wp_enqueue_script_module",
 		),
@@ -327,6 +333,13 @@ add_filter(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", "other_filter"),
 	).toBe(true);
 	expect(
+		hasPhpFunctionCallWithStringArgument(
+			`<?php\ncase 'x': add_filter( '${filterName}', 'cb' );\n`,
+			"add_filter",
+			filterName,
+		),
+	).toBe(true);
+	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", "missing_filter"),
 	).toBe(false);
 });
@@ -373,6 +386,13 @@ add_filter(
 			"block_bindings_supported_attributes_missing/",
 		),
 	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArgumentPrefix(
+			`<?php\nif ( $ok ) : add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' ); endif;\n`,
+			"add_filter",
+			prefix,
+		),
+	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\n$filters->add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
