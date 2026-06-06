@@ -4,6 +4,7 @@ import {
 	escapeRegex,
 	findPhpFunctionRange,
 	hasPhpFunctionCall,
+	hasPhpFunctionCallWithStringArgument,
 	hasPhpFunctionDefinition,
 	quotePhpString,
 	replacePhpFunctionDefinition,
@@ -257,6 +258,51 @@ TEXT;
 			"wp_enqueue_script_module",
 		),
 	).toBe(true);
+});
+
+test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
+	const filterName = "block_bindings_supported_attributes_demo-space/card";
+	const source = `<?php
+// add_filter( '${filterName}', 'ignored_comment' );
+$single = "add_filter( '${filterName}', 'ignored_string' )";
+$double = '${filterName}';
+add_filter(
+\t'other_filter',
+\t'demo_space_other'
+);
+add_filter(
+\t/* generated binding floor */
+\t'${filterName}',
+\t'demo_space_supported_attributes'
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", "other_filter"),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", "missing_filter"),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArgument ignores comments, strings, heredoc, and non-first arguments", () => {
+	const filterName = "block_bindings_supported_attributes_demo-space/card";
+	const source = `<?php
+// add_filter( '${filterName}', 'ignored_comment' );
+$single = 'add_filter( "${filterName}", "ignored_string" )';
+$double = "${filterName}";
+$heredoc = <<<TEXT
+add_filter( '${filterName}', 'ignored_heredoc' )
+TEXT;
+add_filter( 'other_filter', '${filterName}' );
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(false);
 });
 
 test("PHP scanner transitions agree between range and call helpers", () => {

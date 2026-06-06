@@ -230,6 +230,57 @@ function matchesPhpFunctionCallAt(
 	return callStart !== null && source[callStart] === "(";
 }
 
+function parsePhpQuotedStringLiteralAt(
+	source: string,
+	index: number,
+): { end: number; value: string } | null {
+	const quote = source[index];
+	if (quote !== "'" && quote !== '"') {
+		return null;
+	}
+
+	let cursor = index + 1;
+	let value = "";
+	while (cursor < source.length) {
+		const character = source[cursor];
+		if (character === "\\") {
+			const escapedCharacter = source[cursor + 1];
+			if (escapedCharacter === undefined) {
+				return null;
+			}
+			value += escapedCharacter;
+			cursor += 2;
+			continue;
+		}
+
+		if (character === quote) {
+			return {
+				end: cursor + 1,
+				value,
+			};
+		}
+
+		value += character;
+		cursor += 1;
+	}
+
+	return null;
+}
+
+function getPhpFunctionCallFirstArgumentStart(
+	source: string,
+	index: number,
+	functionName: string,
+): number | null {
+	const cursor = index + functionName.length;
+	const callStart = skipPhpCallTrivia(source, cursor);
+	if (callStart === null || source[callStart] !== "(") {
+		return null;
+	}
+
+	return skipPhpCallTrivia(source, callStart + 1);
+}
+
 function createPhpScannerState(): PhpScannerState {
 	return {
 		heredocDelimiter: "",
@@ -422,6 +473,55 @@ export function hasPhpFunctionCall(source: string, functionName: string): boolea
 		}
 
 		index += 1;
+	}
+
+	return false;
+}
+
+/**
+ * Detect a PHP function call whose first argument is a literal string value.
+ *
+ * This uses the same code-mode scanner as {@link hasPhpFunctionCall}, so
+ * comments, quoted strings, heredoc, and nowdoc content cannot create matches.
+ */
+export function hasPhpFunctionCallWithStringArgument(
+	source: string,
+	functionName: string,
+	literalArgument: string,
+): boolean {
+	const scanner = createPhpScannerState();
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		if (!matchesPhpFunctionCallAt(source, index, functionName)) {
+			index += 1;
+			continue;
+		}
+
+		const argumentStart = getPhpFunctionCallFirstArgumentStart(
+			source,
+			index,
+			functionName,
+		);
+		if (argumentStart === null) {
+			index += functionName.length;
+			continue;
+		}
+
+		const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
+		if (argument?.value === literalArgument) {
+			return true;
+		}
+
+		index += functionName.length;
 	}
 
 	return false;

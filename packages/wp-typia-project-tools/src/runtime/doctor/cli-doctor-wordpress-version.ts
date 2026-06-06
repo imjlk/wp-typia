@@ -9,6 +9,11 @@ import {
 	resolveWorkspaceBootstrapPath,
 } from "./cli-doctor-workspace-shared.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
+import { hasPhpFunctionCallWithStringArgument } from "../shared/php-utils.js";
+import {
+	hasExecutablePattern,
+	hasUncommentedPattern,
+} from "../shared/ts-source-masking.js";
 import {
 	compareVersionFloors,
 	pickHigherVersionFloor,
@@ -60,8 +65,19 @@ const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
 	registrationMetadataFile: "variations",
 } as const satisfies Record<BlockVariationBlockJsonFeature, string>;
 
+const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
+	/^\s*import\s*\{[^}]+\}\s*from\s*["']\.\/[^"']+\/[^"']+\/[^"']+["']\s*;?\s*$/mu;
+const REGISTER_BLOCK_VARIATION_CALL_PATTERN = /\bregisterBlockVariation\s*\(/u;
+const REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN =
+	/\bregisterWorkspaceCoreVariations\s*\(/u;
+const GET_FIELDS_LIST_CALL_PATTERN = /\bgetFieldsList\s*\(/u;
+
 function isEnabledMetadataValue(value: unknown): boolean {
 	return value !== undefined && value !== false && value !== null;
+}
+
+function assertNeverBlockVariationFeature(feature: never): never {
+	throw new Error(`Unhandled block variation metadata feature "${String(feature)}".`);
 }
 
 function isEnabledBlockVariationMetadataFeature(
@@ -75,7 +91,7 @@ function isEnabledBlockVariationMetadataFeature(
 		return typeof value === "string" && value.trim().length > 0;
 	}
 
-	return isEnabledMetadataValue(value);
+	return assertNeverBlockVariationFeature(feature);
 }
 
 function getNestedMetadataValue(
@@ -261,30 +277,24 @@ function collectBlockMetadataRequirements(
 	};
 }
 
-function hasGeneratedCoreVariationModule(
-	directoryPath: string,
-	isRootDirectory = true,
-): boolean {
-	if (!fs.existsSync(directoryPath)) {
+function hasGeneratedCoreVariationRegistry(projectDir: string): boolean {
+	const registryPath = path.join(
+		projectDir,
+		"src",
+		"editor-plugins",
+		"core-variations",
+		"index.ts",
+	);
+	const source = readExistingTextFile(registryPath);
+	if (!source) {
 		return false;
 	}
 
-	for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
-		const entryPath = path.join(directoryPath, entry.name);
-		if (entry.isDirectory() && hasGeneratedCoreVariationModule(entryPath, false)) {
-			return true;
-		}
-		if (
-			!isRootDirectory &&
-			entry.isFile() &&
-			entry.name.endsWith(".ts") &&
-			entry.name !== "index.ts"
-		) {
-			return true;
-		}
-	}
-
-	return false;
+	return (
+		hasUncommentedPattern(source, CORE_VARIATION_REGISTRY_IMPORT_PATTERN) &&
+		hasExecutablePattern(source, REGISTER_BLOCK_VARIATION_CALL_PATTERN) &&
+		hasExecutablePattern(source, REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN)
+	);
 }
 
 function collectVariationRequirements(
@@ -302,13 +312,7 @@ function collectVariationRequirements(
 		);
 	}
 
-	const coreVariationsDir = path.join(
-		workspace.projectDir,
-		"src",
-		"editor-plugins",
-		"core-variations",
-	);
-	if (hasGeneratedCoreVariationModule(coreVariationsDir)) {
+	if (hasGeneratedCoreVariationRegistry(workspace.projectDir)) {
 		pushBlockApiRequirement(
 			requirements,
 			"Core variations editor plugin",
@@ -376,7 +380,11 @@ function collectBindingSourceRequirements(
 			workspace.projectDir,
 			bindingSource.editorFile,
 		);
-		if (readExistingTextFile(editorFilePath)?.includes("getFieldsList")) {
+		const editorSource = readExistingTextFile(editorFilePath);
+		if (
+			editorSource &&
+			hasExecutablePattern(editorSource, GET_FIELDS_LIST_CALL_PATTERN)
+		) {
 			pushBlockApiRequirement(
 				requirements,
 				`Binding source ${bindingSource.slug}`,
@@ -388,9 +396,14 @@ function collectBindingSourceRequirements(
 			workspace.projectDir,
 			bindingSource.serverFile,
 		);
+		const serverSource = readExistingTextFile(serverFilePath);
+		const supportedAttributesFilter = `block_bindings_supported_attributes_${workspace.workspace.namespace}/${bindingSource.block}`;
 		if (
-			readExistingTextFile(serverFilePath)?.includes(
-				"block_bindings_supported_attributes_",
+			serverSource &&
+			hasPhpFunctionCallWithStringArgument(
+				serverSource,
+				"add_filter",
+				supportedAttributesFilter,
 			)
 		) {
 			pushBlockApiRequirement(

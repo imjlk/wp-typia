@@ -693,6 +693,61 @@ test("doctor WordPress version check covers generated core variation registratio
   );
 }, 30_000);
 
+test("doctor WordPress version check ignores stray core variation TypeScript files", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-stray-core-variation-file"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version stray core variation file",
+    slug: "demo-workspace-wp-version-stray-core-variation-file",
+    title: "Demo Workspace WordPress Version Stray Core Variation File",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  const strayCoreVariationDir = path.join(
+    targetDir,
+    "src",
+    "editor-plugins",
+    "core-variations",
+    "core",
+    "group"
+  );
+  fs.mkdirSync(strayCoreVariationDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(strayCoreVariationDir, "notes.ts"),
+    [
+      "// This file documents a planned core variation.",
+      "const planned = 'registerBlockVariation(core/group, demo)';",
+      "export default planned;",
+      "",
+    ].join("\n"),
+    "utf8"
+  );
+  replaceBootstrapHeader(targetDir, "Requires at least", "5.3");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(0);
+  expect(featureMinimumCheck?.status).toBe("pass");
+  expect(featureMinimumCheck?.detail).not.toContain(
+    "Core variations editor plugin"
+  );
+}, 30_000);
+
 test("doctor WordPress version check reads ability inventory compatibility floors", async () => {
   const targetDir = path.join(
     tempRoot,
