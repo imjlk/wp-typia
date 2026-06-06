@@ -45,8 +45,37 @@ const WORDPRESS_VERSION_CHECK_CODES = {
 	testedTarget: "wp-typia.workspace.wordpress.tested-target",
 } as const;
 
+type BlockVariationCompatibilityMatrix =
+	typeof WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;
+
+type BlockVariationBlockJsonFeature = {
+	[Feature in keyof BlockVariationCompatibilityMatrix]: "block-json" extends BlockVariationCompatibilityMatrix[Feature]["runtime"][number]
+		? Feature
+		: never;
+}[keyof BlockVariationCompatibilityMatrix];
+
+// Both entries read the same `variations` field and are distinguished by value type.
+const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
+	registrationBlockJsonMetadata: "variations",
+	registrationMetadataFile: "variations",
+} as const satisfies Record<BlockVariationBlockJsonFeature, string>;
+
 function isEnabledMetadataValue(value: unknown): boolean {
 	return value !== undefined && value !== false && value !== null;
+}
+
+function isEnabledBlockVariationMetadataFeature(
+	feature: BlockVariationBlockJsonFeature,
+	value: unknown,
+): boolean {
+	if (feature === "registrationBlockJsonMetadata") {
+		return Array.isArray(value) && value.length > 0;
+	}
+	if (feature === "registrationMetadataFile") {
+		return typeof value === "string" && value.trim().length > 0;
+	}
+
+	return isEnabledMetadataValue(value);
 }
 
 function getNestedMetadataValue(
@@ -205,10 +234,90 @@ function collectBlockMetadataRequirements(
 				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
 			}
 		}
+
+		for (const [feature, entry] of Object.entries(
+			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations,
+		)) {
+			if (!(entry.runtime as readonly string[]).includes("block-json")) {
+				continue;
+			}
+
+			const blockJsonFeature = feature as BlockVariationBlockJsonFeature;
+			const blockJsonKey = BLOCK_VARIATION_BLOCK_JSON_KEYS[blockJsonFeature];
+			if (
+				isEnabledBlockVariationMetadataFeature(
+					blockJsonFeature,
+					getNestedMetadataValue(blockJson, blockJsonKey),
+				)
+			) {
+				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+			}
+		}
 	}
 
 	return {
 		issues,
+		requirements,
+	};
+}
+
+function hasGeneratedCoreVariationModule(
+	directoryPath: string,
+	isRootDirectory = true,
+): boolean {
+	if (!fs.existsSync(directoryPath)) {
+		return false;
+	}
+
+	for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+		const entryPath = path.join(directoryPath, entry.name);
+		if (entry.isDirectory() && hasGeneratedCoreVariationModule(entryPath, false)) {
+			return true;
+		}
+		if (
+			!isRootDirectory &&
+			entry.isFile() &&
+			entry.name.endsWith(".ts") &&
+			entry.name !== "index.ts"
+		) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function collectVariationRequirements(
+	workspace: WorkspaceProject,
+	inventory: WorkspaceInventory,
+): WordPressVersionRequirementCollection {
+	const requirements: WordPressVersionRequirement[] = [];
+	const variationEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;
+
+	for (const variation of inventory.variations) {
+		pushBlockApiRequirement(
+			requirements,
+			`Variation ${variation.block}/${variation.slug}`,
+			variationEntries.editorRegistration,
+		);
+	}
+
+	const coreVariationsDir = path.join(
+		workspace.projectDir,
+		"src",
+		"editor-plugins",
+		"core-variations",
+	);
+	if (hasGeneratedCoreVariationModule(coreVariationsDir)) {
+		pushBlockApiRequirement(
+			requirements,
+			"Core variations editor plugin",
+			variationEntries.editorRegistration,
+		);
+	}
+
+	return {
+		issues: [],
 		requirements,
 	};
 }
@@ -303,6 +412,7 @@ function collectWordPressVersionRequirements(
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
 	const blockRequirements = collectBlockMetadataRequirements(workspace, inventory);
+	const variationRequirements = collectVariationRequirements(workspace, inventory);
 	const bindingRequirements = collectBindingSourceRequirements(
 		workspace,
 		inventory,
@@ -313,11 +423,13 @@ function collectWordPressVersionRequirements(
 	return {
 		issues: [
 			...blockRequirements.issues,
+			...variationRequirements.issues,
 			...bindingRequirements.issues,
 			...inventoryRequirements.issues,
 		],
 		requirements: [
 			...blockRequirements.requirements,
+			...variationRequirements.requirements,
 			...bindingRequirements.requirements,
 			...inventoryRequirements.requirements,
 		],

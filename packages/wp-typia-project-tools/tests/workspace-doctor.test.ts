@@ -471,6 +471,228 @@ test("doctor WordPress version check covers shared block API feature floors", as
   expect(sevenFeatureMinimumCheck?.detail).toContain("supports.listView");
 }, 20_000);
 
+test("doctor WordPress version check covers block variation metadata floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-variation-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version variation floor",
+    slug: "demo-workspace-wp-version-variation-floor",
+    title: "Demo Workspace WordPress Version Variation Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli("node", [entryPath, "add", "block", "feature-card"], {
+    cwd: targetDir,
+  });
+
+  const blockJsonPath = path.join(
+    targetDir,
+    "src",
+    "blocks",
+    "feature-card",
+    "block.json"
+  );
+  const blockJson = JSON.parse(fs.readFileSync(blockJsonPath, "utf8")) as {
+    supports?: Record<string, unknown>;
+    variations?: unknown;
+  };
+  blockJson.supports = {};
+
+  blockJson.variations = [];
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "5.8");
+
+  const emptyArrayResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const emptyArrayChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; status: string }>;
+  }>(emptyArrayResult.stdout);
+
+  expect(emptyArrayResult.status).toBe(0);
+  expect(
+    emptyArrayChecks.checks.find(
+      (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+    )?.status
+  ).toBe("pass");
+
+  blockJson.variations = "";
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+
+  const emptyStringResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const emptyStringChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; status: string }>;
+  }>(emptyStringResult.stdout);
+
+  expect(emptyStringResult.status).toBe(0);
+  expect(
+    emptyStringChecks.checks.find(
+      (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+    )?.status
+  ).toBe("pass");
+
+  blockJson.variations = [
+    {
+      attributes: { className: "is-style-featured" },
+      name: "featured",
+      title: "Featured",
+    },
+  ];
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "5.8");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 5.9");
+  expect(featureMinimumCheck?.detail).toContain(
+    "block.json variations metadata"
+  );
+
+  blockJson.variations = "file:./variations.php";
+  fs.writeFileSync(blockJsonPath, JSON.stringify(blockJson, null, 2), "utf8");
+  replaceBootstrapHeader(targetDir, "Requires at least", "6.6");
+
+  const fileResult = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const fileChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(fileResult.stdout);
+  const fileFeatureMinimumCheck = fileChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(fileResult.status).toBe(1);
+  expect(fileFeatureMinimumCheck?.status).toBe("fail");
+  expect(fileFeatureMinimumCheck?.detail).toContain("feature floor 6.7");
+  expect(fileFeatureMinimumCheck?.detail).toContain(
+    "block.json variations file metadata"
+  );
+}, 20_000);
+
+test("doctor WordPress version check covers generated variation registration floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-generated-variation-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version generated variation floor",
+    slug: "demo-workspace-wp-version-generated-variation-floor",
+    title: "Demo Workspace WordPress Version Generated Variation Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli("node", [entryPath, "add", "block", "feature-card"], {
+    cwd: targetDir,
+  });
+  runCli(
+    "node",
+    [entryPath, "add", "variation", "featured", "--block", "feature-card"],
+    {
+      cwd: targetDir,
+    }
+  );
+  replaceBootstrapHeader(targetDir, "Requires at least", "5.3");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 5.4");
+  expect(featureMinimumCheck?.detail).toContain(
+    "registerBlockVariation() editor registration"
+  );
+}, 30_000);
+
+test("doctor WordPress version check covers generated core variation registration floors", async () => {
+  const targetDir = path.join(
+    tempRoot,
+    "demo-workspace-wp-version-generated-core-variation-floor"
+  );
+
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: "Demo workspace WordPress version generated core variation floor",
+    slug: "demo-workspace-wp-version-generated-core-variation-floor",
+    title: "Demo Workspace WordPress Version Generated Core Variation Floor",
+  });
+
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    "node",
+    [entryPath, "add", "core-variation", "core/group", "section-hero"],
+    {
+      cwd: targetDir,
+    }
+  );
+  replaceBootstrapHeader(targetDir, "Requires at least", "5.3");
+
+  const result = runCapturedCli(
+    "node",
+    [entryPath, "doctor", "--wp-version-check", "--format", "json"],
+    {
+      cwd: targetDir,
+    }
+  );
+  const doctorChecks = parseJsonObjectFromOutput<{
+    checks: Array<{ code?: string; detail: string; label: string; status: string }>;
+  }>(result.stdout);
+  const featureMinimumCheck = doctorChecks.checks.find(
+    (check) => check.code === "wp-typia.workspace.wordpress.feature-minimum"
+  );
+
+  expect(result.status).toBe(1);
+  expect(featureMinimumCheck?.status).toBe("fail");
+  expect(featureMinimumCheck?.detail).toContain("feature floor 5.4");
+  expect(featureMinimumCheck?.detail).toContain("Core variations editor plugin");
+  expect(featureMinimumCheck?.detail).toContain(
+    "registerBlockVariation() editor registration"
+  );
+}, 30_000);
+
 test("doctor WordPress version check reads ability inventory compatibility floors", async () => {
   const targetDir = path.join(
     tempRoot,
