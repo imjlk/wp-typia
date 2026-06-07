@@ -5,6 +5,7 @@ import {
 import type { DoctorExitPolicy } from '@wp-typia/project-tools/cli-doctor';
 import { executeDoctorCommand } from '../runtime-bridge';
 import type { PrintLine } from '../print-line';
+import { withStructuredOutputNotices } from '../structured-output-notices';
 import type { PortableCliDispatchContext } from './types';
 
 async function renderPortableCliDoctorJson(
@@ -12,6 +13,7 @@ async function renderPortableCliDoctorJson(
   exitPolicy: DoctorExitPolicy,
   wordpressVersionCheck: boolean,
   printLine: PrintLine,
+  structuredNotices: readonly string[] | undefined,
 ): Promise<void> {
   const {
     createDoctorRunSummary,
@@ -22,10 +24,7 @@ async function renderPortableCliDoctorJson(
   const summary = createDoctorRunSummary(checks, { exitPolicy });
   printLine(
     JSON.stringify(
-      {
-        checks,
-        summary,
-      },
+      withStructuredOutputNotices({ checks, summary }, structuredNotices),
       null,
       2,
     ),
@@ -44,6 +43,7 @@ export async function dispatchPortableCliDoctor({
   cwd,
   mergedFlags,
   printLine,
+  structuredNotices,
 }: PortableCliDispatchContext): Promise<void> {
   const exitPolicy = mergedFlags['workspace-only'] ? 'workspace-only' : 'strict';
   const wordpressVersionCheck = Boolean(mergedFlags['wp-version-check']);
@@ -53,6 +53,7 @@ export async function dispatchPortableCliDoctor({
       exitPolicy,
       wordpressVersionCheck,
       printLine,
+      structuredNotices,
     );
     return;
   }

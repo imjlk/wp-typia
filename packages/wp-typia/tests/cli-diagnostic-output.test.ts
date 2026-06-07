@@ -180,6 +180,41 @@ describe('CLI structured diagnostic output', () => {
     expect(parsed.error?.message).toContain('doctor exploded');
   });
 
+  test('adds AI-agent notices only for implicit structured argv errors', () => {
+    process.env.CODEX_THREAD_ID = 'thread-1';
+
+    const captured = captureStderr(() => {
+      const handled = writeStructuredCliDiagnosticError(
+        ['doctor'],
+        new Error('doctor exploded'),
+      );
+
+      expect(handled).toBe(true);
+    });
+    const parsed = JSON.parse(captured.stderr) as {
+      notices?: string[];
+      ok?: boolean;
+    };
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.notices?.[0]).toContain(
+      'Detected codex via CODEX_THREAD_ID; defaulting to --format json.',
+    );
+
+    const explicit = captureStderr(() => {
+      const handled = writeStructuredCliDiagnosticError(
+        ['doctor', '--format', 'json'],
+        new Error('doctor exploded'),
+      );
+
+      expect(handled).toBe(true);
+    });
+    const explicitParsed = JSON.parse(explicit.stderr) as {
+      notices?: string[];
+    };
+    expect(explicitParsed.notices).toBeUndefined();
+  });
+
   test('throws human diagnostics and validates unsupported output formats before dispatch', () => {
     expect(() =>
       emitCliDiagnosticFailure(

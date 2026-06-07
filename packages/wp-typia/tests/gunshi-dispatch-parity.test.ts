@@ -257,6 +257,7 @@ describe('Gunshi dispatch parity boundaries', () => {
       expect(explicitJson.status).toBe(1);
       expect(explicitJson.stdout).toBe('');
       expect(explicitError.ok).toBe(false);
+      expect((explicitError as { notices?: unknown[] }).notices).toBeUndefined();
       expect(explicitError.error?.command).toBe('create');
       expect(explicitError.error?.code).toBe('missing-argument');
 
@@ -272,6 +273,9 @@ describe('Gunshi dispatch parity boundaries', () => {
       expect(aiDefault.status).toBe(1);
       expect(aiDefault.stdout).toBe('');
       expect(aiError.ok).toBe(false);
+      expect((aiError as { notices?: string[] }).notices?.[0]).toContain(
+        'Detected codex via CODEX_THREAD_ID; defaulting to --format json.',
+      );
       expect(aiError.error?.command).toBe('create');
       expect(aiError.error?.code).toBe('missing-argument');
 

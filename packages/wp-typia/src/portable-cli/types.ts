@@ -21,6 +21,7 @@ export type PortableCliDispatchContext = {
   mergedFlags: Record<string, unknown>;
   positionals: string[];
   printLine: PrintLine;
+  structuredNotices?: string[];
   warnLine: PrintLine;
 };
 

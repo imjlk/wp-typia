@@ -8,6 +8,7 @@ import {
   extractCompletionProjectDir,
 } from '../../runtime-bridge-output';
 import { buildMissingCreateProjectDirDetailLines } from '../../cli-error-messages';
+import { withStructuredOutputNotices } from '../../structured-output-notices';
 import type { PortableCliDispatchContext } from '../types';
 
 export async function dispatchPortableCliCreate({
@@ -15,6 +16,7 @@ export async function dispatchPortableCliCreate({
   mergedFlags,
   positionals,
   printLine,
+  structuredNotices,
   warnLine,
 }: PortableCliDispatchContext): Promise<void> {
   const projectDir = positionals[1];
@@ -49,14 +51,17 @@ export async function dispatchPortableCliCreate({
   if (mergedFlags.format === 'json') {
     printLine(
       JSON.stringify(
-        buildStructuredCompletionSuccessPayload('create', completion, {
-          dryRun: Boolean(mergedFlags['dry-run']),
-          projectDir: extractCompletionProjectDir(completion) ?? projectDir,
-          template:
-            typeof mergedFlags.template === 'string'
-              ? mergedFlags.template
-              : undefined,
-        }),
+        withStructuredOutputNotices(
+          buildStructuredCompletionSuccessPayload('create', completion, {
+            dryRun: Boolean(mergedFlags['dry-run']),
+            projectDir: extractCompletionProjectDir(completion) ?? projectDir,
+            template:
+              typeof mergedFlags.template === 'string'
+                ? mergedFlags.template
+                : undefined,
+          }),
+          structuredNotices,
+        ),
         null,
         2,
       ),

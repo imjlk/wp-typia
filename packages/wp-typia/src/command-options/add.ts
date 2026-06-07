@@ -1,5 +1,12 @@
 import type { CommandOptionMetadataMap } from './types';
 
+const ADD_BLOCK_TEMPLATE_CHOICES = [
+  'basic',
+  'interactivity',
+  'persistence',
+  'compound',
+] as const;
+
 /**
  * Shared `wp-typia add` option metadata used by both runtime entry paths.
  */
@@ -216,8 +223,10 @@ export const ADD_OPTION_METADATA = {
     type: 'string',
   },
   template: {
+    choices: ADD_BLOCK_TEMPLATE_CHOICES,
+    defaultValue: 'basic',
     description:
-      'Built-in block family for add block; one of basic, interactivity, persistence, or compound. Defaults to basic in non-interactive runs; interactive runs prompt when omitted.',
+      'Built-in block family for add block; interactive runs prompt when omitted.',
     short: 't',
     type: 'string',
   },

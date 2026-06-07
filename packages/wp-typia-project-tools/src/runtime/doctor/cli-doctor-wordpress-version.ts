@@ -906,6 +906,10 @@ function formatRequirementSummary(
 	return labels.length > 0 ? labels.join(", ") : "generated workspace features";
 }
 
+function formatFeatureMinimumAction(floor: string): string {
+	return `Update the plugin bootstrap \`Requires at least\` header to ${floor} or remove the features that require that floor.`;
+}
+
 function createFeatureMinimumCheck(
 	workspace: WorkspaceProject,
 	inventory: WorkspaceInventory,
@@ -939,7 +943,9 @@ function createFeatureMinimumCheck(
 		return createDoctorCheck(
 			"WordPress feature minimum",
 			"fail",
-			`Plugin bootstrap is missing a Requires at least header but generated features require WordPress ${highestFloor}.`,
+			`Plugin bootstrap is missing a Requires at least header but generated features require WordPress ${highestFloor}. ${formatFeatureMinimumAction(
+				highestFloor,
+			)}`,
 			WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
 		);
 	}
@@ -952,7 +958,7 @@ function createFeatureMinimumCheck(
 				`Requires at least ${headers.requiresAtLeast} is below generated feature floor ${highestFloor} (${formatRequirementSummary(
 					requirements,
 					highestFloor,
-				)}).`,
+				)}). ${formatFeatureMinimumAction(highestFloor)}`,
 				WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
 			);
 		}
@@ -994,7 +1000,7 @@ function createTestedTargetCheck(
 			return createDoctorCheck(
 				"WordPress tested target",
 				"warn",
-				`Tested up to ${headers.testedUpTo} is below the selected WordPress target ${targetVersion}.`,
+				`Tested up to ${headers.testedUpTo} is below the selected WordPress target ${targetVersion}. Update the plugin bootstrap \`Tested up to\` header when the workspace is verified against WordPress ${targetVersion}.`,
 				WORDPRESS_VERSION_CHECK_CODES.testedTarget,
 			);
 		}

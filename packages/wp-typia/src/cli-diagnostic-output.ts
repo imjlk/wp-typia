@@ -6,6 +6,10 @@ import {
 import { detectAIAgents } from './ai-agent-detection';
 import { resolveEntrypointCliCommand } from './cli-command-resolution';
 import { isSupportedCliOutputFormat } from './cli-output-format';
+import {
+  getStructuredOutputNoticesForArgv,
+  withStructuredOutputNotices,
+} from './structured-output-notices';
 
 type CliStructuredOutputArgs = {
   agent?: unknown;
@@ -107,15 +111,20 @@ export function writeStructuredCliDiagnosticError(
     return false;
   }
 
-  writeStructuredCliJsonToStderr({
-    error: serializeCliDiagnosticError(
-      createCliCommandError({
-        command: resolveEntrypointCliCommand(argv),
-        error,
-      }),
+  writeStructuredCliJsonToStderr(
+    withStructuredOutputNotices(
+      {
+        error: serializeCliDiagnosticError(
+          createCliCommandError({
+            command: resolveEntrypointCliCommand(argv),
+            error,
+          }),
+        ),
+        ok: false,
+      },
+      getStructuredOutputNoticesForArgv(argv),
     ),
-    ok: false,
-  });
+  );
   process.exitCode = 1;
   return true;
 }

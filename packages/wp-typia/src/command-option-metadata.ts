@@ -103,7 +103,16 @@ export function formatPortableCliOptionHelp(
       const short = option.short
         ? `, -${option.short}${valueLabel}`
         : '';
-      return `- --${name}${valueLabel}${short}: ${option.description}`;
+      const details = [
+        option.description,
+        option.choices && option.choices.length > 0
+          ? `Choices: ${option.choices.join(', ')}.`
+          : undefined,
+        option.defaultValue !== undefined
+          ? `Default: ${option.defaultValue}.`
+          : undefined,
+      ].filter((value): value is string => Boolean(value));
+      return `- --${name}${valueLabel}${short}: ${details.join(' ')}`;
     });
 }
 

@@ -8,6 +8,10 @@ import {
 import { prefersStructuredCliArgv } from '../cli-diagnostic-output';
 import { resolveCanonicalCommandContext } from '../command-contract';
 import {
+  getStructuredOutputNoticesForArgv,
+  withStructuredOutputNotices,
+} from '../structured-output-notices';
+import {
   PORTABLE_CLI_NO_COMMAND_REASON_LINE,
   STANDALONE_GUIDANCE_LINE,
 } from './help';
@@ -56,10 +60,13 @@ export async function handlePortableCliEntrypointError(
     });
     process.stderr.write(
       `${JSON.stringify(
-        {
-          ok: false,
-          error: serializeCliDiagnosticError(diagnostic),
-        },
+        withStructuredOutputNotices(
+          {
+            ok: false,
+            error: serializeCliDiagnosticError(diagnostic),
+          },
+          getStructuredOutputNoticesForArgv(argv),
+        ),
         null,
         2,
       )}\n`,
