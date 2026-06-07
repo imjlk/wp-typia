@@ -59,6 +59,10 @@ import type {
   PortableCliGlobalFlags,
 } from './portable-cli/types';
 import { renderPortableCliVersion } from './portable-cli/version';
+import {
+  getStructuredOutputNoticesForArgv,
+  withStructuredOutputNotices,
+} from './structured-output-notices';
 
 const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
@@ -209,6 +213,7 @@ async function dispatchPortableCliSkills({
   mergedFlags,
   positionals,
   printLine,
+  structuredNotices,
 }: PortableCliDispatchContext): Promise<void> {
   const subcommand = positionals[1] ?? 'list';
   const structured = mergedFlags.format === 'json';
@@ -216,7 +221,13 @@ async function dispatchPortableCliSkills({
   if (subcommand === 'list') {
     const result = listSkills();
     if (structured) {
-      printLine(JSON.stringify(result, null, 2));
+      printLine(
+        JSON.stringify(
+          withStructuredOutputNotices(result, structuredNotices),
+          null,
+          2,
+        ),
+      );
       return;
     }
     if (result.agents.length === 0) {
@@ -238,7 +249,13 @@ async function dispatchPortableCliSkills({
       global: mergedFlags.local ? false : true,
     });
     if (structured) {
-      printLine(JSON.stringify(result, null, 2));
+      printLine(
+        JSON.stringify(
+          withStructuredOutputNotices(result, structuredNotices),
+          null,
+          2,
+        ),
+      );
       return;
     }
     if (!result.updated) {
@@ -284,6 +301,7 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
     mergedFlags,
     positionals,
     printLine,
+    structuredNotices,
     warnLine,
   }: PortableCliDispatchContext) => {
     const plan = await executeInitCommand(
@@ -304,7 +322,14 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
     );
     if (mergedFlags.format === 'json') {
       printLine(
-        JSON.stringify(buildStructuredInitSuccessPayload(plan), null, 2),
+        JSON.stringify(
+          withStructuredOutputNotices(
+            buildStructuredInitSuccessPayload(plan),
+            structuredNotices,
+          ),
+          null,
+          2,
+        ),
       );
     }
   },
@@ -326,6 +351,7 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
     mergedFlags,
     positionals,
     printLine,
+    structuredNotices,
     warnLine,
   }: PortableCliDispatchContext) => {
     try {
@@ -341,9 +367,7 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
       if (mergedFlags.format === 'json') {
         printLine(
           JSON.stringify(
-            {
-              sync,
-            },
+            withStructuredOutputNotices({ sync }, structuredNotices),
             null,
             2,
           ),
@@ -402,6 +426,9 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
     extractWpTypiaConfigOverride(normalizedArgv);
   validateCliOutputFormatArgv(argvWithoutConfigOverride);
   const outputFormatArgv = normalizeCliOutputFormatArgv(
+    argvWithoutConfigOverride,
+  );
+  const structuredNotices = getStructuredOutputNoticesForArgv(
     argvWithoutConfigOverride,
   );
   const { argv: cliArgv, flags } = parseGlobalFlags(outputFormatArgv);
@@ -486,6 +513,7 @@ export async function runNodeCli(argv = process.argv.slice(2)): Promise<void> {
       mergedFlags,
       positionals,
       printLine,
+      structuredNotices,
       warnLine,
     });
     return;

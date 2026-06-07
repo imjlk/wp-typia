@@ -435,7 +435,10 @@ describe('command option metadata helpers', () => {
       '- --secret-preserve-on-empty <value>: Whether blank manual settings secret submissions should preserve the stored secret (true by default).',
     );
     expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
-      '- --template <value>, -t <value>: Built-in block family for add block; one of basic, interactivity, persistence, or compound. Defaults to basic in non-interactive runs; interactive runs prompt when omitted.',
+      '- --template <value>, -t <value>: Built-in block family for add block; interactive runs prompt when omitted. Choices: basic, interactivity, persistence, compound. Default: basic.',
+    );
+    expect(formatPortableCliOptionHelp(CREATE_OPTION_METADATA)).toContain(
+      '- --template <value>, -t <value>: Template id, external template package, local path, or GitHub locator. Choices: basic, interactivity, persistence, compound, query-loop, workspace. Default: basic.',
     );
     expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
       '- --dry-run, -d: Preview workspace file updates and completion guidance without writing them.',

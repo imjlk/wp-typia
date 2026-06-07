@@ -1,5 +1,14 @@
 import type { CommandOptionMetadataMap } from './types';
 
+const CREATE_TEMPLATE_CHOICES = [
+  'basic',
+  'interactivity',
+  'persistence',
+  'compound',
+  'query-loop',
+  'workspace',
+] as const;
+
 /**
  * Shared `wp-typia create` option metadata used by the Gunshi runtime parser
  * and help surface.
@@ -68,7 +77,10 @@ export const CREATE_OPTION_METADATA = {
     type: 'string',
   },
   template: {
-    description: 'Template id or external template package.',
+    choices: CREATE_TEMPLATE_CHOICES,
+    defaultValue: 'basic',
+    description:
+      'Template id, external template package, local path, or GitHub locator.',
     short: 't',
     type: 'string',
   },

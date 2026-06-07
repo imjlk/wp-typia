@@ -314,6 +314,9 @@ test("doctor WordPress version checks stay opt-in and warn on target drift", asy
   expect(testedTargetCheck?.status).toBe("warn");
   expect(testedTargetCheck?.detail).toContain("Tested up to 6.9");
   expect(testedTargetCheck?.detail).toContain("WordPress target 7.0");
+  expect(testedTargetCheck?.detail).toContain(
+    "Update the plugin bootstrap `Tested up to` header"
+  );
 }, 15_000);
 
 test("doctor WordPress version check fails when block feature floors exceed headers", async () => {
@@ -382,6 +385,9 @@ test("doctor WordPress version check fails when block feature floors exceed head
   expect(featureMinimumCheck?.status).toBe("fail");
   expect(featureMinimumCheck?.detail).toContain("Requires at least 6.4");
   expect(featureMinimumCheck?.detail).toContain("feature floor 6.5");
+  expect(featureMinimumCheck?.detail).toContain(
+    "Update the plugin bootstrap `Requires at least` header to 6.5"
+  );
   expect(featureMinimumCheck?.detail).toContain("block metadata.bindings");
   expect(featureMinimumCheck?.detail).toContain("supports.interactivity");
   expect(featureMinimumCheck?.detail).toContain("supports.splitting");

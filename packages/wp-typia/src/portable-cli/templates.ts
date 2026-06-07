@@ -7,19 +7,24 @@ import {
   listTemplates,
 } from '@wp-typia/project-tools/cli-templates';
 import { executeTemplatesCommand } from '../runtime-bridge';
+import { withStructuredOutputNotices } from '../structured-output-notices';
 import type { PortableCliDispatchContext, PortableCliGlobalFlags } from './types';
 
 function renderPortableCliTemplatesJson(
   printLine: PortableCliDispatchContext['printLine'],
   flags: PortableCliGlobalFlags,
   subcommand: string,
+  structuredNotices: readonly string[] | undefined,
 ) {
   if (subcommand === 'list') {
     printLine(
       JSON.stringify(
-        {
-          templates: listTemplates(),
-        },
+        withStructuredOutputNotices(
+          {
+            templates: listTemplates(),
+          },
+          structuredNotices,
+        ),
         null,
         2,
       ),
@@ -45,9 +50,7 @@ function renderPortableCliTemplatesJson(
   }
   printLine(
     JSON.stringify(
-      {
-        template,
-      },
+      withStructuredOutputNotices({ template }, structuredNotices),
       null,
       2,
     ),
@@ -58,6 +61,7 @@ export async function dispatchPortableCliTemplates({
   mergedFlags,
   positionals,
   printLine,
+  structuredNotices,
 }: PortableCliDispatchContext): Promise<void> {
   const subcommand = positionals[1];
   const templateId =
@@ -82,6 +86,7 @@ export async function dispatchPortableCliTemplates({
         id: templateId,
       },
       resolvedSubcommand,
+      structuredNotices,
     );
     return;
   }

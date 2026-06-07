@@ -1,5 +1,7 @@
 export type CommandOptionMetadata = {
   argumentKind?: 'flag';
+  choices?: readonly string[];
+  defaultValue?: string;
   description: string;
   hidden?: boolean;
   repeatable?: boolean;

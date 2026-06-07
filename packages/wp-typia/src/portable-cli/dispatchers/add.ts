@@ -4,6 +4,7 @@ import {
   buildStructuredCompletionSuccessPayload,
   extractCompletionProjectDir,
 } from '../../runtime-bridge-output';
+import { withStructuredOutputNotices } from '../../structured-output-notices';
 import type { PortableCliDispatchContext } from '../types';
 
 function resolvePortableCliAddName(
@@ -21,6 +22,7 @@ export async function dispatchPortableCliAdd({
   mergedFlags,
   positionals,
   printLine,
+  structuredNotices,
   warnLine,
 }: PortableCliDispatchContext): Promise<void> {
   // Add-specific normalization stays here: map positionals to kind/name and
@@ -51,12 +53,15 @@ export async function dispatchPortableCliAdd({
     }
     printLine(
       JSON.stringify(
-        buildStructuredCompletionSuccessPayload('add', completion, {
-          dryRun: Boolean(mergedFlags['dry-run']),
-          kind,
-          name,
-          projectDir: extractCompletionProjectDir(completion) ?? cwd,
-        }),
+        withStructuredOutputNotices(
+          buildStructuredCompletionSuccessPayload('add', completion, {
+            dryRun: Boolean(mergedFlags['dry-run']),
+            kind,
+            name,
+            projectDir: extractCompletionProjectDir(completion) ?? cwd,
+          }),
+          structuredNotices,
+        ),
         null,
         2,
       ),
