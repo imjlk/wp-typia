@@ -1,5 +1,13 @@
 # wp-typia
 
+## 0.24.13 — 2026-06-07
+
+### Patch changes
+
+- [e417b430](https://github.com/imjlk/wp-typia/commit/e417b43006654872a8282999060451fe1d0fc2c0) Polish CLI help and doctor diagnostics with template defaults, AI-agent JSON
+  mode notices, and actionable WordPress version-check guidance. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.11
+
 ## 0.24.12 — 2026-06-06
 
 ### Patch changes
