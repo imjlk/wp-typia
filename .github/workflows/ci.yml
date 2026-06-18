@@ -117,7 +117,7 @@ jobs:
         run: bun run test:coverage:packages
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           disable_search: true
           files: ./coverage/unit/lcov.info,./packages/wp-typia-api-client/coverage/lcov.info,./packages/wp-typia-block-runtime/coverage/lcov.info,./packages/wp-typia-block-types/coverage/lcov.info,./packages/wp-typia-rest/coverage/lcov.info,./packages/wp-typia/coverage/lcov.info
@@ -170,7 +170,7 @@ jobs:
         run: bun run test:coverage:project-tools
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           disable_search: true
           files: ./packages/wp-typia-project-tools/coverage/lcov.info
