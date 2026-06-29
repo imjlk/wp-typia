@@ -26,7 +26,7 @@ jobs:
         node: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', github.event.inputs.node_version) || '["24"]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -39,7 +39,7 @@ jobs:
           bun-version: '1.3.11'
 
       - name: Cache Bun install cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-install-${{ runner.os }}-1.3.11-${{ hashFiles('bun.lock') }}
@@ -50,7 +50,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Cache wp-env home
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.wp-env
@@ -74,7 +74,7 @@ jobs:
           bun run examples:wp-env:start:test
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Run CodeQL
         uses: github/codeql-action/init@v4
