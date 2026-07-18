@@ -1,14 +1,8 @@
 [mcp_servers.samchon-graph]
-command = "bunx"
+command = "sh"
 args = [
-  "--no-install",
-  "--package",
-  "@samchon/graph",
-  "samchon-graph",
-  "--language",
-  "typescript",
-  "--language",
-  "php",
+  "-c",
+  "repo_root=$(git rev-parse --show-toplevel) && exec \"$repo_root/node_modules/.bin/samchon-graph\" --language typescript --language php",
 ]
 startup_timeout_sec = 120.0
 

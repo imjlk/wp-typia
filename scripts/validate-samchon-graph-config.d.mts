@@ -5,7 +5,11 @@ export interface SamchonGraphValidationResult {
 
 export const SAMCHON_GRAPH_POLICY: Readonly<{
   approvalMode: 'approve';
-  command: 'bunx';
+  args: readonly [
+    '-c',
+    'repo_root=$(git rev-parse --show-toplevel) && exec "$repo_root/node_modules/.bin/samchon-graph" --language typescript --language php',
+  ];
+  command: 'sh';
   configFile: '.codex/config.toml';
   languages: readonly ['typescript', 'php'];
   packageName: '@samchon/graph';

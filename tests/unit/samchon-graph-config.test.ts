@@ -26,7 +26,7 @@ function createFixture(version: string = SAMCHON_GRAPH_POLICY.version) {
   );
   fs.writeFileSync(
     path.join(tempDir, SAMCHON_GRAPH_POLICY.configFile),
-    `[mcp_servers.samchon-graph]\ncommand = "bunx"\nargs = [\n  "--no-install",\n  "--package",\n  "@samchon/graph",\n  "samchon-graph",\n  "--language",\n  "typescript",\n  "--language",\n  "php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
+    `[mcp_servers.samchon-graph]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --language typescript --language php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
   );
   return tempDir;
 }
@@ -45,18 +45,43 @@ describe('samchon-graph project configuration', () => {
     expect(result.errors[0]).toContain('must remain pinned');
   });
 
-  test('rejects package-runner installation fallback', () => {
+  test('rejects a missing shell command flag', () => {
     const root = createFixture();
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
-      fs.readFileSync(configPath, 'utf8').replace('  "--no-install",\n', ''),
+      fs.readFileSync(configPath, 'utf8').replace('  "-c",\n', ''),
     );
     const result = validateSamchonGraphConfig(root);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'samchon-graph must run the repository devDependency without installing.',
+      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
     );
+  });
+
+  test('rejects launcher argument reordering', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    fs.writeFileSync(
+      configPath,
+      fs
+        .readFileSync(configPath, 'utf8')
+        .replace('  "-c",\n  "repo_root=', '  "repo_root=')
+        .replace(' --language php",', ' --language php",\n  "-c",'),
+    );
+    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+  });
+
+  test('rejects a launcher that bypasses the repository root install', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    fs.writeFileSync(
+      configPath,
+      fs
+        .readFileSync(configPath, 'utf8')
+        .replace('$repo_root/node_modules/.bin/samchon-graph', 'samchon-graph'),
+    );
+    expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });
 
   test('rejects additional indexed languages', () => {
@@ -66,12 +91,12 @@ describe('samchon-graph project configuration', () => {
       configPath,
       fs
         .readFileSync(configPath, 'utf8')
-        .replace('\n]\n', '\n  "--language",\n  "javascript",\n]\n'),
+        .replace('\n]\n', '\n  "--language", "javascript",\n]\n'),
     );
     const result = validateSamchonGraphConfig(root);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'samchon-graph must index only TypeScript and PHP.',
+      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
     );
   });
 });

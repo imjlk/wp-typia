@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 export const SAMCHON_GRAPH_POLICY = Object.freeze({
   approvalMode: 'approve',
-  command: 'bunx',
+  args: Object.freeze([
+    '-c',
+    'repo_root=$(git rev-parse --show-toplevel) && exec "$repo_root/node_modules/.bin/samchon-graph" --language typescript --language php',
+  ]),
+  command: 'sh',
   configFile: '.codex/config.toml',
   languages: Object.freeze(['typescript', 'php']),
   packageName: '@samchon/graph',
@@ -37,30 +41,19 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   }
 
   if (!config.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
-    errors.push('samchon-graph must use the Bun package runner.');
+    errors.push('samchon-graph must use the repository-root launcher.');
   }
 
-  for (const argument of [
-    '--no-install',
-    '--package',
-    SAMCHON_GRAPH_POLICY.packageName,
-    'samchon-graph',
-  ]) {
-    if (!config.includes(`"${argument}"`)) {
-      errors.push(
-        'samchon-graph must run the repository devDependency without installing.',
-      );
-      break;
-    }
-  }
-
-  const languages = [...config.matchAll(/"--language",\s*\n\s*"([^"]+)"/g)].map(
-    (match) => match[1],
-  );
-  if (
-    JSON.stringify(languages) !== JSON.stringify(SAMCHON_GRAPH_POLICY.languages)
-  ) {
-    errors.push('samchon-graph must index only TypeScript and PHP.');
+  const argsBlock = config.match(/^args\s*=\s*\[([\s\S]*?)^\]/m)?.[1];
+  const args = argsBlock
+    ? [...argsBlock.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) =>
+        JSON.parse(match[0]),
+      )
+    : [];
+  if (JSON.stringify(args) !== JSON.stringify(SAMCHON_GRAPH_POLICY.args)) {
+    errors.push(
+      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
+    );
   }
 
   if (
