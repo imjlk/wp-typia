@@ -18,6 +18,7 @@ bun run lint:fix
 bun run format:check
 bun run format:write
 bun run maintenance-automation:validate
+bun run samchon-graph:validate
 bun run formatting-policy:validate
 bun run lint:all
 bun run typecheck
@@ -40,6 +41,7 @@ Quick command map:
 - `bun run format:check` = non-mutating Prettier check for repo-owned files
 - `bun run format:write` = mutating Prettier write pass for that same repo-owned file set
 - `bun run maintenance-automation:validate` = verifies Dependabot and audit workflow policy
+- `bun run samchon-graph:validate` = verifies the pinned project code-graph server and its TypeScript/PHP-only scope
 - `bun run formatting-policy:validate` = verifies the documented Prettier/CI baseline
 - `bun run test:repo:fast` = no-build source and policy lane for lightweight local feedback
 - `bun run test:repo` = root unit + CLI test aggregation
@@ -82,6 +84,15 @@ See [`docs/maintenance-automation-policy.md`](https://imjlk.github.io/wp-typia/m
 `bun run ci:local` is the recommended maintainer pre-PR command. It deliberately
 stops short of `wp-env` startup and Playwright E2E so everyday local checks stay
 fast.
+
+## Codex code graph
+
+The repository includes `@samchon/graph` as a pinned development tool. After
+`bun install`, trust this repository in Codex and restart Codex so it loads
+`.codex/config.toml`. The project configuration runs the installed local binary
+and indexes only TypeScript and PHP; Mustache templates and generated JavaScript
+or bundles remain outside this graph. Run `bun run samchon-graph:validate` after
+changing the dependency or Codex configuration.
 
 Use `bun run test:repo:fast` as the first local signal for docs, policy, script,
 and small runtime/package-source edits. It skips package builds, example Webpack
