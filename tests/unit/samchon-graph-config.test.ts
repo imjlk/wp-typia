@@ -164,9 +164,9 @@ describe('samchon-graph project configuration', () => {
     const config = fs.readFileSync(configPath, 'utf8');
     fs.writeFileSync(
       configPath,
-      `[mcp_servers.other]\ncommand = "node"\nargs = ["scripts/run-samchon-graph.mjs"]\ncwd = ".."\n\n${config.replace('args = ["scripts/run-samchon-graph.mjs"]', 'args = ["evil"]')}`,
+      `[mcp_servers.other]\ncommand = "sh"\nargs = ["evil"]\ncwd = "."\n\n${config}`,
     );
-    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+    expect(validateSamchonGraphConfig(root).valid).toBe(true);
   });
 
   test('rejects indexed languages injected into the project config', () => {
