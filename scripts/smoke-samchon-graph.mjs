@@ -53,9 +53,10 @@ function runSmoke() {
       process.execPath,
       [launcherPath, 'dump', '--cwd', fixtureRoot, '--max-files', '20'],
       {
+        // Prove the launcher does not depend on the invoking process's cwd.
         cwd: path.join(repoRoot, 'packages', 'wp-typia', 'src'),
         encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', 'pipe', 'inherit'],
       },
     );
     const dump = JSON.parse(output);
@@ -66,7 +67,7 @@ function runSmoke() {
 
     assert(
       dump.indexer === SAMCHON_GRAPH_POLICY.mode,
-      'Expected static graph indexing.',
+      `Expected ${SAMCHON_GRAPH_POLICY.mode} graph indexing, received ${dump.indexer}.`,
     );
     assert(
       JSON.stringify(languages) === JSON.stringify(expectedLanguages),

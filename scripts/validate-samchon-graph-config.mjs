@@ -23,13 +23,11 @@ function validationResult(errors) {
 
 export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   const errors = [];
+  const configPath = path.join(repoRoot, SAMCHON_GRAPH_POLICY.configFile);
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
   );
-  const configSource = fs.readFileSync(
-    path.join(repoRoot, SAMCHON_GRAPH_POLICY.configFile),
-    'utf8',
-  );
+  const configSource = fs.readFileSync(configPath, 'utf8');
 
   if (
     packageJson.devDependencies?.[SAMCHON_GRAPH_POLICY.packageName] !==
@@ -46,7 +44,7 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   } catch (error) {
     const detail = error instanceof Error ? `: ${error.message}` : '';
     errors.push(
-      `samchon-graph project configuration must be valid TOML${detail}`,
+      `${SAMCHON_GRAPH_POLICY.configFile} must contain valid TOML for samchon-graph${detail}`,
     );
     return validationResult(errors);
   }
@@ -63,10 +61,13 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
       errors.push('samchon-graph must use the repository-root launcher.');
     }
 
-    if (
-      !Array.isArray(server.args) ||
-      JSON.stringify(server.args) !== JSON.stringify(SAMCHON_GRAPH_POLICY.args)
-    ) {
+    const argsMatch =
+      Array.isArray(server.args) &&
+      server.args.length === SAMCHON_GRAPH_POLICY.args.length &&
+      server.args.every(
+        (argument, index) => argument === SAMCHON_GRAPH_POLICY.args[index],
+      );
+    if (!argsMatch) {
       errors.push(
         'samchon-graph args must use the repository-owned Node launcher.',
       );

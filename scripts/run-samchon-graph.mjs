@@ -28,7 +28,14 @@ export function resolveSamchonGraphBinary(repoRoot = SAMCHON_GRAPH_REPO_ROOT) {
     );
   }
 
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const manifestSource = fs.readFileSync(manifestPath, 'utf8');
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestSource);
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : '';
+    throw new Error(`Failed to parse ${manifestPath}${detail}`);
+  }
   const binary =
     typeof manifest.bin === 'string'
       ? manifest.bin
@@ -40,11 +47,18 @@ export function resolveSamchonGraphBinary(repoRoot = SAMCHON_GRAPH_REPO_ROOT) {
     );
   }
 
-  return path.resolve(packageRoot, binary);
+  const binaryPath = path.resolve(packageRoot, binary);
+  if (!fs.existsSync(binaryPath)) {
+    throw new Error(
+      `${SAMCHON_GRAPH_POLICY.packageName} binary does not exist at ${binaryPath}. Run bun install again.`,
+    );
+  }
+
+  return binaryPath;
 }
 
 export function runSamchonGraph(
-  prefixArgs = process.argv.slice(2),
+  prefixArgs = [],
   repoRoot = SAMCHON_GRAPH_REPO_ROOT,
 ) {
   const binary = resolveSamchonGraphBinary(repoRoot);
@@ -90,7 +104,7 @@ export function runSamchonGraph(
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   try {
-    runSamchonGraph();
+    runSamchonGraph(process.argv.slice(2));
   } catch (error) {
     console.error(`Failed to start ${SAMCHON_GRAPH_POLICY.packageName}:`);
     console.error(error);
