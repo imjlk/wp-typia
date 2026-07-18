@@ -73,6 +73,7 @@
     "format:write": "node scripts/check-repo-format.mjs --write",
     "formatting-policy:validate": "node scripts/validate-formatting-toolchain-policy.mjs",
     "maintenance-automation:validate": "node scripts/validate-maintenance-automation-policy.mjs",
+    "samchon-graph:validate": "node scripts/validate-samchon-graph-config.mjs",
     "clean": "bun run --workspaces --if-present clean && rm -rf node_modules",
     "dev": "bun run examples:dev",
     "typecheck": "tsc --noEmit",
@@ -119,6 +120,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@playwright/test": "^1.40.0",
+    "@samchon/graph": "0.1.0",
     "@typescript-eslint/eslint-plugin": "8.58.2",
     "@typescript-eslint/parser": "8.58.2",
     "@wp-typia/api-client": "workspace:*",

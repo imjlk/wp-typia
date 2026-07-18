@@ -1,0 +1,12 @@
+[mcp_servers.samchon-graph]
+command = "./node_modules/.bin/samchon-graph"
+args = [
+  "--language",
+  "typescript",
+  "--language",
+  "php",
+]
+startup_timeout_sec = 120.0
+
+[mcp_servers.samchon-graph.tools.inspect_code_graph]
+approval_mode = "approve"
