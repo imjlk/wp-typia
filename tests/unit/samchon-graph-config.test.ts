@@ -26,7 +26,7 @@ function createFixture(version: string = SAMCHON_GRAPH_POLICY.version) {
   );
   fs.writeFileSync(
     path.join(tempDir, SAMCHON_GRAPH_POLICY.configFile),
-    `[mcp_servers.samchon-graph]\ncommand = "./node_modules/.bin/samchon-graph"\nargs = [\n  "--language",\n  "typescript",\n  "--language",\n  "php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
+    `[mcp_servers.samchon-graph]\ncommand = "bunx"\nargs = [\n  "--no-install",\n  "--package",\n  "@samchon/graph",\n  "samchon-graph",\n  "--language",\n  "typescript",\n  "--language",\n  "php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
   );
   return tempDir;
 }
@@ -43,6 +43,20 @@ describe('samchon-graph project configuration', () => {
     const result = validateSamchonGraphConfig(createFixture('latest'));
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain('must remain pinned');
+  });
+
+  test('rejects package-runner installation fallback', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    fs.writeFileSync(
+      configPath,
+      fs.readFileSync(configPath, 'utf8').replace('  "--no-install",\n', ''),
+    );
+    const result = validateSamchonGraphConfig(root);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'samchon-graph must run the repository devDependency without installing.',
+    );
   });
 
   test('rejects additional indexed languages', () => {

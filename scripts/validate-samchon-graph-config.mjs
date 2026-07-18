@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 export const SAMCHON_GRAPH_POLICY = Object.freeze({
   approvalMode: 'approve',
-  command: './node_modules/.bin/samchon-graph',
+  command: 'bunx',
   configFile: '.codex/config.toml',
   languages: Object.freeze(['typescript', 'php']),
   packageName: '@samchon/graph',
@@ -37,7 +37,21 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   }
 
   if (!config.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
-    errors.push('samchon-graph must run from the repository devDependency.');
+    errors.push('samchon-graph must use the Bun package runner.');
+  }
+
+  for (const argument of [
+    '--no-install',
+    '--package',
+    SAMCHON_GRAPH_POLICY.packageName,
+    'samchon-graph',
+  ]) {
+    if (!config.includes(`"${argument}"`)) {
+      errors.push(
+        'samchon-graph must run the repository devDependency without installing.',
+      );
+      break;
+    }
   }
 
   const languages = [...config.matchAll(/"--language",\s*\n\s*"([^"]+)"/g)].map(

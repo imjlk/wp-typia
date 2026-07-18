@@ -5,7 +5,7 @@ export interface SamchonGraphValidationResult {
 
 export const SAMCHON_GRAPH_POLICY: Readonly<{
   approvalMode: 'approve';
-  command: './node_modules/.bin/samchon-graph';
+  command: 'bunx';
   configFile: '.codex/config.toml';
   languages: readonly ['typescript', 'php'];
   packageName: '@samchon/graph';

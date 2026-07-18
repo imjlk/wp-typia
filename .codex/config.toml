@@ -1,6 +1,10 @@
 [mcp_servers.samchon-graph]
-command = "./node_modules/.bin/samchon-graph"
+command = "bunx"
 args = [
+  "--no-install",
+  "--package",
+  "@samchon/graph",
+  "samchon-graph",
   "--language",
   "typescript",
   "--language",
