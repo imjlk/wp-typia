@@ -19,6 +19,7 @@ bun run format:check
 bun run format:write
 bun run maintenance-automation:validate
 bun run samchon-graph:validate
+bun run samchon-graph:smoke
 bun run formatting-policy:validate
 bun run lint:all
 bun run typecheck
@@ -42,6 +43,7 @@ Quick command map:
 - `bun run format:write` = mutating Prettier write pass for that same repo-owned file set
 - `bun run maintenance-automation:validate` = verifies Dependabot and audit workflow policy
 - `bun run samchon-graph:validate` = verifies the pinned project code-graph server and its TypeScript/PHP-only scope
+- `bun run samchon-graph:smoke` = runs a real static graph dump against TypeScript, PHP, and excluded fixture files
 - `bun run formatting-policy:validate` = verifies the documented Prettier/CI baseline
 - `bun run test:repo:fast` = no-build source and policy lane for lightweight local feedback
 - `bun run test:repo` = root unit + CLI test aggregation
@@ -93,7 +95,9 @@ The repository includes `@samchon/graph` as a pinned development tool. After
 through a cross-platform Node launcher from the repository root and indexes only
 TypeScript and PHP; Mustache templates and generated JavaScript or bundles remain
 outside this graph. Run `bun run samchon-graph:validate` after changing the
-dependency, launcher, or Codex configuration.
+dependency, launcher, or Codex configuration, and run
+`bun run samchon-graph:smoke` to verify the installed graph package actually
+indexes TypeScript and PHP while excluding JavaScript and Mustache templates.
 
 Use `bun run test:repo:fast` as the first local signal for docs, policy, script,
 and small runtime/package-source edits. It skips package builds, example Webpack

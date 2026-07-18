@@ -52,6 +52,9 @@ jobs:
       - name: Validate samchon graph configuration
         run: bun run samchon-graph:validate
 
+      - name: Smoke test samchon graph indexing
+        run: bun run samchon-graph:smoke
+
       - name: Validate formatting toolchain policy
         run: bun run formatting-policy:validate
 
