@@ -8,6 +8,7 @@ export const SAMCHON_GRAPH_POLICY = Object.freeze({
   languages: Object.freeze(['typescript', 'php']),
   mode: 'static',
   packageName: '@samchon/graph',
+  startupTimeoutSec: 120,
   version: '0.1.0',
 });
 

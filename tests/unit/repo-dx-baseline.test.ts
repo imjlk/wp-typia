@@ -27,7 +27,7 @@ describe('repository DX baseline', () => {
       'node scripts/validate-formatting-toolchain-policy.mjs',
     );
     expect(scripts['samchon-graph:validate']).toBe(
-      'node scripts/validate-samchon-graph-config.mjs',
+      'bun scripts/validate-samchon-graph-config.mjs',
     );
     expect(scripts['samchon-graph:smoke']).toBe(
       'node scripts/smoke-samchon-graph.mjs',
