@@ -351,13 +351,15 @@ describe('repository DX baseline', () => {
     expect(generatedSmokeJob).toContain(
       'needs: [build, publish-install-smoke]',
     );
-    expect(generatedSmokeJob).toContain('always() &&');
+    expect(generatedSmokeJob).toContain('!cancelled() &&');
+    expect(generatedSmokeJob).not.toContain('always() &&');
     expect(generatedSmokeJob).toContain("needs.build.result == 'success' &&");
     expect(generatedSmokeJob).toContain(
       "needs.publish-install-smoke.result == 'success'",
     );
     expect(e2eJob).toContain('needs: [build]');
-    expect(e2eJob).toContain('always() &&');
+    expect(e2eJob).toContain('!cancelled() &&');
+    expect(e2eJob).not.toContain('always() &&');
     expect(e2eJob).toContain("needs.build.result == 'success'");
   });
 

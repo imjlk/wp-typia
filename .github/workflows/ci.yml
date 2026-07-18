@@ -288,9 +288,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, publish-install-smoke]
     # Project Tools Coverage is push-only. Keep its skipped PR ancestor from
-    # suppressing this post-build gate after both direct dependencies succeed.
+    # suppressing this post-build gate without overriding workflow cancellation.
     if: |
-      always() &&
+      !cancelled() &&
       needs.build.result == 'success' &&
       needs.publish-install-smoke.result == 'success'
     strategy:
@@ -473,9 +473,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     # Build accepts the skipped push-only coverage job on pull requests. Make
-    # the intended downstream PR gate explicit instead of inheriting the skip.
+    # the intended downstream PR gate explicit while honoring cancellation.
     if: |
-      always() &&
+      !cancelled() &&
       needs.build.result == 'success'
     steps:
       - name: Checkout
