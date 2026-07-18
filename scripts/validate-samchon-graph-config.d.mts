@@ -7,7 +7,7 @@ export const SAMCHON_GRAPH_POLICY: Readonly<{
   approvalMode: 'approve';
   args: readonly [
     '-c',
-    'repo_root=$(git rev-parse --show-toplevel) && exec "$repo_root/node_modules/.bin/samchon-graph" --language typescript --language php',
+    'repo_root=$(git rev-parse --show-toplevel) && cd "$repo_root" && exec "$repo_root/node_modules/.bin/samchon-graph" --mode static --language typescript --language php',
   ];
   command: 'sh';
   configFile: '.codex/config.toml';

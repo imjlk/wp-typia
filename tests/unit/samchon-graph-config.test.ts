@@ -26,7 +26,7 @@ function createFixture(version: string = SAMCHON_GRAPH_POLICY.version) {
   );
   fs.writeFileSync(
     path.join(tempDir, SAMCHON_GRAPH_POLICY.configFile),
-    `[mcp_servers.samchon-graph]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --language typescript --language php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
+    `[mcp_servers.samchon-graph]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && cd \\"$repo_root\\" && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --mode static --language typescript --language php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
   );
   return tempDir;
 }
@@ -80,6 +80,39 @@ describe('samchon-graph project configuration', () => {
       fs
         .readFileSync(configPath, 'utf8')
         .replace('$repo_root/node_modules/.bin/samchon-graph', 'samchon-graph'),
+    );
+    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+  });
+
+  test('rejects a launcher that leaves the graph working directory nested', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    fs.writeFileSync(
+      configPath,
+      fs
+        .readFileSync(configPath, 'utf8')
+        .replace(' && cd \\"$repo_root\\"', ''),
+    );
+    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+  });
+
+  test('rejects an implicit LSP indexing mode', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    fs.writeFileSync(
+      configPath,
+      fs.readFileSync(configPath, 'utf8').replace(' --mode static', ''),
+    );
+    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+  });
+
+  test('scopes launcher validation to the samchon-graph table', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    const config = fs.readFileSync(configPath, 'utf8');
+    fs.writeFileSync(
+      configPath,
+      `[mcp_servers.other]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && cd \\"$repo_root\\" && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --mode static --language typescript --language php",\n]\n\n${config.replace('  "-c",', '  "evil",')}`,
     );
     expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });

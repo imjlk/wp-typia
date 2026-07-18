@@ -8,7 +8,7 @@ export const SAMCHON_GRAPH_POLICY = Object.freeze({
   approvalMode: 'approve',
   args: Object.freeze([
     '-c',
-    'repo_root=$(git rev-parse --show-toplevel) && exec "$repo_root/node_modules/.bin/samchon-graph" --language typescript --language php',
+    'repo_root=$(git rev-parse --show-toplevel) && cd "$repo_root" && exec "$repo_root/node_modules/.bin/samchon-graph" --mode static --language typescript --language php',
   ]),
   command: 'sh',
   configFile: '.codex/config.toml',
@@ -40,11 +40,19 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     );
   }
 
-  if (!config.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
+  const serverHeader = '[mcp_servers.samchon-graph]';
+  const serverStart = config.indexOf(serverHeader);
+  const afterHeader =
+    serverStart >= 0 ? config.slice(serverStart + serverHeader.length) : '';
+  const nextTableOffset = afterHeader.search(/^\s*\[/m);
+  const serverTable =
+    nextTableOffset >= 0 ? afterHeader.slice(0, nextTableOffset) : afterHeader;
+
+  if (!serverTable.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
     errors.push('samchon-graph must use the repository-root launcher.');
   }
 
-  const argsBlock = config.match(/^args\s*=\s*\[([\s\S]*?)^\]/m)?.[1];
+  const argsBlock = serverTable.match(/^args\s*=\s*\[([\s\S]*?)^\]/m)?.[1];
   const args = argsBlock
     ? [...argsBlock.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) =>
         JSON.parse(match[0]),
