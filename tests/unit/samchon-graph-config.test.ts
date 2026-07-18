@@ -26,7 +26,7 @@ function createFixture(version: string = SAMCHON_GRAPH_POLICY.version) {
   );
   fs.writeFileSync(
     path.join(tempDir, SAMCHON_GRAPH_POLICY.configFile),
-    `[mcp_servers.samchon-graph]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && cd \\"$repo_root\\" && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --mode static --language typescript --language php",\n]\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
+    `[mcp_servers.samchon-graph]\ncommand = "node"\nargs = ["scripts/run-samchon-graph.mjs"]\ncwd = ".."\n\n[mcp_servers.samchon-graph.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
   );
   return tempDir;
 }
@@ -45,41 +45,45 @@ describe('samchon-graph project configuration', () => {
     expect(result.errors[0]).toContain('must remain pinned');
   });
 
-  test('rejects a missing shell command flag', () => {
+  test('rejects a non-Node launcher command', () => {
     const root = createFixture();
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
-      fs.readFileSync(configPath, 'utf8').replace('  "-c",\n', ''),
+      fs
+        .readFileSync(configPath, 'utf8')
+        .replace('command = "node"', 'command = "sh"'),
     );
     const result = validateSamchonGraphConfig(root);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
+      'samchon-graph must use the repository-root launcher.',
     );
   });
 
-  test('rejects launcher argument reordering', () => {
+  test('rejects additional launcher arguments', () => {
     const root = createFixture();
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
       fs
         .readFileSync(configPath, 'utf8')
-        .replace('  "-c",\n  "repo_root=', '  "repo_root=')
-        .replace(' --language php",', ' --language php",\n  "-c",'),
+        .replace(
+          '"scripts/run-samchon-graph.mjs"]',
+          '"scripts/run-samchon-graph.mjs", "--language", "javascript"]',
+        ),
     );
     expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });
 
-  test('rejects a launcher that bypasses the repository root install', () => {
+  test('rejects a launcher outside the repository scripts', () => {
     const root = createFixture();
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
       fs
         .readFileSync(configPath, 'utf8')
-        .replace('$repo_root/node_modules/.bin/samchon-graph', 'samchon-graph'),
+        .replace('scripts/run-samchon-graph.mjs', 'samchon-graph'),
     );
     expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });
@@ -89,21 +93,14 @@ describe('samchon-graph project configuration', () => {
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
-      fs
-        .readFileSync(configPath, 'utf8')
-        .replace(' && cd \\"$repo_root\\"', ''),
+      fs.readFileSync(configPath, 'utf8').replace('cwd = ".."', 'cwd = "."'),
     );
     expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });
 
-  test('rejects an implicit LSP indexing mode', () => {
-    const root = createFixture();
-    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
-    fs.writeFileSync(
-      configPath,
-      fs.readFileSync(configPath, 'utf8').replace(' --mode static', ''),
-    );
-    expect(validateSamchonGraphConfig(root).valid).toBe(false);
+  test('keeps static TypeScript and PHP launcher policy explicit', () => {
+    expect(SAMCHON_GRAPH_POLICY.mode).toBe('static');
+    expect(SAMCHON_GRAPH_POLICY.languages).toEqual(['typescript', 'php']);
   });
 
   test('scopes launcher validation to the samchon-graph table', () => {
@@ -112,24 +109,27 @@ describe('samchon-graph project configuration', () => {
     const config = fs.readFileSync(configPath, 'utf8');
     fs.writeFileSync(
       configPath,
-      `[mcp_servers.other]\ncommand = "sh"\nargs = [\n  "-c",\n  "repo_root=$(git rev-parse --show-toplevel) && cd \\"$repo_root\\" && exec \\"$repo_root/node_modules/.bin/samchon-graph\\" --mode static --language typescript --language php",\n]\n\n${config.replace('  "-c",', '  "evil",')}`,
+      `[mcp_servers.other]\ncommand = "node"\nargs = ["scripts/run-samchon-graph.mjs"]\ncwd = ".."\n\n${config.replace('args = ["scripts/run-samchon-graph.mjs"]', 'args = ["evil"]')}`,
     );
     expect(validateSamchonGraphConfig(root).valid).toBe(false);
   });
 
-  test('rejects additional indexed languages', () => {
+  test('rejects indexed languages injected into the project config', () => {
     const root = createFixture();
     const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
     fs.writeFileSync(
       configPath,
       fs
         .readFileSync(configPath, 'utf8')
-        .replace('\n]\n', '\n  "--language", "javascript",\n]\n'),
+        .replace(
+          'args = ["scripts/run-samchon-graph.mjs"]',
+          'args = ["scripts/run-samchon-graph.mjs", "--language", "javascript"]',
+        ),
     );
     const result = validateSamchonGraphConfig(root);
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
+      'samchon-graph args must use the repository-owned Node launcher.',
     );
   });
 

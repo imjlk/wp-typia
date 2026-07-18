@@ -90,9 +90,10 @@ fast.
 The repository includes `@samchon/graph` as a pinned development tool. After
 `bun install`, trust this repository in Codex and restart Codex so it loads
 `.codex/config.toml`. The project configuration runs the installed local binary
-and indexes only TypeScript and PHP; Mustache templates and generated JavaScript
-or bundles remain outside this graph. Run `bun run samchon-graph:validate` after
-changing the dependency or Codex configuration.
+through a cross-platform Node launcher from the repository root and indexes only
+TypeScript and PHP; Mustache templates and generated JavaScript or bundles remain
+outside this graph. Run `bun run samchon-graph:validate` after changing the
+dependency, launcher, or Codex configuration.
 
 Use `bun run test:repo:fast` as the first local signal for docs, policy, script,
 and small runtime/package-source edits. It skips package builds, example Webpack

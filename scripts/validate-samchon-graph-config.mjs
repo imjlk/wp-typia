@@ -4,18 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const SAMCHON_GRAPH_POLICY = Object.freeze({
-  approvalMode: 'approve',
-  args: Object.freeze([
-    '-c',
-    'repo_root=$(git rev-parse --show-toplevel) && cd "$repo_root" && exec "$repo_root/node_modules/.bin/samchon-graph" --mode static --language typescript --language php',
-  ]),
-  command: 'sh',
-  configFile: '.codex/config.toml',
-  languages: Object.freeze(['typescript', 'php']),
-  packageName: '@samchon/graph',
-  version: '0.1.0',
-});
+import { SAMCHON_GRAPH_POLICY } from './samchon-graph-policy.mjs';
+
+export { SAMCHON_GRAPH_POLICY } from './samchon-graph-policy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +47,7 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     errors.push('samchon-graph must use the repository-root launcher.');
   }
 
-  const argsBlock = serverTable.match(/^args\s*=\s*\[([\s\S]*?)^\]/m)?.[1];
+  const argsBlock = serverTable.match(/^args\s*=\s*(\[[\s\S]*?\])/m)?.[1];
   const args = argsBlock
     ? [...argsBlock.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) =>
         JSON.parse(match[0]),
@@ -64,8 +55,12 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     : [];
   if (JSON.stringify(args) !== JSON.stringify(SAMCHON_GRAPH_POLICY.args)) {
     errors.push(
-      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
+      'samchon-graph args must use the repository-owned Node launcher.',
     );
+  }
+
+  if (!serverTable.includes(`cwd = "${SAMCHON_GRAPH_POLICY.cwd}"`)) {
+    errors.push('samchon-graph must start from the repository root.');
   }
 
   const toolTable = extractTomlTable(

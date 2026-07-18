@@ -5,13 +5,13 @@ export interface SamchonGraphValidationResult {
 
 export const SAMCHON_GRAPH_POLICY: Readonly<{
   approvalMode: 'approve';
-  args: readonly [
-    '-c',
-    'repo_root=$(git rev-parse --show-toplevel) && cd "$repo_root" && exec "$repo_root/node_modules/.bin/samchon-graph" --mode static --language typescript --language php',
-  ];
-  command: 'sh';
+  args: readonly ['scripts/run-samchon-graph.mjs'];
+  binaryName: 'samchon-graph';
+  command: 'node';
   configFile: '.codex/config.toml';
+  cwd: '..';
   languages: readonly ['typescript', 'php'];
+  mode: 'static';
   packageName: '@samchon/graph';
   version: '0.1.0';
 }>;
