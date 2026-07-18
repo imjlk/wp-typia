@@ -132,4 +132,21 @@ describe('samchon-graph project configuration', () => {
       'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
     );
   });
+
+  test('scopes approval validation to the samchon graph tool table', () => {
+    const root = createFixture();
+    const configPath = path.join(root, SAMCHON_GRAPH_POLICY.configFile);
+    const config = fs
+      .readFileSync(configPath, 'utf8')
+      .replace('approval_mode = "approve"', '');
+    fs.writeFileSync(
+      configPath,
+      `${config}\n[mcp_servers.other.tools.inspect_code_graph]\napproval_mode = "approve"\n`,
+    );
+    const result = validateSamchonGraphConfig(root);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'inspect_code_graph must retain explicit approval mode.',
+    );
+  });
 });

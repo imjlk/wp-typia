@@ -21,6 +21,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..');
 
+function extractTomlTable(source, tableName) {
+  const header = `[${tableName}]`;
+  const start = source.indexOf(header);
+  const afterHeader = start >= 0 ? source.slice(start + header.length) : '';
+  const nextTableOffset = afterHeader.search(/^\s*\[/m);
+  return nextTableOffset >= 0
+    ? afterHeader.slice(0, nextTableOffset)
+    : afterHeader;
+}
+
 export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   const errors = [];
   const packageJson = JSON.parse(
@@ -40,13 +50,7 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     );
   }
 
-  const serverHeader = '[mcp_servers.samchon-graph]';
-  const serverStart = config.indexOf(serverHeader);
-  const afterHeader =
-    serverStart >= 0 ? config.slice(serverStart + serverHeader.length) : '';
-  const nextTableOffset = afterHeader.search(/^\s*\[/m);
-  const serverTable =
-    nextTableOffset >= 0 ? afterHeader.slice(0, nextTableOffset) : afterHeader;
+  const serverTable = extractTomlTable(config, 'mcp_servers.samchon-graph');
 
   if (!serverTable.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
     errors.push('samchon-graph must use the repository-root launcher.');
@@ -64,9 +68,14 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     );
   }
 
+  const toolTable = extractTomlTable(
+    config,
+    'mcp_servers.samchon-graph.tools.inspect_code_graph',
+  );
   if (
-    !config.includes('[mcp_servers.samchon-graph.tools.inspect_code_graph]') ||
-    !config.includes(`approval_mode = "${SAMCHON_GRAPH_POLICY.approvalMode}"`)
+    !toolTable.includes(
+      `approval_mode = "${SAMCHON_GRAPH_POLICY.approvalMode}"`,
+    )
   ) {
     errors.push('inspect_code_graph must retain explicit approval mode.');
   }
