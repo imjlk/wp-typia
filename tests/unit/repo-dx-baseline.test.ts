@@ -27,7 +27,10 @@ describe('repository DX baseline', () => {
       'node scripts/validate-formatting-toolchain-policy.mjs',
     );
     expect(scripts['samchon-graph:validate']).toBe(
-      'node scripts/validate-samchon-graph-config.mjs',
+      'bun scripts/validate-samchon-graph-config.mjs',
+    );
+    expect(scripts['samchon-graph:smoke']).toBe(
+      'node scripts/smoke-samchon-graph.mjs',
     );
     expect(scripts['test:repo']).toBe('bun run test');
     expect(scripts['test:all']).toBe('bun run test:repo');
@@ -40,6 +43,7 @@ describe('repository DX baseline', () => {
     );
     expect(scripts['ci:local']).toContain('bun run formatting-policy:validate');
     expect(scripts['ci:local']).toContain('bun run samchon-graph:validate');
+    expect(scripts['ci:local']).toContain('bun run samchon-graph:smoke');
     expect(scripts['ci:local']).toContain('bun run format:check');
     expect(scripts['typescript-runtime:validate']).toBe(
       'node scripts/validate-typescript-runtime-dependency-placement.mjs',
@@ -313,6 +317,7 @@ describe('repository DX baseline', () => {
       'command: bun run test:project-tools:migration-execution',
     );
     expect(workflow).toContain('run: bun run samchon-graph:validate');
+    expect(workflow).toContain('run: bun run samchon-graph:smoke');
     expect(workflow).not.toContain('test-project-tools-scaffold-core:');
     expect(workflow).not.toContain('test-project-tools-workspace:');
     expect(workflow).not.toContain('test-project-tools-compound:');

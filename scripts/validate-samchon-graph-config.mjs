@@ -1,45 +1,33 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
+import { TOML } from 'bun';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const SAMCHON_GRAPH_POLICY = Object.freeze({
-  approvalMode: 'approve',
-  args: Object.freeze([
-    '-c',
-    'repo_root=$(git rev-parse --show-toplevel) && cd "$repo_root" && exec "$repo_root/node_modules/.bin/samchon-graph" --mode static --language typescript --language php',
-  ]),
-  command: 'sh',
-  configFile: '.codex/config.toml',
-  languages: Object.freeze(['typescript', 'php']),
-  packageName: '@samchon/graph',
-  version: '0.1.0',
-});
+import { SAMCHON_GRAPH_POLICY } from './samchon-graph-policy.mjs';
+
+export { SAMCHON_GRAPH_POLICY } from './samchon-graph-policy.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..');
 
-function extractTomlTable(source, tableName) {
-  const header = `[${tableName}]`;
-  const start = source.indexOf(header);
-  const afterHeader = start >= 0 ? source.slice(start + header.length) : '';
-  const nextTableOffset = afterHeader.search(/^\s*\[/m);
-  return nextTableOffset >= 0
-    ? afterHeader.slice(0, nextTableOffset)
-    : afterHeader;
+function isTable(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validationResult(errors) {
+  return { errors, valid: errors.length === 0 };
 }
 
 export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
   const errors = [];
+  const configPath = path.join(repoRoot, SAMCHON_GRAPH_POLICY.configFile);
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
   );
-  const config = fs.readFileSync(
-    path.join(repoRoot, SAMCHON_GRAPH_POLICY.configFile),
-    'utf8',
-  );
+  const configSource = fs.readFileSync(configPath, 'utf8');
 
   if (
     packageJson.devDependencies?.[SAMCHON_GRAPH_POLICY.packageName] !==
@@ -50,37 +38,64 @@ export function validateSamchonGraphConfig(repoRoot = DEFAULT_REPO_ROOT) {
     );
   }
 
-  const serverTable = extractTomlTable(config, 'mcp_servers.samchon-graph');
-
-  if (!serverTable.includes(`command = "${SAMCHON_GRAPH_POLICY.command}"`)) {
-    errors.push('samchon-graph must use the repository-root launcher.');
-  }
-
-  const argsBlock = serverTable.match(/^args\s*=\s*\[([\s\S]*?)^\]/m)?.[1];
-  const args = argsBlock
-    ? [...argsBlock.matchAll(/"(?:\\.|[^"\\])*"/g)].map((match) =>
-        JSON.parse(match[0]),
-      )
-    : [];
-  if (JSON.stringify(args) !== JSON.stringify(SAMCHON_GRAPH_POLICY.args)) {
+  let config;
+  try {
+    config = TOML.parse(configSource);
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : '';
     errors.push(
-      'samchon-graph args must preserve the repository-root binary and TypeScript/PHP-only sequence.',
+      `${SAMCHON_GRAPH_POLICY.configFile} must contain valid TOML for samchon-graph${detail}`,
     );
+    return validationResult(errors);
   }
 
-  const toolTable = extractTomlTable(
-    config,
-    'mcp_servers.samchon-graph.tools.inspect_code_graph',
-  );
-  if (
-    !toolTable.includes(
-      `approval_mode = "${SAMCHON_GRAPH_POLICY.approvalMode}"`,
-    )
-  ) {
-    errors.push('inspect_code_graph must retain explicit approval mode.');
+  const mcpServers = isTable(config.mcp_servers) ? config.mcp_servers : {};
+  const server = isTable(mcpServers['samchon-graph'])
+    ? mcpServers['samchon-graph']
+    : null;
+
+  if (!server) {
+    errors.push('samchon-graph MCP server table is required.');
+  } else {
+    if (server.command !== SAMCHON_GRAPH_POLICY.command) {
+      errors.push('samchon-graph must use the repository-root launcher.');
+    }
+
+    const argsMatch =
+      Array.isArray(server.args) &&
+      server.args.length === SAMCHON_GRAPH_POLICY.args.length &&
+      server.args.every(
+        (argument, index) => argument === SAMCHON_GRAPH_POLICY.args[index],
+      );
+    if (!argsMatch) {
+      errors.push(
+        'samchon-graph args must use the repository-owned Node launcher.',
+      );
+    }
+
+    if (server.cwd !== SAMCHON_GRAPH_POLICY.cwd) {
+      errors.push('samchon-graph must start from the repository root.');
+    }
+
+    if (server.startup_timeout_sec !== SAMCHON_GRAPH_POLICY.startupTimeoutSec) {
+      errors.push(
+        `samchon-graph startup timeout must remain ${SAMCHON_GRAPH_POLICY.startupTimeoutSec} seconds.`,
+      );
+    }
+
+    const tools = isTable(server.tools) ? server.tools : {};
+    const inspectCodeGraph = isTable(tools.inspect_code_graph)
+      ? tools.inspect_code_graph
+      : null;
+    if (
+      !inspectCodeGraph ||
+      inspectCodeGraph.approval_mode !== SAMCHON_GRAPH_POLICY.approvalMode
+    ) {
+      errors.push('inspect_code_graph must retain explicit approval mode.');
+    }
   }
 
-  return { errors, valid: errors.length === 0 };
+  return validationResult(errors);
 }
 
 function main() {
