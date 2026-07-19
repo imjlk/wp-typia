@@ -6,8 +6,95 @@ import {
 	getTemplateSelectOptions,
 	isBuiltInTemplateId,
 	listTemplates,
+	normalizeTemplateLookupId,
 } from "./template-registry.js";
 import type { TemplateDefinition } from "./template-registry.js";
+
+/**
+ * Stable logical source metadata exposed by structured template discovery.
+ *
+ * Filesystem paths remain an internal implementation detail used to render a
+ * template. CLI consumers receive a built-in id or official package locator
+ * instead, so output is reproducible across npm caches and worktrees.
+ */
+export type CliTemplateSource =
+	| {
+			kind: "built-in";
+			id: string;
+	  }
+	| {
+			kind: "npm";
+			packageName: string;
+			alias: string;
+	  };
+
+/** Public template metadata returned by `templates ... --format json`. */
+export interface CliTemplateMetadata {
+	id: string;
+	description: string;
+	defaultCategory: string;
+	features: string[];
+	source: CliTemplateSource;
+}
+
+/**
+ * Converts internal template registry metadata into a portable CLI payload.
+ *
+ * @param template Internal template definition used for scaffold resolution.
+ * @returns Stable public metadata without the installation-local template directory.
+ */
+export function toCliTemplateMetadata(
+	template: TemplateDefinition,
+): CliTemplateMetadata {
+	return {
+		id: template.id,
+		description: template.description,
+		defaultCategory: template.defaultCategory,
+		features: [...template.features],
+		source: isBuiltInTemplateId(template.id)
+			? {
+					kind: "built-in",
+					id: template.id,
+			  }
+			: {
+					kind: "npm",
+					packageName: OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
+					alias: OFFICIAL_WORKSPACE_TEMPLATE_ALIAS,
+			  },
+	};
+}
+
+/** Returns all registered templates as portable structured-output metadata. */
+export function listCliTemplateMetadata(): readonly CliTemplateMetadata[] {
+	return listTemplates().map(toCliTemplateMetadata);
+}
+
+/**
+ * Finds one registered template as portable structured-output metadata.
+ *
+ * @param templateId Built-in id, official package name, or workspace alias.
+ * @returns Stable public metadata, or `undefined` when the id is not registered.
+ */
+export function findCliTemplateMetadata(
+	templateId: string,
+): CliTemplateMetadata | undefined {
+	const normalizedTemplateId = normalizeTemplateLookupId(templateId);
+	const template = listTemplates().find(
+		(entry) => entry.id === normalizedTemplateId,
+	);
+	return template ? toCliTemplateMetadata(template) : undefined;
+}
+
+/**
+ * Resolves one registered template as portable structured-output metadata.
+ *
+ * @param templateId Built-in id, official package name, or workspace alias.
+ * @returns Stable public metadata for the requested template.
+ * @throws {Error} When the id does not match a registered template or alias.
+ */
+export function getCliTemplateMetadata(templateId: string): CliTemplateMetadata {
+	return toCliTemplateMetadata(getTemplateById(templateId));
+}
 
 /**
  * Format one line of template list output for a built-in template.

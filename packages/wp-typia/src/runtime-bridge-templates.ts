@@ -63,6 +63,6 @@ export async function executeTemplatesCommand(
 }
 
 export async function listTemplatesForRuntime() {
-  const { listTemplates } = await loadCliTemplatesRuntime();
-  return listTemplates();
+  const { listCliTemplateMetadata } = await loadCliTemplatesRuntime();
+  return listCliTemplateMetadata();
 }

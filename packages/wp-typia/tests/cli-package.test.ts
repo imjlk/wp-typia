@@ -867,6 +867,13 @@ process.exit(0);
       code: 'invalid-command',
       command: 'templates',
     });
+    await expect(
+      runNodeCli(['templates', 'inspect', 'unknown', '--format', 'json']),
+    ).rejects.toMatchObject({
+      code: 'invalid-argument',
+      command: 'templates',
+      detailLines: ['Unknown template "unknown".'],
+    });
   });
 
   test('formats migrate failures with a shared non-interactive diagnostic block', () => {
@@ -1464,19 +1471,41 @@ process.exit(0);
       'json',
     ]);
     const parsed = JSON.parse(output) as {
-      templates: Array<{ id: string }>;
+      templates: Array<{
+        id: string;
+        source:
+          | { kind: 'built-in'; id: string }
+          | { kind: 'npm'; packageName: string; alias: string };
+        templateDir?: string;
+      }>;
     };
 
     expect(parsed.templates.length).toBeGreaterThan(0);
-    expect(parsed.templates.some((entry) => entry.id === 'basic')).toBe(true);
+    expect(parsed.templates.find((entry) => entry.id === 'basic')).toEqual(
+      expect.objectContaining({
+        source: { kind: 'built-in', id: 'basic' },
+      }),
+    );
     expect(parsed.templates.some((entry) => entry.id === 'query-loop')).toBe(
       true,
     );
     expect(
-      parsed.templates.some(
+      parsed.templates.find(
         (entry) => entry.id === '@wp-typia/create-workspace-template',
       ),
-    ).toBe(true);
+    ).toEqual(
+      expect.objectContaining({
+        source: {
+          kind: 'npm',
+          packageName: '@wp-typia/create-workspace-template',
+          alias: 'workspace',
+        },
+      }),
+    );
+    expect(parsed.templates.every((entry) => entry.templateDir === undefined)).toBe(
+      true,
+    );
+    expect(output).not.toContain(packageRoot);
   });
 
   test('renders human-readable template discovery hints for flags and workspace aliasing', () => {
@@ -1551,13 +1580,20 @@ process.exit(0);
       'json',
     ]);
     const parsed = JSON.parse(output) as {
-      template?: { id?: string; description?: string };
+      template?: {
+        id?: string;
+        description?: string;
+        source?: { kind?: string; id?: string };
+        templateDir?: string;
+      };
       templates?: Array<{ id: string }>;
     };
 
     expect(parsed.templates).toBeUndefined();
     expect(parsed.template?.id).toBe('basic');
     expect(parsed.template?.description).toContain('Typia validation');
+    expect(parsed.template?.source).toEqual({ kind: 'built-in', id: 'basic' });
+    expect(parsed.template?.templateDir).toBeUndefined();
   });
 
   test('inspects the official workspace template through the canonical templates command', () => {

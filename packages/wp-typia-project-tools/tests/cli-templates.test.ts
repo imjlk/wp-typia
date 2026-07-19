@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	findCliTemplateMetadata,
 	formatTemplateDetails,
 	formatTemplateFeatures,
+	getCliTemplateMetadata,
 	getTemplateById,
+	listCliTemplateMetadata,
 } from "../src/runtime/cli-templates.js";
 
 describe("@wp-typia/project-tools template discovery formatting", () => {
@@ -23,6 +26,26 @@ describe("@wp-typia/project-tools template discovery formatting", () => {
 		expect(
 			formatTemplateFeatures(getTemplateById("@wp-typia/create-workspace-template")),
 		).toContain("Alias: workspace (`--template workspace`)");
+	});
+
+	test("structured discovery exposes logical sources without internal directories", () => {
+		const templates = listCliTemplateMetadata();
+		const basic = getCliTemplateMetadata("basic");
+		const workspace = getCliTemplateMetadata("workspace");
+
+		expect(templates).toHaveLength(6);
+		expect(basic.source).toEqual({ kind: "built-in", id: "basic" });
+		expect(workspace.source).toEqual({
+			kind: "npm",
+			packageName: "@wp-typia/create-workspace-template",
+			alias: "workspace",
+		});
+		expect(workspace.id).toBe("@wp-typia/create-workspace-template");
+		expect(findCliTemplateMetadata("unknown")).toBeUndefined();
+		expect(JSON.stringify(templates)).not.toContain("templateDir");
+		expect(JSON.stringify(templates)).not.toContain(
+			getTemplateById("basic").templateDir,
+		);
 	});
 
 	test("inspect output prefers logical layer summaries over raw overlay paths", () => {

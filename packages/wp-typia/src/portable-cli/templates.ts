@@ -3,8 +3,8 @@ import {
   createCliCommandError,
 } from '@wp-typia/project-tools/cli-diagnostics';
 import {
-  getTemplateById,
-  listTemplates,
+  findCliTemplateMetadata,
+  listCliTemplateMetadata,
 } from '@wp-typia/project-tools/cli-templates';
 import { executeTemplatesCommand } from '../runtime-bridge';
 import { withStructuredOutputNotices } from '../structured-output-notices';
@@ -21,7 +21,7 @@ function renderPortableCliTemplatesJson(
       JSON.stringify(
         withStructuredOutputNotices(
           {
-            templates: listTemplates(),
+            templates: listCliTemplateMetadata(),
           },
           structuredNotices,
         ),
@@ -40,7 +40,7 @@ function renderPortableCliTemplatesJson(
       detailLines: ['`wp-typia templates inspect` requires <template-id>.'],
     });
   }
-  const template = getTemplateById(templateId);
+  const template = findCliTemplateMetadata(templateId);
   if (!template) {
     throw createCliCommandError({
       code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
