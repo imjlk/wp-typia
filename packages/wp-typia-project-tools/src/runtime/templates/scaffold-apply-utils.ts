@@ -49,6 +49,7 @@ import {
 	pathExists,
 	readOptionalUtf8File,
 } from "../shared/fs-async.js";
+import { readJsonFile } from "../shared/json-utils.js";
 import { normalizePackageJson } from "./scaffold-package-manager-files.js";
 export {
 	applyWorkspaceMigrationCapability,
@@ -68,6 +69,10 @@ export { buildGitignore, buildReadme, mergeTextLines } from "./scaffold-document
 export interface InstallDependenciesOptions {
 	packageManager: PackageManagerId;
 	projectDir: string;
+}
+
+interface ScaffoldPackageJsonShape {
+	scripts?: Record<string, unknown>;
 }
 
 async function reportScaffoldProgress(
@@ -192,52 +197,42 @@ async function withEphemeralScaffoldNodeModules(
 	}
 }
 
-/**
- * Generate the same canonical block metadata artifacts that the scaffold's
- * checked-in `sync-types` script will verify after dependencies are installed.
- */
-export async function seedBuiltInBlockMetadataArtifacts(
+async function seedBuiltInCompilerArtifacts(
 	targetDir: string,
 	templateId: BuiltInTemplateId,
 	artifacts: readonly BuiltInBlockArtifact[],
+	variables: ScaffoldTemplateVariables,
 ): Promise<boolean> {
-	const syncOptions = buildBuiltInBlockMetadataSyncOptions(
+	const blockMetadataSyncOptions = buildBuiltInBlockMetadataSyncOptions(
 		targetDir,
 		templateId,
 		artifacts,
 	);
-	if (syncOptions.length === 0) {
-		return true;
-	}
-
-	return withEphemeralScaffoldNodeModules(targetDir, async () => {
-		for (const options of syncOptions) {
-			await syncBlockMetadata(options);
-		}
-	});
-}
-
-/**
- * Seed REST-derived persistence artifacts into a newly scaffolded built-in
- * project before the first manual `sync-rest` run.
- */
-export async function seedBuiltInPersistenceArtifacts(
-	targetDir: string,
-	templateId: BuiltInTemplateId,
-	variables: ScaffoldTemplateVariables,
-): Promise<boolean> {
-	const syncOptions = buildBuiltInPersistenceRestSyncOptions(
+	const persistenceSyncOptions = buildBuiltInPersistenceRestSyncOptions(
 		targetDir,
 		templateId,
 		variables,
 	);
-	if (!syncOptions) {
+	if (blockMetadataSyncOptions.length === 0 && !persistenceSyncOptions) {
 		return true;
 	}
 
 	return withEphemeralScaffoldNodeModules(targetDir, async () => {
-		await syncPersistenceRestArtifacts(syncOptions);
+		for (const options of blockMetadataSyncOptions) {
+			await syncBlockMetadata(options);
+		}
+		if (persistenceSyncOptions) {
+			await syncPersistenceRestArtifacts(persistenceSyncOptions);
+		}
 	});
+}
+
+async function readScaffoldScriptNames(projectDir: string): Promise<string[]> {
+	const packageJson = await readJsonFile<ScaffoldPackageJsonShape>(
+		path.join(projectDir, "package.json"),
+		{ context: "generated scaffold package manifest" },
+	);
+	return Object.keys(packageJson.scripts ?? {});
 }
 
 export async function normalizePackageManagerFiles(
@@ -488,27 +483,23 @@ export async function applyBuiltInScaffoldProjectFiles({
 	}
 
 	if (seedCompilerArtifacts) {
-		const seededBlockMetadata = await seedBuiltInBlockMetadataArtifacts(
+		const seededCompilerArtifacts = await seedBuiltInCompilerArtifacts(
 			projectDir,
 			templateId,
 			artifacts ?? [],
-		);
-		const seededPersistenceArtifacts = await seedBuiltInPersistenceArtifacts(
-			projectDir,
-			templateId,
 			variables,
 		);
-		if (!seededBlockMetadata || !seededPersistenceArtifacts) {
-			const [syncScriptName] = getOptionalSyncScriptNames(templateId);
+		if (!seededCompilerArtifacts) {
+			const [syncScriptName] = getOptionalSyncScriptNames(templateId, {
+				availableScripts: await readScaffoldScriptNames(projectDir),
+			});
 			const followUp = syncScriptName
 				? `, then run \`${formatRunScript(packageManager, syncScriptName)}\` before build or typecheck`
 				: " before build or typecheck";
-			warnings.push(
-				`Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies${followUp}.`,
-			);
+			const warning = `Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies${followUp}.`;
+			warnings.push(warning);
 			await reportScaffoldProgress(onProgress, {
-				detail:
-					"Compiler dependencies are unavailable; install project dependencies and run the generated sync command to create compiler-derived artifacts.",
+				detail: warning,
 				phase: "seed-artifacts",
 				title: "Deferring compiler-derived artifacts",
 			});
