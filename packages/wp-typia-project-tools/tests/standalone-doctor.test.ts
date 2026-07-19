@@ -904,6 +904,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'for (let index = 0; index < argv.length; index += 1) {',
         'for (let index = 0; index < argv.length; index += 1) {\n    break;',
       ],
+      [
+        'nested-unreachable',
+        'for (let index = 0; index < argv.length; index += 1) {',
+        'for (let index = 0; index < argv.length; index += 1) {\n    if ( true ) { break; }',
+      ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
       const targetDir = path.join(tempRoot, `sync-types-parser-${name}`);
@@ -925,6 +930,42 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
   });
+
+  test('allows type-only process imports in standalone sync helpers', async () => {
+    const cases = [
+      {
+        name: 'sync-project',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        name: 'sync-rest',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(
+        tempRoot,
+        `type-only-process-${fixture.name}`,
+      );
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(
+        '/* eslint-disable no-console */',
+        "import type * as process from 'node:process';\n\n/* eslint-disable no-console */",
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('pass');
+    }
+  }, 20_000);
 
   test('rejects sync-types calls hidden after conditional early returns', async () => {
     const targetDir = path.join(tempRoot, 'sync-types-after-return');
@@ -1238,6 +1279,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'for ( const argument of argv ) {',
         'for ( const argument of argv ) {\n\t\tbreak;',
       ],
+      [
+        'nested-unreachable',
+        'for ( const argument of argv ) {',
+        'for ( const argument of argv ) {\n\t\tif ( true ) { break; }',
+      ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
       const targetDir = path.join(tempRoot, `rest-parser-${name}`);
@@ -1258,7 +1304,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  });
+  }, 20_000);
 
   test('rejects REST helpers that swallow top-level failures', async () => {
     const targetDir = path.join(tempRoot, 'rest-without-failure-exit');

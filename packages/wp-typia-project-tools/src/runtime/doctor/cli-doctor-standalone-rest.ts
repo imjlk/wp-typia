@@ -330,7 +330,7 @@ function hasShadowedImportBinding(
       ts.isClassDeclaration(node) ||
       ts.isClassExpression(node) ||
       ts.isEnumDeclaration(node) ||
-      ts.isImportEqualsDeclaration(node)
+      (ts.isImportEqualsDeclaration(node) && !node.isTypeOnly)
     ) {
       declaredName = node.name;
     }
@@ -350,7 +350,11 @@ function hasImportedBinding(
   bindingName: string,
 ): boolean {
   return sourceFile.statements.some((statement) => {
-    if (!ts.isImportDeclaration(statement) || !statement.importClause) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !statement.importClause ||
+      statement.importClause.isTypeOnly
+    ) {
       return false;
     }
     const { name, namedBindings } = statement.importClause;
@@ -364,7 +368,8 @@ function hasImportedBinding(
       namedBindings !== undefined &&
       ts.isNamedImports(namedBindings) &&
       namedBindings.elements.some(
-        (element) => element.name.text === bindingName,
+        (element) =>
+          !element.isTypeOnly && element.name.text === bindingName,
       )
     );
   });
@@ -460,34 +465,84 @@ function getDirectAwaitedCall(
   return ts.isCallExpression(awaitedExpression) ? awaitedExpression : null;
 }
 
+function containsCompletion(
+  node: ts.Node,
+  isTerminal: (candidate: ts.Node) => boolean,
+  shouldDescend: (candidate: ts.Node) => boolean = () => true,
+): boolean {
+  if (
+    ts.isFunctionDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isMethodDeclaration(node)
+  ) {
+    return false;
+  }
+  if (isTerminal(node)) {
+    return true;
+  }
+  if (!shouldDescend(node)) {
+    return false;
+  }
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsCompletion(child, isTerminal, shouldDescend)) {
+      found = true;
+    }
+  });
+  return found;
+}
+
 function hasEarlierAbruptCompletion(
   statements: readonly ts.Statement[],
   statementIndex: number,
 ): boolean {
-  function containsAbruptCompletion(node: ts.Node): boolean {
-    if (
-      ts.isFunctionDeclaration(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isArrowFunction(node) ||
-      ts.isMethodDeclaration(node)
-    ) {
-      return false;
-    }
-    if (ts.isReturnStatement(node) || ts.isThrowStatement(node)) {
-      return true;
-    }
-    let found = false;
-    ts.forEachChild(node, (child) => {
-      if (!found && containsAbruptCompletion(child)) {
-        found = true;
-      }
-    });
-    return found;
-  }
-
   return statements
     .slice(0, statementIndex)
-    .some(containsAbruptCompletion);
+    .some((statement) =>
+      containsCompletion(
+        statement,
+        (node) => ts.isReturnStatement(node) || ts.isThrowStatement(node),
+      ),
+    );
+}
+
+function isNonCheckArgumentGuard(
+  node: ts.Node,
+  argumentBinding: string,
+): boolean {
+  if (
+    !ts.isIfStatement(node) ||
+    node.elseStatement ||
+    !ts.isBinaryExpression(node.expression) ||
+    node.expression.operatorToken.kind !==
+      ts.SyntaxKind.EqualsEqualsEqualsToken
+  ) {
+    return false;
+  }
+  const { left, right } = node.expression;
+  return (
+    ((ts.isIdentifier(left) &&
+      left.text === argumentBinding &&
+      ts.isStringLiteralLike(right) &&
+      right.text !== '--check') ||
+      (ts.isStringLiteralLike(left) &&
+        left.text !== '--check' &&
+        ts.isIdentifier(right) &&
+        right.text === argumentBinding))
+  );
+}
+
+function containsCheckSkippingCompletion(
+  node: ts.Node,
+  argumentBinding: string,
+): boolean {
+  return containsCompletion(
+    node,
+    (candidate) =>
+      ts.isBreakStatement(candidate) || ts.isContinueStatement(candidate),
+    (candidate) => !isNonCheckArgumentGuard(candidate, argumentBinding),
+  );
 }
 
 function getObjectLiteralProperties(
@@ -954,10 +1009,8 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
     guardIndexes.length !== 1 ||
     loop.statement.statements
       .slice(0, guardIndexes[0])
-      .some(
-        (statement) =>
-          ts.isBreakStatement(statement) ||
-          ts.isContinueStatement(statement),
+      .some((statement) =>
+        containsCheckSkippingCompletion(statement, argumentBinding),
       )
   ) {
     return false;

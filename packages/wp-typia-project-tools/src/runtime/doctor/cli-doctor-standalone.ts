@@ -347,7 +347,7 @@ function hasShadowedBinding(
       ts.isClassDeclaration(node) ||
       ts.isClassExpression(node) ||
       ts.isEnumDeclaration(node) ||
-      ts.isImportEqualsDeclaration(node)
+      (ts.isImportEqualsDeclaration(node) && !node.isTypeOnly)
     ) {
       declaredName = node.name;
     }
@@ -368,7 +368,11 @@ function hasImportedBinding(
   bindingName: string,
 ): boolean {
   return sourceFile.statements.some((statement) => {
-    if (!ts.isImportDeclaration(statement) || !statement.importClause) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !statement.importClause ||
+      statement.importClause.isTypeOnly
+    ) {
       return false;
     }
     const { name, namedBindings } = statement.importClause;
@@ -382,7 +386,8 @@ function hasImportedBinding(
       namedBindings !== undefined &&
       ts.isNamedImports(namedBindings) &&
       namedBindings.elements.some(
-        (element) => element.name.text === bindingName,
+        (element) =>
+          !element.isTypeOnly && element.name.text === bindingName,
       )
     );
   });
@@ -763,37 +768,11 @@ function isDirectRunSyncCall(
   );
 }
 
-function hasEarlierAbruptCompletion(
-  statements: readonly ts.Statement[],
-  statementIndex: number,
+function containsCompletion(
+  node: ts.Node,
+  isTerminal: (candidate: ts.Node) => boolean,
+  shouldDescend: (candidate: ts.Node) => boolean = () => true,
 ): boolean {
-  function containsAbruptCompletion(node: ts.Node): boolean {
-    if (
-      ts.isFunctionDeclaration(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isArrowFunction(node) ||
-      ts.isMethodDeclaration(node)
-    ) {
-      return false;
-    }
-    if (ts.isReturnStatement(node) || ts.isThrowStatement(node)) {
-      return true;
-    }
-    let found = false;
-    ts.forEachChild(node, (child) => {
-      if (!found && containsAbruptCompletion(child)) {
-        found = true;
-      }
-    });
-    return found;
-  }
-
-  return statements
-    .slice(0, statementIndex)
-    .some(containsAbruptCompletion);
-}
-
-function containsReturnCompletion(node: ts.Node): boolean {
   if (
     ts.isFunctionDeclaration(node) ||
     ts.isFunctionExpression(node) ||
@@ -802,16 +781,75 @@ function containsReturnCompletion(node: ts.Node): boolean {
   ) {
     return false;
   }
-  if (ts.isReturnStatement(node)) {
+  if (isTerminal(node)) {
     return true;
+  }
+  if (!shouldDescend(node)) {
+    return false;
   }
   let found = false;
   ts.forEachChild(node, (child) => {
-    if (!found && containsReturnCompletion(child)) {
+    if (!found && containsCompletion(child, isTerminal, shouldDescend)) {
       found = true;
     }
   });
   return found;
+}
+
+function hasEarlierAbruptCompletion(
+  statements: readonly ts.Statement[],
+  statementIndex: number,
+): boolean {
+  return statements
+    .slice(0, statementIndex)
+    .some((statement) =>
+      containsCompletion(
+        statement,
+        (node) => ts.isReturnStatement(node) || ts.isThrowStatement(node),
+      ),
+    );
+}
+
+function containsReturnCompletion(node: ts.Node): boolean {
+  return containsCompletion(node, ts.isReturnStatement);
+}
+
+function isNonCheckArgumentGuard(
+  node: ts.Node,
+  argumentBinding: string,
+): boolean {
+  if (
+    !ts.isIfStatement(node) ||
+    node.elseStatement ||
+    !ts.isBinaryExpression(node.expression) ||
+    node.expression.operatorToken.kind !==
+      ts.SyntaxKind.EqualsEqualsEqualsToken
+  ) {
+    return false;
+  }
+  const { left, right } = node.expression;
+  return (
+    ((ts.isIdentifier(left) &&
+      left.text === argumentBinding &&
+      ts.isStringLiteralLike(right) &&
+      right.text !== '--check') ||
+      (ts.isStringLiteralLike(left) &&
+        left.text !== '--check' &&
+        ts.isIdentifier(right) &&
+        right.text === argumentBinding))
+  );
+}
+
+function containsCheckSkippingCompletion(
+  node: ts.Node,
+  argumentBinding: string,
+): boolean {
+  return containsCompletion(
+    node,
+    (candidate) =>
+      ts.isBreakStatement(candidate) || ts.isContinueStatement(candidate),
+    (candidate) => !isNonCheckArgumentGuard(candidate, argumentBinding),
+  );
 }
 
 function isResultPropertyAccess(
@@ -1146,39 +1184,38 @@ function hasCanonicalCheckGuard(
   optionsBinding: string,
 ): boolean {
   const guardIndexes = body.statements.flatMap((statement, index) => {
-      if (
-        !ts.isIfStatement(statement) ||
-        statement.elseStatement ||
-        !ts.isBinaryExpression(statement.expression) ||
-        statement.expression.operatorToken.kind !==
-          ts.SyntaxKind.EqualsEqualsEqualsToken ||
-        !ts.isIdentifier(statement.expression.left) ||
-        statement.expression.left.text !== argumentBinding ||
-        !ts.isStringLiteralLike(statement.expression.right) ||
-        statement.expression.right.text !== '--check' ||
-        !ts.isBlock(statement.thenStatement) ||
-        statement.thenStatement.statements.length !== 2
-      ) {
-        return [];
-      }
-      return (
-        isCanonicalCheckAssignment(
-          statement.thenStatement.statements[0],
-          optionsBinding,
-        ) && ts.isContinueStatement(statement.thenStatement.statements[1])
-      )
-        ? [index]
-        : [];
-    });
+    if (
+      !ts.isIfStatement(statement) ||
+      statement.elseStatement ||
+      !ts.isBinaryExpression(statement.expression) ||
+      statement.expression.operatorToken.kind !==
+        ts.SyntaxKind.EqualsEqualsEqualsToken ||
+      !ts.isIdentifier(statement.expression.left) ||
+      statement.expression.left.text !== argumentBinding ||
+      !ts.isStringLiteralLike(statement.expression.right) ||
+      statement.expression.right.text !== '--check' ||
+      !ts.isBlock(statement.thenStatement) ||
+      statement.thenStatement.statements.length !== 2
+    ) {
+      return [];
+    }
+    return (
+      isCanonicalCheckAssignment(
+        statement.thenStatement.statements[0],
+        optionsBinding,
+      ) && ts.isContinueStatement(statement.thenStatement.statements[1])
+    )
+      ? [index]
+      : [];
+  });
   if (guardIndexes.length !== 1) {
     return false;
   }
   return !body.statements
     .slice(0, guardIndexes[0])
-    .some(
-      (statement) =>
-        ts.isBreakStatement(statement) || ts.isContinueStatement(statement),
-  );
+    .some((statement) =>
+      containsCheckSkippingCompletion(statement, argumentBinding),
+    );
 }
 
 function getCanonicalForOfArgument(
