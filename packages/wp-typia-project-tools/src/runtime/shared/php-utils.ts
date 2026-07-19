@@ -4,18 +4,18 @@ export type PhpFunctionRange = {
 	start: number;
 };
 
-export type PhpFunctionRangeOptions = {
+/** Options controlling whether PHP call helpers scan snippets or full PHP files. */
+export type PhpFunctionCallScanOptions = {
+	/** Ignore text outside explicit PHP open/close tag regions. */
+	requirePhpOpenTag?: boolean;
+};
+
+export type PhpFunctionRangeOptions = PhpFunctionCallScanOptions & {
 	includeTrailingNewlines?: boolean;
 };
 
 export type ReplacePhpFunctionDefinitionOptions = PhpFunctionRangeOptions & {
 	trimReplacementStart?: boolean;
-};
-
-/** Options controlling whether PHP call helpers scan snippets or full PHP files. */
-export type PhpFunctionCallScanOptions = {
-	/** Ignore text outside explicit PHP open/close tag regions. */
-	requirePhpOpenTag?: boolean;
 };
 
 type PhpFunctionScanMode =
@@ -976,6 +976,26 @@ function hasPhpFunctionCallWithStringArgumentMatching(
 	return false;
 }
 
+function isPhpCodeOffset(
+	source: string,
+	offset: number,
+	options: PhpFunctionCallScanOptions,
+): boolean {
+	const scanner = createPhpScannerState(options);
+	let index = 0;
+	while (index < source.length && index <= offset) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (index === offset) {
+			return !scan.ambiguous && scan.inCode;
+		}
+		if (scan.ambiguous) {
+			return false;
+		}
+		index = scan.inCode ? index + 1 : scan.index;
+	}
+	return false;
+}
+
 /**
  * Locate a PHP function body without counting braces in non-code regions.
  *
@@ -991,9 +1011,19 @@ export function findPhpFunctionRange(
 ): PhpFunctionRange | null {
 	const signaturePattern = new RegExp(
 		`function\\s+${escapeRegex(functionName)}\\s*\\([^)]*\\)\\s*(?::\\s*[^{};]+)?\\s*\\{`,
-		"u",
+		"gu",
 	);
-	const signatureMatch = signaturePattern.exec(source);
+	let signatureMatch: RegExpExecArray | null = null;
+	for (
+		let candidate = signaturePattern.exec(source);
+		candidate;
+		candidate = signaturePattern.exec(source)
+	) {
+		if (isPhpCodeOffset(source, candidate.index, options)) {
+			signatureMatch = candidate;
+			break;
+		}
+	}
 	if (!signatureMatch) {
 		return null;
 	}

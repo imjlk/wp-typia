@@ -16,6 +16,7 @@ import { scaffoldProject } from '../src/runtime/index.js';
 import {
   cleanupScaffoldTempRoot,
   createScaffoldTempRoot,
+  linkWorkspaceNodeModules,
   runGeneratedScript,
 } from './helpers/scaffold-test-harness.js';
 
@@ -272,6 +273,51 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   }, 20_000);
 
+  test('requires persistence REST declarations and project-local runtime subpaths', async () => {
+    const declarationsTarget = path.join(tempRoot, 'missing-rest-declarations');
+    await scaffoldPersistence(declarationsTarget);
+    const packageJsonPath = path.join(declarationsTarget, 'package.json');
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as {
+      devDependencies: Record<string, string>;
+    };
+    delete packageJson.devDependencies['@wp-typia/rest'];
+    delete packageJson.devDependencies['@wp-typia/api-client'];
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const declarationChecks = await getDoctorChecks(declarationsTarget);
+    const packageCheck = getCheck(
+      declarationChecks,
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain('must declare @wp-typia/rest');
+    expect(packageCheck?.detail).toContain('must declare @wp-typia/api-client');
+
+    const installationTarget = path.join(tempRoot, 'missing-rest-installation');
+    await scaffoldPersistence(installationTarget);
+    linkWorkspaceNodeModules(installationTarget);
+    fs.rmSync(
+      path.join(installationTarget, 'node_modules', '@wp-typia', 'rest'),
+      { force: true, recursive: true },
+    );
+    fs.rmSync(
+      path.join(installationTarget, 'node_modules', '@wp-typia', 'api-client'),
+      { force: true, recursive: true },
+    );
+
+    const installationChecks = await getDoctorChecks(installationTarget);
+    const dependenciesCheck = getCheck(
+      installationChecks,
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+    expect(dependenciesCheck?.status).toBe('fail');
+    expect(dependenciesCheck?.detail).toContain('@wp-typia/rest');
+    expect(dependenciesCheck?.detail).toContain('@wp-typia/rest/react');
+    expect(dependenciesCheck?.detail).toContain('@wp-typia/api-client');
+  }, 30_000);
+
   test('rejects package scripts that bypass generated sync helpers', async () => {
     const targetDir = path.join(tempRoot, 'damaged-package-scripts');
     await scaffoldBasic(targetDir);
@@ -357,6 +403,67 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const packageCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.PACKAGE);
 
     expect(packageCheck?.status).toBe('pass');
+  });
+
+  test('requires build sync checks in the same preceding && command list', async () => {
+    const targetDir = path.join(tempRoot, 'ordered-package-scripts');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as {
+      scripts: Record<string, string>;
+    };
+    const invalidBuildScripts = [
+      'wp-scripts build --experimental-modules && npm run sync -- --check',
+      'npm run sync -- --check ; wp-scripts build --experimental-modules',
+      'npm run sync -- --check & wp-scripts build --experimental-modules',
+      'npm run sync -- --check || wp-scripts build --experimental-modules',
+      'npm run sync -- --check | wp-scripts build --experimental-modules',
+      'wp-scripts build --experimental-modules && npm run sync -- --check && wp-scripts build --experimental-modules',
+    ];
+    for (const buildScript of invalidBuildScripts) {
+      packageJson.scripts.build = buildScript;
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+      const packageCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.PACKAGE,
+      );
+      expect(packageCheck?.status).toBe('fail');
+      expect(packageCheck?.detail).toContain('same && command list');
+    }
+
+    packageJson.scripts.build =
+      'echo ready && npm run sync -- --check && wp-scripts build --experimental-modules';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    expect(
+      getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.PACKAGE,
+      )?.status,
+    ).toBe('pass');
+  });
+
+  test('reports non-string packageManager metadata without throwing', async () => {
+    const targetDir = path.join(tempRoot, 'invalid-package-manager');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as {
+      packageManager?: unknown;
+    };
+    for (const packageManager of [{ name: 'npm' }, 123, null]) {
+      packageJson.packageManager = packageManager;
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+      const checks = await getDoctorChecks(targetDir);
+      const packageCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.PACKAGE);
+      expect(packageCheck?.status).toBe('fail');
+      expect(packageCheck?.detail).toContain(
+        'packageManager must be a string when defined',
+      );
+      expect(checks.length).toBeGreaterThan(1);
+    }
   });
 
   test('does not claim standalone scope from one incidental dependency and file', async () => {
@@ -661,14 +768,62 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
-  test('rejects a persistence sync wrapper that no longer delegates to REST sync', async () => {
-    const targetDir = path.join(tempRoot, 'detached-rest-sync-project');
-    await scaffoldPersistence(targetDir);
+  test('rejects a sync-project runner that drops --check forwarding', async () => {
+    const targetDir = path.join(tempRoot, 'sync-project-without-check');
+    await scaffoldBasic(targetDir);
     const syncProjectPath = path.join(
       targetDir,
       'scripts',
       'sync-project.ts',
     );
+    const source = fs
+      .readFileSync(syncProjectPath, 'utf8')
+      .replace(
+        /\n\s*if \( options\.check \) \{\s*args\.push\( '--check' \);\s*\}/u,
+        '',
+      );
+    fs.writeFileSync(syncProjectPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must forward --check through the canonical tsx runner',
+    );
+  });
+
+  test('rejects sync-project delegations hidden in dead branches', async () => {
+    const targetDir = path.join(tempRoot, 'dead-sync-project-delegation');
+    await scaffoldBasic(targetDir);
+    const syncProjectPath = path.join(targetDir, 'scripts', 'sync-project.ts');
+    const source = fs
+      .readFileSync(syncProjectPath, 'utf8')
+      .replace(
+        '\trunSyncScript( syncTypesScriptPath, options );',
+        [
+          '\tif ( false ) {',
+          '\t\trunSyncScript( syncTypesScriptPath, options );',
+          '\t}',
+        ].join('\n'),
+      );
+    fs.writeFileSync(syncProjectPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must delegate to scripts/sync-types-to-block-json.ts',
+    );
+  });
+
+  test('rejects a persistence sync wrapper that no longer delegates to REST sync', async () => {
+    const targetDir = path.join(tempRoot, 'detached-rest-sync-project');
+    await scaffoldPersistence(targetDir);
+    const syncProjectPath = path.join(targetDir, 'scripts', 'sync-project.ts');
     const source = fs
       .readFileSync(syncProjectPath, 'utf8')
       .replace(/\n\s*runSyncScript\( syncRestScriptPath, options \);/u, '');
@@ -684,6 +839,40 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must delegate to scripts/sync-rest-contracts.ts',
     );
+  });
+
+  test('keeps missing persistence REST helpers and dependencies actionable', async () => {
+    const targetDir = path.join(tempRoot, 'missing-persistence-rest-helper');
+    await scaffoldPersistence(targetDir);
+    fs.rmSync(path.join(targetDir, 'scripts', 'sync-rest-contracts.ts'));
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as {
+      devDependencies: Record<string, string>;
+    };
+    delete packageJson.devDependencies['@wp-typia/rest'];
+    delete packageJson.devDependencies['@wp-typia/api-client'];
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const checks = await getDoctorChecks(targetDir);
+    const sourceLayoutCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    const packageCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.PACKAGE);
+    const dependenciesCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'Missing generated helper scripts/sync-rest-contracts.ts',
+    );
+    expect(packageCheck?.detail).toContain('must declare @wp-typia/rest');
+    expect(packageCheck?.detail).toContain('must declare @wp-typia/api-client');
+    expect(dependenciesCheck?.detail).toContain('@wp-typia/rest');
+    expect(dependenciesCheck?.detail).toContain('@wp-typia/api-client');
   });
 
   test('rejects REST helpers that stop calling canonical sync routines', async () => {
@@ -709,6 +898,134 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
     );
+  });
+
+  test('rejects zero-argument REST sync calls in main', async () => {
+    const targetDir = path.join(tempRoot, 'zero-argument-rest-sync');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const source = fs.readFileSync(syncRestPath, 'utf8');
+    const callStart = source.indexOf('\tawait syncEndpointClient( {');
+    const callEndMarker = '\n\t} );';
+    const callEnd = source.indexOf(callEndMarker, callStart);
+    expect(callStart).toBeGreaterThan(-1);
+    expect(callEnd).toBeGreaterThan(callStart);
+    fs.writeFileSync(
+      syncRestPath,
+      `${source.slice(0, callStart)}\tawait syncEndpointClient();${source.slice(
+        callEnd + callEndMarker.length,
+      )}`,
+    );
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
+  test('rejects canonical REST calls that exist only in an unused function', async () => {
+    const targetDir = path.join(tempRoot, 'dead-rest-sync-call');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const detachedMain = original.replace(
+      'await syncEndpointClient(',
+      'await detachedEndpointClient(',
+    );
+    const unusedCall = [
+      '',
+      'async function unusedRestSync(options: { check: boolean }) {',
+      '\tawait syncEndpointClient( {',
+      "\t\tclientFile: 'src/api-client.ts',",
+      '\t\tmanifest: REST_ENDPOINT_MANIFEST,',
+      "\t\ttypesFile: 'src/api-types.ts',",
+      '\t}, {',
+      '\t\tcheck: options.check,',
+      '\t} );',
+      '}',
+      '',
+    ].join('\n');
+    fs.writeFileSync(
+      syncRestPath,
+      detachedMain.replace(
+        'async function main()',
+        `${unusedCall}async function main()`,
+      ),
+    );
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
+  test('rejects REST sync calls with noncanonical check values or ordering', async () => {
+    const checkTarget = path.join(tempRoot, 'wrong-rest-check-value');
+    await scaffoldPersistence(checkTarget);
+    const checkPath = path.join(
+      checkTarget,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    fs.writeFileSync(
+      checkPath,
+      fs
+        .readFileSync(checkPath, 'utf8')
+        .replace('check: options.check', 'check: false'),
+    );
+    expect(
+      getCheck(
+        await getDoctorChecks(checkTarget),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      )?.status,
+    ).toBe('fail');
+
+    const orderTarget = path.join(tempRoot, 'wrong-rest-call-order');
+    await scaffoldPersistence(orderTarget);
+    const orderPath = path.join(
+      orderTarget,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const source = fs.readFileSync(orderPath, 'utf8');
+    const openApiStart = source.indexOf('\tawait syncRestOpenApi( {');
+    const clientStart = source.indexOf('\tawait syncEndpointClient( {');
+    const callEndMarker = '\n\t} );';
+    const clientEnd =
+      source.indexOf(callEndMarker, clientStart) + callEndMarker.length;
+    expect(openApiStart).toBeGreaterThan(-1);
+    expect(clientStart).toBeGreaterThan(openApiStart);
+    expect(clientEnd).toBeGreaterThan(clientStart);
+    const openApiCall = source.slice(openApiStart, clientStart);
+    const clientCall = source.slice(clientStart, clientEnd);
+    fs.writeFileSync(
+      orderPath,
+      `${source.slice(0, openApiStart)}${clientCall}\n\n${openApiCall.trimEnd()}${source.slice(
+        clientEnd,
+      )}`,
+    );
+    expect(
+      getCheck(
+        await getDoctorChecks(orderTarget),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      )?.status,
+    ).toBe('fail');
   });
 
   test('rejects shadowed endpoint-manifest imports', async () => {
@@ -921,6 +1238,45 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     expect(bootstrapCheck?.status).toBe('pass');
+  });
+
+  test('ties the init hook callback to the function that registers the block', async () => {
+    const targetDir = path.join(tempRoot, 'detached-registration-callback');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'detached-registration-callback.php',
+    );
+    const bootstrap = fs
+      .readFileSync(bootstrapPath, 'utf8')
+      .replace(
+        '\tregister_block_type( $build_dir );',
+        '\t$registration_was_detached = true;',
+      )
+      .replace(
+        /\nadd_action\( 'init'/u,
+        [
+          '',
+          'function unrelated_register_block() {',
+          "\tregister_block_type( __DIR__ . '/build' );",
+          '}',
+          '',
+          "add_action( 'init'",
+        ].join('\n'),
+      );
+    fs.writeFileSync(bootstrapPath, bootstrap);
+
+    const bootstrapCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+    expect(bootstrapCheck?.status).toBe('fail');
+    expect(bootstrapCheck?.detail).toContain(
+      'does not hook block registration to init',
+    );
+    expect(bootstrapCheck?.detail).not.toContain(
+      'does not call register_block_type()',
+    );
   });
 
   test('rejects bootstrap init hook text inside PHP strings', async () => {

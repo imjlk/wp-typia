@@ -65,6 +65,24 @@ function wp_typia_typed() : array {
 	);
 });
 
+test("findPhpFunctionRange can require a function signature inside PHP code", () => {
+	const source = `function wp_typia_target() {
+	return 'outside-php';
+}
+<?php
+function wp_typia_target() {
+	return 'inside-php';
+}
+`;
+
+	const range = findPhpFunctionRange(source, "wp_typia_target", {
+		requirePhpOpenTag: true,
+	});
+
+	expect(range?.source).toContain("return 'inside-php';");
+	expect(range?.source).not.toContain("return 'outside-php';");
+});
+
 test("findPhpFunctionRange ignores braces inside PHP string literals", () => {
 	const source = `<?php
 function wp_typia_demo() {

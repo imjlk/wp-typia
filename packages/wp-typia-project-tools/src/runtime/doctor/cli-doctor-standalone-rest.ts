@@ -11,12 +11,25 @@ const STANDALONE_SYNC_REST_SCRIPT = path.join(
 );
 const STANDALONE_REST_OPEN_API_FILE = path.join('src', 'api.openapi.json');
 const STANDALONE_REST_CLIENT_FILE = path.join('src', 'api-client.ts');
+const STANDALONE_REST_SURFACE_PATHS = [
+  path.join('src', 'api-types.ts'),
+  path.join('src', 'api-schemas'),
+  STANDALONE_REST_OPEN_API_FILE,
+  STANDALONE_REST_CLIENT_FILE,
+] as const;
+
+interface StandaloneRestPackageJson {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  scripts?: Record<string, string>;
+}
 
 /** Parsed persistence REST metadata and any integrity problem found in its sync helper. */
 export interface ParsedStandaloneRestConfig {
   artifactPaths: string[];
   manifest: EndpointManifestDefinition | null;
   problem: string | null;
+  requiresRest: boolean;
 }
 
 type StandaloneMetadataCoreRestModule = Pick<
@@ -98,6 +111,25 @@ function getStandaloneRestArtifactPaths(
     STANDALONE_REST_OPEN_API_FILE,
     STANDALONE_REST_CLIENT_FILE,
   ];
+}
+
+/** Detect whether a damaged project still exposes the generated REST surface. */
+export function standaloneProjectRequiresRest(
+  projectDir: string,
+  packageJson: StandaloneRestPackageJson,
+): boolean {
+  return (
+    fs.existsSync(path.join(projectDir, STANDALONE_SYNC_REST_SCRIPT)) ||
+    STANDALONE_REST_SURFACE_PATHS.some((relativePath) =>
+      fs.existsSync(path.join(projectDir, relativePath)),
+    ) ||
+    typeof packageJson.scripts?.['sync-rest'] === 'string' ||
+    ['@wp-typia/rest', '@wp-typia/api-client'].some(
+      (packageName) =>
+        typeof packageJson.dependencies?.[packageName] === 'string' ||
+        typeof packageJson.devDependencies?.[packageName] === 'string',
+    )
+  );
 }
 
 function unwrapStaticExpression(expression: ts.Expression): ts.Expression {
@@ -319,72 +351,494 @@ function findStaticEndpointManifest(
   sourceFile: ts.SourceFile,
   bindings: ReadonlySet<string>,
 ): EndpointManifestDefinition | null {
-  let manifest: EndpointManifestDefinition | null = null;
-
-  function visit(node: ts.Node): void {
-    if (manifest) {
-      return;
-    }
+  const manifests: EndpointManifestDefinition[] = [];
+  for (const statement of sourceFile.statements) {
     if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.name.text === 'REST_ENDPOINT_MANIFEST' &&
-      node.initializer &&
-      ts.isCallExpression(node.initializer) &&
-      ts.isIdentifier(node.initializer.expression) &&
-      bindings.has(node.initializer.expression.text) &&
-      node.initializer.arguments.length === 1
+      !ts.isVariableStatement(statement) ||
+      !(statement.declarationList.flags & ts.NodeFlags.Const)
     ) {
-      const parsed = parseStaticExpression(node.initializer.arguments[0]);
+      continue;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        !ts.isIdentifier(declaration.name) ||
+        declaration.name.text !== 'REST_ENDPOINT_MANIFEST' ||
+        !declaration.initializer ||
+        !ts.isCallExpression(declaration.initializer) ||
+        !ts.isIdentifier(declaration.initializer.expression) ||
+        !bindings.has(declaration.initializer.expression.text) ||
+        declaration.initializer.arguments.length !== 1
+      ) {
+        continue;
+      }
+      const parsed = parseStaticExpression(
+        declaration.initializer.arguments[0],
+      );
       if (parsed.ok && isEndpointManifestDefinition(parsed.value)) {
-        manifest = parsed.value as unknown as EndpointManifestDefinition;
-        return;
+        manifests.push(parsed.value as unknown as EndpointManifestDefinition);
       }
     }
+  }
+  return manifests.length === 1 ? manifests[0] : null;
+}
+
+function countBindingDeclarations(
+  sourceFile: ts.SourceFile,
+  bindingName: string,
+): number {
+  const bindings = new Set([bindingName]);
+  let count = 0;
+  function visit(node: ts.Node): void {
+    if (ts.isImportDeclaration(node)) return;
+    let declaredName: ts.BindingName | undefined;
+    if (ts.isVariableDeclaration(node) || ts.isParameter(node)) {
+      declaredName = node.name;
+    } else if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isClassDeclaration(node) ||
+      ts.isClassExpression(node) ||
+      ts.isEnumDeclaration(node) ||
+      ts.isImportEqualsDeclaration(node)
+    ) {
+      declaredName = node.name;
+    }
+    if (bindingNameContains(declaredName, bindings)) count += 1;
     ts.forEachChild(node, visit);
   }
   visit(sourceFile);
-  return manifest;
+  return count;
+}
+
+function getTopLevelFunctionDeclaration(
+  sourceFile: ts.SourceFile,
+  functionName: string,
+): ts.FunctionDeclaration | null {
+  const declarations = sourceFile.statements.filter(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === functionName &&
+      statement.body !== undefined,
+  );
+  return declarations.length === 1 ? declarations[0] : null;
+}
+
+function getDirectAwaitedCall(
+  statement: ts.Statement,
+): ts.CallExpression | null {
+  if (!ts.isExpressionStatement(statement)) {
+    return null;
+  }
+  const expression = unwrapStaticExpression(statement.expression);
+  if (!ts.isAwaitExpression(expression)) {
+    return null;
+  }
+  const awaitedExpression = unwrapStaticExpression(expression.expression);
+  return ts.isCallExpression(awaitedExpression) ? awaitedExpression : null;
+}
+
+function getObjectLiteralProperties(
+  expression: ts.Expression,
+): Map<string, ts.Expression> | null {
+  const objectLiteral = unwrapStaticExpression(expression);
+  if (!ts.isObjectLiteralExpression(objectLiteral)) {
+    return null;
+  }
+  const properties = new Map<string, ts.Expression>();
+  for (const property of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(property)) {
+      return null;
+    }
+    const propertyName = getStaticPropertyName(property.name);
+    if (propertyName === null || properties.has(propertyName)) {
+      return null;
+    }
+    properties.set(propertyName, unwrapStaticExpression(property.initializer));
+  }
+  return properties;
+}
+
+function isIdentifierPropertyAccess(
+  expression: ts.Expression | undefined,
+  objectName: string,
+  propertyName: string,
+): boolean {
+  return (
+    expression !== undefined &&
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === objectName &&
+    expression.name.text === propertyName
+  );
+}
+
+function isStringValue(
+  expression: ts.Expression | undefined,
+  expected: string,
+): boolean {
+  return (
+    expression !== undefined &&
+    ts.isStringLiteralLike(expression) &&
+    expression.text === expected
+  );
+}
+
+function isIdentifierValue(
+  expression: ts.Expression | undefined,
+  expected: string,
+): boolean {
+  return (
+    expression !== undefined &&
+    ts.isIdentifier(expression) &&
+    expression.text === expected
+  );
+}
+
+function isTemplatePathValue(
+  expression: ts.Expression | undefined,
+  bindingName: string,
+  suffix: string,
+): boolean {
+  if (!expression || !ts.isTemplateExpression(expression)) {
+    return false;
+  }
+  return (
+    expression.head.text === 'src/api-schemas/' &&
+    expression.templateSpans.length === 1 &&
+    ts.isIdentifier(expression.templateSpans[0].expression) &&
+    expression.templateSpans[0].expression.text === bindingName &&
+    expression.templateSpans[0].literal.text === suffix
+  );
+}
+
+function isContractTitleTemplate(
+  expression: ts.Expression | undefined,
+  contractBinding: string,
+): boolean {
+  return (
+    expression !== undefined &&
+    ts.isTemplateExpression(expression) &&
+    expression.head.text === '' &&
+    expression.templateSpans.length === 1 &&
+    isIdentifierPropertyAccess(
+      expression.templateSpans[0].expression,
+      contractBinding,
+      'sourceTypeName',
+    ) &&
+    expression.templateSpans[0].literal.text === ''
+  );
+}
+
+function hasCanonicalOpenApiInfo(
+  expression: ts.Expression | undefined,
+  contractBinding: string,
+): boolean {
+  if (!expression) return false;
+  const properties = getObjectLiteralProperties(expression);
+  return (
+    properties?.size === 2 &&
+    isContractTitleTemplate(properties.get('title'), contractBinding) &&
+    isStringValue(properties.get('version'), '1.0.0')
+  );
+}
+
+function hasCanonicalCheckOptions(
+  expression: ts.Expression,
+  optionsBinding: string,
+): boolean {
+  const properties = getObjectLiteralProperties(expression);
+  return (
+    properties?.size === 1 &&
+    isIdentifierPropertyAccess(properties.get('check'), optionsBinding, 'check')
+  );
+}
+
+function isCanonicalRestSyncCall(
+  call: ts.CallExpression | null,
+  bindings: ReadonlySet<string>,
+  optionsBinding: string,
+  validateInput: (properties: ReadonlyMap<string, ts.Expression>) => boolean,
+): boolean {
+  if (
+    call === null ||
+    !ts.isIdentifier(call.expression) ||
+    !bindings.has(call.expression.text) ||
+    call.arguments.length !== 2 ||
+    !hasCanonicalCheckOptions(call.arguments[1], optionsBinding)
+  ) {
+    return false;
+  }
+  const inputProperties = getObjectLiteralProperties(call.arguments[0]);
+  return inputProperties !== null && validateInput(inputProperties);
+}
+
+function getRestContractsLoopBindings(
+  statement: ts.Statement,
+): { baseName: string; contract: string } | null {
+  if (!ts.isForOfStatement(statement)) {
+    return null;
+  }
+  const expression = unwrapStaticExpression(statement.expression);
+  if (
+    !ts.isCallExpression(expression) ||
+    !ts.isPropertyAccessExpression(expression.expression) ||
+    !ts.isIdentifier(expression.expression.expression) ||
+    expression.expression.expression.text !== 'Object' ||
+    expression.expression.name.text !== 'entries' ||
+    expression.arguments.length !== 1
+  ) {
+    return null;
+  }
+  const entriesTarget = unwrapStaticExpression(expression.arguments[0]);
+  if (
+    !ts.isPropertyAccessExpression(entriesTarget) ||
+    !ts.isIdentifier(entriesTarget.expression) ||
+    entriesTarget.expression.text !== 'REST_ENDPOINT_MANIFEST' ||
+    entriesTarget.name.text !== 'contracts' ||
+    !ts.isVariableDeclarationList(statement.initializer) ||
+    statement.initializer.declarations.length !== 1
+  ) {
+    return null;
+  }
+  const loopBinding = statement.initializer.declarations[0].name;
+  if (
+    !ts.isArrayBindingPattern(loopBinding) ||
+    loopBinding.elements.length !== 2 ||
+    loopBinding.elements.some(
+      (element) =>
+        ts.isOmittedExpression(element) || !ts.isIdentifier(element.name),
+    )
+  ) {
+    return null;
+  }
+  return {
+    baseName: (loopBinding.elements[0] as ts.BindingElement).name.getText(),
+    contract: (loopBinding.elements[1] as ts.BindingElement).name.getText(),
+  };
+}
+
+function getMainOptionsBinding(
+  mainBody: ts.Block,
+): { binding: string; index: number } | null {
+  const bindings: Array<{ binding: string; index: number }> = [];
+  mainBody.statements.forEach((statement, index) => {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !(statement.declarationList.flags & ts.NodeFlags.Const)
+    ) {
+      return;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.initializer &&
+        ts.isCallExpression(declaration.initializer) &&
+        ts.isIdentifier(declaration.initializer.expression) &&
+        declaration.initializer.expression.text === 'parseCliOptions'
+      ) {
+        bindings.push({ binding: declaration.name.text, index });
+      }
+    }
+  });
+  return bindings.length === 1 ? bindings[0] : null;
+}
+
+function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+  return (
+    sourceFile.statements.filter((statement) => {
+      if (!ts.isExpressionStatement(statement)) {
+        return false;
+      }
+      const expression = unwrapStaticExpression(statement.expression);
+      if (
+        !ts.isCallExpression(expression) ||
+        !ts.isPropertyAccessExpression(expression.expression) ||
+        expression.expression.name.text !== 'catch'
+      ) {
+        return false;
+      }
+      const receiver = unwrapStaticExpression(expression.expression.expression);
+      return (
+        ts.isCallExpression(receiver) &&
+        ts.isIdentifier(receiver.expression) &&
+        receiver.expression.text === 'main' &&
+        receiver.arguments.length === 0
+      );
+    }).length === 1
+  );
 }
 
 function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
-  const requiredImports = [
-    'syncEndpointClient',
-    'syncRestOpenApi',
+  const syncTypeBindings = getNamedImportBindings(
+    sourceFile,
     'syncTypeSchemas',
-  ] as const;
-  return requiredImports.every((importedName) => {
-    const bindings = getNamedImportBindings(sourceFile, importedName);
-    if (bindings.size === 0 || hasShadowedImportBinding(sourceFile, bindings)) {
-      return false;
-    }
-    let found = false;
-    function visit(node: ts.Node): void {
-      if (found) {
-        return;
-      }
-      if (
-        ts.isCallExpression(node) &&
-        ts.isIdentifier(node.expression) &&
-        bindings.has(node.expression.text)
-      ) {
-        found = true;
-        return;
-      }
-      ts.forEachChild(node, visit);
-    }
-    visit(sourceFile);
+  );
+  const syncOpenApiBindings = getNamedImportBindings(
+    sourceFile,
+    'syncRestOpenApi',
+  );
+  const syncClientBindings = getNamedImportBindings(
+    sourceFile,
+    'syncEndpointClient',
+  );
+  const bindingGroups = [
+    syncTypeBindings,
+    syncOpenApiBindings,
+    syncClientBindings,
+  ];
+  if (
+    bindingGroups.some(
+      (bindings) =>
+        bindings.size === 0 || hasShadowedImportBinding(sourceFile, bindings),
+    )
+  ) {
+    return false;
+  }
+
+  const mainDeclaration = getTopLevelFunctionDeclaration(sourceFile, 'main');
+  const mainBody = mainDeclaration?.body;
+  if (
+    !mainBody ||
+    !mainDeclaration.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
+    !hasTopLevelMainInvocation(sourceFile)
+  ) {
+    return false;
+  }
+  const optionsDeclaration = getMainOptionsBinding(mainBody);
+  if (!optionsDeclaration) {
+    return false;
+  }
+  const optionsBinding = optionsDeclaration.binding;
+
+  let schemaCallIndex = -1;
+  const hasTypeSchemasCall = mainBody.statements.some((statement, index) => {
+    const loopBindings = getRestContractsLoopBindings(statement);
+    if (!loopBindings || !ts.isForOfStatement(statement)) return false;
+    const loopStatements = ts.isBlock(statement.statement)
+      ? statement.statement.statements
+      : [statement.statement];
+    if (loopStatements.length !== 1) return false;
+    const matchingCallIndexes = loopStatements.flatMap(
+      (loopStatement, loopStatementIndex) =>
+        isCanonicalRestSyncCall(
+          getDirectAwaitedCall(loopStatement),
+          syncTypeBindings,
+          optionsBinding,
+          (properties) =>
+            isTemplatePathValue(
+              properties.get('jsonSchemaFile'),
+              loopBindings.baseName,
+              '.schema.json',
+            ) &&
+            isTemplatePathValue(
+              properties.get('openApiFile'),
+              loopBindings.baseName,
+              '.openapi.json',
+            ) &&
+            hasCanonicalOpenApiInfo(
+              properties.get('openApiInfo'),
+              loopBindings.contract,
+            ) &&
+            isIdentifierPropertyAccess(
+              properties.get('sourceTypeName'),
+              loopBindings.contract,
+              'sourceTypeName',
+            ) &&
+            isStringValue(properties.get('typesFile'), 'src/api-types.ts'),
+        )
+          ? [loopStatementIndex]
+          : [],
+    );
+    const found =
+      matchingCallIndexes.length === 1 &&
+      !loopStatements
+        .slice(0, matchingCallIndexes[0])
+        .some(
+          (loopStatement) =>
+            ts.isReturnStatement(loopStatement) ||
+            ts.isThrowStatement(loopStatement) ||
+            ts.isBreakStatement(loopStatement) ||
+            ts.isContinueStatement(loopStatement),
+        );
+    if (found) schemaCallIndex = index;
     return found;
   });
+  const openApiCallIndexes: number[] = [];
+  const clientCallIndexes: number[] = [];
+  mainBody.statements.forEach((statement, index) => {
+    const call = getDirectAwaitedCall(statement);
+    if (
+      isCanonicalRestSyncCall(
+        call,
+        syncOpenApiBindings,
+        optionsBinding,
+        (properties) =>
+          isIdentifierValue(
+            properties.get('manifest'),
+            'REST_ENDPOINT_MANIFEST',
+          ) &&
+          isStringValue(
+            properties.get('openApiFile'),
+            'src/api.openapi.json',
+          ) &&
+          isStringValue(properties.get('typesFile'), 'src/api-types.ts'),
+      )
+    ) {
+      openApiCallIndexes.push(index);
+    }
+    if (
+      isCanonicalRestSyncCall(
+        call,
+        syncClientBindings,
+        optionsBinding,
+        (properties) =>
+          isIdentifierValue(
+            properties.get('manifest'),
+            'REST_ENDPOINT_MANIFEST',
+          ) &&
+          isStringValue(properties.get('clientFile'), 'src/api-client.ts') &&
+          isStringValue(properties.get('typesFile'), 'src/api-types.ts'),
+      )
+    ) {
+      clientCallIndexes.push(index);
+    }
+  });
+  if (openApiCallIndexes.length !== 1 || clientCallIndexes.length !== 1) {
+    return false;
+  }
+  const [openApiCallIndex] = openApiCallIndexes;
+  const [clientCallIndex] = clientCallIndexes;
+  return (
+    hasTypeSchemasCall &&
+    optionsDeclaration.index < schemaCallIndex &&
+    schemaCallIndex < openApiCallIndex &&
+    openApiCallIndex < clientCallIndex &&
+    !mainBody.statements
+      .slice(0, clientCallIndex)
+      .some(
+        (statement) =>
+          ts.isReturnStatement(statement) || ts.isThrowStatement(statement),
+      )
+  );
 }
 
 /** Parse the generated persistence REST contract without executing project code. */
 export function parseStandaloneRestConfig(
   projectDir: string,
+  requiresRest: boolean,
 ): ParsedStandaloneRestConfig {
   const syncRestPath = path.join(projectDir, STANDALONE_SYNC_REST_SCRIPT);
   if (!fs.existsSync(syncRestPath)) {
-    return { artifactPaths: [], manifest: null, problem: null };
+    return {
+      artifactPaths: [],
+      manifest: null,
+      problem: requiresRest
+        ? `Missing generated helper ${STANDALONE_SYNC_REST_SCRIPT}`
+        : null,
+      requiresRest,
+    };
   }
 
   let source: string;
@@ -395,6 +849,7 @@ export function parseStandaloneRestConfig(
       artifactPaths: [],
       manifest: null,
       problem: `Unable to read generated helper ${STANDALONE_SYNC_REST_SCRIPT}`,
+      requiresRest,
     };
   }
   if (hasTypeScriptSyntaxErrors(source, syncRestPath)) {
@@ -402,6 +857,7 @@ export function parseStandaloneRestConfig(
       artifactPaths: [],
       manifest: null,
       problem: `${STANDALONE_SYNC_REST_SCRIPT} contains TypeScript syntax errors.`,
+      requiresRest,
     };
   }
   const sourceFile = ts.createSourceFile(
@@ -425,6 +881,7 @@ export function parseStandaloneRestConfig(
       problem:
         `${STANDALONE_SYNC_REST_SCRIPT} must not shadow its canonical ` +
         'defineEndpointManifest() import binding.',
+      requiresRest,
     };
   }
   if (!hasCanonicalRestSyncCalls(sourceFile)) {
@@ -434,16 +891,21 @@ export function parseStandaloneRestConfig(
       problem:
         `${STANDALONE_SYNC_REST_SCRIPT} must call syncTypeSchemas(), ` +
         'syncRestOpenApi(), and syncEndpointClient() through canonical metadata-core imports.',
+      requiresRest,
     };
   }
   const manifest = findStaticEndpointManifest(sourceFile, manifestBindings);
-  if (!manifest) {
+  if (
+    !manifest ||
+    countBindingDeclarations(sourceFile, 'REST_ENDPOINT_MANIFEST') !== 1
+  ) {
     return {
       artifactPaths: [],
       manifest: null,
       problem:
         `${STANDALONE_SYNC_REST_SCRIPT} must define a static endpoint ` +
         'manifest through defineEndpointManifest().',
+      requiresRest,
     };
   }
 
@@ -456,6 +918,7 @@ export function parseStandaloneRestConfig(
       artifactPaths: [],
       manifest: null,
       problem: `${STANDALONE_SYNC_REST_SCRIPT} references an unsafe REST contract name.`,
+      requiresRest,
     };
   }
   return {
@@ -464,6 +927,7 @@ export function parseStandaloneRestConfig(
     ),
     manifest,
     problem: null,
+    requiresRest,
   };
 }
 

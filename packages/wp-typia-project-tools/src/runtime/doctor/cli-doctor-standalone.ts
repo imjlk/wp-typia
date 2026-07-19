@@ -16,6 +16,7 @@ import {
   inferPackageManagerId,
 } from '../shared/package-managers.js';
 import {
+  findPhpFunctionRange,
   hasPhpFunctionCall,
   hasPhpFunctionCallWithStringArguments,
 } from '../shared/php-utils.js';
@@ -27,6 +28,7 @@ import {
 import {
   checkStandaloneRestArtifacts,
   parseStandaloneRestConfig,
+  standaloneProjectRequiresRest,
 } from './cli-doctor-standalone-rest.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -55,6 +57,10 @@ const REQUIRED_RUNTIME_PACKAGES = [
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
   'typia',
+] as const;
+const REQUIRED_REST_RUNTIME_PACKAGES = [
+  '@wp-typia/rest',
+  '@wp-typia/api-client',
 ] as const;
 const REQUIRED_INSTALLED_PACKAGES = [
   {
@@ -91,6 +97,23 @@ const REQUIRED_INSTALLED_PACKAGES = [
     diagnosticName: '@typia/unplugin/webpack',
     packageName: '@typia/unplugin',
     resolutionSpecifier: '@typia/unplugin/webpack',
+  },
+] as const;
+const REQUIRED_REST_INSTALLED_PACKAGES = [
+  {
+    diagnosticName: '@wp-typia/rest',
+    packageName: '@wp-typia/rest',
+    resolutionSpecifier: '@wp-typia/rest',
+  },
+  {
+    diagnosticName: '@wp-typia/api-client',
+    packageName: '@wp-typia/api-client',
+    resolutionSpecifier: '@wp-typia/api-client',
+  },
+  {
+    diagnosticName: '@wp-typia/rest/react',
+    packageName: '@wp-typia/rest',
+    resolutionSpecifier: '@wp-typia/rest/react',
   },
 ] as const;
 
@@ -304,8 +327,8 @@ function bindingNameContains(
   );
 }
 
-function hasShadowedCanonicalSyncBinding(
-  sourceFile: ts.SourceFile,
+function hasShadowedBinding(
+  root: ts.Node,
   bindings: ReadonlySet<string>,
 ): boolean {
   let shadowed = false;
@@ -336,7 +359,7 @@ function hasShadowedCanonicalSyncBinding(
     ts.forEachChild(node, visit);
   }
 
-  visit(sourceFile);
+  visit(root);
   return shadowed;
 }
 
@@ -428,7 +451,7 @@ function parseStandaloneSyncConfig(
   }
 
   const syncImportBindings = getCanonicalSyncImportBindings(sourceFile);
-  if (hasShadowedCanonicalSyncBinding(sourceFile, syncImportBindings)) {
+  if (hasShadowedBinding(sourceFile, syncImportBindings)) {
     return {
       options: null,
       problem:
@@ -542,95 +565,398 @@ function isSyncScriptPathExpression(
   );
 }
 
-function hasCanonicalSyncProjectDelegation(
+function getNamedImportBindingsFromModule(
+  sourceFile: ts.SourceFile,
+  moduleName: string,
+  importedName: string,
+): Set<string> {
+  const bindings = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== moduleName ||
+      !statement.importClause?.namedBindings ||
+      !ts.isNamedImports(statement.importClause.namedBindings)
+    ) {
+      continue;
+    }
+    for (const element of statement.importClause.namedBindings.elements) {
+      if ((element.propertyName ?? element.name).text === importedName) {
+        bindings.add(element.name.text);
+      }
+    }
+  }
+  return bindings;
+}
+
+function hasCanonicalDefaultImport(
+  sourceFile: ts.SourceFile,
+  moduleName: string,
+  localName: string,
+): boolean {
+  return sourceFile.statements.some(
+    (statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === moduleName &&
+      statement.importClause?.name?.text === localName,
+  );
+}
+
+function getSingleTopLevelFunction(
+  sourceFile: ts.SourceFile,
+  functionName: string,
+): ts.FunctionDeclaration | null {
+  const declarations = sourceFile.statements.filter(
+    (statement): statement is ts.FunctionDeclaration =>
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === functionName &&
+      statement.body !== undefined,
+  );
+  return declarations.length === 1 ? declarations[0] : null;
+}
+
+function getDirectCall(statement: ts.Statement): ts.CallExpression | null {
+  return ts.isExpressionStatement(statement) &&
+    ts.isCallExpression(statement.expression)
+    ? statement.expression
+    : null;
+}
+
+function isDirectMethodCall(
+  statement: ts.Statement,
+  objectBinding: string,
+  methodName: string,
+  argument: string,
+): boolean {
+  const call = getDirectCall(statement);
+  return (
+    call !== null &&
+    ts.isPropertyAccessExpression(call.expression) &&
+    ts.isIdentifier(call.expression.expression) &&
+    call.expression.expression.text === objectBinding &&
+    call.expression.name.text === methodName &&
+    call.arguments.length === 1 &&
+    ts.isStringLiteralLike(call.arguments[0]) &&
+    call.arguments[0].text === argument
+  );
+}
+
+function isDirectRunSyncCall(
+  statement: ts.Statement,
+  scriptPathBinding: string,
+  optionsBinding: string,
+): boolean {
+  const call = getDirectCall(statement);
+  return (
+    call !== null &&
+    ts.isIdentifier(call.expression) &&
+    call.expression.text === 'runSyncScript' &&
+    call.arguments.length === 2 &&
+    ts.isIdentifier(call.arguments[0]) &&
+    call.arguments[0].text === scriptPathBinding &&
+    ts.isIdentifier(call.arguments[1]) &&
+    call.arguments[1].text === optionsBinding
+  );
+}
+
+function hasEarlierAbruptCompletion(
+  statements: readonly ts.Statement[],
+  statementIndex: number,
+): boolean {
+  return statements
+    .slice(0, statementIndex)
+    .some(
+      (statement) =>
+        ts.isReturnStatement(statement) || ts.isThrowStatement(statement),
+    );
+}
+
+function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
+  const runner = getSingleTopLevelFunction(sourceFile, 'runSyncScript');
+  if (!runner?.body || runner.parameters.length !== 2) {
+    return false;
+  }
+  const [scriptPathParameter, optionsParameter] = runner.parameters;
+  if (
+    !ts.isIdentifier(scriptPathParameter.name) ||
+    !ts.isIdentifier(optionsParameter.name)
+  ) {
+    return false;
+  }
+  const scriptPathParameterName = scriptPathParameter.name.text;
+  const optionsParameterName = optionsParameter.name.text;
+  const spawnBindings = getNamedImportBindingsFromModule(
+    sourceFile,
+    'node:child_process',
+    'spawnSync',
+  );
+  if (
+    spawnBindings.size === 0 ||
+    hasShadowedBinding(sourceFile, spawnBindings)
+  ) {
+    return false;
+  }
+
+  const statements = [...runner.body.statements];
+  const argsDeclarations: Array<{ binding: string; index: number }> = [];
+  statements.forEach((statement, index) => {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !(statement.declarationList.flags & ts.NodeFlags.Const)
+    ) {
+      return;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.initializer &&
+        ts.isArrayLiteralExpression(declaration.initializer) &&
+        declaration.initializer.elements.length === 1 &&
+        ts.isIdentifier(declaration.initializer.elements[0]) &&
+        declaration.initializer.elements[0].text === scriptPathParameterName
+      ) {
+        argsDeclarations.push({ binding: declaration.name.text, index });
+      }
+    }
+  });
+  if (argsDeclarations.length !== 1) {
+    return false;
+  }
+  const [{ binding: argsBinding, index: argsIndex }] = argsDeclarations;
+
+  const checkGuardIndexes = statements.flatMap((statement, index) => {
+    if (
+      !ts.isIfStatement(statement) ||
+      !ts.isPropertyAccessExpression(statement.expression) ||
+      !ts.isIdentifier(statement.expression.expression) ||
+      statement.expression.expression.text !== optionsParameterName ||
+      statement.expression.name.text !== 'check' ||
+      statement.elseStatement ||
+      !ts.isBlock(statement.thenStatement) ||
+      statement.thenStatement.statements.length !== 1 ||
+      !isDirectMethodCall(
+        statement.thenStatement.statements[0],
+        argsBinding,
+        'push',
+        '--check',
+      )
+    ) {
+      return [];
+    }
+    return [index];
+  });
+  if (checkGuardIndexes.length !== 1) {
+    return false;
+  }
+  const [checkGuardIndex] = checkGuardIndexes;
+
+  const spawnIndexes = statements.flatMap((statement, index) => {
+    if (!ts.isVariableStatement(statement)) {
+      return [];
+    }
+    const matches = statement.declarationList.declarations.some(
+      (declaration) => {
+        const call = declaration.initializer;
+        return (
+          call !== undefined &&
+          ts.isCallExpression(call) &&
+          ts.isIdentifier(call.expression) &&
+          spawnBindings.has(call.expression.text) &&
+          call.arguments.length === 3 &&
+          ts.isStringLiteralLike(call.arguments[0]) &&
+          call.arguments[0].text === 'tsx' &&
+          ts.isIdentifier(call.arguments[1]) &&
+          call.arguments[1].text === argsBinding &&
+          ts.isObjectLiteralExpression(call.arguments[2])
+        );
+      },
+    );
+    return matches ? [index] : [];
+  });
+  if (spawnIndexes.length !== 1) {
+    return false;
+  }
+  const [spawnIndex] = spawnIndexes;
+  return (
+    argsIndex === 0 &&
+    checkGuardIndex === argsIndex + 1 &&
+    spawnIndex === checkGuardIndex + 1 &&
+    !hasEarlierAbruptCompletion(statements, spawnIndex)
+  );
+}
+
+function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+  return (
+    sourceFile.statements.filter((statement) => {
+      if (!ts.isExpressionStatement(statement)) {
+        return false;
+      }
+      const outerCall = statement.expression;
+      if (
+        !ts.isCallExpression(outerCall) ||
+        !ts.isPropertyAccessExpression(outerCall.expression) ||
+        outerCall.expression.name.text !== 'catch'
+      ) {
+        return false;
+      }
+      const mainCall = outerCall.expression.expression;
+      return (
+        ts.isCallExpression(mainCall) &&
+        ts.isIdentifier(mainCall.expression) &&
+        mainCall.expression.text === 'main' &&
+        mainCall.arguments.length === 0
+      );
+    }).length === 1
+  );
+}
+
+function getDirectVariableBinding(
+  statements: readonly ts.Statement[],
+  predicate: (initializer: ts.Expression) => boolean,
+): { binding: string; index: number } | null {
+  const bindings: Array<{ binding: string; index: number }> = [];
+  statements.forEach((statement, index) => {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !(statement.declarationList.flags & ts.NodeFlags.Const)
+    ) {
+      return;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.initializer &&
+        predicate(declaration.initializer)
+      ) {
+        bindings.push({ binding: declaration.name.text, index });
+      }
+    }
+  });
+  return bindings.length === 1 ? bindings[0] : null;
+}
+
+function isParseCliOptionsCall(expression: ts.Expression): boolean {
+  return (
+    ts.isCallExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === 'parseCliOptions'
+  );
+}
+
+function isCanonicalRestExistsCondition(
+  expression: ts.Expression,
+  scriptPathBinding: string,
+): boolean {
+  if (
+    !ts.isCallExpression(expression) ||
+    !ts.isPropertyAccessExpression(expression.expression) ||
+    !ts.isIdentifier(expression.expression.expression) ||
+    expression.expression.expression.text !== 'fs' ||
+    expression.expression.name.text !== 'existsSync' ||
+    expression.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const resolvedPath = expression.arguments[0];
+  return (
+    ts.isCallExpression(resolvedPath) &&
+    ts.isPropertyAccessExpression(resolvedPath.expression) &&
+    ts.isIdentifier(resolvedPath.expression.expression) &&
+    resolvedPath.expression.expression.text === 'path' &&
+    resolvedPath.expression.name.text === 'resolve' &&
+    resolvedPath.arguments.length === 2 &&
+    ts.isCallExpression(resolvedPath.arguments[0]) &&
+    ts.isPropertyAccessExpression(resolvedPath.arguments[0].expression) &&
+    ts.isIdentifier(resolvedPath.arguments[0].expression.expression) &&
+    resolvedPath.arguments[0].expression.expression.text === 'process' &&
+    resolvedPath.arguments[0].expression.name.text === 'cwd' &&
+    resolvedPath.arguments[0].arguments.length === 0 &&
+    ts.isIdentifier(resolvedPath.arguments[1]) &&
+    resolvedPath.arguments[1].text === scriptPathBinding
+  );
+}
+
+function getCanonicalSyncProjectDelegationIndex(
   sourceFile: ts.SourceFile,
   expectedScriptPath: string,
-): boolean {
-  const scriptPathBindings = new Set<string>();
-  let runnerDefinitionIsCanonical = false;
+  requiresExistsGuard: boolean,
+): number | null {
+  const main = getSingleTopLevelFunction(sourceFile, 'main');
+  if (
+    !main?.body ||
+    !hasTopLevelMainInvocation(sourceFile) ||
+    hasShadowedBinding(
+      main,
+      new Set(['fs', 'parseCliOptions', 'path', 'runSyncScript']),
+    ) ||
+    !hasCanonicalDefaultImport(sourceFile, 'node:fs', 'fs') ||
+    !hasCanonicalDefaultImport(sourceFile, 'node:path', 'path')
+  ) {
+    return null;
+  }
+  const statements = [...main.body.statements];
+  const optionsDeclaration = getDirectVariableBinding(
+    statements,
+    isParseCliOptionsCall,
+  );
+  const scriptPathDeclaration = getDirectVariableBinding(
+    statements,
+    (initializer) =>
+      isSyncScriptPathExpression(initializer, expectedScriptPath),
+  );
+  if (!optionsDeclaration || !scriptPathDeclaration) {
+    return null;
+  }
+  const optionsBinding = optionsDeclaration.binding;
+  const scriptPathBinding = scriptPathDeclaration.binding;
 
-  for (const statement of sourceFile.statements) {
-    if (!ts.isFunctionDeclaration(statement) || !statement.body) {
-      continue;
-    }
-    if (statement.name?.text !== 'runSyncScript') {
-      continue;
-    }
-    const scriptPathParameter = statement.parameters[0]?.name;
-    if (!scriptPathParameter || !ts.isIdentifier(scriptPathParameter)) {
-      continue;
-    }
-    const scriptPathParameterName = scriptPathParameter.text;
-
-    const argsBindings = new Set<string>();
-    function inspectRunner(node: ts.Node): void {
-      if (
-        ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
-        node.initializer &&
-        ts.isArrayLiteralExpression(node.initializer) &&
-        node.initializer.elements.length > 0 &&
-        ts.isIdentifier(node.initializer.elements[0]) &&
-        node.initializer.elements[0].text === scriptPathParameterName
-      ) {
-        argsBindings.add(node.name.text);
-      }
-      if (
-        ts.isCallExpression(node) &&
-        ts.isIdentifier(node.expression) &&
-        node.expression.text === 'spawnSync' &&
-        node.arguments.length >= 2 &&
-        ts.isStringLiteralLike(node.arguments[0]) &&
-        node.arguments[0].text === 'tsx' &&
-        ts.isIdentifier(node.arguments[1]) &&
-        argsBindings.has(node.arguments[1].text)
-      ) {
-        runnerDefinitionIsCanonical = true;
-      }
-      ts.forEachChild(node, inspectRunner);
-    }
-    inspectRunner(statement.body);
+  if (!requiresExistsGuard) {
+    const delegationIndexes = statements.flatMap((statement, index) =>
+      isDirectRunSyncCall(statement, scriptPathBinding, optionsBinding)
+        ? [index]
+        : [],
+    );
+    return delegationIndexes.length === 1 &&
+      optionsDeclaration.index < delegationIndexes[0] &&
+      scriptPathDeclaration.index < delegationIndexes[0] &&
+      !hasEarlierAbruptCompletion(statements, delegationIndexes[0])
+      ? delegationIndexes[0]
+      : null;
   }
 
-  function collectPathBindings(node: ts.Node): void {
+  const guardedDelegationIndexes = statements.flatMap((statement, index) => {
     if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer &&
-      isSyncScriptPathExpression(node.initializer, expectedScriptPath)
+      !ts.isIfStatement(statement) ||
+      statement.elseStatement ||
+      !isCanonicalRestExistsCondition(
+        statement.expression,
+        scriptPathBinding,
+      ) ||
+      !ts.isBlock(statement.thenStatement) ||
+      statement.thenStatement.statements.length !== 1 ||
+      !isDirectRunSyncCall(
+        statement.thenStatement.statements[0],
+        scriptPathBinding,
+        optionsBinding,
+      )
     ) {
-      scriptPathBindings.add(node.name.text);
+      return [];
     }
-    ts.forEachChild(node, collectPathBindings);
-  }
-  collectPathBindings(sourceFile);
-
-  let delegates = false;
-  function findDelegation(node: ts.Node): void {
-    if (delegates) {
-      return;
-    }
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === 'runSyncScript' &&
-      node.arguments.length > 0 &&
-      (isSyncScriptPathExpression(node.arguments[0], expectedScriptPath) ||
-        (ts.isIdentifier(node.arguments[0]) &&
-          scriptPathBindings.has(node.arguments[0].text)))
-    ) {
-      delegates = true;
-      return;
-    }
-    ts.forEachChild(node, findDelegation);
-  }
-  findDelegation(sourceFile);
-
-  return runnerDefinitionIsCanonical && delegates;
+    return [index];
+  });
+  return guardedDelegationIndexes.length === 1 &&
+    optionsDeclaration.index < guardedDelegationIndexes[0] &&
+    scriptPathDeclaration.index < guardedDelegationIndexes[0] &&
+    !hasEarlierAbruptCompletion(statements, guardedDelegationIndexes[0])
+    ? guardedDelegationIndexes[0]
+    : null;
 }
 
 function getSyncProjectDelegationProblem(
   project: StandaloneScaffoldProject,
+  requiresRest: boolean,
 ): string | null {
   const syncProjectPath = path.join(
     project.projectDir,
@@ -656,31 +982,48 @@ function getSyncProjectDelegationProblem(
     true,
     ts.ScriptKind.TS,
   );
-  const requiredDelegations = [
+  if (!hasCanonicalSyncRunner(sourceFile)) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must forward --check through the canonical tsx runner.`;
+  }
+  const typeDelegationIndex = getCanonicalSyncProjectDelegationIndex(
+    sourceFile,
     STANDALONE_SYNC_SCRIPT,
-    ...(fs.existsSync(path.join(project.projectDir, STANDALONE_SYNC_REST_SCRIPT))
-      ? [STANDALONE_SYNC_REST_SCRIPT]
-      : []),
-  ];
-  const missingDelegation = requiredDelegations.find(
-    (scriptPath) =>
-      !hasCanonicalSyncProjectDelegation(sourceFile, scriptPath),
+    false,
   );
-  return missingDelegation
-    ? `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${missingDelegation} through the canonical tsx runner.`
+  if (typeDelegationIndex === null) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_SCRIPT} through the canonical tsx runner.`;
+  }
+  if (!requiresRest) {
+    return null;
+  }
+  const restDelegationIndex = getCanonicalSyncProjectDelegationIndex(
+    sourceFile,
+    STANDALONE_SYNC_REST_SCRIPT,
+    true,
+  );
+  return restDelegationIndex === null ||
+    restDelegationIndex <= typeDelegationIndex
+    ? `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_REST_SCRIPT} through the canonical tsx runner after the type sync.`
     : null;
 }
 
-function splitShellCommandSegments(script: string): string[] {
-  const segments: string[] = [];
+type ShellCommandSegment = {
+  command: string;
+  operatorAfter: '&&' | '&' | '||' | '|' | '|&' | ';' | null;
+};
+
+function splitShellCommandSegments(script: string): ShellCommandSegment[] {
+  const segments: ShellCommandSegment[] = [];
   let current = '';
   let quote: "'" | '"' | null = null;
   let startsShellWord = true;
 
-  function pushCurrent(): void {
+  function pushCurrent(
+    operatorAfter: ShellCommandSegment['operatorAfter'],
+  ): void {
     const normalized = current.replace(/\s+/gu, ' ').trim();
     if (normalized.length > 0) {
-      segments.push(normalized);
+      segments.push({ command: normalized, operatorAfter });
     }
     current = '';
     startsShellWord = true;
@@ -738,7 +1081,13 @@ function splitShellCommandSegments(script: string): string[] {
       isBackgroundOperator ||
       isPipelineOperator
     ) {
-      pushCurrent();
+      const operatorAfter: ShellCommandSegment['operatorAfter'] =
+        character === '\n' || character === '\r'
+          ? ';'
+          : isTwoCharacterOperator
+            ? (`${character}${script[index + 1]}` as '&&' | '||' | '|&')
+            : (character as '&' | '|' | ';');
+      pushCurrent(operatorAfter);
       if (isTwoCharacterOperator) {
         index += 1;
       }
@@ -747,18 +1096,61 @@ function splitShellCommandSegments(script: string): string[] {
     current += character;
     startsShellWord = character === ' ' || character === '\t';
   }
-  pushCurrent();
+  pushCurrent(null);
   return segments;
 }
 
-function shellScriptInvokesCommand(script: string, command: string): boolean {
-  return splitShellCommandSegments(script).some(
-    (segment) => segment === command || segment.startsWith(`${command} `),
+function shellCommandMatches(
+  segment: ShellCommandSegment,
+  command: string,
+): boolean {
+  return (
+    segment.command === command || segment.command.startsWith(`${command} `)
   );
+}
+
+function shellScriptInvokesCommand(script: string, command: string): boolean {
+  return splitShellCommandSegments(script).some((segment) =>
+    shellCommandMatches(segment, command),
+  );
+}
+
+function shellScriptRunsCommandAfterSyncCheck(
+  script: string,
+  syncCheckCommand: string,
+  targetCommand: string,
+): boolean {
+  const segments = splitShellCommandSegments(script);
+  let syncCheckInAndList = false;
+  let foundTarget = false;
+  for (const segment of segments) {
+    if (shellCommandMatches(segment, syncCheckCommand)) {
+      syncCheckInAndList = true;
+    }
+    if (shellCommandMatches(segment, targetCommand)) {
+      if (!syncCheckInAndList) {
+        return false;
+      }
+      foundTarget = true;
+    }
+    if (segment.operatorAfter !== '&&') {
+      syncCheckInAndList = false;
+    }
+  }
+  return foundTarget;
+}
+
+function getPackageManagerSelector(
+  project: StandaloneScaffoldProject,
+): string | undefined {
+  return typeof project.packageJson.packageManager === 'string'
+    ? project.packageJson.packageManager
+    : undefined;
 }
 
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
+  requiresRest: boolean,
 ): DoctorCheck {
   const issues: string[] = [];
   if (
@@ -769,9 +1161,15 @@ function getPackageMetadataCheck(
   } else if (!getSafePackageBaseName(project.packageJson.name.trim())) {
     issues.push('package.json name must use a safe npm package name');
   }
+  if (
+    project.packageJson.packageManager !== undefined &&
+    typeof project.packageJson.packageManager !== 'string'
+  ) {
+    issues.push('package.json packageManager must be a string when defined');
+  }
   const packageManager = inferPackageManagerId(
     project.projectDir,
-    project.packageJson.packageManager,
+    getPackageManagerSelector(project),
   );
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const scriptRequirements = [
@@ -783,10 +1181,12 @@ function getPackageMetadataCheck(
     {
       commands: [syncCheckCommand, 'wp-scripts build'],
       name: 'build',
+      orderedTarget: 'wp-scripts build',
     },
     {
       commands: [syncCheckCommand, 'tsc --noEmit'],
       name: 'typecheck',
+      orderedTarget: 'tsc --noEmit',
     },
   ] as const;
   for (const requirement of scriptRequirements) {
@@ -803,9 +1203,25 @@ function getPackageMetadataCheck(
         );
       }
     }
+    if (
+      'orderedTarget' in requirement &&
+      requirement.commands.every((command) =>
+        shellScriptInvokesCommand(script, command),
+      ) &&
+      !shellScriptRunsCommandAfterSyncCheck(
+        script,
+        syncCheckCommand,
+        requirement.orderedTarget,
+      )
+    ) {
+      issues.push(
+        `package.json ${requirement.name} script must run \`${syncCheckCommand}\` before \`${requirement.orderedTarget}\` in the same && command list`,
+      );
+    }
   }
   for (const packageName of [
     ...REQUIRED_RUNTIME_PACKAGES,
+    ...(requiresRest ? REQUIRED_REST_RUNTIME_PACKAGES : []),
     '@typia/unplugin',
     '@wordpress/scripts',
     'tsx',
@@ -867,7 +1283,8 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
       STANDALONE_DOCTOR_CODES.BOOTSTRAP,
     );
   }
-  const hasPluginHeader = WORDPRESS_PLUGIN_NAME_HEADER_PATTERN.test(headerRegion);
+  const hasPluginHeader =
+    WORDPRESS_PLUGIN_NAME_HEADER_PATTERN.test(headerRegion);
   const hasRegistrationCall = hasPhpFunctionCall(
     source,
     'register_block_type',
@@ -878,8 +1295,18 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
     'add_action',
     [
       'init',
-      (callbackName) =>
-        /^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(callbackName),
+      (callbackName) => {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(callbackName)) {
+          return false;
+        }
+        const callbackRange = findPhpFunctionRange(source, callbackName, {
+          requirePhpOpenTag: true,
+        });
+        return (
+          callbackRange !== null &&
+          hasPhpFunctionCall(callbackRange.source, 'register_block_type')
+        );
+      },
     ],
     { requirePhpOpenTag: true },
   );
@@ -915,7 +1342,10 @@ function getSourceLayoutCheck(
     (relativePath) =>
       !fs.existsSync(path.join(project.projectDir, relativePath)),
   );
-  const syncProjectProblem = getSyncProjectDelegationProblem(project);
+  const syncProjectProblem = getSyncProjectDelegationProblem(
+    project,
+    parsedRestConfig.requiresRest,
+  );
   const issues = [
     ...(missingFiles.length > 0 ? [`Missing: ${missingFiles.join(', ')}`] : []),
     ...(parsedConfig.problem ? [parsedConfig.problem] : []),
@@ -1007,18 +1437,27 @@ async function loadProjectMetadataCore(
   return loaded as StandaloneMetadataCoreModule;
 }
 
-function getDependenciesCheck(project: StandaloneScaffoldProject): DoctorCheck {
-  const missingPackages = REQUIRED_INSTALLED_PACKAGES.filter(
-    ({ packageName, resolutionSpecifier }) =>
-      !canResolveFromProject(
-        project.projectDir,
-        packageName,
-        resolutionSpecifier,
-      ),
-  ).map(({ diagnosticName }) => diagnosticName);
+function getDependenciesCheck(
+  project: StandaloneScaffoldProject,
+  requiresRest: boolean,
+): DoctorCheck {
+  const requiredInstalledPackages = [
+    ...REQUIRED_INSTALLED_PACKAGES,
+    ...(requiresRest ? REQUIRED_REST_INSTALLED_PACKAGES : []),
+  ];
+  const missingPackages = requiredInstalledPackages
+    .filter(
+      ({ packageName, resolutionSpecifier }) =>
+        !canResolveFromProject(
+          project.projectDir,
+          packageName,
+          resolutionSpecifier,
+        ),
+    )
+    .map(({ diagnosticName }) => diagnosticName);
   const packageManager = inferPackageManagerId(
     project.projectDir,
-    project.packageJson.packageManager,
+    getPackageManagerSelector(project),
   );
 
   return createDoctorCheck(
@@ -1067,8 +1506,7 @@ function getConfiguredArtifactPaths(
   >,
 ): string[] {
   const resolvedPaths = (
-    metadataCore?.resolveSyncBlockMetadataPaths ??
-    resolveSyncBlockMetadataPaths
+    metadataCore?.resolveSyncBlockMetadataPaths ?? resolveSyncBlockMetadataPaths
   )(options);
   return [
     resolvedPaths.blockJsonPath,
@@ -1102,7 +1540,7 @@ async function getGeneratedArtifactsCheck(
 ): Promise<DoctorCheck> {
   const packageManager = inferPackageManagerId(
     project.projectDir,
-    project.packageJson.packageManager,
+    getPackageManagerSelector(project),
   );
   const syncCommand = formatRunScript(packageManager, 'sync');
   if (!parsedConfig.options || parsedRestConfig.problem) {
@@ -1143,7 +1581,7 @@ async function getGeneratedArtifactsCheck(
   try {
     metadataCore = await loadProjectMetadataCore(
       project,
-      parsedRestConfig.manifest !== null,
+      parsedRestConfig.requiresRest,
     );
     artifactPaths = [
       ...getConfiguredArtifactPaths(parsedConfig.options, metadataCore),
@@ -1216,14 +1654,21 @@ export async function getStandaloneScaffoldDoctorChecks(
   project: StandaloneScaffoldProject,
 ): Promise<DoctorCheck[]> {
   const parsedConfig = parseStandaloneSyncConfig(project);
-  const parsedRestConfig = parseStandaloneRestConfig(project.projectDir);
-  const dependenciesCheck = getDependenciesCheck(project);
+  const requiresRest = standaloneProjectRequiresRest(
+    project.projectDir,
+    project.packageJson,
+  );
+  const parsedRestConfig = parseStandaloneRestConfig(
+    project.projectDir,
+    requiresRest,
+  );
+  const dependenciesCheck = getDependenciesCheck(project, requiresRest);
   return [
     createDoctorScopeCheck(
       'pass',
       `Scope: standalone scaffold diagnostics for ${project.packageName}. Environment readiness checks ran and package metadata, plugin bootstrap, source layout, dependencies, and canonical generated artifacts are checked below.`,
     ),
-    getPackageMetadataCheck(project),
+    getPackageMetadataCheck(project, requiresRest),
     getBootstrapCheck(project),
     getSourceLayoutCheck(project, parsedConfig, parsedRestConfig),
     dependenciesCheck,
