@@ -1068,9 +1068,10 @@ describe('Gunshi CLI core routing', () => {
     }
   });
 
-  test('streams partial stderr prompts before the sync process exits', async () => {
+  test('streams non-stack partial stderr prompts before exit', async () => {
     const tempRoot = createTempRoot('wp-typia-node-sync-prompt-');
     const continuePath = path.join(tempRoot, 'continue');
+    const atPromptPath = path.join(tempRoot, 'at-prompt');
 
     try {
       fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
@@ -1090,6 +1091,10 @@ describe('Gunshi CLI core routing', () => {
           "while (!fs.existsSync('continue')) {",
           '  await new Promise((resolve) => setTimeout(resolve, 10));',
           '}',
+          "process.stderr.write('\\nat path: ');",
+          "while (!fs.existsSync('at-prompt')) {",
+          '  await new Promise((resolve) => setTimeout(resolve, 10));',
+          '}',
         ].join('\n'),
         'utf8',
       );
@@ -1105,6 +1110,12 @@ describe('Gunshi CLI core routing', () => {
           ) {
             fs.writeFileSync(continuePath, '', 'utf8');
           }
+          if (
+            streamedStderr.includes('at path: ') &&
+            !fs.existsSync(atPromptPath)
+          ) {
+            fs.writeFileSync(atPromptPath, '', 'utf8');
+          }
         },
       });
       let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -1119,11 +1130,13 @@ describe('Gunshi CLI core routing', () => {
       }
       if (outcome === 'timed-out') {
         fs.writeFileSync(continuePath, '', 'utf8');
+        fs.writeFileSync(atPromptPath, '', 'utf8');
         await execution;
       }
 
       expect(outcome).toBe('completed');
       expect(streamedStderr).toContain('Continue? ');
+      expect(streamedStderr).toContain('at path: ');
     } finally {
       removeTempRoot(tempRoot);
     }
