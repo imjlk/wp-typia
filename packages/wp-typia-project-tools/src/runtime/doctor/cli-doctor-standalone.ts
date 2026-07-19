@@ -2439,7 +2439,7 @@ function hasEarlierDirectPhpCompletion(
     ...source.slice(start, end).matchAll(/\b(?:return|throw|exit|die)\b/gu),
   ].some(
     (match) =>
-      getPhpFileBraceDepth(source, start + match.index) === 1,
+      getPhpFileBraceDepth(source, start + (match.index ?? 0)) === 1,
   );
 }
 
@@ -2456,7 +2456,7 @@ function hasPhpVariableReassignment(
   );
   return [...source.slice(start, end).matchAll(assignmentPattern)].some(
     (match) =>
-      getPhpFileBraceDepth(source, start + match.index) !== null,
+      getPhpFileBraceDepth(source, start + (match.index ?? 0)) !== null,
   );
 }
 
@@ -2554,14 +2554,17 @@ function hasDirectBuildDirectoryRegistration(
   ) {
     return false;
   }
-  const assignmentEndInRange = assignment.index + assignment[0].length;
+  const assignmentEndInRange =
+    (assignment.index ?? 0) + assignment[0].length;
   const assignmentEnd = callbackRange.start + assignmentEndInRange;
   const sourceAfterAssignment = callbackSource.slice(assignmentEndInRange);
   if (
     [...sourceAfterAssignment.matchAll(/\$build_dir\s*=/gu)].some(
       (match) =>
-        getPhpFileBraceDepth(bootstrapSource, assignmentEnd + match.index) !==
-        null,
+        getPhpFileBraceDepth(
+          bootstrapSource,
+          assignmentEnd + (match.index ?? 0),
+        ) !== null,
     )
   ) {
     return false;
@@ -2578,12 +2581,13 @@ function hasDirectBuildDirectoryRegistration(
     ),
   ].some((match) => {
     // Relative to sourceAfterAssignment for the call-prefix check below.
-    let previousIndex = match.index - 1;
+    const matchIndex = match.index ?? 0;
+    let previousIndex = matchIndex - 1;
     while (/\s/u.test(sourceAfterAssignment[previousIndex] ?? '')) {
       previousIndex -= 1;
     }
     // Absolute in bootstrapSource for PHP depth and reachability checks.
-    const registrationOffset = assignmentEnd + match.index;
+    const registrationOffset = assignmentEnd + matchIndex;
     return (
       getPhpFileBraceDepth(bootstrapSource, registrationOffset) === 1 &&
       !hasEarlierDirectPhpCompletion(

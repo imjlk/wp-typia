@@ -18,6 +18,7 @@ export function containsCompletion(
   );
 }
 
+/** Unwrap supported static TypeScript wrappers to reach the underlying expression. */
 export function unwrapStaticExpression(
   expression: ts.Expression,
 ): ts.Expression {
