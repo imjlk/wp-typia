@@ -11,7 +11,7 @@ import {
 	type PackageManagerId,
 } from "../shared/package-managers.js";
 import {
-  DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
+	DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
 	DEFAULT_WORDPRESS_BLOCKS_VERSION,
 	getPackageVersions,
 } from "../shared/package-versions.js";
