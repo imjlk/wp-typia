@@ -561,13 +561,8 @@ export function hasPhpFunctionCallWithStringArguments(
 			functionName,
 		);
 		let argumentsMatch = argumentStart !== null;
-		for (
-			let argumentIndex = 0;
-			argumentsMatch && argumentIndex < argumentMatchers.length;
-			argumentIndex += 1
-		) {
-			const matcher = argumentMatchers[argumentIndex];
-			if (argumentStart === null || matcher === undefined) {
+		for (const [argumentIndex, matcher] of argumentMatchers.entries()) {
+			if (!argumentsMatch || argumentStart === null) {
 				argumentsMatch = false;
 				break;
 			}
