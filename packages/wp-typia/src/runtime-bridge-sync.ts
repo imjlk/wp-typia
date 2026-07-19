@@ -93,17 +93,17 @@ const GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN =
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
   /(?:Generated (?:WordPress AI |typia\.llm )?artifacts are missing or stale:|Generated AI feature artifact is (?:missing|stale):)/iu;
 const GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN =
-  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)(?:(?!\s+(?:-\s|:\s|(?:error|warning|note):\s))[^\r\n"'`<>])*)$/iu;
+  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)(?:(?!\s+(?:-\s|:\s|(?:error|warning|note):\s)|\?[ \t]*$)[^\r\n"'`<>])*)$/iu;
 const GENERIC_ABSOLUTE_PATH_PARTIAL_PREFIX_PATTERN =
   /(?:^|[\s("'`=:\[\]{},;])([A-Za-z](?::[\\/]?)?|\\{1,2})$/u;
 const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN =
-  /(?:\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>])/iu;
+  /(?:\s+(?:-\s|:\s|(?:error|warning|note):\s)|\?(?=[ \t]*(?:$|[\r\n]))|[\r\n"'`<>])/iu;
 const POSIX_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
+  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|\?(?=[ \t]*(?:$|[\r\n]))|[\r\n"'`<>]|$)/giu;
 const UNC_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\r\n"'`<>]+[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
+  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\r\n"'`<>]+[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|\?(?=[ \t]*(?:$|[\r\n]))|[\r\n"'`<>]|$)/giu;
 const WINDOWS_ABSOLUTE_PATH_PATTERN =
-  /\b[A-Za-z]:[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
+  /\b[A-Za-z]:[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|\?(?=[ \t]*(?:$|[\r\n]))|[\r\n"'`<>]|$)/giu;
 
 type SyncArtifactIssue = {
   path: string;
@@ -201,7 +201,10 @@ class BoundedSyncOutputCapture {
     if (!includePreservedDiagnostics || diagnosticLines.length === 0) {
       return tail;
     }
-    return `${diagnosticLines.join('\n')}\n${tail ?? ''}`;
+    const preservedDiagnostics = diagnosticLines.join('\n');
+    return tail
+      ? `${tail}\n${preservedDiagnostics}`
+      : preservedDiagnostics;
   }
 
   private appendDiagnosticText(text: string, final: boolean): void {
@@ -247,9 +250,9 @@ class BoundedSyncOutputCapture {
     }
     if (
       (isInlineIssue ||
-        GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine) ||
         (this.diagnosticDriftLinesRemaining > 0 &&
-          matchGeneratedArtifactCheckIssue(trimmedLine))) &&
+          (GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine) ||
+            matchGeneratedArtifactCheckIssue(trimmedLine)))) &&
       this.diagnosticIssueLines.length < CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT &&
       !this.diagnosticIssueSet.has(trimmedLine)
     ) {
@@ -656,15 +659,31 @@ function collectSyncArtifactIssues(
 ): SyncArtifactIssue[] {
   const issues: SyncArtifactIssue[] = [];
   const seen = new Set<string>();
+  let driftLinesRemaining = 0;
 
   for (const line of iterateSyncOutputLines(stdout, stderr)) {
     const trimmedLine = line.trim();
-    const listMatch = GENERATED_ARTIFACT_ISSUE_PATTERN.exec(trimmedLine);
+    const isDriftContext =
+      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine);
+    if (isDriftContext) {
+      driftLinesRemaining = CAPTURED_SYNC_DRIFT_LINE_LIMIT;
+    }
+    const listMatch =
+      driftLinesRemaining > 0
+        ? GENERATED_ARTIFACT_ISSUE_PATTERN.exec(trimmedLine)
+        : null;
     const inlineMatch = GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN.exec(
       trimmedLine,
     );
     const rawPath = listMatch?.[1] ?? inlineMatch?.[2];
     const status = listMatch?.[2] ?? inlineMatch?.[1];
+    if (
+      trimmedLine.length > 0 &&
+      !isDriftContext &&
+      driftLinesRemaining > 0
+    ) {
+      driftLinesRemaining -= 1;
+    }
     if (!rawPath || (status !== 'missing' && status !== 'stale')) {
       continue;
     }
@@ -904,7 +923,7 @@ function createSyncExecutionError(
   }
 
   if (
-    artifacts.length > 0 &&
+    (artifacts.length > 0 || artifactCheckIssues.length > 0) &&
     GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(
       `${stderr ?? ''}\n${stdout ?? ''}`,
     )
@@ -976,13 +995,17 @@ async function runProjectScript(
   const stderrStream = options.onStderr
     ? new SanitizedSyncOutputStream(projectRoots, options.onStderr)
     : undefined;
+  const hideCapturedPrompts =
+    options.captureOutput &&
+    options.onStdout === undefined &&
+    options.onStderr === undefined;
   const child = spawn(plannedCommand.command, plannedCommand.args, {
     cwd: project.cwd,
     shell: process.platform === 'win32',
     stdio:
       pipeStdout || pipeStderr
         ? [
-            'inherit',
+            hideCapturedPrompts ? 'ignore' : 'inherit',
             pipeStdout ? 'pipe' : 'inherit',
             pipeStderr ? 'pipe' : 'inherit',
           ]

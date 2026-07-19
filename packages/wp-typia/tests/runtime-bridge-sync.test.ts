@@ -468,7 +468,9 @@ test('streamed sync output defers root decisions without delaying prompts', asyn
       'process.stdout.write(process.cwd());',
       'await new Promise((resolve) => setTimeout(resolve, 100));',
       "process.stdout.write('-cache/schema.ts\\n');",
-      "process.stdout.write('Continue? ');",
+      "process.stdout.write('Use /home/al');",
+      'await new Promise((resolve) => setTimeout(resolve, 100));',
+      "process.stdout.write('ice/.cache/token? ');",
       "while (!fs.existsSync('continue')) {",
       '  await new Promise((resolve) => setTimeout(resolve, 10));',
       '}',
@@ -481,7 +483,7 @@ test('streamed sync output defers root decisions without delaying prompts', asyn
     onStdout: (chunk) => {
       streamedStdout += chunk;
       if (
-        streamedStdout.includes('Continue? ') &&
+        streamedStdout.includes('Use <redacted-path>? ') &&
         !fs.existsSync(continuePath)
       ) {
         fs.writeFileSync(continuePath, '', 'utf8');
@@ -515,6 +517,7 @@ test('streamed sync output defers root decisions without delaying prompts', asyn
   expect(streamedStdout).not.toContain('<project-root>-cache/schema.ts');
   expect(streamedStdout).not.toContain(projectDir);
   expect(streamedStdout).not.toContain(fs.realpathSync(projectDir));
+  expect(streamedStdout).toContain('Use <redacted-path>? ');
 });
 
 test('captured sync output keeps the child stdin inherited', async () => {
@@ -556,6 +559,39 @@ test('captured sync output keeps the child stdin inherited', async () => {
   expect(streamedStdout).toContain('> sync');
 });
 
+test('capture-only sync closes stdin when prompts would be hidden', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-captured-stdin-eof',
+    scripts: {
+      sync: 'node scripts/stdin-eof.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'stdin-eof.mjs'),
+    [
+      "import fs from 'node:fs';",
+      "process.stdout.write('Hidden prompt? ');",
+      "const input = fs.readFileSync(0, 'utf8');",
+      "fs.writeFileSync('stdin-eof.json', JSON.stringify({ input }));",
+    ].join('\n'),
+    'utf8',
+  );
+
+  await executeSyncCommand({
+    captureOutput: true,
+    cwd: projectDir,
+  });
+
+  expect(
+    JSON.parse(
+      fs.readFileSync(path.join(projectDir, 'stdin-eof.json'), 'utf8'),
+    ),
+  ).toEqual({ input: '' });
+});
+
 test('sync check exposes generated artifact drift with project-relative paths', async () => {
   const projectDir = writeSyncFixture({
     name: 'demo-sync-artifact-drift',
@@ -570,6 +606,7 @@ test('sync check exposes generated artifact drift with project-relative paths', 
     path.join(scriptsDir, 'drift.mjs'),
     [
       "import path from 'node:path';",
+      "console.error('- DATABASE_URL (missing)');",
       "console.error('❌ Type sync failed: Generated artifacts are missing or stale:');",
       "console.error(`- ${path.join(process.cwd(), 'src', 'block.json')} (stale)`);",
       "console.error(`- ${path.join(process.cwd(), 'src', 'typia-validator.php')} (missing)`);",
@@ -613,6 +650,45 @@ test('sync check exposes generated artifact drift with project-relative paths', 
   expect((error as Error).message).not.toContain(path.dirname(projectDir));
   expect((error as Error).message).not.toContain('at runSyncScript');
   expect((error as Error).message).not.toContain('far.php');
+  expect((error as Error).message).not.toContain('DATABASE_URL');
+});
+
+test('sync classifies check-only artifact failures as drift', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-check-only-artifact-drift',
+    scripts: {
+      sync: 'node scripts/check-only-drift.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'check-only-drift.mjs'),
+    [
+      "import path from 'node:path';",
+      "console.error('Generated artifacts are missing or stale:');",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'locked.php')} (unreadable: EACCES)`);",
+      'process.exit(1);',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    artifacts: [],
+    command: 'npm run sync -- --check',
+    exitCode: 1,
+  });
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    'Generated artifact check issue: src/locked.php (unreadable: EACCES).',
+  );
 });
 
 test('sync ai recognizes first-party inline artifact drift output', async () => {
@@ -667,6 +743,7 @@ test('sync preserves early artifact drift before bounded output tails', async ()
     path.join(scriptsDir, 'early-drift.mjs'),
     [
       "import path from 'node:path';",
+      "console.error('- DATABASE_URL (missing)');",
       "console.error('Generated artifacts are missing or stale:');",
       "for (let index = 0; index < 20; index += 1) console.error(`- Dependency ${index} (1.2.3)`);",
       "console.error('- package.json (outdated)');",
@@ -699,6 +776,9 @@ test('sync preserves early artifact drift before bounded output tails', async ()
   expect(
     (error as { detailLines?: string[] }).detailLines?.join('\n'),
   ).not.toContain('package.json');
+  expect(
+    (error as { detailLines?: string[] }).detailLines?.join('\n'),
+  ).not.toContain('DATABASE_URL');
 });
 
 test('signaled artifact drift reports the signal without inventing an exit code', async () => {
