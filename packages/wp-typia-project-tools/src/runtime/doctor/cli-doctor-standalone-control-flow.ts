@@ -11,13 +11,11 @@ export function containsCompletion(
   if (isTerminal(node)) {
     return true;
   }
-  let found = false;
-  ts.forEachChild(node, (child) => {
-    if (!found && containsCompletion(child, isTerminal)) {
-      found = true;
-    }
-  });
-  return found;
+  return (
+    ts.forEachChild(node, (child) =>
+      containsCompletion(child, isTerminal) ? true : undefined,
+    ) ?? false
+  );
 }
 
 /** Detect a direct process.exit() call, regardless of its exit code. */
