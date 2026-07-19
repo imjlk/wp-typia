@@ -2342,6 +2342,8 @@ function hasReachableBuildDirectoryReturn(
 ): boolean {
   // Support the direct form plus the generated fallback-candidate loop without
   // attempting to model arbitrary PHP data flow.
+  // Each entry pairs a supported flow with its minimum PHP brace depth:
+  // depth 1 is the function body; depth 2 is inside the generated foreach.
   const supportedReturns = [
     [
       new RegExp(
@@ -2451,10 +2453,12 @@ function hasDirectBuildDirectoryRegistration(
       /\bregister_block_type\s*\(\s*\$build_dir\b/gu,
     ),
   ].some((match) => {
+    // Relative to sourceAfterAssignment for the call-prefix check below.
     let previousIndex = match.index - 1;
     while (/\s/u.test(sourceAfterAssignment[previousIndex] ?? '')) {
       previousIndex -= 1;
     }
+    // Absolute in bootstrapSource for PHP depth and reachability checks.
     const registrationOffset = assignmentEnd + match.index;
     return (
       getPhpFileBraceDepth(bootstrapSource, registrationOffset) === 1 &&
