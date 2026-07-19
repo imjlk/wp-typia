@@ -138,6 +138,14 @@ function validateBlockTypesRegistrationPeerPolicy(repoRoot, runtimePackages, err
 				`${relativePath} must declare peerDependencies.${dependencyName}=${JSON.stringify(expectedSpec)} to match the owned block registration facade baseline, found ${JSON.stringify(actualSpec ?? null)}.`,
 			);
 		}
+
+		const optional =
+			packageInfo.manifest.peerDependenciesMeta?.[dependencyName]?.optional;
+		if (optional !== true) {
+			errors.push(
+				`${relativePath} must declare peerDependenciesMeta.${dependencyName}.optional=true so CLI-only installs do not auto-install the WordPress registration peer graph, found ${JSON.stringify(optional ?? null)}.`,
+			);
+		}
 	}
 }
 
