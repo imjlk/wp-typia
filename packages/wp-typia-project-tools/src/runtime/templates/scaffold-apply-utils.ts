@@ -228,11 +228,15 @@ async function seedBuiltInCompilerArtifacts(
 }
 
 async function readScaffoldScriptNames(projectDir: string): Promise<string[]> {
-	const packageJson = await readJsonFile<ScaffoldPackageJsonShape>(
-		path.join(projectDir, "package.json"),
-		{ context: "generated scaffold package manifest" },
-	);
-	return Object.keys(packageJson.scripts ?? {});
+	try {
+		const packageJson = await readJsonFile<ScaffoldPackageJsonShape>(
+			path.join(projectDir, "package.json"),
+			{ context: "generated scaffold package manifest" },
+		);
+		return Object.keys(packageJson.scripts ?? {});
+	} catch {
+		return [];
+	}
 }
 
 export async function normalizePackageManagerFiles(
