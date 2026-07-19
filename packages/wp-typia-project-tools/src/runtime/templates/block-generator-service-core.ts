@@ -365,6 +365,7 @@ export class BlockGeneratorService {
 		rendered,
 		installDependencies,
 		onProgress,
+		seedCompilerArtifacts = true,
 	}: ApplyBlockInput): Promise<ScaffoldProjectResult> {
 		const cachedArtifacts = renderedArtifactCache.get(rendered);
 		const currentVariablesFingerprint = createVariablesFingerprint(
@@ -400,6 +401,7 @@ export class BlockGeneratorService {
 				repositoryReference: rendered.target.repositoryReference,
 				gitignoreContent: rendered.gitignoreContent,
 				readmeContent: rendered.readmeContent,
+				seedCompilerArtifacts,
 				templateDir: rendered.templateDir,
 				templateId: rendered.spec.template.family,
 				variables: rendered.variables,

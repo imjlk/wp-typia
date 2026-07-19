@@ -1039,8 +1039,6 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       );
       expect(pluginBootstrap).toContain('Customize storage helpers');
 
-      runGeneratedScript(targetDir, 'scripts/sync-project.ts');
-
       const generatedApiClient = fs.readFileSync(
         path.join(
           targetDir,

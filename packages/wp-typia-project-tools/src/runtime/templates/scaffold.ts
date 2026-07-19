@@ -242,6 +242,7 @@ interface ScaffoldProjectOptions {
 	profile?: CreateProfileId;
 	projectDir: string;
 	repositoryReference?: string;
+	seedCompilerArtifacts?: boolean;
 	templateId: string;
 	variant?: string;
 	withMigrationUi?: boolean;
@@ -380,6 +381,7 @@ export async function scaffoldProject({
 	externalLayerSourceLabel,
 	profile,
 	repositoryReference,
+	seedCompilerArtifacts = true,
 	cwd = process.cwd(),
 	allowExistingDir = false,
 	noInstall = false,
@@ -438,6 +440,7 @@ export async function scaffoldProject({
 			installDependencies,
 			onProgress,
 			rendered,
+			seedCompilerArtifacts,
 		});
 	}
 

@@ -30,6 +30,10 @@ import {
 } from "./built-in-block-artifacts.js";
 import type { BuiltInCodeArtifact } from "./built-in-block-code-artifacts.js";
 import {
+	buildBuiltInBlockMetadataSyncOptions,
+	buildBuiltInPersistenceRestSyncOptions,
+} from "./scaffold-compiler-artifacts.js";
+import {
 	type BuiltInTemplateId,
 	PROJECT_TOOLS_PACKAGE_ROOT,
 } from "./template-registry.js";
@@ -196,44 +200,18 @@ export async function seedBuiltInBlockMetadataArtifacts(
 	templateId: BuiltInTemplateId,
 	artifacts: readonly BuiltInBlockArtifact[],
 ): Promise<void> {
-	if (artifacts.length === 0) {
+	const syncOptions = buildBuiltInBlockMetadataSyncOptions(
+		targetDir,
+		templateId,
+		artifacts,
+	);
+	if (syncOptions.length === 0) {
 		return;
 	}
 
-	const emitsSchemaDocuments =
-		templateId === "persistence" || templateId === "compound";
-
 	await withEphemeralScaffoldNodeModules(targetDir, async () => {
-		for (const artifact of artifacts) {
-			const sourceTypeName = artifact.manifestDocument.sourceType;
-			if (!sourceTypeName) {
-				throw new Error(
-					`Built-in block artifact at ${artifact.relativeDir} is missing its source type name.`,
-				);
-			}
-
-			await syncBlockMetadata({
-				blockJsonFile: path.join(artifact.relativeDir, "block.json"),
-				...(emitsSchemaDocuments
-					? {
-							jsonSchemaFile: path.join(
-								artifact.relativeDir,
-								"typia.schema.json",
-							),
-							openApiFile: path.join(
-								artifact.relativeDir,
-								"typia.openapi.json",
-							),
-						}
-					: {}),
-				manifestFile: path.join(
-					artifact.relativeDir,
-					"typia.manifest.json",
-				),
-				projectRoot: targetDir,
-				sourceTypeName,
-				typesFile: path.join(artifact.relativeDir, "types.ts"),
-			});
+		for (const options of syncOptions) {
+			await syncBlockMetadata(options);
 		}
 	});
 }
@@ -247,31 +225,17 @@ export async function seedBuiltInPersistenceArtifacts(
 	templateId: BuiltInTemplateId,
 	variables: ScaffoldTemplateVariables,
 ): Promise<void> {
-	const needsPersistenceArtifacts =
-		templateId === "persistence" ||
-		(templateId === "compound" && isCompoundPersistenceEnabled(variables));
-
-	if (!needsPersistenceArtifacts) {
+	const syncOptions = buildBuiltInPersistenceRestSyncOptions(
+		targetDir,
+		templateId,
+		variables,
+	);
+	if (!syncOptions) {
 		return;
 	}
 
 	await withEphemeralScaffoldNodeModules(targetDir, async () => {
-		if (templateId === "persistence") {
-			await syncPersistenceRestArtifacts({
-				apiTypesFile: path.join("src", "api-types.ts"),
-				outputDir: "src",
-				projectDir: targetDir,
-				variables,
-			});
-			return;
-		}
-
-		await syncPersistenceRestArtifacts({
-			apiTypesFile: path.join("src", "blocks", variables.slugKebabCase, "api-types.ts"),
-			outputDir: path.join("src", "blocks", variables.slugKebabCase),
-			projectDir: targetDir,
-			variables,
-		});
+		await syncPersistenceRestArtifacts(syncOptions);
 	});
 }
 
@@ -413,6 +377,7 @@ export async function applyBuiltInScaffoldProjectFiles({
 	installDependencies,
 	repositoryReference,
 	onProgress,
+	seedCompilerArtifacts = true,
 }: {
 	projectDir: string;
 	templateDir: string;
@@ -431,6 +396,7 @@ export async function applyBuiltInScaffoldProjectFiles({
 	installDependencies?: ((options: InstallDependenciesOptions) => Promise<void>) | undefined;
 	repositoryReference?: string;
 	onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
+	seedCompilerArtifacts?: boolean;
 }): Promise<void> {
 	await ensureDirectory(projectDir, allowExistingDir);
 	await reportScaffoldProgress(onProgress, {
@@ -506,8 +472,10 @@ export async function applyBuiltInScaffoldProjectFiles({
 	await replaceTextRecursively(projectDir, packageManager, {
 		repositoryReference,
 	});
-	await seedBuiltInBlockMetadataArtifacts(projectDir, templateId, artifacts ?? []);
-	await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
+	if (seedCompilerArtifacts) {
+		await seedBuiltInBlockMetadataArtifacts(projectDir, templateId, artifacts ?? []);
+		await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
+	}
 
 	if (!noInstall) {
 		await reportScaffoldProgress(onProgress, {

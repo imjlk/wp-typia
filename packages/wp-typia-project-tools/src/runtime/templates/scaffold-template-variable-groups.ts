@@ -238,6 +238,19 @@ export function isCompoundPersistenceEnabled(
 	return compound.enabled && compound.persistenceEnabled;
 }
 
+/**
+ * Return whether a built-in scaffold family emits compiler-derived REST files.
+ */
+export function emitsBuiltInPersistenceArtifacts(
+	templateId: ScaffoldTemplateFamily,
+	variables: ScaffoldTemplateVariableGroupsCarrier,
+): boolean {
+	return (
+		templateId === "persistence" ||
+		(templateId === "compound" && isCompoundPersistenceEnabled(variables))
+	);
+}
+
 export function getScaffoldAlternateRenderTargets(
 	variables: ScaffoldTemplateVariableGroupsCarrier,
 ): ScaffoldAlternateRenderTargetVariableGroup {

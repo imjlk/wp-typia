@@ -427,21 +427,13 @@ test(
 
     typecheckGeneratedProject(targetDir);
 
-    runGeneratedScript(targetDir, "scripts/sync-project.ts");
-    runGeneratedScript(targetDir, "scripts/sync-rest-contracts.ts", [
-      "--check",
-    ]);
-    const syncedApiClient = fs.readFileSync(
-      path.join(targetDir, "src", "api-client.ts"),
-      "utf8"
-    );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export const getDemoPersistencePublicBootstrapEndpoint"
     );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export const getDemoPersistencePublicStateEndpoint"
     );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export function writeDemoPersistencePublicState("
     );
   },

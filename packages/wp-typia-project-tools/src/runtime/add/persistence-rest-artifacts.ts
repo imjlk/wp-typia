@@ -16,7 +16,7 @@ interface PersistenceTemplateVariablesLike {
 	title: string;
 }
 
-interface SyncPersistenceRestArtifactsOptions {
+export interface SyncPersistenceRestArtifactsOptions {
 	apiTypesFile: string;
 	outputDir: string;
 	projectDir: string;
@@ -94,6 +94,41 @@ export function buildPersistenceEndpointManifest(
 }
 
 /**
+ * Build the canonical output plan shared by scaffold generation and previews.
+ *
+ * @param options Scaffold output paths plus persistence template variables.
+ * @returns REST schema, aggregate OpenAPI, and client output paths.
+ */
+export function buildPersistenceRestArtifactPlan(
+	options: SyncPersistenceRestArtifactsOptions,
+) {
+	const manifest = buildPersistenceEndpointManifest(options.variables);
+
+	return {
+		clientFile: path.join(options.outputDir, "api-client.ts"),
+		manifest,
+		openApiFile: path.join(options.outputDir, "api.openapi.json"),
+		schemas: Object.entries(manifest.contracts).map(([baseName, contract]) => ({
+			jsonSchemaFile: path.join(
+				options.outputDir,
+				"api-schemas",
+				`${baseName}.schema.json`,
+			),
+			openApiFile: path.join(
+				options.outputDir,
+				"api-schemas",
+				`${baseName}.openapi.json`,
+			),
+			openApiInfo: {
+				title: contract.sourceTypeName,
+				version: "1.0.0",
+			},
+			sourceTypeName: contract.sourceTypeName,
+		})),
+	};
+}
+
+/**
  * Generate the REST-derived persistence artifacts for a scaffolded block.
  *
  * @param options Scaffold output paths plus persistence template variables.
@@ -105,21 +140,18 @@ export async function syncPersistenceRestArtifacts({
 	projectDir,
 	variables,
 }: SyncPersistenceRestArtifactsOptions): Promise<void> {
-	const manifest = buildPersistenceEndpointManifest(variables);
+	const plan = buildPersistenceRestArtifactPlan({
+		apiTypesFile,
+		outputDir,
+		projectDir,
+		variables,
+	});
 
-	for (const [baseName, contract] of Object.entries(manifest.contracts) as Array<
-		[string, { sourceTypeName: string }]
-	>) {
+	for (const schema of plan.schemas) {
 		await syncTypeSchemas(
 			{
-				jsonSchemaFile: path.join(outputDir, "api-schemas", `${baseName}.schema.json`),
-				openApiFile: path.join(outputDir, "api-schemas", `${baseName}.openapi.json`),
-				openApiInfo: {
-					title: contract.sourceTypeName,
-					version: "1.0.0",
-				},
+				...schema,
 				projectRoot: projectDir,
-				sourceTypeName: contract.sourceTypeName,
 				typesFile: apiTypesFile,
 			},
 		);
@@ -127,8 +159,8 @@ export async function syncPersistenceRestArtifacts({
 
 	await syncRestOpenApi(
 		{
-			manifest,
-			openApiFile: path.join(outputDir, "api.openapi.json"),
+			manifest: plan.manifest,
+			openApiFile: plan.openApiFile,
 			projectRoot: projectDir,
 			typesFile: apiTypesFile,
 		},
@@ -136,8 +168,8 @@ export async function syncPersistenceRestArtifacts({
 
 	await syncEndpointClient(
 		{
-			clientFile: path.join(outputDir, "api-client.ts"),
-			manifest,
+			clientFile: plan.clientFile,
+			manifest: plan.manifest,
 			projectRoot: projectDir,
 			typesFile: apiTypesFile,
 		},

@@ -165,6 +165,11 @@ export interface ApplyBlockInput {
 	rendered: RenderBlockResult;
 	installDependencies?: ((options: InstallDependenciesOptions) => Promise<void>) | undefined;
 	onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
+	/**
+	 * Whether compiler-backed metadata and REST artifacts should be seeded.
+	 * Dry-run previews disable this and report the expected paths separately.
+	 */
+	seedCompilerArtifacts?: boolean;
 }
 
 function getBuiltInPersistenceSpec({

@@ -297,6 +297,28 @@ describe("wp-typia standalone distribution", () => {
 		expect(dryRunOutput).toContain("Dry run for Demo Basic");
 		expect(dryRunOutput).toContain("write src/block-metadata.ts");
 		expect(dryRunOutput).toContain("write src/manifest-document.ts");
+		expect(dryRunOutput).toContain("write src/typia-validator.php");
+
+		const persistenceDryRunOutput = runUtf8Command(
+			installedBinaryPath,
+			[
+				"create",
+				"demo-persistence",
+				"--template",
+				"persistence",
+				"--yes",
+				"--no-install",
+				"--dry-run",
+			],
+			{ cwd: stagingRoot },
+		);
+		expect(persistenceDryRunOutput).toContain(
+			"write src/typia.schema.json",
+		);
+		expect(persistenceDryRunOutput).toContain("write src/api-client.ts");
+		expect(persistenceDryRunOutput).toContain(
+			"write src/api-schemas/state-query.schema.json",
+		);
 	}, { timeout: 15_000 });
 
 	test("ships a Windows installer contract alongside the POSIX installer", () => {

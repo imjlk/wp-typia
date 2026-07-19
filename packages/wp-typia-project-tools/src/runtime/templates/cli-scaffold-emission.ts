@@ -5,6 +5,7 @@ import {
 	listRelativeProjectFiles,
 } from "./cli-scaffold-files.js";
 import { scaffoldProject } from "./scaffold.js";
+import { collectBuiltInCompilerArtifactPaths } from "./scaffold-compiler-artifacts.js";
 import { createManagedTempRoot } from "../shared/temp-roots.js";
 import type { PackageManagerId } from "../shared/package-managers.js";
 import type { ScaffoldProgressEvent } from "./scaffold.js";
@@ -96,6 +97,10 @@ export interface ScaffoldEmissionOptions {
 	 */
 	projectDir: string;
 	/**
+	 * Internal preview control for compiler-backed metadata and REST seeding.
+	 */
+	seedCompilerArtifacts?: boolean;
+	/**
 	 * Resolved template id or external template locator to render.
 	 */
 	templateId: string;
@@ -160,8 +165,17 @@ export async function buildScaffoldDryRunPlan(
 			allowExistingDir: false,
 			noInstall: true,
 			projectDir: previewProjectDir,
+			seedCompilerArtifacts: false,
 		});
-		const files = await listRelativeProjectFiles(previewProjectDir);
+		const files = [
+			...new Set([
+				...(await listRelativeProjectFiles(previewProjectDir)),
+				...collectBuiltInCompilerArtifactPaths(
+					result.templateId,
+					result.variables,
+				),
+			]),
+		].sort((left, right) => left.localeCompare(right));
 
 		return {
 			plan: {

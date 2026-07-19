@@ -929,8 +929,36 @@ test("runScaffoldFlow dry-run previews scaffold output without writing the targe
   expect(flow.dryRun).toBe(true);
   expect(flow.plan?.files).toContain("package.json");
   expect(flow.plan?.files).toContain("src/block.json");
+  expect(flow.plan?.files).toContain("src/typia-validator.php");
   expect(flow.plan?.dependencyInstall).toBe("would-install");
   expect(flow.result.templateId).toBe("basic");
+  expect(fs.existsSync(targetDir)).toBe(false);
+});
+
+test("runScaffoldFlow dry-run reports compiler-seeded persistence artifacts", async () => {
+  const projectInput = "demo-persistence-dry-run-plan";
+  const targetDir = path.join(tempRoot, projectInput);
+  const flow = await runScaffoldFlow({
+    cwd: tempRoot,
+    dryRun: true,
+    packageManager: "npm",
+    projectInput,
+    templateId: "persistence",
+    yes: true,
+  });
+
+  expect(flow.plan?.files).toContain("src/typia.schema.json");
+  expect(flow.plan?.files).toContain("src/typia.openapi.json");
+  expect(flow.plan?.files).toContain("src/typia.manifest.json");
+  expect(flow.plan?.files).toContain("src/typia-validator.php");
+  expect(flow.plan?.files).toContain("src/api-client.ts");
+  expect(flow.plan?.files).toContain("src/api.openapi.json");
+  expect(flow.plan?.files).toContain(
+    "src/api-schemas/state-query.schema.json"
+  );
+  expect(flow.plan?.files).toContain(
+    "src/api-schemas/state-query.openapi.json"
+  );
   expect(fs.existsSync(targetDir)).toBe(false);
 });
 
