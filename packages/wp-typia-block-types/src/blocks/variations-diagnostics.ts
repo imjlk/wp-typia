@@ -1,6 +1,6 @@
 import { getDiagnosticSeverity, handleDiagnostics } from "./shared/diagnostics.js";
 import { isObjectRecord } from "./shared/object-utils.js";
-import type { BlockAttributes } from "./registration.js";
+import type { BlockAttributes } from "./shared/block-attributes.js";
 import type {
   BlockVariationAuthoringDiagnostic,
   BlockVariationDefinition,

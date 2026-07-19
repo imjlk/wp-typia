@@ -1,8 +1,4 @@
-import type {
-  BlockAttributes,
-  BlockVariation,
-  BlockVariationScope,
-} from "./registration.js";
+import type { BlockAttributes } from "./shared/block-attributes.js";
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityManifest,
@@ -34,6 +30,16 @@ export {
   createBlockVariationCompatibilityManifest,
 };
 
+export type { BlockAttributes } from "./shared/block-attributes.js";
+
+export type BlockVariationScope = "block" | "inserter" | "transform";
+
+export const BLOCK_VARIATION_SCOPES = [
+  "block",
+  "inserter",
+  "transform",
+] as const satisfies readonly BlockVariationScope[];
+
 export type BlockVariationAttributeMap<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = Partial<TAttributes> & BlockAttributes;
@@ -55,6 +61,39 @@ export type BlockVariationIsActive<
       blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
       variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
     ) => boolean);
+
+/**
+ * Peer-free variation shape used by the aggregate authoring entrypoints.
+ *
+ * Registration-specific aliases continue to mirror `@wordpress/blocks` from
+ * the explicit `blocks/registration` entrypoint. Variation authoring only
+ * needs this serializable subset and therefore must not make that optional
+ * peer part of its declaration graph.
+ */
+export interface BlockVariation<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> {
+  readonly attributes?: TAttributes;
+  readonly category?: string;
+  readonly description?: string;
+  readonly example?: {
+    readonly attributes?: Partial<TAttributes>;
+    readonly innerBlocks?: BlockVariationInnerBlocks;
+  };
+  readonly icon?: unknown;
+  readonly innerBlocks?: BlockVariationInnerBlocks;
+  readonly isActive?:
+    | readonly string[]
+    | ((
+        blockAttributes: TAttributes,
+        variationAttributes: TAttributes,
+      ) => boolean);
+  readonly isDefault?: boolean;
+  readonly keywords?: readonly string[];
+  readonly name: string;
+  readonly scope?: readonly BlockVariationScope[];
+  readonly title: string;
+}
 
 export interface BlockVariationDefinition<
   TAttributes extends BlockAttributes = BlockAttributes,

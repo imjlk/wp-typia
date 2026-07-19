@@ -80,9 +80,12 @@ install download the full WordPress editor dependency graph. Consumers that use
 the registration facade must declare both peers directly; generated wp-typia
 projects do this in their own manifests.
 
-The peer-free package root and `blocks` aggregate intentionally do not re-export
-the registration facade. Import registration values and types from the explicit
+The peer-free package root and `blocks` aggregate retain the common variation
+authoring types, but intentionally do not re-export registration-only values or
+types. Import registration values and types from the explicit
 `@wp-typia/block-types/blocks/registration` subpath after declaring its peers.
+This aggregate export removal is released as a breaking change so existing
+caret ranges cannot silently lose registration imports in a patch update.
 
 Compatibility should track that floor unless the generated project dependency
 matrix changes in the same release.

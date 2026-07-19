@@ -51,7 +51,10 @@ function writeMockWordPressBlocks(projectRoot: string) {
 	);
 }
 
-function withPublishedConsumer<T>(run: (projectRoot: string) => T): T {
+function withPublishedConsumer<T>(
+	run: (projectRoot: string) => T,
+	options: { installWordPressBlocks?: boolean } = {},
+): T {
 	const projectRoot = mkdtempSync(resolve(tmpdir(), "wp-typia-block-types-consumer-"));
 	const packageDir = resolve(projectRoot, "node_modules", "@wp-typia", "block-types");
 
@@ -73,7 +76,9 @@ function withPublishedConsumer<T>(run: (projectRoot: string) => T): T {
 			readFileSync(resolve(packageRoot, "package.json"), "utf8"),
 			"utf8",
 		);
-		writeMockWordPressBlocks(projectRoot);
+		if (options.installWordPressBlocks ?? true) {
+			writeMockWordPressBlocks(projectRoot);
+		}
 
 		return run(projectRoot);
 	} finally {
@@ -124,6 +129,77 @@ describe("@wp-typia/block-types export contracts", () => {
 			import: "./dist/blocks/variations.js",
 			types: "./dist/blocks/variations.d.ts",
 		});
+	});
+
+	test("peer-free aggregate declarations compile without optional WordPress peers", () => {
+		withPublishedConsumer(
+			(projectRoot) => {
+				writeFileSync(
+					resolve(projectRoot, "consumer.ts"),
+					[
+						'import { BLOCK_SUPPORT_FEATURES, BLOCK_VARIATION_SCOPES, defineVariation, type BlockAttributes, type BlockVariation } from "@wp-typia/block-types";',
+						'import { BLOCK_SUPPORT_FEATURES as blockFeatures, BLOCK_VARIATION_SCOPES as blockScopes, type BlockVariationDefinition } from "@wp-typia/block-types/blocks";',
+						"",
+						"interface DemoAttributes extends BlockAttributes {",
+						"  className: string;",
+						"}",
+						"",
+						"const variation: BlockVariationDefinition<DemoAttributes> = {",
+						"  attributes: { className: 'is-style-demo' },",
+						"  isActive: ['className'],",
+						"  name: 'demo',",
+						"  scope: ['inserter'],",
+						"  title: 'Demo',",
+						"};",
+						"const publicVariation: BlockVariation<DemoAttributes> = {",
+						"  attributes: { className: 'is-style-demo' },",
+						"  name: 'demo',",
+						"  title: 'Demo',",
+						"};",
+						"const defined = defineVariation('core/paragraph', variation);",
+						"void [BLOCK_SUPPORT_FEATURES, BLOCK_VARIATION_SCOPES, blockFeatures, blockScopes, defined, publicVariation];",
+						"",
+					].join("\n"),
+					"utf8",
+				);
+				writeFileSync(
+					resolve(projectRoot, "tsconfig.json"),
+					JSON.stringify(
+						{
+							compilerOptions: {
+								lib: ["ES2020"],
+								module: "NodeNext",
+								moduleResolution: "NodeNext",
+								noEmit: true,
+								skipLibCheck: false,
+								strict: true,
+								target: "ES2020",
+								types: [],
+							},
+							include: ["consumer.ts"],
+						},
+						null,
+						2,
+					),
+					"utf8",
+				);
+
+				execFileSync(
+					process.execPath,
+					[
+						resolve(packageRoot, "node_modules/typescript/bin/tsc"),
+						"--project",
+						"tsconfig.json",
+					],
+					{
+						cwd: projectRoot,
+						encoding: "utf8",
+						stdio: ["ignore", "inherit", "inherit"],
+					},
+				);
+			},
+			{ installWordPressBlocks: false },
+		);
 	});
 
 	test("published self imports resolve through the package entrypoints with the expected runtime values", () => {
