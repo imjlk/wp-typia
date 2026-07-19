@@ -4,6 +4,7 @@ import {
 \tInspectorControls,
 \tInnerBlocks,
 \tRichText,
+\tstore as blockEditorStore,
 \tuseBlockProps,
 } from '@wordpress/block-editor';
 import {
@@ -12,7 +13,12 @@ import {
 \tTextControl,
 \tToggleControl,
 } from '@wordpress/components';
+import { useSelect } from '@wordpress/data';
 
+import {
+\ttype PersistentBlockIdentityNode,
+\tusePersistentBlockIdentity,
+} from '@wp-typia/block-runtime/inspector';
 import {
 \tgetRootInnerBlocksPropsOptions,
 } from './children';
@@ -35,8 +41,24 @@ const TypedInnerBlocks = InnerBlocks as unknown as (
 
 export default function Edit( {
 \tattributes,
+\tclientId,
 \tsetAttributes,
 }: EditProps ) {
+\tconst blocks = useSelect(
+\t\t( select ) =>
+\t\t\t( select( blockEditorStore ) as {
+\t\t\t\tgetBlocks: () => readonly PersistentBlockIdentityNode[];
+\t\t\t} ).getBlocks(),
+\t\t[]
+\t);
+\tusePersistentBlockIdentity( {
+\t\tattributeName: 'resourceKey',
+\t\tattributes,
+\t\tblocks,
+\t\tclientId,
+\t\tprefix: '{{slugKebabCase}}',
+\t\tsetAttributes,
+\t} );
 \tconst { errorMessages, isValid } = useTypiaValidation(
 \t\tattributes,
 \t\tvalidate{{pascalCase}}Attributes

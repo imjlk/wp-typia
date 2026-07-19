@@ -799,6 +799,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(packageJson.devDependencies['@wp-typia/rest']).toBe(
         restPackageVersion,
       );
+      expect(packageJson.dependencies['@wordpress/data']).toBe('~10.46.0');
       expect(packageJson.scripts.dev).toBe(
         'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"',
       );
@@ -841,10 +842,17 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(pluginBootstrap).toContain("return 'wpt_pcl_' . md5(");
       expect(parentBlockJson.render).toBe('file:./render.php');
       expect(parentBlockJson.viewScriptModule).toBe('file:./interactivity.js');
-      expect(parentBlockJson.attributes.resourceKey.default).toBe('primary');
-      expect(parentManifest.attributes.resourceKey.typia.defaultValue).toBe(
-        'primary',
+      expect(parentBlockJson.attributes.resourceKey).not.toHaveProperty(
+        'default',
       );
+      expect(parentManifest.attributes.resourceKey.typia.hasDefault).toBe(false);
+      expect(
+        parentManifest.attributes.resourceKey.typia.defaultValue,
+      ).toBeNull();
+      expect(parentEdit).toContain('store as blockEditorStore');
+      expect(parentEdit).toContain('usePersistentBlockIdentity');
+      expect(parentEdit).toContain("attributeName: 'resourceKey'");
+      expect(parentEdit).toContain("prefix: 'demo-compound-storage'");
       expect(generatedSyncRest).toContain('syncRestOpenApi');
       expect(generatedSyncRest).toContain('syncEndpointClient');
       expect(generatedSyncRest).toContain('manifest: block.restManifest');

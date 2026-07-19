@@ -286,11 +286,10 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: 'primary',
             type: 'string',
           },
           manifest: {
-            defaultValue: 'primary',
+            defaultValue: null,
             required: false,
             selector: null,
             source: null,
@@ -554,11 +553,10 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: 'primary',
             type: 'string',
           },
           manifest: {
-            defaultValue: 'primary',
+            defaultValue: null,
             required: false,
             selector: null,
             source: null,
@@ -629,7 +627,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
   },
   persistence: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': 'a239c2e59d76e30c',
+    'src/edit.tsx': '007d7e3a59bb0d54',
     'src/hooks.ts': '3c1b432bd711ee70',
     'src/index.tsx': 'b0a68949bcc558dc',
     'src/interactivity.ts': '37e6d16e5df98fd4',
@@ -652,7 +650,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound-item/validators.ts': '7123c8ea0e650172',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
     'src/blocks/demo-compound/children.ts': '97ab81740f946e5a',
-    'src/blocks/demo-compound/edit.tsx': '57121378ed96c555',
+    'src/blocks/demo-compound/edit.tsx': '8e5102f14846478b',
     'src/blocks/demo-compound/hooks.ts': '485092aef1c4e019',
     'src/blocks/demo-compound/index.tsx': 'c9d9139901e6e4b9',
     'src/blocks/demo-compound/interactivity.ts': 'eddaf331fa622b91',
@@ -960,8 +958,12 @@ describe('built-in block artifacts', () => {
             viewScriptModule: 'file:./interactivity.js',
           }),
         );
-        expect(resourceKeyAttribute?.typia.defaultValue).toBe('primary');
-        expect(resourceKeyBlockJson?.default).toBe('primary');
+        expect(resourceKeyAttribute?.typia.hasDefault).toBe(false);
+        expect(resourceKeyAttribute?.typia.defaultValue).toBeNull();
+        expect(resourceKeyBlockJson).not.toHaveProperty('default');
+        expect(persistenceArtifact.typesSource).not.toContain(
+          'tags.Default<"primary">',
+        );
       }
 
       if (templateId === 'compound') {
@@ -988,7 +990,10 @@ describe('built-in block artifacts', () => {
             parent: [`${variables.namespace}/${variables.slugKebabCase}`],
           }),
         );
-        expect(parentResourceKeyBlockJson?.default).toBe('primary');
+        expect(parentResourceKeyBlockJson).not.toHaveProperty('default');
+        expect(artifacts[0]?.typesSource).not.toContain(
+          'tags.Default<"primary">',
+        );
       }
     },
   );

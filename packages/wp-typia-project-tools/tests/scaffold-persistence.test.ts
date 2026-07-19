@@ -126,6 +126,7 @@ test(
     expect(packageJson.devDependencies["@wp-typia/rest"]).toBe(
       restPackageVersion
     );
+    expect(packageJson.dependencies["@wordpress/data"]).toBe("~10.46.0");
     expect(packageJson.devDependencies["chokidar-cli"]).toBe("^3.0.0");
     expect(packageJson.devDependencies.concurrently).toBe("^9.0.1");
     expect(packageJson.scripts.sync).toBe("tsx scripts/sync-project.ts");
@@ -151,14 +152,13 @@ test(
     expect(blockJson.version).toBe("0.1.0");
     expect(blockJson.category).toBe("widgets");
     expect(blockJson.icon).toBe("database");
-    expect(blockJson.attributes.resourceKey.default).toBe("primary");
+    expect(blockJson.attributes.resourceKey).not.toHaveProperty("default");
     expect(generatedManifest.manifestVersion).toBe(2);
     expect(generatedManifest.sourceType).toBe(
       "DemoPersistencePublicAttributes"
     );
-    expect(generatedManifest.attributes.resourceKey.typia.defaultValue).toBe(
-      "primary"
-    );
+    expect(generatedManifest.attributes.resourceKey.typia.hasDefault).toBe(false);
+    expect(generatedManifest.attributes.resourceKey.typia.defaultValue).toBeNull();
     expect(
       fs.existsSync(path.join(targetDir, "inc", "rest-shared.php"))
     ).toBe(true);
@@ -201,6 +201,11 @@ test(
     expect(pluginBootstrap).toContain("is_post_publicly_viewable( $post )");
     expect(pluginBootstrap).toContain("! is_post_publicly_viewable( $post ) ||");
     expect(pluginBootstrap).toContain(": 'primary';");
+    expect(generatedTypes).not.toContain('tags.Default<"primary">');
+    expect(generatedEdit).toContain("store as blockEditorStore");
+    expect(generatedEdit).toContain("usePersistentBlockIdentity");
+    expect(generatedEdit).toContain("attributeName: 'resourceKey'");
+    expect(generatedEdit).toContain("prefix: 'demo-persistence-public'");
     expect(restPublicHelper).toContain(
       "function demo_persistence_public_verify_public_write_token"
     );

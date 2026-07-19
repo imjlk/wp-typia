@@ -222,11 +222,9 @@ const PERSISTENCE_ATTRIBUTE_SPECS = [
 			maxLength: 100,
 			minLength: 1,
 		},
-		defaultValue: "primary",
 		name: "resourceKey",
 		optional: true,
-		typeExpression:
-			'string & tags.MinLength<1> & tags.MaxLength<100> & tags.Default<"primary">',
+		typeExpression: "string & tags.MinLength<1> & tags.MaxLength<100>",
 	},
 ] as const satisfies readonly BuiltInAttributeTemplateSpec<ScaffoldTemplateVariables>[];
 
@@ -296,11 +294,9 @@ const COMPOUND_PARENT_PERSISTENCE_ATTRIBUTE_SPECS = [
 			maxLength: 100,
 			minLength: 1,
 		},
-		defaultValue: "primary",
 		name: "resourceKey",
 		optional: true,
-		typeExpression:
-			'string & tags.MinLength<1> & tags.MaxLength<100> & tags.Default<"primary">',
+		typeExpression: "string & tags.MinLength<1> & tags.MaxLength<100>",
 	},
 ] as const satisfies readonly BuiltInAttributeTemplateSpec<ScaffoldTemplateVariables>[];
 

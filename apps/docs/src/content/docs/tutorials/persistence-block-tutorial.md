@@ -117,10 +117,7 @@ export interface MyCounterAttributes {
     tags.MinLength<1> &
     tags.MaxLength<40> &
     tags.Default<'Persist Count'>;
-  resourceKey?: string &
-    tags.MinLength<1> &
-    tags.MaxLength<100> &
-    tags.Default<'primary'>;
+  resourceKey?: string & tags.MinLength<1> & tags.MaxLength<100>;
 }
 
 // Context passed from server to client
@@ -466,24 +463,28 @@ Typical flow:
 
 ### Test the REST API
 
+Copy the unique **Resource Key** shown in the block inspector after inserting
+and saving the block, then substitute it below.
+
 ```bash
 # Get counter value
-curl "http://localhost:8888/wp-json/my-counter/v1/my-counter/state?postId=1&resourceKey=primary"
+curl "http://localhost:8888/wp-json/my-counter/v1/my-counter/state?postId=1&resourceKey=<resource-key>"
 
 # Increment counter (default authenticated policy)
 curl -X POST \
   -H "X-WP-Nonce: <wp-rest-nonce>" \
   -H "Content-Type: application/json" \
-  -d '{"postId":1,"resourceKey":"primary","delta":1}' \
+  -d '{"postId":1,"resourceKey":"<resource-key>","delta":1}' \
   "http://localhost:8888/wp-json/my-counter/v1/my-counter/state"
 ```
 
 If you scaffold with `--persistence-policy public`, call the dedicated `/bootstrap` endpoint first to fetch a fresh `publicWriteToken`, then send that token plus a fresh `publicWriteRequestId` for each write attempt instead of a REST nonce.
 
-Scaffolded validators and interactivity modules now use
+Scaffolded editor identity hooks, validators, and interactivity modules use
 `@wp-typia/block-runtime/identifiers` as the shared source of truth for
-generated `resourceKey` and `publicWriteRequestId` values instead of carrying
-local inline generator helpers.
+unique, duplicate-safe `resourceKey` values and per-write
+`publicWriteRequestId` values instead of carrying local inline generator
+helpers.
 
 ## Understanding Storage Modes
 

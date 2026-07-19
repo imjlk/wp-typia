@@ -253,4 +253,44 @@ describe("BlockGeneratorService", () => {
 			'External layer "acme/conflict" writes protected output "src/types.ts".',
 		);
 	});
+
+	test("render rejects compiler-derived output conflicts from external template layers", async () => {
+		const layerSource = path.join(tempRoot, "compiler-output-conflict-layer");
+		const layerDir = path.join(layerSource, "layers", "conflict");
+		fs.mkdirSync(path.join(layerDir, "src"), { recursive: true });
+		fs.writeFileSync(
+			path.join(layerSource, "wp-typia.layers.json"),
+			JSON.stringify({
+				layers: {
+					"acme/compiler-conflict": {
+						path: "layers/conflict",
+					},
+				},
+				version: 1,
+			}),
+			"utf8",
+		);
+		fs.writeFileSync(
+			path.join(layerDir, "src", "typia.schema.json.mustache"),
+			"{}\n",
+			"utf8",
+		);
+
+		const service = new BlockGeneratorService();
+		const plan = await service.plan({
+			answers: buildAnswers("persistence"),
+			dataStorageMode: "post-meta",
+			externalLayerSource: layerSource,
+			noInstall: true,
+			packageManager: "npm",
+			persistencePolicy: "authenticated",
+			projectDir: path.join(tempRoot, "apply-persistence-with-conflict"),
+			templateId: "persistence",
+		});
+		const validated = await service.validate({ plan });
+
+		await expect(service.render({ validated })).rejects.toThrow(
+			'External layer "acme/compiler-conflict" writes protected output "src/typia.schema.json".',
+		);
+	});
 });

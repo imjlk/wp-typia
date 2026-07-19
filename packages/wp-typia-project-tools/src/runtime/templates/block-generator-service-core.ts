@@ -38,6 +38,7 @@ import {
 	type ValidateBlockResult,
 } from "./block-generator-service-spec.js";
 import type { ScaffoldProjectResult } from "./scaffold.js";
+import { collectBuiltInCompilerArtifactPaths } from "./scaffold-compiler-artifacts.js";
 import {
 	assertBuiltInTemplateVariantAllowed,
 	assertExternalLayerCompositionOptions,
@@ -89,6 +90,13 @@ function buildProtectedTemplateOutputPaths({
 	for (const artifact of artifacts) {
 		protectedOutputs.add(`${artifact.relativeDir}/block.json`);
 		protectedOutputs.add(`${artifact.relativeDir}/types.ts`);
+	}
+
+	for (const artifactPath of collectBuiltInCompilerArtifactPaths(
+		spec.template.family,
+		variables,
+	)) {
+		protectedOutputs.add(artifactPath);
 	}
 
 	for (const manifest of getStarterManifestFiles(spec.template.family, variables)) {

@@ -2082,26 +2082,27 @@ test("canonical CLI can add a compound persistence block to an official workspac
     },
   });
 
+  const packageJsonPath = path.join(targetDir, "package.json");
+  const legacyPackageJson = JSON.parse(
+    fs.readFileSync(packageJsonPath, "utf8")
+  ) as {
+    dependencies?: Record<string, string>;
+  };
+  delete legacyPackageJson.dependencies?.["@wordpress/data"];
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(legacyPackageJson, null, 2)}\n`,
+    "utf8"
+  );
   linkWorkspaceNodeModules(targetDir);
 
-  runCli(
-    "node",
-    [
-      entryPath,
-      "add",
-      "block",
-      "faq-stack",
-      "--template",
-      "compound",
-      "--data-storage",
-      "custom-table",
-      "--persistence-policy",
-      "public",
-    ],
-    {
-      cwd: targetDir,
-    }
-  );
+  const result = await runAddBlockCommand({
+    blockName: "faq-stack",
+    cwd: targetDir,
+    dataStorageMode: "custom-table",
+    persistencePolicy: "public",
+    templateId: "compound",
+  });
 
   const blockConfigSource = fs.readFileSync(
     path.join(targetDir, "scripts", "block-config.ts"),
@@ -2116,6 +2117,15 @@ test("canonical CLI can add a compound persistence block to an official workspac
       path.join(targetDir, "src", "blocks", "faq-stack", "block.json"),
       "utf8"
     )
+  );
+  const packageJson = JSON.parse(
+    fs.readFileSync(packageJsonPath, "utf8")
+  ) as {
+    dependencies?: Record<string, string>;
+  };
+  const parentEditSource = fs.readFileSync(
+    path.join(targetDir, "src", "blocks", "faq-stack", "edit.tsx"),
+    "utf8"
   );
 
   expect(blockConfigSource).toContain("defineEndpointManifest");
@@ -2136,6 +2146,14 @@ test("canonical CLI can add a compound persistence block to an official workspac
   expect(serverModuleSource).toContain("is_post_publicly_viewable( $post )");
   expect(serverModuleSource).toContain(": 'primary';");
   expect(parentBlockJson.name).toBe("demo-space/faq-stack");
+  expect(packageJson.dependencies?.["@wordpress/data"]).toBe("~10.46.0");
+  expect(parentEditSource).toContain("usePersistentBlockIdentity");
+  expect(result.warnings).toContain(
+    "Added @wordpress/data for persistent block identities. Run `npm install --no-audit` before building the workspace."
+  );
+  expect(result.warnings.join("\n")).not.toContain(
+    "Compiler-derived artifacts were deferred"
+  );
   expect(fs.existsSync(path.join(targetDir, "src", "hooks.ts"))).toBe(true);
   expect(fs.existsSync(path.join(targetDir, "src", "validator-toolkit.ts"))).toBe(
     true
@@ -5523,7 +5541,7 @@ test("canonical CLI can add a DataViews admin screen with a REST resource source
   expect(packageJson.devDependencies?.["@wp-typia/dataviews"]).toBeTruthy();
   expect(packageJson.dependencies?.["@wordpress/dataviews"]).toBeTruthy();
   expect(packageJson.dependencies?.["@wordpress/core-data"]).toBeUndefined();
-  expect(packageJson.dependencies?.["@wordpress/data"]).toBeUndefined();
+  expect(packageJson.dependencies?.["@wordpress/data"]).toBe("~10.46.0");
   expect(blockConfigSource).toContain('slug: "snapshots"');
   expect(blockConfigSource).toContain('source: "rest-resource:snapshots"');
   expect(blockConfigSource).toContain(
