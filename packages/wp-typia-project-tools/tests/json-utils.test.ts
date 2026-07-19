@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+	detectJsonIndent,
 	readJsonFile,
 	readJsonFileSync,
 	safeJsonParse,
@@ -36,6 +37,12 @@ async function getRejectedMessage(callback: () => Promise<void>): Promise<string
 }
 
 describe("project-tools JSON helpers", () => {
+	test("detects formatted JSON indentation with a compact fallback", () => {
+		expect(detectJsonIndent('{\n\t"ok": true\n}\n')).toBe("\t");
+		expect(detectJsonIndent('{\r\n    "ok": true\r\n}\r\n')).toBe("    ");
+		expect(detectJsonIndent('{"ok":true}')).toBe(2);
+	});
+
 	test("preserves valid JSON return values", () => {
 		expect(
 			safeJsonParse<{ ok: boolean }>('{"ok":true}', {

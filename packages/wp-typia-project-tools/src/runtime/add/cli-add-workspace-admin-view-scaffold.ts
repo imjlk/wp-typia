@@ -3,7 +3,10 @@ import path from 'node:path';
 
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
-import { safeJsonParse } from '../shared/json-utils.js';
+import {
+  detectJsonIndent,
+  safeJsonParse,
+} from '../shared/json-utils.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -57,11 +60,6 @@ import {
   hasPhpFunctionDefinition,
   replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
-
-function detectJsonIndent(source: string): string | number {
-  const indentMatch = /\n([ \t]+)"/u.exec(source);
-  return indentMatch?.[1] ?? 2;
-}
 
 const LEGACY_MANUAL_REST_API_SOURCE_PATTERN =
   /^\s*export\s+\*\s+from\s+["']\.\/api-client["'];?\s*$/u;

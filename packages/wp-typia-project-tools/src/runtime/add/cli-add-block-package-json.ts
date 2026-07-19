@@ -1,17 +1,12 @@
 import path from "node:path";
 
-import { safeJsonParse } from "../shared/json-utils.js";
+import { detectJsonIndent, safeJsonParse } from "../shared/json-utils.js";
 import { DEFAULT_WORDPRESS_DATA_VERSION } from "../shared/package-versions.js";
 import { patchFile } from "./cli-add-shared.js";
 
 interface WorkspacePackageJson {
 	dependencies?: Record<string, string>;
 	devDependencies?: Record<string, string>;
-}
-
-function detectJsonIndent(source: string): string | number {
-	const indentMatch = /\n([ \t]+)"/u.exec(source);
-	return indentMatch?.[1] ?? 2;
 }
 
 /**
