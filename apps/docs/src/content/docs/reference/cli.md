@@ -452,6 +452,12 @@ wp-typia templates inspect --id basic
 | `--id <template-id>` | Template id for `templates inspect`. |
 | `--format json`      | Emit structured template data.       |
 
+Structured template output reports the stable registry fields plus a logical
+`source` descriptor. Built-in entries use `{ "kind": "built-in", "id": ... }`;
+the official workspace entry uses its npm package name and `workspace` alias.
+Installation-local `templateDir` paths are intentionally omitted, so output is
+reproducible across npm caches, CI runners, and repository worktrees.
+
 ## `migrate`
 
 Run migration workflows for migration-capable projects.
