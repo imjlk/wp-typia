@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import ts from 'typescript';
 
+import { hasEarlierAbruptCompletion } from './cli-doctor-standalone-control-flow.js';
+
 import type { EndpointManifestDefinition } from '@wp-typia/block-runtime/metadata-core';
 import type { GeneratedPackageJson } from '../shared/package-json-types.js';
 
@@ -467,39 +469,6 @@ function getDirectAwaitedCall(
   }
   const awaitedExpression = unwrapStaticExpression(expression.expression);
   return ts.isCallExpression(awaitedExpression) ? awaitedExpression : null;
-}
-
-function containsCompletion(
-  node: ts.Node,
-  isTerminal: (candidate: ts.Node) => boolean,
-): boolean {
-  if (ts.isFunctionLike(node)) {
-    return false;
-  }
-  if (isTerminal(node)) {
-    return true;
-  }
-  let found = false;
-  ts.forEachChild(node, (child) => {
-    if (!found && containsCompletion(child, isTerminal)) {
-      found = true;
-    }
-  });
-  return found;
-}
-
-function hasEarlierAbruptCompletion(
-  statements: readonly ts.Statement[],
-  statementIndex: number,
-): boolean {
-  return statements
-    .slice(0, statementIndex)
-    .some((statement) =>
-      containsCompletion(
-        statement,
-        (node) => ts.isReturnStatement(node) || ts.isThrowStatement(node),
-      ),
-    );
 }
 
 function isNonCheckArgumentGuard(
