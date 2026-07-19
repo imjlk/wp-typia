@@ -82,12 +82,7 @@ export interface BlockVariation<
   };
   readonly icon?: unknown;
   readonly innerBlocks?: BlockVariationInnerBlocks;
-  readonly isActive?:
-    | readonly string[]
-    | ((
-        blockAttributes: TAttributes,
-        variationAttributes: TAttributes,
-      ) => boolean);
+  readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly isDefault?: boolean;
   readonly keywords?: readonly string[];
   readonly name: string;
