@@ -834,7 +834,7 @@ function isCatchAllFailureGuard(
 
 function hasCanonicalTypeArtifactPreflight(
   sourceFile: ts.SourceFile,
-  sourceTypeName: string,
+  sourceTypeName: string | null,
 ): boolean {
   const declaration = getTopLevelFunctionDeclaration(
     sourceFile,
@@ -870,6 +870,7 @@ function hasCanonicalTypeArtifactPreflight(
     return false;
   }
   const input = getObjectLiteralProperties(invocation.call.arguments[0]);
+  const preflightSourceTypeName = input?.get('sourceTypeName');
   if (
     input?.size !== 6 ||
     !isStringValue(input.get('blockJsonFile'), 'src/block.json') ||
@@ -877,7 +878,9 @@ function hasCanonicalTypeArtifactPreflight(
     !isStringValue(input.get('manifestFile'), 'src/typia.manifest.json') ||
     !isStringValue(input.get('openApiFile'), 'src/typia.openapi.json') ||
     !isStringValue(input.get('typesFile'), 'src/types.ts') ||
-    !isStringValue(input.get('sourceTypeName'), sourceTypeName)
+    preflightSourceTypeName === undefined ||
+    !ts.isStringLiteralLike(preflightSourceTypeName) ||
+    (sourceTypeName !== null && preflightSourceTypeName.text !== sourceTypeName)
   ) {
     return false;
   }
@@ -1185,7 +1188,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
 
 function hasCanonicalRestSyncCalls(
   sourceFile: ts.SourceFile,
-  sourceTypeName: string,
+  sourceTypeName: string | null,
 ): boolean {
   const syncTypeBindings = getNamedImportBindings(
     sourceFile,
@@ -1415,10 +1418,7 @@ export function parseStandaloneRestConfig(
       requiresRest,
     };
   }
-  if (
-    sourceTypeName === null ||
-    !hasCanonicalRestSyncCalls(sourceFile, sourceTypeName)
-  ) {
+  if (!hasCanonicalRestSyncCalls(sourceFile, sourceTypeName)) {
     return {
       artifactPaths: [],
       manifest: null,

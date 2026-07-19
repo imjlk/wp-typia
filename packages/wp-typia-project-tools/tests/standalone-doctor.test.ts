@@ -1487,6 +1487,35 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
     );
+  }, 20_000);
+
+  test('does not misreport REST calls when sync-types parsing fails first', async () => {
+    const targetDir = path.join(tempRoot, 'rest-after-invalid-sync-types');
+    await scaffoldPersistence(targetDir);
+    const syncTypesPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncTypesPath, 'utf8');
+    const source = original.replace(
+      'sourceTypeName:',
+      'detachedSourceTypeName:',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncTypesPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must define static blockJsonFile, sourceTypeName, and typesFile values',
+    );
+    expect(sourceLayoutCheck?.detail).not.toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
   });
 
   test('rejects REST helpers that stop parsing the process --check flag', async () => {
