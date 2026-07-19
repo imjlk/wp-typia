@@ -347,7 +347,7 @@ function getPhpOpenTagLength(source: string, index: number): number {
 		const nextCharacter = source[index + 5];
 		return nextCharacter === undefined || isPhpWhitespace(nextCharacter) ? 5 : 0;
 	}
-	return source.startsWith("<?", index) ? 2 : 0;
+	return 0;
 }
 
 function advancePhpScanner(
@@ -500,6 +500,7 @@ function advancePhpScanner(
 		source[index + 1] === ">"
 	) {
 		state.inPhp = false;
+		state.mode = "code";
 		return { ambiguous: false, inCode: false, index: index + 2 };
 	}
 

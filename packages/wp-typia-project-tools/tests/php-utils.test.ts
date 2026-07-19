@@ -308,6 +308,27 @@ register_block_type( 'outside-after' );
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?xml version='1.0'?> register_block_type( 'outside' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<? register_block_type( 'short-tag' ); ?>",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?= register_block_type( 'echo-tag' ); ?>",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(true);
 });
 
 test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
