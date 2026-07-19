@@ -2453,18 +2453,23 @@ function shellScriptInvokesCommand(
 ): boolean {
   const segments = splitShellCommandSegments(script);
   const reachability = getShellSegmentStaticReachability(segments);
-  return segments.some(
-    (segment, index) =>
+  let hasReachableDirectoryChange = false;
+  for (const [index, segment] of segments.entries()) {
+    if (
       shellCommandMatches(segment, command, allowTrailingArguments) &&
       reachability[index] === true &&
-      !segments
-        .slice(0, index)
-        .some(
-          (earlierSegment, earlierIndex) =>
-            reachability[earlierIndex] === true &&
-            shellCommandChangesDirectory(earlierSegment),
-        ),
-  );
+      !hasReachableDirectoryChange
+    ) {
+      return true;
+    }
+    if (
+      reachability[index] === true &&
+      shellCommandChangesDirectory(segment)
+    ) {
+      hasReachableDirectoryChange = true;
+    }
+  }
+  return false;
 }
 
 function shellScriptPropagatesCommandFailure(
