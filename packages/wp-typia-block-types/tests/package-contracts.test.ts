@@ -12,6 +12,7 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 const packageRoot = resolve(import.meta.dir, "..");
+const tscBinary = resolve(packageRoot, "../../node_modules/.bin/tsc");
 
 function writeMockWordPressBlocks(projectRoot: string) {
 	const packageDir = resolve(projectRoot, "node_modules", "@wordpress", "blocks");
@@ -185,12 +186,8 @@ describe("@wp-typia/block-types export contracts", () => {
 				);
 
 				execFileSync(
-					process.execPath,
-					[
-						resolve(packageRoot, "node_modules/typescript/bin/tsc"),
-						"--project",
-						"tsconfig.json",
-					],
+					tscBinary,
+					["--project", "tsconfig.json"],
 					{
 						cwd: projectRoot,
 						encoding: "utf8",

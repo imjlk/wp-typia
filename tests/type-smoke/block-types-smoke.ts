@@ -35,6 +35,8 @@ import type {
   RegisterBlockTypeResult,
 } from '@wp-typia/block-types/blocks/registration';
 import { registerScaffoldBlockType } from '@wp-typia/block-types/blocks/registration';
+import type { BlockVariation as AggregateBlockVariation } from '@wp-typia/block-types/blocks';
+import { registerBlockVariation } from '@wordpress/blocks';
 import {
   createWordPressBlockApiCompatibilityManifest,
   type WordPressBlockApiCompatibilityFeature,
@@ -303,6 +305,9 @@ const variation = {
   scope: ['inserter'],
   title: 'Smoke Variation',
 } satisfies BlockVariation<DemoRegistrationAttributes>;
+const aggregateVariation: AggregateBlockVariation<DemoRegistrationAttributes> =
+  variation;
+registerBlockVariation('wp-typia/smoke', aggregateVariation);
 const typedParagraphVariation = defineVariation<DemoRegistrationAttributes>(
   'core/paragraph',
   {

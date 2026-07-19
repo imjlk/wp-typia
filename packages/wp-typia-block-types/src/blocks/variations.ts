@@ -44,23 +44,26 @@ export type BlockVariationAttributeMap<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = Partial<TAttributes> & BlockAttributes;
 
-export type BlockVariationInnerBlockTemplate = readonly [
+export type BlockVariationInnerBlockTemplate = [
   name: string,
-  attributes?: Readonly<BlockAttributes>,
-  innerBlocks?: readonly BlockVariationInnerBlockTemplate[],
+  attributes?: BlockAttributes,
+  innerBlocks?: BlockVariationInnerBlockTemplate[],
 ];
 
-export type BlockVariationInnerBlocks =
-  readonly BlockVariationInnerBlockTemplate[];
+export type BlockVariationInnerBlocks = BlockVariationInnerBlockTemplate[];
 
 export type BlockVariationIsActive<
   TAttributes extends BlockAttributes = BlockAttributes,
 > =
-  | readonly Extract<keyof TAttributes, string>[]
+  | Extract<keyof TAttributes, string>[]
   | ((
       blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
       variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
     ) => boolean);
+
+// Exact icon and example types are owned by the optional WordPress peer. Keep
+// those slots structurally open while the aggregate declaration stays peer-free.
+type PeerBackedVariationValue = BlockAttributes[string];
 
 /**
  * Peer-free variation shape used by the aggregate authoring entrypoints.
@@ -76,17 +79,14 @@ export interface BlockVariation<
   readonly attributes?: TAttributes;
   readonly category?: string;
   readonly description?: string;
-  readonly example?: {
-    readonly attributes?: Partial<TAttributes>;
-    readonly innerBlocks?: BlockVariationInnerBlocks;
-  };
-  readonly icon?: unknown;
+  readonly example?: PeerBackedVariationValue;
+  readonly icon?: PeerBackedVariationValue;
   readonly innerBlocks?: BlockVariationInnerBlocks;
   readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly isDefault?: boolean;
-  readonly keywords?: readonly string[];
+  readonly keywords?: string[];
   readonly name: string;
-  readonly scope?: readonly BlockVariationScope[];
+  readonly scope?: BlockVariationScope[];
   readonly title: string;
 }
 

@@ -254,7 +254,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		cwd: defaultCliDir,
 	});
 	assertPackagesNotInstalled(defaultCliDir, [
+		"@types/react",
+		"@types/wordpress__block-editor",
 		"@types/wordpress__blocks",
+		"@wordpress/block-editor",
 		"@wordpress/blocks",
 	]);
 	fs.writeFileSync(
