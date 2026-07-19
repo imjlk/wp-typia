@@ -11,7 +11,11 @@ import {
   buildMissingAddKindDetailLines,
   buildMissingCreateProjectDirDetailLines,
 } from '../src/cli-error-messages';
-import { runNodeCli, runNodeCliEntrypoint } from '../src/node-cli';
+import {
+  runNodeCli,
+  runNodeCliEntrypoint,
+  shouldInheritTextSyncStdio,
+} from '../src/node-cli';
 
 const AI_AGENT_ENV_KEYS = [
   'AGENT',
@@ -195,6 +199,33 @@ function writeJson(filePath: string, value: unknown): void {
 }
 
 describe('Gunshi CLI core routing', () => {
+  test('preserves terminal stdio only for interactive text sync runs', () => {
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: true,
+        stdoutIsTTY: true,
+        structured: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: false,
+        stdoutIsTTY: true,
+        structured: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: true,
+        stdoutIsTTY: true,
+        structured: true,
+      }),
+    ).toBe(false);
+  });
+
   afterEach(() => {
     process.exitCode = 0;
   });

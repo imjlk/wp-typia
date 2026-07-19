@@ -307,6 +307,20 @@ function writeProcessOutput(
   return once(stream, 'drain').then(() => undefined);
 }
 
+export function shouldInheritTextSyncStdio({
+  dryRun,
+  stderrIsTTY = Boolean(process.stderr.isTTY),
+  stdoutIsTTY = Boolean(process.stdout.isTTY),
+  structured,
+}: {
+  dryRun: boolean;
+  stderrIsTTY?: boolean;
+  stdoutIsTTY?: boolean;
+  structured: boolean;
+}): boolean {
+  return !dryRun && !structured && stderrIsTTY && stdoutIsTTY;
+}
+
 function createSyncStderrWriter(): {
   flush: () => PromiseLike<void> | void;
   write: (chunk: string) => PromiseLike<void> | void;
@@ -470,9 +484,16 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
       const syncTarget = resolveSyncExecutionTarget(positionals[1]);
       const dryRun = Boolean(mergedFlags['dry-run']);
       const structured = mergedFlags.format === 'json';
-      stderrWriter = structured || dryRun ? undefined : createSyncStderrWriter();
+      const inheritStdio = shouldInheritTextSyncStdio({
+        dryRun,
+        structured,
+      });
+      stderrWriter =
+        structured || dryRun || inheritStdio
+          ? undefined
+          : createSyncStderrWriter();
       const sync = await executeSyncCommand({
-        captureOutput: !dryRun,
+        captureOutput: !dryRun && !inheritStdio,
         check: Boolean(mergedFlags.check),
         cwd,
         dryRun,
