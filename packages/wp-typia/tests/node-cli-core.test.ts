@@ -1187,6 +1187,7 @@ describe('Gunshi CLI core routing', () => {
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
           'console.error("at least 3 generated files need attention");',
+          'console.error("    at cachedTool (/home/alice/.cache/tool.ts:12:34)");',
           'console.error("    at runSyncScript (sync-project.ts:78:9)");',
           'process.exit(42);',
         ].join('\n'),
@@ -1282,6 +1283,7 @@ describe('Gunshi CLI core routing', () => {
       expect(textResult.stderr).not.toContain('/home/alice');
       expect(textResult.stderr).not.toContain('C:\\Users\\Alice');
       expect(textResult.stderr).not.toContain('\n    at ');
+      expect(textResult.stderr).not.toContain('cachedTool');
     } finally {
       removeTempRoot(tempRoot);
     }

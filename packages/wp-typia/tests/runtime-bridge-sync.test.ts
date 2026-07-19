@@ -624,7 +624,7 @@ test('sync ai recognizes first-party inline artifact drift output', async () => 
     path.join(scriptsDir, 'ai-drift.mjs'),
     [
       "import path from 'node:path';",
-      "console.error(`Generated AI feature artifact is stale: schema (${path.join(process.cwd(), 'src', 'ai-schema.json')}).`);",
+      "console.error(`❌ AI feature sync failed: Error: Generated AI feature artifact is stale: schema (${path.join(process.cwd(), 'src', 'ai-schema.json')}).`);",
       'process.exit(1);',
     ].join('\n'),
     'utf8',
@@ -646,6 +646,42 @@ test('sync ai recognizes first-party inline artifact drift output', async () => 
   expect((error as { detailLines?: string[] }).detailLines).toContain(
     'Stale generated artifact: src/ai-schema.json.',
   );
+});
+
+test('sync preserves early artifact drift before bounded output tails', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-early-artifact-drift',
+    scripts: {
+      sync: 'node scripts/early-drift.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'early-drift.mjs'),
+    [
+      "import path from 'node:path';",
+      "console.error('Generated artifacts are missing or stale:');",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'early.json')} (stale)`);",
+      "await new Promise((resolve) => process.stderr.write('x'.repeat(17 * 1024 * 1024), resolve));",
+      'process.exitCode = 1;',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    artifacts: [{ path: 'src/early.json', status: 'stale' }],
+    command: 'npm run sync -- --check',
+    exitCode: 1,
+  });
 });
 
 test('signaled artifact drift reports the signal without inventing an exit code', async () => {

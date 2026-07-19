@@ -80,10 +80,12 @@ const LOCAL_SYNC_TOOL_PATTERN =
   /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
+const CAPTURED_SYNC_DIAGNOSTIC_LINE_MAX_BUFFER = 64 * 1024;
+const CAPTURED_SYNC_DIAGNOSTIC_CONTEXT_LIMIT = 4;
 const STREAMED_SYNC_OUTPUT_PATH_TOKEN_MAX_BUFFER = 64 * 1024;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
 const GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN =
-  /^Generated AI feature artifact is (missing|stale):\s+.+\s+\((.+)\)\.$/iu;
+  /Generated AI feature artifact is (missing|stale):\s+.+\s+\((.+)\)\.$/iu;
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
   /(?:Generated (?:WordPress AI |typia\.llm )?artifacts are missing or stale:|Generated AI feature artifact is (?:missing|stale):)/iu;
 const GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN =
@@ -123,9 +125,17 @@ type SyncOutputWriter = (chunk: string) => PromiseLike<void> | void;
 
 class BoundedSyncOutputCapture {
   private readonly chunks: Buffer[] = [];
+  private readonly diagnosticDecoder = new StringDecoder('utf8');
+  private readonly diagnosticContextLines: string[] = [];
+  private readonly diagnosticContextSet = new Set<string>();
+  private readonly diagnosticIssueLines: string[] = [];
+  private readonly diagnosticIssueSet = new Set<string>();
+  private diagnosticPending = '';
+  private diagnosticsFinalized = false;
   private size = 0;
 
   append(chunk: Buffer): void {
+    this.appendDiagnosticText(this.diagnosticDecoder.write(chunk), false);
     this.chunks.push(chunk);
     this.size += chunk.byteLength;
 
@@ -145,10 +155,70 @@ class BoundedSyncOutputCapture {
     }
   }
 
-  toString(): string | undefined {
-    return this.size > 0
-      ? Buffer.concat(this.chunks, this.size).toString('utf8')
-      : undefined;
+  toString(includePreservedDiagnostics = false): string | undefined {
+    if (!this.diagnosticsFinalized) {
+      this.appendDiagnosticText(this.diagnosticDecoder.end(), true);
+      this.diagnosticsFinalized = true;
+    }
+    const tail =
+      this.size > 0
+        ? Buffer.concat(this.chunks, this.size).toString('utf8')
+        : undefined;
+    const diagnosticLines = [
+      ...this.diagnosticContextLines,
+      ...this.diagnosticIssueLines,
+    ];
+    if (!includePreservedDiagnostics || diagnosticLines.length === 0) {
+      return tail;
+    }
+    return `${diagnosticLines.join('\n')}\n${tail ?? ''}`;
+  }
+
+  private appendDiagnosticText(text: string, final: boolean): void {
+    this.diagnosticPending += text;
+    let newlineIndex = this.diagnosticPending.indexOf('\n');
+    while (newlineIndex >= 0) {
+      this.recordDiagnosticLine(
+        this.diagnosticPending.slice(0, newlineIndex),
+      );
+      this.diagnosticPending = this.diagnosticPending.slice(newlineIndex + 1);
+      newlineIndex = this.diagnosticPending.indexOf('\n');
+    }
+    if (final) {
+      this.recordDiagnosticLine(this.diagnosticPending);
+      this.diagnosticPending = '';
+    } else if (
+      this.diagnosticPending.length > CAPTURED_SYNC_DIAGNOSTIC_LINE_MAX_BUFFER
+    ) {
+      this.diagnosticPending = this.diagnosticPending.slice(
+        -CAPTURED_SYNC_DIAGNOSTIC_LINE_MAX_BUFFER,
+      );
+    }
+  }
+
+  private recordDiagnosticLine(line: string): void {
+    const trimmedLine = line.replace(/\r$/u, '').trim();
+    const isInlineIssue =
+      GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN.test(trimmedLine);
+    if (
+      !isInlineIssue &&
+      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine) &&
+      this.diagnosticContextLines.length <
+        CAPTURED_SYNC_DIAGNOSTIC_CONTEXT_LIMIT &&
+      !this.diagnosticContextSet.has(trimmedLine)
+    ) {
+      this.diagnosticContextSet.add(trimmedLine);
+      this.diagnosticContextLines.push(trimmedLine);
+    }
+    if (
+      (isInlineIssue ||
+        GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine)) &&
+      this.diagnosticIssueLines.length < CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT &&
+      !this.diagnosticIssueSet.has(trimmedLine)
+    ) {
+      this.diagnosticIssueSet.add(trimmedLine);
+      this.diagnosticIssueLines.push(trimmedLine);
+    }
   }
 }
 
@@ -875,8 +945,6 @@ async function runProjectScript(
     });
   });
   await Promise.all(pendingOutputWrites);
-  const stderr = options.captureOutput ? stderrCapture.toString() : undefined;
-  const stdout = options.captureOutput ? stdoutCapture.toString() : undefined;
   try {
     await Promise.all([
       Promise.resolve(stderrStream?.flush()),
@@ -885,6 +953,13 @@ async function runProjectScript(
   } catch (error) {
     recordOutputError(error);
   }
+  const failed = spawnError !== undefined || closeResult.status !== 0;
+  const stderr = options.captureOutput
+    ? stderrCapture.toString(failed)
+    : undefined;
+  const stdout = options.captureOutput
+    ? stdoutCapture.toString(failed)
+    : undefined;
   const result: SyncProcessResult = {
     ...closeResult,
     ...(spawnError ? { error: spawnError } : {}),
