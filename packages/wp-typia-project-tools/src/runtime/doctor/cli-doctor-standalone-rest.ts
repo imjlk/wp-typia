@@ -4,6 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 import type { EndpointManifestDefinition } from '@wp-typia/block-runtime/metadata-core';
+import type { GeneratedPackageJson } from '../shared/package-json-types.js';
 
 const STANDALONE_SYNC_REST_SCRIPT = path.join(
   'scripts',
@@ -17,12 +18,6 @@ const STANDALONE_REST_SURFACE_PATHS = [
   STANDALONE_REST_OPEN_API_FILE,
   STANDALONE_REST_CLIENT_FILE,
 ] as const;
-
-interface StandaloneRestPackageJson {
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  scripts?: Record<string, string>;
-}
 
 /** Parsed persistence REST metadata and any integrity problem found in its sync helper. */
 export interface ParsedStandaloneRestConfig {
@@ -116,7 +111,10 @@ function getStandaloneRestArtifactPaths(
 /** Detect whether a damaged project still exposes the generated REST surface. */
 export function standaloneProjectRequiresRest(
   projectDir: string,
-  packageJson: StandaloneRestPackageJson,
+  packageJson: Pick<
+    GeneratedPackageJson,
+    'dependencies' | 'devDependencies' | 'scripts'
+  >,
 ): boolean {
   return (
     fs.existsSync(path.join(projectDir, STANDALONE_SYNC_REST_SCRIPT)) ||
@@ -712,14 +710,14 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
   }
   const optionsBinding = optionsDeclaration.binding;
 
-  let schemaCallIndex = -1;
-  const hasTypeSchemasCall = mainBody.statements.some((statement, index) => {
+  const schemaCallIndexes: number[] = [];
+  mainBody.statements.forEach((statement, index) => {
     const loopBindings = getRestContractsLoopBindings(statement);
-    if (!loopBindings || !ts.isForOfStatement(statement)) return false;
+    if (!loopBindings || !ts.isForOfStatement(statement)) return;
     const loopStatements = ts.isBlock(statement.statement)
       ? statement.statement.statements
       : [statement.statement];
-    if (loopStatements.length !== 1) return false;
+    if (loopStatements.length !== 1) return;
     const matchingCallIndexes = loopStatements.flatMap(
       (loopStatement, loopStatementIndex) =>
         isCanonicalRestSyncCall(
@@ -751,19 +749,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
           ? [loopStatementIndex]
           : [],
     );
-    const found =
-      matchingCallIndexes.length === 1 &&
-      !loopStatements
-        .slice(0, matchingCallIndexes[0])
-        .some(
-          (loopStatement) =>
-            ts.isReturnStatement(loopStatement) ||
-            ts.isThrowStatement(loopStatement) ||
-            ts.isBreakStatement(loopStatement) ||
-            ts.isContinueStatement(loopStatement),
-        );
-    if (found) schemaCallIndex = index;
-    return found;
+    if (matchingCallIndexes.length === 1) schemaCallIndexes.push(index);
   });
   const openApiCallIndexes: number[] = [];
   const clientCallIndexes: number[] = [];
@@ -805,13 +791,17 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
       clientCallIndexes.push(index);
     }
   });
-  if (openApiCallIndexes.length !== 1 || clientCallIndexes.length !== 1) {
+  if (
+    schemaCallIndexes.length !== 1 ||
+    openApiCallIndexes.length !== 1 ||
+    clientCallIndexes.length !== 1
+  ) {
     return false;
   }
+  const [schemaCallIndex] = schemaCallIndexes;
   const [openApiCallIndex] = openApiCallIndexes;
   const [clientCallIndex] = clientCallIndexes;
   return (
-    hasTypeSchemasCall &&
     optionsDeclaration.index < schemaCallIndex &&
     schemaCallIndex < openApiCallIndex &&
     openApiCallIndex < clientCallIndex &&

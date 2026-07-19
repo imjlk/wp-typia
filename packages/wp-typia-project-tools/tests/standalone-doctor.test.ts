@@ -194,6 +194,91 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(dependenciesCheck?.detail).toContain('typescript');
   });
 
+  test('accepts project-owned dependencies resolved through active Yarn PnP', async () => {
+    const ancestorDir = path.join(tempRoot, 'pnp-dependencies');
+    const targetDir = path.join(ancestorDir, 'standalone-project');
+    await scaffoldBasic(targetDir);
+    linkWorkspaceNodeModules(targetDir);
+    fs.renameSync(
+      path.join(targetDir, 'node_modules'),
+      path.join(ancestorDir, 'node_modules'),
+    );
+    const projectRequire = createRequire(path.join(targetDir, 'package.json'));
+    const requiredPackages = [
+      ['@wp-typia/block-runtime', '@wp-typia/block-runtime/metadata-core'],
+      ['@wp-typia/block-types', '@wp-typia/block-types'],
+      ['typia', 'typia'],
+      ['typescript', 'typescript'],
+      ['tsx', 'tsx/cli'],
+      ['@wordpress/scripts', '@wordpress/scripts/bin/wp-scripts.js'],
+      ['@typia/unplugin', '@typia/unplugin/webpack'],
+    ] as const;
+    const resolvedPackages = requiredPackages.map(
+      ([packageName, resolutionSpecifier]) => [
+        projectRequire.resolve(resolutionSpecifier),
+        packageName === 'tsx' ? 'tsx-alias-target' : packageName,
+      ],
+    );
+    const pnpApiDir = path.join(targetDir, 'node_modules', 'pnpapi');
+    fs.mkdirSync(pnpApiDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pnpApiDir, 'package.json'),
+      JSON.stringify({ main: 'index.cjs', name: 'pnpapi' }),
+    );
+    const serializedPackages = JSON.stringify(resolvedPackages);
+    const serializedDependencies = JSON.stringify(
+      requiredPackages.map(([packageName]) => [
+        packageName,
+        packageName === 'tsx'
+          ? ['tsx-alias-target', 'fixture-reference']
+          : 'fixture-reference',
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(pnpApiDir, 'index.cjs'),
+      [
+        "const path = require('node:path');",
+        `const projectManifest = ${JSON.stringify(path.join(targetDir, 'package.json'))};`,
+        `const resolvedPackages = new Map(${serializedPackages}.map(([resolvedPath, packageName]) => [path.resolve(resolvedPath), packageName]));`,
+        `const packageDependencies = new Map(${serializedDependencies});`,
+        'exports.findPackageLocator = (location) => {',
+        "  if (path.resolve(location) === path.resolve(projectManifest)) return { name: 'standalone-project', reference: 'workspace-reference' };",
+        '  const packageName = resolvedPackages.get(path.resolve(location));',
+        "  return packageName ? { name: packageName, reference: 'fixture-reference' } : null;",
+        '};',
+        'exports.getLocator = (name, referencish) =>',
+        '  Array.isArray(referencish)',
+        '    ? { name: referencish[0], reference: referencish[1] }',
+        '    : { name, reference: referencish };',
+        'exports.getPackageInformation = (locator) =>',
+        "  locator.reference === 'workspace-reference' ? { packageDependencies } : null;",
+        '',
+      ].join('\n'),
+    );
+    fs.writeFileSync(path.join(targetDir, '.pnp.cjs'), 'module.exports = {};\n');
+
+    const pnpDescriptor = Object.getOwnPropertyDescriptor(
+      process.versions,
+      'pnp',
+    );
+    Object.defineProperty(process.versions, 'pnp', {
+      configurable: true,
+      value: 3,
+    });
+    try {
+      const checks = await getDoctorChecks(targetDir);
+      expect(
+        getCheck(checks, STANDALONE_DOCTOR_CODES.DEPENDENCIES)?.status,
+      ).toBe('pass');
+    } finally {
+      if (pnpDescriptor) {
+        Object.defineProperty(process.versions, 'pnp', pnpDescriptor);
+      } else {
+        delete process.versions.pnp;
+      }
+    }
+  }, 20_000);
+
   test('requires installed script runners from the standalone project', async () => {
     const targetDir = path.join(tempRoot, 'missing-script-runners');
     await scaffoldBasic(targetDir);
@@ -919,6 +1004,37 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       `${source.slice(0, callStart)}\tawait syncEndpointClient();${source.slice(
         callEnd + callEndMarker.length,
       )}`,
+    );
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
+  test('rejects duplicate canonical REST schema sync loops', async () => {
+    const targetDir = path.join(tempRoot, 'duplicate-rest-schema-loop');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const source = fs.readFileSync(syncRestPath, 'utf8');
+    const loopStart = source.indexOf(
+      '\tfor ( const [ baseName, contract ] of Object.entries( REST_ENDPOINT_MANIFEST.contracts ) ) {',
+    );
+    const openApiStart = source.indexOf('\n\n\tawait syncRestOpenApi(', loopStart);
+    expect(loopStart).toBeGreaterThan(-1);
+    expect(openApiStart).toBeGreaterThan(loopStart);
+    const schemaLoop = source.slice(loopStart, openApiStart);
+    fs.writeFileSync(
+      syncRestPath,
+      `${source.slice(0, openApiStart)}\n\n${schemaLoop}${source.slice(openApiStart)}`,
     );
 
     const sourceLayoutCheck = getCheck(
