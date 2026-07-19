@@ -8,6 +8,7 @@ import {
 	hasPhpFunctionCallWithAssignedStringPrefixArgument,
 	hasPhpFunctionCallWithStringArgument,
 	hasPhpFunctionCallWithStringArgumentPrefix,
+	hasPhpFunctionCallWithStringArguments,
 	hasPhpFunctionDefinition,
 	quotePhpString,
 	replacePhpFunctionDefinition,
@@ -359,6 +360,53 @@ add_filter( 'other_filter', '${filterName}' );
 
 	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArguments matches literals from the same code-mode call", () => {
+	const registrationCallback = (value: string): boolean =>
+		/^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(value);
+	const source = `<?php
+$example = "add_action( 'init', 'string_register_block' );";
+add_action( 'init', 'demo_register_textdomain' );
+add_action(
+\t'init',
+\t'demo_register_block',
+\t10
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArguments(source, "add_action", [
+			"init",
+			registrationCallback,
+		]),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			`<?php
+add_action( 'init', 'demo_register_textdomain' );
+add_action( 'rest_api_init', 'demo_register_block' );
+`,
+			"add_action",
+			["init", registrationCallback],
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			`<?php
+$example = "add_action( 'init', 'string_register_block' );";
+`,
+			"add_action",
+			["init", registrationCallback],
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			"<?php add_action( 'init', 'unfinished_register_block'",
+			"add_action",
+			["init", registrationCallback],
+		),
 	).toBe(false);
 });
 

@@ -17,7 +17,7 @@ import {
 } from '../shared/package-managers.js';
 import {
   hasPhpFunctionCall,
-  hasPhpFunctionCallWithStringArgument,
+  hasPhpFunctionCallWithStringArguments,
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
@@ -38,6 +38,10 @@ const STANDALONE_SAVE_FILE = path.join('src', 'save.tsx');
 const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
 // WordPress core's get_file_data() reads the first 8 KiB for plugin headers.
 const WORDPRESS_PLUGIN_HEADER_SCAN_BYTES = 8 * 1024;
+// Mirrors get_file_data()'s `[ \t\/*#@]*` header prefix. Its zero-length
+// match is intentional: WordPress recognizes a bare `Plugin Name:` line too.
+const WORDPRESS_PLUGIN_NAME_HEADER_PATTERN =
+  /^[\t \/*#@]*Plugin Name\s*:\s*\S.*$/imu;
 const REQUIRED_RUNTIME_PACKAGES = [
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
@@ -532,18 +536,26 @@ function splitShellCommandSegments(script: string): string[] {
       current += character;
       continue;
     }
+    const isTwoCharacterOperator =
+      (character === '&' && script[index + 1] === '&') ||
+      (character === '|' &&
+        (script[index + 1] === '|' || script[index + 1] === '&'));
+    const isBackgroundOperator =
+      character === '&' &&
+      script[index - 1] !== '>' &&
+      script[index - 1] !== '<' &&
+      script[index + 1] !== '>';
+    const isPipelineOperator = character === '|' && script[index - 1] !== '>';
     if (
       character === ';' ||
       character === '\n' ||
       character === '\r' ||
-      (character === '&' && script[index + 1] === '&') ||
-      (character === '|' && script[index + 1] === '|')
+      isTwoCharacterOperator ||
+      isBackgroundOperator ||
+      isPipelineOperator
     ) {
       pushCurrent();
-      if (
-        (character === '&' && script[index + 1] === '&') ||
-        (character === '|' && script[index + 1] === '|')
-      ) {
+      if (isTwoCharacterOperator) {
         index += 1;
       }
       continue;
@@ -667,19 +679,17 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
   const headerRegion = source
     .slice(0, WORDPRESS_PLUGIN_HEADER_SCAN_BYTES)
     .replace(/^\uFEFF/u, '');
-  const hasPluginHeader =
-    /^(?:[\t ]*<\?php)?[\t \/*#@]*Plugin Name\s*:\s*\S.*$/imu.test(
-      headerRegion,
-    );
-  const executablePhp = source
-    .replace(/\/\*[\s\S]*?\*\//gu, '')
-    .replace(/(^|[\r\n])[\t ]*(?:\/\/|#)[^\r\n]*/gmu, '$1');
+  const hasPluginHeader = WORDPRESS_PLUGIN_NAME_HEADER_PATTERN.test(headerRegion);
   const hasRegistrationCall = hasPhpFunctionCall(source, 'register_block_type');
-  const hasRegistrationHook =
-    hasPhpFunctionCallWithStringArgument(source, 'add_action', 'init') &&
-    /\badd_action\s*\(\s*(['"])init\1\s*,\s*(['"])[A-Za-z_][A-Za-z0-9_]*_register_block\2\s*\)/u.test(
-      executablePhp,
-    );
+  const hasRegistrationHook = hasPhpFunctionCallWithStringArguments(
+    source,
+    'add_action',
+    [
+      'init',
+      (callbackName) =>
+        /^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(callbackName),
+    ],
+  );
   const issues = [
     ...(!hasPluginHeader ? ['is missing a Plugin Name header'] : []),
     ...(!hasRegistrationCall ? ['does not call register_block_type()'] : []),

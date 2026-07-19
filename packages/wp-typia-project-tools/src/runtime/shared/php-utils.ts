@@ -513,6 +513,100 @@ export function hasPhpFunctionCall(source: string, functionName: string): boolea
 	return false;
 }
 
+type PhpStringArgumentMatcher = string | ((value: string) => boolean);
+
+function matchesPhpStringArgument(
+	matcher: PhpStringArgumentMatcher,
+	value: string,
+): boolean {
+	return typeof matcher === "string" ? value === matcher : matcher(value);
+}
+
+/**
+ * Detect a PHP function call whose leading arguments are literal strings that
+ * satisfy the supplied matchers.
+ *
+ * Each matcher applies to the corresponding argument in the same code-mode
+ * function call. Additional arguments after the matched prefix are allowed.
+ */
+export function hasPhpFunctionCallWithStringArguments(
+	source: string,
+	functionName: string,
+	argumentMatchers: readonly PhpStringArgumentMatcher[],
+): boolean {
+	if (argumentMatchers.length === 0) {
+		return hasPhpFunctionCall(source, functionName);
+	}
+
+	const scanner = createPhpScannerState();
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		if (!matchesPhpFunctionCallAt(source, index, functionName)) {
+			index += 1;
+			continue;
+		}
+
+		let argumentStart = getPhpFunctionCallFirstArgumentStart(
+			source,
+			index,
+			functionName,
+		);
+		let argumentsMatch = argumentStart !== null;
+		for (
+			let argumentIndex = 0;
+			argumentsMatch && argumentIndex < argumentMatchers.length;
+			argumentIndex += 1
+		) {
+			const matcher = argumentMatchers[argumentIndex];
+			if (argumentStart === null || matcher === undefined) {
+				argumentsMatch = false;
+				break;
+			}
+			const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
+			if (
+				!argument ||
+				!matchesPhpStringArgument(matcher, argument.value)
+			) {
+				argumentsMatch = false;
+				break;
+			}
+
+			const argumentEnd = skipPhpCallTrivia(source, argument.end);
+			const nextToken =
+				argumentEnd === null ? undefined : source[argumentEnd];
+			const isLastMatcher = argumentIndex === argumentMatchers.length - 1;
+			if (isLastMatcher) {
+				argumentsMatch =
+					argumentEnd !== null && (nextToken === "," || nextToken === ")");
+				break;
+			}
+			if (argumentEnd === null || nextToken !== ",") {
+				argumentsMatch = false;
+				break;
+			}
+			argumentStart = skipPhpCallTrivia(source, argumentEnd + 1);
+			argumentsMatch = argumentStart !== null;
+		}
+
+		if (argumentsMatch) {
+			return true;
+		}
+
+		index += functionName.length;
+	}
+
+	return false;
+}
+
 function isPhpAssignmentOperatorAt(source: string, index: number | null): boolean {
 	if (index === null || source[index] !== "=") {
 		return false;

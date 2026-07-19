@@ -295,6 +295,25 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('accepts canonical package commands after shell control operators', async () => {
+    const targetDir = path.join(tempRoot, 'background-package-scripts');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync =
+      "printf 'running standalone sync\\n' & tsx scripts/sync-project.ts";
+    packageJson.scripts['sync-types'] =
+      "printf 'metadata\\n' | tsx scripts/sync-types-to-block-json.ts";
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const checks = await getDoctorChecks(targetDir);
+    const packageCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.PACKAGE);
+
+    expect(packageCheck?.status).toBe('pass');
+  });
+
   test('does not claim standalone scope from one incidental dependency and file', async () => {
     const targetDir = path.join(tempRoot, 'incidental-signals');
     fs.mkdirSync(path.join(targetDir, 'src'), { recursive: true });
@@ -632,6 +651,82 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     expect(bootstrapCheck?.status).toBe('pass');
+  });
+
+  test('accepts WordPress-recognized bare Plugin Name lines in header comments', async () => {
+    const targetDir = path.join(tempRoot, 'bare-plugin-header');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(targetDir, 'bare-plugin-header.php');
+    const bootstrap = fs
+      .readFileSync(bootstrapPath, 'utf8')
+      .replace(
+        /^[\t ]*\*[\t ]*Plugin Name:[^\r\n]*/mu,
+        'Plugin Name: Bare Header Fixture',
+      );
+    expect(bootstrap).toContain('\nPlugin Name: Bare Header Fixture\n');
+    expect(bootstrap).not.toContain('* Plugin Name:');
+    fs.writeFileSync(bootstrapPath, bootstrap);
+
+    const checks = await getDoctorChecks(targetDir);
+    const bootstrapCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+
+    expect(bootstrapCheck?.status).toBe('pass');
+  });
+
+  test('accepts customized registration function prefixes', async () => {
+    const targetDir = path.join(tempRoot, 'custom-registration-callback');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'custom-registration-callback.php',
+    );
+    const bootstrap = fs
+      .readFileSync(bootstrapPath, 'utf8')
+      .replace(
+        /custom_registration_callback_register_block/gu,
+        'custom_bootstrap_register_block',
+      );
+    expect(bootstrap).toContain('custom_bootstrap_register_block');
+    expect(bootstrap).not.toContain(
+      'custom_registration_callback_register_block',
+    );
+    fs.writeFileSync(bootstrapPath, bootstrap);
+
+    const checks = await getDoctorChecks(targetDir);
+    const bootstrapCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+
+    expect(bootstrapCheck?.status).toBe('pass');
+  });
+
+  test('rejects bootstrap init hook text inside PHP strings', async () => {
+    const targetDir = path.join(tempRoot, 'string-init-registration');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'string-init-registration.php',
+    );
+    const bootstrap = fs.readFileSync(bootstrapPath, 'utf8').replace(
+      /\s*add_action\( 'init', '[A-Za-z_][A-Za-z0-9_]*_register_block' \);/u,
+      "\n$hook_example = \"add_action( 'init', 'example_register_block' );\";",
+    );
+    fs.writeFileSync(bootstrapPath, bootstrap);
+
+    const checks = await getDoctorChecks(targetDir);
+    const bootstrapCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+
+    expect(bootstrapCheck?.status).toBe('fail');
+    expect(bootstrapCheck?.detail).toContain(
+      'does not hook block registration to init',
+    );
   });
 
   test('rejects bootstrap registration text inside PHP strings', async () => {
