@@ -56,7 +56,7 @@ export default function Edit( {
 \t\tattributes,
 \t\tblocks,
 \t\tclientId,
-\t\tprefix: '{{slugKebabCase}}',
+\t\tprefix: '{{resourceKeyPrefix}}',
 \t\tsetAttributes,
 \t} );
 \tconst { errorMessages, isValid } = useTypiaValidation(
@@ -178,7 +178,7 @@ const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attribu
 \t\tresourceKey:
 \t\t\tnormalized.resourceKey && normalized.resourceKey.length > 0
 \t\t\t\t? normalized.resourceKey
-\t\t\t\t: generateResourceKey( '{{slugKebabCase}}' ),
+\t\t\t\t: generateResourceKey( '{{resourceKeyPrefix}}' ),
 \t} ),
 \tvalidate: typia.createValidate< {{pascalCase}}Attributes >(),
 } );

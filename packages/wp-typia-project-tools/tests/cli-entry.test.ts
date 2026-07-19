@@ -8,7 +8,7 @@ import { formatHelpText, getDoctorChecks, getNextSteps, getOptionalOnboarding, r
 import { assertValidEditorPluginSlot } from "../src/runtime/cli-add-shared.js";
 import { resolveNonEmptyNormalizedBlockSlug, resolveValidatedPhpPrefix } from "../src/runtime/scaffold-identifiers.js";
 import { collectScaffoldAnswers } from "../src/runtime/scaffold.js";
-import { getQuickStartWorkflowNote } from "../src/runtime/scaffold-onboarding.js";
+import { getDeferredCompilerArtifactsWarning, getQuickStartWorkflowNote } from "../src/runtime/scaffold-onboarding.js";
 
 describe("@wp-typia/project-tools scaffold CLI flow", () => {
   const tempRoot = createScaffoldTempRoot("wp-typia-scaffold-cli-");
@@ -645,6 +645,23 @@ test("optional onboarding derives sync steps from available custom-template scri
   expect(onboarding.note).toContain("npx --yes wp-typia@");
   expect(onboarding.note).toContain("doctor");
   expect(onboarding.note).not.toContain("npm run sync -- --check");
+});
+
+test("deferred compiler artifact warnings retain every fallback sync script", () => {
+  expect(
+    getDeferredCompilerArtifactsWarning("npm", "/tmp/custom-template", {
+      availableScripts: ["sync-types", "sync-rest"],
+    })
+  ).toBe(
+    "Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `npm run sync-types`, then `npm run sync-rest` before build or typecheck."
+  );
+  expect(
+    getDeferredCompilerArtifactsWarning("pnpm", "persistence", {
+      availableScripts: ["sync", "sync-types", "sync-rest"],
+    })
+  ).toBe(
+    "Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `pnpm run sync` before build or typecheck."
+  );
 });
 
 test("optional onboarding avoids synthesized sync commands for custom templates without sync scripts", () => {

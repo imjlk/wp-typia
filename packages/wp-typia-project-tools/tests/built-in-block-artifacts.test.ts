@@ -822,6 +822,52 @@ describe('built-in block artifacts', () => {
     },
   );
 
+  test('persistence identity prefixes stay within resourceKey limits for long slugs', () => {
+    const longSlug = `persistence-${'x'.repeat(96)}`;
+    const expectedPrefix = longSlug.slice(0, 90);
+
+    expect(expectedPrefix).toHaveLength(90);
+    expect(longSlug.length).toBeGreaterThan(expectedPrefix.length);
+
+    for (const templateId of ['persistence', 'compound'] as const) {
+      const answers = {
+        ...buildAnswers(templateId),
+        phpPrefix: 'demo_space',
+        slug: longSlug,
+      };
+      const spec = createBuiltInBlockSpec({
+        answers,
+        dataStorageMode: answers.dataStorageMode,
+        persistencePolicy: answers.persistencePolicy,
+        templateId,
+      });
+      const variables = buildTemplateVariablesFromBlockSpec(spec);
+      const codeArtifacts = buildBuiltInCodeArtifacts({
+        templateId,
+        variables,
+      });
+      const basePath =
+        templateId === 'compound' ? `src/blocks/${longSlug}` : 'src';
+      const editSource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/edit.tsx`,
+      )?.source;
+      const interactivitySource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/interactivity.ts`,
+      )?.source;
+      const validatorsSource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/validators.ts`,
+      )?.source;
+
+      expect(variables.slugKebabCase).toBe(longSlug);
+      expect(editSource).toContain(`prefix: '${expectedPrefix}'`);
+      expect(editSource).not.toContain(`prefix: '${longSlug}'`);
+      expect(validatorsSource).toContain(
+        `generateResourceKey( '${expectedPrefix}' )`,
+      );
+      expect(interactivitySource).toContain(`store( '${longSlug}', {`);
+    }
+  });
+
   test('built-in template trees no longer ship structural Mustache files', () => {
     for (const relativePath of [
       'basic/src/types.ts.mustache',

@@ -48,7 +48,7 @@ export default function Edit( {
 		attributes,
 		blocks,
 		clientId,
-		prefix: '{{slugKebabCase}}',
+		prefix: '{{resourceKeyPrefix}}',
 		setAttributes,
 	} );
 	const editorFields = useEditorFields(
@@ -243,7 +243,7 @@ const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attribu
 \t\tresourceKey:
 \t\t\tnormalized.resourceKey && normalized.resourceKey.length > 0
 \t\t\t\t? normalized.resourceKey
-\t\t\t\t: generateResourceKey( '{{slugKebabCase}}' ),
+\t\t\t\t: generateResourceKey( '{{resourceKeyPrefix}}' ),
 \t} ),
 \tvalidate: typia.createValidate< {{pascalCase}}Attributes >(),
 } );

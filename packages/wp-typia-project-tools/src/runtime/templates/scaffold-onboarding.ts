@@ -96,6 +96,27 @@ export function getOptionalOnboardingSteps(
 }
 
 /**
+ * Builds the warning shown when compiler-derived artifacts must be refreshed
+ * after dependencies become available.
+ */
+export function getDeferredCompilerArtifactsWarning(
+	packageManager: PackageManagerId,
+	templateId: string,
+	options: SyncOnboardingOptions = {},
+): string {
+	const syncSteps = getOptionalOnboardingSteps(
+		packageManager,
+		templateId,
+		options,
+	);
+	const followUp = syncSteps.length > 0
+		? `, then run ${syncSteps.map((step) => `\`${step}\``).join(", then ")} before build or typecheck`
+		: " before build or typecheck";
+
+	return `Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies${followUp}.`;
+}
+
+/**
  * Returns the quick-start note explaining the scaffold's primary local loop.
  */
 export function getQuickStartWorkflowNote(
