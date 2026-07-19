@@ -2065,6 +2065,38 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test.each([
+    ['parenthesized', '( process.exit )( 0 );'],
+    ['computed', "process[ 'exit' ]( 0 );"],
+  ] as const)(
+    'rejects REST sync calls after an earlier %s process exit',
+    async (name, exitStatement) => {
+      const targetDir = path.join(tempRoot, `rest-sync-after-${name}-exit`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(
+        '\tawait assertTypeArtifactsCurrent();',
+        `\t${exitStatement}\n\tawait assertTypeArtifactsCurrent();`,
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+      );
+    },
+  );
+
   test('rejects unreachable or shadowed REST failure exits', async () => {
     const mutations = [
       [
