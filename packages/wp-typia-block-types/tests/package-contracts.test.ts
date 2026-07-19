@@ -133,6 +133,14 @@ describe("@wp-typia/block-types export contracts", () => {
 	});
 
 	test("peer-free aggregate declarations compile without optional WordPress peers", () => {
+		const alignmentDeclaration = readFileSync(
+			resolve(packageRoot, "dist", "block-editor", "alignment.d.ts"),
+			"utf8",
+		);
+		expect(alignmentDeclaration).not.toMatch(
+			/(?:from|import\()["'](?:react|@wordpress\/block-editor)/u,
+		);
+
 		withPublishedConsumer(
 			(projectRoot) => {
 				writeFileSync(

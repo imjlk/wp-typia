@@ -10,7 +10,10 @@ import {
 	buildInitPlanNextSteps,
 	buildRetrofitPlanSummary,
 } from "../src/runtime/cli-init-plan-presentation.js";
-import { getPackageVersions } from "../src/runtime/package-versions.js";
+import {
+	DEFAULT_WORDPRESS_BLOCKS_VERSION,
+	getPackageVersions,
+} from "../src/runtime/package-versions.js";
 import {
 	cleanupScaffoldTempRoot,
 	createScaffoldTempRoot,
@@ -125,6 +128,15 @@ describe("wp-typia init", () => {
 				(dependency) => dependency.name === "@wp-typia/block-runtime",
 			),
 		).toBe(true);
+		expect(
+			plan.packageChanges.addDevDependencies.find(
+				(dependency) => dependency.name === "@wordpress/blocks",
+			),
+		).toEqual({
+			action: "add",
+			name: "@wordpress/blocks",
+			requiredValue: DEFAULT_WORDPRESS_BLOCKS_VERSION,
+		});
 		expect(plan.generatedArtifacts).toContain("src/typia.manifest.json");
 		expect(plan.nextSteps[0]).toContain("wp-typia init --apply");
 		expect(plan.nextSteps).toContain(
@@ -239,6 +251,7 @@ describe("wp-typia init", () => {
 		const packageJson = JSON.parse(
 			fs.readFileSync(path.join(projectDir, "package.json"), "utf8"),
 		) as {
+			devDependencies?: Record<string, string>;
 			packageManager?: string;
 			scripts?: Record<string, string>;
 		};
@@ -254,6 +267,9 @@ describe("wp-typia init", () => {
 			"Apply mode writes package.json and generated helper files with rollback-on-failure protection.",
 		);
 		expect(packageJson.packageManager).toBe("pnpm@8.3.1");
+		expect(packageJson.devDependencies?.["@wordpress/blocks"]).toBe(
+			DEFAULT_WORDPRESS_BLOCKS_VERSION,
+		);
 		expect(packageJson.scripts?.sync).toBe("tsx scripts/sync-project.ts");
 		expect(packageJson.scripts?.typecheck).toBe(
 			"pnpm run sync --check && tsc --noEmit",
@@ -419,6 +435,7 @@ describe("wp-typia init", () => {
 					},
 					devDependencies: {
 						"@typia/unplugin": versions.typiaUnpluginPackageVersion,
+						"@wordpress/blocks": DEFAULT_WORDPRESS_BLOCKS_VERSION,
 						"@wp-typia/block-runtime": versions.blockRuntimePackageVersion,
 						"@wp-typia/block-types": versions.blockTypesPackageVersion,
 						tsx: versions.tsxPackageVersion,

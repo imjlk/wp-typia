@@ -52,14 +52,39 @@ export type BlockVariationInnerBlockTemplate = [
 
 export type BlockVariationInnerBlocks = BlockVariationInnerBlockTemplate[];
 
+type BlockVariationIsActiveCallback<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> = (
+  blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
+  variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
+) => boolean;
+
 export type BlockVariationIsActive<
   TAttributes extends BlockAttributes = BlockAttributes,
 > =
+  | readonly Extract<keyof TAttributes, string>[]
+  | BlockVariationIsActiveCallback<TAttributes>;
+
+type RegistrationCompatibleBlockVariationIsActive<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> =
   | Extract<keyof TAttributes, string>[]
-  | ((
-      blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
-      variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
-    ) => boolean);
+  | BlockVariationIsActiveCallback<TAttributes>;
+
+export interface BlockVariationExampleInnerBlock {
+  readonly attributes: BlockAttributes;
+  readonly innerBlocks?: readonly BlockVariationExampleInnerBlock[];
+  readonly name: string;
+}
+
+export type BlockVariationExample<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> =
+  | BlockVariationExampleInnerBlock
+  | {
+      readonly attributes: BlockVariationAttributeMap<TAttributes>;
+      readonly innerBlocks?: BlockVariationInnerBlocks;
+    };
 
 /**
  * Opaque compatibility slot for exact icon and example types owned by the
@@ -86,7 +111,7 @@ export interface BlockVariation<
   readonly example?: PeerBackedOpaqueVariationValue;
   readonly icon?: PeerBackedOpaqueVariationValue;
   readonly innerBlocks?: BlockVariationInnerBlocks;
-  readonly isActive?: BlockVariationIsActive<TAttributes>;
+  readonly isActive?: RegistrationCompatibleBlockVariationIsActive<TAttributes>;
   readonly isDefault?: boolean;
   readonly keywords?: string[];
   readonly name: string;
@@ -101,10 +126,7 @@ export interface BlockVariationDefinition<
     "attributes" | "example" | "innerBlocks" | "isActive" | "scope"
   > {
   readonly attributes?: BlockVariationAttributeMap<TAttributes>;
-  readonly example?: {
-    readonly attributes: BlockVariationAttributeMap<TAttributes>;
-    readonly innerBlocks?: BlockVariationInnerBlocks;
-  };
+  readonly example?: BlockVariationExample<TAttributes>;
   readonly innerBlocks?: BlockVariationInnerBlocks;
   readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly scope?: readonly BlockVariationScope[];

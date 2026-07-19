@@ -322,6 +322,8 @@ type GalleryAttributes = {
 };
 type AttributeLessAttributes = Record<never, never>;
 
+const paragraphActiveMarkers = ["className"] as const;
+
 const galleryAttributeSchema = {
 	items: {
 		default: [{ label: "Featured" }],
@@ -339,7 +341,21 @@ const paragraphVariation = defineVariation<ParagraphVariationAttributes>(
 		attributes: {
 			className: "is-style-balanced",
 		},
-		isActive: ["className"],
+		example: {
+			attributes: {
+				content: "Nested preview content",
+			},
+			innerBlocks: [
+				{
+					attributes: {
+						content: "Child preview content",
+					},
+					name: "core/paragraph",
+				},
+			],
+			name: "core/group",
+		},
+		isActive: paragraphActiveMarkers,
 		name: "example-balanced-paragraph",
 		scope: ["inserter", "transform"],
 		title: "Balanced Paragraph",

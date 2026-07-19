@@ -10,7 +10,10 @@ import {
 	transformPackageManagerText,
 	type PackageManagerId,
 } from "../shared/package-managers.js";
-import { getPackageVersions } from "../shared/package-versions.js";
+import {
+	DEFAULT_WORDPRESS_BLOCKS_VERSION,
+	getPackageVersions,
+} from "../shared/package-versions.js";
 import { readJsonFileSync } from "../shared/json-utils.js";
 import type {
 	InitDependencyChange,
@@ -29,6 +32,7 @@ const BASE_RETROFIT_SCRIPTS = {
 
 const BASE_RETROFIT_DEV_DEPENDENCIES = [
 	"@typia/unplugin",
+	"@wordpress/blocks",
 	"@wp-typia/block-runtime",
 	"@wp-typia/block-types",
 	"tsx",
@@ -120,6 +124,7 @@ function buildRequiredDevDependencyMap(): Record<string, string> {
 	const versions = getPackageVersions();
 	return {
 		"@typia/unplugin": versions.typiaUnpluginPackageVersion,
+		"@wordpress/blocks": DEFAULT_WORDPRESS_BLOCKS_VERSION,
 		"@wp-typia/block-runtime": versions.blockRuntimePackageVersion,
 		"@wp-typia/block-types": versions.blockTypesPackageVersion,
 		tsx: versions.tsxPackageVersion,
