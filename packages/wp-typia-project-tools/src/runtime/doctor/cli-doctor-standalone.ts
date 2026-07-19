@@ -261,6 +261,16 @@ function getObjectPropertyString(
   objectLiteral: ts.ObjectLiteralExpression,
   propertyName: string,
 ): string | undefined {
+  const property = getObjectPropertyAssignment(objectLiteral, propertyName);
+  return property && ts.isStringLiteralLike(property.initializer)
+    ? property.initializer.text
+    : undefined;
+}
+
+function getObjectPropertyAssignment(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+): ts.PropertyAssignment | undefined {
   // Iterate in reverse so the last-defined property wins, matching JavaScript
   // object-literal duplicate-key semantics.
   for (const property of [...objectLiteral.properties].reverse()) {
@@ -273,9 +283,7 @@ function getObjectPropertyString(
     if (resolvedName !== propertyName) {
       continue;
     }
-    return ts.isStringLiteralLike(property.initializer)
-      ? property.initializer.text
-      : undefined;
+    return property;
   }
   return undefined;
 }
@@ -713,6 +721,30 @@ function parseStandaloneSyncConfig(
     };
   }
 
+  const optionalArtifactPathNames = [
+    'jsonSchemaFile',
+    'manifestFile',
+    'openApiFile',
+    'phpValidatorFile',
+  ] as const;
+  const nonLiteralOptionalPath = optionalArtifactPathNames.find(
+    (propertyName) => {
+      const property = getObjectPropertyAssignment(
+        optionsObject,
+        propertyName,
+      );
+      return property && !ts.isStringLiteralLike(property.initializer);
+    },
+  );
+  if (nonLiteralOptionalPath) {
+    return {
+      options: null,
+      problem:
+        `${STANDALONE_SYNC_SCRIPT} must define optional artifact path ` +
+        `${nonLiteralOptionalPath} as a static string value.`,
+    };
+  }
+
   const optionalPaths = {
     jsonSchemaFile: getObjectPropertyString(optionsObject, 'jsonSchemaFile'),
     manifestFile: getObjectPropertyString(optionsObject, 'manifestFile'),
@@ -1102,6 +1134,66 @@ function hasCanonicalRunnerStatusGuard(
   );
 }
 
+function getTypeScriptNodeFingerprint(node: ts.Node): string {
+  const parts: string[] = [];
+  function visit(candidate: ts.Node): void {
+    parts.push(`node:${candidate.kind}`);
+    if (
+      ts.isIdentifier(candidate) ||
+      ts.isStringLiteralLike(candidate) ||
+      ts.isNumericLiteral(candidate) ||
+      ts.isTemplateLiteralToken(candidate)
+    ) {
+      parts.push(`text:${candidate.text}`);
+    }
+    ts.forEachChild(candidate, visit);
+    parts.push('end');
+  }
+  visit(node);
+  return JSON.stringify(parts);
+}
+
+// Compare syntax trees instead of source text so formatting, comments, quote
+// style, and optional semicolons do not affect the generated-helper contract.
+const CANONICAL_SYNC_SCRIPT_ENV_HELPER_SOURCE = `
+function getSyncScriptEnv() {
+  const binaryDirectory = path.join(process.cwd(), 'node_modules', '.bin');
+  const inheritedPath = process.env.PATH ?? process.env.Path ?? Object.entries(process.env).find(([key]) => key.toLowerCase() === 'path')?.[1] ?? '';
+  const nextPath = fs.existsSync(binaryDirectory) ? \`\${binaryDirectory}\${path.delimiter}\${inheritedPath}\` : inheritedPath;
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.toLowerCase() === 'path') {
+      delete env[key];
+    }
+  }
+  env.PATH = nextPath;
+  return env;
+}
+`;
+
+const CANONICAL_SYNC_SCRIPT_ENV_HELPER_FINGERPRINT =
+  getTypeScriptNodeFingerprint(
+    ts.createSourceFile(
+      'canonical-sync-project-env.ts',
+      CANONICAL_SYNC_SCRIPT_ENV_HELPER_SOURCE,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    ).statements[0],
+  );
+
+function hasCanonicalSyncScriptEnv(sourceFile: ts.SourceFile): boolean {
+  const helper = getSingleTopLevelFunction(sourceFile, 'getSyncScriptEnv');
+  return (
+    helper !== null &&
+    !hasImportedBinding(sourceFile, 'getSyncScriptEnv') &&
+    hasCanonicalDefaultImport(sourceFile, 'node:fs', 'fs') &&
+    hasCanonicalDefaultImport(sourceFile, 'node:path', 'path') &&
+    getTypeScriptNodeFingerprint(helper) ===
+      CANONICAL_SYNC_SCRIPT_ENV_HELPER_FINGERPRINT
+  );
+}
+
 function hasCanonicalSpawnOptions(
   expression: ts.ObjectLiteralExpression,
 ): boolean {
@@ -1161,7 +1253,11 @@ function hasCanonicalSpawnOptions(
 
 function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   const runner = getSingleTopLevelFunction(sourceFile, 'runSyncScript');
-  if (!runner?.body || runner.parameters.length !== 2) {
+  if (
+    !runner?.body ||
+    runner.parameters.length !== 2 ||
+    !hasCanonicalSyncScriptEnv(sourceFile)
+  ) {
     return false;
   }
   const [scriptPathParameter, optionsParameter] = runner.parameters;

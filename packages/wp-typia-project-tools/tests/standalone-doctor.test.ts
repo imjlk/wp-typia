@@ -863,6 +863,59 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects non-literal optional standalone sync artifact paths', async () => {
+    const configuredValues = {
+      jsonSchemaFile: "'src/typia.schema.json'",
+      manifestFile: "'src/typia.manifest.json'",
+      openApiFile: "'src/typia.openapi.json'",
+    } as const;
+    const propertyNames = [
+      'jsonSchemaFile',
+      'manifestFile',
+      'openApiFile',
+      'phpValidatorFile',
+    ] as const;
+
+    for (const [index, propertyName] of propertyNames.entries()) {
+      const targetDir = path.join(
+        tempRoot,
+        `non-literal-optional-artifact-${index}`,
+      );
+      await scaffoldPersistence(targetDir);
+      const syncScriptPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-types-to-block-json.ts',
+      );
+      const original = fs.readFileSync(syncScriptPath, 'utf8');
+      const source =
+        propertyName === 'phpValidatorFile'
+          ? original.replace(
+              'sourceTypeName:',
+              'phpValidatorFile: process.env.WP_TYPIA_ARTIFACT_PATH,\n\t\tsourceTypeName:',
+            )
+          : original.replace(
+              `${propertyName}: ${configuredValues[propertyName]},`,
+              `${propertyName}: process.env.WP_TYPIA_ARTIFACT_PATH,`,
+            );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncScriptPath, source);
+
+      const checks = await getDoctorChecks(targetDir);
+      const sourceLayoutCheck = getCheck(
+        checks,
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        `optional artifact path ${propertyName} as a static string value`,
+      );
+      expect(getCheck(checks, STANDALONE_DOCTOR_CODES.ARTIFACTS)?.status).toBe(
+        'fail',
+      );
+    }
+  }, 30_000);
+
   test('rejects sync helpers with TypeScript syntax errors', async () => {
     const targetDir = path.join(tempRoot, 'invalid-sync-syntax');
     await scaffoldBasic(targetDir);
@@ -1593,6 +1646,40 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ["shell: process.platform === 'win32',", 'shell: true,'],
       ["stdio: 'inherit',", "stdio: 'ignore',"],
     ] as const;
+    for (const [canonicalSource, damagedSource] of mutations) {
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncProjectPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must forward --check through the canonical tsx runner',
+      );
+    }
+  }, 20_000);
+
+  test('rejects noncanonical sync-project environment helpers', async () => {
+    const targetDir = path.join(tempRoot, 'sync-project-environment-helper');
+    await scaffoldBasic(targetDir);
+    const syncProjectPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-project.ts',
+    );
+    const original = fs.readFileSync(syncProjectPath, 'utf8');
+    const mutations = [
+      ["'node_modules', '.bin'", "'vendor', 'bin'"],
+      ['process.env.PATH ??', 'process.env.WP_TYPIA_PATH ??'],
+      ['...process.env,', 'PATH: inheritedPath,'],
+      ['delete env[ key ];', 'continue;'],
+      ['env.PATH = nextPath;', 'env.PATH = inheritedPath;'],
+      ['return env;', 'return {};'],
+    ] as const;
+
     for (const [canonicalSource, damagedSource] of mutations) {
       const source = original.replace(canonicalSource, damagedSource);
       expect(source).not.toBe(original);
