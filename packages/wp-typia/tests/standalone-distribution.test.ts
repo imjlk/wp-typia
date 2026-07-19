@@ -299,6 +299,32 @@ describe("wp-typia standalone distribution", () => {
 		expect(dryRunOutput).toContain("write src/manifest-document.ts");
 		expect(dryRunOutput).toContain("write src/typia-validator.php");
 
+		const createdOutput = runUtf8Command(
+			installedBinaryPath,
+			[
+				"create",
+				"demo-basic-created",
+				"--template",
+				"basic",
+				"--yes",
+				"--no-install",
+			],
+			{ cwd: stagingRoot },
+		);
+		const createdProjectDir = path.join(stagingRoot, "demo-basic-created");
+		expect(createdOutput).toContain("Compiler-derived artifacts were deferred");
+		expect(
+			fs.existsSync(path.join(createdProjectDir, "src", "block.json")),
+		).toBe(true);
+		expect(
+			fs.existsSync(
+				path.join(createdProjectDir, "src", "typia.manifest.json"),
+			),
+		).toBe(true);
+		expect(fs.existsSync(path.join(createdProjectDir, "node_modules"))).toBe(
+			false,
+		);
+
 		const persistenceDryRunOutput = runUtf8Command(
 			installedBinaryPath,
 			[
@@ -319,7 +345,7 @@ describe("wp-typia standalone distribution", () => {
 		expect(persistenceDryRunOutput).toContain(
 			"write src/api-schemas/state-query.schema.json",
 		);
-	}, { timeout: 15_000 });
+	}, { timeout: 30_000 });
 
 	test("ships a Windows installer contract alongside the POSIX installer", () => {
 		const windowsInstallerSource = fs.readFileSync(

@@ -38,10 +38,11 @@ import {
 	PROJECT_TOOLS_PACKAGE_ROOT,
 } from "./template-registry.js";
 import { copyInterpolatedDirectory } from "./template-render.js";
-import type { PackageManagerId } from "../shared/package-managers.js";
 import {
 	formatInstallCommand,
+	formatRunScript,
 	transformPackageManagerText,
+	type PackageManagerId,
 } from "../shared/package-managers.js";
 import {
 	pathExists,
@@ -168,24 +169,23 @@ async function resolveScaffoldGeneratorNodeModulesPath(): Promise<string | null>
 async function withEphemeralScaffoldNodeModules(
 	targetDir: string,
 	callback: () => Promise<void>,
-): Promise<void> {
+): Promise<boolean> {
 	const targetNodeModulesPath = path.join(targetDir, "node_modules");
 	if (await pathExists(targetNodeModulesPath)) {
 		await callback();
-		return;
+		return true;
 	}
 
 	const sourceNodeModulesPath = await resolveScaffoldGeneratorNodeModulesPath();
 	if (!sourceNodeModulesPath) {
-		throw new Error(
-			"Unable to resolve a node_modules directory with typia for scaffold-time artifact generation.",
-		);
+		return false;
 	}
 
 	await fsp.symlink(sourceNodeModulesPath, targetNodeModulesPath, EPHEMERAL_NODE_MODULES_LINK_TYPE);
 
 	try {
 		await callback();
+		return true;
 	} finally {
 		await fsp.rm(targetNodeModulesPath, { force: true, recursive: true });
 	}
@@ -199,17 +199,17 @@ export async function seedBuiltInBlockMetadataArtifacts(
 	targetDir: string,
 	templateId: BuiltInTemplateId,
 	artifacts: readonly BuiltInBlockArtifact[],
-): Promise<void> {
+): Promise<boolean> {
 	const syncOptions = buildBuiltInBlockMetadataSyncOptions(
 		targetDir,
 		templateId,
 		artifacts,
 	);
 	if (syncOptions.length === 0) {
-		return;
+		return true;
 	}
 
-	await withEphemeralScaffoldNodeModules(targetDir, async () => {
+	return withEphemeralScaffoldNodeModules(targetDir, async () => {
 		for (const options of syncOptions) {
 			await syncBlockMetadata(options);
 		}
@@ -224,17 +224,17 @@ export async function seedBuiltInPersistenceArtifacts(
 	targetDir: string,
 	templateId: BuiltInTemplateId,
 	variables: ScaffoldTemplateVariables,
-): Promise<void> {
+): Promise<boolean> {
 	const syncOptions = buildBuiltInPersistenceRestSyncOptions(
 		targetDir,
 		templateId,
 		variables,
 	);
 	if (!syncOptions) {
-		return;
+		return true;
 	}
 
-	await withEphemeralScaffoldNodeModules(targetDir, async () => {
+	return withEphemeralScaffoldNodeModules(targetDir, async () => {
 		await syncPersistenceRestArtifacts(syncOptions);
 	});
 }
@@ -397,7 +397,8 @@ export async function applyBuiltInScaffoldProjectFiles({
 	repositoryReference?: string;
 	onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
 	seedCompilerArtifacts?: boolean;
-}): Promise<void> {
+}): Promise<string[]> {
+	const warnings: string[] = [];
 	await ensureDirectory(projectDir, allowExistingDir);
 	await reportScaffoldProgress(onProgress, {
 		detail: "Copying built-in template files and writing generated source modules.",
@@ -472,11 +473,6 @@ export async function applyBuiltInScaffoldProjectFiles({
 	await replaceTextRecursively(projectDir, packageManager, {
 		repositoryReference,
 	});
-	if (seedCompilerArtifacts) {
-		await seedBuiltInBlockMetadataArtifacts(projectDir, templateId, artifacts ?? []);
-		await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
-	}
-
 	if (!noInstall) {
 		await reportScaffoldProgress(onProgress, {
 			detail: "Installing project dependencies with the selected package manager.",
@@ -489,4 +485,28 @@ export async function applyBuiltInScaffoldProjectFiles({
 			packageManager,
 		});
 	}
+
+	if (seedCompilerArtifacts) {
+		const seededBlockMetadata = await seedBuiltInBlockMetadataArtifacts(
+			projectDir,
+			templateId,
+			artifacts ?? [],
+		);
+		const seededPersistenceArtifacts =
+			seededBlockMetadata &&
+			(await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables));
+		if (!seededBlockMetadata || !seededPersistenceArtifacts) {
+			warnings.push(
+				`Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run \`${formatRunScript(packageManager, "sync")}\` before build or typecheck.`,
+			);
+			await reportScaffoldProgress(onProgress, {
+				detail:
+					"Compiler dependencies are unavailable; install project dependencies and run the generated sync command to create compiler-derived artifacts.",
+				phase: "seed-artifacts",
+				title: "Deferring compiler-derived artifacts",
+			});
+		}
+	}
+
+	return warnings;
 }

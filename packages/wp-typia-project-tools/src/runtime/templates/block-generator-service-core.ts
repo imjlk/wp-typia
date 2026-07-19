@@ -388,8 +388,9 @@ export class BlockGeneratorService {
 						variables: rendered.variables,
 					});
 
+		let applyWarnings: string[] = [];
 		try {
-			await applyBuiltInScaffoldProjectFiles({
+			applyWarnings = await applyBuiltInScaffoldProjectFiles({
 				allowExistingDir: rendered.target.allowExistingDir,
 				artifacts,
 				codeArtifacts,
@@ -419,7 +420,7 @@ export class BlockGeneratorService {
 			selectedVariant: rendered.selectedVariant,
 			templateId: rendered.spec.template.family,
 			variables: rendered.variables,
-			warnings: rendered.warnings,
+			warnings: [...rendered.warnings, ...applyWarnings],
 		};
 	}
 }
