@@ -82,7 +82,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(dependenciesCheck?.status).toBe('fail');
     expect(dependenciesCheck?.detail).toContain('npm install --no-audit');
     expect(dependenciesCheck?.detail).not.toContain(targetDir);
-    expect(['fail', 'warn']).toContain(artifactsCheck?.status);
+    expect(
+      artifactsCheck?.status === 'fail' || artifactsCheck?.status === 'warn',
+    ).toBe(true);
     expect(createDoctorRunSummary(checks).exitCode).toBe(1);
   });
 
