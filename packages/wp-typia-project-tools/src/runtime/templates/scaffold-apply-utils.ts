@@ -33,6 +33,7 @@ import {
 	buildBuiltInBlockMetadataSyncOptions,
 	buildBuiltInPersistenceRestSyncOptions,
 } from "./scaffold-compiler-artifacts.js";
+import { getOptionalSyncScriptNames } from "./scaffold-onboarding.js";
 import {
 	type BuiltInTemplateId,
 	PROJECT_TOOLS_PACKAGE_ROOT,
@@ -492,12 +493,18 @@ export async function applyBuiltInScaffoldProjectFiles({
 			templateId,
 			artifacts ?? [],
 		);
-		const seededPersistenceArtifacts =
-			seededBlockMetadata &&
-			(await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables));
+		const seededPersistenceArtifacts = await seedBuiltInPersistenceArtifacts(
+			projectDir,
+			templateId,
+			variables,
+		);
 		if (!seededBlockMetadata || !seededPersistenceArtifacts) {
+			const [syncScriptName] = getOptionalSyncScriptNames(templateId);
+			const followUp = syncScriptName
+				? `, then run \`${formatRunScript(packageManager, syncScriptName)}\` before build or typecheck`
+				: " before build or typecheck";
 			warnings.push(
-				`Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run \`${formatRunScript(packageManager, "sync")}\` before build or typecheck.`,
+				`Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies${followUp}.`,
 			);
 			await reportScaffoldProgress(onProgress, {
 				detail:
