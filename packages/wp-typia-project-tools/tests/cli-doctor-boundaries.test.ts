@@ -19,6 +19,10 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 		resolve(sourceRoot, "cli-doctor-workspace.ts"),
 		"utf8",
 	);
+	const standaloneSource = readFileSync(
+		resolve(sourceRoot, "cli-doctor-standalone.ts"),
+		"utf8",
+	);
 	const workspaceBlocksSource = readFileSync(
 		resolve(sourceRoot, "cli-doctor-workspace-blocks.ts"),
 		"utf8",
@@ -101,6 +105,14 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	expect(environmentSource).toContain('from "./cli-doctor-workspace-shared.js"');
 	expect(environmentSource).not.toContain("function createDoctorCheck(");
 	expect(workspaceSource).toContain("export async function getWorkspaceDoctorChecks(");
+	expect(workspaceSource).toContain("getStandaloneScaffoldDoctorChecks(");
+	expect(workspaceSource).toContain("tryResolveStandaloneScaffoldProject(");
+	expect(standaloneSource).toContain(
+		"export async function getStandaloneScaffoldDoctorChecks(",
+	);
+	expect(standaloneSource).toContain("runSyncBlockMetadata(parsedConfig.options, {");
+	expect(standaloneSource).not.toContain("execFileSync(");
+	expect(standaloneSource).not.toContain("spawnSync(");
 	expect(workspaceSource).toContain("readWorkspaceInventoryAsync(");
 	expect(workspaceSource).toContain("prepareWorkspacePackageDoctorSnapshot(");
 	expect(workspaceSource).toContain('from "./cli-doctor-workspace-bindings.js"');

@@ -76,6 +76,9 @@ describe("@wp-typia/block-runtime", () => {
 		).toBe("function");
 		expect(typeof metadataCoreModule.syncInnerBlocksTemplateModule).toBe("function");
 		expect(typeof metadataCoreModule.runSyncBlockMetadata).toBe("function");
+		expect(typeof metadataCoreModule.resolveSyncBlockMetadataPaths).toBe(
+			"function",
+		);
 		expect(typeof metadataCoreModule.syncEndpointClient).toBe("function");
 		expect(typeof metadataCoreModule.syncRestOpenApi).toBe("function");
 		expect(typeof defaultsModule.applyTemplateDefaultsFromManifest).toBe("function");
