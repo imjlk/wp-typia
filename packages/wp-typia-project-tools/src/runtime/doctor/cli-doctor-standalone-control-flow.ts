@@ -18,7 +18,9 @@ export function containsCompletion(
   );
 }
 
-function unwrapStaticExpression(expression: ts.Expression): ts.Expression {
+export function unwrapStaticExpression(
+  expression: ts.Expression,
+): ts.Expression {
   let current = expression;
   while (
     ts.isParenthesizedExpression(current) ||

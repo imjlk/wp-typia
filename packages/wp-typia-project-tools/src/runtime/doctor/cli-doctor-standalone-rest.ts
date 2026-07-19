@@ -3,7 +3,10 @@ import path from 'node:path';
 
 import ts from 'typescript';
 
-import { hasEarlierAbruptCompletion } from './cli-doctor-standalone-control-flow.js';
+import {
+  hasEarlierAbruptCompletion,
+  unwrapStaticExpression,
+} from './cli-doctor-standalone-control-flow.js';
 
 import type { EndpointManifestDefinition } from '@wp-typia/block-runtime/metadata-core';
 import type { GeneratedPackageJson } from '../shared/package-json-types.js';
@@ -130,20 +133,6 @@ export function standaloneProjectRequiresRest(
         typeof packageJson.devDependencies?.[packageName] === 'string',
     )
   );
-}
-
-function unwrapStaticExpression(expression: ts.Expression): ts.Expression {
-  let current = expression;
-  while (
-    ts.isParenthesizedExpression(current) ||
-    ts.isAsExpression(current) ||
-    ts.isTypeAssertionExpression(current) ||
-    ts.isSatisfiesExpression(current) ||
-    ts.isNonNullExpression(current)
-  ) {
-    current = current.expression;
-  }
-  return current;
 }
 
 function getStaticPropertyName(name: ts.PropertyName): string | null {
