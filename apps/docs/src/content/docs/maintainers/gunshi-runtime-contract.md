@@ -87,6 +87,7 @@ Current stable `error.code` vocabulary:
 - `configuration-missing`
 - `dependencies-not-installed`
 - `doctor-check-failed`
+- `generated-artifact-drift`
 - `invalid-argument`
 - `invalid-command`
 - `missing-argument`
@@ -100,6 +101,12 @@ Current stable `error.code` vocabulary:
 That same JSON contract should apply both to command-handler failures and to
 top-level parse/normalization failures that happen before command dispatch, as
 long as the caller explicitly requested `--format json`.
+
+Code-specific structured context belongs under `error.data`. For example,
+`generated-artifact-drift` exposes the failed project command, exit code, and an
+`artifacts` array whose entries have stable `path` and `status` fields. Keep
+those paths project-relative so cached npm or worktree roots do not leak into
+automation output.
 
 New user-facing CLI failures should own their diagnostic code at the throw site
 by using `createCliDiagnosticCodeError(code, message)` in shared runtime code or

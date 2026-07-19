@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 
@@ -11,7 +12,12 @@ import {
   buildMissingAddKindDetailLines,
   buildMissingCreateProjectDirDetailLines,
 } from '../src/cli-error-messages';
-import { runNodeCli, runNodeCliEntrypoint } from '../src/node-cli';
+import {
+  runNodeCli,
+  runNodeCliEntrypoint,
+  shouldInheritTextSyncStdio,
+  writeProcessOutput,
+} from '../src/node-cli';
 
 const AI_AGENT_ENV_KEYS = [
   'AGENT',
@@ -31,24 +37,32 @@ async function captureNodeCli(
   options: {
     cwd?: string;
     entrypoint?: boolean;
+    onStderrWrite?: (chunk: string) => void;
+    stdoutBackpressureMs?: number;
   } = {},
 ): Promise<{
   error: unknown;
   exitCode: string | number;
   stderr: string;
   stdout: string;
+  stdoutBackpressureDrained: boolean;
+  stdoutBackpressureTriggered: boolean;
 }> {
   const originalCwd = process.cwd();
   const originalExitCode = process.exitCode;
   const originalError = console.error;
   const originalLog = console.log;
   const originalStderrWrite = process.stderr.write;
+  const originalStdoutWrite = process.stdout.write;
   const originalWarn = console.warn;
   const originalAgentEnv = new Map(
     AI_AGENT_ENV_KEYS.map((key) => [key, process.env[key]]),
   );
   const stderr: string[] = [];
   const stdout: string[] = [];
+  let stdoutBackpressureDrained = false;
+  let stdoutBackpressureTimer: ReturnType<typeof setTimeout> | undefined;
+  let stdoutBackpressureTriggered = false;
   let error: unknown;
 
   for (const key of AI_AGENT_ENV_KEYS) {
@@ -65,7 +79,11 @@ async function captureNodeCli(
     stderr.push(args.map(String).join(' '));
   };
   process.stderr.write = ((chunk: unknown, ...args: unknown[]) => {
-    stderr.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    const rendered = Buffer.isBuffer(chunk)
+      ? chunk.toString('utf8')
+      : String(chunk);
+    stderr.push(rendered);
+    options.onStderrWrite?.(rendered);
     const callback = args.find(
       (arg): arg is (error?: Error | null) => void =>
         typeof arg === 'function',
@@ -73,6 +91,27 @@ async function captureNodeCli(
     callback?.();
     return true;
   }) as typeof process.stderr.write;
+  process.stdout.write = ((chunk: unknown, ...args: unknown[]) => {
+    stdout.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    const callback = args.find(
+      (arg): arg is (error?: Error | null) => void =>
+        typeof arg === 'function',
+    );
+    if (
+      options.stdoutBackpressureMs !== undefined &&
+      !stdoutBackpressureTriggered
+    ) {
+      stdoutBackpressureTriggered = true;
+      stdoutBackpressureTimer = setTimeout(() => {
+        stdoutBackpressureDrained = true;
+        process.stdout.emit('drain');
+      }, options.stdoutBackpressureMs);
+      callback?.();
+      return false;
+    }
+    callback?.();
+    return true;
+  }) as typeof process.stdout.write;
 
   try {
     if (options.cwd) {
@@ -93,8 +132,13 @@ async function captureNodeCli(
       exitCode: process.exitCode ?? 0,
       stderr: stderr.join('\n'),
       stdout: stdout.join('\n'),
+      stdoutBackpressureDrained,
+      stdoutBackpressureTriggered,
     };
   } finally {
+    if (stdoutBackpressureTimer) {
+      clearTimeout(stdoutBackpressureTimer);
+    }
     if (options.cwd) {
       process.chdir(originalCwd);
     }
@@ -102,6 +146,7 @@ async function captureNodeCli(
     console.log = originalLog;
     console.warn = originalWarn;
     process.stderr.write = originalStderrWrite;
+    process.stdout.write = originalStdoutWrite;
     process.exitCode = originalExitCode;
     for (const key of AI_AGENT_ENV_KEYS) {
       const value = originalAgentEnv.get(key);
@@ -157,6 +202,118 @@ function writeJson(filePath: string, value: unknown): void {
 }
 
 describe('Gunshi CLI core routing', () => {
+  test('preserves terminal stdio only for interactive text sync runs', () => {
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: true,
+        stdoutIsTTY: true,
+        structured: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: false,
+        stdoutIsTTY: true,
+        structured: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldInheritTextSyncStdio({
+        dryRun: false,
+        stderrIsTTY: true,
+        stdoutIsTTY: true,
+        structured: true,
+      }),
+    ).toBe(false);
+  });
+
+  test('treats a closed process output pipe as a completed write', async () => {
+    const error = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(error);
+      },
+    });
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(writeProcessOutput(stream, 'discarded output')).toBeUndefined();
+  });
+
+  test('discards future output after a late closed-pipe error', async () => {
+    const error = Object.assign(new Error('late write EPIPE'), {
+      code: 'EPIPE',
+    });
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+        queueMicrotask(() => stream.emit('error', error));
+      },
+    });
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(writeProcessOutput(stream, 'discarded output')).toBeUndefined();
+  });
+
+  test('forwards a late non-pipe error after a completed write', async () => {
+    const error = Object.assign(new Error('late stream failure'), {
+      code: 'ERR_STREAM_WRITE_AFTER_END',
+    });
+    const forwardedErrors: Error[] = [];
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+        queueMicrotask(() => stream.emit('error', error));
+      },
+    });
+    const emit = stream.emit.bind(stream);
+    stream.emit = ((event: string | symbol, ...args: unknown[]) => {
+      if (event === 'error' && stream.listenerCount('error') === 0) {
+        forwardedErrors.push(args[0] as Error);
+        return true;
+      }
+      return emit(event, ...args);
+    }) as typeof stream.emit;
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(forwardedErrors).toEqual([error]);
+  });
+
+  test('does not rethrow a non-pipe error already reported by the write callback', async () => {
+    const error = Object.assign(new Error('callback stream failure'), {
+      code: 'ERR_STREAM_WRITE_AFTER_END',
+    });
+    const forwardedErrors: Error[] = [];
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(error);
+      },
+    });
+    const emit = stream.emit.bind(stream);
+    stream.emit = ((event: string | symbol, ...args: unknown[]) => {
+      if (event === 'error' && stream.listenerCount('error') === 0) {
+        forwardedErrors.push(args[0] as Error);
+        return true;
+      }
+      return emit(event, ...args);
+    }) as typeof stream.emit;
+
+    const caught = await Promise.resolve(
+      writeProcessOutput(stream, 'sync output'),
+    ).catch((thrown) => thrown);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(caught).toBe(error);
+    expect(forwardedErrors).toEqual([]);
+  });
+
   afterEach(() => {
     process.exitCode = 0;
   });
@@ -993,6 +1150,151 @@ describe('Gunshi CLI core routing', () => {
     );
   });
 
+  test('replays captured sync output for successful text runs', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-output-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-output',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/succeed.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'succeed.mjs'),
+        [
+          'console.log("sync stdout marker");',
+          'process.stderr.write("sync stderr marker\\r\\n");',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const result = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('sync stdout marker');
+      expect(result.stderr).toContain('sync stderr marker');
+      expect(result.stderr).not.toContain('\r');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
+  test('streams non-stack partial stderr prompts before exit', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-prompt-');
+    const continuePath = path.join(tempRoot, 'continue');
+    const atPromptPath = path.join(tempRoot, 'at-prompt');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-stderr-prompt',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/prompt.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'prompt.mjs'),
+        [
+          "import fs from 'node:fs';",
+          "process.stderr.write('Continue? ');",
+          "while (!fs.existsSync('continue')) {",
+          '  await new Promise((resolve) => setTimeout(resolve, 10));',
+          '}',
+          "process.stderr.write('\\nat path: ');",
+          "while (!fs.existsSync('at-prompt')) {",
+          '  await new Promise((resolve) => setTimeout(resolve, 10));',
+          '}',
+        ].join('\n'),
+        'utf8',
+      );
+      let streamedStderr = '';
+      const execution = captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+        onStderrWrite: (chunk) => {
+          streamedStderr += chunk;
+          if (
+            streamedStderr.includes('Continue? ') &&
+            !fs.existsSync(continuePath)
+          ) {
+            fs.writeFileSync(continuePath, '', 'utf8');
+          }
+          if (
+            streamedStderr.includes('at path: ') &&
+            !fs.existsSync(atPromptPath)
+          ) {
+            fs.writeFileSync(atPromptPath, '', 'utf8');
+          }
+        },
+      });
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const outcome = await Promise.race([
+        execution.then(() => 'completed' as const),
+        new Promise<'timed-out'>((resolve) => {
+          timeout = setTimeout(() => resolve('timed-out'), 2_000);
+        }),
+      ]);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (outcome === 'timed-out') {
+        fs.writeFileSync(continuePath, '', 'utf8');
+        fs.writeFileSync(atPromptPath, '', 'utf8');
+        await execution;
+      }
+
+      expect(outcome).toBe('completed');
+      expect(streamedStderr).toContain('Continue? ');
+      expect(streamedStderr).toContain('at path: ');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
+  test('waits for stdout drain before completing streamed sync output', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-backpressure-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-stdout-backpressure',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/succeed.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'succeed.mjs'),
+        "console.log('backpressure marker');\n",
+        'utf8',
+      );
+
+      const result = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+        stdoutBackpressureMs: 500,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.stdoutBackpressureTriggered).toBe(true);
+      expect(result.stdoutBackpressureDrained).toBe(true);
+      expect(result.stdout).toContain('backpressure marker');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
   test('emits structured sync execution diagnostics with stable codes', async () => {
     const tempRoot = createTempRoot('wp-typia-node-sync-failure-');
 
@@ -1008,9 +1310,25 @@ describe('Gunshi CLI core routing', () => {
       });
       fs.writeFileSync(
         path.join(tempRoot, 'scripts', 'fail.mjs'),
-        ['console.error("sync failed intentionally");', 'process.exit(42);'].join(
-          '\n',
-        ),
+        [
+          'console.error("sync failed intentionally");',
+          'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
+          'console.error(`sibling path: ${process.cwd()}-cache/schema.ts`);',
+          'console.error("outside cache: /home/alice/.cache/wp-typia/schema.json");',
+          'console.error("outside windows: C:\\\\Users\\\\Alice\\\\.cache\\\\wp-typia\\\\schema.json");',
+          'console.error(\'outside spaced: "/Users/alice/Library/Application Support/wp-typia/schema.json"\');',
+          'console.error("outside spaced unquoted: /Users/alice/Library/Application Support/wp-typia/schema.json");',
+          'console.error("outside spaced diagnostic: /Users/alice/Library/Application Support/wp-typia/schema.json - error: not found");',
+          'await new Promise((resolve) => process.stderr.write("outside split diagnostic: /Users/alice/Library/Application Support/wp-typia/schema.json", resolve));',
+          'await new Promise((resolve) => setImmediate(resolve));',
+          'console.error(" - error: split preserved");',
+          'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
+          'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
+          'console.error("at least 3 generated files need attention");',
+          'console.error("    at cachedTool (/home/alice/.cache/tool.ts:12:34)");',
+          'console.error("    at runSyncScript (sync-project.ts:78:9)");',
+          'process.exit(42);',
+        ].join('\n'),
         'utf8',
       );
 
@@ -1022,8 +1340,10 @@ describe('Gunshi CLI core routing', () => {
         error?: {
           code?: string;
           command?: string;
+          data?: Record<string, unknown>;
           detailLines?: string[];
           kind?: string;
+          message?: string;
         };
         ok?: boolean;
       };
@@ -1035,7 +1355,168 @@ describe('Gunshi CLI core routing', () => {
       expect(parsed.error?.kind).toBe('command-execution');
       expect(parsed.error?.code).toBe('command-execution');
       expect(parsed.error?.command).toBe('sync');
-      expect(parsed.error?.detailLines).toContain('`npm run sync` failed.');
+      expect(parsed.error?.detailLines).toContain(
+        '`npm run sync` failed with exit code 42.',
+      );
+      expect(parsed.error?.detailLines).toContain('sync failed intentionally');
+      expect(parsed.error?.detailLines).toContain(
+        'failed file: <project-root>/src/private.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'sibling path: <redacted-path-prefix>-cache/schema.ts',
+      );
+      expect(parsed.error?.detailLines).not.toContain(
+        'sibling path: <project-root>-cache/schema.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside cache: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside windows: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside spaced: "<redacted-path>"',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside spaced unquoted: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside spaced diagnostic: <redacted-path> - error: not found',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside split diagnostic: <redacted-path> - error: split preserved',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'case variant: <project-root>/src/case.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'alternate separators: <project-root>/src/alternate.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'at least 3 generated files need attention',
+      );
+      expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
+      expect(parsed.error?.message).not.toContain('/home/alice');
+      expect(parsed.error?.message).not.toContain('C:\\Users\\Alice');
+      expect(parsed.error?.message).not.toContain('Application Support');
+      expect(parsed.error?.data).toEqual({
+        command: 'npm run sync',
+        exitCode: 42,
+      });
+
+      const textResult = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+      });
+      expect(textResult.exitCode).toBe(1);
+      expect(textResult.stderr).toContain('sync failed intentionally');
+      expect(textResult.stderr).toContain(
+        'failed file: <project-root>/src/private.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'sibling path: <redacted-path-prefix>-cache/schema.ts',
+      );
+      expect(textResult.stderr).not.toContain(
+        'sibling path: <project-root>-cache/schema.ts',
+      );
+      expect(textResult.stderr).toContain('outside cache: <redacted-path>');
+      expect(textResult.stderr).toContain('outside windows: <redacted-path>');
+      expect(textResult.stderr).toContain(
+        'outside spaced: "<redacted-path>"',
+      );
+      expect(textResult.stderr).toContain(
+        'outside spaced unquoted: <redacted-path>',
+      );
+      expect(textResult.stderr).toContain(
+        'outside spaced diagnostic: <redacted-path> - error: not found',
+      );
+      expect(textResult.stderr).toMatch(
+        /outside split diagnostic:\s*<redacted-path> - error: split preserved/u,
+      );
+      expect(textResult.stderr).toContain(
+        'case variant: <project-root>/src/case.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'alternate separators: <project-root>/src/alternate.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'at least 3 generated files need attention',
+      );
+      expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
+      expect(textResult.stderr).not.toContain('/home/alice');
+      expect(textResult.stderr).not.toContain('C:\\Users\\Alice');
+      expect(textResult.stderr).not.toContain('Application Support');
+      expect(textResult.stderr).not.toContain('\n    at ');
+      expect(textResult.stderr).not.toContain('cachedTool');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
+  test('emits project-relative generated artifact drift details', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-drift-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-drift',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/drift.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'drift.mjs'),
+        [
+          "import path from 'node:path';",
+          "console.error('Generated artifacts are missing or stale:');",
+          "console.error(`- ${path.join(process.cwd(), 'src', 'block.json')} (stale)`);",
+          "console.error(`- ${path.join(process.cwd(), 'src', 'typia-validator.php')} (missing)`);",
+          "console.error('    at runSyncScript (sync-project.ts:78:9)');",
+          'process.exit(1);',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const result = await captureNodeCli(
+        ['sync', '--check', '--format', 'json'],
+        {
+          cwd: tempRoot,
+          entrypoint: true,
+        },
+      );
+      const parsed = JSON.parse(result.stderr) as {
+        error?: {
+          code?: string;
+          data?: {
+            artifacts?: Array<{ path: string; status: string }>;
+            command?: string;
+            exitCode?: number;
+          };
+          detailLines?: string[];
+          message?: string;
+        };
+        ok?: boolean;
+      };
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error?.code).toBe('generated-artifact-drift');
+      expect(parsed.error?.data).toEqual({
+        artifacts: [
+          { path: 'src/block.json', status: 'stale' },
+          { path: 'src/typia-validator.php', status: 'missing' },
+        ],
+        command: 'npm run sync -- --check',
+        exitCode: 1,
+      });
+      expect(parsed.error?.detailLines).toContain(
+        'Stale generated artifact: src/block.json.',
+      );
+      expect(parsed.error?.message).not.toContain(tempRoot);
+      expect(parsed.error?.message).not.toContain('at runSyncScript');
     } finally {
       removeTempRoot(tempRoot);
     }

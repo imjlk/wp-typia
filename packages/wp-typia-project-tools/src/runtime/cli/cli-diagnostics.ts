@@ -4,6 +4,7 @@
 export interface CliDiagnosticMessage {
 	code: CliDiagnosticCode;
 	command: string;
+	data?: Record<string, unknown>;
 	detailLines: string[];
 	summary: string;
 }
@@ -13,6 +14,7 @@ export const CLI_DIAGNOSTIC_CODES = {
 	CONFIGURATION_MISSING: "configuration-missing",
 	DEPENDENCIES_NOT_INSTALLED: "dependencies-not-installed",
 	DOCTOR_CHECK_FAILED: "doctor-check-failed",
+	GENERATED_ARTIFACT_DRIFT: "generated-artifact-drift",
 	INVALID_ARGUMENT: "invalid-argument",
 	INVALID_COMMAND: "invalid-command",
 	MISSING_ARGUMENT: "missing-argument",
@@ -60,6 +62,11 @@ export const CLI_DIAGNOSTIC_CODE_METADATA = {
 		cause: "One or more doctor checks reported a failing environment or workspace row.",
 		recovery:
 			"Inspect the failed check labels and details, fix the reported drift or missing prerequisite, then rerun `wp-typia doctor`.",
+	},
+	[CLI_DIAGNOSTIC_CODES.GENERATED_ARTIFACT_DRIFT]: {
+		cause: "One or more generated project artifacts are missing or differ from the TypeScript source of truth.",
+		recovery:
+			"Run the reported project sync command to regenerate artifacts, then rerun `wp-typia sync --check`.",
 	},
 	[CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT]: {
 		cause: "An argument was present but did not match the supported value, shape, or project state.",
@@ -259,6 +266,7 @@ function normalizeDetailLines(detailLines: Array<string | null | undefined>): st
 export class CliDiagnosticError extends Error {
 	readonly code: CliDiagnosticCode;
 	readonly command: string;
+	readonly data?: Record<string, unknown>;
 	readonly detailLines: string[];
 	readonly summary: string;
 
@@ -266,6 +274,7 @@ export class CliDiagnosticError extends Error {
 		super(formatCliDiagnosticBlock(message), options);
 		this.code = message.code;
 		this.command = message.command;
+		this.data = message.data ? { ...message.data } : undefined;
 		this.detailLines = [...message.detailLines];
 		this.name = "CliDiagnosticError";
 		this.summary = message.summary;
@@ -403,6 +412,7 @@ function inferCliDiagnosticCode(options: {
 export function createCliCommandError(options: {
 	command: string;
 	code?: CliDiagnosticCode;
+	data?: Record<string, unknown>;
 	detailLines?: string[];
 	error?: unknown;
 	summary?: string;
@@ -428,6 +438,7 @@ export function createCliCommandError(options: {
 		{
 			code,
 			command: options.command,
+			...(options.data ? { data: options.data } : {}),
 			detailLines,
 			summary,
 		},
@@ -455,6 +466,7 @@ export function formatCliDiagnosticError(error: unknown): string {
 export function serializeCliDiagnosticError(error: unknown): {
 	code: CliDiagnosticCode;
 	command?: string;
+	data?: Record<string, unknown>;
 	detailLines?: string[];
 	kind: "command-execution";
 	message: string;
@@ -466,6 +478,7 @@ export function serializeCliDiagnosticError(error: unknown): {
 		return {
 			code: error.code,
 			command: error.command,
+			...(error.data ? { data: { ...error.data } } : {}),
 			detailLines: [...error.detailLines],
 			kind: "command-execution",
 			message: formatCliDiagnosticBlock({

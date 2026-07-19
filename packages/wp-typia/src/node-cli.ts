@@ -1,3 +1,5 @@
+import type { Writable } from 'node:stream';
+
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliCommandError,
@@ -63,11 +65,17 @@ import {
   getStructuredOutputNoticesForArgv,
   withStructuredOutputNotices,
 } from './structured-output-notices';
+import {
+  isPossibleSyncStackFramePrefix,
+  isSyncStackFrameLine,
+} from './sync-output';
 
 const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
 );
 const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
+const MAX_PENDING_SYNC_STDERR_LINE = 64 * 1024;
+const CLOSED_PROCESS_OUTPUT_STREAMS = new WeakSet<Writable>();
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -290,6 +298,240 @@ async function dispatchPortableCliSkills({
   });
 }
 
+function isClosedPipeError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'EPIPE' || code === 'ERR_STREAM_DESTROYED';
+}
+
+/**
+ * Writes one process-output chunk while honoring Writable backpressure.
+ * Closed pipes complete normally for shell pipelines; an unexpected late
+ * stream error is re-emitted and therefore remains fatal when otherwise
+ * unhandled, matching EventEmitter's standard `error` semantics.
+ */
+export function writeProcessOutput(
+  stream: Writable,
+  chunk: string,
+): Promise<void> | void {
+  // A downstream shell consumer already closed this pipe, so later output is
+  // intentionally discarded instead of turning a successful command into an
+  // EPIPE failure.
+  if (CLOSED_PROCESS_OUTPUT_STREAMS.has(stream) || stream.destroyed) {
+    return;
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    let drainRequired = false;
+    let drained = false;
+    let rejectedWriteError = false;
+    let settled = false;
+    let writeCallbackComplete = false;
+    let writeResultObserved = false;
+    const cleanup = (deferErrorCleanup: boolean) => {
+      stream.off('close', onClose);
+      stream.off('drain', onDrain);
+      if (deferErrorCleanup) {
+        // A Writable callback can run immediately before a matching `error`
+        // event. Keep the listener through the current turn so a late EPIPE
+        // is treated as the same closed-pipe outcome instead of going
+        // uncaught.
+        setImmediate(() => stream.off('error', onError));
+      } else {
+        stream.off('error', onError);
+      }
+    };
+    const settle = (
+      error?: Error | null,
+      deferErrorCleanup = false,
+    ) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (!error || isClosedPipeError(error)) {
+        if (error) {
+          CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+        }
+        cleanup(deferErrorCleanup);
+        resolve();
+        return;
+      }
+      rejectedWriteError = true;
+      cleanup(deferErrorCleanup);
+      reject(error);
+    };
+    const settleCompletedWrite = () => {
+      if (
+        writeResultObserved &&
+        writeCallbackComplete &&
+        (!drainRequired || drained)
+      ) {
+        settle(undefined, true);
+      }
+    };
+    const onDrain = () => {
+      drained = true;
+      settleCompletedWrite();
+    };
+    const onError = (error: Error) => {
+      if (isClosedPipeError(error)) {
+        CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+      }
+      if (settled) {
+        if (rejectedWriteError) {
+          return;
+        }
+        // `once` removes this listener before invoking it. If no other error
+        // listener remains, forward a non-pipe failure so it retains normal
+        // EventEmitter error semantics instead of being swallowed.
+        if (!isClosedPipeError(error) && stream.listenerCount('error') === 0) {
+          queueMicrotask(() => {
+            if (stream.listenerCount('error') === 0) {
+              stream.emit('error', error);
+            }
+          });
+        }
+        return;
+      }
+      settle(error);
+    };
+    const onClose = () => {
+      CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+      settle();
+    };
+
+    stream.once('error', onError);
+    stream.once('close', onClose);
+    stream.once('drain', onDrain);
+    try {
+      const accepted = stream.write(chunk, (error) => {
+        if (error) {
+          settle(error, true);
+          return;
+        }
+        writeCallbackComplete = true;
+        settleCompletedWrite();
+      });
+      drainRequired = !accepted;
+      writeResultObserved = true;
+      if (!drainRequired) {
+        stream.off('drain', onDrain);
+      }
+      settleCompletedWrite();
+    } catch (error) {
+      settle(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+export function shouldInheritTextSyncStdio({
+  dryRun,
+  stderrIsTTY = Boolean(process.stderr.isTTY),
+  stdoutIsTTY = Boolean(process.stdout.isTTY),
+  structured,
+}: {
+  dryRun: boolean;
+  stderrIsTTY?: boolean;
+  stdoutIsTTY?: boolean;
+  structured: boolean;
+}): boolean {
+  return !dryRun && !structured && stderrIsTTY && stdoutIsTTY;
+}
+
+function createSyncStderrWriter(): {
+  flush: () => PromiseLike<void> | void;
+  write: (chunk: string) => PromiseLike<void> | void;
+} {
+  let pending = '';
+  let writeQueue: Promise<void> | undefined;
+  const emit = (line: string) => {
+    if (isSyncStackFrameLine(line)) {
+      return;
+    }
+    if (writeQueue) {
+      const nextWrite = writeQueue.then(() =>
+        writeProcessOutput(process.stderr, line),
+      );
+      writeQueue = nextWrite;
+      void nextWrite.then(
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+      );
+      return;
+    }
+    const writeResult = writeProcessOutput(process.stderr, line);
+    if (writeResult) {
+      const nextWrite = Promise.resolve(writeResult);
+      writeQueue = nextWrite;
+      void nextWrite.then(
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+      );
+    }
+  };
+  const append = (chunk: string, final: boolean) => {
+    pending += chunk;
+    pending = pending
+      .replace(/\r\n/gu, '\n')
+      .replace(final ? /\r/gu : /\r(?!$)/gu, '\n');
+
+    let newlineIndex = pending.indexOf('\n');
+    while (newlineIndex >= 0) {
+      emit(pending.slice(0, newlineIndex + 1));
+      pending = pending.slice(newlineIndex + 1);
+      newlineIndex = pending.indexOf('\n');
+    }
+
+    const trailingCarriageReturn = !final && pending.endsWith('\r');
+    const partialLine = trailingCarriageReturn ? pending.slice(0, -1) : pending;
+    if (
+      partialLine.length > 0 &&
+      !isPossibleSyncStackFramePrefix(partialLine)
+    ) {
+      emit(partialLine);
+      pending = trailingCarriageReturn ? '\r' : '';
+    }
+  };
+
+  return {
+    flush: () => {
+      append('', true);
+      if (pending.length > 0) {
+        emit(pending);
+      }
+      pending = '';
+      return writeQueue;
+    },
+    write: (chunk) => {
+      append(chunk, false);
+
+      // Stack frames are short, line-oriented records. Do not retain an
+      // arbitrarily large stderr line just to determine whether it is one.
+      if (pending.length > MAX_PENDING_SYNC_STDERR_LINE) {
+        emit(pending);
+        pending = '';
+      }
+      return writeQueue;
+    },
+  };
+}
+
 const PORTABLE_CLI_COMMAND_DISPATCHERS = {
   add: dispatchPortableCliAddLazy,
   complete: dispatchPortableCliCompletion,
@@ -354,17 +596,32 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
     structuredNotices,
     warnLine,
   }: PortableCliDispatchContext) => {
+    let stderrWriter: ReturnType<typeof createSyncStderrWriter> | undefined;
     try {
       const syncTarget = resolveSyncExecutionTarget(positionals[1]);
+      const dryRun = Boolean(mergedFlags['dry-run']);
+      const structured = mergedFlags.format === 'json';
+      const inheritStdio = shouldInheritTextSyncStdio({
+        dryRun,
+        structured,
+      });
+      stderrWriter =
+        structured || dryRun || inheritStdio
+          ? undefined
+          : createSyncStderrWriter();
       const sync = await executeSyncCommand({
-        captureOutput:
-          mergedFlags.format === 'json' && !Boolean(mergedFlags['dry-run']),
+        captureOutput: !dryRun && !inheritStdio,
         check: Boolean(mergedFlags.check),
         cwd,
-        dryRun: Boolean(mergedFlags['dry-run']),
+        dryRun,
+        onStderr: stderrWriter?.write,
+        onStdout: stderrWriter
+          ? (chunk) => writeProcessOutput(process.stdout, chunk)
+          : undefined,
         target: syncTarget,
       });
-      if (mergedFlags.format === 'json') {
+      await stderrWriter?.flush();
+      if (structured) {
         printLine(
           JSON.stringify(
             withStructuredOutputNotices({ sync }, structuredNotices),
@@ -390,6 +647,8 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
         );
       }
     } catch (error) {
+      // Flush any final partial stderr line before rendering the summary.
+      await stderrWriter?.flush();
       throw createCliCommandError({
         command: 'sync',
         error,

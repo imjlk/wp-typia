@@ -52,6 +52,7 @@ describe("@wp-typia/project-tools scaffold CLI flow", () => {
     error: {
       code: string;
       command?: string;
+      data?: Record<string, unknown>;
       detailLines?: string[];
       kind: string;
       message: string;
@@ -242,6 +243,26 @@ test("CLI diagnostic metadata covers every stable code", () => {
     expect(metadata.cause.length).toBeGreaterThan(0);
     expect(metadata.recovery.length).toBeGreaterThan(0);
   }
+});
+
+test("structured CLI diagnostics preserve code-specific data", () => {
+  const payload = serializeCliDiagnosticError(
+    createCliCommandError({
+      code: CLI_DIAGNOSTIC_CODES.GENERATED_ARTIFACT_DRIFT,
+      command: "sync",
+      data: {
+        artifacts: [{ path: "src/block.json", status: "stale" }],
+        exitCode: 1,
+      },
+      detailLines: ["Stale generated artifact: src/block.json."],
+      summary: "Generated artifacts are missing or stale.",
+    })
+  );
+
+  expect(payload.data).toEqual({
+    artifacts: [{ path: "src/block.json", status: "stale" }],
+    exitCode: 1,
+  });
 });
 
 test("node and bun entries keep structured diagnostic envelopes stable", () => {
