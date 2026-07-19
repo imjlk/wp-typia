@@ -2320,6 +2320,22 @@ function hasEarlierDirectPhpCompletion(
   );
 }
 
+function hasPhpVariableReassignment(
+  source: string,
+  variableName: string,
+  start: number,
+  end: number,
+): boolean {
+  const assignmentPattern = new RegExp(
+    String.raw`\$${variableName}\s*(?:\?\?=|<<=|>>=|\*\*=|[-.+*/%&|^]=|=(?!=|>))`,
+    'gu',
+  );
+  return [...source.slice(start, end).matchAll(assignmentPattern)].some(
+    (match) =>
+      getPhpFileBraceDepth(source, start + match.index) !== null,
+  );
+}
+
 function hasReachableBuildDirectoryReturn(
   bootstrapSource: string,
   getterRange: PhpFunctionRange,
@@ -2346,10 +2362,26 @@ function hasReachableBuildDirectoryReturn(
     [...getterRange.source.matchAll(pattern)].some((match) => {
       const matchOffset = getterRange.start + (match.index ?? 0);
       const returnOffset = matchOffset + match[0].lastIndexOf('return');
+      const foreachOffset = matchOffset + match[0].lastIndexOf('foreach');
+      const candidateFlowWasReassigned =
+        minimumReturnDepth > 1 &&
+        (hasPhpVariableReassignment(
+          bootstrapSource,
+          'candidates',
+          matchOffset + match[0].indexOf('=') + 1,
+          foreachOffset,
+        ) ||
+          hasPhpVariableReassignment(
+            bootstrapSource,
+            'candidate',
+            foreachOffset,
+            returnOffset,
+          ));
       return (
         getPhpFileBraceDepth(bootstrapSource, matchOffset) === 1 &&
         (getPhpFileBraceDepth(bootstrapSource, returnOffset) ?? 0) >=
           minimumReturnDepth &&
+        !candidateFlowWasReassigned &&
         !hasEarlierDirectPhpCompletion(
           bootstrapSource,
           getterRange.start,

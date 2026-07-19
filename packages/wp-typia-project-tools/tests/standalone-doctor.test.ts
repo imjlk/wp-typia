@@ -2680,6 +2680,26 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ].join('\n'),
     ],
     [
+      'candidate-reassigned',
+      'return $candidate;',
+      "$candidate = __DIR__ . '/other';\n\t\t\treturn $candidate;",
+    ],
+    [
+      'candidate-compound-reassigned',
+      'return $candidate;',
+      "$candidate .= '/other';\n\t\t\treturn $candidate;",
+    ],
+    [
+      'candidates-reassigned',
+      '\t);\n\n\tforeach ( $candidates as $candidate ) {',
+      [
+        '\t);',
+        "\t$candidates = array( __DIR__ . '/other' );",
+        '',
+        '\tforeach ( $candidates as $candidate ) {',
+      ].join('\n'),
+    ],
+    [
       'after-return',
       'register_block_type( $build_dir );',
       'return;\n\n\tregister_block_type( $build_dir );',
