@@ -222,16 +222,15 @@ describe("starter manifest builders", () => {
 		});
 	});
 
-	test("stringifyStarterManifest uses tab indentation and a trailing newline", () => {
+	test("stringifyStarterManifest uses canonical sync formatting", () => {
 		const [manifestFile] = getStarterManifestFiles(
 			"basic",
 			createTestScaffoldTemplateVariables(),
 		);
 		const serialized = stringifyStarterManifest(manifestFile.document);
 
-		expect(serialized.endsWith("\n")).toBe(true);
-		expect(serialized.endsWith("\n\n")).toBe(false);
+		expect(serialized.endsWith("\n")).toBe(false);
 		expect(serialized).toContain("\n\t");
-		expect(JSON.parse(serialized.trimEnd())).toEqual(manifestFile.document);
+		expect(JSON.parse(serialized)).toEqual(manifestFile.document);
 	});
 });

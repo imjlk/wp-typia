@@ -347,7 +347,7 @@ function createCompoundChildStarterManifest(
 }
 
 function stringifyStarterManifest( document: StarterManifestDocument ): string {
-	return `${ JSON.stringify( document, null, '\t' ) }\n`;
+	return JSON.stringify( document, null, '\t' );
 }
 
 function insertBeforeMarker( filePath: string, marker: string, insertionLines: string[] ) {

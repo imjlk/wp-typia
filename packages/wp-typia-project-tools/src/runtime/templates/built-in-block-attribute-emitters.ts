@@ -11,6 +11,19 @@ import type {
 export const DEFAULT_COMPOUND_CHILD_BODY_PLACEHOLDER =
 	"Add supporting details for this internal item.";
 
+const EXAMPLE_UUID = "00000000-0000-4000-8000-000000000000";
+const STRING_EXAMPLES_BY_FORMAT: Readonly<Record<string, string>> = {
+	date: "2026-01-01",
+	"date-time": "2026-01-01T00:00:00.000Z",
+	email: "example@example.com",
+	hostname: "example.com",
+	ipv4: "192.0.2.1",
+	ipv6: "2001:db8::1",
+	time: "00:00:00Z",
+	uri: "https://example.com/",
+	uuid: EXAMPLE_UUID,
+};
+
 type StarterManifestSourceType = NonNullable<ManifestAttribute["wp"]["type"]>;
 type WordPressAttributeSource = NonNullable<ManifestAttribute["wp"]["source"]>;
 
@@ -47,6 +60,97 @@ export interface EmittedAttributeDefinition {
 	name: string;
 	optional: boolean;
 	typeExpression: string;
+}
+
+function createNumberExampleValue(
+	attributeName: string,
+	constraints: Partial<ManifestConstraints> | undefined,
+): number {
+	const minimum = constraints?.minimum ?? Number.NEGATIVE_INFINITY;
+	const exclusiveMinimum =
+		constraints?.exclusiveMinimum ?? Number.NEGATIVE_INFINITY;
+	const maximum = constraints?.maximum ?? Number.POSITIVE_INFINITY;
+	const exclusiveMaximum =
+		constraints?.exclusiveMaximum ?? Number.POSITIVE_INFINITY;
+	const lowerBound = Math.max(minimum, exclusiveMinimum);
+	const upperBound = Math.min(maximum, exclusiveMaximum);
+	const lowerIsExclusive = exclusiveMinimum >= minimum;
+	const upperIsExclusive = exclusiveMaximum <= maximum;
+
+	if (
+		lowerBound > upperBound ||
+		(lowerBound === upperBound && (lowerIsExclusive || upperIsExclusive))
+	) {
+		throw new Error(
+			`Built-in block attribute "${attributeName}" has incompatible numeric bounds.`,
+		);
+	}
+
+	let candidate = 0;
+	if (
+		candidate < lowerBound ||
+		(candidate === lowerBound && lowerIsExclusive) ||
+		candidate > upperBound ||
+		(candidate === upperBound && upperIsExclusive)
+	) {
+		if (Number.isFinite(lowerBound) && Number.isFinite(upperBound)) {
+			candidate =
+				lowerBound === upperBound
+					? lowerBound
+					: lowerBound / 2 + upperBound / 2;
+		} else if (Number.isFinite(lowerBound)) {
+			candidate = lowerIsExclusive ? lowerBound + 1 : lowerBound;
+		} else if (Number.isFinite(upperBound)) {
+			candidate = upperIsExclusive ? upperBound - 1 : upperBound;
+		}
+	}
+
+	return candidate;
+}
+
+/**
+ * Resolves a deterministic preview value from defaults, enums, scalar kinds,
+ * and the supported built-in constraint formats, in that priority order.
+ */
+function createBlockJsonExampleValue(
+	attribute: EmittedAttributeDefinition,
+): JsonValue {
+	const { constraints, defaultValue, enumValues } = attribute.manifest;
+	if (defaultValue !== undefined) {
+		return defaultValue;
+	}
+	if (enumValues && enumValues.length > 0) {
+		return enumValues[0];
+	}
+	if (attribute.manifest.kind === "boolean") {
+		return true;
+	}
+	if (attribute.manifest.kind === "number") {
+		return createNumberExampleValue(attribute.name, constraints);
+	}
+	if (attribute.manifest.kind === "array") {
+		return [];
+	}
+	if (attribute.manifest.kind === "object") {
+		return {};
+	}
+	if (attribute.manifest.kind === "union") {
+		return null;
+	}
+
+	const format = constraints?.format;
+	const formattedExample = format
+		? STRING_EXAMPLES_BY_FORMAT[format]
+		: undefined;
+	if (formattedExample) {
+		return formattedExample;
+	}
+
+	const example = `Example ${attribute.name}`;
+	const minLength = constraints?.minLength ?? 0;
+	return example.length >= minLength
+		? example
+		: example.padEnd(minLength, "_");
 }
 
 interface BuiltInAttributeSpec {
@@ -135,17 +239,17 @@ function createManifestAttribute({
 	const hasDefault = defaultValue !== undefined;
 
 	return {
+		typia: {
+			constraints: createConstraints(constraints),
+			defaultValue: hasDefault ? defaultValue : null,
+			hasDefault,
+		},
 		ts: {
 			items: null,
 			kind,
 			properties: null,
 			required,
 			union: null,
-		},
-		typia: {
-			constraints: createConstraints(constraints),
-			defaultValue: hasDefault ? defaultValue : null,
-			hasDefault,
 		},
 		wp: {
 			defaultValue: hasDefault ? defaultValue : null,
@@ -277,11 +381,27 @@ function resolveBuiltInAttributeValue<TContext, TValue>(
 	return value;
 }
 
+function appendWordPressExtractionTags(
+	typeExpression: string,
+	source: WordPressAttributeSource | null | undefined,
+	selector: string | null | undefined,
+): string {
+	return [
+		typeExpression,
+		...(source ? [`tags.Source<${JSON.stringify(source)}>`] : []),
+		...(selector ? [`tags.Selector<${JSON.stringify(selector)}>`] : []),
+	].join(" & ");
+}
+
 export function buildAttributesFromSpecs<TContext>(
 	specs: readonly BuiltInAttributeTemplateSpec<TContext>[],
 	context: TContext,
 ): EmittedAttributeDefinition[] {
 	return specs.map((spec) => {
+		const selector = resolveBuiltInAttributeValue(spec.selector, context);
+		const source = resolveBuiltInAttributeValue(spec.source, context);
+		const typeExpression =
+			resolveBuiltInAttributeValue(spec.typeExpression, context) ?? "unknown";
 		const resolvedSpec: Omit<BuiltInAttributeSpec, "kind" | "sourceType"> = {
 			blockJsonDefaultValue: resolveBuiltInAttributeValue(
 				spec.blockJsonDefaultValue,
@@ -297,12 +417,13 @@ export function buildAttributesFromSpecs<TContext>(
 			),
 			name: spec.name,
 			optional: spec.optional,
-			selector: resolveBuiltInAttributeValue(spec.selector, context),
-			source: resolveBuiltInAttributeValue(spec.source, context),
-			typeExpression: resolveBuiltInAttributeValue(
-				spec.typeExpression,
-				context,
-			) ?? "unknown",
+			selector,
+			source,
+			typeExpression: appendWordPressExtractionTags(
+				typeExpression,
+				source,
+				selector,
+			),
 		};
 
 		if (spec.attributeType === "boolean") {
@@ -353,6 +474,21 @@ export function buildBlockJsonAttributes(
 		attributes.map((attribute) => [
 			attribute.name,
 			createBlockJsonAttribute(attribute.blockJson),
+		]),
+	);
+}
+
+/**
+ * Builds the canonical block preview examples derived from emitted defaults,
+ * enums, and supported scalar constraints.
+ */
+export function buildBlockJsonExampleAttributes(
+	attributes: readonly EmittedAttributeDefinition[],
+): Record<string, JsonValue> {
+	return Object.fromEntries(
+		attributes.map((attribute) => [
+			attribute.name,
+			createBlockJsonExampleValue(attribute),
 		]),
 	);
 }

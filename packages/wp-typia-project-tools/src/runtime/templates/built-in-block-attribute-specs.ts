@@ -10,8 +10,7 @@ import type {
 	EmittedAttributeDefinition,
 } from "./built-in-block-attribute-emitters.js";
 
-const ALIGNMENT_VALUES = ["left", "center", "right"] as const;
-const BASIC_ALIGNMENT_VALUES = ["left", "center", "right", "justify"] as const;
+const ALIGNMENT_VALUES = ["left", "center", "right", "justify"] as const;
 const INTERACTIVE_MODE_VALUES = ["click", "hover"] as const;
 const ANIMATION_VALUES = ["none", "bounce", "pulse", "shake", "flip"] as const;
 interface CompoundChildAttributeVariables {
@@ -35,7 +34,7 @@ const BASIC_ATTRIBUTE_SPECS = [
 		attributeType: "string",
 		defaultValue: "left",
 		description: describe("Alignment"),
-		enumValues: [...BASIC_ALIGNMENT_VALUES],
+		enumValues: [...ALIGNMENT_VALUES],
 		name: "alignment",
 		optional: true,
 		typeExpression: 'TextAlignment & tags.Default<"left">',
@@ -219,12 +218,11 @@ const PERSISTENCE_ATTRIBUTE_SPECS = [
 	},
 	{
 		attributeType: "string",
-		blockJsonDefaultValue: "",
 		constraints: {
 			maxLength: 100,
 			minLength: 1,
 		},
-		manifestDefaultValue: "primary",
+		defaultValue: "primary",
 		name: "resourceKey",
 		optional: true,
 		typeExpression:
@@ -294,12 +292,11 @@ const COMPOUND_PARENT_PERSISTENCE_ATTRIBUTE_SPECS = [
 	},
 	{
 		attributeType: "string",
-		blockJsonDefaultValue: "",
 		constraints: {
 			maxLength: 100,
 			minLength: 1,
 		},
-		manifestDefaultValue: "primary",
+		defaultValue: "primary",
 		name: "resourceKey",
 		optional: true,
 		typeExpression:

@@ -11,6 +11,10 @@ import {
   buildBuiltInBlockArtifacts,
   stringifyBuiltInBlockJsonDocument,
 } from '../src/runtime/built-in-block-artifacts.js';
+import {
+  buildBlockJsonExampleAttributes,
+  type EmittedAttributeDefinition,
+} from '../src/runtime/templates/built-in-block-artifact-documents.js';
 import { buildBuiltInCodeArtifacts } from '../src/runtime/built-in-block-code-artifacts.js';
 import {
   getBuiltInTemplateLayerDirs,
@@ -72,6 +76,34 @@ function buildArtifacts(templateId: BuiltInTemplateId) {
     }),
     answers,
     variables,
+  };
+}
+
+function buildExampleAttribute({
+  constraints,
+  kind,
+  name,
+}: {
+  constraints: EmittedAttributeDefinition['manifest']['constraints'];
+  kind: EmittedAttributeDefinition['manifest']['kind'];
+  name: string;
+}): EmittedAttributeDefinition {
+  return {
+    blockJson: {
+      type: kind,
+    },
+    manifest: {
+      constraints,
+      enumValues: null,
+      kind,
+      required: true,
+      selector: null,
+      source: null,
+      sourceType: kind,
+    },
+    name,
+    optional: false,
+    typeExpression: kind,
   };
 }
 
@@ -254,7 +286,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: '',
+            default: 'primary',
             type: 'string',
           },
           manifest: {
@@ -338,7 +370,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         alignment: {
           blockJson: {
             default: 'left',
-            enum: ['left', 'center', 'right'],
+            enum: ['left', 'center', 'right', 'justify'],
             type: 'string',
           },
           manifest: {
@@ -468,7 +500,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         alignment: {
           blockJson: {
             default: 'left',
-            enum: ['left', 'center', 'right'],
+            enum: ['left', 'center', 'right', 'justify'],
             type: 'string',
           },
           manifest: {
@@ -522,7 +554,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: '',
+            default: 'primary',
             type: 'string',
           },
           manifest: {
@@ -640,6 +672,56 @@ describe('built-in block artifacts', () => {
 
   afterAll(() => {
     cleanupScaffoldTempRoot(tempRoot);
+  });
+
+  test('block preview examples honor constraints and structured kinds', () => {
+    expect(
+      buildBlockJsonExampleAttributes([
+        buildExampleAttribute({
+          constraints: { format: 'email' },
+          kind: 'string',
+          name: 'contactEmail',
+        }),
+        buildExampleAttribute({
+          constraints: { minLength: 32 },
+          kind: 'string',
+          name: 'summary',
+        }),
+        buildExampleAttribute({
+          constraints: { exclusiveMinimum: 5, maximum: 5.5 },
+          kind: 'number',
+          name: 'count',
+        }),
+        buildExampleAttribute({
+          constraints: { format: 'duration', minLength: 20 },
+          kind: 'string',
+          name: 'duration',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'array',
+          name: 'items',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'object',
+          name: 'settings',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'union',
+          name: 'choice',
+        }),
+      ]),
+    ).toEqual({
+      choice: null,
+      contactEmail: 'example@example.com',
+      count: 5.25,
+      duration: 'Example duration____',
+      items: [],
+      settings: {},
+      summary: 'Example summary_________________',
+    });
   });
 
 	test('built-in code artifact assembly keeps template bodies in family modules', () => {
@@ -879,7 +961,7 @@ describe('built-in block artifacts', () => {
           }),
         );
         expect(resourceKeyAttribute?.typia.defaultValue).toBe('primary');
-        expect(resourceKeyBlockJson?.default).toBe('');
+        expect(resourceKeyBlockJson?.default).toBe('primary');
       }
 
       if (templateId === 'compound') {
@@ -906,7 +988,7 @@ describe('built-in block artifacts', () => {
             parent: [`${variables.namespace}/${variables.slugKebabCase}`],
           }),
         );
-        expect(parentResourceKeyBlockJson?.default).toBe('');
+        expect(parentResourceKeyBlockJson?.default).toBe('primary');
       }
     },
   );

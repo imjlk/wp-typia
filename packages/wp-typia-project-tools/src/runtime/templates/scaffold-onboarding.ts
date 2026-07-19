@@ -122,10 +122,10 @@ export function getQuickStartWorkflowNote(
 	}
 
 	if (templateHasPersistenceSync(templateId, options)) {
-		return `${devCommand} keeps the editor, type-derived artifacts, and REST-derived artifacts moving together during local development. Use ${startCommand} for a one-shot sync plus editor startup, and ${doctorCommand} when you want an explicit verification pass before build or commit.`;
+		return `${devCommand} runs a full generated-artifact sync before starting the watchers, then keeps the editor, type-derived artifacts, and REST-derived artifacts moving together during local development. Use ${startCommand} for a one-shot sync plus editor startup, and ${doctorCommand} when you want an explicit verification pass before build or commit.`;
 	}
 
-	return `${devCommand} keeps the editor and type-derived artifacts moving together during local development. Use ${startCommand} for a one-shot sync plus editor startup, and ${doctorCommand} when you want an explicit verification pass before build or commit.`;
+	return `${devCommand} runs a full generated-artifact sync before starting the watchers, then keeps the editor and type-derived artifacts moving together during local development. Use ${startCommand} for a one-shot sync plus editor startup, and ${doctorCommand} when you want an explicit verification pass before build or commit.`;
 }
 
 /**

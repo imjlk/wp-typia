@@ -2,6 +2,8 @@ import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 
+import { syncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";
+
 import {
 	applyGeneratedProjectDxPackageJson,
 	applyLocalDevPresetFiles,
@@ -172,7 +174,7 @@ async function withEphemeralScaffoldNodeModules(
 	const sourceNodeModulesPath = await resolveScaffoldGeneratorNodeModulesPath();
 	if (!sourceNodeModulesPath) {
 		throw new Error(
-			"Unable to resolve a node_modules directory with typia for scaffold-time REST artifact generation.",
+			"Unable to resolve a node_modules directory with typia for scaffold-time artifact generation.",
 		);
 	}
 
@@ -183,6 +185,57 @@ async function withEphemeralScaffoldNodeModules(
 	} finally {
 		await fsp.rm(targetNodeModulesPath, { force: true, recursive: true });
 	}
+}
+
+/**
+ * Generate the same canonical block metadata artifacts that the scaffold's
+ * checked-in `sync-types` script will verify after dependencies are installed.
+ */
+export async function seedBuiltInBlockMetadataArtifacts(
+	targetDir: string,
+	templateId: BuiltInTemplateId,
+	artifacts: readonly BuiltInBlockArtifact[],
+): Promise<void> {
+	if (artifacts.length === 0) {
+		return;
+	}
+
+	const emitsSchemaDocuments =
+		templateId === "persistence" || templateId === "compound";
+
+	await withEphemeralScaffoldNodeModules(targetDir, async () => {
+		for (const artifact of artifacts) {
+			const sourceTypeName = artifact.manifestDocument.sourceType;
+			if (!sourceTypeName) {
+				throw new Error(
+					`Built-in block artifact at ${artifact.relativeDir} is missing its source type name.`,
+				);
+			}
+
+			await syncBlockMetadata({
+				blockJsonFile: path.join(artifact.relativeDir, "block.json"),
+				...(emitsSchemaDocuments
+					? {
+							jsonSchemaFile: path.join(
+								artifact.relativeDir,
+								"typia.schema.json",
+							),
+							openApiFile: path.join(
+								artifact.relativeDir,
+								"typia.openapi.json",
+							),
+						}
+					: {}),
+				manifestFile: path.join(
+					artifact.relativeDir,
+					"typia.manifest.json",
+				),
+				projectRoot: targetDir,
+				sourceTypeName,
+				typesFile: path.join(artifact.relativeDir, "types.ts"),
+			});
+		}
+	});
 }
 
 /**
@@ -398,7 +451,6 @@ export async function applyBuiltInScaffoldProjectFiles({
 		title: "Seeding scaffold artifacts",
 	});
 	await writeStarterManifestFiles(projectDir, templateId, variables, artifacts);
-	await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
 	await applyLocalDevPresetFiles({
 		projectDir,
 		variables,
@@ -454,6 +506,8 @@ export async function applyBuiltInScaffoldProjectFiles({
 	await replaceTextRecursively(projectDir, packageManager, {
 		repositoryReference,
 	});
+	await seedBuiltInBlockMetadataArtifacts(projectDir, templateId, artifacts ?? []);
+	await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
 
 	if (!noInstall) {
 		await reportScaffoldProgress(onProgress, {

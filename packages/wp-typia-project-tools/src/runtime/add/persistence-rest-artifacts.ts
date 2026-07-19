@@ -35,20 +35,20 @@ export function buildPersistenceEndpointManifest(
 ) {
 	return defineEndpointManifest({
 		contracts: {
+			"state-query": {
+				sourceTypeName: `${variables.pascalCase}StateQuery`,
+			},
 			"bootstrap-query": {
 				sourceTypeName: `${variables.pascalCase}BootstrapQuery`,
+			},
+			"write-state-request": {
+				sourceTypeName: `${variables.pascalCase}WriteStateRequest`,
 			},
 			"bootstrap-response": {
 				sourceTypeName: `${variables.pascalCase}BootstrapResponse`,
 			},
-			"state-query": {
-				sourceTypeName: `${variables.pascalCase}StateQuery`,
-			},
 			"state-response": {
 				sourceTypeName: `${variables.pascalCase}StateResponse`,
-			},
-			"write-state-request": {
-				sourceTypeName: `${variables.pascalCase}WriteStateRequest`,
 			},
 		},
 		endpoints: [
@@ -114,6 +114,10 @@ export async function syncPersistenceRestArtifacts({
 			{
 				jsonSchemaFile: path.join(outputDir, "api-schemas", `${baseName}.schema.json`),
 				openApiFile: path.join(outputDir, "api-schemas", `${baseName}.openapi.json`),
+				openApiInfo: {
+					title: contract.sourceTypeName,
+					version: "1.0.0",
+				},
 				projectRoot: projectDir,
 				sourceTypeName: contract.sourceTypeName,
 				typesFile: apiTypesFile,

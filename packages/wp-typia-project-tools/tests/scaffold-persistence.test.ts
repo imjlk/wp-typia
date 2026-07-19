@@ -34,6 +34,8 @@ test(
       persistencePolicy: "public",
     });
 
+    runGeneratedScript(targetDir, "scripts/sync-project.ts", ["--check"]);
+
     const packageJson = JSON.parse(
       fs.readFileSync(path.join(targetDir, "package.json"), "utf8")
     );
@@ -131,7 +133,7 @@ test(
       "npm run sync -- --check && wp-scripts build --experimental-modules"
     );
     expect(packageJson.scripts.dev).toBe(
-      'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
+      'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
     );
     expect(packageJson.scripts["start:editor"]).toBe(
       "wp-scripts start --experimental-modules"
@@ -149,7 +151,7 @@ test(
     expect(blockJson.version).toBe("0.1.0");
     expect(blockJson.category).toBe("widgets");
     expect(blockJson.icon).toBe("database");
-    expect(blockJson.attributes.resourceKey.default).toBe("");
+    expect(blockJson.attributes.resourceKey.default).toBe("primary");
     expect(generatedManifest.manifestVersion).toBe(2);
     expect(generatedManifest.sourceType).toBe(
       "DemoPersistencePublicAttributes"
@@ -578,7 +580,7 @@ test(
   expect(packageJson.name).toBe("demo-persistence-authenticated");
   expect(packageJson.devDependencies.prettier).toBe("3.8.2");
   expect(packageJson.scripts.dev).toBe(
-    'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
+    'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
   );
   expect(blockJson.textdomain).toBe("demo-persistence-authenticated");
   expect(generatedManifest.manifestVersion).toBe(2);

@@ -42,6 +42,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const packageJson = JSON.parse(
         fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'),
       );
@@ -217,7 +219,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
@@ -624,6 +626,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const packageJson = JSON.parse(
         fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'),
       );
@@ -796,7 +800,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         restPackageVersion,
       );
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
@@ -837,7 +841,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(pluginBootstrap).toContain("return 'wpt_pcl_' . md5(");
       expect(parentBlockJson.render).toBe('file:./render.php');
       expect(parentBlockJson.viewScriptModule).toBe('file:./interactivity.js');
-      expect(parentBlockJson.attributes.resourceKey.default).toBe('');
+      expect(parentBlockJson.attributes.resourceKey.default).toBe('primary');
       expect(parentManifest.attributes.resourceKey.typia.defaultValue).toBe(
         'primary',
       );

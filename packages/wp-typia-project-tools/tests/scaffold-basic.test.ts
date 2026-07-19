@@ -40,6 +40,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const packageJsonPath = path.join(targetDir, 'package.json');
       const readmePath = path.join(targetDir, 'README.md');
 
@@ -140,7 +142,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
       expect(packageJson.scripts['start:editor']).toBe(
         'wp-scripts start --experimental-modules',
@@ -288,7 +290,14 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedEdit).not.toMatch(/[가-힣]/u);
       expect(generatedSave).not.toMatch(/[가-힣]/u);
       expect(generatedValidators).not.toMatch(/[가-힣]/u);
-      expect(blockJson.example.attributes.content).toBe('Example content');
+      expect(blockJson.example.attributes).toEqual({
+        content: '',
+        alignment: 'left',
+        isVisible: true,
+        className: '',
+        id: '00000000-0000-4000-8000-000000000000',
+        schemaVersion: 1,
+      });
       expect(fs.existsSync(path.join(targetDir, '.wp-env.json'))).toBe(false);
       expect(fs.existsSync(path.join(targetDir, '.wp-env.test.json'))).toBe(
         false,
@@ -688,6 +697,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const generatedTypes = fs.readFileSync(
         path.join(targetDir, 'src', 'types.ts'),
         'utf8',
@@ -765,7 +776,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(packageJson.devDependencies.prettier).toBe('3.8.2');
       expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',

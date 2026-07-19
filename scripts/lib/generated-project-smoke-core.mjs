@@ -125,6 +125,15 @@ export function runScaffoldRefreshScripts(projectDir, packageManager, packageJso
 	}
 }
 
+export function runFreshScaffoldSyncCheck(projectDir, packageManager, packageJson) {
+	if (typeof packageJson.scripts?.sync !== "string") {
+		return;
+	}
+
+	const [command, args] = getRunScriptCommand(packageManager, "sync", ["--check"]);
+	run(command, args, { cwd: projectDir });
+}
+
 export function runLocalMigrationDoctor(projectDir, runtime) {
 	run(runtime, [entryPath, "migrate", "doctor", "--all"], {
 		cwd: projectDir,
