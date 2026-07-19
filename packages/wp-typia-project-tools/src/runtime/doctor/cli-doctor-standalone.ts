@@ -2334,6 +2334,7 @@ export async function getStandaloneScaffoldDoctorChecks(
   const parsedRestConfig = parseStandaloneRestConfig(
     project.projectDir,
     requiresRest,
+    parsedConfig.options?.sourceTypeName ?? null,
   );
   const dependenciesCheck = getDependenciesCheck(project, requiresRest);
   return [

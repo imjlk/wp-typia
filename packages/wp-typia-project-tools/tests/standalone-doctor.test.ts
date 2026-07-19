@@ -1454,6 +1454,41 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     }
   }, 20_000);
 
+  test('rejects REST preflights for a different standalone source type', async () => {
+    const targetDir = path.join(tempRoot, 'rest-preflight-source-type');
+    await scaffoldPersistence(targetDir);
+    const syncTypesSource = fs.readFileSync(
+      path.join(targetDir, 'scripts', 'sync-types-to-block-json.ts'),
+      'utf8',
+    );
+    const sourceTypeMatch = syncTypesSource.match(
+      /sourceTypeName:\s*'([^']+)'/u,
+    );
+    expect(sourceTypeMatch?.[1]).toBeTruthy();
+
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const source = original.replace(
+      `sourceTypeName: '${sourceTypeMatch?.[1]}',`,
+      "sourceTypeName: 'DetachedAttributes',",
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncRestPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
   test('rejects REST helpers that stop parsing the process --check flag', async () => {
     const mutations = [
       ['argv', 'process.argv.slice( 2 )', '[]'],
@@ -1578,6 +1613,48 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
     );
   });
+
+  test('rejects REST sync calls that override the replay project root', async () => {
+    const mutations = [
+      [
+        'schemas',
+        'await syncTypeSchemas( {\n\t\t\tjsonSchemaFile:',
+        "await syncTypeSchemas( {\n\t\t\tprojectRoot: 'detached-root',\n\t\t\tjsonSchemaFile:",
+      ],
+      [
+        'openapi',
+        'await syncRestOpenApi( {\n\t\tmanifest:',
+        "await syncRestOpenApi( {\n\t\tprojectRoot: 'detached-root',\n\t\tmanifest:",
+      ],
+      [
+        'client',
+        'await syncEndpointClient( {\n\t\tclientFile:',
+        "await syncEndpointClient( {\n\t\tprojectRoot: 'detached-root',\n\t\tclientFile:",
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `rest-project-root-${name}`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+      );
+    }
+  }, 30_000);
 
   test('rejects duplicate canonical REST schema sync loops', async () => {
     const targetDir = path.join(tempRoot, 'duplicate-rest-schema-loop');

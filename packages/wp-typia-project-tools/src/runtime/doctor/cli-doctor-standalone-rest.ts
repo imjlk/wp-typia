@@ -834,6 +834,7 @@ function isCatchAllFailureGuard(
 
 function hasCanonicalTypeArtifactPreflight(
   sourceFile: ts.SourceFile,
+  sourceTypeName: string,
 ): boolean {
   const declaration = getTopLevelFunctionDeclaration(
     sourceFile,
@@ -876,8 +877,7 @@ function hasCanonicalTypeArtifactPreflight(
     !isStringValue(input.get('manifestFile'), 'src/typia.manifest.json') ||
     !isStringValue(input.get('openApiFile'), 'src/typia.openapi.json') ||
     !isStringValue(input.get('typesFile'), 'src/types.ts') ||
-    !input.get('sourceTypeName') ||
-    !ts.isStringLiteralLike(input.get('sourceTypeName')!)
+    !isStringValue(input.get('sourceTypeName'), sourceTypeName)
   ) {
     return false;
   }
@@ -1183,7 +1183,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
   );
 }
 
-function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
+function hasCanonicalRestSyncCalls(
+  sourceFile: ts.SourceFile,
+  sourceTypeName: string,
+): boolean {
   const syncTypeBindings = getNamedImportBindings(
     sourceFile,
     'syncTypeSchemas',
@@ -1228,7 +1231,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
   }
   const optionsBinding = optionsDeclaration.binding;
 
-  if (!hasCanonicalTypeArtifactPreflight(sourceFile)) {
+  if (!hasCanonicalTypeArtifactPreflight(sourceFile, sourceTypeName)) {
     return false;
   }
   const preflightCallIndexes = mainBody.statements.flatMap(
@@ -1262,6 +1265,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
           syncTypeBindings,
           optionsBinding,
           (properties) =>
+            properties.size === 5 &&
             isTemplatePathValue(
               properties.get('jsonSchemaFile'),
               loopBindings.baseName,
@@ -1298,6 +1302,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
         syncOpenApiBindings,
         optionsBinding,
         (properties) =>
+          properties.size === 3 &&
           isIdentifierValue(
             properties.get('manifest'),
             'REST_ENDPOINT_MANIFEST',
@@ -1317,6 +1322,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
         syncClientBindings,
         optionsBinding,
         (properties) =>
+          properties.size === 3 &&
           isIdentifierValue(
             properties.get('manifest'),
             'REST_ENDPOINT_MANIFEST',
@@ -1352,6 +1358,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
 export function parseStandaloneRestConfig(
   projectDir: string,
   requiresRest: boolean,
+  sourceTypeName: string | null,
 ): ParsedStandaloneRestConfig {
   const syncRestPath = path.join(projectDir, STANDALONE_SYNC_REST_SCRIPT);
   if (!fs.existsSync(syncRestPath)) {
@@ -1408,7 +1415,10 @@ export function parseStandaloneRestConfig(
       requiresRest,
     };
   }
-  if (!hasCanonicalRestSyncCalls(sourceFile)) {
+  if (
+    sourceTypeName === null ||
+    !hasCanonicalRestSyncCalls(sourceFile, sourceTypeName)
+  ) {
     return {
       artifactPaths: [],
       manifest: null,
