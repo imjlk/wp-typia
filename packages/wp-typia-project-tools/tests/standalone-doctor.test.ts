@@ -673,9 +673,19 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       [
         "import { runSyncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';",
         "const paths = { blockJsonFile: 'src/block.json' };",
-        'function parseCliOptions() { return { check: false }; }',
+        'function parseCliOptions(argv: string[]) {',
+        '  const options = { check: false };',
+        '  for (const argument of argv) {',
+        "    if (argument === '--check') {",
+        '      options.check = true;',
+        '      continue;',
+        '    }',
+        "    throw new Error(`Unknown flag: ${argument}`);",
+        '  }',
+        '  return options;',
+        '}',
         'async function main() {',
-        '  const options = parseCliOptions();',
+        '  const options = parseCliOptions(process.argv.slice(2));',
         '  const report = await runSyncBlockMetadata({',
         '    ...paths,',
         "    ['sourceTypeName']: 'DynamicSyncConfigAttributes',",
@@ -885,6 +895,60 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects sync-types helpers that stop parsing the process --check flag', async () => {
+    const mutations = [
+      ['argv', 'process.argv.slice(2)', '[]'],
+      ['assignment', 'options.check = true', 'options.check = false'],
+      [
+        'unreachable',
+        'for (let index = 0; index < argv.length; index += 1) {',
+        'for (let index = 0; index < argv.length; index += 1) {\n    break;',
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `sync-types-parser-${name}`);
+      await scaffoldBasic(targetDir);
+      const syncScriptPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-types-to-block-json.ts',
+      );
+      const original = fs.readFileSync(syncScriptPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncScriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  });
+
+  test('rejects sync-types calls hidden after conditional early returns', async () => {
+    const targetDir = path.join(tempRoot, 'sync-types-after-return');
+    await scaffoldBasic(targetDir);
+    const syncScriptPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const source = original.replace(
+      'const report = await runSyncBlockMetadata(',
+      'if ( true ) { return; }\n\tconst report = await runSyncBlockMetadata(',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncScriptPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+  });
+
   test('reports an unreadable sync helper without leaking the project path', async () => {
     const targetDir = path.join(tempRoot, 'missing-sync-helper');
     await scaffoldBasic(targetDir);
@@ -983,6 +1047,28 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'must forward --check through the canonical tsx runner',
       );
     }
+  });
+
+  test('rejects unreachable sync-project failure throws', async () => {
+    const targetDir = path.join(tempRoot, 'sync-project-unreachable-throw');
+    await scaffoldBasic(targetDir);
+    const syncProjectPath = path.join(targetDir, 'scripts', 'sync-project.ts');
+    const original = fs.readFileSync(syncProjectPath, 'utf8');
+    const source = original.replace(
+      '\tthrow result.error;',
+      '\tif ( true ) { return; }\n\n\tthrow result.error;',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncProjectPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must forward --check through the canonical tsx runner',
+    );
   });
 
   test('rejects sync-project delegations hidden in dead branches', async () => {
@@ -1117,6 +1203,63 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects REST helpers with a disabled type-artifact preflight', async () => {
+    const mutations = [
+      ['write-mode', 'check: true', 'check: false'],
+      ['ignored-failure', 'if ( report.failure )', 'if ( false )'],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `rest-preflight-${name}`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  });
+
+  test('rejects REST helpers that stop parsing the process --check flag', async () => {
+    const mutations = [
+      ['argv', 'process.argv.slice( 2 )', '[]'],
+      ['assignment', 'options.check = true', 'options.check = false'],
+      [
+        'unreachable',
+        'for ( const argument of argv ) {',
+        'for ( const argument of argv ) {\n\t\tbreak;',
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `rest-parser-${name}`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  });
+
   test('rejects REST helpers that swallow top-level failures', async () => {
     const targetDir = path.join(tempRoot, 'rest-without-failure-exit');
     await scaffoldPersistence(targetDir);
@@ -1138,6 +1281,36 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
     );
+  });
+
+  test('rejects unreachable or shadowed REST failure exits', async () => {
+    const mutations = [
+      [
+        'unreachable',
+        "console.error( '❌ REST contract sync failed:', error );",
+        "console.error( '❌ REST contract sync failed:', error );\n\tif ( true ) { return; }",
+      ],
+      ['shadowed', '/* eslint-disable no-console */', "import process from 'node:process';"],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `rest-failure-exit-${name}`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
   });
 
   test('rejects zero-argument REST sync calls in main', async () => {

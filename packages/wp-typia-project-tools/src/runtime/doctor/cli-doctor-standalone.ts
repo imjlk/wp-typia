@@ -363,6 +363,31 @@ function hasShadowedBinding(
   return shadowed;
 }
 
+function hasImportedBinding(
+  sourceFile: ts.SourceFile,
+  bindingName: string,
+): boolean {
+  return sourceFile.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !statement.importClause) {
+      return false;
+    }
+    const { name, namedBindings } = statement.importClause;
+    if (name?.text === bindingName) {
+      return true;
+    }
+    if (namedBindings && ts.isNamespaceImport(namedBindings)) {
+      return namedBindings.name.text === bindingName;
+    }
+    return (
+      namedBindings !== undefined &&
+      ts.isNamedImports(namedBindings) &&
+      namedBindings.elements.some(
+        (element) => element.name.text === bindingName,
+      )
+    );
+  });
+}
+
 function getAwaitedCallFromVariableStatement(
   statement: ts.Statement,
 ): ts.CallExpression | null {
@@ -425,6 +450,8 @@ function findSyncOptionsObject(
     !main.modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
+    hasShadowedBinding(main, new Set(['parseCliOptions'])) ||
+    !hasCanonicalCheckParser(sourceFile) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
     return null;
@@ -459,7 +486,7 @@ function findSyncOptionsObject(
     return null;
   }
   const [call] = calls;
-  return optionsDeclaration.index < call.index &&
+  return call.index === optionsDeclaration.index + 1 &&
     !hasEarlierAbruptCompletion(statements, call.index)
     ? call.options
     : null;
@@ -740,12 +767,51 @@ function hasEarlierAbruptCompletion(
   statements: readonly ts.Statement[],
   statementIndex: number,
 ): boolean {
+  function containsAbruptCompletion(node: ts.Node): boolean {
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node)
+    ) {
+      return false;
+    }
+    if (ts.isReturnStatement(node) || ts.isThrowStatement(node)) {
+      return true;
+    }
+    let found = false;
+    ts.forEachChild(node, (child) => {
+      if (!found && containsAbruptCompletion(child)) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
   return statements
     .slice(0, statementIndex)
-    .some(
-      (statement) =>
-        ts.isReturnStatement(statement) || ts.isThrowStatement(statement),
-    );
+    .some(containsAbruptCompletion);
+}
+
+function containsReturnCompletion(node: ts.Node): boolean {
+  if (
+    ts.isFunctionDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isMethodDeclaration(node)
+  ) {
+    return false;
+  }
+  if (ts.isReturnStatement(node)) {
+    return true;
+  }
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsReturnCompletion(child)) {
+      found = true;
+    }
+  });
+  return found;
 }
 
 function isResultPropertyAccess(
@@ -782,7 +848,8 @@ function hasCanonicalRunnerErrorGuard(
   return (
     finalStatement !== undefined &&
     ts.isThrowStatement(finalStatement) &&
-    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error')
+    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error') &&
+    !statement.thenStatement.statements.some(containsReturnCompletion)
   );
 }
 
@@ -812,7 +879,11 @@ function hasCanonicalRunnerStatusGuard(
     statement.thenStatement.statements[
       statement.thenStatement.statements.length - 1
     ];
-  return finalStatement !== undefined && ts.isThrowStatement(finalStatement);
+  return (
+    finalStatement !== undefined &&
+    ts.isThrowStatement(finalStatement) &&
+    !statement.thenStatement.statements.some(containsReturnCompletion)
+  );
 }
 
 function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
@@ -899,21 +970,21 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
       return [];
     }
     return statement.declarationList.declarations.flatMap((declaration) => {
-        const call = declaration.initializer;
-        return ts.isIdentifier(declaration.name) &&
-          call !== undefined &&
-          ts.isCallExpression(call) &&
-          ts.isIdentifier(call.expression) &&
-          spawnBindings.has(call.expression.text) &&
-          call.arguments.length === 3 &&
-          ts.isStringLiteralLike(call.arguments[0]) &&
-          call.arguments[0].text === 'tsx' &&
-          ts.isIdentifier(call.arguments[1]) &&
-          call.arguments[1].text === argsBinding &&
-          ts.isObjectLiteralExpression(call.arguments[2])
-          ? [{ binding: declaration.name.text, index }]
-          : [];
-      });
+      const call = declaration.initializer;
+      return ts.isIdentifier(declaration.name) &&
+        call !== undefined &&
+        ts.isCallExpression(call) &&
+        ts.isIdentifier(call.expression) &&
+        spawnBindings.has(call.expression.text) &&
+        call.arguments.length === 3 &&
+        ts.isStringLiteralLike(call.arguments[0]) &&
+        call.arguments[0].text === 'tsx' &&
+        ts.isIdentifier(call.arguments[1]) &&
+        call.arguments[1].text === argsBinding &&
+        ts.isObjectLiteralExpression(call.arguments[2])
+        ? [{ binding: declaration.name.text, index }]
+        : [];
+    });
   });
   if (spawnDeclarations.length !== 1) {
     return false;
@@ -938,7 +1009,10 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
 }
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
-  if (hasShadowedBinding(sourceFile, new Set(['process']))) {
+  if (
+    hasImportedBinding(sourceFile, 'process') ||
+    hasShadowedBinding(sourceFile, new Set(['process']))
+  ) {
     return false;
   }
   return (
@@ -1025,10 +1099,224 @@ function getDirectVariableBinding(
 }
 
 function isParseCliOptionsCall(expression: ts.Expression): boolean {
+  if (
+    !ts.isCallExpression(expression) ||
+    !ts.isIdentifier(expression.expression) ||
+    expression.expression.text !== 'parseCliOptions' ||
+    expression.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const argvSlice = expression.arguments[0];
   return (
-    ts.isCallExpression(expression) &&
-    ts.isIdentifier(expression.expression) &&
-    expression.expression.text === 'parseCliOptions'
+    ts.isCallExpression(argvSlice) &&
+    ts.isPropertyAccessExpression(argvSlice.expression) &&
+    argvSlice.expression.name.text === 'slice' &&
+    ts.isPropertyAccessExpression(argvSlice.expression.expression) &&
+    ts.isIdentifier(argvSlice.expression.expression.expression) &&
+    argvSlice.expression.expression.expression.text === 'process' &&
+    argvSlice.expression.expression.name.text === 'argv' &&
+    argvSlice.arguments.length === 1 &&
+    ts.isNumericLiteral(argvSlice.arguments[0]) &&
+    argvSlice.arguments[0].text === '2'
+  );
+}
+
+function isCanonicalCheckAssignment(
+  statement: ts.Statement,
+  optionsBinding: string,
+): boolean {
+  if (
+    !ts.isExpressionStatement(statement) ||
+    !ts.isBinaryExpression(statement.expression) ||
+    statement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken
+  ) {
+    return false;
+  }
+  const { left, right } = statement.expression;
+  return (
+    isResultPropertyAccess(left, optionsBinding, 'check') &&
+    right.kind === ts.SyntaxKind.TrueKeyword
+  );
+}
+
+function hasCanonicalCheckGuard(
+  body: ts.Block,
+  argumentBinding: string,
+  optionsBinding: string,
+): boolean {
+  const guardIndexes = body.statements.flatMap((statement, index) => {
+      if (
+        !ts.isIfStatement(statement) ||
+        statement.elseStatement ||
+        !ts.isBinaryExpression(statement.expression) ||
+        statement.expression.operatorToken.kind !==
+          ts.SyntaxKind.EqualsEqualsEqualsToken ||
+        !ts.isIdentifier(statement.expression.left) ||
+        statement.expression.left.text !== argumentBinding ||
+        !ts.isStringLiteralLike(statement.expression.right) ||
+        statement.expression.right.text !== '--check' ||
+        !ts.isBlock(statement.thenStatement) ||
+        statement.thenStatement.statements.length !== 2
+      ) {
+        return [];
+      }
+      return (
+        isCanonicalCheckAssignment(
+          statement.thenStatement.statements[0],
+          optionsBinding,
+        ) && ts.isContinueStatement(statement.thenStatement.statements[1])
+      )
+        ? [index]
+        : [];
+    });
+  if (guardIndexes.length !== 1) {
+    return false;
+  }
+  return !body.statements
+    .slice(0, guardIndexes[0])
+    .some(
+      (statement) =>
+        ts.isBreakStatement(statement) || ts.isContinueStatement(statement),
+  );
+}
+
+function getCanonicalForOfArgument(
+  statement: ts.ForOfStatement,
+  argvBinding: string,
+): { argumentBinding: string; body: ts.Block } | null {
+  if (
+    !ts.isIdentifier(statement.expression) ||
+    statement.expression.text !== argvBinding ||
+    !ts.isVariableDeclarationList(statement.initializer) ||
+    statement.initializer.declarations.length !== 1 ||
+    !ts.isIdentifier(statement.initializer.declarations[0].name) ||
+    !ts.isBlock(statement.statement)
+  ) {
+    return null;
+  }
+  return {
+    argumentBinding: statement.initializer.declarations[0].name.text,
+    body: statement.statement,
+  };
+}
+
+function getCanonicalIndexedArgument(
+  statement: ts.ForStatement,
+  argvBinding: string,
+): { argumentBinding: string; body: ts.Block } | null {
+  const initializer = statement.initializer;
+  if (
+    !initializer ||
+    !ts.isVariableDeclarationList(initializer) ||
+    initializer.declarations.length !== 1 ||
+    !ts.isIdentifier(initializer.declarations[0].name) ||
+    !initializer.declarations[0].initializer ||
+    !ts.isNumericLiteral(initializer.declarations[0].initializer) ||
+    initializer.declarations[0].initializer.text !== '0' ||
+    !statement.condition ||
+    !ts.isBinaryExpression(statement.condition) ||
+    statement.condition.operatorToken.kind !== ts.SyntaxKind.LessThanToken ||
+    !ts.isIdentifier(statement.condition.left) ||
+    !ts.isPropertyAccessExpression(statement.condition.right) ||
+    !ts.isIdentifier(statement.condition.right.expression) ||
+    statement.condition.right.expression.text !== argvBinding ||
+    statement.condition.right.name.text !== 'length' ||
+    !statement.incrementor ||
+    !ts.isBinaryExpression(statement.incrementor) ||
+    statement.incrementor.operatorToken.kind !== ts.SyntaxKind.PlusEqualsToken ||
+    !ts.isIdentifier(statement.incrementor.left) ||
+    !ts.isNumericLiteral(statement.incrementor.right) ||
+    statement.incrementor.right.text !== '1' ||
+    !ts.isBlock(statement.statement)
+  ) {
+    return null;
+  }
+  const indexBinding = initializer.declarations[0].name.text;
+  if (
+    statement.condition.left.text !== indexBinding ||
+    statement.incrementor.left.text !== indexBinding
+  ) {
+    return null;
+  }
+  const argumentDeclaration = getDirectVariableBinding(
+    statement.statement.statements,
+    (value) =>
+      ts.isElementAccessExpression(value) &&
+      ts.isIdentifier(value.expression) &&
+      value.expression.text === argvBinding &&
+      value.argumentExpression !== undefined &&
+      ts.isIdentifier(value.argumentExpression) &&
+      value.argumentExpression.text === indexBinding,
+  );
+  return argumentDeclaration
+    ? {
+        argumentBinding: argumentDeclaration.binding,
+        body: statement.statement,
+      }
+    : null;
+}
+
+function hasCanonicalCheckParser(sourceFile: ts.SourceFile): boolean {
+  const parser = getSingleTopLevelFunction(sourceFile, 'parseCliOptions');
+  if (
+    !parser?.body ||
+    parser.parameters.length !== 1 ||
+    !ts.isIdentifier(parser.parameters[0].name) ||
+    parser.body.statements.length !== 3
+  ) {
+    return false;
+  }
+  const argvBinding = parser.parameters[0].name.text;
+  const optionsStatement = parser.body.statements[0];
+  if (
+    !ts.isVariableStatement(optionsStatement) ||
+    !(optionsStatement.declarationList.flags & ts.NodeFlags.Const) ||
+    optionsStatement.declarationList.declarations.length !== 1
+  ) {
+    return false;
+  }
+  const optionsDeclaration = optionsStatement.declarationList.declarations[0];
+  if (
+    !ts.isIdentifier(optionsDeclaration.name) ||
+    !optionsDeclaration.initializer ||
+    !ts.isObjectLiteralExpression(optionsDeclaration.initializer)
+  ) {
+    return false;
+  }
+  const checkProperty = optionsDeclaration.initializer.properties.filter(
+    (property): property is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(property) &&
+      !ts.isComputedPropertyName(property.name) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === 'check',
+  );
+  if (
+    checkProperty.length !== 1 ||
+    checkProperty[0].initializer.kind !== ts.SyntaxKind.FalseKeyword
+  ) {
+    return false;
+  }
+
+  const loopStatement = parser.body.statements[1];
+  const loop = ts.isForOfStatement(loopStatement)
+    ? getCanonicalForOfArgument(loopStatement, argvBinding)
+    : ts.isForStatement(loopStatement)
+      ? getCanonicalIndexedArgument(loopStatement, argvBinding)
+      : null;
+  const returnStatement = parser.body.statements[2];
+  return (
+    loop !== null &&
+    !containsReturnCompletion(loop.body) &&
+    hasCanonicalCheckGuard(
+      loop.body,
+      loop.argumentBinding,
+      optionsDeclaration.name.text,
+    ) &&
+    ts.isReturnStatement(returnStatement) &&
+    returnStatement.expression !== undefined &&
+    ts.isIdentifier(returnStatement.expression) &&
+    returnStatement.expression.text === optionsDeclaration.name.text
   );
 }
 
@@ -1169,6 +1457,9 @@ function getSyncProjectDelegationProblem(
     true,
     ts.ScriptKind.TS,
   );
+  if (!hasCanonicalCheckParser(sourceFile)) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must parse and forward --check through the canonical tsx runner.`;
+  }
   if (!hasCanonicalSyncRunner(sourceFile)) {
     return `${STANDALONE_SYNC_PROJECT_SCRIPT} must forward --check through the canonical tsx runner.`;
   }

@@ -345,6 +345,31 @@ function hasShadowedImportBinding(
   return shadowed;
 }
 
+function hasImportedBinding(
+  sourceFile: ts.SourceFile,
+  bindingName: string,
+): boolean {
+  return sourceFile.statements.some((statement) => {
+    if (!ts.isImportDeclaration(statement) || !statement.importClause) {
+      return false;
+    }
+    const { name, namedBindings } = statement.importClause;
+    if (name?.text === bindingName) {
+      return true;
+    }
+    if (namedBindings && ts.isNamespaceImport(namedBindings)) {
+      return namedBindings.name.text === bindingName;
+    }
+    return (
+      namedBindings !== undefined &&
+      ts.isNamedImports(namedBindings) &&
+      namedBindings.elements.some(
+        (element) => element.name.text === bindingName,
+      )
+    );
+  });
+}
+
 function findStaticEndpointManifest(
   sourceFile: ts.SourceFile,
   bindings: ReadonlySet<string>,
@@ -433,6 +458,36 @@ function getDirectAwaitedCall(
   }
   const awaitedExpression = unwrapStaticExpression(expression.expression);
   return ts.isCallExpression(awaitedExpression) ? awaitedExpression : null;
+}
+
+function hasEarlierAbruptCompletion(
+  statements: readonly ts.Statement[],
+  statementIndex: number,
+): boolean {
+  function containsAbruptCompletion(node: ts.Node): boolean {
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node)
+    ) {
+      return false;
+    }
+    if (ts.isReturnStatement(node) || ts.isThrowStatement(node)) {
+      return true;
+    }
+    let found = false;
+    ts.forEachChild(node, (child) => {
+      if (!found && containsAbruptCompletion(child)) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
+  return statements
+    .slice(0, statementIndex)
+    .some(containsAbruptCompletion);
 }
 
 function getObjectLiteralProperties(
@@ -551,6 +606,155 @@ function hasCanonicalCheckOptions(
   );
 }
 
+function getDirectAwaitedVariableCall(
+  statement: ts.Statement,
+): { binding: string; call: ts.CallExpression } | null {
+  if (
+    !ts.isVariableStatement(statement) ||
+    !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+    statement.declarationList.declarations.length !== 1
+  ) {
+    return null;
+  }
+  const declaration = statement.declarationList.declarations[0];
+  if (
+    !ts.isIdentifier(declaration.name) ||
+    !declaration.initializer ||
+    !ts.isAwaitExpression(declaration.initializer)
+  ) {
+    return null;
+  }
+  const awaited = unwrapStaticExpression(declaration.initializer.expression);
+  return ts.isCallExpression(awaited)
+    ? { binding: declaration.name.text, call: awaited }
+    : null;
+}
+
+function hasCanonicalTrueCheck(expression: ts.Expression): boolean {
+  const properties = getObjectLiteralProperties(expression);
+  return (
+    properties?.size === 1 &&
+    properties.get('check')?.kind === ts.SyntaxKind.TrueKeyword
+  );
+}
+
+function hasDirectThrowingBlock(statement: ts.Statement): boolean {
+  if (
+    !ts.isIfStatement(statement) ||
+    statement.elseStatement ||
+    !ts.isBlock(statement.thenStatement)
+  ) {
+    return false;
+  }
+  const statements = statement.thenStatement.statements;
+  const finalStatement = statements[statements.length - 1];
+  return (
+    finalStatement !== undefined &&
+    ts.isThrowStatement(finalStatement) &&
+    !hasEarlierAbruptCompletion(statements, statements.length - 1)
+  );
+}
+
+function isStaleArtifactFailureGuard(
+  statement: ts.Statement,
+  reportBinding: string,
+): boolean {
+  if (
+    !hasDirectThrowingBlock(statement) ||
+    !ts.isIfStatement(statement) ||
+    !ts.isBinaryExpression(statement.expression) ||
+    statement.expression.operatorToken.kind !==
+      ts.SyntaxKind.EqualsEqualsEqualsToken ||
+    !ts.isPropertyAccessExpression(statement.expression.left) ||
+    statement.expression.left.name.text !== 'code' ||
+    !isIdentifierPropertyAccess(
+      statement.expression.left.expression,
+      reportBinding,
+      'failure',
+    ) ||
+    !ts.isStringLiteralLike(statement.expression.right)
+  ) {
+    return false;
+  }
+  return statement.expression.right.text === 'stale-generated-artifact';
+}
+
+function isCatchAllFailureGuard(
+  statement: ts.Statement,
+  reportBinding: string,
+): boolean {
+  return (
+    hasDirectThrowingBlock(statement) &&
+    ts.isIfStatement(statement) &&
+    isIdentifierPropertyAccess(
+      statement.expression,
+      reportBinding,
+      'failure',
+    )
+  );
+}
+
+function hasCanonicalTypeArtifactPreflight(
+  sourceFile: ts.SourceFile,
+): boolean {
+  const declaration = getTopLevelFunctionDeclaration(
+    sourceFile,
+    'assertTypeArtifactsCurrent',
+  );
+  const syncBindings = getNamedImportBindings(
+    sourceFile,
+    'runSyncBlockMetadata',
+  );
+  if (
+    !declaration?.body ||
+    declaration.parameters.length !== 0 ||
+    !declaration.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
+    declaration.body.statements.length !== 3 ||
+    countBindingDeclarations(sourceFile, 'assertTypeArtifactsCurrent') !== 1 ||
+    syncBindings.size === 0 ||
+    hasShadowedImportBinding(sourceFile, syncBindings)
+  ) {
+    return false;
+  }
+  const invocation = getDirectAwaitedVariableCall(
+    declaration.body.statements[0],
+  );
+  if (
+    !invocation ||
+    !ts.isIdentifier(invocation.call.expression) ||
+    !syncBindings.has(invocation.call.expression.text) ||
+    invocation.call.arguments.length !== 2 ||
+    !hasCanonicalTrueCheck(invocation.call.arguments[1])
+  ) {
+    return false;
+  }
+  const input = getObjectLiteralProperties(invocation.call.arguments[0]);
+  if (
+    input?.size !== 6 ||
+    !isStringValue(input.get('blockJsonFile'), 'src/block.json') ||
+    !isStringValue(input.get('jsonSchemaFile'), 'src/typia.schema.json') ||
+    !isStringValue(input.get('manifestFile'), 'src/typia.manifest.json') ||
+    !isStringValue(input.get('openApiFile'), 'src/typia.openapi.json') ||
+    !isStringValue(input.get('typesFile'), 'src/types.ts') ||
+    !input.get('sourceTypeName') ||
+    !ts.isStringLiteralLike(input.get('sourceTypeName')!)
+  ) {
+    return false;
+  }
+  return (
+    isStaleArtifactFailureGuard(
+      declaration.body.statements[1],
+      invocation.binding,
+    ) &&
+    isCatchAllFailureGuard(
+      declaration.body.statements[2],
+      invocation.binding,
+    )
+  );
+}
+
 function isCanonicalRestSyncCall(
   call: ts.CallExpression | null,
   bindings: ReadonlySet<string>,
@@ -630,9 +834,7 @@ function getMainOptionsBinding(
       if (
         ts.isIdentifier(declaration.name) &&
         declaration.initializer &&
-        ts.isCallExpression(declaration.initializer) &&
-        ts.isIdentifier(declaration.initializer.expression) &&
-        declaration.initializer.expression.text === 'parseCliOptions'
+        isCanonicalRestParseCall(declaration.initializer)
       ) {
         bindings.push({ binding: declaration.name.text, index });
       }
@@ -641,8 +843,140 @@ function getMainOptionsBinding(
   return bindings.length === 1 ? bindings[0] : null;
 }
 
+function isCanonicalRestParseCall(expression: ts.Expression): boolean {
+  if (
+    !ts.isCallExpression(expression) ||
+    !ts.isIdentifier(expression.expression) ||
+    expression.expression.text !== 'parseCliOptions' ||
+    expression.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const argvSlice = unwrapStaticExpression(expression.arguments[0]);
+  return (
+    ts.isCallExpression(argvSlice) &&
+    ts.isPropertyAccessExpression(argvSlice.expression) &&
+    argvSlice.expression.name.text === 'slice' &&
+    ts.isPropertyAccessExpression(argvSlice.expression.expression) &&
+    ts.isIdentifier(argvSlice.expression.expression.expression) &&
+    argvSlice.expression.expression.expression.text === 'process' &&
+    argvSlice.expression.expression.name.text === 'argv' &&
+    argvSlice.arguments.length === 1 &&
+    ts.isNumericLiteral(argvSlice.arguments[0]) &&
+    argvSlice.arguments[0].text === '2'
+  );
+}
+
+function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
+  const parser = getTopLevelFunctionDeclaration(sourceFile, 'parseCliOptions');
+  if (
+    !parser?.body ||
+    parser.parameters.length !== 1 ||
+    !ts.isIdentifier(parser.parameters[0].name) ||
+    parser.body.statements.length !== 3 ||
+    countBindingDeclarations(sourceFile, 'parseCliOptions') !== 1
+  ) {
+    return false;
+  }
+  const optionsStatement = parser.body.statements[0];
+  if (
+    !ts.isVariableStatement(optionsStatement) ||
+    !(optionsStatement.declarationList.flags & ts.NodeFlags.Const) ||
+    optionsStatement.declarationList.declarations.length !== 1
+  ) {
+    return false;
+  }
+  const optionsDeclaration = optionsStatement.declarationList.declarations[0];
+  if (
+    !ts.isIdentifier(optionsDeclaration.name) ||
+    !optionsDeclaration.initializer
+  ) {
+    return false;
+  }
+  const optionsBinding = optionsDeclaration.name.text;
+  const options = getObjectLiteralProperties(optionsDeclaration.initializer);
+  if (
+    !options ||
+    options.get('check')?.kind !== ts.SyntaxKind.FalseKeyword
+  ) {
+    return false;
+  }
+
+  const loop = parser.body.statements[1];
+  if (
+    !ts.isForOfStatement(loop) ||
+    !ts.isIdentifier(loop.expression) ||
+    loop.expression.text !== parser.parameters[0].name.text ||
+    !ts.isVariableDeclarationList(loop.initializer) ||
+    loop.initializer.declarations.length !== 1 ||
+    !ts.isIdentifier(loop.initializer.declarations[0].name) ||
+    !ts.isBlock(loop.statement)
+  ) {
+    return false;
+  }
+  const argumentBinding = loop.initializer.declarations[0].name.text;
+  const guardIndexes = loop.statement.statements.flatMap(
+    (statement, index) => {
+      if (
+        !ts.isIfStatement(statement) ||
+        statement.elseStatement ||
+        !ts.isBinaryExpression(statement.expression) ||
+        statement.expression.operatorToken.kind !==
+          ts.SyntaxKind.EqualsEqualsEqualsToken ||
+        !ts.isIdentifier(statement.expression.left) ||
+        statement.expression.left.text !== argumentBinding ||
+        !ts.isStringLiteralLike(statement.expression.right) ||
+        statement.expression.right.text !== '--check' ||
+        !ts.isBlock(statement.thenStatement) ||
+        statement.thenStatement.statements.length !== 2
+      ) {
+        return [];
+      }
+      const assignment = statement.thenStatement.statements[0];
+      const expression = ts.isExpressionStatement(assignment)
+        ? assignment.expression
+        : null;
+      return expression &&
+        ts.isBinaryExpression(expression) &&
+        expression.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        isIdentifierPropertyAccess(
+          expression.left,
+          optionsBinding,
+          'check',
+        ) &&
+        expression.right.kind === ts.SyntaxKind.TrueKeyword &&
+        ts.isContinueStatement(statement.thenStatement.statements[1])
+        ? [index]
+        : [];
+    },
+  );
+  if (
+    guardIndexes.length !== 1 ||
+    loop.statement.statements
+      .slice(0, guardIndexes[0])
+      .some(
+        (statement) =>
+          ts.isBreakStatement(statement) ||
+          ts.isContinueStatement(statement),
+      )
+  ) {
+    return false;
+  }
+  const returnStatement = parser.body.statements[2];
+  return (
+    ts.isReturnStatement(returnStatement) &&
+    returnStatement.expression !== undefined &&
+    ts.isIdentifier(returnStatement.expression) &&
+    returnStatement.expression.text === optionsBinding
+  );
+}
+
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
-  if (countBindingDeclarations(sourceFile, 'process') !== 0) {
+  const processBindings = new Set(['process']);
+  if (
+    hasImportedBinding(sourceFile, 'process') ||
+    hasShadowedImportBinding(sourceFile, processBindings)
+  ) {
     return false;
   }
   return (
@@ -681,13 +1015,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
       if (
         !finalStatement ||
         !ts.isExpressionStatement(finalStatement) ||
-        catchHandler.body.statements
-          .slice(0, -1)
-          .some(
-            (catchStatement) =>
-              ts.isReturnStatement(catchStatement) ||
-              ts.isThrowStatement(catchStatement),
-          )
+        hasEarlierAbruptCompletion(
+          catchHandler.body.statements,
+          catchHandler.body.statements.length - 1,
+        )
       ) {
         return false;
       }
@@ -740,6 +1071,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
     !mainDeclaration.modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
+    !hasCanonicalRestCheckParser(sourceFile) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
     return false;
@@ -750,10 +1082,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
   }
   const optionsBinding = optionsDeclaration.binding;
 
-  if (
-    !getTopLevelFunctionDeclaration(sourceFile, 'assertTypeArtifactsCurrent') ||
-    countBindingDeclarations(sourceFile, 'assertTypeArtifactsCurrent') !== 1
-  ) {
+  if (!hasCanonicalTypeArtifactPreflight(sourceFile)) {
     return false;
   }
   const preflightCallIndexes = mainBody.statements.flatMap(
@@ -869,12 +1198,7 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
     preflightCallIndex < schemaCallIndex &&
     schemaCallIndex < openApiCallIndex &&
     openApiCallIndex < clientCallIndex &&
-    !mainBody.statements
-      .slice(0, clientCallIndex)
-      .some(
-        (statement) =>
-          ts.isReturnStatement(statement) || ts.isThrowStatement(statement),
-      )
+    !hasEarlierAbruptCompletion(mainBody.statements, clientCallIndex)
   );
 }
 
