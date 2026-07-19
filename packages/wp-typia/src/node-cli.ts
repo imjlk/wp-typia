@@ -69,6 +69,8 @@ const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
 );
 const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
 const MAX_PENDING_SYNC_STDERR_LINE = 64 * 1024;
+const SYNC_STACK_FRAME_PATTERN =
+  /^\s*at\s+.*(?:\([^()\r\n]+:\d+:\d+\)|[^()\s]+:\d+:\d+)\s*$/u;
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -297,7 +299,7 @@ function createSyncStderrWriter(): {
 } {
   let pending = '';
   const emit = (line: string) => {
-    if (!/^\s*at\s+/u.test(line)) {
+    if (!SYNC_STACK_FRAME_PATTERN.test(line)) {
       process.stderr.write(line);
     }
   };

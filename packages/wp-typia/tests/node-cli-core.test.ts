@@ -1061,6 +1061,7 @@ describe('Gunshi CLI core routing', () => {
           'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
+          'console.error("at least 3 generated files need attention");',
           'console.error("    at runSyncScript (sync-project.ts:78:9)");',
           'process.exit(42);',
         ].join('\n'),
@@ -1103,6 +1104,9 @@ describe('Gunshi CLI core routing', () => {
       expect(parsed.error?.detailLines).toContain(
         'alternate separators: <project-root>/src/alternate.ts',
       );
+      expect(parsed.error?.detailLines).toContain(
+        'at least 3 generated files need attention',
+      );
       expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
       expect(parsed.error?.data).toEqual({
         command: 'npm run sync',
@@ -1123,6 +1127,9 @@ describe('Gunshi CLI core routing', () => {
       );
       expect(textResult.stderr).toContain(
         'alternate separators: <project-root>/src/alternate.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'at least 3 generated files need attention',
       );
       expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
       expect(textResult.stderr).not.toContain('\n    at ');
