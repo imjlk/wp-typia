@@ -914,6 +914,15 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'options.strict = true;\n      continue;',
         'options.strict = true;\n      break;',
       ],
+      [
+        'computed-check-accessor',
+        'check: false,',
+        [
+          'check: false,',
+          '    set [String("check")](_value: boolean) {},',
+          '    get [String("check")]() { return false; },',
+        ].join('\n'),
+      ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
       const targetDir = path.join(tempRoot, `sync-types-parser-${name}`);
@@ -1035,8 +1044,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const syncTypesWithNestedLoop = syncTypes.replace(
       '    if (argument === "--check") {',
       [
-        '    for (const item of [true]) {',
-        '      if (!item) break;',
+        '    breakLoop: for (const item of []) {',
+        '      if (!item) break breakLoop;',
+        '    }',
+        '    continueLoop: for (const item of []) {',
+        '      if (!item) continue continueLoop;',
         '    }',
         '',
         '    if (argument === "--check") {',
@@ -1068,7 +1080,76 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
     );
     expect(sourceLayoutCheck?.status).toBe('pass');
-  });
+
+    const persistenceDir = path.join(
+      tempRoot,
+      'nested-local-completions-rest',
+    );
+    await scaffoldPersistence(persistenceDir);
+    const syncRestPath = path.join(
+      persistenceDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const syncRest = fs.readFileSync(syncRestPath, 'utf8');
+    const syncRestWithNestedLoops = syncRest.replace(
+      "\t\tif ( argument === '--check' ) {",
+      [
+        '\t\tbreakLoop: for ( const item of [] ) {',
+        '\t\t\tif ( ! item ) break breakLoop;',
+        '\t\t}',
+        '\t\tcontinueLoop: for ( const item of [] ) {',
+        '\t\t\tif ( ! item ) continue continueLoop;',
+        '\t\t}',
+        '',
+        "\t\tif ( argument === '--check' ) {",
+      ].join('\n'),
+    );
+    expect(syncRestWithNestedLoops).not.toBe(syncRest);
+    fs.writeFileSync(syncRestPath, syncRestWithNestedLoops);
+
+    const restSourceLayoutCheck = getCheck(
+      await getDoctorChecks(persistenceDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(restSourceLayoutCheck?.status).toBe('pass');
+  }, 20_000);
+
+  test('rejects mutable for-of bindings in standalone parsers', async () => {
+    const cases = [
+      {
+        name: 'sync-project',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        name: 'sync-rest',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(
+        tempRoot,
+        `mutable-parser-binding-${fixture.name}`,
+      );
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(
+        'for ( const argument of argv ) {',
+        "for ( let argument of argv ) {\n\t\targument = '';",
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
 
   test('rejects sync-types calls hidden after conditional early returns', async () => {
     const targetDir = path.join(tempRoot, 'sync-types-after-return');

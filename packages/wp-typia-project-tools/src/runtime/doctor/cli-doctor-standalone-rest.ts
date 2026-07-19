@@ -540,6 +540,14 @@ function isLoopStatement(node: ts.Node): boolean {
   );
 }
 
+function labelsLoop(statement: ts.Statement): boolean {
+  let target = statement;
+  while (ts.isLabeledStatement(target)) {
+    target = target.statement;
+  }
+  return isLoopStatement(target);
+}
+
 function containsParserControlFlow(
   node: ts.Node,
   argumentBinding: string,
@@ -547,6 +555,7 @@ function containsParserControlFlow(
   breakableDepth = 0,
   loopDepth = 0,
   outerContinueIsSafe = false,
+  activeLabels: ReadonlyMap<string, boolean> = new Map(),
 ): boolean {
   if (ts.isFunctionLike(node)) {
     return false;
@@ -556,13 +565,14 @@ function containsParserControlFlow(
       return true;
     }
     if (ts.isBreakStatement(node)) {
-      return node.label !== undefined || breakableDepth === 0;
+      return node.label
+        ? !activeLabels.has(node.label.text)
+        : breakableDepth === 0;
     }
   } else if (ts.isContinueStatement(node)) {
-    return (
-      node.label !== undefined ||
-      (loopDepth === 0 && !outerContinueIsSafe)
-    );
+    return node.label
+      ? activeLabels.get(node.label.text) !== true
+      : loopDepth === 0 && !outerContinueIsSafe;
   }
 
   if (
@@ -577,6 +587,7 @@ function containsParserControlFlow(
         breakableDepth,
         loopDepth,
         true,
+        activeLabels,
       ) ||
       (node.elseStatement !== undefined &&
         containsParserControlFlow(
@@ -586,7 +597,22 @@ function containsParserControlFlow(
           breakableDepth,
           loopDepth,
           outerContinueIsSafe,
+          activeLabels,
         ))
+    );
+  }
+
+  if (ts.isLabeledStatement(node)) {
+    const nestedLabels = new Map(activeLabels);
+    nestedLabels.set(node.label.text, labelsLoop(node.statement));
+    return containsParserControlFlow(
+      node.statement,
+      argumentBinding,
+      check,
+      breakableDepth,
+      loopDepth,
+      outerContinueIsSafe,
+      nestedLabels,
     );
   }
 
@@ -605,6 +631,7 @@ function containsParserControlFlow(
         nextBreakableDepth,
         nextLoopDepth,
         outerContinueIsSafe,
+        activeLabels,
       )
     ) {
       found = true;
@@ -1031,6 +1058,7 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
     !ts.isIdentifier(loop.expression) ||
     loop.expression.text !== parser.parameters[0].name.text ||
     !ts.isVariableDeclarationList(loop.initializer) ||
+    !(loop.initializer.flags & ts.NodeFlags.Const) ||
     loop.initializer.declarations.length !== 1 ||
     !ts.isIdentifier(loop.initializer.declarations[0].name) ||
     !ts.isBlock(loop.statement)

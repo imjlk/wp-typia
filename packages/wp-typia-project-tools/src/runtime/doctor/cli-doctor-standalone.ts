@@ -852,6 +852,14 @@ function isLoopStatement(node: ts.Node): boolean {
   );
 }
 
+function labelsLoop(statement: ts.Statement): boolean {
+  let target = statement;
+  while (ts.isLabeledStatement(target)) {
+    target = target.statement;
+  }
+  return isLoopStatement(target);
+}
+
 function containsParserControlFlow(
   node: ts.Node,
   argumentBinding: string,
@@ -859,6 +867,7 @@ function containsParserControlFlow(
   breakableDepth = 0,
   loopDepth = 0,
   outerContinueIsSafe = false,
+  activeLabels: ReadonlyMap<string, boolean> = new Map(),
 ): boolean {
   if (ts.isFunctionLike(node)) {
     return false;
@@ -868,13 +877,14 @@ function containsParserControlFlow(
       return true;
     }
     if (ts.isBreakStatement(node)) {
-      return node.label !== undefined || breakableDepth === 0;
+      return node.label
+        ? !activeLabels.has(node.label.text)
+        : breakableDepth === 0;
     }
   } else if (ts.isContinueStatement(node)) {
-    return (
-      node.label !== undefined ||
-      (loopDepth === 0 && !outerContinueIsSafe)
-    );
+    return node.label
+      ? activeLabels.get(node.label.text) !== true
+      : loopDepth === 0 && !outerContinueIsSafe;
   }
 
   if (
@@ -889,6 +899,7 @@ function containsParserControlFlow(
         breakableDepth,
         loopDepth,
         true,
+        activeLabels,
       ) ||
       (node.elseStatement !== undefined &&
         containsParserControlFlow(
@@ -898,7 +909,22 @@ function containsParserControlFlow(
           breakableDepth,
           loopDepth,
           outerContinueIsSafe,
+          activeLabels,
         ))
+    );
+  }
+
+  if (ts.isLabeledStatement(node)) {
+    const nestedLabels = new Map(activeLabels);
+    nestedLabels.set(node.label.text, labelsLoop(node.statement));
+    return containsParserControlFlow(
+      node.statement,
+      argumentBinding,
+      check,
+      breakableDepth,
+      loopDepth,
+      outerContinueIsSafe,
+      nestedLabels,
     );
   }
 
@@ -917,6 +943,7 @@ function containsParserControlFlow(
         nextBreakableDepth,
         nextLoopDepth,
         outerContinueIsSafe,
+        activeLabels,
       )
     ) {
       found = true;
@@ -1310,6 +1337,7 @@ function getCanonicalForOfArgument(
     !ts.isIdentifier(statement.expression) ||
     statement.expression.text !== argvBinding ||
     !ts.isVariableDeclarationList(statement.initializer) ||
+    !(statement.initializer.flags & ts.NodeFlags.Const) ||
     statement.initializer.declarations.length !== 1 ||
     !ts.isIdentifier(statement.initializer.declarations[0].name) ||
     !ts.isBlock(statement.statement)
@@ -1405,16 +1433,20 @@ function hasCanonicalCheckParser(sourceFile: ts.SourceFile): boolean {
   ) {
     return false;
   }
-  const checkProperty = optionsDeclaration.initializer.properties.filter(
-    (property): property is ts.PropertyAssignment =>
-      ts.isPropertyAssignment(property) &&
-      !ts.isComputedPropertyName(property.name) &&
-      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
-      property.name.text === 'check',
-  );
+  const optionProperties = new Map<string, ts.Expression>();
+  for (const property of optionsDeclaration.initializer.properties) {
+    if (
+      !ts.isPropertyAssignment(property) ||
+      ts.isComputedPropertyName(property.name) ||
+      (!ts.isIdentifier(property.name) && !ts.isStringLiteral(property.name)) ||
+      optionProperties.has(property.name.text)
+    ) {
+      return false;
+    }
+    optionProperties.set(property.name.text, property.initializer);
+  }
   if (
-    checkProperty.length !== 1 ||
-    checkProperty[0].initializer.kind !== ts.SyntaxKind.FalseKeyword
+    optionProperties.get('check')?.kind !== ts.SyntaxKind.FalseKeyword
   ) {
     return false;
   }
