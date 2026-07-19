@@ -484,20 +484,28 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
       scripts: Record<string, string>;
     };
-    packageJson.scripts.sync =
-      'cd other && tsx scripts/sync-project.ts';
-    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    const invalidScripts = [
+      'cd other && tsx scripts/sync-project.ts',
+      "'cd' other && tsx scripts/sync-project.ts",
+      String.raw`c\d other && tsx scripts/sync-project.ts`,
+      'EMPTY= cd other && tsx scripts/sync-project.ts',
+      '{ cd other; }; tsx scripts/sync-project.ts',
+    ];
+    for (const script of invalidScripts) {
+      packageJson.scripts.sync = script;
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
-    const packageCheck = getCheck(
-      await getDoctorChecks(targetDir),
-      STANDALONE_DOCTOR_CODES.PACKAGE,
-    );
+      const packageCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.PACKAGE,
+      );
 
-    expect(packageCheck?.status).toBe('fail');
-    expect(packageCheck?.detail).toContain(
-      'sync script must invoke `tsx scripts/sync-project.ts`',
-    );
-  });
+      expect(packageCheck?.status).toBe('fail');
+      expect(packageCheck?.detail).toContain(
+        'sync script must invoke `tsx scripts/sync-project.ts`',
+      );
+    }
+  }, 15_000);
 
   test('rejects check-only generated sync package scripts', async () => {
     const cases = [
@@ -1554,6 +1562,75 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     }
   }, 60_000);
 
+  test('rejects noncanonical generated helper function signatures', async () => {
+    const cases = [
+      {
+        canonical: 'async function main()',
+        damaged: "async function main( hidden = process.chdir( '..' ) )",
+        name: 'sync-types-main-default',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        canonical: 'async function main()',
+        damaged: 'async function* main()',
+        name: 'sync-project-generator-main',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        canonical: 'async function main()',
+        damaged: "async function main( hidden = process.chdir( '..' ) )",
+        name: 'sync-rest-main-default',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+      {
+        canonical: 'function parseCliOptions',
+        damaged: 'async function parseCliOptions',
+        name: 'sync-types-async-parser',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        canonical: 'function parseCliOptions',
+        damaged: 'async function parseCliOptions',
+        name: 'sync-project-async-parser',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        canonical: 'function parseCliOptions',
+        damaged: 'function* parseCliOptions',
+        name: 'sync-rest-generator-parser',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+      {
+        canonical: 'async function assertTypeArtifactsCurrent()',
+        damaged: 'async function* assertTypeArtifactsCurrent()',
+        name: 'sync-rest-generator-preflight',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(tempRoot, fixture.name);
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(fixture.canonical, fixture.damaged);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 40_000);
+
   test('rejects trailing work after the REST main failure boundary', async () => {
     const targetDir = path.join(tempRoot, 'sync-rest-after-main');
     await scaffoldPersistence(targetDir);
@@ -1855,6 +1932,57 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(restSourceLayoutCheck?.status).toBe('pass');
   }, 20_000);
 
+  test('rejects parser accessors that neutralize --check assignments', async () => {
+    const cases = [
+      {
+        insertionLine: '\tfor ( const argument of argv ) {',
+        name: 'sync-project-parser-accessor',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+        statementIndentation: '\t\t',
+      },
+      {
+        insertionLine: '\tfor ( const argument of argv ) {',
+        name: 'sync-rest-parser-accessor',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+        statementIndentation: '\t\t',
+      },
+      {
+        insertionLine: '    const argument = argv[index];',
+        name: 'sync-types-parser-accessor',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+        statementIndentation: '    ',
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(tempRoot, fixture.name);
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const indentation = fixture.statementIndentation;
+      const source = original.replace(
+        fixture.insertionLine,
+        [
+          fixture.insertionLine,
+          `${indentation}Object.defineProperty( options, 'check', {`,
+          `${indentation}\tget: () => false,`,
+          `${indentation}\tset: () => {},`,
+          `${indentation}} );`,
+        ].join('\n'),
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
+
   test('rejects abrupt completion before generated --check parser guards', async () => {
     const cases = [
       {
@@ -2039,40 +2167,63 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const cases = [
       {
         name: 'sync-project',
+        optionsLine:
+          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
         name: 'sync-rest',
+        optionsLine:
+          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
       },
+      {
+        name: 'sync-types',
+        optionsLine: '  const options = parseCliOptions(process.argv.slice(2));',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
     ] as const;
     for (const fixture of cases) {
-      const targetDir = path.join(
-        tempRoot,
-        `${fixture.name}-check-mode-mutation`,
-      );
-      await fixture.scaffold(targetDir);
-      const scriptPath = path.join(targetDir, fixture.script);
-      const original = fs.readFileSync(scriptPath, 'utf8');
-      const source = original.replace(
-        '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
-        [
-          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
-          '\toptions.check = false;',
-        ].join('\n'),
-      );
-      expect(source).not.toBe(original);
-      fs.writeFileSync(scriptPath, source);
+      const indentation = fixture.optionsLine.match(/^\s*/u)?.[0] ?? '';
+      const mutations = [
+        {
+          name: 'next-statement',
+          replacement: `${fixture.optionsLine}\n${indentation}options.check = false;`,
+        },
+        {
+          name: 'same-declaration',
+          replacement: fixture.optionsLine.replace(
+            /;$/u,
+            ', hidden = ( options.check = false );',
+          ),
+        },
+      ];
+      for (const mutation of mutations) {
+        const targetDir = path.join(
+          tempRoot,
+          `${fixture.name}-check-mode-${mutation.name}`,
+        );
+        await fixture.scaffold(targetDir);
+        const scriptPath = path.join(targetDir, fixture.script);
+        const original = fs.readFileSync(scriptPath, 'utf8');
+        const source = original.replace(
+          fixture.optionsLine,
+          mutation.replacement,
+        );
+        expect(source).not.toBe(original);
+        fs.writeFileSync(scriptPath, source);
 
-      const sourceLayoutCheck = getCheck(
-        await getDoctorChecks(targetDir),
-        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
-      );
-      expect(sourceLayoutCheck?.status).toBe('fail');
+        const sourceLayoutCheck = getCheck(
+          await getDoctorChecks(targetDir),
+          STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+        );
+        expect(sourceLayoutCheck?.status).toBe('fail');
+      }
     }
-  }, 20_000);
+  }, 30_000);
 
   test('rejects a sync-project runner that drops --check forwarding', async () => {
     const targetDir = path.join(tempRoot, 'sync-project-without-check');
@@ -2902,6 +3053,19 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     for (const [name, entry] of [
       ['empty-object', '{}'],
       ['null', 'null'],
+      ['path-only', "{ path: '/invalid' }"],
+      [
+        'invalid-method',
+        "{ auth: 'public', method: 'TRACE', operationId: 'invalidMethod', path: '/invalid', responseContract: 'state-response', tags: [ 'Invalid' ] }",
+      ],
+      [
+        'invalid-tag',
+        "{ auth: 'public', method: 'GET', operationId: 'invalidTag', path: '/invalid', responseContract: 'state-response', tags: [ 1 ] }",
+      ],
+      [
+        'invalid-auth',
+        "{ auth: 'bogus', method: 'GET', operationId: 'invalidAuth', path: '/invalid', responseContract: 'state-response', tags: [ 'Invalid' ] }",
+      ],
     ] as const) {
       const targetDir = path.join(tempRoot, `rest-manifest-entry-${name}`);
       await scaffoldPersistence(targetDir);
@@ -2927,7 +3091,30 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'must define a static endpoint manifest through defineEndpointManifest()',
       );
     }
-  }, 20_000);
+  }, 35_000);
+
+  test('rejects malformed static endpoint manifest info', async () => {
+    const targetDir = path.join(tempRoot, 'rest-manifest-info');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const source = original.replace(
+      "\t\tversion: '1.0.0',",
+      '\t\tversion: 1,',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncRestPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+  });
 
   test('rejects side effects attached to the REST manifest declaration', async () => {
     const targetDir = path.join(tempRoot, 'rest-manifest-side-effect');

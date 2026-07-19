@@ -25,6 +25,21 @@ const STANDALONE_REST_SURFACE_PATHS = [
   STANDALONE_REST_OPEN_API_FILE,
   STANDALONE_REST_CLIENT_FILE,
 ] as const;
+const ENDPOINT_AUTH_INTENTS = new Set([
+  'authenticated',
+  'public',
+  'public-write-protected',
+]);
+const ENDPOINT_AUTH_MODES = new Set([
+  'authenticated-rest-nonce',
+  'public-read',
+  'public-signed-token',
+]);
+const ENDPOINT_METHODS = new Set(['DELETE', 'GET', 'PATCH', 'POST', 'PUT']);
+const ENDPOINT_WORDPRESS_AUTH_MECHANISMS = new Set([
+  'public-signed-token',
+  'rest-nonce',
+]);
 
 /** Parsed persistence REST metadata and any integrity problem found in its sync helper. */
 export interface ParsedStandaloneRestConfig {
@@ -243,11 +258,64 @@ function isStaticRecord(
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function hasStaticEndpointPath(value: StaticExpressionValue): boolean {
+function hasOptionalStaticString(
+  value: { [key: string]: StaticExpressionValue },
+  propertyName: string,
+): boolean {
+  return (
+    value[propertyName] === undefined ||
+    typeof value[propertyName] === 'string'
+  );
+}
+
+function isStaticWordPressAuthDefinition(
+  value: StaticExpressionValue,
+): boolean {
   return (
     isStaticRecord(value) &&
+    typeof value.mechanism === 'string' &&
+    ENDPOINT_WORDPRESS_AUTH_MECHANISMS.has(value.mechanism) &&
+    hasOptionalStaticString(value, 'publicTokenField')
+  );
+}
+
+function isStaticEndpointDefinition(value: StaticExpressionValue): boolean {
+  if (!isStaticRecord(value)) {
+    return false;
+  }
+  const auth = value.auth;
+  const authMode = value.authMode;
+  const tags = value.tags;
+  return (
+    typeof value.method === 'string' &&
+    ENDPOINT_METHODS.has(value.method) &&
+    typeof value.operationId === 'string' &&
+    value.operationId.length > 0 &&
     typeof value.path === 'string' &&
-    value.path.startsWith('/')
+    value.path.startsWith('/') &&
+    typeof value.responseContract === 'string' &&
+    value.responseContract.length > 0 &&
+    Array.isArray(tags) &&
+    tags.every((tag) => typeof tag === 'string') &&
+    (auth !== undefined || authMode !== undefined) &&
+    (auth === undefined ||
+      (typeof auth === 'string' && ENDPOINT_AUTH_INTENTS.has(auth))) &&
+    (authMode === undefined ||
+      (typeof authMode === 'string' && ENDPOINT_AUTH_MODES.has(authMode))) &&
+    hasOptionalStaticString(value, 'bodyContract') &&
+    hasOptionalStaticString(value, 'queryContract') &&
+    hasOptionalStaticString(value, 'summary') &&
+    (value.wordpressAuth === undefined ||
+      isStaticWordPressAuthDefinition(value.wordpressAuth))
+  );
+}
+
+function isStaticOpenApiInfo(value: StaticExpressionValue): boolean {
+  return (
+    isStaticRecord(value) &&
+    hasOptionalStaticString(value, 'description') &&
+    hasOptionalStaticString(value, 'title') &&
+    hasOptionalStaticString(value, 'version')
   );
 }
 
@@ -268,7 +336,9 @@ function isEndpointManifestDefinition(value: StaticExpressionValue): boolean {
         contract.sourceTypeName.length > 0 &&
         (contract.schemaName === undefined ||
           typeof contract.schemaName === 'string'),
-    ) && endpoints.every(hasStaticEndpointPath)
+    ) &&
+    endpoints.every(isStaticEndpointDefinition) &&
+    (value.info === undefined || isStaticOpenApiInfo(value.info))
   );
 }
 
@@ -839,6 +909,7 @@ function hasCanonicalTypeArtifactPreflight(
   if (
     !declaration?.body ||
     declaration.parameters.length !== 0 ||
+    declaration.asteriskToken !== undefined ||
     !declaration.modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
@@ -959,7 +1030,8 @@ function getMainOptionsBinding(
   mainBody.statements.forEach((statement, index) => {
     if (
       !ts.isVariableStatement(statement) ||
-      !(statement.declarationList.flags & ts.NodeFlags.Const)
+      !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+      statement.declarationList.declarations.length !== 1
     ) {
       return;
     }
@@ -1000,12 +1072,30 @@ function isCanonicalRestParseCall(expression: ts.Expression): boolean {
   );
 }
 
+function countIdentifierOccurrences(node: ts.Node, binding: string): number {
+  let count = 0;
+  function visit(candidate: ts.Node): void {
+    if (ts.isIdentifier(candidate) && candidate.text === binding) {
+      count += 1;
+    }
+    ts.forEachChild(candidate, visit);
+  }
+  visit(node);
+  return count;
+}
+
 function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
   const parser = getTopLevelFunctionDeclaration(sourceFile, 'parseCliOptions');
   if (
     !parser?.body ||
     parser.parameters.length !== 1 ||
     !ts.isIdentifier(parser.parameters[0].name) ||
+    parser.parameters[0].dotDotDotToken !== undefined ||
+    parser.parameters[0].initializer !== undefined ||
+    parser.asteriskToken !== undefined ||
+    parser.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
     parser.body.statements.length !== 3 ||
     countBindingDeclarations(sourceFile, 'parseCliOptions') !== 1
   ) {
@@ -1030,6 +1120,7 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
   const options = getObjectLiteralProperties(optionsDeclaration.initializer);
   if (
     !options ||
+    options.size !== 1 ||
     options.get('check')?.kind !== ts.SyntaxKind.FalseKeyword
   ) {
     return false;
@@ -1086,6 +1177,7 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
   );
   if (
     guardIndexes.length !== 1 ||
+    countIdentifierOccurrences(loop.statement, optionsBinding) !== 1 ||
     hasEarlierAbruptCompletion(
       loop.statement.statements,
       guardIndexes[0],
@@ -1117,12 +1209,20 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
 }
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+  const main = getTopLevelFunctionDeclaration(sourceFile, 'main');
   const processBindings = new Set(['process']);
   const manifestBindings = getNamedImportBindings(
     sourceFile,
     'defineEndpointManifest',
   );
   if (
+    !main?.body ||
+    main.parameters.length !== 0 ||
+    main.asteriskToken !== undefined ||
+    !main.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
+    countBindingDeclarations(sourceFile, 'main') !== 1 ||
     hasImportedBinding(sourceFile, 'process') ||
     hasShadowedImportBinding(sourceFile, processBindings)
   ) {

@@ -1497,7 +1497,14 @@ function hasTopLevelMainInvocation(
   sourceFile: ts.SourceFile,
   allowedRuntimeImportModules: ReadonlySet<string>,
 ): boolean {
+  const main = getSingleTopLevelFunction(sourceFile, 'main');
   if (
+    !main ||
+    main.parameters.length !== 0 ||
+    main.asteriskToken !== undefined ||
+    !main.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
     hasImportedBinding(sourceFile, 'process') ||
     hasShadowedBinding(sourceFile, new Set(['process']))
   ) {
@@ -1599,7 +1606,8 @@ function getDirectVariableBinding(
   statements.forEach((statement, index) => {
     if (
       !ts.isVariableStatement(statement) ||
-      !(statement.declarationList.flags & ts.NodeFlags.Const)
+      !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+      statement.declarationList.declarations.length !== 1
     ) {
       return;
     }
@@ -1966,6 +1974,18 @@ if (${argumentBinding} === '--report') {
   );
 }
 
+function countIdentifierOccurrences(node: ts.Node, binding: string): number {
+  let count = 0;
+  function visit(candidate: ts.Node): void {
+    if (ts.isIdentifier(candidate) && candidate.text === binding) {
+      count += 1;
+    }
+    ts.forEachChild(candidate, visit);
+  }
+  visit(node);
+  return count;
+}
+
 function hasCanonicalCheckParser(
   sourceFile: ts.SourceFile,
   additionalBooleanFlags: readonly {
@@ -1979,7 +1999,13 @@ function hasCanonicalCheckParser(
     !parser?.body ||
     parser.parameters.length !== 1 ||
     !ts.isIdentifier(parser.parameters[0].name) ||
-    parser.body.statements.length !== 3
+    parser.parameters[0].dotDotDotToken !== undefined ||
+    parser.parameters[0].initializer !== undefined ||
+    parser.body.statements.length !== 3 ||
+    parser.asteriskToken !== undefined ||
+    parser.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    )
   ) {
     return false;
   }
@@ -2013,6 +2039,8 @@ function hasCanonicalCheckParser(
     optionProperties.set(property.name.text, property.initializer);
   }
   if (
+    optionProperties.size !==
+      1 + additionalBooleanFlags.length + (requiresReportMode ? 1 : 0) ||
     optionProperties.get('check')?.kind !== ts.SyntaxKind.FalseKeyword
   ) {
     return false;
@@ -2026,8 +2054,14 @@ function hasCanonicalCheckParser(
       : null;
   const returnStatement = parser.body.statements[2];
   const reportProperty = optionProperties.get('report');
+  const expectedOptionsReferences =
+    1 + additionalBooleanFlags.length + (requiresReportMode ? 1 : 0);
   return (
     loop !== null &&
+    countIdentifierOccurrences(
+      loop.body,
+      optionsDeclaration.name.text,
+    ) === expectedOptionsReferences &&
     (!requiresReportMode ||
       (reportProperty !== undefined &&
         ts.isStringLiteralLike(reportProperty) &&
@@ -2308,6 +2342,28 @@ type ShellCommandSegment = {
   operatorAfter: '&&' | '&' | '||' | '|' | '|&' | ';' | null;
 };
 
+const SHELL_DIRECTORY_CHANGE_COMMANDS = new Set([
+  '.',
+  'cd',
+  'chdir',
+  'eval',
+  'popd',
+  'pushd',
+  'source',
+]);
+const SHELL_COMMAND_PREFIXES = new Set([
+  '!',
+  '{',
+  'do',
+  'elif',
+  'else',
+  'if',
+  'then',
+  'time',
+  'until',
+  'while',
+]);
+
 function splitShellCommandSegments(script: string): ShellCommandSegment[] {
   const segments: ShellCommandSegment[] = [];
   let current = '';
@@ -2412,10 +2468,84 @@ function shellCommandMatches(
   );
 }
 
+function getShellCommandWords(command: string): string[] {
+  const words: string[] = [];
+  let current = '';
+  let hasWord = false;
+  let quote: "'" | '"' | null = null;
+  function pushCurrent(): void {
+    if (hasWord) {
+      words.push(current);
+    }
+    current = '';
+    hasWord = false;
+  }
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+        hasWord = true;
+      } else if (
+        character === '\\' &&
+        quote === '"' &&
+        command[index + 1] !== undefined
+      ) {
+        current += command[index + 1];
+        hasWord = true;
+        index += 1;
+      } else {
+        current += character;
+        hasWord = true;
+      }
+      continue;
+    }
+    if (character === '\\' && command[index + 1] !== undefined) {
+      current += command[index + 1];
+      hasWord = true;
+      index += 1;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      hasWord = true;
+      continue;
+    }
+    if (character === ' ' || character === '\t') {
+      pushCurrent();
+      continue;
+    }
+    if (character === '{' || character === '}') {
+      pushCurrent();
+      words.push(character);
+      continue;
+    }
+    current += character;
+    hasWord = true;
+  }
+  pushCurrent();
+  return words;
+}
+
 function shellCommandChangesDirectory(segment: ShellCommandSegment): boolean {
-  return /^(?:(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s]+))\s+)*(?:(?:builtin|command)\s+)?(?:cd|chdir|pushd|popd)(?:\s|$)/u.test(
-    segment.command,
-  );
+  const words = getShellCommandWords(segment.command);
+  let commandIndex = 0;
+  while (
+    SHELL_COMMAND_PREFIXES.has(words[commandIndex] ?? '') ||
+    /^[A-Za-z_][A-Za-z0-9_]*=/u.test(words[commandIndex] ?? '')
+  ) {
+    commandIndex += 1;
+  }
+  if (
+    words[commandIndex] === 'builtin' ||
+    words[commandIndex] === 'command'
+  ) {
+    commandIndex += 1;
+    if (words[commandIndex] === '--') {
+      commandIndex += 1;
+    }
+  }
+  return SHELL_DIRECTORY_CHANGE_COMMANDS.has(words[commandIndex] ?? '');
 }
 
 function getShellSegmentStaticReachability(
