@@ -403,6 +403,61 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(dependenciesCheck?.detail).toContain('@wp-typia/api-client');
   }, 30_000);
 
+  test('requires the persistence sync-rest package script', async () => {
+    const targetDir = path.join(tempRoot, 'persistence-sync-rest-script');
+    await scaffoldPersistence(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const originalPackageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as { scripts: Record<string, string> };
+    const originalChecks = await getDoctorChecks(targetDir);
+    expect(
+      getCheck(originalChecks, STANDALONE_DOCTOR_CODES.PACKAGE)?.status,
+    ).toBe('pass');
+    expect(
+      getCheck(originalChecks, STANDALONE_DOCTOR_CODES.BOOTSTRAP)?.status,
+    ).toBe('pass');
+    expect(
+      getCheck(originalChecks, STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT)?.status,
+    ).toBe('pass');
+    const cases = [
+      {
+        expected: 'must define the sync-rest script',
+        script: undefined,
+      },
+      {
+        expected:
+          'sync-rest script must invoke `tsx scripts/sync-rest-contracts.ts`',
+        script: 'node -e "process.exit(0)"',
+      },
+      {
+        expected:
+          'sync-rest script must propagate failures from `tsx scripts/sync-rest-contracts.ts`',
+        script: 'tsx scripts/sync-rest-contracts.ts || true',
+      },
+    ] as const;
+
+    for (const fixture of cases) {
+      const packageJson = {
+        ...originalPackageJson,
+        scripts: { ...originalPackageJson.scripts },
+      };
+      if (fixture.script === undefined) {
+        delete packageJson.scripts['sync-rest'];
+      } else {
+        packageJson.scripts['sync-rest'] = fixture.script;
+      }
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+      const packageCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.PACKAGE,
+      );
+      expect(packageCheck?.status).toBe('fail');
+      expect(packageCheck?.detail).toContain(fixture.expected);
+    }
+  }, 20_000);
+
   test('rejects package scripts that bypass generated sync helpers', async () => {
     const targetDir = path.join(tempRoot, 'damaged-package-scripts');
     await scaffoldBasic(targetDir);
@@ -1210,6 +1265,84 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       const source = original.replace(canonicalSource, damagedSource);
       expect(source).not.toBe(original);
       fs.writeFileSync(syncScriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
+
+  test('rejects side effects between metadata sync and report handling', async () => {
+    const mutations = [
+      [
+        'extra-statement',
+        '  if (options.report === "json") {',
+        [
+          "  process.getBuiltinModule('node:fs').writeFileSync('src/block.json', '{}');",
+          '  if (options.report === "json") {',
+        ].join('\n'),
+      ],
+      [
+        'report-helper',
+        '    console.error("❌ Type sync failed:", report.failure.message);',
+        [
+          "    process.getBuiltinModule('node:fs').writeFileSync('src/block.json', '{}');",
+          '    console.error("❌ Type sync failed:", report.failure.message);',
+        ].join('\n'),
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `sync-report-side-effect-${name}`);
+      await scaffoldBasic(targetDir);
+      const syncScriptPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-types-to-block-json.ts',
+      );
+      const original = fs.readFileSync(syncScriptPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncScriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
+
+  test('rejects top-level termination or duplicate main calls before helper replay', async () => {
+    const cases = [
+      {
+        name: 'sync-types-exit',
+        prefix: 'process.exit(0);',
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        name: 'sync-project-throw',
+        prefix: "throw new Error('stop');",
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        name: 'sync-project-double-main',
+        prefix: 'main();',
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(tempRoot, fixture.name);
+      await scaffoldBasic(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(
+        /main\(\)\.catch/u,
+        `${fixture.prefix}\n\nmain().catch`,
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
 
       const sourceLayoutCheck = getCheck(
         await getDoctorChecks(targetDir),
@@ -2759,6 +2892,45 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(bootstrapCheck?.status).toBe('pass');
   });
 
+  test('requires persistence REST route registration on rest_api_init', async () => {
+    const mutations = [
+      [
+        'missing-hook',
+        /\s*add_action\( 'rest_api_init', '[A-Za-z_][A-Za-z0-9_]*_register_routes' \);/u,
+        '',
+        'does not hook REST route registration to rest_api_init',
+      ],
+      [
+        'missing-route-call',
+        /\bregister_rest_route\s*\(/gu,
+        'disabled_register_rest_route(',
+        'does not call register_rest_route()',
+      ],
+      [
+        'unreachable-route-call',
+        /function ([A-Za-z_][A-Za-z0-9_]*_register_routes)\(\) \{/u,
+        'function $1() {\n\treturn;',
+        'does not hook REST route registration to rest_api_init',
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource, expected] of mutations) {
+      const targetDir = path.join(tempRoot, `rest-bootstrap-${name}`);
+      await scaffoldPersistence(targetDir);
+      const bootstrapPath = path.join(targetDir, `${path.basename(targetDir)}.php`);
+      const original = fs.readFileSync(bootstrapPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(bootstrapPath, source);
+
+      const bootstrapCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+      );
+      expect(bootstrapCheck?.status).toBe('fail');
+      expect(bootstrapCheck?.detail).toContain(expected);
+    }
+  }, 20_000);
+
   test('rejects bootstrap init hook text inside PHP strings', async () => {
     const targetDir = path.join(tempRoot, 'string-init-registration');
     await scaffoldBasic(targetDir);
@@ -2967,6 +3139,24 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain('@wp-typia/block-runtime');
     expect(createDoctorRunSummary(checks).exitCode).toBe(1);
+  });
+
+  test('requires editor and validator modules used by the standalone entrypoint', async () => {
+    for (const relativePath of ['src/edit.tsx', 'src/validators.ts']) {
+      const targetDir = path.join(
+        tempRoot,
+        `missing-${path.basename(relativePath)}`,
+      );
+      await scaffoldBasic(targetDir);
+      fs.rmSync(path.join(targetDir, relativePath));
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(relativePath);
+    }
   });
 
   test('passes synchronized standalone package, bootstrap, and artifact checks', async () => {

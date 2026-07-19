@@ -31,6 +31,7 @@ import {
   containsCompletion,
   hasEarlierAbruptCompletion,
   isProcessExitCompletion,
+  unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
 import {
   checkStandaloneRestArtifacts,
@@ -52,8 +53,10 @@ const STANDALONE_SYNC_REST_SCRIPT = path.join(
   'sync-rest-contracts.ts',
 );
 const STANDALONE_INDEX_FILE = path.join('src', 'index.tsx');
+const STANDALONE_EDIT_FILE = path.join('src', 'edit.tsx');
 const STANDALONE_SAVE_FILE = path.join('src', 'save.tsx');
 const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
+const STANDALONE_VALIDATORS_FILE = path.join('src', 'validators.ts');
 // WordPress core's get_file_data() reads the first 8 KiB for plugin headers.
 const WORDPRESS_PLUGIN_HEADER_SCAN_BYTES = 8 * 1024;
 // Mirrors get_file_data()'s `[ \t\/*#@]*` header prefix. Its zero-length
@@ -495,25 +498,6 @@ function isCanonicalSyncReportErrorGuard(
   );
 }
 
-function containsResultPropertyWrite(
-  node: ts.Node,
-  resultBinding: string,
-  propertyName: string,
-): boolean {
-  return containsCompletion(
-    node,
-    (candidate) =>
-      ts.isBinaryExpression(candidate) &&
-      candidate.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-      candidate.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
-      isResultPropertyAccess(
-        candidate.left,
-        resultBinding,
-        propertyName,
-      ),
-  );
-}
-
 function findSyncOptionsObject(
   sourceFile: ts.SourceFile,
   syncImportBindings: ReadonlySet<string>,
@@ -582,20 +566,18 @@ function findSyncOptionsObject(
       ? [index]
       : [],
   );
+  const errorGuardIndex = errorGuardIndexes[0];
   return errorGuardIndexes.length === 1 &&
-    errorGuardIndexes[0] === statements.length - 1 &&
-    !statements
-      .slice(call.index + 1, errorGuardIndexes[0])
-      .some((statement) =>
-        containsResultPropertyWrite(
-          statement,
-          call.reportBinding,
-          'status',
-        ),
-      ) &&
+    errorGuardIndex === statements.length - 1 &&
+    hasCanonicalSyncReportRendering(
+      sourceFile,
+      statements.slice(call.index + 1, errorGuardIndex),
+      optionsDeclaration.binding,
+      call.reportBinding,
+    ) &&
     !hasEarlierAbruptCompletion(
       statements.slice(call.index + 1),
-      errorGuardIndexes[0] - call.index - 1,
+      errorGuardIndex - call.index - 1,
     )
     ? call.options
     : null;
@@ -1154,6 +1136,117 @@ function getTypeScriptNodeFingerprint(node: ts.Node): string {
   return JSON.stringify(parts);
 }
 
+const CANONICAL_SYNC_REPORT_HELPER_SOURCE = `
+function printHumanReport(
+  options: SyncTypesCliOptions,
+  report: Awaited<ReturnType<typeof runSyncBlockMetadata>>,
+) {
+  if (report.failure) {
+    console.error("❌ Type sync failed:", report.failure.message);
+    return;
+  }
+  console.log(
+    options.check
+      ? "✅ block.json, typia.manifest.json, and typia-validator.php are already up to date with the TypeScript types!"
+      : "✅ block.json, typia.manifest.json, and typia-validator.php were generated from TypeScript types!",
+  );
+  console.log("📝 Generated attributes:", report.attributeNames);
+  if (report.lossyProjectionWarnings.length > 0) {
+    console.warn("⚠️ Some Typia constraints were preserved only in typia.manifest.json:");
+    for (const warning of report.lossyProjectionWarnings) {
+      console.warn(\`   - \${warning}\`);
+    }
+  }
+  if (report.phpGenerationWarnings.length > 0) {
+    console.warn("⚠️ Some Typia constraints are not yet enforced by typia-validator.php:");
+    for (const warning of report.phpGenerationWarnings) {
+      console.warn(\`   - \${warning}\`);
+    }
+  }
+  if (report.status === 'error') {
+    console.error(
+      "❌ Type sync completed with warnings treated as errors because of the selected flags.",
+    );
+  }
+}
+`;
+
+const CANONICAL_PERSISTENCE_SYNC_REPORT_HELPER_SOURCE =
+  CANONICAL_SYNC_REPORT_HELPER_SOURCE.replace(
+    '✅ block.json, typia.manifest.json, and typia-validator.php are already up to date with the TypeScript types!',
+    '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json are already up to date with the TypeScript types!',
+  ).replace(
+    '✅ block.json, typia.manifest.json, and typia-validator.php were generated from TypeScript types!',
+    '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json were generated from TypeScript types!',
+  );
+
+const CANONICAL_SYNC_REPORT_HELPER_FINGERPRINTS = new Set(
+  [
+    CANONICAL_SYNC_REPORT_HELPER_SOURCE,
+    CANONICAL_PERSISTENCE_SYNC_REPORT_HELPER_SOURCE,
+  ].map((source) =>
+    getTypeScriptNodeFingerprint(
+      ts.createSourceFile(
+        'canonical-sync-report-helper.ts',
+        source,
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TS,
+      ).statements[0],
+    ),
+  ),
+);
+
+function hasCanonicalSyncReportRendering(
+  sourceFile: ts.SourceFile,
+  statements: readonly ts.Statement[],
+  optionsBinding: string,
+  reportBinding: string,
+): boolean {
+  if (statements.length === 0) {
+    return true;
+  }
+  const helper = getSingleTopLevelFunction(sourceFile, 'printHumanReport');
+  const reportGlobals = new Set(['console', 'JSON']);
+  if (
+    statements.length !== 1 ||
+    helper === null ||
+    hasImportedBinding(sourceFile, 'printHumanReport') ||
+    [...reportGlobals].some((binding) =>
+      hasImportedBinding(sourceFile, binding),
+    ) ||
+    hasShadowedBinding(sourceFile, reportGlobals) ||
+    hasShadowedBinding(
+      getSingleTopLevelFunction(sourceFile, 'main') ?? sourceFile,
+      new Set(['printHumanReport']),
+    ) ||
+    !CANONICAL_SYNC_REPORT_HELPER_FINGERPRINTS.has(
+      getTypeScriptNodeFingerprint(helper),
+    )
+  ) {
+    return false;
+  }
+  const expectedSource = `
+if (${optionsBinding}.report === 'json') {
+  process.stdout.write(\`\${JSON.stringify(${reportBinding}, null, 2)}\\n\`);
+} else {
+  printHumanReport(${optionsBinding}, ${reportBinding});
+}
+`;
+  const expectedStatement = ts.createSourceFile(
+    'canonical-sync-report-rendering.ts',
+    expectedSource,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  ).statements[0];
+  return (
+    expectedStatement !== undefined &&
+    getTypeScriptNodeFingerprint(statements[0]) ===
+      getTypeScriptNodeFingerprint(expectedStatement)
+  );
+}
+
 // Compare syntax trees instead of source text so formatting, comments, quote
 // style, and optional semicolons do not affect the generated-helper contract.
 const CANONICAL_SYNC_SCRIPT_ENV_HELPER_SOURCE = `
@@ -1392,10 +1485,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
   ) {
     return false;
   }
-  return (
-    sourceFile.statements.filter((statement) => {
+  const invocationIndexes = sourceFile.statements.flatMap(
+    (statement, statementIndex) => {
       if (!ts.isExpressionStatement(statement)) {
-        return false;
+        return [];
       }
       const outerCall = statement.expression;
       if (
@@ -1403,7 +1496,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         !ts.isPropertyAccessExpression(outerCall.expression) ||
         outerCall.expression.name.text !== 'catch'
       ) {
-        return false;
+        return [];
       }
       const mainCall = outerCall.expression.expression;
       if (
@@ -1413,7 +1506,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         mainCall.arguments.length !== 0 ||
         outerCall.arguments.length !== 1
       ) {
-        return false;
+        return [];
       }
       const catchHandler = outerCall.arguments[0];
       if (
@@ -1421,7 +1514,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
           !ts.isFunctionExpression(catchHandler)) ||
         !ts.isBlock(catchHandler.body)
       ) {
-        return false;
+        return [];
       }
       const finalStatement =
         catchHandler.body.statements[catchHandler.body.statements.length - 1];
@@ -1433,11 +1526,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
           catchHandler.body.statements.length - 1,
         )
       ) {
-        return false;
+        return [];
       }
       const exitCall = finalStatement.expression;
-      return (
-        ts.isCallExpression(exitCall) &&
+      return ts.isCallExpression(exitCall) &&
         ts.isPropertyAccessExpression(exitCall.expression) &&
         ts.isIdentifier(exitCall.expression.expression) &&
         exitCall.expression.expression.text === 'process' &&
@@ -1445,8 +1537,29 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         exitCall.arguments.length === 1 &&
         ts.isNumericLiteral(exitCall.arguments[0]) &&
         exitCall.arguments[0].text === '1'
-      );
-    }).length === 1
+        ? [statementIndex]
+        : [];
+    },
+  );
+  if (invocationIndexes.length !== 1) {
+    return false;
+  }
+  const [invocationIndex] = invocationIndexes;
+  const hasEarlierMainCall = sourceFile.statements
+    .slice(0, invocationIndex)
+    .some((statement) =>
+      containsCompletion(statement, (candidate) => {
+        if (!ts.isCallExpression(candidate)) {
+          return false;
+        }
+        const target = unwrapStaticExpression(candidate.expression);
+        return ts.isIdentifier(target) && target.text === 'main';
+      }),
+    );
+  return (
+    invocationIndex === sourceFile.statements.length - 1 &&
+    !hasEarlierAbruptCompletion(sourceFile.statements, invocationIndex) &&
+    !hasEarlierMainCall
   );
 }
 
@@ -2220,6 +2333,14 @@ function getPackageMetadataCheck(
       commands: ['tsx scripts/sync-types-to-block-json.ts'],
       name: 'sync-types',
     },
+    ...(requiresRest
+      ? [
+          {
+            commands: ['tsx scripts/sync-rest-contracts.ts'],
+            name: 'sync-rest',
+          } as const,
+        ]
+      : []),
     {
       commands: [syncCheckCommand, 'wp-scripts build'],
       name: 'build',
@@ -2487,7 +2608,43 @@ function hasDirectBuildDirectoryRegistration(
   );
 }
 
-function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
+function hasDirectRestRouteRegistration(
+  bootstrapSource: string,
+  callbackRange: PhpFunctionRange,
+): boolean {
+  return [
+    ...callbackRange.source.matchAll(/\bregister_rest_route\s*\(/gu),
+  ].some((match) => {
+    const relativeOffset = match.index ?? 0;
+    const registrationOffset = callbackRange.start + relativeOffset;
+    const sourceBeforeCall = callbackRange.source.slice(0, relativeOffset);
+    let previousIndex = relativeOffset - 1;
+    while (/\s/u.test(callbackRange.source[previousIndex] ?? '')) {
+      previousIndex -= 1;
+    }
+    return (
+      getPhpRangeMatchDepth(bootstrapSource, callbackRange, match) === 1 &&
+      !hasEarlierDirectPhpCompletion(
+        bootstrapSource,
+        callbackRange.start,
+        registrationOffset,
+      ) &&
+      !/\b(?:function|new)\s*&?\s*$/u.test(sourceBeforeCall) &&
+      callbackRange.source[previousIndex] !== '$' &&
+      !(
+        (callbackRange.source[previousIndex] === '>' &&
+          callbackRange.source[previousIndex - 1] === '-') ||
+        (callbackRange.source[previousIndex] === ':' &&
+          callbackRange.source[previousIndex - 1] === ':')
+      )
+    );
+  });
+}
+
+function getBootstrapCheck(
+  project: StandaloneScaffoldProject,
+  requiresRest: boolean,
+): DoctorCheck {
   const packageBaseName = getSafePackageBaseName(project.packageName);
   if (!packageBaseName) {
     return createDoctorCheck(
@@ -2555,18 +2712,55 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
     ],
     { requirePhpOpenTag: true },
   );
+  const hasRestRegistrationCall =
+    !requiresRest ||
+    hasPhpFunctionCall(source, 'register_rest_route', {
+      requirePhpOpenTag: true,
+    });
+  const hasRestRegistrationHook =
+    !requiresRest ||
+    hasPhpFunctionCallWithStringArguments(
+      source,
+      'add_action',
+      [
+        'rest_api_init',
+        (callbackName) => {
+          if (!/^[A-Za-z_][A-Za-z0-9_]*_register_routes$/u.test(callbackName)) {
+            return false;
+          }
+          const callbackRange = findPhpFunctionRange(source, callbackName, {
+            requirePhpOpenTag: true,
+          });
+          return (
+            callbackRange !== null &&
+            hasDirectRestRouteRegistration(source, callbackRange)
+          );
+        },
+      ],
+      { requirePhpOpenTag: true },
+    );
   const issues = [
     ...(!hasPluginHeader ? ['is missing a Plugin Name header'] : []),
     ...(!hasRegistrationCall ? ['does not call register_block_type()'] : []),
     ...(!hasRegistrationHook
       ? ['does not hook block registration to init']
       : []),
+    ...(!hasRestRegistrationCall
+      ? ['does not call register_rest_route()']
+      : []),
+    ...(!hasRestRegistrationHook
+      ? ['does not hook REST route registration to rest_api_init']
+      : []),
   ];
   return createDoctorCheck(
     'Standalone plugin bootstrap',
     issues.length === 0 ? 'pass' : 'fail',
     issues.length === 0
-      ? `${bootstrapRelativePath} contains a WordPress plugin header and init registration wiring`
+      ? `${bootstrapRelativePath} contains a WordPress plugin header and ${
+          requiresRest
+            ? 'init block registration plus REST route wiring'
+            : 'init registration wiring'
+        }`
       : `${bootstrapRelativePath} ${issues.join('; ')}`,
     STANDALONE_DOCTOR_CODES.BOOTSTRAP,
   );
@@ -2581,8 +2775,10 @@ function getSourceLayoutCheck(
     STANDALONE_SYNC_SCRIPT,
     STANDALONE_SYNC_PROJECT_SCRIPT,
     STANDALONE_INDEX_FILE,
+    STANDALONE_EDIT_FILE,
     STANDALONE_TYPES_FILE,
     STANDALONE_SAVE_FILE,
+    STANDALONE_VALIDATORS_FILE,
   ].filter(
     (relativePath) =>
       !fs.existsSync(path.join(project.projectDir, relativePath)),
@@ -2965,7 +3161,7 @@ export async function getStandaloneScaffoldDoctorChecks(
       `Scope: standalone scaffold diagnostics for ${project.packageName}. Environment readiness checks ran and package metadata, plugin bootstrap, source layout, dependencies, and canonical generated artifacts are checked below.`,
     ),
     getPackageMetadataCheck(project, requiresRest),
-    getBootstrapCheck(project),
+    getBootstrapCheck(project, requiresRest),
     getSourceLayoutCheck(project, parsedConfig, parsedRestConfig),
     dependenciesCheck,
     await getGeneratedArtifactsCheck(
