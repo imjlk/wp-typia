@@ -54,6 +54,7 @@ export default function Edit( {
 \tusePersistentBlockIdentity( {
 \t\tattributeName: 'resourceKey',
 \t\tattributes,
+\t\tblockName: '{{namespace}}/{{slugKebabCase}}',
 \t\tblocks,
 \t\tclientId,
 \t\tprefix: '{{resourceKeyPrefix}}',

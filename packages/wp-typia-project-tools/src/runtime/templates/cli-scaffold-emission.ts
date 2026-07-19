@@ -27,7 +27,9 @@ export interface ScaffoldDryRunPlan {
 	 */
 	dependencyInstall: "skipped-by-flag" | "would-install";
 	/**
-	 * Sorted project-relative paths that would be written by the scaffold.
+	 * Sorted project-relative paths guaranteed by the selected scaffold flags.
+	 * Compiler-derived paths are omitted with --no-install because their
+	 * availability then depends on the caller's local generator dependencies.
 	 */
 	files: string[];
 }
@@ -170,10 +172,12 @@ export async function buildScaffoldDryRunPlan(
 		const files = [
 			...new Set([
 				...(await listRelativeProjectFiles(previewProjectDir)),
-				...collectBuiltInCompilerArtifactPaths(
-					result.templateId,
-					result.variables,
-				),
+				...(options.noInstall
+					? []
+					: collectBuiltInCompilerArtifactPaths(
+							result.templateId,
+							result.variables,
+						)),
 			]),
 		].sort((left, right) => left.localeCompare(right));
 

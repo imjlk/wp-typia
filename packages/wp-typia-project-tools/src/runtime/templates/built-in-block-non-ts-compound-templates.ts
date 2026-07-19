@@ -30,7 +30,7 @@ if ( ! function_exists( '{{phpPrefix}}_{{slugSnakeCase}}_build_render_context' )
 
 		$normalized         = $validator->apply_defaults( is_array( $attributes ) ? $attributes : array() );
 		$validation         = $validator->validate( $normalized );
-		$resource_key       = isset( $normalized['resourceKey'] ) ? (string) $normalized['resourceKey'] : '';
+		$resource_key       = array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary';
 		$heading            = isset( $normalized['heading'] ) ? (string) $normalized['heading'] : {{titlePhpLiteral}};
 		$intro              = isset( $normalized['intro'] ) ? (string) $normalized['intro'] : '';
 		$button_label       = isset( $normalized['buttonLabel'] ) ? (string) $normalized['buttonLabel'] : 'Persist Count';
@@ -323,7 +323,7 @@ if ( ! is_object( $validator ) || ! method_exists( $validator, 'apply_defaults' 
 
 $normalized         = $validator->apply_defaults( is_array( $attributes ) ? $attributes : array() );
 $validation         = $validator->validate( $normalized );
-$resource_key       = isset( $normalized['resourceKey'] ) ? (string) $normalized['resourceKey'] : '';
+$resource_key       = array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary';
 $heading            = isset( $normalized['heading'] ) ? (string) $normalized['heading'] : {{titlePhpLiteral}};
 $intro              = isset( $normalized['intro'] ) ? (string) $normalized['intro'] : '';
 $button_label       = isset( $normalized['buttonLabel'] ) ? (string) $normalized['buttonLabel'] : 'Persist Count';

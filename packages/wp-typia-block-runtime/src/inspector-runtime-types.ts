@@ -168,7 +168,8 @@ export type AttributeNameFor<T extends object> =
  *
  * `autoRepair` defaults to enabled when omitted. Pass a stable or memoized
  * `blocks` reference so equivalent renders can reuse the same duplicate-repair
- * analysis instead of recomputing it.
+ * analysis instead of recomputing it. Set `blockName` when one editor tree can
+ * contain multiple block types that use the same identity attribute name.
  *
  * @category React
  */
@@ -176,6 +177,7 @@ export interface UsePersistentBlockIdentityOptions<T extends object> {
 	attributeName: AttributeNameFor<T>;
 	attributes: T;
 	autoRepair?: boolean;
+	blockName?: string;
 	blocks: readonly PersistentBlockIdentityNode[];
 	clientId: string;
 	duplicateDetection?: boolean;

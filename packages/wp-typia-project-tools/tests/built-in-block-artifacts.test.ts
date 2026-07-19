@@ -627,13 +627,13 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
   },
   persistence: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': '007d7e3a59bb0d54',
+    'src/edit.tsx': '8b2ffb507c386326',
     'src/hooks.ts': '3c1b432bd711ee70',
     'src/index.tsx': 'b0a68949bcc558dc',
     'src/interactivity.ts': '37e6d16e5df98fd4',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
-    'src/render.php': '491b96676a2709ac',
+    'src/render.php': 'b83c168b07bae7c4',
     'src/save.tsx': '1d87a20aecee4173',
     'src/style.scss': 'a48f3de45038a032',
     'src/validators.ts': '36295eb1f6a12ddc',
@@ -650,14 +650,14 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound-item/validators.ts': '7123c8ea0e650172',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
     'src/blocks/demo-compound/children.ts': '97ab81740f946e5a',
-    'src/blocks/demo-compound/edit.tsx': '8e5102f14846478b',
+    'src/blocks/demo-compound/edit.tsx': '1ea532b1d5e56f37',
     'src/blocks/demo-compound/hooks.ts': '485092aef1c4e019',
     'src/blocks/demo-compound/index.tsx': 'c9d9139901e6e4b9',
     'src/blocks/demo-compound/interactivity.ts': 'eddaf331fa622b91',
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
-    'src/blocks/demo-compound/render.php': '39468e876fcba0b0',
+    'src/blocks/demo-compound/render.php': 'a996a357977b4338',
     'src/blocks/demo-compound/save.tsx': '67a2bd4dce77cef6',
     'src/blocks/demo-compound/style.scss': '41a7a2bbf5cd2a34',
     'src/blocks/demo-compound/validators.ts': '71018b1d52460cf2',
@@ -859,6 +859,9 @@ describe('built-in block artifacts', () => {
       )?.source;
 
       expect(variables.slugKebabCase).toBe(longSlug);
+      expect(editSource).toContain(
+        `blockName: '${variables.namespace}/${longSlug}'`,
+      );
       expect(editSource).toContain(`prefix: '${expectedPrefix}'`);
       expect(editSource).not.toContain(`prefix: '${longSlug}'`);
       expect(validatorsSource).toContain(

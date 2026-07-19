@@ -979,6 +979,31 @@ test("runScaffoldFlow dry-run reports compiler-seeded persistence artifacts", as
   expect(fs.existsSync(targetDir)).toBe(false);
 });
 
+test("runScaffoldFlow dry-run omits deferred compiler artifacts with --no-install", async () => {
+  const projectInput = "demo-persistence-dry-run-no-install";
+  const targetDir = path.join(tempRoot, projectInput);
+  const flow = await runScaffoldFlow({
+    cwd: tempRoot,
+    dryRun: true,
+    noInstall: true,
+    packageManager: "npm",
+    projectInput,
+    templateId: "persistence",
+    yes: true,
+  });
+
+  expect(flow.plan?.dependencyInstall).toBe("skipped-by-flag");
+  expect(flow.plan?.files).toContain("src/types.ts");
+  expect(flow.plan?.files).toContain("src/api-types.ts");
+  expect(flow.plan?.files).not.toContain("src/typia-validator.php");
+  expect(flow.plan?.files).not.toContain("src/api-client.ts");
+  expect(flow.plan?.files).not.toContain("src/api.openapi.json");
+  expect(flow.plan?.files).not.toContain(
+    "src/api-schemas/state-query.schema.json"
+  );
+  expect(fs.existsSync(targetDir)).toBe(false);
+});
+
 test("runScaffoldFlow applies the plugin-qa profile to the official workspace template", async () => {
   const projectInput = "demo-plugin-qa-profile";
   const flow = await runScaffoldFlow({

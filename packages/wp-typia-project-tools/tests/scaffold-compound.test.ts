@@ -852,6 +852,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(parentEdit).toContain('store as blockEditorStore');
       expect(parentEdit).toContain('usePersistentBlockIdentity');
       expect(parentEdit).toContain("attributeName: 'resourceKey'");
+      expect(parentEdit).toContain(
+        "blockName: 'create-block/demo-compound-storage'",
+      );
       expect(parentEdit).toContain("prefix: 'demo-compound-storage'");
       expect(generatedSyncRest).toContain('syncRestOpenApi');
       expect(generatedSyncRest).toContain('syncEndpointClient');
@@ -1982,6 +1985,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     );
     expect(pluginBootstrap).toContain(
       'function demo_compound_public_has_rendered_block_instance',
+    );
+    expect(parentRender).toContain(
+      "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'",
     );
     expect(pluginBootstrap).toContain('create-block/demo-compound-public');
     expect(pluginBootstrap).toContain(

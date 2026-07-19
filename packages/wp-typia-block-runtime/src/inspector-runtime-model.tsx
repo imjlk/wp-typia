@@ -119,12 +119,14 @@ function getPersistentBlockIdentityRepairMap(
 	blocks: readonly PersistentBlockIdentityNode[],
 	options: {
 		attributeName: string;
+		blockName?: string;
 		duplicateDetection?: boolean;
 		prefix: string;
 	},
 ): Map<string, PersistentBlockIdentityRepair> {
 	const duplicateMode = options.duplicateDetection === false ? "off" : "on";
-	const cacheKey = `${options.attributeName}:${options.prefix}:${duplicateMode}`;
+	const blockScope = options.blockName ?? "*";
+	const cacheKey = `${options.attributeName}:${options.prefix}:${duplicateMode}:${blockScope}`;
 	let repairMapsByKey = persistentBlockIdentityRepairCache.get(blocks);
 	if (!repairMapsByKey) {
 		repairMapsByKey = new Map();
@@ -321,6 +323,7 @@ export function usePersistentBlockIdentity<T extends object>(
 		attributeName,
 		attributes,
 		autoRepair,
+		blockName,
 		blocks,
 		clientId,
 		duplicateDetection,
@@ -331,11 +334,13 @@ export function usePersistentBlockIdentity<T extends object>(
 		() =>
 			getPersistentBlockIdentityRepairMap(blocks, {
 				attributeName,
+				blockName,
 				duplicateDetection,
 				prefix,
 			}).get(clientId) ?? null,
 		[
 			attributeName,
+			blockName,
 			blocks,
 			clientId,
 			duplicateDetection,

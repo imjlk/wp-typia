@@ -205,7 +205,13 @@ test(
     expect(generatedEdit).toContain("store as blockEditorStore");
     expect(generatedEdit).toContain("usePersistentBlockIdentity");
     expect(generatedEdit).toContain("attributeName: 'resourceKey'");
+    expect(generatedEdit).toContain(
+      "blockName: 'create-block/demo-persistence-public'"
+    );
     expect(generatedEdit).toContain("prefix: 'demo-persistence-public'");
+    expect(generatedRender).toContain(
+      "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
+    );
     expect(restPublicHelper).toContain(
       "function demo_persistence_public_verify_public_write_token"
     );
@@ -787,6 +793,9 @@ test("scaffoldProject emits alternate render target entries for persistence scaf
   expect(readme).toContain("src/render-text.php");
   expect(readme).toContain("src/render-targets.php");
   expect(renderTargetsSource).toMatch(/function\s+.+_render_target\(/);
+  expect(renderTargetsSource).toContain(
+    "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
+  );
   expect(webRenderSource).toContain("render_target( 'web'");
   expect(emailRenderSource).toContain("render_target( 'email'");
   expect(textRenderSource).toContain("render_target( 'plain-text'");

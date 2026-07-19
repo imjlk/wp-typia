@@ -46,6 +46,7 @@ export default function Edit( {
 	usePersistentBlockIdentity( {
 		attributeName: 'resourceKey',
 		attributes,
+		blockName: '{{namespace}}/{{slugKebabCase}}',
 		blocks,
 		clientId,
 		prefix: '{{resourceKeyPrefix}}',
