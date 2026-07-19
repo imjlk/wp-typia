@@ -307,7 +307,7 @@ const variation = {
 } satisfies BlockVariation<DemoRegistrationAttributes>;
 const aggregateVariation: AggregateBlockVariation<DemoRegistrationAttributes> =
   variation;
-registerBlockVariation('wp-typia/smoke', aggregateVariation);
+void registerBlockVariation('wp-typia/smoke', aggregateVariation);
 const typedParagraphVariation = defineVariation<DemoRegistrationAttributes>(
   'core/paragraph',
   {

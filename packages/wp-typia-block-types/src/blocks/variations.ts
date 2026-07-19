@@ -61,9 +61,13 @@ export type BlockVariationIsActive<
       variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
     ) => boolean);
 
-// Exact icon and example types are owned by the optional WordPress peer. Keep
-// those slots structurally open while the aggregate declaration stays peer-free.
-type PeerBackedVariationValue = BlockAttributes[string];
+/**
+ * Opaque compatibility slot for exact icon and example types owned by the
+ * optional WordPress peer. It intentionally resolves through the broad
+ * `BlockAttributes` value type so the aggregate remains peer-free and
+ * registration-assignable.
+ */
+type PeerBackedOpaqueVariationValue = BlockAttributes[string];
 
 /**
  * Peer-free variation shape used by the aggregate authoring entrypoints.
@@ -79,8 +83,8 @@ export interface BlockVariation<
   readonly attributes?: TAttributes;
   readonly category?: string;
   readonly description?: string;
-  readonly example?: PeerBackedVariationValue;
-  readonly icon?: PeerBackedVariationValue;
+  readonly example?: PeerBackedOpaqueVariationValue;
+  readonly icon?: PeerBackedOpaqueVariationValue;
   readonly innerBlocks?: BlockVariationInnerBlocks;
   readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly isDefault?: boolean;
@@ -97,12 +101,10 @@ export interface BlockVariationDefinition<
     "attributes" | "example" | "innerBlocks" | "isActive" | "scope"
   > {
   readonly attributes?: BlockVariationAttributeMap<TAttributes>;
-  readonly example?:
-    | BlockVariation<BlockVariationAttributeMap<TAttributes>>["example"]
-    | {
-        readonly attributes: BlockVariationAttributeMap<TAttributes>;
-        readonly innerBlocks?: BlockVariationInnerBlocks;
-      };
+  readonly example?: {
+    readonly attributes: BlockVariationAttributeMap<TAttributes>;
+    readonly innerBlocks?: BlockVariationInnerBlocks;
+  };
   readonly innerBlocks?: BlockVariationInnerBlocks;
   readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly scope?: readonly BlockVariationScope[];
