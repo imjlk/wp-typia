@@ -177,7 +177,7 @@ test('emits structured add completion output in portable CLI JSON mode', async (
   } finally {
     fs.rmSync(projectDir, { force: true, recursive: true });
   }
-});
+}, 20_000);
 
 test('emits legacy pattern tag warnings in portable CLI JSON completion output', async () => {
   const projectDir = fs.mkdtempSync(

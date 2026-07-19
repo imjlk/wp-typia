@@ -10,6 +10,7 @@ import {
 	type AddBlockTemplateId,
 	quoteTsString,
 } from "./cli-add-shared.js";
+import { buildPersistenceEndpointManifest } from "./persistence-rest-artifacts.js";
 
 export function buildServerTemplateRoot(
 	persistencePolicy: string | undefined,
@@ -35,27 +36,21 @@ function buildSingleBlockConfigEntry(
 function buildPersistenceBlockConfigEntry(
 	variables: ScaffoldTemplateVariables,
 ): string {
+	const contractLines = Object.entries(
+		buildPersistenceEndpointManifest(variables).contracts,
+	).flatMap(([contractName, contract]) => [
+		`\t\t\t\t${quoteTsString(contractName)}: {`,
+		`\t\t\t\t\tsourceTypeName: ${quoteTsString(contract.sourceTypeName)},`,
+		"\t\t\t\t},",
+	]);
+
 	return [
 		"\t{",
 		`\t\tapiTypesFile: ${quoteTsString(`src/blocks/${variables.slugKebabCase}/api-types.ts`)},`,
 		`\t\tattributeTypeName: ${quoteTsString(`${variables.pascalCase}Attributes`)},`,
 		"\t\trestManifest: defineEndpointManifest( {",
 		"\t\t\tcontracts: {",
-		"\t\t\t\t'bootstrap-query': {",
-		`\t\t\t\t\tsourceTypeName: ${quoteTsString(`${variables.pascalCase}BootstrapQuery`)},`,
-		"\t\t\t\t},",
-		"\t\t\t\t'bootstrap-response': {",
-		`\t\t\t\t\tsourceTypeName: ${quoteTsString(`${variables.pascalCase}BootstrapResponse`)},`,
-		"\t\t\t\t},",
-		"\t\t\t\t'state-query': {",
-		`\t\t\t\t\tsourceTypeName: ${quoteTsString(`${variables.pascalCase}StateQuery`)},`,
-		"\t\t\t\t},",
-		"\t\t\t\t'state-response': {",
-		`\t\t\t\t\tsourceTypeName: ${quoteTsString(`${variables.pascalCase}StateResponse`)},`,
-		"\t\t\t\t},",
-		"\t\t\t\t'write-state-request': {",
-		`\t\t\t\t\tsourceTypeName: ${quoteTsString(`${variables.pascalCase}WriteStateRequest`)},`,
-		"\t\t\t\t},",
+		...contractLines,
 		"\t\t\t},",
 		"\t\t\tendpoints: [",
 		"\t\t\t\t{",

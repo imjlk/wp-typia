@@ -42,6 +42,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const packageJson = JSON.parse(
         fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'),
       );
@@ -217,7 +219,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
@@ -624,6 +626,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         },
       });
 
+      runGeneratedScript(targetDir, 'scripts/sync-project.ts', ['--check']);
+
       const packageJson = JSON.parse(
         fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'),
       );
@@ -795,8 +799,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(packageJson.devDependencies['@wp-typia/rest']).toBe(
         restPackageVersion,
       );
+      expect(packageJson.dependencies['@wordpress/data']).toBe('~10.46.0');
       expect(packageJson.scripts.dev).toBe(
-        'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"',
+        'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
@@ -837,10 +842,20 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(pluginBootstrap).toContain("return 'wpt_pcl_' . md5(");
       expect(parentBlockJson.render).toBe('file:./render.php');
       expect(parentBlockJson.viewScriptModule).toBe('file:./interactivity.js');
-      expect(parentBlockJson.attributes.resourceKey.default).toBe('');
-      expect(parentManifest.attributes.resourceKey.typia.defaultValue).toBe(
-        'primary',
+      expect(parentBlockJson.attributes.resourceKey).not.toHaveProperty(
+        'default',
       );
+      expect(parentManifest.attributes.resourceKey.typia.hasDefault).toBe(false);
+      expect(
+        parentManifest.attributes.resourceKey.typia.defaultValue,
+      ).toBeNull();
+      expect(parentEdit).toContain('store as blockEditorStore');
+      expect(parentEdit).toContain('usePersistentBlockIdentity');
+      expect(parentEdit).toContain("attributeName: 'resourceKey'");
+      expect(parentEdit).toContain(
+        "blockName: 'create-block/demo-compound-storage'",
+      );
+      expect(parentEdit).toContain("prefix: 'demo-compound-storage'");
       expect(generatedSyncRest).toContain('syncRestOpenApi');
       expect(generatedSyncRest).toContain('syncEndpointClient');
       expect(generatedSyncRest).toContain('manifest: block.restManifest');
@@ -1034,8 +1049,6 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'The hidden child block does not own REST routes or storage.',
       );
       expect(pluginBootstrap).toContain('Customize storage helpers');
-
-      runGeneratedScript(targetDir, 'scripts/sync-project.ts');
 
       const generatedApiClient = fs.readFileSync(
         path.join(
@@ -1972,6 +1985,12 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     );
     expect(pluginBootstrap).toContain(
       'function demo_compound_public_has_rendered_block_instance',
+    );
+    expect(parentRender).toContain(
+      "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'",
+    );
+    expect(parentRender).toContain(
+      "empty( $validation['valid'] ) || '' === $resource_key",
     );
     expect(pluginBootstrap).toContain('create-block/demo-compound-public');
     expect(pluginBootstrap).toContain(

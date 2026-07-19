@@ -4,6 +4,7 @@ import type { BuiltInTemplateId } from "./template-registry.js";
 import {
 	buildBasicAttributes,
 	buildBlockJsonAttributes,
+	buildBlockJsonExampleAttributes,
 	buildCompoundChildAttributes,
 	buildCompoundParentAttributes,
 	buildInteractivityAttributes,
@@ -28,7 +29,7 @@ export interface BuiltInBlockArtifact {
 }
 
 function stringifyBlockJsonDocument(document: Record<string, unknown>): string {
-	return `${JSON.stringify(document, null, "\t")}\n`;
+	return JSON.stringify(document, null, "\t");
 }
 
 function buildBasicArtifact(
@@ -47,11 +48,7 @@ function buildBasicArtifact(
 			description: variables.description,
 			keywords: [variables.keyword, "typia", "block"],
 			example: {
-				attributes: {
-					content: "Example content",
-					alignment: "center",
-					isVisible: true,
-				},
+				attributes: buildBlockJsonExampleAttributes(attributes),
 			},
 			supports: {
 				html: false,
@@ -82,7 +79,9 @@ function buildInteractivityArtifact(
 			category: variables.category,
 			icon: variables.icon,
 			description: variables.description,
-			example: {},
+			example: {
+				attributes: buildBlockJsonExampleAttributes(attributes),
+			},
 			supports: {
 				html: false,
 				align: true,
@@ -117,7 +116,9 @@ function buildPersistenceArtifact(
 			category: variables.category,
 			icon: variables.icon,
 			description: variables.description,
-			example: {},
+			example: {
+				attributes: buildBlockJsonExampleAttributes(attributes),
+			},
 			supports: {
 				html: false,
 				align: true,
@@ -156,7 +157,9 @@ function buildCompoundParentArtifact(
 			category: variables.category,
 			icon: variables.icon,
 			description: variables.description,
-			example: {},
+			example: {
+				attributes: buildBlockJsonExampleAttributes(attributes),
+			},
 			allowedBlocks: [`${variables.namespace}/${variables.slugKebabCase}-item`],
 			supports: persistenceEnabled
 				? {
@@ -207,7 +210,9 @@ function buildCompoundChildArtifact(
 			icon: variables.compoundChildIcon,
 			description: `Internal item block used by ${variables.title}.`,
 			parent: [`${variables.namespace}/${variables.slugKebabCase}`],
-			example: {},
+			example: {
+				attributes: buildBlockJsonExampleAttributes(attributes),
+			},
 			supports: {
 				html: false,
 				inserter: false,
@@ -285,7 +290,7 @@ export function buildBuiltInBlockArtifacts({
  * Serializes a generated `block.json` document using scaffold formatting.
  *
  * @param document Structured `block.json` document.
- * @returns Pretty-printed JSON with a trailing newline.
+ * @returns Pretty-printed JSON using tab indentation.
  */
 export function stringifyBuiltInBlockJsonDocument(
 	document: Record<string, unknown>,

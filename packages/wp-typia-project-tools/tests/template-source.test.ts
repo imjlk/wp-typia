@@ -2027,6 +2027,7 @@ test("official workspace template scaffolds through the local npm template resol
   expect(packageJson.devDependencies["wp-typia"]).toBe(
     `^${wpTypiaPackageManifest.version}`
   );
+  expect(packageJson.dependencies["@wordpress/data"]).toBe("~10.46.0");
   expect(readmeSource).toContain("npm run wp-typia:doctor");
   expect(readmeSource).toContain("npm run wp-typia:sync -- --check");
   expect(readmeSource).toContain("npm run sync-rest:package:check");

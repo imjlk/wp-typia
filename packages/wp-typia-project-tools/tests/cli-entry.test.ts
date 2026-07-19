@@ -8,7 +8,7 @@ import { formatHelpText, getDoctorChecks, getNextSteps, getOptionalOnboarding, r
 import { assertValidEditorPluginSlot } from "../src/runtime/cli-add-shared.js";
 import { resolveNonEmptyNormalizedBlockSlug, resolveValidatedPhpPrefix } from "../src/runtime/scaffold-identifiers.js";
 import { collectScaffoldAnswers } from "../src/runtime/scaffold.js";
-import { getQuickStartWorkflowNote } from "../src/runtime/scaffold-onboarding.js";
+import { getDeferredCompilerArtifactsWarning, getQuickStartWorkflowNote } from "../src/runtime/scaffold-onboarding.js";
 
 describe("@wp-typia/project-tools scaffold CLI flow", () => {
   const tempRoot = createScaffoldTempRoot("wp-typia-scaffold-cli-");
@@ -647,6 +647,23 @@ test("optional onboarding derives sync steps from available custom-template scri
   expect(onboarding.note).not.toContain("npm run sync -- --check");
 });
 
+test("deferred compiler artifact warnings retain every fallback sync script", () => {
+  expect(
+    getDeferredCompilerArtifactsWarning("npm", "/tmp/custom-template", {
+      availableScripts: ["sync-types", "sync-rest"],
+    })
+  ).toBe(
+    "Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `npm run sync-types`, then `npm run sync-rest` before build or typecheck."
+  );
+  expect(
+    getDeferredCompilerArtifactsWarning("pnpm", "persistence", {
+      availableScripts: ["sync", "sync-types", "sync-rest"],
+    })
+  ).toBe(
+    "Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `pnpm run sync` before build or typecheck."
+  );
+});
+
 test("optional onboarding avoids synthesized sync commands for custom templates without sync scripts", () => {
   const onboarding = getOptionalOnboarding({
     availableScripts: [],
@@ -929,8 +946,61 @@ test("runScaffoldFlow dry-run previews scaffold output without writing the targe
   expect(flow.dryRun).toBe(true);
   expect(flow.plan?.files).toContain("package.json");
   expect(flow.plan?.files).toContain("src/block.json");
+  expect(flow.plan?.files).toContain("src/typia-validator.php");
   expect(flow.plan?.dependencyInstall).toBe("would-install");
   expect(flow.result.templateId).toBe("basic");
+  expect(fs.existsSync(targetDir)).toBe(false);
+});
+
+test("runScaffoldFlow dry-run reports compiler-seeded persistence artifacts", async () => {
+  const projectInput = "demo-persistence-dry-run-plan";
+  const targetDir = path.join(tempRoot, projectInput);
+  const flow = await runScaffoldFlow({
+    cwd: tempRoot,
+    dryRun: true,
+    packageManager: "npm",
+    projectInput,
+    templateId: "persistence",
+    yes: true,
+  });
+
+  expect(flow.plan?.files).toContain("src/typia.schema.json");
+  expect(flow.plan?.files).toContain("src/typia.openapi.json");
+  expect(flow.plan?.files).toContain("src/typia.manifest.json");
+  expect(flow.plan?.files).toContain("src/typia-validator.php");
+  expect(flow.plan?.files).toContain("src/api-client.ts");
+  expect(flow.plan?.files).toContain("src/api.openapi.json");
+  expect(flow.plan?.files).toContain(
+    "src/api-schemas/state-query.schema.json"
+  );
+  expect(flow.plan?.files).toContain(
+    "src/api-schemas/state-query.openapi.json"
+  );
+  expect(fs.existsSync(targetDir)).toBe(false);
+});
+
+test("runScaffoldFlow dry-run omits deferred compiler artifacts with --no-install", async () => {
+  const projectInput = "demo-persistence-dry-run-no-install";
+  const targetDir = path.join(tempRoot, projectInput);
+  const flow = await runScaffoldFlow({
+    cwd: tempRoot,
+    dryRun: true,
+    noInstall: true,
+    packageManager: "npm",
+    projectInput,
+    templateId: "persistence",
+    yes: true,
+  });
+
+  expect(flow.plan?.dependencyInstall).toBe("skipped-by-flag");
+  expect(flow.plan?.files).toContain("src/types.ts");
+  expect(flow.plan?.files).toContain("src/api-types.ts");
+  expect(flow.plan?.files).not.toContain("src/typia-validator.php");
+  expect(flow.plan?.files).not.toContain("src/api-client.ts");
+  expect(flow.plan?.files).not.toContain("src/api.openapi.json");
+  expect(flow.plan?.files).not.toContain(
+    "src/api-schemas/state-query.schema.json"
+  );
   expect(fs.existsSync(targetDir)).toBe(false);
 });
 

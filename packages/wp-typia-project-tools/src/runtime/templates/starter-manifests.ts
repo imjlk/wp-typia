@@ -62,5 +62,5 @@ export function getStarterManifestFiles(
  * convention.
  */
 export function stringifyStarterManifest(document: ManifestDocument): string {
-	return `${JSON.stringify(document, null, "\t")}\n`;
+	return JSON.stringify(document, null, "\t");
 }

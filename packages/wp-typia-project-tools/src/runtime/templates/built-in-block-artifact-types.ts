@@ -38,14 +38,14 @@ const STANDARD_PREAMBLE_LINES = [
 	"\tTypiaValidationError,",
 	"\tValidationResult,",
 	'} from "@wp-typia/block-runtime/validation";',
-	'import { tags } from "typia";',
+	'import type { tags } from "@wp-typia/block-runtime/typia-tags";',
 	"",
 	'export type { TypiaValidationError, ValidationResult } from "@wp-typia/block-runtime/validation";',
 ] as const satisfies readonly string[];
 
 const VALIDATION_ONLY_PREAMBLE_LINES = [
 	'import type { ValidationResult } from "@wp-typia/block-runtime/validation";',
-	'import { tags } from "typia";',
+	'import type { tags } from "@wp-typia/block-runtime/typia-tags";',
 	"",
 	'export type { ValidationResult } from "@wp-typia/block-runtime/validation";',
 ] as const satisfies readonly string[];

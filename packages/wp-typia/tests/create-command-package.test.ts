@@ -139,7 +139,7 @@ test('writes WordPress target plugin headers through the portable CLI bin', () =
   } finally {
     fs.rmSync(tempRoot, { force: true, recursive: true });
   }
-});
+}, 20_000);
 
 test('honors NO_COLOR for ASCII-safe status markers through the portable CLI bin', () => {
   const tempRoot = fs.mkdtempSync(

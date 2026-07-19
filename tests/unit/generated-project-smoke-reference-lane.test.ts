@@ -83,6 +83,35 @@ test("CI generated smoke matrix includes the checked-in example lanes", () => {
 	expect(ciWorkflow).toContain('--example-project "${{ matrix.example_project }}"');
 });
 
+test("generated smoke script forwards run arguments per package manager", async () => {
+	const { getRunScriptCommand } = (await import(
+		new URL("../../scripts/lib/generated-project-smoke-core.mjs", import.meta.url).href
+	)) as {
+		getRunScriptCommand: (
+			packageManager: "bun" | "npm" | "pnpm" | "yarn",
+			scriptName: string,
+			extraArgs?: string[],
+		) => [string, string[]];
+	};
+
+	expect(getRunScriptCommand("bun", "sync", ["--check"])).toEqual([
+		"bun",
+		["run", "sync", "--check"],
+	]);
+	expect(getRunScriptCommand("npm", "sync", ["--check"])).toEqual([
+		"npm",
+		["run", "sync", "--", "--check"],
+	]);
+	expect(getRunScriptCommand("pnpm", "sync", ["--check"])).toEqual([
+		"corepack",
+		["pnpm", "run", "sync", "--check"],
+	]);
+	expect(getRunScriptCommand("yarn", "sync", ["--check"])).toEqual([
+		"corepack",
+		["yarn", "run", "sync", "--check"],
+	]);
+});
+
 test("workspace dependency rewrite seeds local runtime packages for linked Bun reference examples", async () => {
 	const projectDir = fs.mkdtempSync(
 		join(os.tmpdir(), "wp-typia-generated-smoke-reference-"),

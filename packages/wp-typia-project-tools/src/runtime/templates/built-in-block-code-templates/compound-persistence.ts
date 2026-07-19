@@ -4,6 +4,7 @@ import {
 \tInspectorControls,
 \tInnerBlocks,
 \tRichText,
+\tstore as blockEditorStore,
 \tuseBlockProps,
 } from '@wordpress/block-editor';
 import {
@@ -12,7 +13,12 @@ import {
 \tTextControl,
 \tToggleControl,
 } from '@wordpress/components';
+import { useSelect } from '@wordpress/data';
 
+import {
+\ttype PersistentBlockIdentityNode,
+\tusePersistentBlockIdentity,
+} from '@wp-typia/block-runtime/inspector';
 import {
 \tgetRootInnerBlocksPropsOptions,
 } from './children';
@@ -35,8 +41,25 @@ const TypedInnerBlocks = InnerBlocks as unknown as (
 
 export default function Edit( {
 \tattributes,
+\tclientId,
 \tsetAttributes,
 }: EditProps ) {
+\tconst blocks = useSelect(
+\t\t( select ) =>
+\t\t\t( select( blockEditorStore ) as {
+\t\t\t\tgetBlocks: () => readonly PersistentBlockIdentityNode[];
+\t\t\t} ).getBlocks(),
+\t\t[]
+\t);
+\tusePersistentBlockIdentity( {
+\t\tattributeName: 'resourceKey',
+\t\tattributes,
+\t\tblockName: '{{namespace}}/{{slugKebabCase}}',
+\t\tblocks,
+\t\tclientId,
+\t\tprefix: '{{resourceKeyPrefix}}',
+\t\tsetAttributes,
+\t} );
 \tconst { errorMessages, isValid } = useTypiaValidation(
 \t\tattributes,
 \t\tvalidate{{pascalCase}}Attributes
@@ -156,7 +179,7 @@ const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attribu
 \t\tresourceKey:
 \t\t\tnormalized.resourceKey && normalized.resourceKey.length > 0
 \t\t\t\t? normalized.resourceKey
-\t\t\t\t: generateResourceKey( '{{slugKebabCase}}' ),
+\t\t\t\t: generateResourceKey( '{{resourceKeyPrefix}}' ),
 \t} ),
 \tvalidate: typia.createValidate< {{pascalCase}}Attributes >(),
 } );

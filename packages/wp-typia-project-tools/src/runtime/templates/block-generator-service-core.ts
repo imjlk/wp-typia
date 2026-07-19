@@ -38,6 +38,7 @@ import {
 	type ValidateBlockResult,
 } from "./block-generator-service-spec.js";
 import type { ScaffoldProjectResult } from "./scaffold.js";
+import { collectBuiltInCompilerArtifactPaths } from "./scaffold-compiler-artifacts.js";
 import {
 	assertBuiltInTemplateVariantAllowed,
 	assertExternalLayerCompositionOptions,
@@ -89,6 +90,13 @@ function buildProtectedTemplateOutputPaths({
 	for (const artifact of artifacts) {
 		protectedOutputs.add(`${artifact.relativeDir}/block.json`);
 		protectedOutputs.add(`${artifact.relativeDir}/types.ts`);
+	}
+
+	for (const artifactPath of collectBuiltInCompilerArtifactPaths(
+		spec.template.family,
+		variables,
+	)) {
+		protectedOutputs.add(artifactPath);
 	}
 
 	for (const manifest of getStarterManifestFiles(spec.template.family, variables)) {
@@ -365,6 +373,7 @@ export class BlockGeneratorService {
 		rendered,
 		installDependencies,
 		onProgress,
+		seedCompilerArtifacts = true,
 	}: ApplyBlockInput): Promise<ScaffoldProjectResult> {
 		const cachedArtifacts = renderedArtifactCache.get(rendered);
 		const currentVariablesFingerprint = createVariablesFingerprint(
@@ -387,8 +396,9 @@ export class BlockGeneratorService {
 						variables: rendered.variables,
 					});
 
+		let applyWarnings: string[] = [];
 		try {
-			await applyBuiltInScaffoldProjectFiles({
+			applyWarnings = await applyBuiltInScaffoldProjectFiles({
 				allowExistingDir: rendered.target.allowExistingDir,
 				artifacts,
 				codeArtifacts,
@@ -400,6 +410,7 @@ export class BlockGeneratorService {
 				repositoryReference: rendered.target.repositoryReference,
 				gitignoreContent: rendered.gitignoreContent,
 				readmeContent: rendered.readmeContent,
+				seedCompilerArtifacts,
 				templateDir: rendered.templateDir,
 				templateId: rendered.spec.template.family,
 				variables: rendered.variables,
@@ -417,7 +428,7 @@ export class BlockGeneratorService {
 			selectedVariant: rendered.selectedVariant,
 			templateId: rendered.spec.template.family,
 			variables: rendered.variables,
-			warnings: rendered.warnings,
+			warnings: [...rendered.warnings, ...applyWarnings],
 		};
 	}
 }

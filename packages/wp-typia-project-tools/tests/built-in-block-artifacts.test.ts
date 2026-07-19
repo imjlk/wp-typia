@@ -11,6 +11,10 @@ import {
   buildBuiltInBlockArtifacts,
   stringifyBuiltInBlockJsonDocument,
 } from '../src/runtime/built-in-block-artifacts.js';
+import {
+  buildBlockJsonExampleAttributes,
+  type EmittedAttributeDefinition,
+} from '../src/runtime/templates/built-in-block-artifact-documents.js';
 import { buildBuiltInCodeArtifacts } from '../src/runtime/built-in-block-code-artifacts.js';
 import {
   getBuiltInTemplateLayerDirs,
@@ -72,6 +76,34 @@ function buildArtifacts(templateId: BuiltInTemplateId) {
     }),
     answers,
     variables,
+  };
+}
+
+function buildExampleAttribute({
+  constraints,
+  kind,
+  name,
+}: {
+  constraints: EmittedAttributeDefinition['manifest']['constraints'];
+  kind: EmittedAttributeDefinition['manifest']['kind'];
+  name: string;
+}): EmittedAttributeDefinition {
+  return {
+    blockJson: {
+      type: kind,
+    },
+    manifest: {
+      constraints,
+      enumValues: null,
+      kind,
+      required: true,
+      selector: null,
+      source: null,
+      sourceType: kind,
+    },
+    name,
+    optional: false,
+    typeExpression: kind,
   };
 }
 
@@ -254,11 +286,10 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: '',
             type: 'string',
           },
           manifest: {
-            defaultValue: 'primary',
+            defaultValue: null,
             required: false,
             selector: null,
             source: null,
@@ -338,7 +369,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         alignment: {
           blockJson: {
             default: 'left',
-            enum: ['left', 'center', 'right'],
+            enum: ['left', 'center', 'right', 'justify'],
             type: 'string',
           },
           manifest: {
@@ -468,7 +499,7 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         alignment: {
           blockJson: {
             default: 'left',
-            enum: ['left', 'center', 'right'],
+            enum: ['left', 'center', 'right', 'justify'],
             type: 'string',
           },
           manifest: {
@@ -522,11 +553,10 @@ const EXPECTED_ARTIFACT_ATTRIBUTE_SUMMARIES: Record<
         },
         resourceKey: {
           blockJson: {
-            default: '',
             type: 'string',
           },
           manifest: {
-            defaultValue: 'primary',
+            defaultValue: null,
             required: false,
             selector: null,
             source: null,
@@ -597,13 +627,13 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
   },
   persistence: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': 'a239c2e59d76e30c',
+    'src/edit.tsx': '8b2ffb507c386326',
     'src/hooks.ts': '3c1b432bd711ee70',
     'src/index.tsx': 'b0a68949bcc558dc',
     'src/interactivity.ts': '37e6d16e5df98fd4',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
-    'src/render.php': '491b96676a2709ac',
+    'src/render.php': '7c378bd44328c706',
     'src/save.tsx': '1d87a20aecee4173',
     'src/style.scss': 'a48f3de45038a032',
     'src/validators.ts': '36295eb1f6a12ddc',
@@ -620,14 +650,14 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound-item/validators.ts': '7123c8ea0e650172',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
     'src/blocks/demo-compound/children.ts': '97ab81740f946e5a',
-    'src/blocks/demo-compound/edit.tsx': '57121378ed96c555',
+    'src/blocks/demo-compound/edit.tsx': '1ea532b1d5e56f37',
     'src/blocks/demo-compound/hooks.ts': '485092aef1c4e019',
     'src/blocks/demo-compound/index.tsx': 'c9d9139901e6e4b9',
     'src/blocks/demo-compound/interactivity.ts': 'eddaf331fa622b91',
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
-    'src/blocks/demo-compound/render.php': '39468e876fcba0b0',
+    'src/blocks/demo-compound/render.php': '945ae15d97cb040d',
     'src/blocks/demo-compound/save.tsx': '67a2bd4dce77cef6',
     'src/blocks/demo-compound/style.scss': '41a7a2bbf5cd2a34',
     'src/blocks/demo-compound/validators.ts': '71018b1d52460cf2',
@@ -640,6 +670,56 @@ describe('built-in block artifacts', () => {
 
   afterAll(() => {
     cleanupScaffoldTempRoot(tempRoot);
+  });
+
+  test('block preview examples honor constraints and structured kinds', () => {
+    expect(
+      buildBlockJsonExampleAttributes([
+        buildExampleAttribute({
+          constraints: { format: 'email' },
+          kind: 'string',
+          name: 'contactEmail',
+        }),
+        buildExampleAttribute({
+          constraints: { minLength: 32 },
+          kind: 'string',
+          name: 'summary',
+        }),
+        buildExampleAttribute({
+          constraints: { exclusiveMinimum: 5, maximum: 5.5 },
+          kind: 'number',
+          name: 'count',
+        }),
+        buildExampleAttribute({
+          constraints: { format: 'duration', minLength: 20 },
+          kind: 'string',
+          name: 'duration',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'array',
+          name: 'items',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'object',
+          name: 'settings',
+        }),
+        buildExampleAttribute({
+          constraints: {},
+          kind: 'union',
+          name: 'choice',
+        }),
+      ]),
+    ).toEqual({
+      choice: null,
+      contactEmail: 'example@example.com',
+      count: 5.25,
+      duration: 'Example duration____',
+      items: [],
+      settings: {},
+      summary: 'Example summary_________________',
+    });
   });
 
 	test('built-in code artifact assembly keeps template bodies in family modules', () => {
@@ -741,6 +821,55 @@ describe('built-in block artifacts', () => {
       );
     },
   );
+
+  test('persistence identity prefixes stay within resourceKey limits for long slugs', () => {
+    const longSlug = `persistence-${'x'.repeat(96)}`;
+    const expectedPrefix = longSlug.slice(0, 90);
+
+    expect(expectedPrefix).toHaveLength(90);
+    expect(longSlug.length).toBeGreaterThan(expectedPrefix.length);
+
+    for (const templateId of ['persistence', 'compound'] as const) {
+      const answers = {
+        ...buildAnswers(templateId),
+        phpPrefix: 'demo_space',
+        slug: longSlug,
+      };
+      const spec = createBuiltInBlockSpec({
+        answers,
+        dataStorageMode: answers.dataStorageMode,
+        persistencePolicy: answers.persistencePolicy,
+        templateId,
+      });
+      const variables = buildTemplateVariablesFromBlockSpec(spec);
+      const codeArtifacts = buildBuiltInCodeArtifacts({
+        templateId,
+        variables,
+      });
+      const basePath =
+        templateId === 'compound' ? `src/blocks/${longSlug}` : 'src';
+      const editSource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/edit.tsx`,
+      )?.source;
+      const interactivitySource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/interactivity.ts`,
+      )?.source;
+      const validatorsSource = codeArtifacts.find(
+        (artifact) => artifact.relativePath === `${basePath}/validators.ts`,
+      )?.source;
+
+      expect(variables.slugKebabCase).toBe(longSlug);
+      expect(editSource).toContain(
+        `blockName: '${variables.namespace}/${longSlug}'`,
+      );
+      expect(editSource).toContain(`prefix: '${expectedPrefix}'`);
+      expect(editSource).not.toContain(`prefix: '${longSlug}'`);
+      expect(validatorsSource).toContain(
+        `generateResourceKey( '${expectedPrefix}' )`,
+      );
+      expect(interactivitySource).toContain(`store( '${longSlug}', {`);
+    }
+  });
 
   test('built-in template trees no longer ship structural Mustache files', () => {
     for (const relativePath of [
@@ -878,8 +1007,12 @@ describe('built-in block artifacts', () => {
             viewScriptModule: 'file:./interactivity.js',
           }),
         );
-        expect(resourceKeyAttribute?.typia.defaultValue).toBe('primary');
-        expect(resourceKeyBlockJson?.default).toBe('');
+        expect(resourceKeyAttribute?.typia.hasDefault).toBe(false);
+        expect(resourceKeyAttribute?.typia.defaultValue).toBeNull();
+        expect(resourceKeyBlockJson).not.toHaveProperty('default');
+        expect(persistenceArtifact.typesSource).not.toContain(
+          'tags.Default<"primary">',
+        );
       }
 
       if (templateId === 'compound') {
@@ -906,7 +1039,10 @@ describe('built-in block artifacts', () => {
             parent: [`${variables.namespace}/${variables.slugKebabCase}`],
           }),
         );
-        expect(parentResourceKeyBlockJson?.default).toBe('');
+        expect(parentResourceKeyBlockJson).not.toHaveProperty('default');
+        expect(artifacts[0]?.typesSource).not.toContain(
+          'tags.Default<"primary">',
+        );
       }
     },
   );

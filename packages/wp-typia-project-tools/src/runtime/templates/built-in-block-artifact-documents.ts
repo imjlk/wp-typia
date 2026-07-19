@@ -1,6 +1,7 @@
 export {
 	DEFAULT_COMPOUND_CHILD_BODY_PLACEHOLDER,
 	buildBlockJsonAttributes,
+	buildBlockJsonExampleAttributes,
 	buildManifestDocument,
 } from "./built-in-block-attribute-emitters.js";
 export type {

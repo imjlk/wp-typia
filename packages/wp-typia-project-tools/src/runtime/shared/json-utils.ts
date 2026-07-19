@@ -32,6 +32,17 @@ export function cloneJsonValue<T>(value: T): T {
 }
 
 /**
+ * Detect the indentation used by a formatted JSON document.
+ *
+ * @param source Raw JSON source text.
+ * @returns The first property indentation, or two spaces for compact/empty JSON.
+ */
+export function detectJsonIndent(source: string): string | number {
+	const indentMatch = /\n([ \t]+)"/u.exec(source);
+	return indentMatch?.[1] ?? 2;
+}
+
+/**
  * Optional metadata used to enrich JSON parse errors.
  */
 export interface SafeJsonParseOptions {

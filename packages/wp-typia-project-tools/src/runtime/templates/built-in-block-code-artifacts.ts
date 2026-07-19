@@ -69,12 +69,21 @@ interface BuiltInCodeTemplateSpec {
 	template: string;
 }
 
+// resourceKey is MaxLength<100>; generated scoped ids add "-" plus 9 characters.
+const RESOURCE_KEY_PREFIX_MAX_LENGTH = 90;
+
 function renderCodeTemplate(
 	template: string,
 	variables: ScaffoldTemplateVariables,
 ): string {
 	assertScaffoldTemplateCodeIdentifiers(variables);
-	const rendered = renderMustacheTemplateString(template, variables);
+	const rendered = renderMustacheTemplateString(template, {
+		...variables,
+		resourceKeyPrefix: variables.slugKebabCase.slice(
+			0,
+			RESOURCE_KEY_PREFIX_MAX_LENGTH,
+		),
+	});
 	return rendered.endsWith("\n") ? rendered : `${rendered}\n`;
 }
 

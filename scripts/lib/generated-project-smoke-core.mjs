@@ -82,7 +82,11 @@ export function getRunCommand(packageManager) {
 }
 
 export function getRunScriptCommand(packageManager, scriptName, extraArgs = []) {
-	const scriptArgs = extraArgs.length > 0 ? [scriptName, "--", ...extraArgs] : [scriptName];
+	const scriptArgs = [
+		scriptName,
+		...(packageManager === "npm" && extraArgs.length > 0 ? ["--"] : []),
+		...extraArgs,
+	];
 
 	switch (packageManager) {
 		case "bun":
@@ -123,6 +127,15 @@ export function runScaffoldRefreshScripts(projectDir, packageManager, packageJso
 		const [command, args] = getRunScriptCommand(packageManager, scriptName);
 		run(command, args, { cwd: projectDir });
 	}
+}
+
+export function runFreshScaffoldSyncCheck(projectDir, packageManager, packageJson) {
+	if (typeof packageJson.scripts?.sync !== "string") {
+		return;
+	}
+
+	const [command, args] = getRunScriptCommand(packageManager, "sync", ["--check"]);
+	run(command, args, { cwd: projectDir });
 }
 
 export function runLocalMigrationDoctor(projectDir, runtime) {

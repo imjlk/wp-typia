@@ -34,6 +34,8 @@ test(
       persistencePolicy: "public",
     });
 
+    runGeneratedScript(targetDir, "scripts/sync-project.ts", ["--check"]);
+
     const packageJson = JSON.parse(
       fs.readFileSync(path.join(targetDir, "package.json"), "utf8")
     );
@@ -124,6 +126,7 @@ test(
     expect(packageJson.devDependencies["@wp-typia/rest"]).toBe(
       restPackageVersion
     );
+    expect(packageJson.dependencies["@wordpress/data"]).toBe("~10.46.0");
     expect(packageJson.devDependencies["chokidar-cli"]).toBe("^3.0.0");
     expect(packageJson.devDependencies.concurrently).toBe("^9.0.1");
     expect(packageJson.scripts.sync).toBe("tsx scripts/sync-project.ts");
@@ -131,7 +134,7 @@ test(
       "npm run sync -- --check && wp-scripts build --experimental-modules"
     );
     expect(packageJson.scripts.dev).toBe(
-      'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
+      'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
     );
     expect(packageJson.scripts["start:editor"]).toBe(
       "wp-scripts start --experimental-modules"
@@ -149,14 +152,13 @@ test(
     expect(blockJson.version).toBe("0.1.0");
     expect(blockJson.category).toBe("widgets");
     expect(blockJson.icon).toBe("database");
-    expect(blockJson.attributes.resourceKey.default).toBe("");
+    expect(blockJson.attributes.resourceKey).not.toHaveProperty("default");
     expect(generatedManifest.manifestVersion).toBe(2);
     expect(generatedManifest.sourceType).toBe(
       "DemoPersistencePublicAttributes"
     );
-    expect(generatedManifest.attributes.resourceKey.typia.defaultValue).toBe(
-      "primary"
-    );
+    expect(generatedManifest.attributes.resourceKey.typia.hasDefault).toBe(false);
+    expect(generatedManifest.attributes.resourceKey.typia.defaultValue).toBeNull();
     expect(
       fs.existsSync(path.join(targetDir, "inc", "rest-shared.php"))
     ).toBe(true);
@@ -199,6 +201,20 @@ test(
     expect(pluginBootstrap).toContain("is_post_publicly_viewable( $post )");
     expect(pluginBootstrap).toContain("! is_post_publicly_viewable( $post ) ||");
     expect(pluginBootstrap).toContain(": 'primary';");
+    expect(generatedTypes).not.toContain('tags.Default<"primary">');
+    expect(generatedEdit).toContain("store as blockEditorStore");
+    expect(generatedEdit).toContain("usePersistentBlockIdentity");
+    expect(generatedEdit).toContain("attributeName: 'resourceKey'");
+    expect(generatedEdit).toContain(
+      "blockName: 'create-block/demo-persistence-public'"
+    );
+    expect(generatedEdit).toContain("prefix: 'demo-persistence-public'");
+    expect(generatedRender).toContain(
+      "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
+    );
+    expect(generatedRender).toContain(
+      "empty( $validation['valid'] ) || '' === $resource_key"
+    );
     expect(restPublicHelper).toContain(
       "function demo_persistence_public_verify_public_write_token"
     );
@@ -425,21 +441,13 @@ test(
 
     typecheckGeneratedProject(targetDir);
 
-    runGeneratedScript(targetDir, "scripts/sync-project.ts");
-    runGeneratedScript(targetDir, "scripts/sync-rest-contracts.ts", [
-      "--check",
-    ]);
-    const syncedApiClient = fs.readFileSync(
-      path.join(targetDir, "src", "api-client.ts"),
-      "utf8"
-    );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export const getDemoPersistencePublicBootstrapEndpoint"
     );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export const getDemoPersistencePublicStateEndpoint"
     );
-    expect(syncedApiClient).toContain(
+    expect(seededApiClient).toContain(
       "export function writeDemoPersistencePublicState("
     );
   },
@@ -578,7 +586,7 @@ test(
   expect(packageJson.name).toBe("demo-persistence-authenticated");
   expect(packageJson.devDependencies.prettier).toBe("3.8.2");
   expect(packageJson.scripts.dev).toBe(
-    'concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
+    'npm run sync && concurrently -k -n sync-types,sync-rest,editor -c yellow,magenta,blue "npm run watch:sync-types" "npm run watch:sync-rest" "npm run start:editor"'
   );
   expect(blockJson.textdomain).toBe("demo-persistence-authenticated");
   expect(generatedManifest.manifestVersion).toBe(2);
@@ -788,6 +796,12 @@ test("scaffoldProject emits alternate render target entries for persistence scaf
   expect(readme).toContain("src/render-text.php");
   expect(readme).toContain("src/render-targets.php");
   expect(renderTargetsSource).toMatch(/function\s+.+_render_target\(/);
+  expect(renderTargetsSource).toContain(
+    "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
+  );
+  expect(renderTargetsSource).toContain(
+    "empty( $validation['valid'] ) || '' === $resource_key"
+  );
   expect(webRenderSource).toContain("render_target( 'web'");
   expect(emailRenderSource).toContain("render_target( 'email'");
   expect(textRenderSource).toContain("render_target( 'plain-text'");

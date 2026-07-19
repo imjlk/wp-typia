@@ -104,7 +104,7 @@ function getDevScript(
 	names.push("editor");
 	colors.push("blue");
 
-	return `concurrently -k -n ${names.join(",")} -c ${colors.join(",")} ${syncProcesses.join(" ")}`;
+	return `${formatRunScript(packageManager, "sync")} && concurrently -k -n ${names.join(",")} -c ${colors.join(",")} ${syncProcesses.join(" ")}`;
 }
 
 async function mutatePackageJson(

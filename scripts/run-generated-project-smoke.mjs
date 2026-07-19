@@ -17,6 +17,7 @@ import {
 	runLocalDoctor,
 	runLocalMigrationDoctor,
 	runScaffoldRefreshScripts,
+	runFreshScaffoldSyncCheck,
 } from "./lib/generated-project-smoke-core.mjs";
 import { runExampleProjectSmoke } from "./lib/generated-project-smoke-example.mjs";
 
@@ -363,6 +364,9 @@ function main() {
 			},
 		});
 
+		if (["basic", "interactivity", "persistence", "compound"].includes(template)) {
+			runFreshScaffoldSyncCheck(projectDir, packageManager, packageJson);
+		}
 		runScaffoldRefreshScripts(projectDir, packageManager, packageJson);
 
 		if (addBlockName) {

@@ -50,6 +50,7 @@ import {
 	buildMigrationBlocks,
 	buildServerTemplateRoot,
 } from "./cli-add-block-config.js";
+import { ensurePersistentBlockIdentityDependency } from "./cli-add-block-package-json.js";
 import {
 	COMPOUND_SHARED_SUPPORT_FILES,
 	collectLegacyCompoundValidatorPaths,
@@ -615,6 +616,7 @@ export async function runAddBlockCommand({
 			cleanup: cleanupTempRoot,
 		} = await createManagedTempRoot("wp-typia-add-block-"));
 		const tempProjectDir = path.join(tempRoot, normalizedSlug);
+		const packageJsonPath = path.join(workspace.projectDir, "package.json");
 		const blockConfigPath = path.join(workspace.projectDir, "scripts", "block-config.ts");
 		const migrationConfigPath = path.join(workspace.projectDir, "src", "migrations", "config.ts");
 		const blockPhpPrefix = buildWorkspacePhpPrefix(
@@ -659,6 +661,7 @@ export async function runAddBlockCommand({
 				persistencePolicy:
 					persistencePolicy as "authenticated" | "public" | undefined,
 				projectDir: tempProjectDir,
+				seedCompilerArtifacts: false,
 				templateId: resolvedTemplateId,
 			});
 			await assertAddBlockSupportsExternalLayerOutputs({
@@ -677,8 +680,13 @@ export async function runAddBlockCommand({
 			resolvedTemplateId,
 			result.variables,
 		);
+		const requiresPersistentIdentity =
+			resolvedTemplateId === "persistence" ||
+			(resolvedTemplateId === "compound" &&
+				isCompoundPersistenceEnabled(result.variables));
 		const mutationSnapshot: WorkspaceMutationSnapshot = {
 			fileSources: await snapshotWorkspaceFiles([
+				packageJsonPath,
 				blockConfigPath,
 				migrationConfigPath,
 				...compoundSupportPaths,
@@ -703,6 +711,11 @@ export async function runAddBlockCommand({
 		};
 
 		try {
+			const addedPersistentIdentityDependency =
+				await ensurePersistentBlockIdentityDependency(
+					workspace.projectDir,
+					requiresPersistentIdentity,
+				);
 			await copyScaffoldedBlockSlice(
 				workspace.projectDir,
 				resolvedTemplateId,
@@ -718,9 +731,7 @@ export async function runAddBlockCommand({
 			await appendBlockConfigEntries(
 				workspace.projectDir,
 				buildConfigEntries(resolvedTemplateId, result.variables),
-				resolvedTemplateId === "persistence" ||
-					(resolvedTemplateId === "compound" &&
-						isCompoundPersistenceEnabled(result.variables)),
+				requiresPersistentIdentity,
 			);
 			await syncWorkspaceAddedBlockArtifacts(
 				workspace.projectDir,
@@ -740,7 +751,14 @@ export async function runAddBlockCommand({
 				).map((targetPath) => path.basename(targetPath)),
 				projectDir: workspace.projectDir,
 				templateId: resolvedTemplateId,
-				warnings: result.warnings,
+				warnings: [
+					...result.warnings,
+					...(addedPersistentIdentityDependency
+						? [
+								`Added @wordpress/data for persistent block identities. Run \`${formatInstallCommand(workspace.packageManager)}\` before building the workspace.`,
+							]
+						: []),
+				],
 			};
 		} catch (error) {
 			await rollbackWorkspaceMutation(mutationSnapshot);

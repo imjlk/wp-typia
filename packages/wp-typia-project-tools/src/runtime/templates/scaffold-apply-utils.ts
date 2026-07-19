@@ -2,6 +2,8 @@ import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 
+import { syncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";
+
 import {
 	applyGeneratedProjectDxPackageJson,
 	applyLocalDevPresetFiles,
@@ -28,19 +30,25 @@ import {
 } from "./built-in-block-artifacts.js";
 import type { BuiltInCodeArtifact } from "./built-in-block-code-artifacts.js";
 import {
+	buildBuiltInBlockMetadataSyncOptions,
+	buildBuiltInPersistenceRestSyncOptions,
+} from "./scaffold-compiler-artifacts.js";
+import { getDeferredCompilerArtifactsWarning } from "./scaffold-onboarding.js";
+import {
 	type BuiltInTemplateId,
 	PROJECT_TOOLS_PACKAGE_ROOT,
 } from "./template-registry.js";
 import { copyInterpolatedDirectory } from "./template-render.js";
-import type { PackageManagerId } from "../shared/package-managers.js";
 import {
 	formatInstallCommand,
 	transformPackageManagerText,
+	type PackageManagerId,
 } from "../shared/package-managers.js";
 import {
 	pathExists,
 	readOptionalUtf8File,
 } from "../shared/fs-async.js";
+import { readJsonFile } from "../shared/json-utils.js";
 import { normalizePackageJson } from "./scaffold-package-manager-files.js";
 export {
 	applyWorkspaceMigrationCapability,
@@ -60,6 +68,10 @@ export { buildGitignore, buildReadme, mergeTextLines } from "./scaffold-document
 export interface InstallDependenciesOptions {
 	packageManager: PackageManagerId;
 	projectDir: string;
+}
+
+interface ScaffoldPackageJsonShape {
+	scripts?: Record<string, unknown>;
 }
 
 async function reportScaffoldProgress(
@@ -162,64 +174,68 @@ async function resolveScaffoldGeneratorNodeModulesPath(): Promise<string | null>
 async function withEphemeralScaffoldNodeModules(
 	targetDir: string,
 	callback: () => Promise<void>,
-): Promise<void> {
+): Promise<boolean> {
 	const targetNodeModulesPath = path.join(targetDir, "node_modules");
 	if (await pathExists(targetNodeModulesPath)) {
 		await callback();
-		return;
+		return true;
 	}
 
 	const sourceNodeModulesPath = await resolveScaffoldGeneratorNodeModulesPath();
 	if (!sourceNodeModulesPath) {
-		throw new Error(
-			"Unable to resolve a node_modules directory with typia for scaffold-time REST artifact generation.",
-		);
+		return false;
 	}
 
 	await fsp.symlink(sourceNodeModulesPath, targetNodeModulesPath, EPHEMERAL_NODE_MODULES_LINK_TYPE);
 
 	try {
 		await callback();
+		return true;
 	} finally {
 		await fsp.rm(targetNodeModulesPath, { force: true, recursive: true });
 	}
 }
 
-/**
- * Seed REST-derived persistence artifacts into a newly scaffolded built-in
- * project before the first manual `sync-rest` run.
- */
-export async function seedBuiltInPersistenceArtifacts(
+async function seedBuiltInCompilerArtifacts(
 	targetDir: string,
 	templateId: BuiltInTemplateId,
+	artifacts: readonly BuiltInBlockArtifact[],
 	variables: ScaffoldTemplateVariables,
-): Promise<void> {
-	const needsPersistenceArtifacts =
-		templateId === "persistence" ||
-		(templateId === "compound" && isCompoundPersistenceEnabled(variables));
-
-	if (!needsPersistenceArtifacts) {
-		return;
+): Promise<boolean> {
+	const blockMetadataSyncOptions = buildBuiltInBlockMetadataSyncOptions(
+		targetDir,
+		templateId,
+		artifacts,
+	);
+	const persistenceSyncOptions = buildBuiltInPersistenceRestSyncOptions(
+		targetDir,
+		templateId,
+		variables,
+	);
+	if (blockMetadataSyncOptions.length === 0 && !persistenceSyncOptions) {
+		return true;
 	}
 
-	await withEphemeralScaffoldNodeModules(targetDir, async () => {
-		if (templateId === "persistence") {
-			await syncPersistenceRestArtifacts({
-				apiTypesFile: path.join("src", "api-types.ts"),
-				outputDir: "src",
-				projectDir: targetDir,
-				variables,
-			});
-			return;
+	return withEphemeralScaffoldNodeModules(targetDir, async () => {
+		for (const options of blockMetadataSyncOptions) {
+			await syncBlockMetadata(options);
 		}
-
-		await syncPersistenceRestArtifacts({
-			apiTypesFile: path.join("src", "blocks", variables.slugKebabCase, "api-types.ts"),
-			outputDir: path.join("src", "blocks", variables.slugKebabCase),
-			projectDir: targetDir,
-			variables,
-		});
+		if (persistenceSyncOptions) {
+			await syncPersistenceRestArtifacts(persistenceSyncOptions);
+		}
 	});
+}
+
+async function readScaffoldScriptNames(projectDir: string): Promise<string[]> {
+	try {
+		const packageJson = await readJsonFile<ScaffoldPackageJsonShape>(
+			path.join(projectDir, "package.json"),
+			{ context: "generated scaffold package manifest" },
+		);
+		return Object.keys(packageJson.scripts ?? {});
+	} catch {
+		return [];
+	}
 }
 
 export async function normalizePackageManagerFiles(
@@ -360,6 +376,7 @@ export async function applyBuiltInScaffoldProjectFiles({
 	installDependencies,
 	repositoryReference,
 	onProgress,
+	seedCompilerArtifacts = true,
 }: {
 	projectDir: string;
 	templateDir: string;
@@ -378,7 +395,9 @@ export async function applyBuiltInScaffoldProjectFiles({
 	installDependencies?: ((options: InstallDependenciesOptions) => Promise<void>) | undefined;
 	repositoryReference?: string;
 	onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
-}): Promise<void> {
+	seedCompilerArtifacts?: boolean;
+}): Promise<string[]> {
+	const warnings: string[] = [];
 	await ensureDirectory(projectDir, allowExistingDir);
 	await reportScaffoldProgress(onProgress, {
 		detail: "Copying built-in template files and writing generated source modules.",
@@ -398,7 +417,6 @@ export async function applyBuiltInScaffoldProjectFiles({
 		title: "Seeding scaffold artifacts",
 	});
 	await writeStarterManifestFiles(projectDir, templateId, variables, artifacts);
-	await seedBuiltInPersistenceArtifacts(projectDir, templateId, variables);
 	await applyLocalDevPresetFiles({
 		projectDir,
 		variables,
@@ -454,7 +472,6 @@ export async function applyBuiltInScaffoldProjectFiles({
 	await replaceTextRecursively(projectDir, packageManager, {
 		repositoryReference,
 	});
-
 	if (!noInstall) {
 		await reportScaffoldProgress(onProgress, {
 			detail: "Installing project dependencies with the selected package manager.",
@@ -467,4 +484,30 @@ export async function applyBuiltInScaffoldProjectFiles({
 			packageManager,
 		});
 	}
+
+	if (seedCompilerArtifacts) {
+		const seededCompilerArtifacts = await seedBuiltInCompilerArtifacts(
+			projectDir,
+			templateId,
+			artifacts ?? [],
+			variables,
+		);
+		if (!seededCompilerArtifacts) {
+			const warning = getDeferredCompilerArtifactsWarning(
+				packageManager,
+				templateId,
+				{
+					availableScripts: await readScaffoldScriptNames(projectDir),
+				},
+			);
+			warnings.push(warning);
+			await reportScaffoldProgress(onProgress, {
+				detail: warning,
+				phase: "seed-artifacts",
+				title: "Deferring compiler-derived artifacts",
+			});
+		}
+	}
+
+	return warnings;
 }

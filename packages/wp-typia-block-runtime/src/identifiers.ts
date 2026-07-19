@@ -12,6 +12,7 @@ export interface PersistentBlockIdentityNode {
 	attributes?: Record< string, unknown > | null;
 	clientId: string;
 	innerBlocks?: readonly PersistentBlockIdentityNode[];
+	name?: string;
 }
 
 export interface PersistentBlockIdentityRepair {
@@ -39,6 +40,11 @@ export interface EnsurePersistentBlockIdentityResult {
 
 export interface CollectPersistentBlockIdentityRepairsOptions {
 	attributeName: string;
+	/**
+	 * Restrict duplicate detection and generated-id collision checks to one
+	 * block type. Cross-type identity reuse remains valid when this is set.
+	 */
+	blockName?: string;
 	duplicateDetection?: boolean;
 	generateId?: ( prefix: string ) => string;
 	prefix: string;
@@ -141,7 +147,9 @@ export function ensurePersistentBlockIdentity(
  *
  * Existing non-empty ids are preserved when they are unique. Missing ids are
  * generated, and only the later duplicates in one depth-first traversal are
- * repaired when duplicate detection is enabled.
+ * repaired when duplicate detection is enabled. When `blockName` is set,
+ * mismatched nodes are excluded from identity accounting while their nested
+ * blocks are still traversed.
  *
  * @param blocks Current document tree rooted at the relevant editor scope.
  * @param options Attribute key plus prefix/generator settings.
@@ -157,6 +165,7 @@ export function collectPersistentBlockIdentityRepairs(
 	collectPersistentIdentityCounts(
 		blocks,
 		options.attributeName,
+		options.blockName,
 		duplicateCounts,
 		reservedIds
 	);
@@ -212,25 +221,29 @@ function generatePrefixedScopedId( prefix: string ): string {
 function collectPersistentIdentityCounts(
 	blocks: readonly PersistentBlockIdentityNode[],
 	attributeName: string,
+	blockName: string | undefined,
 	duplicateCounts: Map< string, number >,
 	reservedIds: Set< string >
 ): void {
 	for ( const block of blocks ) {
-		const currentValue = toPersistentBlockIdentityValue(
-			block.attributes?.[ attributeName ]
-		);
-		if ( currentValue ) {
-			duplicateCounts.set(
-				currentValue,
-				( duplicateCounts.get( currentValue ) ?? 0 ) + 1
+		if ( blockName === undefined || block.name === blockName ) {
+			const currentValue = toPersistentBlockIdentityValue(
+				block.attributes?.[ attributeName ]
 			);
-			reservedIds.add( currentValue );
+			if ( currentValue ) {
+				duplicateCounts.set(
+					currentValue,
+					( duplicateCounts.get( currentValue ) ?? 0 ) + 1
+				);
+				reservedIds.add( currentValue );
+			}
 		}
 
 		if ( block.innerBlocks?.length ) {
 			collectPersistentIdentityCounts(
 				block.innerBlocks,
 				attributeName,
+				blockName,
 				duplicateCounts,
 				reservedIds
 			);
@@ -246,28 +259,12 @@ function collectPersistentIdentityRepairsForNode(
 	reservedIds: Set< string >,
 	repairs: PersistentBlockIdentityRepair[]
 ): void {
-	const currentValue = toPersistentBlockIdentityValue(
-		block.attributes?.[ options.attributeName ]
-	);
+	if ( options.blockName === undefined || block.name === options.blockName ) {
+		const currentValue = toPersistentBlockIdentityValue(
+			block.attributes?.[ options.attributeName ]
+		);
 
-	if ( ! currentValue ) {
-		repairs.push( {
-			clientId: block.clientId,
-			nextValue: generateUniquePersistentBlockIdentity(
-				options.prefix,
-				reservedIds,
-				options.generateId
-			),
-			previousValue: null,
-			reason: 'missing',
-		} );
-	} else if (
-		options.duplicateDetection !== false &&
-		( duplicateCounts.get( currentValue ) ?? 0 ) > 1
-	) {
-		if ( ! preservedDuplicates.has( currentValue ) ) {
-			preservedDuplicates.add( currentValue );
-		} else {
+		if ( ! currentValue ) {
 			repairs.push( {
 				clientId: block.clientId,
 				nextValue: generateUniquePersistentBlockIdentity(
@@ -275,9 +272,27 @@ function collectPersistentIdentityRepairsForNode(
 					reservedIds,
 					options.generateId
 				),
-				previousValue: currentValue,
-				reason: 'duplicate',
+				previousValue: null,
+				reason: 'missing',
 			} );
+		} else if (
+			options.duplicateDetection !== false &&
+			( duplicateCounts.get( currentValue ) ?? 0 ) > 1
+		) {
+			if ( ! preservedDuplicates.has( currentValue ) ) {
+				preservedDuplicates.add( currentValue );
+			} else {
+				repairs.push( {
+					clientId: block.clientId,
+					nextValue: generateUniquePersistentBlockIdentity(
+						options.prefix,
+						reservedIds,
+						options.generateId
+					),
+					previousValue: currentValue,
+					reason: 'duplicate',
+				} );
+			}
 		}
 	}
 

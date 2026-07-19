@@ -186,6 +186,74 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 		] );
 	} );
 
+	test( 'collectPersistentBlockIdentityRepairs scopes duplicate repair to one block type', () => {
+		const repairs = collectPersistentBlockIdentityRepairs(
+			[
+				{
+					attributes: { resourceKey: 'shared-key' },
+					clientId: 'first-counter',
+					name: 'demo/counter',
+				},
+				{
+					attributes: {},
+					clientId: 'group',
+					innerBlocks: [
+						{
+							attributes: { resourceKey: 'shared-key' },
+							clientId: 'other-counter',
+							name: 'demo/other-counter',
+						},
+						{
+							attributes: { resourceKey: 'other-type-key' },
+							clientId: 'other-counter-unique',
+							name: 'demo/other-counter',
+						},
+						{
+							attributes: { resourceKey: 'shared-key' },
+							clientId: 'duplicate-counter',
+							name: 'demo/counter',
+						},
+						{
+							attributes: {},
+							clientId: 'other-missing',
+							name: 'demo/other-counter',
+						},
+					],
+					name: 'core/group',
+				},
+				{
+					attributes: {},
+					clientId: 'missing-counter',
+					name: 'demo/counter',
+				},
+			],
+			{
+				attributeName: 'resourceKey',
+				blockName: 'demo/counter',
+				generateId: ( ( values ) => {
+					let index = 0;
+					return () => values[ index++ ] ?? `counter-fallback-${ index }`;
+				} )( [ 'counter-duplicate', 'other-type-key' ] ),
+				prefix: 'counter',
+			}
+		);
+
+		expect( repairs ).toEqual( [
+			{
+				clientId: 'duplicate-counter',
+				nextValue: 'counter-duplicate',
+				previousValue: 'shared-key',
+				reason: 'duplicate',
+			},
+			{
+				clientId: 'missing-counter',
+				nextValue: 'other-type-key',
+				previousValue: null,
+				reason: 'missing',
+			},
+		] );
+	} );
+
 	test( 'ensurePersistentBlockIdentity handles one-shot seenId iterables safely', () => {
 		function* createSeenIds() {
 			yield 'sec-existing';

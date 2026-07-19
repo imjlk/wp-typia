@@ -38,4 +38,23 @@ test("cli-add-block delegates config generation and legacy validator repair to f
 	expect(legacyValidatorSource).toContain(
 		"export async function ensureCompoundWorkspaceSupportFiles(",
 	);
+
+	const temporaryScaffoldStart = addBlockSource.indexOf(
+		"const scaffoldResult = await scaffoldProject({",
+	);
+	const temporaryScaffoldEnd = addBlockSource.indexOf(
+		"await assertAddBlockSupportsExternalLayerOutputs({",
+		temporaryScaffoldStart,
+	);
+	expect(temporaryScaffoldStart).toBeGreaterThanOrEqual(0);
+	expect(temporaryScaffoldEnd).toBeGreaterThan(temporaryScaffoldStart);
+	expect(
+		addBlockSource.slice(temporaryScaffoldStart, temporaryScaffoldEnd),
+	).toContain("seedCompilerArtifacts: false");
+	expect(addBlockSource).toContain(
+		"fileSources: await snapshotWorkspaceFiles([\n\t\t\t\tpackageJsonPath,",
+	);
+	expect(addBlockSource).toContain(
+		'from "./cli-add-block-package-json.js"',
+	);
 });

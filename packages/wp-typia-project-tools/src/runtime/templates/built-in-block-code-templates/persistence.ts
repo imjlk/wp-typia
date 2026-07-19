@@ -5,6 +5,7 @@ import {
 	BlockControls,
 	InspectorControls,
 	RichText,
+	store as blockEditorStore,
 	useBlockProps,
 } from '@wordpress/block-editor';
 import {
@@ -12,10 +13,13 @@ import {
 	PanelBody,
 	TextControl,
 } from '@wordpress/components';
+import { useSelect } from '@wordpress/data';
 import currentManifest from './manifest-document';
 import {
 	InspectorFromManifest,
+	type PersistentBlockIdentityNode,
 	useEditorFields,
+	usePersistentBlockIdentity,
 	useTypedAttributeUpdater,
 } from '@wp-typia/block-runtime/inspector';
 import type { {{pascalCase}}Attributes } from './types';
@@ -29,8 +33,25 @@ type EditProps = BlockEditProps< {{pascalCase}}Attributes >;
 
 export default function Edit( {
 	attributes,
+	clientId,
 	setAttributes,
 }: EditProps ) {
+	const blocks = useSelect(
+		( select ) =>
+			( select( blockEditorStore ) as {
+				getBlocks: () => readonly PersistentBlockIdentityNode[];
+			} ).getBlocks(),
+		[]
+	);
+	usePersistentBlockIdentity( {
+		attributeName: 'resourceKey',
+		attributes,
+		blockName: '{{namespace}}/{{slugKebabCase}}',
+		blocks,
+		clientId,
+		prefix: '{{resourceKeyPrefix}}',
+		setAttributes,
+	} );
 	const editorFields = useEditorFields(
 		currentManifest,
 		{
@@ -223,7 +244,7 @@ const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attribu
 \t\tresourceKey:
 \t\t\tnormalized.resourceKey && normalized.resourceKey.length > 0
 \t\t\t\t? normalized.resourceKey
-\t\t\t\t: generateResourceKey( '{{slugKebabCase}}' ),
+\t\t\t\t: generateResourceKey( '{{resourceKeyPrefix}}' ),
 \t} ),
 \tvalidate: typia.createValidate< {{pascalCase}}Attributes >(),
 } );

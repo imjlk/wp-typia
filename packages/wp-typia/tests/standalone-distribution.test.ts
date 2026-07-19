@@ -297,7 +297,55 @@ describe("wp-typia standalone distribution", () => {
 		expect(dryRunOutput).toContain("Dry run for Demo Basic");
 		expect(dryRunOutput).toContain("write src/block-metadata.ts");
 		expect(dryRunOutput).toContain("write src/manifest-document.ts");
-	}, { timeout: 15_000 });
+		expect(dryRunOutput).not.toContain("write src/typia-validator.php");
+
+		const createdOutput = runUtf8Command(
+			installedBinaryPath,
+			[
+				"create",
+				"demo-basic-created",
+				"--template",
+				"basic",
+				"--yes",
+				"--no-install",
+			],
+			{ cwd: stagingRoot },
+		);
+		const createdProjectDir = path.join(stagingRoot, "demo-basic-created");
+		expect(createdOutput).toContain("Compiler-derived artifacts were deferred");
+		expect(
+			fs.existsSync(path.join(createdProjectDir, "src", "block.json")),
+		).toBe(true);
+		expect(
+			fs.existsSync(
+				path.join(createdProjectDir, "src", "typia.manifest.json"),
+			),
+		).toBe(true);
+		expect(fs.existsSync(path.join(createdProjectDir, "node_modules"))).toBe(
+			false,
+		);
+
+		const persistenceDryRunOutput = runUtf8Command(
+			installedBinaryPath,
+			[
+				"create",
+				"demo-persistence",
+				"--template",
+				"persistence",
+				"--yes",
+				"--no-install",
+				"--dry-run",
+			],
+			{ cwd: stagingRoot },
+		);
+		expect(persistenceDryRunOutput).not.toContain(
+			"write src/typia.schema.json",
+		);
+		expect(persistenceDryRunOutput).not.toContain("write src/api-client.ts");
+		expect(persistenceDryRunOutput).not.toContain(
+			"write src/api-schemas/state-query.schema.json",
+		);
+	}, { timeout: 30_000 });
 
 	test("ships a Windows installer contract alongside the POSIX installer", () => {
 		const windowsInstallerSource = fs.readFileSync(
