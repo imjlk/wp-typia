@@ -1044,9 +1044,12 @@ describe('Gunshi CLI core routing', () => {
       });
       fs.writeFileSync(
         path.join(tempRoot, 'scripts', 'fail.mjs'),
-        ['console.error("sync failed intentionally");', 'process.exit(42);'].join(
-          '\n',
-        ),
+        [
+          'console.error("sync failed intentionally");',
+          'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
+          'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
+          'process.exit(42);',
+        ].join('\n'),
         'utf8',
       );
 
@@ -1061,6 +1064,7 @@ describe('Gunshi CLI core routing', () => {
           data?: Record<string, unknown>;
           detailLines?: string[];
           kind?: string;
+          message?: string;
         };
         ok?: boolean;
       };
@@ -1076,6 +1080,13 @@ describe('Gunshi CLI core routing', () => {
         '`npm run sync` failed with exit code 42.',
       );
       expect(parsed.error?.detailLines).toContain('sync failed intentionally');
+      expect(parsed.error?.detailLines).toContain(
+        'failed file: <project-root>/src/private.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'case variant: <project-root>/src/case.ts',
+      );
+      expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
       expect(parsed.error?.data).toEqual({
         command: 'npm run sync',
         exitCode: 42,
@@ -1087,6 +1098,13 @@ describe('Gunshi CLI core routing', () => {
       });
       expect(textResult.exitCode).toBe(1);
       expect(textResult.stderr).toContain('sync failed intentionally');
+      expect(textResult.stderr).toContain(
+        'failed file: <project-root>/src/private.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'case variant: <project-root>/src/case.ts',
+      );
+      expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
       expect(textResult.stderr).not.toContain('\n    at ');
     } finally {
       removeTempRoot(tempRoot);

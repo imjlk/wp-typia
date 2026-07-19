@@ -12,6 +12,7 @@ import {
   inferPackageManagerId,
   type PackageManagerId,
 } from '@wp-typia/project-tools/package-managers';
+import { escapeRegExp } from './string-utils';
 
 type SyncScriptName = 'sync' | 'sync-ai' | 'sync-rest' | 'sync-types';
 type SyncScriptKey = SyncScriptName | 'sync-wordpress-ai';
@@ -339,20 +340,14 @@ function buildSyncPlannedCommands(
 
 function normalizeSyncArtifactPath(
   projectDir: string,
+  projectRoots: string[],
   artifactPath: string,
 ): string {
   const absolutePath = path.isAbsolute(artifactPath)
     ? artifactPath
     : path.resolve(projectDir, artifactPath);
-  const projectRoots = [path.resolve(projectDir)];
-  try {
-    projectRoots.push(fs.realpathSync(projectDir));
-  } catch {
-    // The sync preflight already validated the project root. Keep the lexical
-    // root as a fallback if the directory changes during child execution.
-  }
 
-  for (const projectRoot of new Set(projectRoots)) {
+  for (const projectRoot of projectRoots) {
     const relativePath = path.relative(projectRoot, absolutePath);
     if (
       relativePath.length > 0 &&
@@ -367,8 +362,25 @@ function normalizeSyncArtifactPath(
   return path.basename(absolutePath) || '<outside-project>';
 }
 
+function resolveSyncProjectRoots(projectDir: string): string[] {
+  const projectRoots = [path.resolve(projectDir)];
+  try {
+    projectRoots.push(fs.realpathSync(projectDir));
+  } catch {
+    // The sync preflight already validated the project root. Keep the lexical
+    // root as a fallback if the directory changes during child execution.
+  }
+
+  // Replace longer roots first so a shorter lexical prefix cannot leave a
+  // resolved-path suffix visible in user-facing diagnostics.
+  return Array.from(new Set(projectRoots)).sort(
+    (left, right) => right.length - left.length,
+  );
+}
+
 function collectSyncArtifactIssues(
   projectDir: string,
+  projectRoots: string[],
   stdout: string | undefined,
   stderr: string | undefined,
 ): SyncArtifactIssue[] {
@@ -387,7 +399,7 @@ function collectSyncArtifactIssues(
     }
 
     const issue = {
-      path: normalizeSyncArtifactPath(projectDir, rawPath),
+      path: normalizeSyncArtifactPath(projectDir, projectRoots, rawPath),
       status,
     } satisfies SyncArtifactIssue;
     const key = `${issue.status}:${issue.path}`;
@@ -403,7 +415,15 @@ function collectSyncArtifactIssues(
   return issues;
 }
 
+function sanitizeSyncOutputLine(line: string, projectRoots: string[]): string {
+  return projectRoots.reduce((sanitized, projectRoot) => {
+    const pattern = new RegExp(escapeRegExp(projectRoot), 'giu');
+    return sanitized.replace(pattern, '<project-root>');
+  }, line);
+}
+
 function collectSyncFailureOutputLines(
+  projectRoots: string[],
   stdout: string | undefined,
   stderr: string | undefined,
 ): string[] {
@@ -416,7 +436,8 @@ function collectSyncFailureOutputLines(
     .filter((line) => !/^at\s+/u.test(line))
     .filter((line) => !/^Error:\s+Sync script failed:/u.test(line))
     .filter((line) => !/^❌\s+Project sync failed:/u.test(line))
-    .map((line) => line.replace(/^❌\s+/u, ''));
+    .map((line) => line.replace(/^❌\s+/u, ''))
+    .map((line) => sanitizeSyncOutputLine(line, projectRoots));
 
   return Array.from(new Set(lines)).slice(
     0,
@@ -432,7 +453,13 @@ function createSyncExecutionError(
   stderr: string | undefined,
 ): Error {
   const exitCode = result.status ?? 1;
-  const artifacts = collectSyncArtifactIssues(project.cwd, stdout, stderr);
+  const projectRoots = resolveSyncProjectRoots(project.cwd);
+  const artifacts = collectSyncArtifactIssues(
+    project.cwd,
+    projectRoots,
+    stdout,
+    stderr,
+  );
   const commandDetail = `\`${plannedCommand.displayCommand}\` failed with exit code ${exitCode}.`;
 
   if (artifacts.length > 0) {
@@ -461,7 +488,11 @@ function createSyncExecutionError(
     });
   }
 
-  const outputLines = collectSyncFailureOutputLines(stdout, stderr);
+  const outputLines = collectSyncFailureOutputLines(
+    projectRoots,
+    stdout,
+    stderr,
+  );
   return createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.COMMAND_EXECUTION,
     command: 'sync',
