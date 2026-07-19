@@ -471,6 +471,90 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects package scripts that mask generated sync failures', async () => {
+    const targetDir = path.join(tempRoot, 'masked-package-sync');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync += ' || true';
+    packageJson.scripts['sync-types'] += ' &';
+    packageJson.scripts.build += ' || true';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain(
+      'sync script must propagate failures from `tsx scripts/sync-project.ts`',
+    );
+    expect(packageCheck?.detail).toContain(
+      'sync-types script must propagate failures from `tsx scripts/sync-types-to-block-json.ts`',
+    );
+    expect(packageCheck?.detail).toContain(
+      'build script must propagate failures from `npm run sync -- --check`',
+    );
+  });
+
+  test('rejects canonical package commands behind a constant-false guard', async () => {
+    const targetDir = path.join(tempRoot, 'unreachable-package-sync');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync =
+      'false && tsx scripts/sync-project.ts';
+    packageJson.scripts.build =
+      'false && npm run sync -- --check && wp-scripts build --experimental-modules';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain(
+      'sync script must invoke `tsx scripts/sync-project.ts`',
+    );
+    expect(packageCheck?.detail).toContain(
+      'build script must invoke `npm run sync -- --check`',
+    );
+  });
+
+  test('rejects canonical package commands after a successful shell exit', async () => {
+    const targetDir = path.join(tempRoot, 'exited-package-sync');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync =
+      'exit 0; tsx scripts/sync-project.ts';
+    packageJson.scripts.build =
+      'exit 0; npm run sync -- --check && wp-scripts build --experimental-modules';
+    packageJson.scripts.typecheck =
+      'exit 0; npm run sync -- --check && tsc --noEmit';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('fail');
+    for (const scriptName of ['sync', 'build', 'typecheck']) {
+      expect(packageCheck?.detail).toContain(
+        `${scriptName} script must invoke`,
+      );
+    }
+  });
+
   test('accepts canonical package commands after shell control operators', async () => {
     const targetDir = path.join(tempRoot, 'background-package-scripts');
     await scaffoldBasic(targetDir);
@@ -660,6 +744,33 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects standalone sync helpers that override projectRoot', async () => {
+    const targetDir = path.join(tempRoot, 'overridden-sync-project-root');
+    await scaffoldBasic(targetDir);
+    const syncScriptPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const source = original.replace(
+      'blockJsonFile: "src/block.json",',
+      'projectRoot: "..",\n    blockJsonFile: "src/block.json",',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncScriptPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must not override projectRoot',
+    );
+  });
+
   test('rejects spread and computed standalone sync configuration', async () => {
     const targetDir = path.join(tempRoot, 'dynamic-sync-config');
     await scaffoldBasic(targetDir);
@@ -674,8 +785,16 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         "import { runSyncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';",
         "const paths = { blockJsonFile: 'src/block.json' };",
         'function parseCliOptions(argv: string[]) {',
-        '  const options = { check: false };',
+        '  const options = { check: false, failOnLossy: false, strict: false };',
         '  for (const argument of argv) {',
+        "    if (argument === '--strict') {",
+        '      options.strict = true;',
+        '      continue;',
+        '    }',
+        "    if (argument === '--fail-on-lossy') {",
+        '      options.failOnLossy = true;',
+        '      continue;',
+        '    }',
         "    if (argument === '--check') {",
         '      options.check = true;',
         '      continue;',
@@ -690,8 +809,14 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         '    ...paths,',
         "    ['sourceTypeName']: 'DynamicSyncConfigAttributes',",
         "    typesFile: 'src/types.ts',",
-        '  }, { check: options.check });',
-        '  return report;',
+        '  }, {',
+        '    check: options.check,',
+        '    failOnLossy: options.failOnLossy,',
+        '    strict: options.strict,',
+        '  });',
+        "  if (report.status === 'error') {",
+        '    process.exitCode = 1;',
+        '  }',
         '}',
         'main().catch(() => {',
         '  process.exit(1);',
@@ -895,6 +1020,152 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects sync-types warning policies that doctor cannot replay', async () => {
+    const strictGuard = [
+      '    if (argument === "--strict") {',
+      '      options.strict = true;',
+      '      continue;',
+      '    }',
+    ].join('\n');
+    const lossyGuard = [
+      '    if (argument === "--fail-on-lossy") {',
+      '      options.failOnLossy = true;',
+      '      continue;',
+      '    }',
+    ].join('\n');
+    const checkGuard = [
+      '    if (argument === "--check") {',
+      '      options.check = true;',
+      '      continue;',
+      '    }',
+    ].join('\n');
+    const mutations = [
+      ['strict-execution', 'strict: options.strict', 'strict: true'],
+      [
+        'unexpected-execution',
+        'strict: options.strict,',
+        'strict: options.strict,\n    failOnPhpWarnings: true,',
+      ],
+      ['strict-default', 'strict: false,', 'strict: true,'],
+      [
+        'lossy-parser',
+        'options.failOnLossy = true;',
+        'options.failOnLossy = false;',
+      ],
+      [
+        'unreachable-warning-flags',
+        [strictGuard, lossyGuard, checkGuard].join('\n\n'),
+        [checkGuard, '    continue;', strictGuard, lossyGuard].join(
+          '\n\n',
+        ),
+      ],
+      [
+        'skipped-strict-guard',
+        strictGuard,
+        [
+          '    if (argument === "--strict") { continue; }',
+          strictGuard,
+        ].join('\n'),
+      ],
+      [
+        'throw-before-strict-guard',
+        strictGuard,
+        ["    throw new Error('stop');", strictGuard].join('\n'),
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `sync-warning-policy-${name}`);
+      await scaffoldBasic(targetDir);
+      const syncScriptPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-types-to-block-json.ts',
+      );
+      const original = fs.readFileSync(syncScriptPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncScriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
+
+  test('requires sync-types error reports to set a failing exit code', async () => {
+    const mutations = [
+      [
+        'wrong-status',
+        'if (report.status === "error") {\n    process.exitCode = 1;',
+        'if (report.status === "success") {\n    process.exitCode = 1;',
+      ],
+      [
+        'zero-exit-code',
+        'if (report.status === "error") {\n    process.exitCode = 1;',
+        'if (report.status === "error") {\n    process.exitCode = 0;',
+      ],
+      [
+        'overridden-exit-code',
+        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n}',
+        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n  process.exitCode = 0;\n}',
+      ],
+      [
+        'return-after-guard',
+        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n}',
+        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n  return;\n}',
+      ],
+      [
+        'mutated-report-status',
+        '  if (report.status === "error") {\n    process.exitCode = 1;',
+        '  report.status = "success";\n\n  if (report.status === "error") {\n    process.exitCode = 1;',
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `sync-report-exit-${name}`);
+      await scaffoldBasic(targetDir);
+      const syncScriptPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-types-to-block-json.ts',
+      );
+      const original = fs.readFileSync(syncScriptPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncScriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
+
+  test('rejects a successful process exit before the catch failure exit', async () => {
+    const targetDir = path.join(tempRoot, 'sync-catch-early-success');
+    await scaffoldBasic(targetDir);
+    const syncScriptPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const source = original.replace(
+      'console.error("❌ Type sync failed:", error);',
+      'console.error("❌ Type sync failed:", error);\n  process.exit(0);',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncScriptPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+  });
+
   test('rejects sync-types helpers that stop parsing the process --check flag', async () => {
     const mutations = [
       ['argv', 'process.argv.slice(2)', '[]'],
@@ -943,7 +1214,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  });
+  }, 20_000);
 
   test('allows type-only process imports in standalone sync helpers', async () => {
     const cases = [
@@ -1249,6 +1520,16 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const mutations = [
       ['error', 'if ( result.error )', 'if ( false )'],
       ['status', 'if ( result.status !== 0 )', 'if ( false )'],
+      [
+        'error-success-exit',
+        'if ( result.error ) {',
+        'if ( result.error ) {\n\t\tprocess.exit( 0 );',
+      ],
+      [
+        'status-success-exit',
+        'if ( result.status !== 0 ) {',
+        'if ( result.status !== 0 ) {\n\t\tprocess.exit( 0 );',
+      ],
     ] as const;
     for (const [name, originalGuard, damagedGuard] of mutations) {
       const targetDir = path.join(tempRoot, `sync-project-${name}-ignored`);
@@ -1272,7 +1553,73 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'must forward --check through the canonical tsx runner',
       );
     }
-  });
+  }, 20_000);
+
+  test('rejects noncanonical sync-project spawn options', async () => {
+    const targetDir = path.join(tempRoot, 'sync-project-spawn-options');
+    await scaffoldBasic(targetDir);
+    const syncProjectPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-project.ts',
+    );
+    const original = fs.readFileSync(syncProjectPath, 'utf8');
+    const mutations = [
+      ['cwd: process.cwd(),', "cwd: '..',"],
+      ['env: getSyncScriptEnv(),', 'env: process.env,'],
+      ["shell: process.platform === 'win32',", 'shell: true,'],
+      ["stdio: 'inherit',", "stdio: 'ignore',"],
+    ] as const;
+    for (const [canonicalSource, damagedSource] of mutations) {
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncProjectPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must forward --check through the canonical tsx runner',
+      );
+    }
+  }, 20_000);
+
+  test('rejects sync-project runner declarations with mutation side effects', async () => {
+    const targetDir = path.join(tempRoot, 'sync-project-runner-mutations');
+    await scaffoldBasic(targetDir);
+    const syncProjectPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-project.ts',
+    );
+    const original = fs.readFileSync(syncProjectPath, 'utf8');
+    const mutations = [
+      [
+        'const args = [ scriptPath ];',
+        'const args = [ scriptPath ], ignoredArgs = [];',
+      ],
+      [
+        '\t} );',
+        '\t} ), ignored = ( result.status = 0 );',
+      ],
+    ] as const;
+    for (const [canonicalSource, damagedSource] of mutations) {
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncProjectPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must forward --check through the canonical tsx runner',
+      );
+    }
+  }, 20_000);
 
   test('rejects unreachable sync-project failure throws', async () => {
     const targetDir = path.join(tempRoot, 'sync-project-unreachable-throw');
@@ -2062,6 +2409,85 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(bootstrapCheck?.detail).not.toContain(
       'does not call register_block_type()',
     );
+  });
+
+  test('requires a direct build-directory registration in the init callback', async () => {
+    const mutations = [
+      ['missing-argument', 'register_block_type( $build_dir );', 'register_block_type();'],
+      [
+        'missing-assignment',
+        /\s*\$build_dir\s*=\s*[A-Za-z_][A-Za-z0-9_]*_get_build_dir\(\);/u,
+        '',
+      ],
+      [
+        'reassigned-path',
+        'register_block_type( $build_dir );',
+        "$build_dir = __DIR__ . '/other';\n\tregister_block_type( $build_dir );",
+      ],
+      [
+        'wrong-getter-root',
+        "__DIR__ . '/build',",
+        "__DIR__ . '/other',",
+      ],
+      [
+        'wrong-argument',
+        'register_block_type( $build_dir );',
+        '$other_dir = $build_dir;\n\tregister_block_type( $other_dir );',
+      ],
+      [
+        'nested-helper',
+        'register_block_type( $build_dir );',
+        [
+          'function nested_register_block() {',
+          '\t\tregister_block_type( $build_dir );',
+          '\t}',
+        ].join('\n'),
+      ],
+      [
+        'by-reference-nested-helper',
+        'register_block_type( $build_dir );',
+        [
+          'function &nested_register_block() {',
+          '\t\tregister_block_type( $build_dir );',
+          '\t}',
+        ].join('\n'),
+      ],
+      [
+        'anonymous-helper',
+        'register_block_type( $build_dir );',
+        [
+          '$helper = function () use ( $build_dir ) {',
+          '\t\tregister_block_type( $build_dir );',
+          '\t};',
+        ].join('\n'),
+      ],
+      [
+        'arrow-helper',
+        'register_block_type( $build_dir );',
+        '$helper = fn () => register_block_type( $build_dir );',
+      ],
+    ] as const;
+    for (const [name, canonicalSource, damagedSource] of mutations) {
+      const targetDir = path.join(tempRoot, `registration-${name}`);
+      await scaffoldBasic(targetDir);
+      const bootstrapPath = path.join(
+        targetDir,
+        `registration-${name}.php`,
+      );
+      const original = fs.readFileSync(bootstrapPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(bootstrapPath, source);
+
+      const bootstrapCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+      );
+      expect(bootstrapCheck?.status).toBe('fail');
+      expect(bootstrapCheck?.detail).toContain(
+        'does not hook block registration to init',
+      );
+    }
   });
 
   test('rejects bootstrap init hook text inside PHP strings', async () => {

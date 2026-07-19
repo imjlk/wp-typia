@@ -976,24 +976,43 @@ function hasPhpFunctionCallWithStringArgumentMatching(
 	return false;
 }
 
+/** Return the PHP code-block brace depth at an executable source offset. */
+export function getPhpCodeBraceDepth(
+	source: string,
+	offset: number,
+	options: PhpFunctionCallScanOptions = {},
+): number | null {
+	const scanner = createPhpScannerState(options);
+	let depth = 0;
+	let index = 0;
+	while (index < source.length && index <= offset) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (index === offset) {
+			return !scan.ambiguous && scan.inCode ? depth : null;
+		}
+		if (scan.ambiguous) {
+			return null;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+		if (source[index] === "{") {
+			depth += 1;
+		} else if (source[index] === "}") {
+			depth = Math.max(0, depth - 1);
+		}
+		index += 1;
+	}
+	return null;
+}
+
 function isPhpCodeOffset(
 	source: string,
 	offset: number,
 	options: PhpFunctionCallScanOptions,
 ): boolean {
-	const scanner = createPhpScannerState(options);
-	let index = 0;
-	while (index < source.length && index <= offset) {
-		const scan = advancePhpScanner(source, index, scanner);
-		if (index === offset) {
-			return !scan.ambiguous && scan.inCode;
-		}
-		if (scan.ambiguous) {
-			return false;
-		}
-		index = scan.inCode ? index + 1 : scan.index;
-	}
-	return false;
+	return getPhpCodeBraceDepth(source, offset, options) !== null;
 }
 
 /**
@@ -1010,7 +1029,7 @@ export function findPhpFunctionRange(
 	options: PhpFunctionRangeOptions = {},
 ): PhpFunctionRange | null {
 	const signaturePattern = new RegExp(
-		`function\\s+${escapeRegex(functionName)}\\s*\\([^)]*\\)\\s*(?::\\s*[^{};]+)?\\s*\\{`,
+		`function\\s+&?\\s*${escapeRegex(functionName)}\\s*\\([^)]*\\)\\s*(?::\\s*[^{};]+)?\\s*\\{`,
 		"gu",
 	);
 	let signatureMatch: RegExpExecArray | null = null;

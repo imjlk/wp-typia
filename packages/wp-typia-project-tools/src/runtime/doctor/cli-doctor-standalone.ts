@@ -17,6 +17,7 @@ import {
 } from '../shared/package-managers.js';
 import {
   findPhpFunctionRange,
+  getPhpCodeBraceDepth,
   hasPhpFunctionCall,
   hasPhpFunctionCallWithStringArguments,
 } from '../shared/php-utils.js';
@@ -399,54 +400,104 @@ function hasImportedBinding(
 
 function getAwaitedCallFromVariableStatement(
   statement: ts.Statement,
-): ts.CallExpression | null {
+): { binding: string; call: ts.CallExpression } | null {
   if (
     !ts.isVariableStatement(statement) ||
+    !(statement.declarationList.flags & ts.NodeFlags.Const) ||
     statement.declarationList.declarations.length !== 1
   ) {
     return null;
   }
-  const initializer = statement.declarationList.declarations[0].initializer;
+  const declaration = statement.declarationList.declarations[0];
+  const initializer = declaration.initializer;
   return initializer &&
+    ts.isIdentifier(declaration.name) &&
     ts.isAwaitExpression(initializer) &&
     ts.isCallExpression(initializer.expression)
-    ? initializer.expression
+    ? { binding: declaration.name.text, call: initializer.expression }
     : null;
 }
 
-function hasCanonicalSyncCheckOptions(
+function hasCanonicalSyncExecutionOptions(
   expression: ts.Expression,
   optionsBinding: string,
 ): boolean {
   if (!ts.isObjectLiteralExpression(expression)) {
     return false;
   }
-  const propertyNames = new Set<string>();
-  let hasCheckBinding = false;
-  for (const property of expression.properties) {
-    if (
-      !ts.isPropertyAssignment(property) ||
-      ts.isComputedPropertyName(property.name)
-    ) {
-      return false;
-    }
-    const propertyName =
-      ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
-        ? property.name.text
-        : null;
-    if (propertyName === null || propertyNames.has(propertyName)) {
-      return false;
-    }
-    propertyNames.add(propertyName);
-    if (propertyName === 'check') {
-      hasCheckBinding =
-        ts.isPropertyAccessExpression(property.initializer) &&
-        ts.isIdentifier(property.initializer.expression) &&
-        property.initializer.expression.text === optionsBinding &&
-        property.initializer.name.text === 'check';
-    }
+  const expectedProperties = ['check', 'failOnLossy', 'strict'];
+  return (
+    expression.properties.length === expectedProperties.length &&
+    expectedProperties.every((propertyName) =>
+      expression.properties.some(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          !ts.isComputedPropertyName(property.name) &&
+          (ts.isIdentifier(property.name) ||
+            ts.isStringLiteral(property.name)) &&
+          property.name.text === propertyName &&
+          ts.isPropertyAccessExpression(property.initializer) &&
+          ts.isIdentifier(property.initializer.expression) &&
+          property.initializer.expression.text === optionsBinding &&
+          property.initializer.name.text === propertyName,
+      ),
+    )
+  );
+}
+
+function isCanonicalSyncReportErrorGuard(
+  statement: ts.Statement,
+  reportBinding: string,
+): boolean {
+  if (
+    !ts.isIfStatement(statement) ||
+    statement.elseStatement ||
+    !ts.isBinaryExpression(statement.expression) ||
+    statement.expression.operatorToken.kind !==
+      ts.SyntaxKind.EqualsEqualsEqualsToken ||
+    !isResultPropertyAccess(
+      statement.expression.left,
+      reportBinding,
+      'status',
+    ) ||
+    !ts.isStringLiteralLike(statement.expression.right) ||
+    statement.expression.right.text !== 'error' ||
+    !ts.isBlock(statement.thenStatement) ||
+    statement.thenStatement.statements.length !== 1
+  ) {
+    return false;
   }
-  return hasCheckBinding;
+  const assignment = statement.thenStatement.statements[0];
+  return (
+    ts.isExpressionStatement(assignment) &&
+    ts.isBinaryExpression(assignment.expression) &&
+    assignment.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+    ts.isPropertyAccessExpression(assignment.expression.left) &&
+    ts.isIdentifier(assignment.expression.left.expression) &&
+    assignment.expression.left.expression.text === 'process' &&
+    assignment.expression.left.name.text === 'exitCode' &&
+    ts.isNumericLiteral(assignment.expression.right) &&
+    assignment.expression.right.text === '1'
+  );
+}
+
+function containsResultPropertyWrite(
+  node: ts.Node,
+  resultBinding: string,
+  propertyName: string,
+): boolean {
+  return containsCompletion(
+    node,
+    (candidate) =>
+      ts.isBinaryExpression(candidate) &&
+      candidate.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      candidate.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      isResultPropertyAccess(
+        candidate.left,
+        resultBinding,
+        propertyName,
+      ),
+  );
 }
 
 function findSyncOptionsObject(
@@ -460,7 +511,10 @@ function findSyncOptionsObject(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
     hasShadowedBinding(main, new Set(['parseCliOptions'])) ||
-    !hasCanonicalCheckParser(sourceFile) ||
+    !hasCanonicalCheckParser(sourceFile, [
+      { flagName: '--strict', propertyName: 'strict' },
+      { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
+    ]) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
     return null;
@@ -475,28 +529,60 @@ function findSyncOptionsObject(
   }
 
   const calls = statements.flatMap((statement, index) => {
-    const call = getAwaitedCallFromVariableStatement(statement);
+    const awaitedCall = getAwaitedCallFromVariableStatement(statement);
+    const call = awaitedCall?.call;
     if (
       !call ||
       !ts.isIdentifier(call.expression) ||
       !syncImportBindings.has(call.expression.text) ||
       call.arguments.length !== 2 ||
       !ts.isObjectLiteralExpression(call.arguments[0]) ||
-      !hasCanonicalSyncCheckOptions(
+      !hasCanonicalSyncExecutionOptions(
         call.arguments[1],
         optionsDeclaration.binding,
       )
     ) {
       return [];
     }
-    return [{ index, options: call.arguments[0] }];
+    return [
+      {
+        index,
+        options: call.arguments[0],
+        reportBinding: awaitedCall.binding,
+      },
+    ];
   });
   if (calls.length !== 1) {
     return null;
   }
   const [call] = calls;
-  return call.index === optionsDeclaration.index + 1 &&
-    !hasEarlierAbruptCompletion(statements, call.index)
+  if (
+    call.index !== optionsDeclaration.index + 1 ||
+    hasEarlierAbruptCompletion(statements, call.index)
+  ) {
+    return null;
+  }
+  const errorGuardIndexes = statements.flatMap((statement, index) =>
+    index > call.index &&
+    isCanonicalSyncReportErrorGuard(statement, call.reportBinding)
+      ? [index]
+      : [],
+  );
+  return errorGuardIndexes.length === 1 &&
+    errorGuardIndexes[0] === statements.length - 1 &&
+    !statements
+      .slice(call.index + 1, errorGuardIndexes[0])
+      .some((statement) =>
+        containsResultPropertyWrite(
+          statement,
+          call.reportBinding,
+          'status',
+        ),
+      ) &&
+    !hasEarlierAbruptCompletion(
+      statements.slice(call.index + 1),
+      errorGuardIndexes[0] - call.index - 1,
+    )
     ? call.options
     : null;
 }
@@ -586,6 +672,24 @@ function parseStandaloneSyncConfig(
       problem:
         `${STANDALONE_SYNC_SCRIPT} must use direct static property ` +
         'assignments; spread, shorthand, and computed properties are not supported.',
+    };
+  }
+
+  if (
+    optionsObject.properties.some(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        !ts.isComputedPropertyName(property.name) &&
+        (ts.isIdentifier(property.name) ||
+          ts.isStringLiteral(property.name)) &&
+        property.name.text === 'projectRoot',
+    )
+  ) {
+    return {
+      options: null,
+      problem:
+        `${STANDALONE_SYNC_SCRIPT} must not override projectRoot; ` +
+        'standalone sync helpers must run from their package root.',
     };
   }
 
@@ -796,6 +900,16 @@ function containsCompletion(
   return found;
 }
 
+function isProcessExitCompletion(node: ts.Node): boolean {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === 'process' &&
+    node.expression.name.text === 'exit'
+  );
+}
+
 function hasEarlierAbruptCompletion(
   statements: readonly ts.Statement[],
   statementIndex: number,
@@ -805,18 +919,27 @@ function hasEarlierAbruptCompletion(
     .some((statement) =>
       containsCompletion(
         statement,
-        (node) => ts.isReturnStatement(node) || ts.isThrowStatement(node),
+        (node) =>
+          ts.isReturnStatement(node) ||
+          ts.isThrowStatement(node) ||
+          isProcessExitCompletion(node),
       ),
     );
 }
 
-function containsReturnCompletion(node: ts.Node): boolean {
-  return containsCompletion(node, ts.isReturnStatement);
+function containsNonThrowingCompletion(node: ts.Node): boolean {
+  return containsCompletion(
+    node,
+    (candidate) =>
+      ts.isReturnStatement(candidate) ||
+      isProcessExitCompletion(candidate),
+  );
 }
 
-function isNonCheckArgumentGuard(
+function isNonTargetArgumentGuard(
   node: ts.Node,
   argumentBinding: string,
+  targetArgument: string,
 ): node is ts.IfStatement {
   if (
     !ts.isIfStatement(node) ||
@@ -832,9 +955,9 @@ function isNonCheckArgumentGuard(
     ((ts.isIdentifier(left) &&
       left.text === argumentBinding &&
       ts.isStringLiteralLike(right) &&
-      right.text !== '--check') ||
+      right.text !== targetArgument) ||
       (ts.isStringLiteralLike(left) &&
-        left.text !== '--check' &&
+        left.text !== targetArgument &&
         ts.isIdentifier(right) &&
         right.text === argumentBinding))
   );
@@ -868,6 +991,7 @@ function containsParserControlFlow(
   loopDepth = 0,
   outerContinueIsSafe = false,
   activeLabels: ReadonlyMap<string, boolean> = new Map(),
+  targetArgument = '--check',
 ): boolean {
   if (ts.isFunctionLike(node)) {
     return false;
@@ -889,7 +1013,7 @@ function containsParserControlFlow(
 
   if (
     check === 'unsafe-continue' &&
-    isNonCheckArgumentGuard(node, argumentBinding)
+    isNonTargetArgumentGuard(node, argumentBinding, targetArgument)
   ) {
     return containsParserControlFlow(
       node.thenStatement,
@@ -899,6 +1023,7 @@ function containsParserControlFlow(
       loopDepth,
       true,
       activeLabels,
+      targetArgument,
     );
   }
 
@@ -913,6 +1038,7 @@ function containsParserControlFlow(
       loopDepth,
       outerContinueIsSafe,
       nestedLabels,
+      targetArgument,
     );
   }
 
@@ -932,6 +1058,7 @@ function containsParserControlFlow(
         nextLoopDepth,
         outerContinueIsSafe,
         activeLabels,
+        targetArgument,
       )
     ) {
       found = true;
@@ -975,7 +1102,9 @@ function hasCanonicalRunnerErrorGuard(
     finalStatement !== undefined &&
     ts.isThrowStatement(finalStatement) &&
     isResultPropertyAccess(finalStatement.expression, resultBinding, 'error') &&
-    !statement.thenStatement.statements.some(containsReturnCompletion)
+    !statement.thenStatement.statements.some(
+      containsNonThrowingCompletion,
+    )
   );
 }
 
@@ -1008,7 +1137,66 @@ function hasCanonicalRunnerStatusGuard(
   return (
     finalStatement !== undefined &&
     ts.isThrowStatement(finalStatement) &&
-    !statement.thenStatement.statements.some(containsReturnCompletion)
+    !statement.thenStatement.statements.some(
+      containsNonThrowingCompletion,
+    )
+  );
+}
+
+function hasCanonicalSpawnOptions(
+  expression: ts.ObjectLiteralExpression,
+): boolean {
+  const properties = new Map<string, ts.Expression>();
+  for (const property of expression.properties) {
+    if (
+      !ts.isPropertyAssignment(property) ||
+      ts.isComputedPropertyName(property.name) ||
+      (!ts.isIdentifier(property.name) &&
+        !ts.isStringLiteral(property.name)) ||
+      properties.has(property.name.text)
+    ) {
+      return false;
+    }
+    properties.set(property.name.text, property.initializer);
+  }
+  if (
+    properties.size !== 4 ||
+    !['cwd', 'env', 'shell', 'stdio'].every((propertyName) =>
+      properties.has(propertyName),
+    )
+  ) {
+    return false;
+  }
+
+  const cwd = properties.get('cwd');
+  const env = properties.get('env');
+  const shell = properties.get('shell');
+  const stdio = properties.get('stdio');
+  return (
+    cwd !== undefined &&
+    ts.isCallExpression(cwd) &&
+    ts.isPropertyAccessExpression(cwd.expression) &&
+    ts.isIdentifier(cwd.expression.expression) &&
+    cwd.expression.expression.text === 'process' &&
+    cwd.expression.name.text === 'cwd' &&
+    cwd.arguments.length === 0 &&
+    env !== undefined &&
+    ts.isCallExpression(env) &&
+    ts.isIdentifier(env.expression) &&
+    env.expression.text === 'getSyncScriptEnv' &&
+    env.arguments.length === 0 &&
+    shell !== undefined &&
+    ts.isBinaryExpression(shell) &&
+    shell.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken &&
+    ts.isPropertyAccessExpression(shell.left) &&
+    ts.isIdentifier(shell.left.expression) &&
+    shell.left.expression.text === 'process' &&
+    shell.left.name.text === 'platform' &&
+    ts.isStringLiteralLike(shell.right) &&
+    shell.right.text === 'win32' &&
+    stdio !== undefined &&
+    ts.isStringLiteralLike(stdio) &&
+    stdio.text === 'inherit'
   );
 }
 
@@ -1033,7 +1221,8 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   );
   if (
     spawnBindings.size === 0 ||
-    hasShadowedBinding(sourceFile, spawnBindings)
+    hasShadowedBinding(sourceFile, spawnBindings) ||
+    hasShadowedBinding(runner, new Set(['getSyncScriptEnv']))
   ) {
     return false;
   }
@@ -1043,7 +1232,8 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   statements.forEach((statement, index) => {
     if (
       !ts.isVariableStatement(statement) ||
-      !(statement.declarationList.flags & ts.NodeFlags.Const)
+      !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+      statement.declarationList.declarations.length !== 1
     ) {
       return;
     }
@@ -1092,7 +1282,11 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   const [checkGuardIndex] = checkGuardIndexes;
 
   const spawnDeclarations = statements.flatMap((statement, index) => {
-    if (!ts.isVariableStatement(statement)) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+      statement.declarationList.declarations.length !== 1
+    ) {
       return [];
     }
     return statement.declarationList.declarations.flatMap((declaration) => {
@@ -1107,7 +1301,8 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
         call.arguments[0].text === 'tsx' &&
         ts.isIdentifier(call.arguments[1]) &&
         call.arguments[1].text === argsBinding &&
-        ts.isObjectLiteralExpression(call.arguments[2])
+        ts.isObjectLiteralExpression(call.arguments[2]) &&
+        hasCanonicalSpawnOptions(call.arguments[2])
         ? [{ binding: declaration.name.text, index }]
         : [];
     });
@@ -1248,9 +1443,10 @@ function isParseCliOptionsCall(expression: ts.Expression): boolean {
   );
 }
 
-function isCanonicalCheckAssignment(
+function isCanonicalBooleanOptionAssignment(
   statement: ts.Statement,
   optionsBinding: string,
+  propertyName: string,
 ): boolean {
   if (
     !ts.isExpressionStatement(statement) ||
@@ -1261,16 +1457,18 @@ function isCanonicalCheckAssignment(
   }
   const { left, right } = statement.expression;
   return (
-    isResultPropertyAccess(left, optionsBinding, 'check') &&
+    isResultPropertyAccess(left, optionsBinding, propertyName) &&
     right.kind === ts.SyntaxKind.TrueKeyword
   );
 }
 
-function hasCanonicalCheckGuard(
+function getCanonicalBooleanFlagGuardIndex(
   body: ts.Block,
   argumentBinding: string,
   optionsBinding: string,
-): boolean {
+  flagName: string,
+  propertyName: string,
+): number | null {
   const guardIndexes = body.statements.flatMap((statement, index) => {
     if (
       !ts.isIfStatement(statement) ||
@@ -1281,22 +1479,38 @@ function hasCanonicalCheckGuard(
       !ts.isIdentifier(statement.expression.left) ||
       statement.expression.left.text !== argumentBinding ||
       !ts.isStringLiteralLike(statement.expression.right) ||
-      statement.expression.right.text !== '--check' ||
+      statement.expression.right.text !== flagName ||
       !ts.isBlock(statement.thenStatement) ||
       statement.thenStatement.statements.length !== 2
     ) {
       return [];
     }
     return (
-      isCanonicalCheckAssignment(
+      isCanonicalBooleanOptionAssignment(
         statement.thenStatement.statements[0],
         optionsBinding,
+        propertyName,
       ) && ts.isContinueStatement(statement.thenStatement.statements[1])
     )
       ? [index]
       : [];
   });
-  if (guardIndexes.length !== 1) {
+  return guardIndexes.length === 1 ? guardIndexes[0] : null;
+}
+
+function hasCanonicalCheckGuard(
+  body: ts.Block,
+  argumentBinding: string,
+  optionsBinding: string,
+): boolean {
+  const guardIndex = getCanonicalBooleanFlagGuardIndex(
+    body,
+    argumentBinding,
+    optionsBinding,
+    '--check',
+    'check',
+  );
+  if (guardIndex === null) {
     return false;
   }
   return (
@@ -1306,7 +1520,7 @@ function hasCanonicalCheckGuard(
       'outer-break-or-return',
     ) &&
     !body.statements
-      .slice(0, guardIndexes[0])
+      .slice(0, guardIndex)
       .some((statement) =>
         containsParserControlFlow(
           statement,
@@ -1315,6 +1529,82 @@ function hasCanonicalCheckGuard(
         ),
       )
   );
+}
+
+function hasCanonicalAdditionalBooleanFlags(
+  body: ts.Block,
+  argumentBinding: string,
+  optionsBinding: string,
+  optionProperties: ReadonlyMap<string, ts.Expression>,
+  flags: readonly { flagName: string; propertyName: string }[],
+): boolean {
+  const checkGuardIndex = getCanonicalBooleanFlagGuardIndex(
+    body,
+    argumentBinding,
+    optionsBinding,
+    '--check',
+    'check',
+  );
+  let previousGuardIndex = -1;
+  return flags.every(({ flagName, propertyName }) => {
+    if (
+      optionProperties.get(propertyName)?.kind !==
+      ts.SyntaxKind.FalseKeyword
+    ) {
+      return false;
+    }
+    const guardIndex = getCanonicalBooleanFlagGuardIndex(
+      body,
+      argumentBinding,
+      optionsBinding,
+      flagName,
+      propertyName,
+    );
+    let assignmentCount = 0;
+    function countAssignments(node: ts.Node): void {
+      if (ts.isFunctionLike(node)) {
+        return;
+      }
+      if (
+        ts.isStatement(node) &&
+        isCanonicalBooleanOptionAssignment(
+          node,
+          optionsBinding,
+          propertyName,
+        )
+      ) {
+        assignmentCount += 1;
+      }
+      ts.forEachChild(node, countAssignments);
+    }
+    countAssignments(body);
+    if (
+      guardIndex === null ||
+      checkGuardIndex === null ||
+      guardIndex <= previousGuardIndex ||
+      guardIndex >= checkGuardIndex ||
+      assignmentCount !== 1 ||
+      hasEarlierAbruptCompletion(body.statements, guardIndex) ||
+      body.statements
+        .slice(0, guardIndex)
+        .some((statement) =>
+          containsParserControlFlow(
+            statement,
+            argumentBinding,
+            'unsafe-continue',
+            0,
+            0,
+            false,
+            new Map(),
+            flagName,
+          ),
+        )
+    ) {
+      return false;
+    }
+    previousGuardIndex = guardIndex;
+    return true;
+  });
 }
 
 function getCanonicalForOfArgument(
@@ -1394,7 +1684,13 @@ function getCanonicalIndexedArgument(
     : null;
 }
 
-function hasCanonicalCheckParser(sourceFile: ts.SourceFile): boolean {
+function hasCanonicalCheckParser(
+  sourceFile: ts.SourceFile,
+  additionalBooleanFlags: readonly {
+    flagName: string;
+    propertyName: string;
+  }[] = [],
+): boolean {
   const parser = getSingleTopLevelFunction(sourceFile, 'parseCliOptions');
   if (
     !parser?.body ||
@@ -1452,6 +1748,13 @@ function hasCanonicalCheckParser(sourceFile: ts.SourceFile): boolean {
       loop.body,
       loop.argumentBinding,
       optionsDeclaration.name.text,
+    ) &&
+    hasCanonicalAdditionalBooleanFlags(
+      loop.body,
+      loop.argumentBinding,
+      optionsDeclaration.name.text,
+      optionProperties,
+      additionalBooleanFlags,
     ) &&
     ts.isReturnStatement(returnStatement) &&
     returnStatement.expression !== undefined &&
@@ -1732,10 +2035,70 @@ function shellCommandMatches(
   );
 }
 
+function shellSegmentIsStaticallyReachable(
+  segments: readonly ShellCommandSegment[],
+  segmentIndex: number,
+): boolean {
+  for (let index = 0; index < segmentIndex; index += 1) {
+    const segment = segments[index];
+    if (
+      (segment.command === 'exit' ||
+        segment.command.startsWith('exit ')) &&
+      segment.operatorAfter !== '&' &&
+      segment.operatorAfter !== '|' &&
+      segment.operatorAfter !== '|&' &&
+      shellSegmentIsStaticallyReachable(segments, index)
+    ) {
+      return false;
+    }
+  }
+  for (
+    let index = segmentIndex - 1;
+    index >= 0 && segments[index].operatorAfter === '&&';
+    index -= 1
+  ) {
+    if (segments[index].command === 'false') {
+      return false;
+    }
+  }
+  return true;
+}
+
 function shellScriptInvokesCommand(script: string, command: string): boolean {
-  return splitShellCommandSegments(script).some((segment) =>
-    shellCommandMatches(segment, command),
+  const segments = splitShellCommandSegments(script);
+  return segments.some(
+    (segment, index) =>
+      shellCommandMatches(segment, command) &&
+      shellSegmentIsStaticallyReachable(segments, index),
   );
+}
+
+function shellScriptPropagatesCommandFailure(
+  script: string,
+  command: string,
+): boolean {
+  const segments = splitShellCommandSegments(script);
+  return segments.some((segment, index) => {
+    if (!shellCommandMatches(segment, command)) {
+      return false;
+    }
+    if (!shellSegmentIsStaticallyReachable(segments, index)) {
+      return false;
+    }
+    if (index > 0 && segments[index - 1].operatorAfter === '||') {
+      return false;
+    }
+    for (let chainIndex = index; chainIndex < segments.length; chainIndex += 1) {
+      const operatorAfter = segments[chainIndex].operatorAfter;
+      if (operatorAfter === null) {
+        return true;
+      }
+      if (operatorAfter !== '&&') {
+        return false;
+      }
+    }
+    return false;
+  });
 }
 
 function shellScriptRunsCommandAfterSyncCheck(
@@ -1820,9 +2183,14 @@ function getPackageMetadataCheck(
       continue;
     }
     for (const command of requirement.commands) {
-      if (!shellScriptInvokesCommand(script, command)) {
+      const invokesCommand = shellScriptInvokesCommand(script, command);
+      if (!invokesCommand) {
         issues.push(
           `package.json ${requirement.name} script must invoke \`${command}\``,
+        );
+      } else if (!shellScriptPropagatesCommandFailure(script, command)) {
+        issues.push(
+          `package.json ${requirement.name} script must propagate failures from \`${command}\``,
         );
       }
     }
@@ -1866,6 +2234,85 @@ function getPackageMetadataCheck(
       : issues.join('; '),
     STANDALONE_DOCTOR_CODES.PACKAGE,
   );
+}
+
+function hasDirectBuildDirectoryRegistration(
+  bootstrapSource: string,
+  callbackSource: string,
+): boolean {
+  const buildDirectorySentinel = '__wp_typia_build_directory__';
+  const directSource = callbackSource;
+  if (
+    [
+      /\bfunction\s*(?:&\s*)?\(/gu,
+      /\bfn\s*(?:&\s*)?\(/gu,
+    ].some((pattern) =>
+      [...directSource.matchAll(pattern)].some((match) =>
+        getPhpCodeBraceDepth(directSource, match.index) !== null,
+      ),
+    )
+  ) {
+    return false;
+  }
+  const assignmentPattern =
+    /\$build_dir\s*=\s*([A-Za-z_][A-Za-z0-9_]*_get_build_dir)\s*\(\s*\)\s*;/gu;
+  const assignment = [...directSource.matchAll(assignmentPattern)].find(
+    (match) => getPhpCodeBraceDepth(directSource, match.index) === 1,
+  );
+  if (!assignment) {
+    return false;
+  }
+  const getterRange = findPhpFunctionRange(bootstrapSource, assignment[1], {
+    requirePhpOpenTag: true,
+  });
+  if (
+    !getterRange ||
+    ![...getterRange.source.matchAll(/__DIR__\s*\.\s*(?:'\/build'|"\/build")/gu)].some(
+      (match) =>
+        getPhpCodeBraceDepth(getterRange.source, match.index) === 1,
+    )
+  ) {
+    return false;
+  }
+  const sourceAfterAssignment = directSource.slice(
+    assignment.index + assignment[0].length,
+  );
+  if (
+    [...sourceAfterAssignment.matchAll(/\$build_dir\s*=/gu)].some(
+      (match) =>
+        getPhpCodeBraceDepth(sourceAfterAssignment, match.index) !== null,
+    )
+  ) {
+    return false;
+  }
+  const registrationSource = sourceAfterAssignment.replace(
+    /\$build_dir\b/gu,
+    `'${buildDirectorySentinel}'`,
+  );
+  const hasDirectRegistration = [
+    ...sourceAfterAssignment.matchAll(
+      /\bregister_block_type\s*\(\s*\$build_dir\b/gu,
+    ),
+  ].some((match) => {
+    let previousIndex = match.index - 1;
+    while (/\s/u.test(sourceAfterAssignment[previousIndex] ?? '')) {
+      previousIndex -= 1;
+    }
+    return (
+      getPhpCodeBraceDepth(sourceAfterAssignment, match.index) === 0 &&
+      !(
+        (sourceAfterAssignment[previousIndex] === '>' &&
+          sourceAfterAssignment[previousIndex - 1] === '-') ||
+        (sourceAfterAssignment[previousIndex] === ':' &&
+          sourceAfterAssignment[previousIndex - 1] === ':')
+      )
+    );
+  });
+  return hasPhpFunctionCallWithStringArguments(
+    registrationSource,
+    'register_block_type',
+    [buildDirectorySentinel],
+  ) && hasDirectRegistration;
 }
 
 function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
@@ -1927,7 +2374,10 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
         });
         return (
           callbackRange !== null &&
-          hasPhpFunctionCall(callbackRange.source, 'register_block_type')
+          hasDirectBuildDirectoryRegistration(
+            source,
+            callbackRange.source,
+          )
         );
       },
     ],
