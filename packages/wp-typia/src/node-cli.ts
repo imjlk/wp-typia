@@ -1,4 +1,4 @@
-import { once } from 'node:events';
+import type { Writable } from 'node:stream';
 
 import {
   CLI_DIAGNOSTIC_CODES,
@@ -75,6 +75,7 @@ const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
 );
 const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
 const MAX_PENDING_SYNC_STDERR_LINE = 64 * 1024;
+const CLOSED_PROCESS_OUTPUT_STREAMS = new WeakSet<Writable>();
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -297,14 +298,118 @@ async function dispatchPortableCliSkills({
   });
 }
 
-function writeProcessOutput(
-  stream: NodeJS.WriteStream,
+function isClosedPipeError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === 'EPIPE' || code === 'ERR_STREAM_DESTROYED';
+}
+
+/**
+ * Writes one process-output chunk while honoring Writable backpressure.
+ * Closed pipes complete normally for shell pipelines; an unexpected late
+ * stream error is re-emitted and therefore remains fatal when otherwise
+ * unhandled, matching EventEmitter's standard `error` semantics.
+ */
+export function writeProcessOutput(
+  stream: Writable,
   chunk: string,
 ): Promise<void> | void {
-  if (stream.write(chunk)) {
+  if (CLOSED_PROCESS_OUTPUT_STREAMS.has(stream) || stream.destroyed) {
     return;
   }
-  return once(stream, 'drain').then(() => undefined);
+
+  return new Promise<void>((resolve, reject) => {
+    let drainRequired = false;
+    let drained = false;
+    let settled = false;
+    let writeCallbackComplete = false;
+    let writeResultObserved = false;
+    const cleanup = (deferErrorCleanup: boolean) => {
+      stream.off('close', onClose);
+      stream.off('drain', onDrain);
+      if (deferErrorCleanup) {
+        // A Writable callback can run immediately before a matching `error`
+        // event. Keep the listener through the current turn so a late EPIPE
+        // is treated as the same closed-pipe outcome instead of going
+        // uncaught.
+        setImmediate(() => stream.off('error', onError));
+      } else {
+        stream.off('error', onError);
+      }
+    };
+    const settle = (
+      error?: Error | null,
+      deferErrorCleanup = false,
+    ) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (!error || isClosedPipeError(error)) {
+        if (error) {
+          CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+        }
+        cleanup(deferErrorCleanup);
+        resolve();
+        return;
+      }
+      cleanup(deferErrorCleanup);
+      reject(error);
+    };
+    const settleCompletedWrite = () => {
+      if (
+        writeResultObserved &&
+        writeCallbackComplete &&
+        (!drainRequired || drained)
+      ) {
+        settle(undefined, true);
+      }
+    };
+    const onDrain = () => {
+      drained = true;
+      settleCompletedWrite();
+    };
+    const onError = (error: Error) => {
+      if (isClosedPipeError(error)) {
+        CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+      }
+      if (settled) {
+        // `once` removes this listener before invoking it. If no other error
+        // listener remains, forward a non-pipe failure so it retains normal
+        // EventEmitter error semantics instead of being swallowed.
+        if (!isClosedPipeError(error) && stream.listenerCount('error') === 0) {
+          queueMicrotask(() => stream.emit('error', error));
+        }
+        return;
+      }
+      settle(error);
+    };
+    const onClose = () => {
+      CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
+      settle();
+    };
+
+    stream.once('error', onError);
+    stream.once('close', onClose);
+    stream.once('drain', onDrain);
+    try {
+      const accepted = stream.write(chunk, (error) => {
+        if (error) {
+          settle(error, true);
+          return;
+        }
+        writeCallbackComplete = true;
+        settleCompletedWrite();
+      });
+      drainRequired = !accepted;
+      writeResultObserved = true;
+      if (!drainRequired) {
+        stream.off('drain', onDrain);
+      }
+      settleCompletedWrite();
+    } catch (error) {
+      settle(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
 }
 
 export function shouldInheritTextSyncStdio({

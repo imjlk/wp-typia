@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 
 import { afterEach, describe, expect, test } from 'bun:test';
 
@@ -15,6 +16,7 @@ import {
   runNodeCli,
   runNodeCliEntrypoint,
   shouldInheritTextSyncStdio,
+  writeProcessOutput,
 } from '../src/node-cli';
 
 const AI_AGENT_ENV_KEYS = [
@@ -95,7 +97,6 @@ async function captureNodeCli(
       (arg): arg is (error?: Error | null) => void =>
         typeof arg === 'function',
     );
-    callback?.();
     if (
       options.stdoutBackpressureMs !== undefined &&
       !stdoutBackpressureTriggered
@@ -105,8 +106,10 @@ async function captureNodeCli(
         stdoutBackpressureDrained = true;
         process.stdout.emit('drain');
       }, options.stdoutBackpressureMs);
+      callback?.();
       return false;
     }
+    callback?.();
     return true;
   }) as typeof process.stdout.write;
 
@@ -224,6 +227,63 @@ describe('Gunshi CLI core routing', () => {
         structured: true,
       }),
     ).toBe(false);
+  });
+
+  test('treats a closed process output pipe as a completed write', async () => {
+    const error = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(error);
+      },
+    });
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(writeProcessOutput(stream, 'discarded output')).toBeUndefined();
+  });
+
+  test('discards future output after a late closed-pipe error', async () => {
+    const error = Object.assign(new Error('late write EPIPE'), {
+      code: 'EPIPE',
+    });
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+        queueMicrotask(() => stream.emit('error', error));
+      },
+    });
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(writeProcessOutput(stream, 'discarded output')).toBeUndefined();
+  });
+
+  test('forwards a late non-pipe error after a completed write', async () => {
+    const error = Object.assign(new Error('late stream failure'), {
+      code: 'ERR_STREAM_WRITE_AFTER_END',
+    });
+    const forwardedErrors: Error[] = [];
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback();
+        queueMicrotask(() => stream.emit('error', error));
+      },
+    });
+    const emit = stream.emit.bind(stream);
+    stream.emit = ((event: string | symbol, ...args: unknown[]) => {
+      if (event === 'error' && stream.listenerCount('error') === 0) {
+        forwardedErrors.push(args[0] as Error);
+        return true;
+      }
+      return emit(event, ...args);
+    }) as typeof stream.emit;
+
+    await Promise.resolve(writeProcessOutput(stream, 'sync output'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(forwardedErrors).toEqual([error]);
   });
 
   afterEach(() => {
@@ -1228,6 +1288,8 @@ describe('Gunshi CLI core routing', () => {
           'console.error(`sibling path: ${process.cwd()}-cache/schema.ts`);',
           'console.error("outside cache: /home/alice/.cache/wp-typia/schema.json");',
           'console.error("outside windows: C:\\\\Users\\\\Alice\\\\.cache\\\\wp-typia\\\\schema.json");',
+          'console.error(\'outside spaced: "/Users/alice/Library/Application Support/wp-typia/schema.json"\');',
+          'console.error("outside spaced unquoted: /Users/alice/Library/Application Support/wp-typia/schema.json");',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
           'console.error("at least 3 generated files need attention");',
@@ -1281,6 +1343,12 @@ describe('Gunshi CLI core routing', () => {
         'outside windows: <redacted-path>',
       );
       expect(parsed.error?.detailLines).toContain(
+        'outside spaced: "<redacted-path>"',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside spaced unquoted: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
         'case variant: <project-root>/src/case.ts',
       );
       expect(parsed.error?.detailLines).toContain(
@@ -1292,6 +1360,7 @@ describe('Gunshi CLI core routing', () => {
       expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
       expect(parsed.error?.message).not.toContain('/home/alice');
       expect(parsed.error?.message).not.toContain('C:\\Users\\Alice');
+      expect(parsed.error?.message).not.toContain('Application Support');
       expect(parsed.error?.data).toEqual({
         command: 'npm run sync',
         exitCode: 42,
@@ -1315,6 +1384,12 @@ describe('Gunshi CLI core routing', () => {
       expect(textResult.stderr).toContain('outside cache: <redacted-path>');
       expect(textResult.stderr).toContain('outside windows: <redacted-path>');
       expect(textResult.stderr).toContain(
+        'outside spaced: "<redacted-path>"',
+      );
+      expect(textResult.stderr).toContain(
+        'outside spaced unquoted: <redacted-path>',
+      );
+      expect(textResult.stderr).toContain(
         'case variant: <project-root>/src/case.ts',
       );
       expect(textResult.stderr).toContain(
@@ -1326,6 +1401,7 @@ describe('Gunshi CLI core routing', () => {
       expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
       expect(textResult.stderr).not.toContain('/home/alice');
       expect(textResult.stderr).not.toContain('C:\\Users\\Alice');
+      expect(textResult.stderr).not.toContain('Application Support');
       expect(textResult.stderr).not.toContain('\n    at ');
       expect(textResult.stderr).not.toContain('cachedTool');
     } finally {

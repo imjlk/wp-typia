@@ -84,25 +84,32 @@ const CAPTURED_SYNC_DIAGNOSTIC_LINE_MAX_BUFFER = 64 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_CONTEXT_LIMIT = 4;
 const STREAMED_SYNC_OUTPUT_PATH_TOKEN_MAX_BUFFER = 64 * 1024;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
+const GENERATED_ARTIFACT_CHECK_ISSUE_PATTERN =
+  /^-\s+(.+)\s+\(((?:unreadable|inaccessible|invalid|malformed|parse error|permission denied)(?::\s*[^)]+)?)\)$/iu;
 const GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN =
   /Generated AI feature artifact is (missing|stale):\s+.+\s+\((.+)\)\.$/iu;
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
   /(?:Generated (?:WordPress AI |typia\.llm )?artifacts are missing or stale:|Generated AI feature artifact is (?:missing|stale):)/iu;
 const GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN =
-  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)[^\s"'`<>]*)$/u;
+  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)[^\r\n"'`<>]*)$/u;
 const GENERIC_ABSOLUTE_PATH_PARTIAL_PREFIX_PATTERN =
   /(?:^|[\s("'`=:\[\]{},;])([A-Za-z](?::[\\/]?)?|\\{1,2})$/u;
-const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN = /[\s"'`<>]/u;
+const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN = /[\r\n"'`<>]/u;
 const POSIX_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\s"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\r\n"'`<>]*/gu;
 const UNC_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\s"'`<>]+[\\/][^\s"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\r\n"'`<>]+[\\/][^\r\n"'`<>]*/gu;
 const WINDOWS_ABSOLUTE_PATH_PATTERN =
-  /\b[A-Za-z]:[\\/][^\s"'`<>]*/gu;
+  /\b[A-Za-z]:[\\/][^\r\n"'`<>]*/gu;
 
 type SyncArtifactIssue = {
   path: string;
   status: 'missing' | 'stale';
+};
+
+type SyncArtifactCheckIssue = {
+  detail: string;
+  path: string;
 };
 
 type SyncProcessResult = {
@@ -110,6 +117,23 @@ type SyncProcessResult = {
   signal: NodeJS.Signals | null;
   status: number | null;
 };
+
+function matchGeneratedArtifactCheckIssue(
+  line: string,
+): RegExpExecArray | undefined {
+  const match = GENERATED_ARTIFACT_CHECK_ISSUE_PATTERN.exec(line);
+  const artifactPath = match?.[1]?.trim();
+  if (
+    !artifactPath ||
+    !(
+      /^(?:\.{0,2}[\\/]|[A-Za-z]:[\\/]|\\\\)/u.test(artifactPath) ||
+      /(?:^|[\\/])[^\\/\s()]+\.[^\\/\s()]+$/u.test(artifactPath)
+    )
+  ) {
+    return undefined;
+  }
+  return match ?? undefined;
+}
 
 type SyncOutputRedactionPatterns = {
   pathPrefixes: RegExp[];
@@ -132,6 +156,7 @@ class BoundedSyncOutputCapture {
   private readonly diagnosticIssueSet = new Set<string>();
   private diagnosticPending = '';
   private diagnosticsFinalized = false;
+  private hasDiagnosticDriftContext = false;
   private size = 0;
 
   append(chunk: Buffer): void {
@@ -200,9 +225,14 @@ class BoundedSyncOutputCapture {
     const trimmedLine = line.replace(/\r$/u, '').trim();
     const isInlineIssue =
       GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN.test(trimmedLine);
-    if (
+    const isDriftContext =
       !isInlineIssue &&
-      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine) &&
+      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine);
+    if (isDriftContext) {
+      this.hasDiagnosticDriftContext = true;
+    }
+    if (
+      isDriftContext &&
       this.diagnosticContextLines.length <
         CAPTURED_SYNC_DIAGNOSTIC_CONTEXT_LIMIT &&
       !this.diagnosticContextSet.has(trimmedLine)
@@ -212,7 +242,9 @@ class BoundedSyncOutputCapture {
     }
     if (
       (isInlineIssue ||
-        GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine)) &&
+        GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine) ||
+        (this.hasDiagnosticDriftContext &&
+          matchGeneratedArtifactCheckIssue(trimmedLine))) &&
       this.diagnosticIssueLines.length < CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT &&
       !this.diagnosticIssueSet.has(trimmedLine)
     ) {
@@ -613,7 +645,7 @@ function collectSyncArtifactIssues(
   const issues: SyncArtifactIssue[] = [];
   const seen = new Set<string>();
 
-  for (const line of `${stderr ?? ''}\n${stdout ?? ''}`.split(/\r?\n/u)) {
+  for (const line of iterateSyncOutputLines(stdout, stderr)) {
     const trimmedLine = line.trim();
     const listMatch = GENERATED_ARTIFACT_ISSUE_PATTERN.exec(trimmedLine);
     const inlineMatch = GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN.exec(
@@ -630,6 +662,51 @@ function collectSyncArtifactIssues(
       status,
     } satisfies SyncArtifactIssue;
     const key = `${issue.status}:${issue.path}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      issues.push(issue);
+      if (issues.length >= CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT) {
+        break;
+      }
+    }
+  }
+
+  return issues;
+}
+
+function* iterateSyncOutputLines(
+  stdout: string | undefined,
+  stderr: string | undefined,
+): Generator<string> {
+  yield* `${stderr ?? ''}\n${stdout ?? ''}`.split(/\r?\n/u);
+}
+
+function collectSyncArtifactCheckIssues(
+  projectDir: string,
+  projectRoots: string[],
+  stdout: string | undefined,
+  stderr: string | undefined,
+): SyncArtifactCheckIssue[] {
+  const issues: SyncArtifactCheckIssue[] = [];
+  const seen = new Set<string>();
+
+  for (const line of iterateSyncOutputLines(stdout, stderr)) {
+    const trimmedLine = line.trim();
+    const match = matchGeneratedArtifactCheckIssue(trimmedLine);
+    if (!match || GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine)) {
+      continue;
+    }
+    const rawPath = match[1];
+    const rawDetail = match[2];
+    if (!rawPath || !rawDetail) {
+      continue;
+    }
+
+    const issue = {
+      detail: sanitizeSyncOutputLine(rawDetail, projectRoots),
+      path: normalizeSyncArtifactPath(projectDir, projectRoots, rawPath),
+    } satisfies SyncArtifactCheckIssue;
+    const key = `${issue.path}:${issue.detail}`;
     if (!seen.has(key)) {
       seen.add(key);
       issues.push(issue);
@@ -773,6 +850,12 @@ function createSyncExecutionError(
     stdout,
     stderr,
   );
+  const artifactCheckIssues = collectSyncArtifactCheckIssues(
+    project.cwd,
+    projectRoots,
+    stdout,
+    stderr,
+  );
   let commandDetail: string;
   const spawnErrorCode = (result.error as NodeJS.ErrnoException | undefined)
     ?.code;
@@ -822,6 +905,10 @@ function createSyncExecutionError(
         ...artifacts.map(
           (artifact) =>
             `${artifact.status === 'missing' ? 'Missing' : 'Stale'} generated artifact: ${artifact.path}.`,
+        ),
+        ...artifactCheckIssues.map(
+          (issue) =>
+            `Generated artifact check issue: ${issue.path} (${issue.detail}).`,
         ),
         `Run \`${applyCommand}\` to regenerate the artifacts, then rerun \`${plannedCommand.displayCommand}\`.`,
       ],

@@ -573,6 +573,7 @@ test('sync check exposes generated artifact drift with project-relative paths', 
       "console.error('❌ Type sync failed: Generated artifacts are missing or stale:');",
       "console.error(`- ${path.join(process.cwd(), 'src', 'block.json')} (stale)`);",
       "console.error(`- ${path.join(process.cwd(), 'src', 'typia-validator.php')} (missing)`);",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'locked.php')} (unreadable: EACCES)`);",
       "console.error(`- ${path.join(process.cwd(), '..', 'private-schema.php')} (stale)`);",
       "console.error('❌ Project sync failed: Error: Sync script failed: scripts/sync-types-to-block-json.ts');",
       "console.error('    at runSyncScript (sync-project.ts:78:9)');",
@@ -594,6 +595,7 @@ test('sync check exposes generated artifact drift with project-relative paths', 
     'Stale generated artifact: src/block.json.',
     'Missing generated artifact: src/typia-validator.php.',
     'Stale generated artifact: private-schema.php.',
+    'Generated artifact check issue: src/locked.php (unreadable: EACCES).',
     'Run `npm run sync` to regenerate the artifacts, then rerun `npm run sync -- --check`.',
   ]);
   expect((error as { data?: Record<string, unknown> }).data).toEqual({
@@ -663,7 +665,10 @@ test('sync preserves early artifact drift before bounded output tails', async ()
     [
       "import path from 'node:path';",
       "console.error('Generated artifacts are missing or stale:');",
+      "for (let index = 0; index < 20; index += 1) console.error(`- Dependency ${index} (1.2.3)`);",
+      "console.error('- package.json (outdated)');",
       "console.error(`- ${path.join(process.cwd(), 'src', 'early.json')} (stale)`);",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'locked.php')} (unreadable: EACCES)`);",
       "await new Promise((resolve) => process.stderr.write('x'.repeat(17 * 1024 * 1024), resolve));",
       'process.exitCode = 1;',
     ].join('\n'),
@@ -682,6 +687,15 @@ test('sync preserves early artifact drift before bounded output tails', async ()
     command: 'npm run sync -- --check',
     exitCode: 1,
   });
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    'Generated artifact check issue: src/locked.php (unreadable: EACCES).',
+  );
+  expect(
+    (error as { detailLines?: string[] }).detailLines?.join('\n'),
+  ).not.toContain('Dependency');
+  expect(
+    (error as { detailLines?: string[] }).detailLines?.join('\n'),
+  ).not.toContain('package.json');
 });
 
 test('signaled artifact drift reports the signal without inventing an exit code', async () => {
