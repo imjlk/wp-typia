@@ -4,6 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 import {
+  containsCompletion,
   hasEarlierAbruptCompletion,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
@@ -1086,10 +1087,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
   ) {
     return false;
   }
-  return (
-    sourceFile.statements.filter((statement) => {
+  const invocationIndexes = sourceFile.statements.flatMap(
+    (statement, statementIndex) => {
       if (!ts.isExpressionStatement(statement)) {
-        return false;
+        return [];
       }
       const expression = unwrapStaticExpression(statement.expression);
       if (
@@ -1097,7 +1098,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         !ts.isPropertyAccessExpression(expression.expression) ||
         expression.expression.name.text !== 'catch'
       ) {
-        return false;
+        return [];
       }
       const receiver = unwrapStaticExpression(expression.expression.expression);
       if (
@@ -1107,7 +1108,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         receiver.arguments.length !== 0 ||
         expression.arguments.length !== 1
       ) {
-        return false;
+        return [];
       }
       const catchHandler = unwrapStaticExpression(expression.arguments[0]);
       if (
@@ -1115,7 +1116,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
           !ts.isFunctionExpression(catchHandler)) ||
         !ts.isBlock(catchHandler.body)
       ) {
-        return false;
+        return [];
       }
       const finalStatement =
         catchHandler.body.statements[catchHandler.body.statements.length - 1];
@@ -1127,7 +1128,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
           catchHandler.body.statements.length - 1,
         )
       ) {
-        return false;
+        return [];
       }
       const exitCall = unwrapStaticExpression(finalStatement.expression);
       return (
@@ -1139,8 +1140,63 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         exitCall.arguments.length === 1 &&
         ts.isNumericLiteral(exitCall.arguments[0]) &&
         exitCall.arguments[0].text === '1'
-      );
-    }).length === 1
+      )
+        ? [statementIndex]
+        : [];
+    },
+  );
+  if (invocationIndexes.length !== 1) {
+    return false;
+  }
+  const [invocationIndex] = invocationIndexes;
+  const hasEarlierMainCall = sourceFile.statements
+    .slice(0, invocationIndex)
+    .some((statement) =>
+      containsCompletion(statement, (candidate) => {
+        if (!ts.isCallExpression(candidate)) {
+          return false;
+        }
+        const target = unwrapStaticExpression(candidate.expression);
+        return ts.isIdentifier(target) && target.text === 'main';
+      }),
+    );
+  return (
+    invocationIndex === sourceFile.statements.length - 1 &&
+    !hasEarlierAbruptCompletion(sourceFile.statements, invocationIndex) &&
+    !hasEarlierMainCall
+  );
+}
+
+function hasCanonicalRestCompletionLog(
+  statement: ts.Statement | undefined,
+  optionsBinding: string,
+): boolean {
+  if (!statement || !ts.isExpressionStatement(statement)) {
+    return false;
+  }
+  const call = unwrapStaticExpression(statement.expression);
+  if (
+    !ts.isCallExpression(call) ||
+    !ts.isPropertyAccessExpression(call.expression) ||
+    !ts.isIdentifier(call.expression.expression) ||
+    call.expression.expression.text !== 'console' ||
+    call.expression.name.text !== 'log' ||
+    call.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const message = unwrapStaticExpression(call.arguments[0]);
+  if (
+    !ts.isConditionalExpression(message) ||
+    !isIdentifierPropertyAccess(message.condition, optionsBinding, 'check')
+  ) {
+    return false;
+  }
+  const whenTrue = unwrapStaticExpression(message.whenTrue);
+  const whenFalse = unwrapStaticExpression(message.whenFalse);
+  return (
+    ts.isStringLiteralLike(whenTrue) &&
+    ts.isStringLiteralLike(whenFalse)
   );
 }
 
@@ -1181,6 +1237,8 @@ function hasCanonicalRestSyncCalls(
     !mainDeclaration.modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
+    hasImportedBinding(sourceFile, 'console') ||
+    hasShadowedImportBinding(sourceFile, new Set(['console'])) ||
     !hasCanonicalRestCheckParser(sourceFile) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
@@ -1311,6 +1369,11 @@ function hasCanonicalRestSyncCalls(
     preflightCallIndex < schemaCallIndex &&
     schemaCallIndex < openApiCallIndex &&
     openApiCallIndex < clientCallIndex &&
+    clientCallIndex === mainBody.statements.length - 2 &&
+    hasCanonicalRestCompletionLog(
+      mainBody.statements[clientCallIndex + 1],
+      optionsBinding,
+    ) &&
     !hasEarlierAbruptCompletion(mainBody.statements, clientCallIndex)
   );
 }

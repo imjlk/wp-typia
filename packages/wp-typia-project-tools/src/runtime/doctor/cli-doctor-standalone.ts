@@ -57,6 +57,8 @@ const STANDALONE_EDIT_FILE = path.join('src', 'edit.tsx');
 const STANDALONE_SAVE_FILE = path.join('src', 'save.tsx');
 const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
 const STANDALONE_VALIDATORS_FILE = path.join('src', 'validators.ts');
+const STANDALONE_BLOCK_JSON_FILE = 'src/block.json';
+const STANDALONE_MANIFEST_FILE = 'src/typia.manifest.json';
 // WordPress core's get_file_data() reads the first 8 KiB for plugin headers.
 const WORDPRESS_PLUGIN_HEADER_SCAN_BYTES = 8 * 1024;
 // Mirrors get_file_data()'s `[ \t\/*#@]*` header prefix. Its zero-length
@@ -145,6 +147,7 @@ interface ParsedStandaloneSyncConfig {
 
 type StandaloneMetadataCoreModule = Pick<
   typeof import('@wp-typia/block-runtime/metadata-core'),
+  | 'defineEndpointManifest'
   | 'resolveSyncBlockMetadataPaths'
   | 'runSyncBlockMetadata'
   | 'syncEndpointClient'
@@ -321,10 +324,7 @@ function getCanonicalSyncImportBindings(sourceFile: ts.SourceFile): Set<string> 
         continue;
       }
       const importedName = (element.propertyName ?? element.name).text;
-      if (
-        importedName === 'runSyncBlockMetadata' ||
-        importedName === 'syncBlockMetadata'
-      ) {
+      if (importedName === 'runSyncBlockMetadata') {
         bindings.add(element.name.text);
       }
     }
@@ -512,7 +512,7 @@ function findSyncOptionsObject(
     !hasCanonicalCheckParser(sourceFile, [
       { flagName: '--strict', propertyName: 'strict' },
       { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
-    ]) ||
+    ], true) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
     return null;
@@ -751,6 +751,17 @@ function parseStandaloneSyncConfig(
     return {
       options: null,
       problem: `${STANDALONE_SYNC_SCRIPT} references a path outside the project root: ${unsafePath}`,
+    };
+  }
+  if (
+    blockJsonFile !== STANDALONE_BLOCK_JSON_FILE ||
+    optionalPaths.manifestFile !== STANDALONE_MANIFEST_FILE
+  ) {
+    return {
+      options: null,
+      problem:
+        `${STANDALONE_SYNC_SCRIPT} must use canonical ` +
+        `${STANDALONE_BLOCK_JSON_FILE} and ${STANDALONE_MANIFEST_FILE} artifact paths.`,
     };
   }
 
@@ -1781,7 +1792,11 @@ function hasCanonicalAdditionalBooleanFlags(
 function getCanonicalForOfArgument(
   statement: ts.ForOfStatement,
   argvBinding: string,
-): { argumentBinding: string; body: ts.Block } | null {
+): {
+  argumentBinding: string;
+  body: ts.Block;
+  indexBinding: null;
+} | null {
   if (
     !ts.isIdentifier(statement.expression) ||
     statement.expression.text !== argvBinding ||
@@ -1796,13 +1811,18 @@ function getCanonicalForOfArgument(
   return {
     argumentBinding: statement.initializer.declarations[0].name.text,
     body: statement.statement,
+    indexBinding: null,
   };
 }
 
 function getCanonicalIndexedArgument(
   statement: ts.ForStatement,
   argvBinding: string,
-): { argumentBinding: string; body: ts.Block } | null {
+): {
+  argumentBinding: string;
+  body: ts.Block;
+  indexBinding: string;
+} | null {
   const initializer = statement.initializer;
   if (
     !initializer ||
@@ -1851,8 +1871,83 @@ function getCanonicalIndexedArgument(
     ? {
         argumentBinding: argumentDeclaration.binding,
         body: statement.statement,
+        indexBinding,
       }
     : null;
+}
+
+function hasCanonicalReportFlagGuard(
+  body: ts.Block,
+  argvBinding: string,
+  argumentBinding: string,
+  optionsBinding: string,
+  indexBinding: string | null,
+): boolean {
+  if (indexBinding === null) {
+    return false;
+  }
+  const expectedGuard = ts.createSourceFile(
+    'canonical-sync-report-parser.ts',
+    `
+if (${argumentBinding} === '--report') {
+  const reportMode = ${argvBinding}[${indexBinding} + 1];
+  if (reportMode !== 'json') {
+    throw new Error('The \`--report\` flag currently supports only \`json\`.');
+  }
+  ${optionsBinding}.report = reportMode;
+  ${indexBinding} += 1;
+  continue;
+}
+`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  ).statements[0];
+  if (!expectedGuard) {
+    return false;
+  }
+  const expectedFingerprint = getTypeScriptNodeFingerprint(expectedGuard);
+  const guardIndexes = body.statements.flatMap((statement, index) =>
+    getTypeScriptNodeFingerprint(statement) === expectedFingerprint
+      ? [index]
+      : [],
+  );
+  if (guardIndexes.length !== 1) {
+    return false;
+  }
+  let reportAssignmentCount = 0;
+  function countReportAssignments(node: ts.Node): void {
+    if (ts.isFunctionLike(node)) {
+      return;
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      isResultPropertyAccess(node.left, optionsBinding, 'report')
+    ) {
+      reportAssignmentCount += 1;
+    }
+    ts.forEachChild(node, countReportAssignments);
+  }
+  countReportAssignments(body);
+  const [guardIndex] = guardIndexes;
+  return (
+    reportAssignmentCount === 1 &&
+    !hasEarlierAbruptCompletion(body.statements, guardIndex) &&
+    !body.statements
+      .slice(0, guardIndex)
+      .some((statement) =>
+        containsParserControlFlow(
+          statement,
+          argumentBinding,
+          'unsafe-continue',
+          0,
+          0,
+          false,
+          new Map(),
+          '--report',
+        ),
+      )
+  );
 }
 
 function hasCanonicalCheckParser(
@@ -1861,6 +1956,7 @@ function hasCanonicalCheckParser(
     flagName: string;
     propertyName: string;
   }[] = [],
+  requiresReportMode = false,
 ): boolean {
   const parser = getSingleTopLevelFunction(sourceFile, 'parseCliOptions');
   if (
@@ -1913,8 +2009,20 @@ function hasCanonicalCheckParser(
       ? getCanonicalIndexedArgument(loopStatement, argvBinding)
       : null;
   const returnStatement = parser.body.statements[2];
+  const reportProperty = optionProperties.get('report');
   return (
     loop !== null &&
+    (!requiresReportMode ||
+      (reportProperty !== undefined &&
+        ts.isStringLiteralLike(reportProperty) &&
+        reportProperty.text === 'human' &&
+        hasCanonicalReportFlagGuard(
+          loop.body,
+          argvBinding,
+          loop.argumentBinding,
+          optionsDeclaration.name.text,
+          loop.indexBinding,
+        ))) &&
     hasCanonicalCheckGuard(
       loop.body,
       loop.argumentBinding,
@@ -1976,6 +2084,8 @@ function getCanonicalSyncProjectDelegationIndex(
   if (
     !main?.body ||
     !hasTopLevelMainInvocation(sourceFile) ||
+    hasImportedBinding(sourceFile, 'console') ||
+    hasShadowedBinding(sourceFile, new Set(['console'])) ||
     hasShadowedBinding(
       main,
       new Set(['fs', 'parseCliOptions', 'path', 'runSyncScript']),
@@ -2043,6 +2153,33 @@ function getCanonicalSyncProjectDelegationIndex(
     : null;
 }
 
+function isCanonicalSyncProjectCompletionLog(
+  statement: ts.Statement | undefined,
+  optionsBinding: string,
+): boolean {
+  const call = statement ? getDirectCall(statement) : null;
+  if (
+    !call ||
+    !ts.isPropertyAccessExpression(call.expression) ||
+    !ts.isIdentifier(call.expression.expression) ||
+    call.expression.expression.text !== 'console' ||
+    call.expression.name.text !== 'log' ||
+    call.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const message = unwrapStaticExpression(call.arguments[0]);
+  if (
+    !ts.isConditionalExpression(message) ||
+    !isResultPropertyAccess(message.condition, optionsBinding, 'check')
+  ) {
+    return false;
+  }
+  const whenTrue = unwrapStaticExpression(message.whenTrue);
+  const whenFalse = unwrapStaticExpression(message.whenFalse);
+  return ts.isStringLiteralLike(whenTrue) && ts.isStringLiteralLike(whenFalse);
+}
+
 function getSyncProjectDelegationProblem(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
@@ -2085,18 +2222,45 @@ function getSyncProjectDelegationProblem(
   if (typeDelegationIndex === null) {
     return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_SCRIPT} through the canonical tsx runner.`;
   }
-  if (!requiresRest) {
-    return null;
+  const main = getSingleTopLevelFunction(sourceFile, 'main');
+  const mainStatements = main?.body?.statements;
+  const optionsDeclaration = mainStatements
+    ? getDirectVariableBinding(mainStatements, isParseCliOptionsCall)
+    : null;
+  if (!mainStatements || !optionsDeclaration) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must keep its canonical sync completion flow.`;
   }
   const restDelegationIndex = getCanonicalSyncProjectDelegationIndex(
     sourceFile,
     STANDALONE_SYNC_REST_SCRIPT,
     true,
   );
-  return restDelegationIndex === null ||
-    restDelegationIndex <= typeDelegationIndex
-    ? `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_REST_SCRIPT} through the canonical tsx runner after the type sync.`
-    : null;
+  if (
+    requiresRest &&
+    (restDelegationIndex === null ||
+      restDelegationIndex <= typeDelegationIndex)
+  ) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_REST_SCRIPT} through the canonical tsx runner after the type sync.`;
+  }
+  const completionIndex = mainStatements.length - 1;
+  const hasTypeOnlyTail =
+    !requiresRest &&
+    restDelegationIndex === null &&
+    typeDelegationIndex === completionIndex - 1 &&
+    isCanonicalSyncProjectCompletionLog(
+      mainStatements[completionIndex],
+      optionsDeclaration.binding,
+    );
+  const hasRestTail =
+    restDelegationIndex === typeDelegationIndex + 1 &&
+    restDelegationIndex === completionIndex - 1 &&
+    isCanonicalSyncProjectCompletionLog(
+      mainStatements[completionIndex],
+      optionsDeclaration.binding,
+    );
+  return hasTypeOnlyTail || hasRestTail
+    ? null
+    : `${STANDALONE_SYNC_PROJECT_SCRIPT} must keep only the canonical optional REST delegation and completion report after type sync.`;
 }
 
 type ShellCommandSegment = {
@@ -2200,9 +2364,11 @@ function splitShellCommandSegments(script: string): ShellCommandSegment[] {
 function shellCommandMatches(
   segment: ShellCommandSegment,
   command: string,
+  allowTrailingArguments = true,
 ): boolean {
   return (
-    segment.command === command || segment.command.startsWith(`${command} `)
+    segment.command === command ||
+    (allowTrailingArguments && segment.command.startsWith(`${command} `))
   );
 }
 
@@ -2234,23 +2400,29 @@ function getShellSegmentStaticReachability(
   return reachability;
 }
 
-function shellScriptInvokesCommand(script: string, command: string): boolean {
+function shellScriptInvokesCommand(
+  script: string,
+  command: string,
+  allowTrailingArguments = true,
+): boolean {
   const segments = splitShellCommandSegments(script);
   const reachability = getShellSegmentStaticReachability(segments);
   return segments.some(
     (segment, index) =>
-      shellCommandMatches(segment, command) && reachability[index] === true,
+      shellCommandMatches(segment, command, allowTrailingArguments) &&
+      reachability[index] === true,
   );
 }
 
 function shellScriptPropagatesCommandFailure(
   script: string,
   command: string,
+  allowTrailingArguments = true,
 ): boolean {
   const segments = splitShellCommandSegments(script);
   const reachability = getShellSegmentStaticReachability(segments);
   return segments.some((segment, index) => {
-    if (!shellCommandMatches(segment, command)) {
+    if (!shellCommandMatches(segment, command, allowTrailingArguments)) {
       return false;
     }
     if (!reachability[index]) {
@@ -2281,7 +2453,7 @@ function shellScriptRunsCommandAfterSyncCheck(
   let syncCheckInAndList = false;
   let foundTarget = false;
   for (const segment of segments) {
-    if (shellCommandMatches(segment, syncCheckCommand)) {
+    if (shellCommandMatches(segment, syncCheckCommand, false)) {
       syncCheckInAndList = true;
     }
     if (shellCommandMatches(segment, targetCommand)) {
@@ -2330,25 +2502,33 @@ function getPackageMetadataCheck(
   );
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const scriptRequirements = [
-    { commands: ['tsx scripts/sync-project.ts'], name: 'sync' },
     {
+      allowTrailingArguments: false,
+      commands: ['tsx scripts/sync-project.ts'],
+      name: 'sync',
+    },
+    {
+      allowTrailingArguments: false,
       commands: ['tsx scripts/sync-types-to-block-json.ts'],
       name: 'sync-types',
     },
     ...(requiresRest
       ? [
           {
+            allowTrailingArguments: false,
             commands: ['tsx scripts/sync-rest-contracts.ts'],
             name: 'sync-rest',
           } as const,
         ]
       : []),
     {
+      allowTrailingArguments: true,
       commands: [syncCheckCommand, 'wp-scripts build'],
       name: 'build',
       orderedTarget: 'wp-scripts build',
     },
     {
+      allowTrailingArguments: true,
       commands: [syncCheckCommand, 'tsc --noEmit'],
       name: 'typecheck',
       orderedTarget: 'tsc --noEmit',
@@ -2362,12 +2542,22 @@ function getPackageMetadataCheck(
       continue;
     }
     for (const command of requirement.commands) {
-      const invokesCommand = shellScriptInvokesCommand(script, command);
+      const invokesCommand = shellScriptInvokesCommand(
+        script,
+        command,
+        requirement.allowTrailingArguments,
+      );
       if (!invokesCommand) {
         issues.push(
           `package.json ${requirement.name} script must invoke \`${command}\``,
         );
-      } else if (!shellScriptPropagatesCommandFailure(script, command)) {
+      } else if (
+        !shellScriptPropagatesCommandFailure(
+          script,
+          command,
+          requirement.allowTrailingArguments,
+        )
+      ) {
         issues.push(
           `package.json ${requirement.name} script must propagate failures from \`${command}\``,
         );
@@ -2376,7 +2566,11 @@ function getPackageMetadataCheck(
     if (
       'orderedTarget' in requirement &&
       requirement.commands.every((command) =>
-        shellScriptInvokesCommand(script, command),
+        shellScriptInvokesCommand(
+          script,
+          command,
+          requirement.allowTrailingArguments,
+        ),
       ) &&
       !shellScriptRunsCommandAfterSyncCheck(
         script,
@@ -2559,12 +2753,11 @@ function hasDirectBuildDirectoryRegistration(
   const assignmentEnd = callbackRange.start + assignmentEndInRange;
   const sourceAfterAssignment = callbackSource.slice(assignmentEndInRange);
   if (
-    [...sourceAfterAssignment.matchAll(/\$build_dir\s*=/gu)].some(
-      (match) =>
-        getPhpFileBraceDepth(
-          bootstrapSource,
-          assignmentEnd + (match.index ?? 0),
-        ) !== null,
+    hasPhpVariableReassignment(
+      bootstrapSource,
+      'build_dir',
+      assignmentEnd,
+      callbackRange.end,
     )
   ) {
     return false;
@@ -2617,10 +2810,15 @@ function hasDirectBuildDirectoryRegistration(
 function hasDirectRestRouteRegistration(
   bootstrapSource: string,
   callbackRange: PhpFunctionRange,
+  expectedEndpointPaths: readonly string[],
 ): boolean {
-  return [
+  if (expectedEndpointPaths.length === 0) {
+    return false;
+  }
+  const matches = [
     ...callbackRange.source.matchAll(/\bregister_rest_route\s*\(/gu),
-  ].some((match) => {
+  ];
+  const directCalls = matches.flatMap((match, matchIndex) => {
     const relativeOffset = match.index ?? 0;
     const registrationOffset = callbackRange.start + relativeOffset;
     const sourceBeforeCall = callbackRange.source.slice(0, relativeOffset);
@@ -2628,7 +2826,7 @@ function hasDirectRestRouteRegistration(
     while (/\s/u.test(callbackRange.source[previousIndex] ?? '')) {
       previousIndex -= 1;
     }
-    return (
+    if (
       getPhpRangeMatchDepth(bootstrapSource, callbackRange, match) === 1 &&
       !hasEarlierDirectPhpCompletion(
         bootstrapSource,
@@ -2643,14 +2841,50 @@ function hasDirectRestRouteRegistration(
         (callbackRange.source[previousIndex] === ':' &&
           callbackRange.source[previousIndex - 1] === ':')
       )
+    ) {
+      const nextOffset = matches[matchIndex + 1]?.index;
+      return [
+        callbackRange.source.slice(
+          relativeOffset,
+          nextOffset === undefined ? callbackRange.source.length : nextOffset,
+        ),
+      ];
+    }
+    return [];
+  });
+  return expectedEndpointPaths.every((endpointPath) => {
+    const pathSegments = endpointPath.split('/').filter(Boolean);
+    if (pathSegments.length < 2) {
+      return false;
+    }
+    const argumentPairs = pathSegments.slice(1).map((_, splitIndex) => [
+      pathSegments.slice(0, splitIndex + 1).join('/'),
+      `/${pathSegments.slice(splitIndex + 1).join('/')}`,
+    ] as const);
+    return directCalls.some((callSource) =>
+      argumentPairs.some((argumentPair) =>
+        hasPhpFunctionCallWithStringArguments(
+          callSource,
+          'register_rest_route',
+          argumentPair,
+        ),
+      ),
     );
   });
 }
 
 function getBootstrapCheck(
   project: StandaloneScaffoldProject,
-  requiresRest: boolean,
+  parsedRestConfig: ParsedStandaloneRestConfig,
 ): DoctorCheck {
+  const { requiresRest } = parsedRestConfig;
+  const expectedRestEndpointPaths = parsedRestConfig.manifest
+    ? [
+        ...new Set(
+          parsedRestConfig.manifest.endpoints.map((endpoint) => endpoint.path),
+        ),
+      ]
+    : [];
   const packageBaseName = getSafePackageBaseName(project.packageName);
   if (!packageBaseName) {
     return createDoctorCheck(
@@ -2739,7 +2973,11 @@ function getBootstrapCheck(
           });
           return (
             callbackRange !== null &&
-            hasDirectRestRouteRegistration(source, callbackRange)
+            hasDirectRestRouteRegistration(
+              source,
+              callbackRange,
+              expectedRestEndpointPaths,
+            )
           );
         },
       ],
@@ -2920,7 +3158,12 @@ async function loadProjectMetadataCore(
     'resolveSyncBlockMetadataPaths',
     'runSyncBlockMetadata',
     ...(requiresRest
-      ? (['syncEndpointClient', 'syncRestOpenApi', 'syncTypeSchemas'] as const)
+      ? ([
+          'defineEndpointManifest',
+          'syncEndpointClient',
+          'syncRestOpenApi',
+          'syncTypeSchemas',
+        ] as const)
       : []),
   ] as const;
   const missingExport = requiredExports.find(
@@ -3167,7 +3410,7 @@ export async function getStandaloneScaffoldDoctorChecks(
       `Scope: standalone scaffold diagnostics for ${project.packageName}. Environment readiness checks ran and package metadata, plugin bootstrap, source layout, dependencies, and canonical generated artifacts are checked below.`,
     ),
     getPackageMetadataCheck(project, requiresRest),
-    getBootstrapCheck(project, requiresRest),
+    getBootstrapCheck(project, parsedRestConfig),
     getSourceLayoutCheck(project, parsedConfig, parsedRestConfig),
     dependenciesCheck,
     await getGeneratedArtifactsCheck(
