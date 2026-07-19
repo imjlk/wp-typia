@@ -20,6 +20,7 @@ import {
   getPhpCodeBraceDepth,
   hasPhpFunctionCall,
   hasPhpFunctionCallWithStringArguments,
+  type PhpFunctionRange,
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
@@ -2291,18 +2292,87 @@ function getPackageMetadataCheck(
   );
 }
 
+const PHP_BUILD_DIRECTORY_EXPRESSION =
+  String.raw`__DIR__\s*\.\s*(?:'\/build'|"\/build")`;
+
+function getPhpFileBraceDepth(source: string, offset: number): number | null {
+  return getPhpCodeBraceDepth(source, offset, { requirePhpOpenTag: true });
+}
+
+function getPhpRangeMatchDepth(
+  source: string,
+  range: PhpFunctionRange,
+  match: RegExpMatchArray,
+): number | null {
+  return getPhpFileBraceDepth(source, range.start + (match.index ?? 0));
+}
+
+function hasEarlierDirectPhpCompletion(
+  source: string,
+  start: number,
+  end: number,
+): boolean {
+  return [
+    ...source.slice(start, end).matchAll(/\b(?:return|throw|exit|die)\b/gu),
+  ].some(
+    (match) =>
+      getPhpFileBraceDepth(source, start + match.index) === 1,
+  );
+}
+
+function hasReachableBuildDirectoryReturn(
+  bootstrapSource: string,
+  getterRange: PhpFunctionRange,
+): boolean {
+  // Support the direct form plus the generated fallback-candidate loop without
+  // attempting to model arbitrary PHP data flow.
+  const supportedReturns = [
+    [
+      new RegExp(
+        String.raw`\breturn\s+${PHP_BUILD_DIRECTORY_EXPRESSION}\s*;`,
+        'gu',
+      ),
+      1,
+    ],
+    [
+      new RegExp(
+        String.raw`\$candidates\s*=\s*array\s*\(\s*${PHP_BUILD_DIRECTORY_EXPRESSION}(?:\s*,[\s\S]*?)?\)\s*;\s*foreach\s*\(\s*\$candidates\s+as\s+\$candidate\s*\)\s*\{[\s\S]*?\breturn\s+\$candidate\s*;`,
+        'gu',
+      ),
+      2,
+    ],
+  ] as const;
+  return supportedReturns.some(([pattern, minimumReturnDepth]) =>
+    [...getterRange.source.matchAll(pattern)].some((match) => {
+      const matchOffset = getterRange.start + (match.index ?? 0);
+      const returnOffset = matchOffset + match[0].lastIndexOf('return');
+      return (
+        getPhpFileBraceDepth(bootstrapSource, matchOffset) === 1 &&
+        (getPhpFileBraceDepth(bootstrapSource, returnOffset) ?? 0) >=
+          minimumReturnDepth &&
+        !hasEarlierDirectPhpCompletion(
+          bootstrapSource,
+          getterRange.start,
+          returnOffset,
+        )
+      );
+    }),
+  );
+}
+
 function hasDirectBuildDirectoryRegistration(
   bootstrapSource: string,
-  callbackSource: string,
+  callbackRange: PhpFunctionRange,
 ): boolean {
   const buildDirectorySentinel = '__wp_typia_build_directory__';
+  const callbackSource = callbackRange.source;
   if (
     [
       /\bfunction\s*(?:&\s*)?\(/gu,
       /\bfn\s*(?:&\s*)?\(/gu,
     ].some((pattern) =>
       [...callbackSource.matchAll(pattern)].some((match) =>
-        getPhpCodeBraceDepth(callbackSource, match.index) !== null,
+        getPhpRangeMatchDepth(bootstrapSource, callbackRange, match) !== null,
       ),
     )
   ) {
@@ -2311,7 +2381,8 @@ function hasDirectBuildDirectoryRegistration(
   const assignmentPattern =
     /\$build_dir\s*=\s*([A-Za-z_][A-Za-z0-9_]*_get_build_dir)\s*\(\s*\)\s*;/gu;
   const assignment = [...callbackSource.matchAll(assignmentPattern)].find(
-    (match) => getPhpCodeBraceDepth(callbackSource, match.index) === 1,
+    (match) =>
+      getPhpRangeMatchDepth(bootstrapSource, callbackRange, match) === 1,
   );
   if (!assignment) {
     return false;
@@ -2321,28 +2392,28 @@ function hasDirectBuildDirectoryRegistration(
   });
   if (
     !getterRange ||
-    ![...getterRange.source.matchAll(/__DIR__\s*\.\s*(?:'\/build'|"\/build")/gu)].some(
-      (match) =>
-        getPhpCodeBraceDepth(getterRange.source, match.index) === 1,
-    )
+    !hasReachableBuildDirectoryReturn(bootstrapSource, getterRange)
   ) {
     return false;
   }
-  const sourceAfterAssignment = callbackSource.slice(
-    assignment.index + assignment[0].length,
-  );
+  const assignmentEndInRange = assignment.index + assignment[0].length;
+  const assignmentEnd = callbackRange.start + assignmentEndInRange;
+  const sourceAfterAssignment = callbackSource.slice(assignmentEndInRange);
   if (
     [...sourceAfterAssignment.matchAll(/\$build_dir\s*=/gu)].some(
       (match) =>
-        getPhpCodeBraceDepth(sourceAfterAssignment, match.index) !== null,
+        getPhpFileBraceDepth(bootstrapSource, assignmentEnd + match.index) !==
+        null,
     )
   ) {
     return false;
   }
-  const registrationSource = sourceAfterAssignment.replace(
-    /\$build_dir\b/gu,
-    `'${buildDirectorySentinel}'`,
-  );
+  const registrationSource =
+    bootstrapSource.slice(0, assignmentEnd) +
+    bootstrapSource
+      .slice(assignmentEnd, callbackRange.end)
+      .replace(/\$build_dir\b/gu, `'${buildDirectorySentinel}'`) +
+    bootstrapSource.slice(callbackRange.end);
   const hasDirectRegistration = [
     ...sourceAfterAssignment.matchAll(
       /\bregister_block_type\s*\(\s*\$build_dir\b/gu,
@@ -2352,8 +2423,14 @@ function hasDirectBuildDirectoryRegistration(
     while (/\s/u.test(sourceAfterAssignment[previousIndex] ?? '')) {
       previousIndex -= 1;
     }
+    const registrationOffset = assignmentEnd + match.index;
     return (
-      getPhpCodeBraceDepth(sourceAfterAssignment, match.index) === 0 &&
+      getPhpFileBraceDepth(bootstrapSource, registrationOffset) === 1 &&
+      !hasEarlierDirectPhpCompletion(
+        bootstrapSource,
+        assignmentEnd,
+        registrationOffset,
+      ) &&
       !(
         (sourceAfterAssignment[previousIndex] === '>' &&
           sourceAfterAssignment[previousIndex - 1] === '-') ||
@@ -2362,11 +2439,15 @@ function hasDirectBuildDirectoryRegistration(
       )
     );
   });
-  return hasPhpFunctionCallWithStringArguments(
-    registrationSource,
-    'register_block_type',
-    [buildDirectorySentinel],
-  ) && hasDirectRegistration;
+  return (
+    hasDirectRegistration &&
+    hasPhpFunctionCallWithStringArguments(
+      registrationSource,
+      'register_block_type',
+      [buildDirectorySentinel],
+      { requirePhpOpenTag: true },
+    )
+  );
 }
 
 function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
@@ -2430,7 +2511,7 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
           callbackRange !== null &&
           hasDirectBuildDirectoryRegistration(
             source,
-            callbackRange.source,
+            callbackRange,
           )
         );
       },

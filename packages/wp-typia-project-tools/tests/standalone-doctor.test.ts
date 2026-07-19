@@ -2629,6 +2629,82 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'does not hook block registration to init',
       );
     }
+  }, 30_000);
+
+  test.each([
+    [
+      'getter-other',
+      'return $candidate;',
+      "return __DIR__ . '/other';",
+    ],
+    [
+      'getter-unreachable',
+      '\t$candidates = array(',
+      [
+        "\t$unused_build_dir = __DIR__ . '/build';",
+        "\treturn __DIR__ . '/other';",
+        '',
+        '\t$candidates = array(',
+      ].join('\n'),
+    ],
+    [
+      'after-return',
+      'register_block_type( $build_dir );',
+      'return;\n\n\tregister_block_type( $build_dir );',
+    ],
+    [
+      'after-exit',
+      'register_block_type( $build_dir );',
+      'exit( 0 );\n\n\tregister_block_type( $build_dir );',
+    ],
+  ] as const)(
+    'rejects damaged build-directory flow: %s',
+    async (name, canonicalSource, damagedSource) => {
+      const targetDir = path.join(
+        tempRoot,
+        `damaged-build-flow-${name}`,
+      );
+      await scaffoldBasic(targetDir);
+      const bootstrapPath = path.join(
+        targetDir,
+        `${path.basename(targetDir)}.php`,
+      );
+      const original = fs.readFileSync(bootstrapPath, 'utf8');
+      const source = original.replace(canonicalSource, damagedSource);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(bootstrapPath, source);
+
+      const bootstrapCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+      );
+      expect(bootstrapCheck?.status).toBe('fail');
+      expect(bootstrapCheck?.detail).toContain(
+        'does not hook block registration to init',
+      );
+    },
+  );
+
+  test('accepts mixed PHP and HTML before init callback registration', async () => {
+    const targetDir = path.join(tempRoot, 'mixed-php-html-registration');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'mixed-php-html-registration.php',
+    );
+    const original = fs.readFileSync(bootstrapPath, 'utf8');
+    const source = original.replace(
+      /(function\s+[A-Za-z_][A-Za-z0-9_]*_register_block\s*\(\s*\)\s*\{\n)/u,
+      '$1?>\n<div>}</div>\n<?php\n',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(bootstrapPath, source);
+
+    const bootstrapCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+    expect(bootstrapCheck?.status).toBe('pass');
   });
 
   test('rejects bootstrap init hook text inside PHP strings', async () => {
