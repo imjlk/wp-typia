@@ -79,8 +79,10 @@ describe("starter manifest builders", () => {
 						}),
 						resourceKey: expect.objectContaining({
 							typia: expect.objectContaining({
-								defaultValue: "primary",
+								defaultValue: null,
+								hasDefault: false,
 							}),
+							wp: expect.objectContaining({ hasDefault: false }),
 						}),
 					}),
 				}),
@@ -112,8 +114,10 @@ describe("starter manifest builders", () => {
 					}),
 					resourceKey: expect.objectContaining({
 						typia: expect.objectContaining({
-							defaultValue: "primary",
+							defaultValue: null,
+							hasDefault: false,
 						}),
+						wp: expect.objectContaining({ hasDefault: false }),
 					}),
 				}),
 				sourceType: "DemoBlockAttributes",
