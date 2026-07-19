@@ -40,6 +40,10 @@ export interface EnsurePersistentBlockIdentityResult {
 
 export interface CollectPersistentBlockIdentityRepairsOptions {
 	attributeName: string;
+	/**
+	 * Restrict duplicate detection and generated-id collision checks to one
+	 * block type. Cross-type identity reuse remains valid when this is set.
+	 */
 	blockName?: string;
 	duplicateDetection?: boolean;
 	generateId?: ( prefix: string ) => string;

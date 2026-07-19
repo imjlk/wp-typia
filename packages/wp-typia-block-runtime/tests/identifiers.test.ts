@@ -204,6 +204,11 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 							name: 'demo/other-counter',
 						},
 						{
+							attributes: { resourceKey: 'other-type-key' },
+							clientId: 'other-counter-unique',
+							name: 'demo/other-counter',
+						},
+						{
 							attributes: { resourceKey: 'shared-key' },
 							clientId: 'duplicate-counter',
 							name: 'demo/counter',
@@ -228,7 +233,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 				generateId: ( ( values ) => {
 					let index = 0;
 					return () => values[ index++ ] ?? `counter-fallback-${ index }`;
-				} )( [ 'counter-duplicate', 'counter-missing' ] ),
+				} )( [ 'counter-duplicate', 'other-type-key' ] ),
 				prefix: 'counter',
 			}
 		);
@@ -242,7 +247,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 			},
 			{
 				clientId: 'missing-counter',
-				nextValue: 'counter-missing',
+				nextValue: 'other-type-key',
 				previousValue: null,
 				reason: 'missing',
 			},

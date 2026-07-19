@@ -212,6 +212,9 @@ test(
     expect(generatedRender).toContain(
       "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
     );
+    expect(generatedRender).toContain(
+      "empty( $validation['valid'] ) || '' === $resource_key"
+    );
     expect(restPublicHelper).toContain(
       "function demo_persistence_public_verify_public_write_token"
     );
@@ -795,6 +798,9 @@ test("scaffoldProject emits alternate render target entries for persistence scaf
   expect(renderTargetsSource).toMatch(/function\s+.+_render_target\(/);
   expect(renderTargetsSource).toContain(
     "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'"
+  );
+  expect(renderTargetsSource).toContain(
+    "empty( $validation['valid'] ) || '' === $resource_key"
   );
   expect(webRenderSource).toContain("render_target( 'web'");
   expect(emailRenderSource).toContain("render_target( 'email'");

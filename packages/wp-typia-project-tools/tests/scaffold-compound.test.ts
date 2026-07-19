@@ -1989,6 +1989,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     expect(parentRender).toContain(
       "array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary'",
     );
+    expect(parentRender).toContain(
+      "empty( $validation['valid'] ) || '' === $resource_key",
+    );
     expect(pluginBootstrap).toContain('create-block/demo-compound-public');
     expect(pluginBootstrap).toContain(
       "Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, s-maxage=0'",

@@ -82,6 +82,8 @@ if ( ! is_object( $validator ) || ! method_exists( $validator, 'apply_defaults' 
 
 $normalized   = $validator->apply_defaults( is_array( $attributes ) ? $attributes : array() );
 $validation   = $validator->validate( $normalized );
+// Preserve the former implicit default only for legacy blocks that omit the key.
+// Explicitly stored empty keys remain invalid.
 $resource_key = array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary';
 
 if ( empty( $validation['valid'] ) || '' === $resource_key ) {
@@ -213,6 +215,8 @@ if ( ! function_exists( '{{phpPrefix}}_{{slugSnakeCase}}_build_render_context' )
 
 		$normalized   = $validator->apply_defaults( is_array( $attributes ) ? $attributes : array() );
 		$validation   = $validator->validate( $normalized );
+		// Preserve the former implicit default only for legacy blocks that omit the key.
+		// Explicitly stored empty keys remain invalid.
 		$resource_key = array_key_exists( 'resourceKey', $normalized ) ? (string) $normalized['resourceKey'] : 'primary';
 
 		if ( empty( $validation['valid'] ) || '' === $resource_key ) {
