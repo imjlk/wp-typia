@@ -355,6 +355,7 @@ test('ordinary sync failures do not infer artifact drift from isolated output', 
 
   const error = await executeSyncCommand({
     captureOutput: true,
+    check: true,
     cwd: projectDir,
   }).catch((thrown) => thrown);
 
@@ -363,7 +364,7 @@ test('ordinary sync failures do not infer artifact drift from isolated output', 
     '- DATABASE_URL (missing)',
   );
   expect((error as { data?: Record<string, unknown> }).data).toEqual({
-    command: 'npm run sync',
+    command: 'npm run sync -- --check',
     exitCode: 1,
   });
 });
@@ -615,6 +616,7 @@ test('signaled artifact drift reports the signal without inventing an exit code'
   fs.writeFileSync(
     path.join(scriptsDir, 'signaled-drift.mjs'),
     [
+      "console.error('Generated artifacts are missing or stale:');",
       "console.error('- src/block.json (stale)');",
       "process.kill(process.ppid, 'SIGTERM');",
       'setTimeout(() => process.exit(0), 25);',
@@ -653,6 +655,7 @@ test('sync drift diagnostics cap the structured artifact list', async () => {
     path.join(scriptsDir, 'drift-limit.mjs'),
     [
       "import path from 'node:path';",
+      "console.error('Generated artifacts are missing or stale:');",
       "for (let index = 0; index < 25; index += 1) {",
       "  console.error(`- ${path.join(process.cwd(), 'src', `artifact-${index}.php`)} (stale)`);",
       '}',

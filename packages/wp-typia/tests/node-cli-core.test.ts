@@ -31,6 +31,7 @@ async function captureNodeCli(
   options: {
     cwd?: string;
     entrypoint?: boolean;
+    onStderrWrite?: (chunk: string) => void;
   } = {},
 ): Promise<{
   error: unknown;
@@ -66,7 +67,11 @@ async function captureNodeCli(
     stderr.push(args.map(String).join(' '));
   };
   process.stderr.write = ((chunk: unknown, ...args: unknown[]) => {
-    stderr.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    const rendered = Buffer.isBuffer(chunk)
+      ? chunk.toString('utf8')
+      : String(chunk);
+    stderr.push(rendered);
+    options.onStderrWrite?.(rendered);
     const callback = args.find(
       (arg): arg is (error?: Error | null) => void =>
         typeof arg === 'function',
@@ -1041,6 +1046,67 @@ describe('Gunshi CLI core routing', () => {
     }
   });
 
+  test('streams partial stderr prompts before the sync process exits', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-prompt-');
+    const continuePath = path.join(tempRoot, 'continue');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-stderr-prompt',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/prompt.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'prompt.mjs'),
+        [
+          "import fs from 'node:fs';",
+          "process.stderr.write('Continue? ');",
+          "while (!fs.existsSync('continue')) {",
+          '  await new Promise((resolve) => setTimeout(resolve, 10));',
+          '}',
+        ].join('\n'),
+        'utf8',
+      );
+      let streamedStderr = '';
+      const execution = captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+        onStderrWrite: (chunk) => {
+          streamedStderr += chunk;
+          if (
+            streamedStderr.includes('Continue? ') &&
+            !fs.existsSync(continuePath)
+          ) {
+            fs.writeFileSync(continuePath, '', 'utf8');
+          }
+        },
+      });
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const outcome = await Promise.race([
+        execution.then(() => 'completed' as const),
+        new Promise<'timed-out'>((resolve) => {
+          timeout = setTimeout(() => resolve('timed-out'), 2_000);
+        }),
+      ]);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      if (outcome === 'timed-out') {
+        fs.writeFileSync(continuePath, '', 'utf8');
+        await execution;
+      }
+
+      expect(outcome).toBe('completed');
+      expect(streamedStderr).toContain('Continue? ');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
   test('emits structured sync execution diagnostics with stable codes', async () => {
     const tempRoot = createTempRoot('wp-typia-node-sync-failure-');
 
@@ -1060,6 +1126,8 @@ describe('Gunshi CLI core routing', () => {
           'console.error("sync failed intentionally");',
           'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
           'console.error(`sibling path: ${process.cwd()}-cache/schema.ts`);',
+          'console.error("outside cache: /home/alice/.cache/wp-typia/schema.json");',
+          'console.error("outside windows: C:\\\\Users\\\\Alice\\\\.cache\\\\wp-typia\\\\schema.json");',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
           'console.error("at least 3 generated files need attention");',
@@ -1106,6 +1174,12 @@ describe('Gunshi CLI core routing', () => {
         'sibling path: <project-root>-cache/schema.ts',
       );
       expect(parsed.error?.detailLines).toContain(
+        'outside cache: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside windows: <redacted-path>',
+      );
+      expect(parsed.error?.detailLines).toContain(
         'case variant: <project-root>/src/case.ts',
       );
       expect(parsed.error?.detailLines).toContain(
@@ -1115,6 +1189,8 @@ describe('Gunshi CLI core routing', () => {
         'at least 3 generated files need attention',
       );
       expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
+      expect(parsed.error?.message).not.toContain('/home/alice');
+      expect(parsed.error?.message).not.toContain('C:\\Users\\Alice');
       expect(parsed.error?.data).toEqual({
         command: 'npm run sync',
         exitCode: 42,
@@ -1135,6 +1211,8 @@ describe('Gunshi CLI core routing', () => {
       expect(textResult.stderr).not.toContain(
         'sibling path: <project-root>-cache/schema.ts',
       );
+      expect(textResult.stderr).toContain('outside cache: <redacted-path>');
+      expect(textResult.stderr).toContain('outside windows: <redacted-path>');
       expect(textResult.stderr).toContain(
         'case variant: <project-root>/src/case.ts',
       );
@@ -1145,6 +1223,8 @@ describe('Gunshi CLI core routing', () => {
         'at least 3 generated files need attention',
       );
       expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
+      expect(textResult.stderr).not.toContain('/home/alice');
+      expect(textResult.stderr).not.toContain('C:\\Users\\Alice');
       expect(textResult.stderr).not.toContain('\n    at ');
     } finally {
       removeTempRoot(tempRoot);

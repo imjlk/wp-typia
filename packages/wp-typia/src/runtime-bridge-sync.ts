@@ -83,6 +83,12 @@ const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
   /Generated artifacts are missing or stale:/iu;
+const POSIX_ABSOLUTE_PATH_PATTERN =
+  /(^|[\s("'`=])\/(?!\/)[^\s"'`<>]*/gu;
+const UNC_ABSOLUTE_PATH_PATTERN =
+  /(^|[\s("'`=])\\\\[^\\/\s"'`<>]+[\\/][^\s"'`<>]*/gu;
+const WINDOWS_ABSOLUTE_PATH_PATTERN =
+  /\b[A-Za-z]:[\\/][^\s"'`<>]*/gu;
 
 type SyncArtifactIssue = {
   path: string;
@@ -575,11 +581,21 @@ function sanitizeSyncOutputWithPatterns(
     (sanitized, pattern) => sanitized.replace(pattern, '<project-root>'),
     line,
   );
-  return patterns.pathPrefixes.reduce(
+  const prefixRedacted = patterns.pathPrefixes.reduce(
     (sanitized, pattern) =>
       sanitized.replace(pattern, '<redacted-path-prefix>'),
     projectRedacted,
   );
+  return prefixRedacted
+    .replace(WINDOWS_ABSOLUTE_PATH_PATTERN, '<redacted-path>')
+    .replace(
+      UNC_ABSOLUTE_PATH_PATTERN,
+      (_match, prefix: string) => `${prefix}<redacted-path>`,
+    )
+    .replace(
+      POSIX_ABSOLUTE_PATH_PATTERN,
+      (_match, prefix: string) => `${prefix}<redacted-path>`,
+    );
 }
 
 function sanitizeSyncOutputLine(line: string, projectRoots: string[]): string {
@@ -618,7 +634,6 @@ function createSyncExecutionError(
   result: SyncProcessResult,
   stdout: string | undefined,
   stderr: string | undefined,
-  check: boolean,
   failureOutput: SyncFailureOutputSelection,
 ): Error {
   const projectRoots = resolveSyncProjectRoots(project.cwd);
@@ -656,10 +671,9 @@ function createSyncExecutionError(
 
   if (
     artifacts.length > 0 &&
-    (check ||
-      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(
-        `${stderr ?? ''}\n${stdout ?? ''}`,
-      ))
+    GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(
+      `${stderr ?? ''}\n${stdout ?? ''}`,
+    )
   ) {
     const applyCommand = formatRunScript(
       project.packageManager,
@@ -709,7 +723,6 @@ async function runProjectScript(
   plannedCommand: SyncPlannedCommand,
   options: {
     captureOutput: boolean;
-    check: boolean;
     onStderr?: (chunk: string) => void;
     onStdout?: (chunk: string) => void;
   },
@@ -784,7 +797,6 @@ async function runProjectScript(
       result,
       stdout,
       stderr,
-      options.check,
       {
         stderr: options.onStderr === undefined,
         stdout: options.onStdout === undefined,
@@ -842,7 +854,6 @@ export async function executeSyncCommand({
     result.executedCommands.push(
       await runProjectScript(project, plannedCommand, {
         captureOutput,
-        check,
         onStderr,
         onStdout,
       }),

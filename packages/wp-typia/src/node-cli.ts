@@ -63,7 +63,10 @@ import {
   getStructuredOutputNoticesForArgv,
   withStructuredOutputNotices,
 } from './structured-output-notices';
-import { isSyncStackFrameLine } from './sync-output';
+import {
+  isPossibleSyncStackFramePrefix,
+  isSyncStackFrameLine,
+} from './sync-output';
 
 const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
@@ -313,6 +316,16 @@ function createSyncStderrWriter(): {
       emit(pending.slice(0, newlineIndex + 1));
       pending = pending.slice(newlineIndex + 1);
       newlineIndex = pending.indexOf('\n');
+    }
+
+    const trailingCarriageReturn = !final && pending.endsWith('\r');
+    const partialLine = trailingCarriageReturn ? pending.slice(0, -1) : pending;
+    if (
+      partialLine.length > 0 &&
+      !isPossibleSyncStackFramePrefix(partialLine)
+    ) {
+      emit(partialLine);
+      pending = trailingCarriageReturn ? '\r' : '';
     }
   };
 
