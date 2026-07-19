@@ -29,6 +29,7 @@ const STANDALONE_SYNC_SCRIPT = path.join(
   'sync-types-to-block-json.ts',
 );
 const STANDALONE_SYNC_PROJECT_SCRIPT = path.join('scripts', 'sync-project.ts');
+const STANDALONE_INDEX_FILE = path.join('src', 'index.tsx');
 const STANDALONE_SAVE_FILE = path.join('src', 'save.tsx');
 const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
 // WordPress core's get_file_data() reads the first 8 KiB for plugin headers.
@@ -37,6 +38,38 @@ const REQUIRED_RUNTIME_PACKAGES = [
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
   'typia',
+] as const;
+const REQUIRED_INSTALLED_PACKAGES = [
+  {
+    diagnosticName: '@wp-typia/block-runtime/metadata-core',
+    packageName: '@wp-typia/block-runtime',
+    resolutionSpecifier: '@wp-typia/block-runtime/metadata-core',
+  },
+  {
+    diagnosticName: '@wp-typia/block-types',
+    packageName: '@wp-typia/block-types',
+    resolutionSpecifier: '@wp-typia/block-types',
+  },
+  {
+    diagnosticName: 'typia',
+    packageName: 'typia',
+    resolutionSpecifier: 'typia',
+  },
+  {
+    diagnosticName: 'typescript',
+    packageName: 'typescript',
+    resolutionSpecifier: 'typescript',
+  },
+  {
+    diagnosticName: 'tsx',
+    packageName: 'tsx',
+    resolutionSpecifier: 'tsx/cli',
+  },
+  {
+    diagnosticName: '@wordpress/scripts',
+    packageName: '@wordpress/scripts',
+    resolutionSpecifier: '@wordpress/scripts/bin/wp-scripts.js',
+  },
 ] as const;
 
 /** Stable codes emitted by standalone-scaffold doctor rows. */
@@ -217,10 +250,63 @@ function getCanonicalSyncImportBindings(sourceFile: ts.SourceFile): Set<string> 
   return bindings;
 }
 
+function bindingNameContains(
+  name: ts.BindingName | undefined,
+  bindings: ReadonlySet<string>,
+): boolean {
+  if (!name) {
+    return false;
+  }
+  if (ts.isIdentifier(name)) {
+    return bindings.has(name.text);
+  }
+  return name.elements.some(
+    (element) =>
+      !ts.isOmittedExpression(element) &&
+      bindingNameContains(element.name, bindings),
+  );
+}
+
+function hasShadowedCanonicalSyncBinding(
+  sourceFile: ts.SourceFile,
+  bindings: ReadonlySet<string>,
+): boolean {
+  let shadowed = false;
+
+  function visit(node: ts.Node): void {
+    if (shadowed || ts.isImportDeclaration(node)) {
+      return;
+    }
+
+    let declaredName: ts.BindingName | undefined;
+    if (ts.isVariableDeclaration(node) || ts.isParameter(node)) {
+      declaredName = node.name;
+    } else if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isClassDeclaration(node) ||
+      ts.isClassExpression(node) ||
+      ts.isEnumDeclaration(node) ||
+      ts.isImportEqualsDeclaration(node)
+    ) {
+      declaredName = node.name;
+    }
+
+    if (bindingNameContains(declaredName, bindings)) {
+      shadowed = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return shadowed;
+}
+
 function findSyncOptionsObject(
   sourceFile: ts.SourceFile,
+  syncImportBindings: ReadonlySet<string>,
 ): ts.ObjectLiteralExpression | null {
-  const syncImportBindings = getCanonicalSyncImportBindings(sourceFile);
   let result: ts.ObjectLiteralExpression | null = null;
 
   function visit(node: ts.Node): void {
@@ -242,6 +328,17 @@ function findSyncOptionsObject(
 
   visit(sourceFile);
   return result;
+}
+
+function hasTypeScriptSyntaxErrors(source: string, fileName: string): boolean {
+  const result = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.Latest },
+    fileName,
+    reportDiagnostics: true,
+  });
+  return (result.diagnostics ?? []).some(
+    (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+  );
 }
 
 function isProjectLocalRelativePath(relativePath: string): boolean {
@@ -286,7 +383,23 @@ function parseStandaloneSyncConfig(
     true,
     ts.ScriptKind.TS,
   );
-  const optionsObject = findSyncOptionsObject(sourceFile);
+  if (hasTypeScriptSyntaxErrors(source, syncScriptPath)) {
+    return {
+      options: null,
+      problem: `${STANDALONE_SYNC_SCRIPT} contains TypeScript syntax errors.`,
+    };
+  }
+
+  const syncImportBindings = getCanonicalSyncImportBindings(sourceFile);
+  if (hasShadowedCanonicalSyncBinding(sourceFile, syncImportBindings)) {
+    return {
+      options: null,
+      problem:
+        `${STANDALONE_SYNC_SCRIPT} must not shadow its canonical ` +
+        'runSyncBlockMetadata() import binding.',
+    };
+  }
+  const optionsObject = findSyncOptionsObject(sourceFile, syncImportBindings);
   if (!optionsObject) {
     return {
       options: null,
@@ -381,9 +494,40 @@ function getPackageMetadataCheck(
   } else if (!getSafePackageBaseName(project.packageJson.name.trim())) {
     issues.push('package.json name must use a safe npm package name');
   }
-  for (const scriptName of ['build', 'sync', 'sync-types', 'typecheck']) {
-    if (typeof project.packageJson.scripts?.[scriptName] !== 'string') {
+  const packageManager = inferPackageManagerId(
+    project.projectDir,
+    project.packageJson.packageManager,
+  );
+  const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
+  const scriptRequirements = [
+    { fragments: ['tsx scripts/sync-project.ts'], name: 'sync' },
+    {
+      fragments: ['tsx scripts/sync-types-to-block-json.ts'],
+      name: 'sync-types',
+    },
+    {
+      fragments: [syncCheckCommand, 'wp-scripts build'],
+      name: 'build',
+    },
+    {
+      fragments: [syncCheckCommand, 'tsc --noEmit'],
+      name: 'typecheck',
+    },
+  ] as const;
+  for (const requirement of scriptRequirements) {
+    const script = project.packageJson.scripts?.[requirement.name];
+    if (typeof script !== 'string') {
+      const scriptName = requirement.name;
       issues.push(`package.json must define the ${scriptName} script`);
+      continue;
+    }
+    const normalizedScript = script.replace(/\s+/gu, ' ').trim();
+    for (const fragment of requirement.fragments) {
+      if (!normalizedScript.includes(fragment)) {
+        issues.push(
+          `package.json ${requirement.name} script must invoke \`${fragment}\``,
+        );
+      }
     }
   }
   for (const packageName of [
@@ -449,12 +593,27 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
   const leadingComment = /^\s*\/\*[\s\S]*?\*\//u.exec(phpBody)?.[0] ?? '';
   const hasPluginHeader =
     /^[\t ]*\*?[\t ]*Plugin Name\s*:\s*\S.*$/mu.test(leadingComment);
+  const executablePhp = source
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .replace(/(^|[\r\n])[\t ]*(?:\/\/|#)[^\r\n]*/gmu, '$1');
+  const hasRegistrationCall = /\bregister_block_type\s*\(/u.test(executablePhp);
+  const hasRegistrationHook =
+    /\badd_action\s*\(\s*(['"])init\1\s*,\s*(['"])[A-Za-z_][A-Za-z0-9_]*_register_block\2\s*\)/u.test(
+      executablePhp,
+    );
+  const issues = [
+    ...(!hasPluginHeader ? ['is missing a Plugin Name header'] : []),
+    ...(!hasRegistrationCall ? ['does not call register_block_type()'] : []),
+    ...(!hasRegistrationHook
+      ? ['does not hook block registration to init']
+      : []),
+  ];
   return createDoctorCheck(
     'Standalone plugin bootstrap',
-    hasPluginHeader ? 'pass' : 'fail',
-    hasPluginHeader
-      ? `${bootstrapRelativePath} contains a WordPress plugin header`
-      : `${bootstrapRelativePath} is missing a Plugin Name header`,
+    issues.length === 0 ? 'pass' : 'fail',
+    issues.length === 0
+      ? `${bootstrapRelativePath} contains a WordPress plugin header and init registration wiring`
+      : `${bootstrapRelativePath} ${issues.join('; ')}`,
     STANDALONE_DOCTOR_CODES.BOOTSTRAP,
   );
 }
@@ -466,6 +625,7 @@ function getSourceLayoutCheck(
   const missingFiles = [
     STANDALONE_SYNC_SCRIPT,
     STANDALONE_SYNC_PROJECT_SCRIPT,
+    STANDALONE_INDEX_FILE,
     STANDALONE_TYPES_FILE,
     STANDALONE_SAVE_FILE,
   ].filter(
@@ -490,10 +650,11 @@ function getSourceLayoutCheck(
 function canResolveFromProject(
   projectDir: string,
   packageName: string,
+  resolutionSpecifier: string,
 ): boolean {
   const projectRequire = createRequire(path.join(projectDir, 'package.json'));
   try {
-    const resolvedPath = projectRequire.resolve(packageName);
+    const resolvedPath = projectRequire.resolve(resolutionSpecifier);
     const localPackageEntry = path.join(
       projectDir,
       'node_modules',
@@ -509,13 +670,14 @@ function canResolveFromProject(
 }
 
 function getDependenciesCheck(project: StandaloneScaffoldProject): DoctorCheck {
-  const requiredPackages = [
-    ...REQUIRED_RUNTIME_PACKAGES,
-    'typescript',
-  ] as const;
-  const missingPackages = requiredPackages.filter(
-    (packageName) => !canResolveFromProject(project.projectDir, packageName),
-  );
+  const missingPackages = REQUIRED_INSTALLED_PACKAGES.filter(
+    ({ packageName, resolutionSpecifier }) =>
+      !canResolveFromProject(
+        project.projectDir,
+        packageName,
+        resolutionSpecifier,
+      ),
+  ).map(({ diagnosticName }) => diagnosticName);
   const packageManager = inferPackageManagerId(
     project.projectDir,
     project.packageJson.packageManager,
@@ -525,7 +687,7 @@ function getDependenciesCheck(project: StandaloneScaffoldProject): DoctorCheck {
     'Standalone dependencies',
     missingPackages.length === 0 ? 'pass' : 'fail',
     missingPackages.length === 0
-      ? 'Project-local wp-typia runtime and TypeScript dependencies are installed'
+      ? 'Project-local wp-typia runtime, TypeScript, and script-runner dependencies are installed'
       : `Missing installed package(s): ${missingPackages.join(', ')}. Run \`${formatInstallCommand(packageManager)}\` from the standalone project root.`,
     STANDALONE_DOCTOR_CODES.DEPENDENCIES,
   );

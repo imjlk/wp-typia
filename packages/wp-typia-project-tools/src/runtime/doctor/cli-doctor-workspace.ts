@@ -86,6 +86,19 @@ export async function getWorkspaceDoctorChecks(
 	options: WorkspaceDoctorChecksOptions = {},
 ): Promise<DoctorCheck[]> {
 	const checks: DoctorCheck[] = [];
+	let standaloneProject: StandaloneScaffoldProject | null = null;
+	let standaloneDiscoveryError: unknown = null;
+	try {
+		// The nearest standalone package boundary wins over unrelated ancestor
+		// workspace metadata. Official workspace manifests are rejected by the
+		// standalone detector and continue through workspace discovery below.
+		standaloneProject = tryResolveStandaloneScaffoldProject(cwd);
+	} catch (error) {
+		standaloneDiscoveryError = error;
+	}
+	if (standaloneProject) {
+		return getStandaloneScaffoldDoctorChecks(standaloneProject);
+	}
 
 	let workspace: WorkspaceProject | null = null;
 	let invalidWorkspaceReason: string | null = null;
@@ -126,10 +139,7 @@ export async function getWorkspaceDoctorChecks(
 				),
 			);
 		} else {
-			let standaloneProject: StandaloneScaffoldProject | null;
-			try {
-				standaloneProject = tryResolveStandaloneScaffoldProject(cwd);
-			} catch (error) {
+			if (standaloneDiscoveryError) {
 				checks.push(
 					createDoctorScopeCheck(
 						"fail",
@@ -140,13 +150,12 @@ export async function getWorkspaceDoctorChecks(
 					createDoctorCheck(
 						"Standalone package metadata",
 						"fail",
-						error instanceof Error ? error.message : String(error),
+						standaloneDiscoveryError instanceof Error
+							? standaloneDiscoveryError.message
+							: String(standaloneDiscoveryError),
 					),
 				);
 				return checks;
-			}
-			if (standaloneProject) {
-				return getStandaloneScaffoldDoctorChecks(standaloneProject);
 			}
 			checks.push(
 				createDoctorScopeCheck(
