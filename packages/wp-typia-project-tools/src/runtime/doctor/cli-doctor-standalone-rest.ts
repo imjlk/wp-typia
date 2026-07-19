@@ -642,6 +642,9 @@ function getMainOptionsBinding(
 }
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+  if (countBindingDeclarations(sourceFile, 'process') !== 0) {
+    return false;
+  }
   return (
     sourceFile.statements.filter((statement) => {
       if (!ts.isExpressionStatement(statement)) {
@@ -656,11 +659,48 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         return false;
       }
       const receiver = unwrapStaticExpression(expression.expression.expression);
+      if (
+        !ts.isCallExpression(receiver) ||
+        !ts.isIdentifier(receiver.expression) ||
+        receiver.expression.text !== 'main' ||
+        receiver.arguments.length !== 0 ||
+        expression.arguments.length !== 1
+      ) {
+        return false;
+      }
+      const catchHandler = unwrapStaticExpression(expression.arguments[0]);
+      if (
+        (!ts.isArrowFunction(catchHandler) &&
+          !ts.isFunctionExpression(catchHandler)) ||
+        !ts.isBlock(catchHandler.body)
+      ) {
+        return false;
+      }
+      const finalStatement =
+        catchHandler.body.statements[catchHandler.body.statements.length - 1];
+      if (
+        !finalStatement ||
+        !ts.isExpressionStatement(finalStatement) ||
+        catchHandler.body.statements
+          .slice(0, -1)
+          .some(
+            (catchStatement) =>
+              ts.isReturnStatement(catchStatement) ||
+              ts.isThrowStatement(catchStatement),
+          )
+      ) {
+        return false;
+      }
+      const exitCall = unwrapStaticExpression(finalStatement.expression);
       return (
-        ts.isCallExpression(receiver) &&
-        ts.isIdentifier(receiver.expression) &&
-        receiver.expression.text === 'main' &&
-        receiver.arguments.length === 0
+        ts.isCallExpression(exitCall) &&
+        ts.isPropertyAccessExpression(exitCall.expression) &&
+        ts.isIdentifier(exitCall.expression.expression) &&
+        exitCall.expression.expression.text === 'process' &&
+        exitCall.expression.name.text === 'exit' &&
+        exitCall.arguments.length === 1 &&
+        ts.isNumericLiteral(exitCall.arguments[0]) &&
+        exitCall.arguments[0].text === '1'
       );
     }).length === 1
   );
@@ -709,6 +749,28 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
     return false;
   }
   const optionsBinding = optionsDeclaration.binding;
+
+  if (
+    !getTopLevelFunctionDeclaration(sourceFile, 'assertTypeArtifactsCurrent') ||
+    countBindingDeclarations(sourceFile, 'assertTypeArtifactsCurrent') !== 1
+  ) {
+    return false;
+  }
+  const preflightCallIndexes = mainBody.statements.flatMap(
+    (statement, index) => {
+      const call = getDirectAwaitedCall(statement);
+      return call &&
+        ts.isIdentifier(call.expression) &&
+        call.expression.text === 'assertTypeArtifactsCurrent' &&
+        call.arguments.length === 0
+        ? [index]
+        : [];
+    },
+  );
+  if (preflightCallIndexes.length !== 1) {
+    return false;
+  }
+  const [preflightCallIndex] = preflightCallIndexes;
 
   const schemaCallIndexes: number[] = [];
   mainBody.statements.forEach((statement, index) => {
@@ -803,6 +865,8 @@ function hasCanonicalRestSyncCalls(sourceFile: ts.SourceFile): boolean {
   const [clientCallIndex] = clientCallIndexes;
   return (
     optionsDeclaration.index < schemaCallIndex &&
+    optionsDeclaration.index < preflightCallIndex &&
+    preflightCallIndex < schemaCallIndex &&
     schemaCallIndex < openApiCallIndex &&
     openApiCallIndex < clientCallIndex &&
     !mainBody.statements

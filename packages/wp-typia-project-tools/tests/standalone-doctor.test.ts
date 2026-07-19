@@ -673,10 +673,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       [
         "import { runSyncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';",
         "const paths = { blockJsonFile: 'src/block.json' };",
-        'runSyncBlockMetadata({',
-        '  ...paths,',
-        "  ['sourceTypeName']: 'DynamicSyncConfigAttributes',",
-        "  typesFile: 'src/types.ts',",
+        'function parseCliOptions() { return { check: false }; }',
+        'async function main() {',
+        '  const options = parseCliOptions();',
+        '  const report = await runSyncBlockMetadata({',
+        '    ...paths,',
+        "    ['sourceTypeName']: 'DynamicSyncConfigAttributes',",
+        "    typesFile: 'src/types.ts',",
+        '  }, { check: options.check });',
+        '  return report;',
+        '}',
+        'main().catch(() => {',
+        '  process.exit(1);',
         '});',
         '',
       ].join('\n'),
@@ -808,6 +816,75 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain('with a static options object');
   });
 
+  test('rejects canonical sync calls that exist only in an unused function', async () => {
+    const targetDir = path.join(tempRoot, 'dead-type-sync-call');
+    await scaffoldBasic(targetDir);
+    const syncScriptPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const detachedMain = original.replace(
+      'const report = await runSyncBlockMetadata(',
+      'const report = await detachedSyncBlockMetadata(',
+    );
+    expect(detachedMain).not.toBe(original);
+    const unusedCall = [
+      'async function unusedTypeSync(options: { check: boolean }) {',
+      '  const report = await runSyncBlockMetadata({',
+      "    blockJsonFile: 'src/block.json',",
+      "    manifestFile: 'src/typia.manifest.json',",
+      "    sourceTypeName: 'DeadTypeSyncAttributes',",
+      "    typesFile: 'src/types.ts',",
+      '  }, {',
+      '    check: options.check,',
+      '  });',
+      '  return report;',
+      '}',
+      '',
+    ].join('\n');
+    fs.writeFileSync(
+      syncScriptPath,
+      detachedMain.replace(
+        'async function main()',
+        `${unusedCall}async function main()`,
+      ),
+    );
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must import and call runSyncBlockMetadata()',
+    );
+  });
+
+  test('rejects sync-types helpers that stop forwarding --check', async () => {
+    const targetDir = path.join(tempRoot, 'sync-types-without-check');
+    await scaffoldBasic(targetDir);
+    const syncScriptPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const source = original.replace('check: options.check', 'check: false');
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncScriptPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must import and call runSyncBlockMetadata()',
+    );
+  });
+
   test('reports an unreadable sync helper without leaking the project path', async () => {
     const targetDir = path.join(tempRoot, 'missing-sync-helper');
     await scaffoldBasic(targetDir);
@@ -877,6 +954,35 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must forward --check through the canonical tsx runner',
     );
+  });
+
+  test('rejects a sync-project runner that stops propagating child failures', async () => {
+    const mutations = [
+      ['error', 'if ( result.error )', 'if ( false )'],
+      ['status', 'if ( result.status !== 0 )', 'if ( false )'],
+    ] as const;
+    for (const [name, originalGuard, damagedGuard] of mutations) {
+      const targetDir = path.join(tempRoot, `sync-project-${name}-ignored`);
+      await scaffoldBasic(targetDir);
+      const syncProjectPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-project.ts',
+      );
+      const original = fs.readFileSync(syncProjectPath, 'utf8');
+      const source = original.replace(originalGuard, damagedGuard);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncProjectPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must forward --check through the canonical tsx runner',
+      );
+    }
   });
 
   test('rejects sync-project delegations hidden in dead branches', async () => {
@@ -979,6 +1085,55 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
     );
 
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
+  test('rejects REST helpers that skip the type-artifact preflight', async () => {
+    const targetDir = path.join(tempRoot, 'rest-without-type-preflight');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const source = original.replace(
+      'await assertTypeArtifactsCurrent();',
+      'await detachedTypeArtifactsCurrent();',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncRestPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
+    expect(sourceLayoutCheck?.detail).toContain(
+      'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',
+    );
+  });
+
+  test('rejects REST helpers that swallow top-level failures', async () => {
+    const targetDir = path.join(tempRoot, 'rest-without-failure-exit');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const source = original.replace('process.exit( 1 );', 'return;');
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncRestPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
     expect(sourceLayoutCheck?.status).toBe('fail');
     expect(sourceLayoutCheck?.detail).toContain(
       'must call syncTypeSchemas(), syncRestOpenApi(), and syncEndpointClient()',

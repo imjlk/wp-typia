@@ -363,31 +363,106 @@ function hasShadowedBinding(
   return shadowed;
 }
 
+function getAwaitedCallFromVariableStatement(
+  statement: ts.Statement,
+): ts.CallExpression | null {
+  if (
+    !ts.isVariableStatement(statement) ||
+    statement.declarationList.declarations.length !== 1
+  ) {
+    return null;
+  }
+  const initializer = statement.declarationList.declarations[0].initializer;
+  return initializer &&
+    ts.isAwaitExpression(initializer) &&
+    ts.isCallExpression(initializer.expression)
+    ? initializer.expression
+    : null;
+}
+
+function hasCanonicalSyncCheckOptions(
+  expression: ts.Expression,
+  optionsBinding: string,
+): boolean {
+  if (!ts.isObjectLiteralExpression(expression)) {
+    return false;
+  }
+  const propertyNames = new Set<string>();
+  let hasCheckBinding = false;
+  for (const property of expression.properties) {
+    if (
+      !ts.isPropertyAssignment(property) ||
+      ts.isComputedPropertyName(property.name)
+    ) {
+      return false;
+    }
+    const propertyName =
+      ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
+        ? property.name.text
+        : null;
+    if (propertyName === null || propertyNames.has(propertyName)) {
+      return false;
+    }
+    propertyNames.add(propertyName);
+    if (propertyName === 'check') {
+      hasCheckBinding =
+        ts.isPropertyAccessExpression(property.initializer) &&
+        ts.isIdentifier(property.initializer.expression) &&
+        property.initializer.expression.text === optionsBinding &&
+        property.initializer.name.text === 'check';
+    }
+  }
+  return hasCheckBinding;
+}
+
 function findSyncOptionsObject(
   sourceFile: ts.SourceFile,
   syncImportBindings: ReadonlySet<string>,
 ): ts.ObjectLiteralExpression | null {
-  let result: ts.ObjectLiteralExpression | null = null;
-
-  function visit(node: ts.Node): void {
-    if (result) {
-      return;
-    }
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      syncImportBindings.has(node.expression.text) &&
-      node.arguments.length > 0 &&
-      ts.isObjectLiteralExpression(node.arguments[0])
-    ) {
-      result = node.arguments[0];
-      return;
-    }
-    ts.forEachChild(node, visit);
+  const main = getSingleTopLevelFunction(sourceFile, 'main');
+  if (
+    !main?.body ||
+    !main.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
+    !hasTopLevelMainInvocation(sourceFile)
+  ) {
+    return null;
+  }
+  const statements = [...main.body.statements];
+  const optionsDeclaration = getDirectVariableBinding(
+    statements,
+    isParseCliOptionsCall,
+  );
+  if (!optionsDeclaration) {
+    return null;
   }
 
-  visit(sourceFile);
-  return result;
+  const calls = statements.flatMap((statement, index) => {
+    const call = getAwaitedCallFromVariableStatement(statement);
+    if (
+      !call ||
+      !ts.isIdentifier(call.expression) ||
+      !syncImportBindings.has(call.expression.text) ||
+      call.arguments.length !== 2 ||
+      !ts.isObjectLiteralExpression(call.arguments[0]) ||
+      !hasCanonicalSyncCheckOptions(
+        call.arguments[1],
+        optionsDeclaration.binding,
+      )
+    ) {
+      return [];
+    }
+    return [{ index, options: call.arguments[0] }];
+  });
+  if (calls.length !== 1) {
+    return null;
+  }
+  const [call] = calls;
+  return optionsDeclaration.index < call.index &&
+    !hasEarlierAbruptCompletion(statements, call.index)
+    ? call.options
+    : null;
 }
 
 function hasTypeScriptSyntaxErrors(source: string, fileName: string): boolean {
@@ -673,6 +748,73 @@ function hasEarlierAbruptCompletion(
     );
 }
 
+function isResultPropertyAccess(
+  expression: ts.Expression | undefined,
+  resultBinding: string,
+  propertyName: string,
+): boolean {
+  return (
+    expression !== undefined &&
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === resultBinding &&
+    expression.name.text === propertyName
+  );
+}
+
+function hasCanonicalRunnerErrorGuard(
+  statement: ts.Statement | undefined,
+  resultBinding: string,
+): boolean {
+  if (
+    !statement ||
+    !ts.isIfStatement(statement) ||
+    statement.elseStatement ||
+    !isResultPropertyAccess(statement.expression, resultBinding, 'error') ||
+    !ts.isBlock(statement.thenStatement)
+  ) {
+    return false;
+  }
+  const finalStatement =
+    statement.thenStatement.statements[
+      statement.thenStatement.statements.length - 1
+    ];
+  return (
+    finalStatement !== undefined &&
+    ts.isThrowStatement(finalStatement) &&
+    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error')
+  );
+}
+
+function hasCanonicalRunnerStatusGuard(
+  statement: ts.Statement | undefined,
+  resultBinding: string,
+): boolean {
+  if (
+    !statement ||
+    !ts.isIfStatement(statement) ||
+    statement.elseStatement ||
+    !ts.isBinaryExpression(statement.expression) ||
+    statement.expression.operatorToken.kind !==
+      ts.SyntaxKind.ExclamationEqualsEqualsToken ||
+    !isResultPropertyAccess(
+      statement.expression.left,
+      resultBinding,
+      'status',
+    ) ||
+    !ts.isNumericLiteral(statement.expression.right) ||
+    statement.expression.right.text !== '0' ||
+    !ts.isBlock(statement.thenStatement)
+  ) {
+    return false;
+  }
+  const finalStatement =
+    statement.thenStatement.statements[
+      statement.thenStatement.statements.length - 1
+    ];
+  return finalStatement !== undefined && ts.isThrowStatement(finalStatement);
+}
+
 function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   const runner = getSingleTopLevelFunction(sourceFile, 'runSyncScript');
   if (!runner?.body || runner.parameters.length !== 2) {
@@ -752,14 +894,13 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   }
   const [checkGuardIndex] = checkGuardIndexes;
 
-  const spawnIndexes = statements.flatMap((statement, index) => {
+  const spawnDeclarations = statements.flatMap((statement, index) => {
     if (!ts.isVariableStatement(statement)) {
       return [];
     }
-    const matches = statement.declarationList.declarations.some(
-      (declaration) => {
+    return statement.declarationList.declarations.flatMap((declaration) => {
         const call = declaration.initializer;
-        return (
+        return ts.isIdentifier(declaration.name) &&
           call !== undefined &&
           ts.isCallExpression(call) &&
           ts.isIdentifier(call.expression) &&
@@ -770,24 +911,36 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
           ts.isIdentifier(call.arguments[1]) &&
           call.arguments[1].text === argsBinding &&
           ts.isObjectLiteralExpression(call.arguments[2])
-        );
-      },
-    );
-    return matches ? [index] : [];
+          ? [{ binding: declaration.name.text, index }]
+          : [];
+      });
   });
-  if (spawnIndexes.length !== 1) {
+  if (spawnDeclarations.length !== 1) {
     return false;
   }
-  const [spawnIndex] = spawnIndexes;
+  const [{ binding: resultBinding, index: spawnIndex }] = spawnDeclarations;
+  const errorGuardIndex = spawnIndex + 1;
+  const statusGuardIndex = errorGuardIndex + 1;
   return (
     argsIndex === 0 &&
     checkGuardIndex === argsIndex + 1 &&
     spawnIndex === checkGuardIndex + 1 &&
-    !hasEarlierAbruptCompletion(statements, spawnIndex)
+    !hasEarlierAbruptCompletion(statements, spawnIndex) &&
+    hasCanonicalRunnerErrorGuard(
+      statements[errorGuardIndex],
+      resultBinding,
+    ) &&
+    hasCanonicalRunnerStatusGuard(
+      statements[statusGuardIndex],
+      resultBinding,
+    )
   );
 }
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+  if (hasShadowedBinding(sourceFile, new Set(['process']))) {
+    return false;
+  }
   return (
     sourceFile.statements.filter((statement) => {
       if (!ts.isExpressionStatement(statement)) {
@@ -802,11 +955,45 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         return false;
       }
       const mainCall = outerCall.expression.expression;
+      if (
+        !ts.isCallExpression(mainCall) ||
+        !ts.isIdentifier(mainCall.expression) ||
+        mainCall.expression.text !== 'main' ||
+        mainCall.arguments.length !== 0 ||
+        outerCall.arguments.length !== 1
+      ) {
+        return false;
+      }
+      const catchHandler = outerCall.arguments[0];
+      if (
+        (!ts.isArrowFunction(catchHandler) &&
+          !ts.isFunctionExpression(catchHandler)) ||
+        !ts.isBlock(catchHandler.body)
+      ) {
+        return false;
+      }
+      const finalStatement =
+        catchHandler.body.statements[catchHandler.body.statements.length - 1];
+      if (
+        !finalStatement ||
+        !ts.isExpressionStatement(finalStatement) ||
+        hasEarlierAbruptCompletion(
+          catchHandler.body.statements,
+          catchHandler.body.statements.length - 1,
+        )
+      ) {
+        return false;
+      }
+      const exitCall = finalStatement.expression;
       return (
-        ts.isCallExpression(mainCall) &&
-        ts.isIdentifier(mainCall.expression) &&
-        mainCall.expression.text === 'main' &&
-        mainCall.arguments.length === 0
+        ts.isCallExpression(exitCall) &&
+        ts.isPropertyAccessExpression(exitCall.expression) &&
+        ts.isIdentifier(exitCall.expression.expression) &&
+        exitCall.expression.expression.text === 'process' &&
+        exitCall.expression.name.text === 'exit' &&
+        exitCall.arguments.length === 1 &&
+        ts.isNumericLiteral(exitCall.arguments[0]) &&
+        exitCall.arguments[0].text === '1'
       );
     }).length === 1
   );
