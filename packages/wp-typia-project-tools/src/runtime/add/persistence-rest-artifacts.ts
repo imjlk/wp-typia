@@ -93,6 +93,25 @@ export function buildPersistenceEndpointManifest(
 	});
 }
 
+/** Output paths and metadata for one persistence REST contract schema. */
+export interface PersistenceRestArtifactSchemaPlan {
+	jsonSchemaFile: string;
+	openApiFile: string;
+	openApiInfo: {
+		title: string;
+		version: string;
+	};
+	sourceTypeName: string;
+}
+
+/** Complete compiler-derived output plan for one persistence REST surface. */
+export interface PersistenceRestArtifactPlan {
+	clientFile: string;
+	manifest: ReturnType<typeof buildPersistenceEndpointManifest>;
+	openApiFile: string;
+	schemas: PersistenceRestArtifactSchemaPlan[];
+}
+
 /**
  * Build the canonical output plan shared by scaffold generation and previews.
  *
@@ -101,7 +120,7 @@ export function buildPersistenceEndpointManifest(
  */
 export function buildPersistenceRestArtifactPlan(
 	options: SyncPersistenceRestArtifactsOptions,
-) {
+): PersistenceRestArtifactPlan {
 	const manifest = buildPersistenceEndpointManifest(options.variables);
 
 	return {
