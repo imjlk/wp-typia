@@ -9,6 +9,8 @@ const STANDALONE_SYNC_REST_SCRIPT = path.join(
   'scripts',
   'sync-rest-contracts.ts',
 );
+const STANDALONE_REST_OPEN_API_FILE = path.join('src', 'api.openapi.json');
+const STANDALONE_REST_CLIENT_FILE = path.join('src', 'api-client.ts');
 
 /** Parsed persistence REST metadata and any integrity problem found in its sync helper. */
 export interface ParsedStandaloneRestConfig {
@@ -64,6 +66,38 @@ function isSafeProjectRelativePath(
   return isProjectLocalRelativePath(
     path.relative(projectDir, path.resolve(projectDir, filePath)),
   );
+}
+
+function getStandaloneRestContractArtifactPaths(baseName: string): {
+  jsonSchemaFile: string;
+  openApiFile: string;
+} {
+  return {
+    jsonSchemaFile: path.join(
+      'src',
+      'api-schemas',
+      `${baseName}.schema.json`,
+    ),
+    openApiFile: path.join(
+      'src',
+      'api-schemas',
+      `${baseName}.openapi.json`,
+    ),
+  };
+}
+
+function getStandaloneRestArtifactPaths(
+  manifest: EndpointManifestDefinition,
+): string[] {
+  return [
+    ...Object.keys(manifest.contracts).flatMap((baseName) => {
+      const { jsonSchemaFile, openApiFile } =
+        getStandaloneRestContractArtifactPaths(baseName);
+      return [jsonSchemaFile, openApiFile];
+    }),
+    STANDALONE_REST_OPEN_API_FILE,
+    STANDALONE_REST_CLIENT_FILE,
+  ];
 }
 
 function unwrapStaticExpression(expression: ts.Expression): ts.Expression {
@@ -413,14 +447,7 @@ export function parseStandaloneRestConfig(
     };
   }
 
-  const relativeArtifactPaths = [
-    ...Object.keys(manifest.contracts).flatMap((baseName) => [
-      path.join('src', 'api-schemas', `${baseName}.schema.json`),
-      path.join('src', 'api-schemas', `${baseName}.openapi.json`),
-    ]),
-    path.join('src', 'api.openapi.json'),
-    path.join('src', 'api-client.ts'),
-  ];
+  const relativeArtifactPaths = getStandaloneRestArtifactPaths(manifest);
   const unsafeArtifactPath = relativeArtifactPaths.find(
     (artifactPath) => !isSafeProjectRelativePath(projectDir, artifactPath),
   );
@@ -453,18 +480,12 @@ export async function checkStandaloneRestArtifacts(
   for (const [baseName, contract] of Object.entries(
     config.manifest.contracts,
   )) {
+    const { jsonSchemaFile, openApiFile } =
+      getStandaloneRestContractArtifactPaths(baseName);
     await metadataCore.syncTypeSchemas(
       {
-        jsonSchemaFile: path.join(
-          'src',
-          'api-schemas',
-          `${baseName}.schema.json`,
-        ),
-        openApiFile: path.join(
-          'src',
-          'api-schemas',
-          `${baseName}.openapi.json`,
-        ),
+        jsonSchemaFile,
+        openApiFile,
         openApiInfo: {
           title: contract.sourceTypeName,
           version: '1.0.0',
@@ -479,7 +500,7 @@ export async function checkStandaloneRestArtifacts(
   await metadataCore.syncRestOpenApi(
     {
       manifest: config.manifest,
-      openApiFile: 'src/api.openapi.json',
+      openApiFile: STANDALONE_REST_OPEN_API_FILE,
       projectRoot: projectDir,
       typesFile: 'src/api-types.ts',
     },
@@ -487,7 +508,7 @@ export async function checkStandaloneRestArtifacts(
   );
   await metadataCore.syncEndpointClient(
     {
-      clientFile: 'src/api-client.ts',
+      clientFile: STANDALONE_REST_CLIENT_FILE,
       manifest: config.manifest,
       projectRoot: projectDir,
       typesFile: 'src/api-types.ts',
