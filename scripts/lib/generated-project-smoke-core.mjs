@@ -82,7 +82,11 @@ export function getRunCommand(packageManager) {
 }
 
 export function getRunScriptCommand(packageManager, scriptName, extraArgs = []) {
-	const scriptArgs = extraArgs.length > 0 ? [scriptName, "--", ...extraArgs] : [scriptName];
+	const scriptArgs = [
+		scriptName,
+		...(packageManager === "npm" && extraArgs.length > 0 ? ["--"] : []),
+		...extraArgs,
+	];
 
 	switch (packageManager) {
 		case "bun":
