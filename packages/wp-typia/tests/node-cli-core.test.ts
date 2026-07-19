@@ -32,12 +32,15 @@ async function captureNodeCli(
     cwd?: string;
     entrypoint?: boolean;
     onStderrWrite?: (chunk: string) => void;
+    stdoutBackpressureMs?: number;
   } = {},
 ): Promise<{
   error: unknown;
   exitCode: string | number;
   stderr: string;
   stdout: string;
+  stdoutBackpressureDrained: boolean;
+  stdoutBackpressureTriggered: boolean;
 }> {
   const originalCwd = process.cwd();
   const originalExitCode = process.exitCode;
@@ -51,6 +54,9 @@ async function captureNodeCli(
   );
   const stderr: string[] = [];
   const stdout: string[] = [];
+  let stdoutBackpressureDrained = false;
+  let stdoutBackpressureTimer: ReturnType<typeof setTimeout> | undefined;
+  let stdoutBackpressureTriggered = false;
   let error: unknown;
 
   for (const key of AI_AGENT_ENV_KEYS) {
@@ -86,6 +92,17 @@ async function captureNodeCli(
         typeof arg === 'function',
     );
     callback?.();
+    if (
+      options.stdoutBackpressureMs !== undefined &&
+      !stdoutBackpressureTriggered
+    ) {
+      stdoutBackpressureTriggered = true;
+      stdoutBackpressureTimer = setTimeout(() => {
+        stdoutBackpressureDrained = true;
+        process.stdout.emit('drain');
+      }, options.stdoutBackpressureMs);
+      return false;
+    }
     return true;
   }) as typeof process.stdout.write;
 
@@ -108,8 +125,13 @@ async function captureNodeCli(
       exitCode: process.exitCode ?? 0,
       stderr: stderr.join('\n'),
       stdout: stdout.join('\n'),
+      stdoutBackpressureDrained,
+      stdoutBackpressureTriggered,
     };
   } finally {
+    if (stdoutBackpressureTimer) {
+      clearTimeout(stdoutBackpressureTimer);
+    }
     if (options.cwd) {
       process.chdir(originalCwd);
     }
@@ -1102,6 +1124,40 @@ describe('Gunshi CLI core routing', () => {
 
       expect(outcome).toBe('completed');
       expect(streamedStderr).toContain('Continue? ');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
+  test('waits for stdout drain before completing streamed sync output', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-backpressure-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-stdout-backpressure',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/succeed.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'succeed.mjs'),
+        "console.log('backpressure marker');\n",
+        'utf8',
+      );
+
+      const result = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+        stdoutBackpressureMs: 500,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.stdoutBackpressureTriggered).toBe(true);
+      expect(result.stdoutBackpressureDrained).toBe(true);
+      expect(result.stdout).toContain('backpressure marker');
     } finally {
       removeTempRoot(tempRoot);
     }

@@ -1,3 +1,5 @@
+import { once } from 'node:events';
+
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliCommandError,
@@ -295,14 +297,61 @@ async function dispatchPortableCliSkills({
   });
 }
 
+function writeProcessOutput(
+  stream: NodeJS.WriteStream,
+  chunk: string,
+): Promise<void> | void {
+  if (stream.write(chunk)) {
+    return;
+  }
+  return once(stream, 'drain').then(() => undefined);
+}
+
 function createSyncStderrWriter(): {
-  flush: () => void;
-  write: (chunk: string) => void;
+  flush: () => PromiseLike<void> | void;
+  write: (chunk: string) => PromiseLike<void> | void;
 } {
   let pending = '';
+  let writeQueue: Promise<void> | undefined;
   const emit = (line: string) => {
-    if (!isSyncStackFrameLine(line)) {
-      process.stderr.write(line);
+    if (isSyncStackFrameLine(line)) {
+      return;
+    }
+    if (writeQueue) {
+      const nextWrite = writeQueue.then(() =>
+        writeProcessOutput(process.stderr, line),
+      );
+      writeQueue = nextWrite;
+      void nextWrite.then(
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+      );
+      return;
+    }
+    const writeResult = writeProcessOutput(process.stderr, line);
+    if (writeResult) {
+      const nextWrite = Promise.resolve(writeResult);
+      writeQueue = nextWrite;
+      void nextWrite.then(
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+        () => {
+          if (writeQueue === nextWrite) {
+            writeQueue = undefined;
+          }
+        },
+      );
     }
   };
   const append = (chunk: string, final: boolean) => {
@@ -336,6 +385,7 @@ function createSyncStderrWriter(): {
         emit(pending);
       }
       pending = '';
+      return writeQueue;
     },
     write: (chunk) => {
       append(chunk, false);
@@ -346,6 +396,7 @@ function createSyncStderrWriter(): {
         emit(pending);
         pending = '';
       }
+      return writeQueue;
     },
   };
 }
@@ -427,13 +478,11 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
         dryRun,
         onStderr: stderrWriter?.write,
         onStdout: stderrWriter
-          ? (chunk) => {
-              process.stdout.write(chunk);
-            }
+          ? (chunk) => writeProcessOutput(process.stdout, chunk)
           : undefined,
         target: syncTarget,
       });
-      stderrWriter?.flush();
+      await stderrWriter?.flush();
       if (structured) {
         printLine(
           JSON.stringify(
@@ -461,7 +510,7 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
       }
     } catch (error) {
       // Flush any final partial stderr line before rendering the summary.
-      stderrWriter?.flush();
+      await stderrWriter?.flush();
       throw createCliCommandError({
         command: 'sync',
         error,

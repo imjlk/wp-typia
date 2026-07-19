@@ -459,6 +459,12 @@ test('streamed sync output defers root decisions without delaying prompts', asyn
     path.join(scriptsDir, 'prompt.mjs'),
     [
       "import fs from 'node:fs';",
+      "process.stdout.write('/home/al');",
+      'await new Promise((resolve) => setTimeout(resolve, 100));',
+      "process.stdout.write('ice/.cache/token\\n');",
+      "process.stdout.write(`/private/${'x'.repeat(70 * 1024)}`);",
+      'await new Promise((resolve) => setTimeout(resolve, 100));',
+      "process.stdout.write('sensitive-tail\\nvisible-after-long-path\\n');",
       'process.stdout.write(process.cwd());',
       'await new Promise((resolve) => setTimeout(resolve, 100));',
       "process.stdout.write('-cache/schema.ts\\n');",
@@ -498,6 +504,11 @@ test('streamed sync output defers root decisions without delaying prompts', asyn
   }
 
   expect(outcome).toBe('completed');
+  expect(streamedStdout).toContain('<redacted-path>');
+  expect(streamedStdout).not.toContain('/home/al');
+  expect(streamedStdout).not.toContain('ice/.cache/token');
+  expect(streamedStdout).not.toContain('sensitive-tail');
+  expect(streamedStdout).toContain('visible-after-long-path');
   expect(streamedStdout).toContain(
     '<redacted-path-prefix>-cache/schema.ts',
   );
@@ -599,6 +610,44 @@ test('sync check exposes generated artifact drift with project-relative paths', 
   expect((error as Error).message).not.toContain('at runSyncScript');
 });
 
+test('sync ai recognizes first-party inline artifact drift output', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-ai-inline-artifact-drift',
+    scripts: {
+      'sync-ai': 'node scripts/ai-drift.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'ai-drift.mjs'),
+    [
+      "import path from 'node:path';",
+      "console.error(`Generated AI feature artifact is stale: schema (${path.join(process.cwd(), 'src', 'ai-schema.json')}).`);",
+      'process.exit(1);',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+    target: 'ai',
+  }).catch((thrown) => thrown);
+
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    artifacts: [{ path: 'src/ai-schema.json', status: 'stale' }],
+    command: 'npm run sync-ai -- --check',
+    exitCode: 1,
+  });
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    'Stale generated artifact: src/ai-schema.json.',
+  );
+});
+
 test('signaled artifact drift reports the signal without inventing an exit code', async () => {
   if (process.platform === 'win32') {
     return;
@@ -616,7 +665,7 @@ test('signaled artifact drift reports the signal without inventing an exit code'
   fs.writeFileSync(
     path.join(scriptsDir, 'signaled-drift.mjs'),
     [
-      "console.error('Generated artifacts are missing or stale:');",
+      "console.error('Generated typia.llm artifacts are missing or stale:');",
       "console.error('- src/block.json (stale)');",
       "process.kill(process.ppid, 'SIGTERM');",
       'setTimeout(() => process.exit(0), 25);',
@@ -655,7 +704,7 @@ test('sync drift diagnostics cap the structured artifact list', async () => {
     path.join(scriptsDir, 'drift-limit.mjs'),
     [
       "import path from 'node:path';",
-      "console.error('Generated artifacts are missing or stale:');",
+      "console.error('Generated WordPress AI artifacts are missing or stale:');",
       "for (let index = 0; index < 25; index += 1) {",
       "  console.error(`- ${path.join(process.cwd(), 'src', `artifact-${index}.php`)} (stale)`);",
       '}',

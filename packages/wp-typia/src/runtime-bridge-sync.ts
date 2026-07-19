@@ -30,8 +30,8 @@ type SyncExecutionInput = {
   check?: boolean;
   cwd: string;
   dryRun?: boolean;
-  onStderr?: (chunk: string) => void;
-  onStdout?: (chunk: string) => void;
+  onStderr?: SyncOutputWriter;
+  onStdout?: SyncOutputWriter;
   target?: SyncExecutionTarget;
 };
 
@@ -80,13 +80,21 @@ const LOCAL_SYNC_TOOL_PATTERN =
   /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
+const STREAMED_SYNC_OUTPUT_PATH_TOKEN_MAX_BUFFER = 64 * 1024;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
+const GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN =
+  /^Generated AI feature artifact is (missing|stale):\s+.+\s+\((.+)\)\.$/iu;
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
-  /Generated artifacts are missing or stale:/iu;
+  /(?:Generated (?:WordPress AI |typia\.llm )?artifacts are missing or stale:|Generated AI feature artifact is (?:missing|stale):)/iu;
+const GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN =
+  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)[^\s"'`<>]*)$/u;
+const GENERIC_ABSOLUTE_PATH_PARTIAL_PREFIX_PATTERN =
+  /(?:^|[\s("'`=:\[\]{},;])([A-Za-z](?::[\\/]?)?|\\{1,2})$/u;
+const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN = /[\s"'`<>]/u;
 const POSIX_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=])\/(?!\/)[^\s"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\s"'`<>]*/gu;
 const UNC_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=])\\\\[^\\/\s"'`<>]+[\\/][^\s"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\s"'`<>]+[\\/][^\s"'`<>]*/gu;
 const WINDOWS_ABSOLUTE_PATH_PATTERN =
   /\b[A-Za-z]:[\\/][^\s"'`<>]*/gu;
 
@@ -110,6 +118,8 @@ type SyncFailureOutputSelection = {
   stderr: boolean;
   stdout: boolean;
 };
+
+type SyncOutputWriter = (chunk: string) => PromiseLike<void> | void;
 
 class BoundedSyncOutputCapture {
   private readonly chunks: Buffer[] = [];
@@ -147,11 +157,12 @@ class SanitizedSyncOutputStream {
   private readonly maxRootLength: number;
   private readonly patterns: SyncOutputRedactionPatterns;
   private readonly rootPrefixes: Set<string>;
+  private redactingAbsolutePathTail = false;
   private pending = '';
 
   constructor(
     projectRoots: string[],
-    private readonly write: (chunk: string) => void,
+    private readonly write: SyncOutputWriter,
   ) {
     this.maxRootLength = Math.max(
       0,
@@ -161,8 +172,29 @@ class SanitizedSyncOutputStream {
     this.rootPrefixes = createSyncOutputRootPrefixes(projectRoots);
   }
 
-  append(chunk: Buffer): void {
-    this.pending += this.decoder.write(chunk);
+  append(chunk: Buffer): PromiseLike<void> | void {
+    const decoded = this.decoder.write(chunk);
+    if (this.redactingAbsolutePathTail) {
+      const terminatorIndex = decoded.search(
+        GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN,
+      );
+      if (terminatorIndex === -1) {
+        return;
+      }
+      this.redactingAbsolutePathTail = false;
+      this.pending += decoded.slice(terminatorIndex);
+    } else {
+      this.pending += decoded;
+    }
+    const genericPathLength = getGenericAbsolutePathSuffixLength(this.pending);
+    if (genericPathLength > STREAMED_SYNC_OUTPUT_PATH_TOKEN_MAX_BUFFER) {
+      const writeResult = this.write(
+        sanitizeSyncOutputWithPatterns(this.pending, this.patterns),
+      );
+      this.pending = '';
+      this.redactingAbsolutePathTail = true;
+      return writeResult;
+    }
     const retainedLength = getSyncOutputRetainedSuffixLength(
       this.pending,
       this.maxRootLength,
@@ -173,22 +205,37 @@ class SanitizedSyncOutputStream {
       return;
     }
 
-    this.write(
+    const writeResult = this.write(
       sanitizeSyncOutputWithPatterns(
         this.pending.slice(0, emitLength),
         this.patterns,
       ),
     );
     this.pending = this.pending.slice(emitLength);
+    return writeResult;
   }
 
-  flush(): void {
-    this.pending += this.decoder.end();
+  flush(): PromiseLike<void> | void {
+    const decoded = this.decoder.end();
+    if (this.redactingAbsolutePathTail) {
+      const terminatorIndex = decoded.search(
+        GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN,
+      );
+      if (terminatorIndex !== -1) {
+        this.pending += decoded.slice(terminatorIndex);
+      }
+      this.redactingAbsolutePathTail = false;
+    } else {
+      this.pending += decoded;
+    }
     if (this.pending.length === 0) {
       return;
     }
-    this.write(sanitizeSyncOutputWithPatterns(this.pending, this.patterns));
+    const writeResult = this.write(
+      sanitizeSyncOutputWithPatterns(this.pending, this.patterns),
+    );
     this.pending = '';
+    return writeResult;
   }
 }
 
@@ -497,12 +544,13 @@ function collectSyncArtifactIssues(
   const seen = new Set<string>();
 
   for (const line of `${stderr ?? ''}\n${stdout ?? ''}`.split(/\r?\n/u)) {
-    const match = GENERATED_ARTIFACT_ISSUE_PATTERN.exec(line.trim());
-    if (!match) {
-      continue;
-    }
-
-    const [, rawPath, status] = match;
+    const trimmedLine = line.trim();
+    const listMatch = GENERATED_ARTIFACT_ISSUE_PATTERN.exec(trimmedLine);
+    const inlineMatch = GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN.exec(
+      trimmedLine,
+    );
+    const rawPath = listMatch?.[1] ?? inlineMatch?.[2];
+    const status = listMatch?.[2] ?? inlineMatch?.[1];
     if (!rawPath || (status !== 'missing' && status !== 'stale')) {
       continue;
     }
@@ -563,14 +611,26 @@ function getSyncOutputRetainedSuffixLength(
   maxRootLength: number,
   rootPrefixes: Set<string>,
 ): number {
+  const genericPathLength = getGenericAbsolutePathSuffixLength(output);
   const maxLength = Math.min(output.length, maxRootLength);
   for (let length = maxLength; length > 0; length -= 1) {
     const suffix = normalizeSyncOutputPath(output.slice(-length));
     if (rootPrefixes.has(suffix)) {
-      return length;
+      return Math.max(length, genericPathLength);
     }
   }
-  return 0;
+  return genericPathLength;
+}
+
+function getGenericAbsolutePathSuffixLength(output: string): number {
+  const absolutePathMatch = GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN.exec(output);
+  const partialPrefixMatch = GENERIC_ABSOLUTE_PATH_PARTIAL_PREFIX_PATTERN.exec(
+    output,
+  );
+  return Math.max(
+    absolutePathMatch?.[1]?.length ?? 0,
+    partialPrefixMatch?.[1]?.length ?? 0,
+  );
 }
 
 function sanitizeSyncOutputWithPatterns(
@@ -723,8 +783,8 @@ async function runProjectScript(
   plannedCommand: SyncPlannedCommand,
   options: {
     captureOutput: boolean;
-    onStderr?: (chunk: string) => void;
-    onStdout?: (chunk: string) => void;
+    onStderr?: SyncOutputWriter;
+    onStdout?: SyncOutputWriter;
   },
 ): Promise<SyncExecutedCommand> {
   const pipeStderr = options.captureOutput || options.onStderr !== undefined;
@@ -751,18 +811,46 @@ async function runProjectScript(
         : 'inherit',
   });
   let spawnError: Error | undefined;
+  const pendingOutputWrites = new Set<Promise<void>>();
+  const recordOutputError = (error: unknown) => {
+    spawnError ??= error instanceof Error ? error : new Error(String(error));
+  };
+  const trackOutputWrite = (
+    stream: NonNullable<typeof child.stdout>,
+    writeResult: PromiseLike<void> | void,
+  ) => {
+    if (!writeResult) {
+      return;
+    }
+    stream.pause();
+    const trackedWrite = Promise.resolve(writeResult)
+      .catch(recordOutputError)
+      .finally(() => {
+        pendingOutputWrites.delete(trackedWrite);
+        stream.resume();
+      });
+    pendingOutputWrites.add(trackedWrite);
+  };
 
   child.stdout?.on('data', (chunk: Buffer) => {
     if (options.captureOutput) {
       stdoutCapture.append(chunk);
     }
-    stdoutStream?.append(chunk);
+    try {
+      trackOutputWrite(child.stdout!, stdoutStream?.append(chunk));
+    } catch (error) {
+      recordOutputError(error);
+    }
   });
   child.stderr?.on('data', (chunk: Buffer) => {
     if (options.captureOutput) {
       stderrCapture.append(chunk);
     }
-    stderrStream?.append(chunk);
+    try {
+      trackOutputWrite(child.stderr!, stderrStream?.append(chunk));
+    } catch (error) {
+      recordOutputError(error);
+    }
   });
   child.once('error', (error) => {
     spawnError ??= error;
@@ -776,19 +864,31 @@ async function runProjectScript(
     spawnError ??= error;
   });
 
-  const result = await new Promise<SyncProcessResult>((resolve) => {
+  const closeResult = await new Promise<
+    Pick<SyncProcessResult, 'signal' | 'status'>
+  >((resolve) => {
     child.once('close', (status, signal) => {
       resolve({
-        ...(spawnError ? { error: spawnError } : {}),
         signal,
         status,
       });
     });
   });
+  await Promise.all(pendingOutputWrites);
   const stderr = options.captureOutput ? stderrCapture.toString() : undefined;
   const stdout = options.captureOutput ? stdoutCapture.toString() : undefined;
-  stderrStream?.flush();
-  stdoutStream?.flush();
+  try {
+    await Promise.all([
+      Promise.resolve(stderrStream?.flush()),
+      Promise.resolve(stdoutStream?.flush()),
+    ]);
+  } catch (error) {
+    recordOutputError(error);
+  }
+  const result: SyncProcessResult = {
+    ...closeResult,
+    ...(spawnError ? { error: spawnError } : {}),
+  };
 
   if (result.error || result.status !== 0) {
     throw createSyncExecutionError(
