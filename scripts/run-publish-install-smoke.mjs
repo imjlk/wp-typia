@@ -162,8 +162,9 @@ function getInstalledPackageCount(projectDir) {
 function parseJsonOutput(label, output) {
 	try {
 		return JSON.parse(output);
-	} catch {
-		throw new Error(`${label} did not return JSON: ${output}`);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new Error(`${label} did not return valid JSON (${reason}): ${output}`);
 	}
 }
 
@@ -264,7 +265,8 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		["--version", "--format", "text"],
 		{ env: createNodeOnlyEnv() },
 	).trim();
-	if (!defaultVersionOutput.startsWith("wp-typia ")) {
+	const expectedDefaultVersionOutput = `wp-typia ${packedManifests.get("wp-typia").version}`;
+	if (defaultVersionOutput !== expectedDefaultVersionOutput) {
 		throw new Error(
 			`Unexpected default-install wp-typia --version output: ${defaultVersionOutput}`,
 		);
@@ -547,8 +549,8 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"--yes",
 		"--no-install",
 	]);
-	assertScaffoldDependencyRanges(basicDir, "devDependencies", expectedRanges);
 	assertScaffoldDependencyRanges(basicDir, "devDependencies", {
+		...expectedRanges,
 		"@types/wordpress__blocks": "^12.5.18",
 	});
 	assertScaffoldDependencyRanges(basicDir, "dependencies", {
