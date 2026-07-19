@@ -2326,8 +2326,9 @@ function hasPhpVariableReassignment(
   start: number,
   end: number,
 ): boolean {
+  const escapedVariableName = escapeRegExp(variableName);
   const assignmentPattern = new RegExp(
-    String.raw`\$${variableName}\s*(?:\?\?=|<<=|>>=|\*\*=|[-.+*/%&|^]=|=(?!=|>))`,
+    String.raw`\$${escapedVariableName}\s*(?:\?\?=|<<=|>>=|\*\*=|[-.+*/%&|^]=|=(?!=|>))`,
     'gu',
   );
   return [...source.slice(start, end).matchAll(assignmentPattern)].some(
