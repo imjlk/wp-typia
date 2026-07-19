@@ -63,14 +63,13 @@ import {
   getStructuredOutputNoticesForArgv,
   withStructuredOutputNotices,
 } from './structured-output-notices';
+import { isSyncStackFrameLine } from './sync-output';
 
 const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
 );
 const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
 const MAX_PENDING_SYNC_STDERR_LINE = 64 * 1024;
-const SYNC_STACK_FRAME_PATTERN =
-  /^\s*at\s+.*(?:\([^()\r\n]+:\d+:\d+\)|[^()\s]+:\d+:\d+)\s*$/u;
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -299,7 +298,7 @@ function createSyncStderrWriter(): {
 } {
   let pending = '';
   const emit = (line: string) => {
-    if (!SYNC_STACK_FRAME_PATTERN.test(line)) {
+    if (!isSyncStackFrameLine(line)) {
       process.stderr.write(line);
     }
   };

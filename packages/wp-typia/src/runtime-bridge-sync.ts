@@ -14,6 +14,7 @@ import {
   type PackageManagerId,
 } from '@wp-typia/project-tools/package-managers';
 import { escapeRegExp } from './string-utils';
+import { isSyncStackFrameLine } from './sync-output';
 
 type SyncScriptName = 'sync' | 'sync-ai' | 'sync-rest' | 'sync-types';
 type SyncScriptKey = SyncScriptName | 'sync-wordpress-ai';
@@ -80,8 +81,6 @@ const LOCAL_SYNC_TOOL_PATTERN =
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
-const SYNC_STACK_FRAME_PATTERN =
-  /^\s*at\s+.*(?:\([^()\r\n]+:\d+:\d+\)|[^()\s]+:\d+:\d+)\s*$/u;
 
 type SyncArtifactIssue = {
   path: string;
@@ -542,7 +541,7 @@ function collectSyncFailureOutputLines(
     .filter((line) => line.length > 0)
     .filter((line) => !line.startsWith('>'))
     .filter((line) => !/^npm\s+(?:error|warn)\b/iu.test(line))
-    .filter((line) => !SYNC_STACK_FRAME_PATTERN.test(line))
+    .filter((line) => !isSyncStackFrameLine(line))
     .filter((line) => !/^Error:\s+Sync script failed:/u.test(line))
     .filter((line) => !/^❌\s+Project sync failed:/u.test(line))
     .map((line) => line.replace(/^❌\s+/u, ''))
