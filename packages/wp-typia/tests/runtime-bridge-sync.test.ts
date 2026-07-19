@@ -335,6 +335,115 @@ test('sync execution failures carry a stable command-execution code', async () =
   });
 });
 
+test('ordinary sync failures do not infer artifact drift from isolated output', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-ordinary-missing-output',
+    scripts: {
+      sync: 'node scripts/fail.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'fail.mjs'),
+    ["console.error('- DATABASE_URL (missing)');", 'process.exit(1);'].join(
+      '\n',
+    ),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+
+  expect((error as { code?: string }).code).toBe('command-execution');
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    '- DATABASE_URL (missing)',
+  );
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    command: 'npm run sync',
+    exitCode: 1,
+  });
+});
+
+test('sync spawn failures report the operating-system error without an exit code', async () => {
+  if (process.platform === 'win32') {
+    return;
+  }
+
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-spawn-error',
+    packageManager: 'pnpm@10.0.0',
+    scripts: {
+      sync: 'node scripts/sync.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const emptyPath = path.join(projectDir, 'empty-path');
+  fs.mkdirSync(emptyPath);
+  const originalPath = process.env.PATH;
+  let error: unknown;
+  try {
+    process.env.PATH = emptyPath;
+    error = await executeSyncCommand({
+      captureOutput: true,
+      cwd: projectDir,
+    }).catch((thrown) => thrown);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+
+  expect((error as { code?: string }).code).toBe('command-execution');
+  expect((error as { detailLines?: string[] }).detailLines?.[0]).toContain(
+    '`pnpm run sync` failed to start:',
+  );
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    command: 'pnpm run sync',
+    spawnError: 'ENOENT',
+  });
+});
+
+test('captured sync output keeps the child stdin inherited', async () => {
+  if (process.platform === 'win32') {
+    return;
+  }
+
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-inherited-stdin',
+    scripts: {
+      sync: 'node scripts/stdin.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'stdin.mjs'),
+    [
+      "import fs from 'node:fs';",
+      'const { dev, ino, mode, rdev } = fs.fstatSync(0);',
+      "fs.writeFileSync('stdin.json', JSON.stringify({ dev, ino, mode, rdev }));",
+    ].join('\n'),
+    'utf8',
+  );
+  let streamedStdout = '';
+
+  await executeSyncCommand({
+    cwd: projectDir,
+    onStdout: (chunk) => {
+      streamedStdout += chunk;
+    },
+  });
+
+  const { dev, ino, mode, rdev } = fs.fstatSync(0);
+  expect(
+    JSON.parse(fs.readFileSync(path.join(projectDir, 'stdin.json'), 'utf8')),
+  ).toEqual({ dev, ino, mode, rdev });
+  expect(streamedStdout).toContain('> sync');
+});
+
 test('sync check exposes generated artifact drift with project-relative paths', async () => {
   const projectDir = writeSyncFixture({
     name: 'demo-sync-artifact-drift',

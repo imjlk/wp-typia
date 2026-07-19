@@ -1059,6 +1059,7 @@ describe('Gunshi CLI core routing', () => {
         [
           'console.error("sync failed intentionally");',
           'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
+          'console.error(`sibling path: ${process.cwd()}-cache/schema.ts`);',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
           'console.error("at least 3 generated files need attention");',
@@ -1099,6 +1100,12 @@ describe('Gunshi CLI core routing', () => {
         'failed file: <project-root>/src/private.ts',
       );
       expect(parsed.error?.detailLines).toContain(
+        'sibling path: <redacted-path-prefix>-cache/schema.ts',
+      );
+      expect(parsed.error?.detailLines).not.toContain(
+        'sibling path: <project-root>-cache/schema.ts',
+      );
+      expect(parsed.error?.detailLines).toContain(
         'case variant: <project-root>/src/case.ts',
       );
       expect(parsed.error?.detailLines).toContain(
@@ -1121,6 +1128,12 @@ describe('Gunshi CLI core routing', () => {
       expect(textResult.stderr).toContain('sync failed intentionally');
       expect(textResult.stderr).toContain(
         'failed file: <project-root>/src/private.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'sibling path: <redacted-path-prefix>-cache/schema.ts',
+      );
+      expect(textResult.stderr).not.toContain(
+        'sibling path: <project-root>-cache/schema.ts',
       );
       expect(textResult.stderr).toContain(
         'case variant: <project-root>/src/case.ts',

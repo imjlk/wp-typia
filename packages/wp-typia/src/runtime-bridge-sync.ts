@@ -81,6 +81,8 @@ const LOCAL_SYNC_TOOL_PATTERN =
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
 const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
+const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
+  /Generated artifacts are missing or stale:/iu;
 
 type SyncArtifactIssue = {
   path: string;
@@ -91,6 +93,11 @@ type SyncProcessResult = {
   error?: Error;
   signal: NodeJS.Signals | null;
   status: number | null;
+};
+
+type SyncOutputRedactionPatterns = {
+  pathPrefixes: RegExp[];
+  projectRoots: RegExp[];
 };
 
 class BoundedSyncOutputCapture {
@@ -127,7 +134,7 @@ class BoundedSyncOutputCapture {
 class SanitizedSyncOutputStream {
   private readonly decoder = new StringDecoder('utf8');
   private readonly overlapLength: number;
-  private readonly patterns: RegExp[];
+  private readonly patterns: SyncOutputRedactionPatterns;
   private pending = '';
 
   constructor(
@@ -503,23 +510,37 @@ function collectSyncArtifactIssues(
   return issues;
 }
 
-function createSyncOutputPatterns(projectRoots: string[]): RegExp[] {
-  return projectRoots.map(
-    (projectRoot) =>
-      new RegExp(
-        projectRoot.split(/[\\/]/u).map(escapeRegExp).join(String.raw`[\\/]`),
-        'giu',
-      ),
-  );
+function createSyncOutputPatterns(
+  projectRoots: string[],
+): SyncOutputRedactionPatterns {
+  const sources = [...projectRoots]
+    .sort((left, right) => right.length - left.length)
+    .map((projectRoot) =>
+      projectRoot
+        .split(/[\\/]/u)
+        .map(escapeRegExp)
+        .join(String.raw`[\\/]`),
+    );
+  return {
+    pathPrefixes: sources.map((source) => new RegExp(source, 'giu')),
+    projectRoots: sources.map(
+      (source) => new RegExp(`${source}(?=$|[\\\\/])`, 'giu'),
+    ),
+  };
 }
 
 function sanitizeSyncOutputWithPatterns(
   line: string,
-  patterns: RegExp[],
+  patterns: SyncOutputRedactionPatterns,
 ): string {
-  return patterns.reduce(
+  const projectRedacted = patterns.projectRoots.reduce(
     (sanitized, pattern) => sanitized.replace(pattern, '<project-root>'),
     line,
+  );
+  return patterns.pathPrefixes.reduce(
+    (sanitized, pattern) =>
+      sanitized.replace(pattern, '<redacted-path-prefix>'),
+    projectRedacted,
   );
 }
 
@@ -559,6 +580,7 @@ function createSyncExecutionError(
   result: SyncProcessResult,
   stdout: string | undefined,
   stderr: string | undefined,
+  check: boolean,
   includeOutputLines: boolean,
 ): Error {
   const projectRoots = resolveSyncProjectRoots(project.cwd);
@@ -569,19 +591,38 @@ function createSyncExecutionError(
     stderr,
   );
   let commandDetail: string;
-  if (result.status !== null) {
+  const spawnErrorCode = (result.error as NodeJS.ErrnoException | undefined)
+    ?.code;
+  if (result.error) {
+    const rawMessage = result.error.message.replace(/[.\s]+$/u, '');
+    const message = sanitizeSyncOutputLine(rawMessage, projectRoots);
+    commandDetail = `\`${plannedCommand.displayCommand}\` failed to start: ${message}.`;
+  } else if (result.status !== null) {
     commandDetail = `\`${plannedCommand.displayCommand}\` failed with exit code ${result.status}.`;
   } else if (result.signal) {
     commandDetail = `\`${plannedCommand.displayCommand}\` was terminated by signal ${result.signal}.`;
   } else {
     commandDetail = `\`${plannedCommand.displayCommand}\` failed before reporting an exit code.`;
   }
-  const processData = {
-    ...(result.status !== null ? { exitCode: result.status } : {}),
-    ...(result.signal ? { signal: result.signal } : {}),
-  };
+  let processData: Record<string, number | string> = {};
+  if (result.error) {
+    const spawnError =
+      typeof spawnErrorCode === 'string' ? spawnErrorCode : result.error.name;
+    processData = { spawnError };
+  } else {
+    processData = {
+      ...(result.status !== null ? { exitCode: result.status } : {}),
+      ...(result.signal ? { signal: result.signal } : {}),
+    };
+  }
 
-  if (artifacts.length > 0) {
+  if (
+    artifacts.length > 0 &&
+    (check ||
+      GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(
+        `${stderr ?? ''}\n${stdout ?? ''}`,
+      ))
+  ) {
     const applyCommand = formatRunScript(
       project.packageManager,
       plannedCommand.scriptName,
@@ -617,13 +658,7 @@ function createSyncExecutionError(
       command: plannedCommand.displayCommand,
       ...processData,
     },
-    detailLines: [
-      commandDetail,
-      ...outputLines,
-      ...(outputLines.length === 0 && result.error
-        ? [result.error.message]
-        : []),
-    ],
+    detailLines: [commandDetail, ...outputLines],
     error: result.error,
     summary: 'A generated project sync command failed.',
   });
@@ -634,6 +669,7 @@ async function runProjectScript(
   plannedCommand: SyncPlannedCommand,
   options: {
     captureOutput: boolean;
+    check: boolean;
     onStderr?: (chunk: string) => void;
     onStdout?: (chunk: string) => void;
   },
@@ -654,7 +690,7 @@ async function runProjectScript(
   const child = spawn(plannedCommand.command, plannedCommand.args, {
     cwd: project.cwd,
     shell: process.platform === 'win32',
-    stdio: pipeOutput ? 'pipe' : 'inherit',
+    stdio: pipeOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit',
   });
   let spawnError: Error | undefined;
 
@@ -703,6 +739,7 @@ async function runProjectScript(
       result,
       stdout,
       stderr,
+      options.check,
       options.onStderr === undefined && options.onStdout === undefined,
     );
   }
@@ -757,6 +794,7 @@ export async function executeSyncCommand({
     result.executedCommands.push(
       await runProjectScript(project, plannedCommand, {
         captureOutput,
+        check,
         onStderr,
         onStdout,
       }),
