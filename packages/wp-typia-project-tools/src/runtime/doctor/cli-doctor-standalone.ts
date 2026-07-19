@@ -2035,41 +2035,40 @@ function shellCommandMatches(
   );
 }
 
-function shellSegmentIsStaticallyReachable(
+function getShellSegmentStaticReachability(
   segments: readonly ShellCommandSegment[],
-  segmentIndex: number,
-): boolean {
-  for (let index = 0; index < segmentIndex; index += 1) {
-    const segment = segments[index];
+): readonly boolean[] {
+  const reachability: boolean[] = [];
+  let terminated = false;
+  let blockedByFalse = false;
+  for (const [index, segment] of segments.entries()) {
+    if (index === 0 || segments[index - 1].operatorAfter !== '&&') {
+      blockedByFalse = false;
+    } else {
+      blockedByFalse =
+        blockedByFalse || segments[index - 1].command === 'false';
+    }
+    const reachable = !terminated && !blockedByFalse;
+    reachability.push(reachable);
     if (
-      (segment.command === 'exit' ||
-        segment.command.startsWith('exit ')) &&
+      reachable &&
+      (segment.command === 'exit' || segment.command.startsWith('exit ')) &&
       segment.operatorAfter !== '&' &&
       segment.operatorAfter !== '|' &&
-      segment.operatorAfter !== '|&' &&
-      shellSegmentIsStaticallyReachable(segments, index)
+      segment.operatorAfter !== '|&'
     ) {
-      return false;
+      terminated = true;
     }
   }
-  for (
-    let index = segmentIndex - 1;
-    index >= 0 && segments[index].operatorAfter === '&&';
-    index -= 1
-  ) {
-    if (segments[index].command === 'false') {
-      return false;
-    }
-  }
-  return true;
+  return reachability;
 }
 
 function shellScriptInvokesCommand(script: string, command: string): boolean {
   const segments = splitShellCommandSegments(script);
+  const reachability = getShellSegmentStaticReachability(segments);
   return segments.some(
     (segment, index) =>
-      shellCommandMatches(segment, command) &&
-      shellSegmentIsStaticallyReachable(segments, index),
+      shellCommandMatches(segment, command) && reachability[index] === true,
   );
 }
 
@@ -2078,11 +2077,12 @@ function shellScriptPropagatesCommandFailure(
   command: string,
 ): boolean {
   const segments = splitShellCommandSegments(script);
+  const reachability = getShellSegmentStaticReachability(segments);
   return segments.some((segment, index) => {
     if (!shellCommandMatches(segment, command)) {
       return false;
     }
-    if (!shellSegmentIsStaticallyReachable(segments, index)) {
+    if (!reachability[index]) {
       return false;
     }
     if (index > 0 && segments[index - 1].operatorAfter === '||') {
@@ -2241,14 +2241,13 @@ function hasDirectBuildDirectoryRegistration(
   callbackSource: string,
 ): boolean {
   const buildDirectorySentinel = '__wp_typia_build_directory__';
-  const directSource = callbackSource;
   if (
     [
       /\bfunction\s*(?:&\s*)?\(/gu,
       /\bfn\s*(?:&\s*)?\(/gu,
     ].some((pattern) =>
-      [...directSource.matchAll(pattern)].some((match) =>
-        getPhpCodeBraceDepth(directSource, match.index) !== null,
+      [...callbackSource.matchAll(pattern)].some((match) =>
+        getPhpCodeBraceDepth(callbackSource, match.index) !== null,
       ),
     )
   ) {
@@ -2256,8 +2255,8 @@ function hasDirectBuildDirectoryRegistration(
   }
   const assignmentPattern =
     /\$build_dir\s*=\s*([A-Za-z_][A-Za-z0-9_]*_get_build_dir)\s*\(\s*\)\s*;/gu;
-  const assignment = [...directSource.matchAll(assignmentPattern)].find(
-    (match) => getPhpCodeBraceDepth(directSource, match.index) === 1,
+  const assignment = [...callbackSource.matchAll(assignmentPattern)].find(
+    (match) => getPhpCodeBraceDepth(callbackSource, match.index) === 1,
   );
   if (!assignment) {
     return false;
@@ -2274,7 +2273,7 @@ function hasDirectBuildDirectoryRegistration(
   ) {
     return false;
   }
-  const sourceAfterAssignment = directSource.slice(
+  const sourceAfterAssignment = callbackSource.slice(
     assignment.index + assignment[0].length,
   );
   if (

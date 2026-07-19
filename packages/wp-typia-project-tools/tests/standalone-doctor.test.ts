@@ -555,6 +555,29 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     }
   });
 
+  test('handles many unreachable shell exits without recursive expansion', async () => {
+    const targetDir = path.join(tempRoot, 'many-unreachable-shell-exits');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    const skippedExits = Array.from(
+      { length: 64 },
+      () => 'false && exit 0',
+    ).join('; ');
+    packageJson.scripts.sync =
+      `${skippedExits}; tsx scripts/sync-project.ts`;
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('pass');
+  });
+
   test('accepts canonical package commands after shell control operators', async () => {
     const targetDir = path.join(tempRoot, 'background-package-scripts');
     await scaffoldBasic(targetDir);
