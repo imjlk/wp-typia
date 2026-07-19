@@ -100,6 +100,11 @@ type SyncOutputRedactionPatterns = {
   projectRoots: RegExp[];
 };
 
+type SyncFailureOutputSelection = {
+  stderr: boolean;
+  stdout: boolean;
+};
+
 class BoundedSyncOutputCapture {
   private readonly chunks: Buffer[] = [];
   private size = 0;
@@ -133,47 +138,50 @@ class BoundedSyncOutputCapture {
 
 class SanitizedSyncOutputStream {
   private readonly decoder = new StringDecoder('utf8');
-  private readonly overlapLength: number;
+  private readonly maxRootLength: number;
   private readonly patterns: SyncOutputRedactionPatterns;
+  private readonly rootPrefixes: Set<string>;
   private pending = '';
 
   constructor(
     projectRoots: string[],
     private readonly write: (chunk: string) => void,
   ) {
-    this.overlapLength = Math.max(
-      1,
+    this.maxRootLength = Math.max(
+      0,
       ...projectRoots.map((projectRoot) => projectRoot.length),
     );
     this.patterns = createSyncOutputPatterns(projectRoots);
+    this.rootPrefixes = createSyncOutputRootPrefixes(projectRoots);
   }
 
   append(chunk: Buffer): void {
-    this.pending = sanitizeSyncOutputWithPatterns(
-      `${this.pending}${this.decoder.write(chunk)}`,
-      this.patterns,
+    this.pending += this.decoder.write(chunk);
+    const retainedLength = getSyncOutputRetainedSuffixLength(
+      this.pending,
+      this.maxRootLength,
+      this.rootPrefixes,
     );
-    if (this.pending.length <= this.overlapLength) {
+    const emitLength = this.pending.length - retainedLength;
+    if (emitLength === 0) {
       return;
     }
 
-    const emitLength = this.pending.length - this.overlapLength;
-    this.write(this.pending.slice(0, emitLength));
+    this.write(
+      sanitizeSyncOutputWithPatterns(
+        this.pending.slice(0, emitLength),
+        this.patterns,
+      ),
+    );
     this.pending = this.pending.slice(emitLength);
   }
 
   flush(): void {
-    const tail = this.decoder.end();
-    if (tail) {
-      this.pending = sanitizeSyncOutputWithPatterns(
-        `${this.pending}${tail}`,
-        this.patterns,
-      );
-    }
+    this.pending += this.decoder.end();
     if (this.pending.length === 0) {
       return;
     }
-    this.write(this.pending);
+    this.write(sanitizeSyncOutputWithPatterns(this.pending, this.patterns));
     this.pending = '';
   }
 }
@@ -529,6 +537,36 @@ function createSyncOutputPatterns(
   };
 }
 
+function normalizeSyncOutputPath(value: string): string {
+  return value.replace(/\\/gu, '/').toLowerCase();
+}
+
+function createSyncOutputRootPrefixes(projectRoots: string[]): Set<string> {
+  const prefixes = new Set<string>();
+  for (const projectRoot of projectRoots) {
+    const normalizedRoot = normalizeSyncOutputPath(projectRoot);
+    for (let length = 1; length <= normalizedRoot.length; length += 1) {
+      prefixes.add(normalizedRoot.slice(0, length));
+    }
+  }
+  return prefixes;
+}
+
+function getSyncOutputRetainedSuffixLength(
+  output: string,
+  maxRootLength: number,
+  rootPrefixes: Set<string>,
+): number {
+  const maxLength = Math.min(output.length, maxRootLength);
+  for (let length = maxLength; length > 0; length -= 1) {
+    const suffix = normalizeSyncOutputPath(output.slice(-length));
+    if (rootPrefixes.has(suffix)) {
+      return length;
+    }
+  }
+  return 0;
+}
+
 function sanitizeSyncOutputWithPatterns(
   line: string,
   patterns: SyncOutputRedactionPatterns,
@@ -581,7 +619,7 @@ function createSyncExecutionError(
   stdout: string | undefined,
   stderr: string | undefined,
   check: boolean,
-  includeOutputLines: boolean,
+  failureOutput: SyncFailureOutputSelection,
 ): Error {
   const projectRoots = resolveSyncProjectRoots(project.cwd);
   const artifacts = collectSyncArtifactIssues(
@@ -648,9 +686,11 @@ function createSyncExecutionError(
     });
   }
 
-  const outputLines = includeOutputLines
-    ? collectSyncFailureOutputLines(projectRoots, stdout, stderr)
-    : [];
+  const outputLines = collectSyncFailureOutputLines(
+    projectRoots,
+    failureOutput.stdout ? stdout : undefined,
+    failureOutput.stderr ? stderr : undefined,
+  );
   return createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.COMMAND_EXECUTION,
     command: 'sync',
@@ -674,10 +714,8 @@ async function runProjectScript(
     onStdout?: (chunk: string) => void;
   },
 ): Promise<SyncExecutedCommand> {
-  const pipeOutput =
-    options.captureOutput ||
-    options.onStderr !== undefined ||
-    options.onStdout !== undefined;
+  const pipeStderr = options.captureOutput || options.onStderr !== undefined;
+  const pipeStdout = options.captureOutput || options.onStdout !== undefined;
   const stderrCapture = new BoundedSyncOutputCapture();
   const stdoutCapture = new BoundedSyncOutputCapture();
   const projectRoots = resolveSyncProjectRoots(project.cwd);
@@ -690,7 +728,14 @@ async function runProjectScript(
   const child = spawn(plannedCommand.command, plannedCommand.args, {
     cwd: project.cwd,
     shell: process.platform === 'win32',
-    stdio: pipeOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit',
+    stdio:
+      pipeStdout || pipeStderr
+        ? [
+            'inherit',
+            pipeStdout ? 'pipe' : 'inherit',
+            pipeStderr ? 'pipe' : 'inherit',
+          ]
+        : 'inherit',
   });
   let spawnError: Error | undefined;
 
@@ -740,7 +785,10 @@ async function runProjectScript(
       stdout,
       stderr,
       options.check,
-      options.onStderr === undefined && options.onStdout === undefined,
+      {
+        stderr: options.onStderr === undefined,
+        stdout: options.onStdout === undefined,
+      },
     );
   }
 

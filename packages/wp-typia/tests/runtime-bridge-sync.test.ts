@@ -405,6 +405,106 @@ test('sync spawn failures report the operating-system error without an exit code
   });
 });
 
+test('sync failures preserve captured diagnostics from streams without callbacks', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-partial-stream-callback',
+    scripts: {
+      sync: 'node scripts/fail.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'fail.mjs'),
+    [
+      "console.log('streamed stdout detail');",
+      "console.error('captured stderr detail');",
+      'process.exit(1);',
+    ].join('\n'),
+    'utf8',
+  );
+  let streamedStdout = '';
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    cwd: projectDir,
+    onStdout: (chunk) => {
+      streamedStdout += chunk;
+    },
+  }).catch((thrown) => thrown);
+
+  expect(streamedStdout).toContain('streamed stdout detail');
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    'captured stderr detail',
+  );
+  expect((error as { detailLines?: string[] }).detailLines).not.toContain(
+    'streamed stdout detail',
+  );
+});
+
+test('streamed sync output defers root decisions without delaying prompts', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-stream-boundary-prompt',
+    scripts: {
+      sync: 'node scripts/prompt.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  const continuePath = path.join(projectDir, 'continue');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'prompt.mjs'),
+    [
+      "import fs from 'node:fs';",
+      'process.stdout.write(process.cwd());',
+      'await new Promise((resolve) => setTimeout(resolve, 100));',
+      "process.stdout.write('-cache/schema.ts\\n');",
+      "process.stdout.write('Continue? ');",
+      "while (!fs.existsSync('continue')) {",
+      '  await new Promise((resolve) => setTimeout(resolve, 10));',
+      '}',
+    ].join('\n'),
+    'utf8',
+  );
+  let streamedStdout = '';
+  const execution = executeSyncCommand({
+    cwd: projectDir,
+    onStdout: (chunk) => {
+      streamedStdout += chunk;
+      if (
+        streamedStdout.includes('Continue? ') &&
+        !fs.existsSync(continuePath)
+      ) {
+        fs.writeFileSync(continuePath, '', 'utf8');
+      }
+    },
+  });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    execution.then(() => 'completed' as const),
+    new Promise<'timed-out'>((resolve) => {
+      timeout = setTimeout(() => resolve('timed-out'), 2_000);
+    }),
+  ]);
+  if (timeout) {
+    clearTimeout(timeout);
+  }
+  if (outcome === 'timed-out') {
+    fs.writeFileSync(continuePath, '', 'utf8');
+    await execution;
+  }
+
+  expect(outcome).toBe('completed');
+  expect(streamedStdout).toContain(
+    '<redacted-path-prefix>-cache/schema.ts',
+  );
+  expect(streamedStdout).not.toContain('<project-root>-cache/schema.ts');
+  expect(streamedStdout).not.toContain(projectDir);
+  expect(streamedStdout).not.toContain(fs.realpathSync(projectDir));
+});
+
 test('captured sync output keeps the child stdin inherited', async () => {
   if (process.platform === 'win32') {
     return;
