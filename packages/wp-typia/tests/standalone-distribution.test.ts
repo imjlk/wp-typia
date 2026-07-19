@@ -297,7 +297,7 @@ describe("wp-typia standalone distribution", () => {
 		expect(dryRunOutput).toContain("Dry run for Demo Basic");
 		expect(dryRunOutput).toContain("write src/block-metadata.ts");
 		expect(dryRunOutput).toContain("write src/manifest-document.ts");
-		expect(dryRunOutput).toContain("write src/typia-validator.php");
+		expect(dryRunOutput).not.toContain("write src/typia-validator.php");
 
 		const createdOutput = runUtf8Command(
 			installedBinaryPath,
@@ -338,11 +338,11 @@ describe("wp-typia standalone distribution", () => {
 			],
 			{ cwd: stagingRoot },
 		);
-		expect(persistenceDryRunOutput).toContain(
+		expect(persistenceDryRunOutput).not.toContain(
 			"write src/typia.schema.json",
 		);
-		expect(persistenceDryRunOutput).toContain("write src/api-client.ts");
-		expect(persistenceDryRunOutput).toContain(
+		expect(persistenceDryRunOutput).not.toContain("write src/api-client.ts");
+		expect(persistenceDryRunOutput).not.toContain(
 			"write src/api-schemas/state-query.schema.json",
 		);
 	}, { timeout: 30_000 });
