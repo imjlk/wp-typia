@@ -1204,7 +1204,7 @@ function hasCanonicalSyncReportRendering(
   reportBinding: string,
 ): boolean {
   if (statements.length === 0) {
-    return true;
+    return false;
   }
   const helper = getSingleTopLevelFunction(sourceFile, 'printHumanReport');
   const reportGlobals = new Set(['console', 'JSON']);
@@ -1529,7 +1529,8 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         return [];
       }
       const exitCall = finalStatement.expression;
-      return ts.isCallExpression(exitCall) &&
+      return (
+        ts.isCallExpression(exitCall) &&
         ts.isPropertyAccessExpression(exitCall.expression) &&
         ts.isIdentifier(exitCall.expression.expression) &&
         exitCall.expression.expression.text === 'process' &&
@@ -1537,6 +1538,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
         exitCall.arguments.length === 1 &&
         ts.isNumericLiteral(exitCall.arguments[0]) &&
         exitCall.arguments[0].text === '1'
+      )
         ? [statementIndex]
         : [];
     },

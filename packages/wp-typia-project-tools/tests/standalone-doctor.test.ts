@@ -857,51 +857,19 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'scripts',
       'sync-types-to-block-json.ts',
     );
-    fs.writeFileSync(
-      syncScriptPath,
-      [
-        "import { runSyncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';",
-        "const paths = { blockJsonFile: 'src/block.json' };",
-        'function parseCliOptions(argv: string[]) {',
-        '  const options = { check: false, failOnLossy: false, strict: false };',
-        '  for (const argument of argv) {',
-        "    if (argument === '--strict') {",
-        '      options.strict = true;',
-        '      continue;',
-        '    }',
-        "    if (argument === '--fail-on-lossy') {",
-        '      options.failOnLossy = true;',
-        '      continue;',
-        '    }',
-        "    if (argument === '--check') {",
-        '      options.check = true;',
-        '      continue;',
-        '    }',
-        "    throw new Error(`Unknown flag: ${argument}`);",
-        '  }',
-        '  return options;',
-        '}',
-        'async function main() {',
-        '  const options = parseCliOptions(process.argv.slice(2));',
-        '  const report = await runSyncBlockMetadata({',
-        '    ...paths,',
-        "    ['sourceTypeName']: 'DynamicSyncConfigAttributes',",
-        "    typesFile: 'src/types.ts',",
-        '  }, {',
-        '    check: options.check,',
-        '    failOnLossy: options.failOnLossy,',
-        '    strict: options.strict,',
-        '  });',
-        "  if (report.status === 'error') {",
-        '    process.exitCode = 1;',
-        '  }',
-        '}',
-        'main().catch(() => {',
-        '  process.exit(1);',
-        '});',
-        '',
-      ].join('\n'),
-    );
+    const original = fs.readFileSync(syncScriptPath, 'utf8');
+    const source = original
+      .replace(
+        'import { runSyncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";',
+        [
+          'import { runSyncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";',
+          'const paths = { blockJsonFile: "src/block.json" };',
+        ].join('\n'),
+      )
+      .replace('    blockJsonFile: "src/block.json",', '    ...paths,')
+      .replace('    sourceTypeName:', '    ["sourceTypeName"]:');
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncScriptPath, source);
 
     const checks = await getDoctorChecks(targetDir);
     const sourceLayoutCheck = getCheck(
@@ -1274,8 +1242,20 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     }
   }, 20_000);
 
-  test('rejects side effects between metadata sync and report handling', async () => {
+  test('rejects missing or side-effectful metadata report handling', async () => {
     const mutations = [
+      [
+        'missing-rendering',
+        [
+          '  if (options.report === "json") {',
+          '    process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`);',
+          '  } else {',
+          '    printHumanReport(options, report);',
+          '  }',
+          '',
+        ].join('\n'),
+        '',
+      ],
       [
         'extra-statement',
         '  if (options.report === "json") {',
