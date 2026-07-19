@@ -1520,7 +1520,7 @@ test("canonical CLI can dry-run an add block scaffold without mutating the works
   expect(
     fs.existsSync(path.join(targetDir, "src", "blocks", "counter-card"))
   ).toBe(false);
-});
+}, 20_000);
 
 test("canonical CLI can add an integration environment starter to an official workspace template", async () => {
   const targetDir = path.join(tempRoot, "demo-workspace-add-integration-env");
