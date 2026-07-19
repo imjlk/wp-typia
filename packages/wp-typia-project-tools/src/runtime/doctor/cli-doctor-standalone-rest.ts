@@ -579,26 +579,14 @@ function containsParserControlFlow(
     check === 'unsafe-continue' &&
     isNonCheckArgumentGuard(node, argumentBinding)
   ) {
-    return (
-      containsParserControlFlow(
-        node.thenStatement,
-        argumentBinding,
-        check,
-        breakableDepth,
-        loopDepth,
-        true,
-        activeLabels,
-      ) ||
-      (node.elseStatement !== undefined &&
-        containsParserControlFlow(
-          node.elseStatement,
-          argumentBinding,
-          check,
-          breakableDepth,
-          loopDepth,
-          outerContinueIsSafe,
-          activeLabels,
-        ))
+    return containsParserControlFlow(
+      node.thenStatement,
+      argumentBinding,
+      check,
+      breakableDepth,
+      loopDepth,
+      true,
+      activeLabels,
     );
   }
 
