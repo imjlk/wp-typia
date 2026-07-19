@@ -242,6 +242,7 @@ interface ScaffoldProjectOptions {
 	profile?: CreateProfileId;
 	projectDir: string;
 	repositoryReference?: string;
+	/** Whether compiler-backed metadata and REST artifacts should be seeded. */
 	seedCompilerArtifacts?: boolean;
 	templateId: string;
 	variant?: string;

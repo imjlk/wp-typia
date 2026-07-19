@@ -16,6 +16,7 @@ interface PersistenceTemplateVariablesLike {
 	title: string;
 }
 
+/** Inputs used to plan and sync one persistence scaffold's REST artifacts. */
 export interface SyncPersistenceRestArtifactsOptions {
 	apiTypesFile: string;
 	outputDir: string;
