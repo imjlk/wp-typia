@@ -82,7 +82,7 @@ type RegistrationCompatibleBlockVariationIsActive<
   | BlockVariationIsActiveCallback<TAttributes>;
 
 export interface BlockVariationExampleInnerBlock {
-  readonly attributes: BlockAttributes;
+  readonly attributes?: BlockAttributes;
   readonly innerBlocks?: readonly BlockVariationExampleInnerBlock[];
   readonly name: string;
   readonly [key: string]: unknown;
@@ -118,7 +118,7 @@ type PeerBackedOpaqueVariationValue = BlockAttributes[string];
 export interface BlockVariation<
   TAttributes extends BlockAttributes = BlockAttributes,
 > {
-  readonly attributes?: TAttributes;
+  readonly attributes?: BlockVariationAttributeMap<TAttributes>;
   readonly category?: string;
   readonly description?: string;
   readonly example?: PeerBackedOpaqueVariationValue;
