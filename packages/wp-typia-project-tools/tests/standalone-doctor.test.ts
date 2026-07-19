@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import {
@@ -88,6 +89,32 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(createDoctorRunSummary(checks).exitCode).toBe(1);
   });
 
+  test('does not classify generated compound scaffolds as single-block projects', async () => {
+    const targetDir = path.join(tempRoot, 'compound-project');
+    await scaffoldProject({
+      projectDir: targetDir,
+      templateId: 'compound',
+      packageManager: 'npm',
+      noInstall: true,
+      answers: {
+        author: 'Test Runner',
+        description: 'Compound doctor fixture',
+        namespace: 'doctor-demo',
+        slug: 'compound-project',
+        title: 'Compound Doctor Fixture',
+      },
+    });
+
+    const checks = await getDoctorChecks(path.join(targetDir, 'src'));
+    const scopeCheck = checks.find((check) => check.label === 'Doctor scope');
+
+    expect(tryResolveStandaloneScaffoldProject(targetDir)).toBeNull();
+    expect(scopeCheck?.detail).toContain('Scope: environment-only');
+    expect(
+      checks.some((check) => check.code?.startsWith('wp-typia.standalone.')),
+    ).toBe(false);
+  });
+
   test('does not accept dependencies resolved only from an ancestor', async () => {
     const ancestorDir = path.join(tempRoot, 'ancestor-dependencies');
     const targetDir = path.join(ancestorDir, 'standalone-project');
@@ -106,6 +133,43 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(dependenciesCheck?.status).toBe('fail');
     expect(dependenciesCheck?.detail).toContain('@wp-typia/block-runtime');
+    expect(dependenciesCheck?.detail).toContain('typescript');
+  });
+
+  test('rejects ancestor resolutions hidden by incomplete local package stubs', async () => {
+    const ancestorDir = path.join(tempRoot, 'ancestor-stub-dependencies');
+    const targetDir = path.join(ancestorDir, 'standalone-project');
+    await scaffoldBasic(targetDir);
+    fs.symlinkSync(
+      path.resolve(import.meta.dir, '..', 'node_modules'),
+      path.join(ancestorDir, 'node_modules'),
+      'dir',
+    );
+    const localTypeScriptDir = path.join(
+      targetDir,
+      'node_modules',
+      'typescript',
+    );
+    fs.mkdirSync(localTypeScriptDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(localTypeScriptDir, 'README.md'),
+      'incomplete local package stub\n',
+    );
+    const resolvedTypeScript = createRequire(
+      path.join(targetDir, 'package.json'),
+    ).resolve('typescript');
+
+    expect(
+      path.relative(localTypeScriptDir, resolvedTypeScript).startsWith('..'),
+    ).toBe(true);
+
+    const checks = await getDoctorChecks(targetDir);
+    const dependenciesCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+
+    expect(dependenciesCheck?.status).toBe('fail');
     expect(dependenciesCheck?.detail).toContain('typescript');
   });
 
@@ -134,6 +198,25 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(getCheck(checks, STANDALONE_DOCTOR_CODES.ARTIFACTS)?.status).toBe(
       'warn',
     );
+  }, 20_000);
+
+  test('requires the installed Typia webpack plugin from the standalone project', async () => {
+    const targetDir = path.join(tempRoot, 'missing-typia-webpack-plugin');
+    await scaffoldBasic(targetDir);
+    runGeneratedScript(targetDir, 'scripts/sync-types-to-block-json.ts');
+    fs.rmSync(path.join(targetDir, 'node_modules', '@typia', 'unplugin'), {
+      force: true,
+      recursive: true,
+    });
+
+    const checks = await getDoctorChecks(targetDir);
+    const dependenciesCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+
+    expect(dependenciesCheck?.status).toBe('fail');
+    expect(dependenciesCheck?.detail).toContain('@typia/unplugin/webpack');
   }, 20_000);
 
   test('requires the metadata-core runtime subpath used by sync', async () => {
@@ -185,6 +268,30 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
       'sync script must invoke `tsx scripts/sync-project.ts`',
+    );
+  });
+
+  test('rejects package scripts that only echo canonical command text', async () => {
+    const targetDir = path.join(tempRoot, 'echoed-package-scripts');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync = "echo 'tsx scripts/sync-project.ts'";
+    packageJson.scripts.build =
+      "echo 'npm run sync -- --check' && wp-scripts build --experimental-modules";
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const checks = await getDoctorChecks(targetDir);
+    const packageCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.PACKAGE);
+
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain(
+      'sync script must invoke `tsx scripts/sync-project.ts`',
+    );
+    expect(packageCheck?.detail).toContain(
+      'build script must invoke `npm run sync -- --check`',
     );
   });
 
@@ -508,7 +615,26 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(bootstrapCheck?.detail).toContain('missing a Plugin Name header');
   });
 
-  test('rejects a bootstrap without block registration wiring', async () => {
+  test('accepts WordPress-recognized Plugin Name lines later in the header region', async () => {
+    const targetDir = path.join(tempRoot, 'later-plugin-header');
+    await scaffoldBasic(targetDir);
+    const bootstrapPath = path.join(targetDir, 'later-plugin-header.php');
+    const bootstrap = fs
+      .readFileSync(bootstrapPath, 'utf8')
+      .replace(/^[\t ]*\*[\t ]*Plugin Name:[^\r\n]*(?:\r?\n)?/mu, '')
+      .replace(/\*\//u, '*/\n// Plugin Name: Later Header Fixture');
+    fs.writeFileSync(bootstrapPath, bootstrap);
+
+    const checks = await getDoctorChecks(targetDir);
+    const bootstrapCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+
+    expect(bootstrapCheck?.status).toBe('pass');
+  });
+
+  test('rejects bootstrap registration text inside PHP strings', async () => {
     const targetDir = path.join(tempRoot, 'missing-block-registration');
     await scaffoldBasic(targetDir);
     const bootstrapPath = path.join(
@@ -520,7 +646,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       bootstrapPath,
       bootstrap.replace(
         /\s*register_block_type\( \$build_dir \);/u,
-        '\n\t$registered = false;',
+        "\n\t$message = 'register_block_type( $build_dir );';",
       ),
     );
 

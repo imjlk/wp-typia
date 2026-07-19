@@ -15,6 +15,10 @@ import {
   formatRunScript,
   inferPackageManagerId,
 } from '../shared/package-managers.js';
+import {
+  hasPhpFunctionCall,
+  hasPhpFunctionCallWithStringArgument,
+} from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
   createDoctorCheck,
@@ -70,6 +74,11 @@ const REQUIRED_INSTALLED_PACKAGES = [
     packageName: '@wordpress/scripts',
     resolutionSpecifier: '@wordpress/scripts/bin/wp-scripts.js',
   },
+  {
+    diagnosticName: '@typia/unplugin/webpack',
+    packageName: '@typia/unplugin',
+    resolutionSpecifier: '@typia/unplugin/webpack',
+  },
 ] as const;
 
 /** Stable codes emitted by standalone-scaffold doctor rows. */
@@ -118,6 +127,12 @@ function isStandaloneScaffoldCandidate(
   packageJson: StandalonePackageJson,
 ): boolean {
   if (packageJson.wpTypia?.projectType === 'workspace') {
+    return false;
+  }
+  if (fs.existsSync(path.join(projectDir, 'src', 'blocks'))) {
+    // Compound and workspace scaffolds share sync scripts and dependencies
+    // with the single-block template, but their canonical source boundary is
+    // src/blocks/* rather than root src/types.ts + src/save.tsx.
     return false;
   }
 
@@ -482,6 +497,69 @@ function parseStandaloneSyncConfig(
   };
 }
 
+function splitShellCommandSegments(script: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quote: "'" | '"' | null = null;
+
+  function pushCurrent(): void {
+    const normalized = current.replace(/\s+/gu, ' ').trim();
+    if (normalized.length > 0) {
+      segments.push(normalized);
+    }
+    current = '';
+  }
+
+  for (let index = 0; index < script.length; index += 1) {
+    const character = script[index];
+    if (character === '\\' && quote !== "'") {
+      current += character;
+      if (script[index + 1] !== undefined) {
+        current += script[index + 1];
+        index += 1;
+      }
+      continue;
+    }
+    if (quote) {
+      current += character;
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      current += character;
+      continue;
+    }
+    if (
+      character === ';' ||
+      character === '\n' ||
+      character === '\r' ||
+      (character === '&' && script[index + 1] === '&') ||
+      (character === '|' && script[index + 1] === '|')
+    ) {
+      pushCurrent();
+      if (
+        (character === '&' && script[index + 1] === '&') ||
+        (character === '|' && script[index + 1] === '|')
+      ) {
+        index += 1;
+      }
+      continue;
+    }
+    current += character;
+  }
+  pushCurrent();
+  return segments;
+}
+
+function shellScriptInvokesCommand(script: string, command: string): boolean {
+  return splitShellCommandSegments(script).some(
+    (segment) => segment === command || segment.startsWith(`${command} `),
+  );
+}
+
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
 ): DoctorCheck {
@@ -500,17 +578,17 @@ function getPackageMetadataCheck(
   );
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const scriptRequirements = [
-    { fragments: ['tsx scripts/sync-project.ts'], name: 'sync' },
+    { commands: ['tsx scripts/sync-project.ts'], name: 'sync' },
     {
-      fragments: ['tsx scripts/sync-types-to-block-json.ts'],
+      commands: ['tsx scripts/sync-types-to-block-json.ts'],
       name: 'sync-types',
     },
     {
-      fragments: [syncCheckCommand, 'wp-scripts build'],
+      commands: [syncCheckCommand, 'wp-scripts build'],
       name: 'build',
     },
     {
-      fragments: [syncCheckCommand, 'tsc --noEmit'],
+      commands: [syncCheckCommand, 'tsc --noEmit'],
       name: 'typecheck',
     },
   ] as const;
@@ -521,17 +599,17 @@ function getPackageMetadataCheck(
       issues.push(`package.json must define the ${scriptName} script`);
       continue;
     }
-    const normalizedScript = script.replace(/\s+/gu, ' ').trim();
-    for (const fragment of requirement.fragments) {
-      if (!normalizedScript.includes(fragment)) {
+    for (const command of requirement.commands) {
+      if (!shellScriptInvokesCommand(script, command)) {
         issues.push(
-          `package.json ${requirement.name} script must invoke \`${fragment}\``,
+          `package.json ${requirement.name} script must invoke \`${command}\``,
         );
       }
     }
   }
   for (const packageName of [
     ...REQUIRED_RUNTIME_PACKAGES,
+    '@typia/unplugin',
     '@wordpress/scripts',
     'tsx',
     'typescript',
@@ -589,15 +667,16 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
   const headerRegion = source
     .slice(0, WORDPRESS_PLUGIN_HEADER_SCAN_BYTES)
     .replace(/^\uFEFF/u, '');
-  const phpBody = headerRegion.replace(/^\s*<\?php\s*/u, '');
-  const leadingComment = /^\s*\/\*[\s\S]*?\*\//u.exec(phpBody)?.[0] ?? '';
   const hasPluginHeader =
-    /^[\t ]*\*?[\t ]*Plugin Name\s*:\s*\S.*$/mu.test(leadingComment);
+    /^(?:[\t ]*<\?php)?[\t \/*#@]*Plugin Name\s*:\s*\S.*$/imu.test(
+      headerRegion,
+    );
   const executablePhp = source
     .replace(/\/\*[\s\S]*?\*\//gu, '')
     .replace(/(^|[\r\n])[\t ]*(?:\/\/|#)[^\r\n]*/gmu, '$1');
-  const hasRegistrationCall = /\bregister_block_type\s*\(/u.test(executablePhp);
+  const hasRegistrationCall = hasPhpFunctionCall(source, 'register_block_type');
   const hasRegistrationHook =
+    hasPhpFunctionCallWithStringArgument(source, 'add_action', 'init') &&
     /\badd_action\s*\(\s*(['"])init\1\s*,\s*(['"])[A-Za-z_][A-Za-z0-9_]*_register_block\2\s*\)/u.test(
       executablePhp,
     );
@@ -654,15 +733,20 @@ function canResolveFromProject(
 ): boolean {
   const projectRequire = createRequire(path.join(projectDir, 'package.json'));
   try {
-    const resolvedPath = projectRequire.resolve(resolutionSpecifier);
     const localPackageEntry = path.join(
       projectDir,
       'node_modules',
       ...packageName.split('/'),
     );
-    return (
-      fs.existsSync(localPackageEntry) ||
-      isProjectLocalRelativePath(path.relative(projectDir, resolvedPath))
+    if (!fs.existsSync(localPackageEntry)) {
+      return false;
+    }
+    const localPackageRoot = fs.realpathSync(localPackageEntry);
+    const resolvedPath = fs.realpathSync(
+      projectRequire.resolve(resolutionSpecifier),
+    );
+    return isProjectLocalRelativePath(
+      path.relative(localPackageRoot, resolvedPath),
     );
   } catch {
     return false;
