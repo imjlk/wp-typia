@@ -292,12 +292,16 @@ function getCanonicalSyncImportBindings(sourceFile: ts.SourceFile): Set<string> 
       !ts.isStringLiteral(statement.moduleSpecifier) ||
       statement.moduleSpecifier.text !==
         '@wp-typia/block-runtime/metadata-core' ||
+      statement.importClause?.isTypeOnly ||
       !statement.importClause?.namedBindings ||
       !ts.isNamedImports(statement.importClause.namedBindings)
     ) {
       continue;
     }
     for (const element of statement.importClause.namedBindings.elements) {
+      if (element.isTypeOnly) {
+        continue;
+      }
       const importedName = (element.propertyName ?? element.name).text;
       if (
         importedName === 'runSyncBlockMetadata' ||
@@ -683,13 +687,17 @@ function getNamedImportBindingsFromModule(
       !ts.isImportDeclaration(statement) ||
       !ts.isStringLiteral(statement.moduleSpecifier) ||
       statement.moduleSpecifier.text !== moduleName ||
+      statement.importClause?.isTypeOnly ||
       !statement.importClause?.namedBindings ||
       !ts.isNamedImports(statement.importClause.namedBindings)
     ) {
       continue;
     }
     for (const element of statement.importClause.namedBindings.elements) {
-      if ((element.propertyName ?? element.name).text === importedName) {
+      if (
+        !element.isTypeOnly &&
+        (element.propertyName ?? element.name).text === importedName
+      ) {
         bindings.add(element.name.text);
       }
     }
@@ -707,6 +715,7 @@ function hasCanonicalDefaultImport(
       ts.isImportDeclaration(statement) &&
       ts.isStringLiteral(statement.moduleSpecifier) &&
       statement.moduleSpecifier.text === moduleName &&
+      !statement.importClause?.isTypeOnly &&
       statement.importClause?.name?.text === localName,
   );
 }
@@ -771,25 +780,16 @@ function isDirectRunSyncCall(
 function containsCompletion(
   node: ts.Node,
   isTerminal: (candidate: ts.Node) => boolean,
-  shouldDescend: (candidate: ts.Node) => boolean = () => true,
 ): boolean {
-  if (
-    ts.isFunctionDeclaration(node) ||
-    ts.isFunctionExpression(node) ||
-    ts.isArrowFunction(node) ||
-    ts.isMethodDeclaration(node)
-  ) {
+  if (ts.isFunctionLike(node)) {
     return false;
   }
   if (isTerminal(node)) {
     return true;
   }
-  if (!shouldDescend(node)) {
-    return false;
-  }
   let found = false;
   ts.forEachChild(node, (child) => {
-    if (!found && containsCompletion(child, isTerminal, shouldDescend)) {
+    if (!found && containsCompletion(child, isTerminal)) {
       found = true;
     }
   });
@@ -817,7 +817,7 @@ function containsReturnCompletion(node: ts.Node): boolean {
 function isNonCheckArgumentGuard(
   node: ts.Node,
   argumentBinding: string,
-): boolean {
+): node is ts.IfStatement {
   if (
     !ts.isIfStatement(node) ||
     node.elseStatement ||
@@ -840,16 +840,89 @@ function isNonCheckArgumentGuard(
   );
 }
 
-function containsCheckSkippingCompletion(
+type ParserControlFlowCheck = 'outer-break-or-return' | 'unsafe-continue';
+
+function isLoopStatement(node: ts.Node): boolean {
+  return (
+    ts.isDoStatement(node) ||
+    ts.isForInStatement(node) ||
+    ts.isForOfStatement(node) ||
+    ts.isForStatement(node) ||
+    ts.isWhileStatement(node)
+  );
+}
+
+function containsParserControlFlow(
   node: ts.Node,
   argumentBinding: string,
+  check: ParserControlFlowCheck,
+  breakableDepth = 0,
+  loopDepth = 0,
+  outerContinueIsSafe = false,
 ): boolean {
-  return containsCompletion(
-    node,
-    (candidate) =>
-      ts.isBreakStatement(candidate) || ts.isContinueStatement(candidate),
-    (candidate) => !isNonCheckArgumentGuard(candidate, argumentBinding),
-  );
+  if (ts.isFunctionLike(node)) {
+    return false;
+  }
+  if (check === 'outer-break-or-return') {
+    if (ts.isReturnStatement(node)) {
+      return true;
+    }
+    if (ts.isBreakStatement(node)) {
+      return node.label !== undefined || breakableDepth === 0;
+    }
+  } else if (ts.isContinueStatement(node)) {
+    return (
+      node.label !== undefined ||
+      (loopDepth === 0 && !outerContinueIsSafe)
+    );
+  }
+
+  if (
+    check === 'unsafe-continue' &&
+    isNonCheckArgumentGuard(node, argumentBinding)
+  ) {
+    return (
+      containsParserControlFlow(
+        node.thenStatement,
+        argumentBinding,
+        check,
+        breakableDepth,
+        loopDepth,
+        true,
+      ) ||
+      (node.elseStatement !== undefined &&
+        containsParserControlFlow(
+          node.elseStatement,
+          argumentBinding,
+          check,
+          breakableDepth,
+          loopDepth,
+          outerContinueIsSafe,
+        ))
+    );
+  }
+
+  const nextBreakableDepth =
+    breakableDepth +
+    (isLoopStatement(node) || ts.isSwitchStatement(node) ? 1 : 0);
+  const nextLoopDepth = loopDepth + (isLoopStatement(node) ? 1 : 0);
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (
+      !found &&
+      containsParserControlFlow(
+        child,
+        argumentBinding,
+        check,
+        nextBreakableDepth,
+        nextLoopDepth,
+        outerContinueIsSafe,
+      )
+    ) {
+      found = true;
+    }
+  });
+  return found;
 }
 
 function isResultPropertyAccess(
@@ -1211,11 +1284,22 @@ function hasCanonicalCheckGuard(
   if (guardIndexes.length !== 1) {
     return false;
   }
-  return !body.statements
-    .slice(0, guardIndexes[0])
-    .some((statement) =>
-      containsCheckSkippingCompletion(statement, argumentBinding),
-    );
+  return (
+    !containsParserControlFlow(
+      body,
+      argumentBinding,
+      'outer-break-or-return',
+    ) &&
+    !body.statements
+      .slice(0, guardIndexes[0])
+      .some((statement) =>
+        containsParserControlFlow(
+          statement,
+          argumentBinding,
+          'unsafe-continue',
+        ),
+      )
+  );
 }
 
 function getCanonicalForOfArgument(
@@ -1344,7 +1428,6 @@ function hasCanonicalCheckParser(sourceFile: ts.SourceFile): boolean {
   const returnStatement = parser.body.statements[2];
   return (
     loop !== null &&
-    !containsReturnCompletion(loop.body) &&
     hasCanonicalCheckGuard(
       loop.body,
       loop.argumentBinding,

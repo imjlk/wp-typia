@@ -909,6 +909,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'for (let index = 0; index < argv.length; index += 1) {',
         'for (let index = 0; index < argv.length; index += 1) {\n    if ( true ) { break; }',
       ],
+      [
+        'prior-flag-break',
+        'options.strict = true;\n      continue;',
+        'options.strict = true;\n      break;',
+      ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
       const targetDir = path.join(tempRoot, `sync-types-parser-${name}`);
@@ -966,6 +971,104 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       expect(sourceLayoutCheck?.status).toBe('pass');
     }
   }, 20_000);
+
+  test('rejects type-only imports for executable sync bindings', async () => {
+    const cases = [
+      {
+        name: 'metadata-runner',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+        canonical: 'import { runSyncBlockMetadata }',
+        damaged: 'import { type runSyncBlockMetadata }',
+      },
+      {
+        name: 'spawn-runner',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+        canonical: 'import { spawnSync }',
+        damaged: 'import { type spawnSync }',
+      },
+      {
+        name: 'fs-default',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+        canonical: "import fs from 'node:fs';",
+        damaged: "import type fs from 'node:fs';",
+      },
+      {
+        name: 'rest-runner',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+        canonical: '\tsyncEndpointClient,',
+        damaged: '\ttype syncEndpointClient,',
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(
+        tempRoot,
+        `type-only-runtime-${fixture.name}`,
+      );
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(fixture.canonical, fixture.damaged);
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 30_000);
+
+  test('allows nested loop breaks and accessor returns that preserve sync flow', async () => {
+    const targetDir = path.join(tempRoot, 'nested-local-completions');
+    await scaffoldBasic(targetDir);
+    const syncTypesPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const syncTypes = fs.readFileSync(syncTypesPath, 'utf8');
+    const syncTypesWithNestedLoop = syncTypes.replace(
+      '    if (argument === "--check") {',
+      [
+        '    for (const item of [true]) {',
+        '      if (!item) break;',
+        '    }',
+        '',
+        '    if (argument === "--check") {',
+      ].join('\n'),
+    );
+    expect(syncTypesWithNestedLoop).not.toBe(syncTypes);
+    fs.writeFileSync(syncTypesPath, syncTypesWithNestedLoop);
+
+    const syncProjectPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-project.ts',
+    );
+    const syncProject = fs.readFileSync(syncProjectPath, 'utf8');
+    const syncProjectWithAccessor = syncProject.replace(
+      "\tconsole.error( '❌ Project sync failed:', error );",
+      [
+        "\tconsole.error( '❌ Project sync failed:', error );",
+        '\tclass Diagnostic {',
+        '\t\tget enabled() { return true; }',
+        '\t}',
+      ].join('\n'),
+    );
+    expect(syncProjectWithAccessor).not.toBe(syncProject);
+    fs.writeFileSync(syncProjectPath, syncProjectWithAccessor);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('pass');
+  });
 
   test('rejects sync-types calls hidden after conditional early returns', async () => {
     const targetDir = path.join(tempRoot, 'sync-types-after-return');
@@ -1268,7 +1371,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  });
+  }, 20_000);
 
   test('rejects REST helpers that stop parsing the process --check flag', async () => {
     const mutations = [
@@ -1283,6 +1386,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'nested-unreachable',
         'for ( const argument of argv ) {',
         'for ( const argument of argv ) {\n\t\tif ( true ) { break; }',
+      ],
+      [
+        'early-return',
+        'for ( const argument of argv ) {',
+        'for ( const argument of argv ) {\n\t\tif ( true ) { return options; }',
       ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -1304,7 +1412,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  }, 20_000);
+  }, 60_000);
 
   test('rejects REST helpers that swallow top-level failures', async () => {
     const targetDir = path.join(tempRoot, 'rest-without-failure-exit');
