@@ -216,6 +216,7 @@ describe('package version cache invalidation', () => {
     ).href;
     const {
       DEFAULT_WORDPRESS_ABILITIES_VERSION,
+      DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
       DEFAULT_WORDPRESS_BLOCKS_VERSION,
       DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION,
       DEFAULT_WORDPRESS_CORE_DATA_VERSION,
@@ -333,6 +334,7 @@ describe('package version cache invalidation', () => {
     }
 
     expect(DEFAULT_WORDPRESS_ABILITIES_VERSION).toBe('^0.10.0');
+    expect(DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION).toBe('^12.5.18');
     expect(DEFAULT_WORDPRESS_BLOCKS_VERSION).toBe('~15.19.0');
     expect(DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION).toBe('^0.9.0');
     expect(DEFAULT_WORDPRESS_CORE_DATA_VERSION).toBe('~7.46.0');

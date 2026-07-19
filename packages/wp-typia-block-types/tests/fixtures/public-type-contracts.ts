@@ -342,9 +342,6 @@ const paragraphVariation = defineVariation<ParagraphVariationAttributes>(
 			className: "is-style-balanced",
 		},
 		example: {
-			attributes: {
-				content: "Nested preview content",
-			},
 			innerBlocks: [
 				{
 					attributes: {
@@ -353,7 +350,7 @@ const paragraphVariation = defineVariation<ParagraphVariationAttributes>(
 					name: "core/paragraph",
 				},
 			],
-			name: "core/group",
+			viewportWidth: 640,
 		},
 		isActive: paragraphActiveMarkers,
 		name: "example-balanced-paragraph",
@@ -585,6 +582,17 @@ const invalidVariationActiveAttribute = defineVariation<HeadingVariationAttribut
 	},
 );
 
+const invalidTitlelessVariation = defineVariation<ParagraphVariationAttributes>(
+	"core/paragraph",
+	// @ts-expect-error WordPress variation registration requires a title.
+	{
+		attributes: {
+			className: "is-style-titleless",
+		},
+		name: "invalid-titleless-variation",
+	},
+);
+
 // @ts-expect-error Binding args must match the source args declared by defineBindingSource().
 const invalidProfileBinding: Binding<typeof profileDataSource, { field: "missing" }> = {
 	args: {
@@ -615,6 +623,7 @@ void invalidNamedColor;
 void invalidVariationScope;
 void invalidTextAlignments;
 void invalidVariationActiveAttribute;
+void invalidTitlelessVariation;
 void invalidProfileBinding;
 void invalidBindableAttributes;
 void invalidTypedProfileMetadata;

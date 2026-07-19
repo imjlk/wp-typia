@@ -11,6 +11,7 @@ import {
 	buildRetrofitPlanSummary,
 } from "../src/runtime/cli-init-plan-presentation.js";
 import {
+	DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
 	DEFAULT_WORDPRESS_BLOCKS_VERSION,
 	getPackageVersions,
 } from "../src/runtime/package-versions.js";
@@ -128,6 +129,15 @@ describe("wp-typia init", () => {
 				(dependency) => dependency.name === "@wp-typia/block-runtime",
 			),
 		).toBe(true);
+		expect(
+			plan.packageChanges.addDevDependencies.find(
+				(dependency) => dependency.name === "@types/wordpress__blocks",
+			),
+		).toEqual({
+			action: "add",
+			name: "@types/wordpress__blocks",
+			requiredValue: DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
+		});
 		expect(
 			plan.packageChanges.addDevDependencies.find(
 				(dependency) => dependency.name === "@wordpress/blocks",
@@ -267,6 +277,9 @@ describe("wp-typia init", () => {
 			"Apply mode writes package.json and generated helper files with rollback-on-failure protection.",
 		);
 		expect(packageJson.packageManager).toBe("pnpm@8.3.1");
+		expect(packageJson.devDependencies?.["@types/wordpress__blocks"]).toBe(
+			DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
+		);
 		expect(packageJson.devDependencies?.["@wordpress/blocks"]).toBe(
 			DEFAULT_WORDPRESS_BLOCKS_VERSION,
 		);
@@ -435,6 +448,8 @@ describe("wp-typia init", () => {
 					},
 					devDependencies: {
 						"@typia/unplugin": versions.typiaUnpluginPackageVersion,
+						"@types/wordpress__blocks":
+							DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
 						"@wordpress/blocks": DEFAULT_WORDPRESS_BLOCKS_VERSION,
 						"@wp-typia/block-runtime": versions.blockRuntimePackageVersion,
 						"@wp-typia/block-types": versions.blockTypesPackageVersion,

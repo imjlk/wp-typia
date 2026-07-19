@@ -44,13 +44,23 @@ export type BlockVariationAttributeMap<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = Partial<TAttributes> & BlockAttributes;
 
-export type BlockVariationInnerBlockTemplate = [
+export type BlockVariationInnerBlockTemplate = readonly [
   name: string,
-  attributes?: BlockAttributes,
-  innerBlocks?: BlockVariationInnerBlockTemplate[],
+  attributes?: Readonly<BlockAttributes>,
+  innerBlocks?: readonly BlockVariationInnerBlockTemplate[],
 ];
 
-export type BlockVariationInnerBlocks = BlockVariationInnerBlockTemplate[];
+export type BlockVariationInnerBlocks =
+  readonly BlockVariationInnerBlockTemplate[];
+
+type RegistrationCompatibleBlockVariationInnerBlockTemplate = [
+  name: string,
+  attributes?: BlockAttributes,
+  innerBlocks?: RegistrationCompatibleBlockVariationInnerBlockTemplate[],
+];
+
+type RegistrationCompatibleBlockVariationInnerBlocks =
+  RegistrationCompatibleBlockVariationInnerBlockTemplate[];
 
 type BlockVariationIsActiveCallback<
   TAttributes extends BlockAttributes = BlockAttributes,
@@ -75,16 +85,19 @@ export interface BlockVariationExampleInnerBlock {
   readonly attributes: BlockAttributes;
   readonly innerBlocks?: readonly BlockVariationExampleInnerBlock[];
   readonly name: string;
+  readonly [key: string]: unknown;
 }
 
-export type BlockVariationExample<
+export interface BlockVariationExample<
   TAttributes extends BlockAttributes = BlockAttributes,
-> =
-  | BlockVariationExampleInnerBlock
-  | {
-      readonly attributes: BlockVariationAttributeMap<TAttributes>;
-      readonly innerBlocks?: BlockVariationInnerBlocks;
-    };
+> {
+  readonly attributes?: BlockVariationAttributeMap<TAttributes>;
+  readonly innerBlocks?:
+    | BlockVariationInnerBlocks
+    | readonly BlockVariationExampleInnerBlock[];
+  readonly viewportWidth?: number;
+  readonly [key: string]: unknown;
+}
 
 /**
  * Opaque compatibility slot for exact icon and example types owned by the
@@ -110,7 +123,7 @@ export interface BlockVariation<
   readonly description?: string;
   readonly example?: PeerBackedOpaqueVariationValue;
   readonly icon?: PeerBackedOpaqueVariationValue;
-  readonly innerBlocks?: BlockVariationInnerBlocks;
+  readonly innerBlocks?: RegistrationCompatibleBlockVariationInnerBlocks;
   readonly isActive?: RegistrationCompatibleBlockVariationIsActive<TAttributes>;
   readonly isDefault?: boolean;
   readonly keywords?: string[];
