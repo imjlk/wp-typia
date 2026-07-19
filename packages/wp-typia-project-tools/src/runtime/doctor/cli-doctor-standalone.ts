@@ -1701,6 +1701,7 @@ function hasCanonicalCheckGuard(
       argumentBinding,
       'outer-break-or-return',
     ) &&
+    !hasEarlierAbruptCompletion(body.statements, guardIndex) &&
     !body.statements
       .slice(0, guardIndex)
       .some((statement) =>
@@ -2251,6 +2252,8 @@ function getSyncProjectDelegationProblem(
       mainStatements[completionIndex],
       optionsDeclaration.binding,
     );
+  // Basic scaffolds intentionally retain the guarded REST delegation so they
+  // can gain persistence later without replacing the project sync runner.
   const hasRestTail =
     restDelegationIndex === typeDelegationIndex + 1 &&
     restDelegationIndex === completionIndex - 1 &&
@@ -2435,6 +2438,25 @@ function shellScriptPropagatesCommandFailure(
       const operatorAfter = segments[chainIndex].operatorAfter;
       if (operatorAfter === null) {
         return true;
+      }
+      if (operatorAfter === '||') {
+        const fallback = segments[chainIndex + 1];
+        if (!fallback) {
+          return false;
+        }
+        const exitMatch = /^exit(?:\s+([0-9]+))?$/u.exec(
+          fallback.command,
+        );
+        const exitCode = exitMatch?.[1]
+          ? Number.parseInt(exitMatch[1], 10)
+          : null;
+        return (
+          exitMatch !== null &&
+          fallback.operatorAfter !== '&' &&
+          fallback.operatorAfter !== '|' &&
+          fallback.operatorAfter !== '|&' &&
+          (exitCode === null || (exitCode >= 1 && exitCode <= 255))
+        );
       }
       if (operatorAfter !== '&&') {
         return false;
@@ -2818,6 +2840,29 @@ function hasDirectRestRouteRegistration(
   const matches = [
     ...callbackRange.source.matchAll(/\bregister_rest_route\s*\(/gu),
   ];
+  const isInsideArrowFunction = (relativeOffset: number): boolean => {
+    let arrowStarted = false;
+    let arrowBodyStarted = false;
+    for (const token of callbackRange.source
+      .slice(0, relativeOffset)
+      .matchAll(/\bfn\b|=>|;/gu)) {
+      if (
+        getPhpRangeMatchDepth(bootstrapSource, callbackRange, token) !== 1
+      ) {
+        continue;
+      }
+      if (token[0] === ';') {
+        arrowStarted = false;
+        arrowBodyStarted = false;
+      } else if (token[0] === 'fn') {
+        arrowStarted = true;
+        arrowBodyStarted = false;
+      } else if (arrowStarted) {
+        arrowBodyStarted = true;
+      }
+    }
+    return arrowBodyStarted;
+  };
   const directCalls = matches.flatMap((match, matchIndex) => {
     const relativeOffset = match.index ?? 0;
     const registrationOffset = callbackRange.start + relativeOffset;
@@ -2833,6 +2878,7 @@ function hasDirectRestRouteRegistration(
         callbackRange.start,
         registrationOffset,
       ) &&
+      !isInsideArrowFunction(relativeOffset) &&
       !/\b(?:function|new)\s*&?\s*$/u.test(sourceBeforeCall) &&
       callbackRange.source[previousIndex] !== '$' &&
       !(
@@ -2863,6 +2909,8 @@ function hasDirectRestRouteRegistration(
     ] as const);
     return directCalls.some((callSource) =>
       argumentPairs.some((argumentPair) =>
+        // callSource begins inside an already-open PHP callback, so snippet
+        // scanning must start in PHP mode instead of requiring another tag.
         hasPhpFunctionCallWithStringArguments(
           callSource,
           'register_rest_route',

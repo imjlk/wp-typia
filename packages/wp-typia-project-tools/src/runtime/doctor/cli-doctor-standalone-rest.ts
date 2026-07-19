@@ -1053,6 +1053,10 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
   );
   if (
     guardIndexes.length !== 1 ||
+    hasEarlierAbruptCompletion(
+      loop.statement.statements,
+      guardIndexes[0],
+    ) ||
     containsParserControlFlow(
       loop.statement,
       argumentBinding,

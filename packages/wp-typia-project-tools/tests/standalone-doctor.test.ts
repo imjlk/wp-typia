@@ -597,6 +597,47 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('accepts package sync scripts guarded by a failing shell exit', async () => {
+    const targetDir = path.join(tempRoot, 'failing-exit-package-sync');
+    await scaffoldPersistence(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    for (const scriptName of ['sync', 'sync-types', 'sync-rest']) {
+      packageJson.scripts[scriptName] += ' || exit 1';
+    }
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('pass');
+  });
+
+  test('rejects package sync scripts guarded by a successful shell exit', async () => {
+    const targetDir = path.join(tempRoot, 'successful-exit-package-sync');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync += ' || exit 0';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain(
+      'sync script must propagate failures from `tsx scripts/sync-project.ts`',
+    );
+  });
+
   test('rejects canonical package commands behind a constant-false guard', async () => {
     const targetDir = path.join(tempRoot, 'unreachable-package-sync');
     await scaffoldBasic(targetDir);
@@ -1751,6 +1792,53 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(restSourceLayoutCheck?.status).toBe('pass');
   }, 20_000);
+
+  test('rejects abrupt completion before generated --check parser guards', async () => {
+    const cases = [
+      {
+        completion: "throw new Error( 'stop' );",
+        name: 'sync-project-parser-throw',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        completion: 'process.exit( 0 );',
+        name: 'sync-project-parser-exit',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        completion: "throw new Error( 'stop' );",
+        name: 'sync-rest-parser-throw',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+      {
+        completion: 'process.exit( 0 );',
+        name: 'sync-rest-parser-exit',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(tempRoot, fixture.name);
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(
+        /(\n[ \t]*if \( argument === '--check' \) \{)/u,
+        `\n\t\t${fixture.completion}$1`,
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 30_000);
 
   test('rejects mutable for-of bindings in standalone parsers', async () => {
     const cases = [
@@ -3134,6 +3222,12 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'function $1() {\n\treturn;',
         'does not hook REST route registration to rest_api_init',
       ],
+      [
+        'arrow-route-call',
+        /\bregister_rest_route\s*\(/gu,
+        '$unused = fn /* gap */ () : bool => register_rest_route(',
+        'does not hook REST route registration to rest_api_init',
+      ],
     ] as const;
     for (const [name, canonicalSource, damagedSource, expected] of mutations) {
       const targetDir = path.join(tempRoot, `rest-bootstrap-${name}`);
@@ -3152,6 +3246,28 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       expect(bootstrapCheck?.detail).toContain(expected);
     }
   }, 20_000);
+
+  test('accepts direct REST registrations after an unrelated arrow expression', async () => {
+    const targetDir = path.join(tempRoot, 'rest-bootstrap-prior-arrow');
+    await scaffoldPersistence(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'rest-bootstrap-prior-arrow.php',
+    );
+    const original = fs.readFileSync(bootstrapPath, 'utf8');
+    const source = original.replace(
+      /(function [A-Za-z_][A-Za-z0-9_]*_register_routes\(\) \{\n)/u,
+      '$1\t$unused = fn /* gap */ () : bool => true;\n',
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(bootstrapPath, source);
+
+    const bootstrapCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+    expect(bootstrapCheck?.status).toBe('pass');
+  });
 
   test('requires every generated REST endpoint in the bootstrap callback', async () => {
     const targetDir = path.join(tempRoot, 'rest-bootstrap-route-drift');
