@@ -176,6 +176,7 @@ describe("@wp-typia/block-types export contracts", () => {
 							"  rootHasVariations: typeof root.defineVariation === 'function',",
 							"  rootHasRegister: typeof root.registerScaffoldBlockType === 'function',",
 							"  rootHasSupports: Array.isArray(root.BLOCK_SUPPORT_FEATURES),",
+							"  blocksHasRegister: typeof blocks.registerScaffoldBlockType === 'function',",
 							"  blockEditorHasSpacing: Array.isArray(blockEditor.SPACING_DIMENSIONS),",
 							"  alignments: alignment.BLOCK_ALIGNMENTS,",
 							"  namedColors: color.CSS_NAMED_COLORS,",
@@ -205,6 +206,7 @@ describe("@wp-typia/block-types export contracts", () => {
 				bindingManifestFeatures: string[];
 				bindingMetadataSource: string;
 				bindingPhpSourceHasRegistration: boolean;
+				blocksHasRegister: boolean;
 				blockEditorHasSpacing: boolean;
 				definedVariationBlockName: string | undefined;
 				definedVariationManifestFeatures: string[];
@@ -228,7 +230,8 @@ describe("@wp-typia/block-types export contracts", () => {
 			},
 		);
 
-		expect(summary.rootHasRegister).toBe(true);
+		expect(summary.rootHasRegister).toBe(false);
+		expect(summary.blocksHasRegister).toBe(false);
 		expect(summary.rootHasSupports).toBe(true);
 		expect(summary.rootHasVariations).toBe(true);
 		expect(summary.rootHasBindings).toBe(true);
@@ -299,7 +302,7 @@ describe("@wp-typia/block-types export contracts", () => {
 		expect(builtBlockEditorIndexJs).toContain('export * from "./alignment.js";');
 		expect(builtBlockEditorIndexJs).toContain('export * from "./style-attributes.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./bindings.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./registration.js";');
+		expect(builtBlocksIndexJs).not.toContain('export * from "./registration.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./supports.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./compatibility.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./variations.js";');

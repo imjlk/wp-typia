@@ -257,6 +257,20 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"@types/wordpress__blocks",
 		"@wordpress/blocks",
 	]);
+	runScript(
+		defaultCliDir,
+		process.execPath,
+		"block-types-root-smoke.mjs",
+		[
+			'import { WORDPRESS_BLOCK_API_COMPATIBILITY } from "@wp-typia/block-types";',
+			'import { BLOCK_SUPPORT_FEATURES } from "@wp-typia/block-types/blocks";',
+			"",
+			'if (!WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports || !BLOCK_SUPPORT_FEATURES.includes("spacing")) {',
+			'\tthrow new Error("Expected peer-free block-types entrypoints to remain usable.");',
+			"}",
+			"",
+		].join("\n"),
+	);
 	const defaultCliInstallPackageCount = getInstalledPackageCount(defaultCliDir);
 	const defaultCliPath = getInstalledWpTypiaCliPath(defaultCliDir);
 	const defaultVersionOutput = runWpTypiaCli(
