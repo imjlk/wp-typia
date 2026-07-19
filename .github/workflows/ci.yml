@@ -287,6 +287,12 @@ jobs:
     name: Generated Project Smoke (${{ matrix.project_name || matrix.example_project }})
     runs-on: ubuntu-latest
     needs: [build, publish-install-smoke]
+    # Project Tools Coverage is push-only. Keep its skipped PR ancestor from
+    # suppressing this post-build gate without overriding workflow cancellation.
+    if: |
+      !cancelled() &&
+      needs.build.result == 'success' &&
+      needs.publish-install-smoke.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -466,6 +472,11 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     needs: [build]
+    # Build accepts the skipped push-only coverage job on pull requests. Make
+    # the intended downstream PR gate explicit while honoring cancellation.
+    if: |
+      !cancelled() &&
+      needs.build.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v7

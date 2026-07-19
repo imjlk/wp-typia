@@ -13,6 +13,23 @@ Use the full repository lane before pushing or merging:
 
 That path remains the coverage baseline for CI and release validation.
 
+## Pull request and main-push smoke gates
+
+The primary CI workflow runs the post-build package and generated-project gates
+for both pull requests and `main` pushes:
+
+- package and example builds
+- published-install smoke coverage
+- the generated-project smoke matrix
+- WordPress example E2E coverage
+
+The instrumented `@wp-typia/project-tools` coverage job remains push-only because
+the pull-request matrix already runs its focused regression lanes. Since that job
+is intentionally skipped on pull requests, downstream smoke jobs use explicit
+direct-dependency success checks so the skipped coverage ancestor cannot suppress
+the pull-request gates. Documentation deployment remains restricted to successful
+`main` pushes.
+
 ## Faster local loop
 
 For everyday iteration, use:

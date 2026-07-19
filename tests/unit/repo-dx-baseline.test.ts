@@ -10,6 +10,18 @@ function readJson(relativePath: string): Record<string, unknown> {
   ) as Record<string, unknown>;
 }
 
+function getWorkflowJobBlock(workflow: string, jobName: string): string {
+  const marker = `  ${jobName}:\n`;
+  const start = workflow.indexOf(marker);
+  if (start === -1) {
+    return '';
+  }
+
+  const remainder = workflow.slice(start + marker.length);
+  const nextJob = remainder.search(/^  [a-z0-9-]+:\n/m);
+  return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
+}
+
 describe('repository DX baseline', () => {
   test('root package scripts expose maintainer aggregate commands', () => {
     const packageJson = readJson('package.json');
@@ -321,6 +333,34 @@ describe('repository DX baseline', () => {
     expect(workflow).not.toContain('test-project-tools-scaffold-core:');
     expect(workflow).not.toContain('test-project-tools-workspace:');
     expect(workflow).not.toContain('test-project-tools-compound:');
+  });
+
+  test('CI keeps post-build smoke gates enabled when push-only coverage skips on pull requests', () => {
+    const workflow = fs.readFileSync(
+      path.join(repoRoot, '.github', 'workflows', 'ci.yml'),
+      'utf8',
+    );
+    const coverageJob = getWorkflowJobBlock(
+      workflow,
+      'test-project-tools-coverage',
+    );
+    const generatedSmokeJob = getWorkflowJobBlock(workflow, 'generated-smoke');
+    const e2eJob = getWorkflowJobBlock(workflow, 'e2e');
+
+    expect(coverageJob).toContain("if: github.event_name == 'push'");
+    expect(generatedSmokeJob).toContain(
+      'needs: [build, publish-install-smoke]',
+    );
+    expect(generatedSmokeJob).toContain('!cancelled() &&');
+    expect(generatedSmokeJob).not.toContain('always() &&');
+    expect(generatedSmokeJob).toContain("needs.build.result == 'success' &&");
+    expect(generatedSmokeJob).toContain(
+      "needs.publish-install-smoke.result == 'success'",
+    );
+    expect(e2eJob).toContain('needs: [build]');
+    expect(e2eJob).toContain('!cancelled() &&');
+    expect(e2eJob).not.toContain('always() &&');
+    expect(e2eJob).toContain("needs.build.result == 'success'");
   });
 
   test('docs explain lint ownership and ci:local guidance', () => {
