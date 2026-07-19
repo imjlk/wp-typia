@@ -993,6 +993,42 @@ describe('Gunshi CLI core routing', () => {
     );
   });
 
+  test('replays captured sync output for successful text runs', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-output-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-output',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/succeed.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'succeed.mjs'),
+        [
+          'console.log("sync stdout marker");',
+          'console.error("sync stderr marker");',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const result = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('sync stdout marker');
+      expect(result.stderr).toContain('sync stderr marker');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
   test('emits structured sync execution diagnostics with stable codes', async () => {
     const tempRoot = createTempRoot('wp-typia-node-sync-failure-');
 
@@ -1022,6 +1058,7 @@ describe('Gunshi CLI core routing', () => {
         error?: {
           code?: string;
           command?: string;
+          data?: Record<string, unknown>;
           detailLines?: string[];
           kind?: string;
         };
@@ -1035,7 +1072,91 @@ describe('Gunshi CLI core routing', () => {
       expect(parsed.error?.kind).toBe('command-execution');
       expect(parsed.error?.code).toBe('command-execution');
       expect(parsed.error?.command).toBe('sync');
-      expect(parsed.error?.detailLines).toContain('`npm run sync` failed.');
+      expect(parsed.error?.detailLines).toContain(
+        '`npm run sync` failed with exit code 42.',
+      );
+      expect(parsed.error?.detailLines).toContain('sync failed intentionally');
+      expect(parsed.error?.data).toEqual({
+        command: 'npm run sync',
+        exitCode: 42,
+      });
+
+      const textResult = await captureNodeCli(['sync', '--format', 'text'], {
+        cwd: tempRoot,
+        entrypoint: true,
+      });
+      expect(textResult.exitCode).toBe(1);
+      expect(textResult.stderr).toContain('sync failed intentionally');
+      expect(textResult.stderr).not.toContain('\n    at ');
+    } finally {
+      removeTempRoot(tempRoot);
+    }
+  });
+
+  test('emits project-relative generated artifact drift details', async () => {
+    const tempRoot = createTempRoot('wp-typia-node-sync-drift-');
+
+    try {
+      fs.mkdirSync(path.join(tempRoot, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(tempRoot, 'node_modules'), { recursive: true });
+      writeJson(path.join(tempRoot, 'package.json'), {
+        name: 'demo-sync-drift',
+        packageManager: 'npm@10.9.0',
+        scripts: {
+          sync: 'node scripts/drift.mjs',
+        },
+      });
+      fs.writeFileSync(
+        path.join(tempRoot, 'scripts', 'drift.mjs'),
+        [
+          "import path from 'node:path';",
+          "console.error('Generated artifacts are missing or stale:');",
+          "console.error(`- ${path.join(process.cwd(), 'src', 'block.json')} (stale)`);",
+          "console.error(`- ${path.join(process.cwd(), 'src', 'typia-validator.php')} (missing)`);",
+          "console.error('    at runSyncScript (sync-project.ts:78:9)');",
+          'process.exit(1);',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const result = await captureNodeCli(
+        ['sync', '--check', '--format', 'json'],
+        {
+          cwd: tempRoot,
+          entrypoint: true,
+        },
+      );
+      const parsed = JSON.parse(result.stderr) as {
+        error?: {
+          code?: string;
+          data?: {
+            artifacts?: Array<{ path: string; status: string }>;
+            command?: string;
+            exitCode?: number;
+          };
+          detailLines?: string[];
+          message?: string;
+        };
+        ok?: boolean;
+      };
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error?.code).toBe('generated-artifact-drift');
+      expect(parsed.error?.data).toEqual({
+        artifacts: [
+          { path: 'src/block.json', status: 'stale' },
+          { path: 'src/typia-validator.php', status: 'missing' },
+        ],
+        command: 'npm run sync -- --check',
+        exitCode: 1,
+      });
+      expect(parsed.error?.detailLines).toContain(
+        'Stale generated artifact: src/block.json.',
+      );
+      expect(parsed.error?.message).not.toContain(tempRoot);
+      expect(parsed.error?.message).not.toContain('at runSyncScript');
     } finally {
       removeTempRoot(tempRoot);
     }

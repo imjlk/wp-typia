@@ -38,6 +38,7 @@ import {
 import {
   executeSyncCommand,
   resolveSyncExecutionTarget,
+  type SyncExecutionResult,
 } from './runtime-bridge-sync';
 import { normalizeWpTypiaArgv } from './command-contract';
 import {
@@ -290,6 +291,33 @@ async function dispatchPortableCliSkills({
   });
 }
 
+function replayCapturedOutput(
+  output: string | undefined,
+  emitLine: PrintLine,
+): void {
+  if (!output) {
+    return;
+  }
+
+  for (const line of output
+    .replace(/\r\n?/gu, '\n')
+    .replace(/\n$/u, '')
+    .split('\n')) {
+    emitLine(line);
+  }
+}
+
+function replayCapturedSyncOutput(
+  sync: SyncExecutionResult,
+  printLine: PrintLine,
+  warnLine: PrintLine,
+): void {
+  for (const command of sync.executedCommands ?? []) {
+    replayCapturedOutput(command.stdout, printLine);
+    replayCapturedOutput(command.stderr, warnLine);
+  }
+}
+
 const PORTABLE_CLI_COMMAND_DISPATCHERS = {
   add: dispatchPortableCliAddLazy,
   complete: dispatchPortableCliCompletion,
@@ -356,12 +384,12 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
   }: PortableCliDispatchContext) => {
     try {
       const syncTarget = resolveSyncExecutionTarget(positionals[1]);
+      const dryRun = Boolean(mergedFlags['dry-run']);
       const sync = await executeSyncCommand({
-        captureOutput:
-          mergedFlags.format === 'json' && !Boolean(mergedFlags['dry-run']),
+        captureOutput: !dryRun,
         check: Boolean(mergedFlags.check),
         cwd,
-        dryRun: Boolean(mergedFlags['dry-run']),
+        dryRun,
         target: syncTarget,
       });
       if (mergedFlags.format === 'json') {
@@ -374,6 +402,7 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
         );
         return;
       }
+      replayCapturedSyncOutput(sync, printLine, warnLine);
       if (sync.dryRun) {
         printCompletionPayload(
           buildSyncDryRunPayload({

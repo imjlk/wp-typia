@@ -240,6 +240,108 @@ test('sync execution failures carry a stable command-execution code', async () =
   expect(error).toBeInstanceOf(Error);
   expect((error as { code?: string }).code).toBe('command-execution');
   expect((error as Error).message).toContain('npm run sync');
+  expect((error as { detailLines?: string[] }).detailLines).toContain(
+    'sync failed intentionally',
+  );
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    command: 'npm run sync',
+    exitCode: 42,
+  });
+});
+
+test('sync check exposes generated artifact drift with project-relative paths', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-artifact-drift',
+    scripts: {
+      sync: 'node scripts/drift.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'drift.mjs'),
+    [
+      "import path from 'node:path';",
+      "console.error('❌ Type sync failed: Generated artifacts are missing or stale:');",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'block.json')} (stale)`);",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'typia-validator.php')} (missing)`);",
+      "console.error(`- ${path.join(process.cwd(), '..', 'private-schema.php')} (stale)`);",
+      "console.error('❌ Project sync failed: Error: Sync script failed: scripts/sync-types-to-block-json.ts');",
+      "console.error('    at runSyncScript (sync-project.ts:78:9)');",
+      'process.exit(1);',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+
+  expect(error).toBeInstanceOf(Error);
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect((error as { detailLines?: string[] }).detailLines).toEqual([
+    '`npm run sync -- --check` failed with exit code 1.',
+    'Stale generated artifact: src/block.json.',
+    'Missing generated artifact: src/typia-validator.php.',
+    'Stale generated artifact: private-schema.php.',
+    'Run `npm run sync` to regenerate the artifacts, then rerun `npm run sync -- --check`.',
+  ]);
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    artifacts: [
+      { path: 'src/block.json', status: 'stale' },
+      { path: 'src/typia-validator.php', status: 'missing' },
+      { path: 'private-schema.php', status: 'stale' },
+    ],
+    command: 'npm run sync -- --check',
+    exitCode: 1,
+  });
+  expect((error as Error).message).not.toContain(projectDir);
+  expect((error as Error).message).not.toContain(path.dirname(projectDir));
+  expect((error as Error).message).not.toContain('at runSyncScript');
+});
+
+test('sync drift diagnostics cap the structured artifact list', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-artifact-limit',
+    scripts: {
+      sync: 'node scripts/drift-limit.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'drift-limit.mjs'),
+    [
+      "import path from 'node:path';",
+      "for (let index = 0; index < 25; index += 1) {",
+      "  console.error(`- ${path.join(process.cwd(), 'src', `artifact-${index}.php`)} (stale)`);",
+      '}',
+      'process.exit(1);',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+  const artifacts = (
+    error as {
+      data?: { artifacts?: Array<{ path: string; status: string }> };
+    }
+  ).data?.artifacts;
+
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect(artifacts).toHaveLength(20);
+  expect(artifacts?.[19]).toEqual({
+    path: 'src/artifact-19.php',
+    status: 'stale',
+  });
 });
 
 test('legacy split sync plans include sync-ai after sync-rest when the project opts in', async () => {

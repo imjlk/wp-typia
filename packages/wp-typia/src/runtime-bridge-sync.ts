@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   CLI_DIAGNOSTIC_CODES,
+  createCliCommandError,
   createCliDiagnosticCodeError,
 } from '@wp-typia/project-tools/cli-diagnostics';
 import {
@@ -73,6 +74,13 @@ const SYNC_INSTALL_MARKERS = [
 const LOCAL_SYNC_TOOL_PATTERN =
   /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
+const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
+const GENERATED_ARTIFACT_ISSUE_PATTERN = /^-\s+(.+)\s+\((missing|stale)\)$/u;
+
+type SyncArtifactIssue = {
+  path: string;
+  status: 'missing' | 'stale';
+};
 
 export function resolveSyncExecutionTarget(
   subcommand?: string,
@@ -329,6 +337,151 @@ function buildSyncPlannedCommands(
   return plannedCommands;
 }
 
+function normalizeSyncArtifactPath(
+  projectDir: string,
+  artifactPath: string,
+): string {
+  const absolutePath = path.isAbsolute(artifactPath)
+    ? artifactPath
+    : path.resolve(projectDir, artifactPath);
+  const projectRoots = [path.resolve(projectDir)];
+  try {
+    projectRoots.push(fs.realpathSync(projectDir));
+  } catch {
+    // The sync preflight already validated the project root. Keep the lexical
+    // root as a fallback if the directory changes during child execution.
+  }
+
+  for (const projectRoot of new Set(projectRoots)) {
+    const relativePath = path.relative(projectRoot, absolutePath);
+    if (
+      relativePath.length > 0 &&
+      relativePath !== '..' &&
+      !relativePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativePath)
+    ) {
+      return relativePath.split(path.sep).join('/');
+    }
+  }
+
+  return path.basename(absolutePath) || '<outside-project>';
+}
+
+function collectSyncArtifactIssues(
+  projectDir: string,
+  stdout: string | undefined,
+  stderr: string | undefined,
+): SyncArtifactIssue[] {
+  const issues: SyncArtifactIssue[] = [];
+  const seen = new Set<string>();
+
+  for (const line of `${stderr ?? ''}\n${stdout ?? ''}`.split(/\r?\n/u)) {
+    const match = GENERATED_ARTIFACT_ISSUE_PATTERN.exec(line.trim());
+    if (!match) {
+      continue;
+    }
+
+    const [, rawPath, status] = match;
+    if (!rawPath || (status !== 'missing' && status !== 'stale')) {
+      continue;
+    }
+
+    const issue = {
+      path: normalizeSyncArtifactPath(projectDir, rawPath),
+      status,
+    } satisfies SyncArtifactIssue;
+    const key = `${issue.status}:${issue.path}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      issues.push(issue);
+      if (issues.length >= CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT) {
+        break;
+      }
+    }
+  }
+
+  return issues;
+}
+
+function collectSyncFailureOutputLines(
+  stdout: string | undefined,
+  stderr: string | undefined,
+): string[] {
+  const lines = `${stderr ?? ''}\n${stdout ?? ''}`
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !line.startsWith('>'))
+    .filter((line) => !/^npm\s+(?:error|warn)\b/iu.test(line))
+    .filter((line) => !/^at\s+/u.test(line))
+    .filter((line) => !/^Error:\s+Sync script failed:/u.test(line))
+    .filter((line) => !/^❌\s+Project sync failed:/u.test(line))
+    .map((line) => line.replace(/^❌\s+/u, ''));
+
+  return Array.from(new Set(lines)).slice(
+    0,
+    CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT,
+  );
+}
+
+function createSyncExecutionError(
+  project: SyncProjectContext,
+  plannedCommand: SyncPlannedCommand,
+  result: ReturnType<typeof spawnSync>,
+  stdout: string | undefined,
+  stderr: string | undefined,
+): Error {
+  const exitCode = result.status ?? 1;
+  const artifacts = collectSyncArtifactIssues(project.cwd, stdout, stderr);
+  const commandDetail = `\`${plannedCommand.displayCommand}\` failed with exit code ${exitCode}.`;
+
+  if (artifacts.length > 0) {
+    const applyCommand = formatRunScript(
+      project.packageManager,
+      plannedCommand.scriptName,
+    );
+    return createCliCommandError({
+      code: CLI_DIAGNOSTIC_CODES.GENERATED_ARTIFACT_DRIFT,
+      command: 'sync',
+      data: {
+        artifacts,
+        command: plannedCommand.displayCommand,
+        exitCode,
+      },
+      detailLines: [
+        commandDetail,
+        ...artifacts.map(
+          (artifact) =>
+            `${artifact.status === 'missing' ? 'Missing' : 'Stale'} generated artifact: ${artifact.path}.`,
+        ),
+        `Run \`${applyCommand}\` to regenerate the artifacts, then rerun \`${plannedCommand.displayCommand}\`.`,
+      ],
+      error: result.error,
+      summary: 'Generated artifacts are missing or stale.',
+    });
+  }
+
+  const outputLines = collectSyncFailureOutputLines(stdout, stderr);
+  return createCliCommandError({
+    code: CLI_DIAGNOSTIC_CODES.COMMAND_EXECUTION,
+    command: 'sync',
+    data: {
+      command: plannedCommand.displayCommand,
+      exitCode,
+      ...(result.signal ? { signal: result.signal } : {}),
+    },
+    detailLines: [
+      commandDetail,
+      ...outputLines,
+      ...(outputLines.length === 0 && result.error
+        ? [result.error.message]
+        : []),
+    ],
+    error: result.error,
+    summary: 'A generated project sync command failed.',
+  });
+}
+
 function runProjectScript(
   project: SyncProjectContext,
   plannedCommand: SyncPlannedCommand,
@@ -355,12 +508,12 @@ function runProjectScript(
       : undefined;
 
   if (result.error || result.status !== 0) {
-    throw createCliDiagnosticCodeError(
-      CLI_DIAGNOSTIC_CODES.COMMAND_EXECUTION,
-      `\`${plannedCommand.displayCommand}\` failed.`,
-      {
-        cause: result.error ?? (stderr ? new Error(stderr.trim()) : undefined),
-      },
+    throw createSyncExecutionError(
+      project,
+      plannedCommand,
+      result,
+      stdout,
+      stderr,
     );
   }
 

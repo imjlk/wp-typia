@@ -96,7 +96,9 @@ is explicitly enabled.
 Commands that support `--format json` emit stable failure envelopes for CI, IDE,
 and wrapper integrations. The `error.code` field is the integration contract;
 human-readable `message`, `summary`, and `detailLines` can change as guidance
-improves.
+improves. Failures with structured domain details may also include an
+`error.data` object; consumers should branch on `error.code` before reading its
+code-specific fields.
 
 - `ok: true` JSON success payloads are written to stdout.
 - `ok: false` JSON error payloads are written to stderr.
@@ -129,6 +131,7 @@ the throw site instead of extending the fallback classifier.
 | `configuration-missing`      | Required wp-typia configuration is missing.              | Add the missing config section or rerun the scaffold/init setup.        |
 | `dependencies-not-installed` | Project or workspace dependencies are not installed.     | Run the reported package-manager install command from the project root. |
 | `doctor-check-failed`        | One or more doctor checks failed.                        | Fix the failed doctor rows, then rerun `wp-typia doctor`.               |
+| `generated-artifact-drift`   | Generated files are missing or stale.                    | Run the reported sync command, then rerun with `--check`.               |
 | `invalid-argument`           | An argument value is present but unsupported or invalid. | Correct the argument value using command help and the detail lines.     |
 | `invalid-command`            | The command or subcommand is not supported.              | Run `wp-typia --help` and switch to a listed command/subcommand.        |
 | `missing-argument`           | A required positional argument or flag value is missing. | Provide the missing value shown in the detail lines.                    |
