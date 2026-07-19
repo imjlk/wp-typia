@@ -1,8 +1,4 @@
-import type {
-  BlockAttributes,
-  BlockVariation,
-  BlockVariationScope,
-} from "./registration.js";
+import type { BlockAttributes } from "./shared/block-attributes.js";
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityManifest,
@@ -34,6 +30,16 @@ export {
   createBlockVariationCompatibilityManifest,
 };
 
+export type { BlockAttributes } from "./shared/block-attributes.js";
+
+export type BlockVariationScope = "block" | "inserter" | "transform";
+
+export const BLOCK_VARIATION_SCOPES = [
+  "block",
+  "inserter",
+  "transform",
+] as const satisfies readonly BlockVariationScope[];
+
 export type BlockVariationAttributeMap<
   TAttributes extends BlockAttributes = BlockAttributes,
 > = Partial<TAttributes> & BlockAttributes;
@@ -47,14 +53,84 @@ export type BlockVariationInnerBlockTemplate = readonly [
 export type BlockVariationInnerBlocks =
   readonly BlockVariationInnerBlockTemplate[];
 
+type RegistrationCompatibleBlockVariationInnerBlockTemplate = [
+  name: string,
+  attributes?: BlockAttributes,
+  innerBlocks?: RegistrationCompatibleBlockVariationInnerBlockTemplate[],
+];
+
+type RegistrationCompatibleBlockVariationInnerBlocks =
+  RegistrationCompatibleBlockVariationInnerBlockTemplate[];
+
+type BlockVariationIsActiveCallback<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> = (
+  blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
+  variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
+) => boolean;
+
 export type BlockVariationIsActive<
   TAttributes extends BlockAttributes = BlockAttributes,
 > =
   | readonly Extract<keyof TAttributes, string>[]
-  | ((
-      blockAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
-      variationAttributes: Readonly<BlockVariationAttributeMap<TAttributes>>,
-    ) => boolean);
+  | BlockVariationIsActiveCallback<TAttributes>;
+
+type RegistrationCompatibleBlockVariationIsActive<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> =
+  | Extract<keyof TAttributes, string>[]
+  | BlockVariationIsActiveCallback<TAttributes>;
+
+export interface BlockVariationExampleInnerBlock {
+  readonly attributes?: BlockAttributes;
+  readonly innerBlocks?: readonly BlockVariationExampleInnerBlock[];
+  readonly name: string;
+  readonly [key: string]: unknown;
+}
+
+export interface BlockVariationExample<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> {
+  readonly attributes?: BlockVariationAttributeMap<TAttributes>;
+  readonly innerBlocks?:
+    | BlockVariationInnerBlocks
+    | readonly BlockVariationExampleInnerBlock[];
+  readonly viewportWidth?: number;
+  readonly [key: string]: unknown;
+}
+
+/**
+ * Opaque compatibility slot for exact icon and example types owned by the
+ * optional WordPress peer. It intentionally resolves through the broad
+ * `BlockAttributes` value type so the aggregate remains peer-free and
+ * registration-assignable.
+ */
+type PeerBackedOpaqueVariationValue = BlockAttributes[string];
+
+/**
+ * Peer-free variation shape used by the aggregate authoring entrypoints.
+ *
+ * Registration-specific aliases continue to mirror `@wordpress/blocks` from
+ * the explicit `blocks/registration` entrypoint. Variation authoring only
+ * needs this serializable subset and therefore must not make that optional
+ * peer part of its declaration graph.
+ */
+export interface BlockVariation<
+  TAttributes extends BlockAttributes = BlockAttributes,
+> {
+  readonly attributes?: BlockVariationAttributeMap<TAttributes>;
+  readonly category?: string;
+  readonly description?: string;
+  readonly example?: PeerBackedOpaqueVariationValue;
+  readonly icon?: PeerBackedOpaqueVariationValue;
+  readonly innerBlocks?: RegistrationCompatibleBlockVariationInnerBlocks;
+  readonly isActive?: RegistrationCompatibleBlockVariationIsActive<TAttributes>;
+  readonly isDefault?: boolean;
+  readonly keywords?: string[];
+  readonly name: string;
+  readonly scope?: BlockVariationScope[];
+  readonly title: string;
+}
 
 export interface BlockVariationDefinition<
   TAttributes extends BlockAttributes = BlockAttributes,
@@ -63,12 +139,7 @@ export interface BlockVariationDefinition<
     "attributes" | "example" | "innerBlocks" | "isActive" | "scope"
   > {
   readonly attributes?: BlockVariationAttributeMap<TAttributes>;
-  readonly example?:
-    | BlockVariation<BlockVariationAttributeMap<TAttributes>>["example"]
-    | {
-        readonly attributes: BlockVariationAttributeMap<TAttributes>;
-        readonly innerBlocks?: BlockVariationInnerBlocks;
-      };
+  readonly example?: BlockVariationExample<TAttributes>;
   readonly innerBlocks?: BlockVariationInnerBlocks;
   readonly isActive?: BlockVariationIsActive<TAttributes>;
   readonly scope?: readonly BlockVariationScope[];

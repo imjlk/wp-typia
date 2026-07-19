@@ -12,6 +12,7 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 const packageRoot = resolve(import.meta.dir, "..");
+const tscBinary = resolve(packageRoot, "../../node_modules/.bin/tsc");
 
 function writeMockWordPressBlocks(projectRoot: string) {
 	const packageDir = resolve(projectRoot, "node_modules", "@wordpress", "blocks");
@@ -51,7 +52,10 @@ function writeMockWordPressBlocks(projectRoot: string) {
 	);
 }
 
-function withPublishedConsumer<T>(run: (projectRoot: string) => T): T {
+function withPublishedConsumer<T>(
+	run: (projectRoot: string) => T,
+	options: { installWordPressBlocks?: boolean } = {},
+): T {
 	const projectRoot = mkdtempSync(resolve(tmpdir(), "wp-typia-block-types-consumer-"));
 	const packageDir = resolve(projectRoot, "node_modules", "@wp-typia", "block-types");
 
@@ -73,7 +77,9 @@ function withPublishedConsumer<T>(run: (projectRoot: string) => T): T {
 			readFileSync(resolve(packageRoot, "package.json"), "utf8"),
 			"utf8",
 		);
-		writeMockWordPressBlocks(projectRoot);
+		if (options.installWordPressBlocks ?? true) {
+			writeMockWordPressBlocks(projectRoot);
+		}
 
 		return run(projectRoot);
 	} finally {
@@ -126,6 +132,89 @@ describe("@wp-typia/block-types export contracts", () => {
 		});
 	});
 
+	test("peer-free aggregate declarations compile without optional WordPress peers", () => {
+		const alignmentDeclaration = readFileSync(
+			resolve(packageRoot, "dist", "block-editor", "alignment.d.ts"),
+			"utf8",
+		);
+		expect(alignmentDeclaration).not.toMatch(
+			/(?:from|import\()["'](?:react|@wordpress\/block-editor)/u,
+		);
+
+		withPublishedConsumer(
+			(projectRoot) => {
+				writeFileSync(
+					resolve(projectRoot, "consumer.ts"),
+					[
+						'import { BLOCK_SUPPORT_FEATURES, BLOCK_VARIATION_SCOPES, defineVariation, type BlockAttributes, type BlockVariation } from "@wp-typia/block-types";',
+						'import { BLOCK_SUPPORT_FEATURES as blockFeatures, BLOCK_VARIATION_SCOPES as blockScopes, type BlockVariationDefinition } from "@wp-typia/block-types/blocks";',
+						"",
+						"interface DemoAttributes extends BlockAttributes {",
+						"  className: string;",
+						"  content: string;",
+						"}",
+						"",
+						"const variation: BlockVariationDefinition<DemoAttributes> = {",
+						"  attributes: { className: 'is-style-demo' },",
+						"  example: { innerBlocks: [{ name: 'core/paragraph' }] },",
+						"  isActive: ['className'],",
+						"  name: 'demo',",
+						"  scope: ['inserter'],",
+						"  title: 'Demo',",
+						"};",
+						"const invalidVariation: BlockVariationDefinition<DemoAttributes> = {",
+						"  // @ts-expect-error variation examples require a structured attributes object",
+						"  example: 'invalid',",
+						"  name: 'invalid',",
+						"  title: 'Invalid',",
+						"};",
+						"const publicVariation: BlockVariation<DemoAttributes> = {",
+						"  attributes: { className: 'is-style-demo' },",
+						"  name: 'demo',",
+						"  title: 'Demo',",
+						"};",
+						"const defined = defineVariation('core/paragraph', variation);",
+						"void [BLOCK_SUPPORT_FEATURES, BLOCK_VARIATION_SCOPES, blockFeatures, blockScopes, defined, invalidVariation, publicVariation];",
+						"",
+					].join("\n"),
+					"utf8",
+				);
+				writeFileSync(
+					resolve(projectRoot, "tsconfig.json"),
+					JSON.stringify(
+						{
+							compilerOptions: {
+								lib: ["ES2020"],
+								module: "NodeNext",
+								moduleResolution: "NodeNext",
+								noEmit: true,
+								skipLibCheck: false,
+								strict: true,
+								target: "ES2020",
+								types: [],
+							},
+							include: ["consumer.ts"],
+						},
+						null,
+						2,
+					),
+					"utf8",
+				);
+
+				execFileSync(
+					tscBinary,
+					["--project", "tsconfig.json"],
+					{
+						cwd: projectRoot,
+						encoding: "utf8",
+						stdio: ["ignore", "inherit", "inherit"],
+					},
+				);
+			},
+			{ installWordPressBlocks: false },
+		);
+	});
+
 	test("published self imports resolve through the package entrypoints with the expected runtime values", () => {
 		const summary = withPublishedConsumer((projectRoot) =>
 			JSON.parse(
@@ -176,6 +265,7 @@ describe("@wp-typia/block-types export contracts", () => {
 							"  rootHasVariations: typeof root.defineVariation === 'function',",
 							"  rootHasRegister: typeof root.registerScaffoldBlockType === 'function',",
 							"  rootHasSupports: Array.isArray(root.BLOCK_SUPPORT_FEATURES),",
+							"  blocksHasRegister: typeof blocks.registerScaffoldBlockType === 'function',",
 							"  blockEditorHasSpacing: Array.isArray(blockEditor.SPACING_DIMENSIONS),",
 							"  alignments: alignment.BLOCK_ALIGNMENTS,",
 							"  namedColors: color.CSS_NAMED_COLORS,",
@@ -205,6 +295,7 @@ describe("@wp-typia/block-types export contracts", () => {
 				bindingManifestFeatures: string[];
 				bindingMetadataSource: string;
 				bindingPhpSourceHasRegistration: boolean;
+				blocksHasRegister: boolean;
 				blockEditorHasSpacing: boolean;
 				definedVariationBlockName: string | undefined;
 				definedVariationManifestFeatures: string[];
@@ -228,7 +319,8 @@ describe("@wp-typia/block-types export contracts", () => {
 			},
 		);
 
-		expect(summary.rootHasRegister).toBe(true);
+		expect(summary.rootHasRegister).toBe(false);
+		expect(summary.blocksHasRegister).toBe(false);
 		expect(summary.rootHasSupports).toBe(true);
 		expect(summary.rootHasVariations).toBe(true);
 		expect(summary.rootHasBindings).toBe(true);
@@ -299,7 +391,7 @@ describe("@wp-typia/block-types export contracts", () => {
 		expect(builtBlockEditorIndexJs).toContain('export * from "./alignment.js";');
 		expect(builtBlockEditorIndexJs).toContain('export * from "./style-attributes.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./bindings.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./registration.js";');
+		expect(builtBlocksIndexJs).not.toContain('export * from "./registration.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./supports.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./compatibility.js";');
 		expect(builtBlocksIndexJs).toContain('export * from "./variations.js";');

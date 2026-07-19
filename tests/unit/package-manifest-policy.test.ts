@@ -58,6 +58,14 @@ function createManifestRepo() {
 			"@types/wordpress__blocks": "^12.5.18",
 			"@wordpress/blocks": "^15.2.0",
 		},
+		peerDependenciesMeta: {
+			"@types/wordpress__blocks": {
+				optional: true,
+			},
+			"@wordpress/blocks": {
+				optional: true,
+			},
+		},
 		version: "0.2.1",
 	});
 	writeJson(path.join(repoRoot, "packages/wp-typia-block-runtime/package.json"), {
@@ -214,6 +222,24 @@ describe("validatePackageManifestPolicy", () => {
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain(
 			'packages/wp-typia-block-types/package.json must declare peerDependencies.@wordpress/blocks="^15.2.0" to match the owned block registration facade baseline, found null.',
+		);
+	});
+
+	test("fails when block-types registration facade peers are not optional", () => {
+		const repoRoot = createManifestRepo();
+		const packageJsonPath = path.join(
+			repoRoot,
+			"packages/wp-typia-block-types/package.json",
+		);
+		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+		packageJson.peerDependenciesMeta["@wordpress/blocks"].optional = false;
+		writeJson(packageJsonPath, packageJson);
+
+		const result = validatePackageManifestPolicy(repoRoot);
+
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain(
+			"packages/wp-typia-block-types/package.json must declare peerDependenciesMeta.@wordpress/blocks.optional=true so CLI-only installs do not auto-install the WordPress registration peer graph, found false.",
 		);
 	});
 

@@ -1,4 +1,4 @@
-import type { BlockAttributes } from "./registration.js";
+import type { BlockAttributes } from "./shared/block-attributes.js";
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityFeature,

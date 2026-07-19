@@ -118,10 +118,19 @@
     "@types/wordpress__blocks": "^12.5.18",
     "@wordpress/blocks": "^15.2.0"
   },
+  "peerDependenciesMeta": {
+    "@types/wordpress__blocks": {
+      "optional": true
+    },
+    "@wordpress/blocks": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/wordpress__block-editor": "^11.5.17",
     "@types/wordpress__blocks": "^12.5.18",
+    "@wordpress/blocks": "^15.2.0",
     "typescript": "^5.9.2"
   }
 }

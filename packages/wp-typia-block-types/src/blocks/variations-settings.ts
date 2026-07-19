@@ -1,5 +1,5 @@
 import type { WordPressCompatibilitySettings } from "./compatibility.js";
-import type { BlockAttributes } from "./registration.js";
+import type { BlockAttributes } from "./shared/block-attributes.js";
 import type {
   BlockVariationDefinition,
   DefineVariationInlineOptions,

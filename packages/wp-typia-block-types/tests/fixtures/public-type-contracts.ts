@@ -322,6 +322,8 @@ type GalleryAttributes = {
 };
 type AttributeLessAttributes = Record<never, never>;
 
+const paragraphActiveMarkers = ["className"] as const;
+
 const galleryAttributeSchema = {
 	items: {
 		default: [{ label: "Featured" }],
@@ -339,7 +341,18 @@ const paragraphVariation = defineVariation<ParagraphVariationAttributes>(
 		attributes: {
 			className: "is-style-balanced",
 		},
-		isActive: ["className"],
+		example: {
+			innerBlocks: [
+				{
+					attributes: {
+						content: "Child preview content",
+					},
+					name: "core/paragraph",
+				},
+			],
+			viewportWidth: 640,
+		},
+		isActive: paragraphActiveMarkers,
 		name: "example-balanced-paragraph",
 		scope: ["inserter", "transform"],
 		title: "Balanced Paragraph",
@@ -569,6 +582,17 @@ const invalidVariationActiveAttribute = defineVariation<HeadingVariationAttribut
 	},
 );
 
+const invalidTitlelessVariation = defineVariation<ParagraphVariationAttributes>(
+	"core/paragraph",
+	// @ts-expect-error WordPress variation registration requires a title.
+	{
+		attributes: {
+			className: "is-style-titleless",
+		},
+		name: "invalid-titleless-variation",
+	},
+);
+
 // @ts-expect-error Binding args must match the source args declared by defineBindingSource().
 const invalidProfileBinding: Binding<typeof profileDataSource, { field: "missing" }> = {
 	args: {
@@ -599,6 +623,7 @@ void invalidNamedColor;
 void invalidVariationScope;
 void invalidTextAlignments;
 void invalidVariationActiveAttribute;
+void invalidTitlelessVariation;
 void invalidProfileBinding;
 void invalidBindableAttributes;
 void invalidTypedProfileMetadata;
