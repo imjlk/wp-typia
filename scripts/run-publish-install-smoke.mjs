@@ -121,16 +121,49 @@ function materializeTarballDependencies(projectDir, tarballs) {
 	writeJson(packageJsonPath, packageJson);
 }
 
-function assertScaffoldDependencyRanges(projectDir, expectations) {
+function assertScaffoldDependencyRanges(projectDir, dependencyField, expectations) {
 	const packageJson = readJson(path.join(projectDir, "package.json"));
 
 	for (const [packageName, expectedRange] of Object.entries(expectations)) {
-		const actualRange = packageJson.devDependencies?.[packageName];
+		const actualRange = packageJson[dependencyField]?.[packageName];
 		if (actualRange !== expectedRange) {
 			throw new Error(
-				`Generated ${path.basename(projectDir)} package.json expected ${packageName}=${expectedRange}, found ${JSON.stringify(actualRange ?? null)}.`,
+				`Generated ${path.basename(projectDir)} package.json expected ${dependencyField}.${packageName}=${expectedRange}, found ${JSON.stringify(actualRange ?? null)}.`,
 			);
 		}
+	}
+}
+
+function assertPackagesNotInstalled(projectDir, packageNames) {
+	const packageLock = readJson(path.join(projectDir, "package-lock.json"));
+	const installPaths = Object.keys(packageLock.packages ?? {});
+
+	for (const packageName of packageNames) {
+		const suffix = `node_modules/${packageName}`;
+		const matchingPaths = installPaths.filter(
+			(installPath) =>
+				installPath === suffix || installPath.endsWith(`/${suffix}`),
+		);
+		if (matchingPaths.length > 0) {
+			throw new Error(
+				`Default wp-typia install unexpectedly included optional WordPress peer ${packageName} at ${matchingPaths.join(", ")}.`,
+			);
+		}
+	}
+}
+
+function getInstalledPackageCount(projectDir) {
+	const packageLock = readJson(path.join(projectDir, "package-lock.json"));
+	return Object.keys(packageLock.packages ?? {}).filter((installPath) =>
+		installPath.includes("node_modules/"),
+	).length;
+}
+
+function parseJsonOutput(label, output) {
+	try {
+		return JSON.parse(output);
+	} catch {
+		throw new Error(`${label} did not return JSON: ${output}`);
 	}
 }
 
@@ -161,6 +194,7 @@ execFileSync("bun", ["run", "packages:build"], {
 withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	const tarballDir = path.join(tempRoot, "tarballs");
 	const projectDir = path.join(tempRoot, "project");
+	const defaultCliDir = path.join(tempRoot, "default-cli-install");
 	const tarballs = new Map();
 	const packedManifests = new Map();
 
@@ -199,11 +233,102 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		}
 	}
 
+	fs.mkdirSync(defaultCliDir, { recursive: true });
+	writeJson(path.join(defaultCliDir, "package.json"), {
+		dependencies: {
+			"wp-typia": `file:${tarballs.get("wp-typia")}`,
+		},
+		name: "wp-typia-default-cli-install-smoke",
+		overrides: Object.fromEntries(
+			[...tarballs.entries()]
+				.filter(([packageName]) => packageName !== "wp-typia")
+				.map(([packageName, tarballPath]) => [
+					packageName,
+					`file:${tarballPath}`,
+				]),
+		),
+		private: true,
+	});
+	run(npmCommand, ["install", "--no-audit", "--no-fund"], {
+		cwd: defaultCliDir,
+	});
+	assertPackagesNotInstalled(defaultCliDir, [
+		"@types/wordpress__blocks",
+		"@wordpress/blocks",
+	]);
+	const defaultCliInstallPackageCount = getInstalledPackageCount(defaultCliDir);
+	const defaultCliPath = getInstalledWpTypiaCliPath(defaultCliDir);
+	const defaultVersionOutput = runWpTypiaCli(
+		defaultCliDir,
+		defaultCliPath,
+		["--version", "--format", "text"],
+		{ env: createNodeOnlyEnv() },
+	).trim();
+	if (!defaultVersionOutput.startsWith("wp-typia ")) {
+		throw new Error(
+			`Unexpected default-install wp-typia --version output: ${defaultVersionOutput}`,
+		);
+	}
+
+	const defaultTemplatesOutput = runWpTypiaCli(
+		defaultCliDir,
+		defaultCliPath,
+		["templates", "list", "--format", "json"],
+		{ env: createNodeOnlyEnv() },
+	).trim();
+	const defaultTemplates = parseJsonOutput(
+		"Default-install wp-typia templates list --format json",
+		defaultTemplatesOutput,
+	);
+	if (
+		!Array.isArray(defaultTemplates.templates) ||
+		!defaultTemplates.templates.some((entry) => entry?.id === "basic")
+	) {
+		throw new Error(
+			`Default-install wp-typia templates list did not include basic: ${defaultTemplatesOutput}`,
+		);
+	}
+
+	const defaultBasicDir = path.join(defaultCliDir, "default-basic");
+	const defaultCreateOutput = runWpTypiaCli(
+		defaultCliDir,
+		defaultCliPath,
+		[
+			"create",
+			"default-basic",
+			"--template",
+			"basic",
+			"--package-manager",
+			"npm",
+			"--yes",
+			"--no-install",
+			"--format",
+			"json",
+		],
+		{ env: createNodeOnlyEnv() },
+	).trim();
+	const defaultCreate = parseJsonOutput(
+		"Default-install wp-typia create --format json",
+		defaultCreateOutput,
+	);
+	if (defaultCreate.ok !== true || defaultCreate.data?.command !== "create") {
+		throw new Error(
+			`Unexpected default-install wp-typia create output: ${defaultCreateOutput}`,
+		);
+	}
+	assertScaffoldDependencyRanges(defaultBasicDir, "devDependencies", {
+		"@types/wordpress__blocks": "^12.5.18",
+	});
+	assertScaffoldDependencyRanges(defaultBasicDir, "dependencies", {
+		"@wordpress/blocks": "~15.19.0",
+	});
+
 	fs.mkdirSync(projectDir, { recursive: true });
 	writeJson(path.join(projectDir, "package.json"), {
 		dependencies: {
 			"@wp-typia/create-workspace-template": `file:${tarballs.get("@wp-typia/create-workspace-template")}`,
 			"@wp-typia/dataviews": `file:${tarballs.get("@wp-typia/dataviews")}`,
+			"@wordpress/blocks": "^15.2.0",
 			"wp-typia": `file:${tarballs.get("wp-typia")}`,
 		},
 		name: "wp-typia-publish-install-smoke",
@@ -422,7 +547,13 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"--yes",
 		"--no-install",
 	]);
-	assertScaffoldDependencyRanges(basicDir, expectedRanges);
+	assertScaffoldDependencyRanges(basicDir, "devDependencies", expectedRanges);
+	assertScaffoldDependencyRanges(basicDir, "devDependencies", {
+		"@types/wordpress__blocks": "^12.5.18",
+	});
+	assertScaffoldDependencyRanges(basicDir, "dependencies", {
+		"@wordpress/blocks": "~15.19.0",
+	});
 	assertFilesExist(basicDir, [
 		"src/block-metadata.ts",
 		"src/manifest-document.ts",
@@ -449,7 +580,11 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	runWpTypiaCli(projectDir, cliPath, ["add", "admin-view", "snapshots"], {
 		cwd: adminViewDir,
 	});
-	assertScaffoldDependencyRanges(adminViewDir, adminViewExpectedRanges);
+	assertScaffoldDependencyRanges(
+		adminViewDir,
+		"devDependencies",
+		adminViewExpectedRanges,
+	);
 	const adminViewPackageJson = readJson(path.join(adminViewDir, "package.json"));
 	if (typeof adminViewPackageJson.dependencies?.["@wordpress/dataviews"] !== "string") {
 		throw new Error("Generated admin-view workspace is missing @wordpress/dataviews.");
@@ -477,7 +612,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"--yes",
 		"--no-install",
 	]);
-	assertScaffoldDependencyRanges(compoundDir, expectedRanges);
+	assertScaffoldDependencyRanges(compoundDir, "devDependencies", expectedRanges);
 	installGeneratedProject(compoundDir, tarballs);
 	run(npmCommand, ["exec", "--", "tsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
 		cwd: compoundDir,
@@ -493,7 +628,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	typecheckGeneratedProject(compoundDir);
 
 	process.stdout.write(
-		`Verified published-install smoke for wp-typia ${parsed.data.version}, portable CLI metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,
+		`Verified published-install smoke for wp-typia ${parsed.data.version}, a ${defaultCliInstallPackageCount}-package default CLI install without WordPress registration peers, portable CLI metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,
 	);
 });
 
