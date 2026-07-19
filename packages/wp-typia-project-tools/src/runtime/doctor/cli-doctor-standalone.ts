@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
   resolveSyncBlockMetadataPaths,
-  runSyncBlockMetadata,
   type SyncBlockMetadataOptions,
   type SyncBlockMetadataReport,
 } from '@wp-typia/block-runtime/metadata-core';
@@ -24,8 +24,13 @@ import {
   createDoctorCheck,
   createDoctorScopeCheck,
 } from './cli-doctor-workspace-shared.js';
+import {
+  checkStandaloneRestArtifacts,
+  parseStandaloneRestConfig,
+} from './cli-doctor-standalone-rest.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
+import type { ParsedStandaloneRestConfig } from './cli-doctor-standalone-rest.js';
 import type { GeneratedPackageJson } from '../shared/package-json-types.js';
 
 const STANDALONE_SYNC_SCRIPT = path.join(
@@ -33,6 +38,10 @@ const STANDALONE_SYNC_SCRIPT = path.join(
   'sync-types-to-block-json.ts',
 );
 const STANDALONE_SYNC_PROJECT_SCRIPT = path.join('scripts', 'sync-project.ts');
+const STANDALONE_SYNC_REST_SCRIPT = path.join(
+  'scripts',
+  'sync-rest-contracts.ts',
+);
 const STANDALONE_INDEX_FILE = path.join('src', 'index.tsx');
 const STANDALONE_SAVE_FILE = path.join('src', 'save.tsx');
 const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
@@ -41,7 +50,7 @@ const WORDPRESS_PLUGIN_HEADER_SCAN_BYTES = 8 * 1024;
 // Mirrors get_file_data()'s `[ \t\/*#@]*` header prefix. Its zero-length
 // match is intentional: WordPress recognizes a bare `Plugin Name:` line too.
 const WORDPRESS_PLUGIN_NAME_HEADER_PATTERN =
-  /^[\t \/*#@]*Plugin Name\s*:\s*\S.*$/imu;
+  /^[\t \/*#@]*Plugin Name[\t ]*:[\t ]*\S[^\r\n]*$/imu;
 const REQUIRED_RUNTIME_PACKAGES = [
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
@@ -100,6 +109,15 @@ interface ParsedStandaloneSyncConfig {
   options: SyncBlockMetadataOptions | null;
   problem: string | null;
 }
+
+type StandaloneMetadataCoreModule = Pick<
+  typeof import('@wp-typia/block-runtime/metadata-core'),
+  | 'resolveSyncBlockMetadataPaths'
+  | 'runSyncBlockMetadata'
+  | 'syncEndpointClient'
+  | 'syncRestOpenApi'
+  | 'syncTypeSchemas'
+>;
 
 /** A safely detected type-derived standalone wp-typia block project. */
 export interface StandaloneScaffoldProject {
@@ -501,10 +519,163 @@ function parseStandaloneSyncConfig(
   };
 }
 
+function isSyncScriptPathExpression(
+  expression: ts.Expression,
+  expectedScriptPath: string,
+): boolean {
+  const pathParts = expectedScriptPath.split(path.sep);
+  if (ts.isStringLiteralLike(expression)) {
+    return expression.text === pathParts.join('/');
+  }
+  return (
+    ts.isCallExpression(expression) &&
+    ts.isPropertyAccessExpression(expression.expression) &&
+    ts.isIdentifier(expression.expression.expression) &&
+    expression.expression.expression.text === 'path' &&
+    expression.expression.name.text === 'join' &&
+    expression.arguments.length === pathParts.length &&
+    expression.arguments.every(
+      (argument, index) =>
+        ts.isStringLiteralLike(argument) &&
+        argument.text === pathParts[index],
+    )
+  );
+}
+
+function hasCanonicalSyncProjectDelegation(
+  sourceFile: ts.SourceFile,
+  expectedScriptPath: string,
+): boolean {
+  const scriptPathBindings = new Set<string>();
+  let runnerDefinitionIsCanonical = false;
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isFunctionDeclaration(statement) || !statement.body) {
+      continue;
+    }
+    if (statement.name?.text !== 'runSyncScript') {
+      continue;
+    }
+    const scriptPathParameter = statement.parameters[0]?.name;
+    if (!scriptPathParameter || !ts.isIdentifier(scriptPathParameter)) {
+      continue;
+    }
+    const scriptPathParameterName = scriptPathParameter.text;
+
+    const argsBindings = new Set<string>();
+    function inspectRunner(node: ts.Node): void {
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isIdentifier(node.name) &&
+        node.initializer &&
+        ts.isArrayLiteralExpression(node.initializer) &&
+        node.initializer.elements.length > 0 &&
+        ts.isIdentifier(node.initializer.elements[0]) &&
+        node.initializer.elements[0].text === scriptPathParameterName
+      ) {
+        argsBindings.add(node.name.text);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'spawnSync' &&
+        node.arguments.length >= 2 &&
+        ts.isStringLiteralLike(node.arguments[0]) &&
+        node.arguments[0].text === 'tsx' &&
+        ts.isIdentifier(node.arguments[1]) &&
+        argsBindings.has(node.arguments[1].text)
+      ) {
+        runnerDefinitionIsCanonical = true;
+      }
+      ts.forEachChild(node, inspectRunner);
+    }
+    inspectRunner(statement.body);
+  }
+
+  function collectPathBindings(node: ts.Node): void {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      isSyncScriptPathExpression(node.initializer, expectedScriptPath)
+    ) {
+      scriptPathBindings.add(node.name.text);
+    }
+    ts.forEachChild(node, collectPathBindings);
+  }
+  collectPathBindings(sourceFile);
+
+  let delegates = false;
+  function findDelegation(node: ts.Node): void {
+    if (delegates) {
+      return;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'runSyncScript' &&
+      node.arguments.length > 0 &&
+      (isSyncScriptPathExpression(node.arguments[0], expectedScriptPath) ||
+        (ts.isIdentifier(node.arguments[0]) &&
+          scriptPathBindings.has(node.arguments[0].text)))
+    ) {
+      delegates = true;
+      return;
+    }
+    ts.forEachChild(node, findDelegation);
+  }
+  findDelegation(sourceFile);
+
+  return runnerDefinitionIsCanonical && delegates;
+}
+
+function getSyncProjectDelegationProblem(
+  project: StandaloneScaffoldProject,
+): string | null {
+  const syncProjectPath = path.join(
+    project.projectDir,
+    STANDALONE_SYNC_PROJECT_SCRIPT,
+  );
+  if (!fs.existsSync(syncProjectPath)) {
+    return null;
+  }
+
+  let source: string;
+  try {
+    source = fs.readFileSync(syncProjectPath, 'utf8');
+  } catch {
+    return `Unable to read generated helper ${STANDALONE_SYNC_PROJECT_SCRIPT}`;
+  }
+  if (hasTypeScriptSyntaxErrors(source, syncProjectPath)) {
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} contains TypeScript syntax errors.`;
+  }
+  const sourceFile = ts.createSourceFile(
+    syncProjectPath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const requiredDelegations = [
+    STANDALONE_SYNC_SCRIPT,
+    ...(fs.existsSync(path.join(project.projectDir, STANDALONE_SYNC_REST_SCRIPT))
+      ? [STANDALONE_SYNC_REST_SCRIPT]
+      : []),
+  ];
+  const missingDelegation = requiredDelegations.find(
+    (scriptPath) =>
+      !hasCanonicalSyncProjectDelegation(sourceFile, scriptPath),
+  );
+  return missingDelegation
+    ? `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${missingDelegation} through the canonical tsx runner.`
+    : null;
+}
+
 function splitShellCommandSegments(script: string): string[] {
   const segments: string[] = [];
   let current = '';
   let quote: "'" | '"' | null = null;
+  let startsShellWord = true;
 
   function pushCurrent(): void {
     const normalized = current.replace(/\s+/gu, ' ').trim();
@@ -512,6 +683,7 @@ function splitShellCommandSegments(script: string): string[] {
       segments.push(normalized);
     }
     current = '';
+    startsShellWord = true;
   }
 
   for (let index = 0; index < script.length; index += 1) {
@@ -522,6 +694,7 @@ function splitShellCommandSegments(script: string): string[] {
         current += script[index + 1];
         index += 1;
       }
+      startsShellWord = false;
       continue;
     }
     if (quote) {
@@ -534,6 +707,17 @@ function splitShellCommandSegments(script: string): string[] {
     if (character === "'" || character === '"') {
       quote = character;
       current += character;
+      startsShellWord = false;
+      continue;
+    }
+    if (character === '#' && startsShellWord) {
+      while (
+        index + 1 < script.length &&
+        script[index + 1] !== '\n' &&
+        script[index + 1] !== '\r'
+      ) {
+        index += 1;
+      }
       continue;
     }
     const isTwoCharacterOperator =
@@ -561,6 +745,7 @@ function splitShellCommandSegments(script: string): string[] {
       continue;
     }
     current += character;
+    startsShellWord = character === ' ' || character === '\t';
   }
   pushCurrent();
   return segments;
@@ -666,8 +851,14 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
   }
 
   let source: string;
+  let headerRegion: string;
   try {
-    source = fs.readFileSync(bootstrapPath, 'utf8');
+    const sourceBuffer = fs.readFileSync(bootstrapPath);
+    source = sourceBuffer.toString('utf8');
+    headerRegion = sourceBuffer
+      .subarray(0, WORDPRESS_PLUGIN_HEADER_SCAN_BYTES)
+      .toString('utf8')
+      .replace(/^\uFEFF/u, '');
   } catch {
     return createDoctorCheck(
       'Standalone plugin bootstrap',
@@ -676,11 +867,12 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
       STANDALONE_DOCTOR_CODES.BOOTSTRAP,
     );
   }
-  const headerRegion = source
-    .slice(0, WORDPRESS_PLUGIN_HEADER_SCAN_BYTES)
-    .replace(/^\uFEFF/u, '');
   const hasPluginHeader = WORDPRESS_PLUGIN_NAME_HEADER_PATTERN.test(headerRegion);
-  const hasRegistrationCall = hasPhpFunctionCall(source, 'register_block_type');
+  const hasRegistrationCall = hasPhpFunctionCall(
+    source,
+    'register_block_type',
+    { requirePhpOpenTag: true },
+  );
   const hasRegistrationHook = hasPhpFunctionCallWithStringArguments(
     source,
     'add_action',
@@ -689,6 +881,7 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
       (callbackName) =>
         /^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(callbackName),
     ],
+    { requirePhpOpenTag: true },
   );
   const issues = [
     ...(!hasPluginHeader ? ['is missing a Plugin Name header'] : []),
@@ -710,6 +903,7 @@ function getBootstrapCheck(project: StandaloneScaffoldProject): DoctorCheck {
 function getSourceLayoutCheck(
   project: StandaloneScaffoldProject,
   parsedConfig: ParsedStandaloneSyncConfig,
+  parsedRestConfig: ParsedStandaloneRestConfig,
 ): DoctorCheck {
   const missingFiles = [
     STANDALONE_SYNC_SCRIPT,
@@ -721,9 +915,12 @@ function getSourceLayoutCheck(
     (relativePath) =>
       !fs.existsSync(path.join(project.projectDir, relativePath)),
   );
+  const syncProjectProblem = getSyncProjectDelegationProblem(project);
   const issues = [
     ...(missingFiles.length > 0 ? [`Missing: ${missingFiles.join(', ')}`] : []),
     ...(parsedConfig.problem ? [parsedConfig.problem] : []),
+    ...(parsedRestConfig.problem ? [parsedRestConfig.problem] : []),
+    ...(syncProjectProblem ? [syncProjectProblem] : []),
   ];
 
   return createDoctorCheck(
@@ -736,11 +933,11 @@ function getSourceLayoutCheck(
   );
 }
 
-function canResolveFromProject(
+function resolveFromProject(
   projectDir: string,
   packageName: string,
   resolutionSpecifier: string,
-): boolean {
+): string | null {
   const projectRequire = createRequire(path.join(projectDir, 'package.json'));
   try {
     const localPackageEntry = path.join(
@@ -749,7 +946,7 @@ function canResolveFromProject(
       ...packageName.split('/'),
     );
     if (!fs.existsSync(localPackageEntry)) {
-      return false;
+      return null;
     }
     const localPackageRoot = fs.realpathSync(localPackageEntry);
     const resolvedPath = fs.realpathSync(
@@ -757,10 +954,57 @@ function canResolveFromProject(
     );
     return isProjectLocalRelativePath(
       path.relative(localPackageRoot, resolvedPath),
-    );
+    )
+      ? resolvedPath
+      : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function canResolveFromProject(
+  projectDir: string,
+  packageName: string,
+  resolutionSpecifier: string,
+): boolean {
+  return (
+    resolveFromProject(projectDir, packageName, resolutionSpecifier) !== null
+  );
+}
+
+async function loadProjectMetadataCore(
+  project: StandaloneScaffoldProject,
+  requiresRest: boolean,
+): Promise<StandaloneMetadataCoreModule> {
+  const modulePath = resolveFromProject(
+    project.projectDir,
+    '@wp-typia/block-runtime',
+    '@wp-typia/block-runtime/metadata-core',
+  );
+  if (!modulePath) {
+    throw new Error(
+      'Unable to resolve project-local @wp-typia/block-runtime/metadata-core.',
+    );
+  }
+  const loaded = (await import(
+    pathToFileURL(modulePath).href
+  )) as Partial<StandaloneMetadataCoreModule>;
+  const requiredExports = [
+    'resolveSyncBlockMetadataPaths',
+    'runSyncBlockMetadata',
+    ...(requiresRest
+      ? (['syncEndpointClient', 'syncRestOpenApi', 'syncTypeSchemas'] as const)
+      : []),
+  ] as const;
+  const missingExport = requiredExports.find(
+    (exportName) => typeof loaded[exportName] !== 'function',
+  );
+  if (missingExport) {
+    throw new Error(
+      `Project-local metadata-core does not export ${missingExport}().`,
+    );
+  }
+  return loaded as StandaloneMetadataCoreModule;
 }
 
 function getDependenciesCheck(project: StandaloneScaffoldProject): DoctorCheck {
@@ -817,8 +1061,15 @@ function sanitizeProjectPaths(message: string, projectDir: string): string {
 
 function getConfiguredArtifactPaths(
   options: SyncBlockMetadataOptions,
+  metadataCore?: Pick<
+    StandaloneMetadataCoreModule,
+    'resolveSyncBlockMetadataPaths'
+  >,
 ): string[] {
-  const resolvedPaths = resolveSyncBlockMetadataPaths(options);
+  const resolvedPaths = (
+    metadataCore?.resolveSyncBlockMetadataPaths ??
+    resolveSyncBlockMetadataPaths
+  )(options);
   return [
     resolvedPaths.blockJsonPath,
     resolvedPaths.manifestPath,
@@ -846,6 +1097,7 @@ function formatSyncFailure(
 async function getGeneratedArtifactsCheck(
   project: StandaloneScaffoldProject,
   parsedConfig: ParsedStandaloneSyncConfig,
+  parsedRestConfig: ParsedStandaloneRestConfig,
   dependenciesReady: boolean,
 ): Promise<DoctorCheck> {
   const packageManager = inferPackageManagerId(
@@ -853,7 +1105,7 @@ async function getGeneratedArtifactsCheck(
     project.packageJson.packageManager,
   );
   const syncCommand = formatRunScript(packageManager, 'sync');
-  if (!parsedConfig.options) {
+  if (!parsedConfig.options || parsedRestConfig.problem) {
     return createDoctorCheck(
       'Standalone generated artifacts',
       'fail',
@@ -862,7 +1114,10 @@ async function getGeneratedArtifactsCheck(
     );
   }
 
-  const artifactPaths = getConfiguredArtifactPaths(parsedConfig.options);
+  let artifactPaths = [
+    ...getConfiguredArtifactPaths(parsedConfig.options),
+    ...parsedRestConfig.artifactPaths,
+  ];
   const missingArtifacts = artifactPaths.filter(
     (artifactPath) => !fs.existsSync(artifactPath),
   );
@@ -883,9 +1138,18 @@ async function getGeneratedArtifactsCheck(
     );
   }
 
+  let metadataCore: StandaloneMetadataCoreModule;
   let report: SyncBlockMetadataReport;
   try {
-    report = await runSyncBlockMetadata(parsedConfig.options, {
+    metadataCore = await loadProjectMetadataCore(
+      project,
+      parsedRestConfig.manifest !== null,
+    );
+    artifactPaths = [
+      ...getConfiguredArtifactPaths(parsedConfig.options, metadataCore),
+      ...parsedRestConfig.artifactPaths,
+    ];
+    report = await metadataCore.runSyncBlockMetadata(parsedConfig.options, {
       check: true,
     });
   } catch (error) {
@@ -910,6 +1174,28 @@ async function getGeneratedArtifactsCheck(
     );
   }
 
+  if (parsedRestConfig.manifest) {
+    try {
+      await checkStandaloneRestArtifacts(
+        project.projectDir,
+        parsedRestConfig,
+        metadataCore,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const normalizedMessage = sanitizeProjectPaths(
+        message,
+        project.projectDir,
+      );
+      return createDoctorCheck(
+        'Standalone generated artifacts',
+        'fail',
+        `Canonical REST sync check failed: ${normalizedMessage}. Run \`${syncCommand}\` and rerun doctor.`,
+        STANDALONE_DOCTOR_CODES.ARTIFACTS,
+      );
+    }
+  }
+
   const warningCount =
     report.lossyProjectionWarnings.length + report.phpGenerationWarnings.length;
   const artifactSummary = artifactPaths
@@ -930,6 +1216,7 @@ export async function getStandaloneScaffoldDoctorChecks(
   project: StandaloneScaffoldProject,
 ): Promise<DoctorCheck[]> {
   const parsedConfig = parseStandaloneSyncConfig(project);
+  const parsedRestConfig = parseStandaloneRestConfig(project.projectDir);
   const dependenciesCheck = getDependenciesCheck(project);
   return [
     createDoctorScopeCheck(
@@ -938,11 +1225,12 @@ export async function getStandaloneScaffoldDoctorChecks(
     ),
     getPackageMetadataCheck(project),
     getBootstrapCheck(project),
-    getSourceLayoutCheck(project, parsedConfig),
+    getSourceLayoutCheck(project, parsedConfig, parsedRestConfig),
     dependenciesCheck,
     await getGeneratedArtifactsCheck(
       project,
       parsedConfig,
+      parsedRestConfig,
       dependenciesCheck.status === 'pass',
     ),
   ];

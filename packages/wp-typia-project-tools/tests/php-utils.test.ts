@@ -282,6 +282,34 @@ TEXT;
 	).toBe(false);
 });
 
+test("PHP call scanning can require actual PHP code regions", () => {
+	const outsidePhp = `
+register_block_type( 'outside-before' );
+<?php register_block_type( 'inside' ); ?>
+register_block_type( 'outside-after' );
+`;
+
+	expect(
+		hasPhpFunctionCall(outsidePhp, "register_block_type", {
+			requirePhpOpenTag: true,
+		}),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
+			"register_block_type( 'outside-only' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?php // register_block_type( 'commented' ); ?> register_block_type( 'outside' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+});
+
 test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
 	const filterName = "block_bindings_supported_attributes_demo-space/card";
 	const source = `<?php

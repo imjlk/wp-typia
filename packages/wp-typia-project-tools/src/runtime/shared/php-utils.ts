@@ -12,6 +12,12 @@ export type ReplacePhpFunctionDefinitionOptions = PhpFunctionRangeOptions & {
 	trimReplacementStart?: boolean;
 };
 
+/** Options controlling whether PHP call helpers scan snippets or full PHP files. */
+export type PhpFunctionCallScanOptions = {
+	/** Ignore text outside explicit PHP open/close tag regions. */
+	requirePhpOpenTag?: boolean;
+};
+
 type PhpFunctionScanMode =
 	| "block-comment"
 	| "code"
@@ -28,10 +34,12 @@ type PhpHeredocStart = {
 
 type PhpScannerState = {
 	heredocDelimiter: string;
+	inPhp: boolean;
 	interpolationComment: "" | "block" | "line";
 	interpolationDepth: number;
 	interpolationQuote: string;
 	mode: PhpFunctionScanMode;
+	requirePhpOpenTag: boolean;
 };
 
 type PhpScannerAdvanceResult = {
@@ -316,14 +324,30 @@ function getPhpFunctionCallFirstArgumentStart(
 	return skipPhpCallTrivia(source, callStart + 1);
 }
 
-function createPhpScannerState(): PhpScannerState {
+function createPhpScannerState(
+	options: PhpFunctionCallScanOptions = {},
+): PhpScannerState {
+	const requirePhpOpenTag = options.requirePhpOpenTag === true;
 	return {
 		heredocDelimiter: "",
+		inPhp: !requirePhpOpenTag,
 		interpolationComment: "",
 		interpolationDepth: 0,
 		interpolationQuote: "",
 		mode: "code",
+		requirePhpOpenTag,
 	};
+}
+
+function getPhpOpenTagLength(source: string, index: number): number {
+	if (source.startsWith("<?=", index)) {
+		return 3;
+	}
+	if (source.slice(index, index + 5).toLowerCase() === "<?php") {
+		const nextCharacter = source[index + 5];
+		return nextCharacter === undefined || isPhpWhitespace(nextCharacter) ? 5 : 0;
+	}
+	return source.startsWith("<?", index) ? 2 : 0;
 }
 
 function advancePhpScanner(
@@ -332,6 +356,20 @@ function advancePhpScanner(
 	state: PhpScannerState,
 ): PhpScannerAdvanceResult {
 	const character = source[index];
+
+	if (state.requirePhpOpenTag && !state.inPhp) {
+		const openTagLength = getPhpOpenTagLength(source, index);
+		if (openTagLength > 0) {
+			state.inPhp = true;
+			state.mode = "code";
+			return {
+				ambiguous: false,
+				inCode: false,
+				index: index + openTagLength,
+			};
+		}
+		return { ambiguous: false, inCode: false, index: index + 1 };
+	}
 
 	if (state.mode === "heredoc") {
 		const closingEnd = findPhpHeredocClosingEnd(
@@ -433,6 +471,15 @@ function advancePhpScanner(
 	}
 
 	if (state.mode === "line-comment") {
+		if (
+			state.requirePhpOpenTag &&
+			character === "?" &&
+			source[index + 1] === ">"
+		) {
+			state.inPhp = false;
+			state.mode = "code";
+			return { ambiguous: false, inCode: false, index: index + 2 };
+		}
 		if (character === "\r" || character === "\n") {
 			state.mode = "code";
 		}
@@ -445,6 +492,15 @@ function advancePhpScanner(
 			return { ambiguous: false, inCode: false, index: index + 2 };
 		}
 		return { ambiguous: false, inCode: false, index: index + 1 };
+	}
+
+	if (
+		state.requirePhpOpenTag &&
+		character === "?" &&
+		source[index + 1] === ">"
+	) {
+		state.inPhp = false;
+		return { ambiguous: false, inCode: false, index: index + 2 };
 	}
 
 	if (character === "'") {
@@ -488,10 +544,15 @@ function advancePhpScanner(
  *
  * @param source PHP source to scan.
  * @param functionName Literal PHP function identifier to find.
+ * @param options Scanner options for full files that require explicit PHP tags.
  * @returns Whether `source` contains a code-mode call to `functionName`.
  */
-export function hasPhpFunctionCall(source: string, functionName: string): boolean {
-	const scanner = createPhpScannerState();
+export function hasPhpFunctionCall(
+	source: string,
+	functionName: string,
+	options: PhpFunctionCallScanOptions = {},
+): boolean {
+	const scanner = createPhpScannerState(options);
 	let index = 0;
 	while (index < source.length) {
 		const scan = advancePhpScanner(source, index, scanner);
@@ -528,17 +589,24 @@ function matchesPhpStringArgument(
  *
  * Each matcher applies to the corresponding argument in the same code-mode
  * function call. Additional arguments after the matched prefix are allowed.
+ *
+ * @param source PHP source to scan.
+ * @param functionName Literal PHP function identifier to find.
+ * @param argumentMatchers Matchers for the leading literal string arguments.
+ * @param options Scanner options for full files that require explicit PHP tags.
+ * @returns Whether one code-mode call satisfies every supplied matcher.
  */
 export function hasPhpFunctionCallWithStringArguments(
 	source: string,
 	functionName: string,
 	argumentMatchers: readonly PhpStringArgumentMatcher[],
+	options: PhpFunctionCallScanOptions = {},
 ): boolean {
 	if (argumentMatchers.length === 0) {
-		return hasPhpFunctionCall(source, functionName);
+		return hasPhpFunctionCall(source, functionName, options);
 	}
 
-	const scanner = createPhpScannerState();
+	const scanner = createPhpScannerState(options);
 	let index = 0;
 	while (index < source.length) {
 		const scan = advancePhpScanner(source, index, scanner);
