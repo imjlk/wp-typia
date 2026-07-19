@@ -43,6 +43,7 @@ async function captureNodeCli(
   const originalError = console.error;
   const originalLog = console.log;
   const originalStderrWrite = process.stderr.write;
+  const originalStdoutWrite = process.stdout.write;
   const originalWarn = console.warn;
   const originalAgentEnv = new Map(
     AI_AGENT_ENV_KEYS.map((key) => [key, process.env[key]]),
@@ -73,6 +74,15 @@ async function captureNodeCli(
     callback?.();
     return true;
   }) as typeof process.stderr.write;
+  process.stdout.write = ((chunk: unknown, ...args: unknown[]) => {
+    stdout.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    const callback = args.find(
+      (arg): arg is (error?: Error | null) => void =>
+        typeof arg === 'function',
+    );
+    callback?.();
+    return true;
+  }) as typeof process.stdout.write;
 
   try {
     if (options.cwd) {
@@ -102,6 +112,7 @@ async function captureNodeCli(
     console.log = originalLog;
     console.warn = originalWarn;
     process.stderr.write = originalStderrWrite;
+    process.stdout.write = originalStdoutWrite;
     process.exitCode = originalExitCode;
     for (const key of AI_AGENT_ENV_KEYS) {
       const value = originalAgentEnv.get(key);
@@ -1010,7 +1021,7 @@ describe('Gunshi CLI core routing', () => {
         path.join(tempRoot, 'scripts', 'succeed.mjs'),
         [
           'console.log("sync stdout marker");',
-          'console.error("sync stderr marker");',
+          'process.stderr.write("sync stderr marker\\r\\n");',
         ].join('\n'),
         'utf8',
       );
@@ -1024,6 +1035,7 @@ describe('Gunshi CLI core routing', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('sync stdout marker');
       expect(result.stderr).toContain('sync stderr marker');
+      expect(result.stderr).not.toContain('\r');
     } finally {
       removeTempRoot(tempRoot);
     }
@@ -1048,6 +1060,8 @@ describe('Gunshi CLI core routing', () => {
           'console.error("sync failed intentionally");',
           'console.error(`failed file: ${process.cwd()}/src/private.ts`);',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
+          'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
+          'console.error("    at runSyncScript (sync-project.ts:78:9)");',
           'process.exit(42);',
         ].join('\n'),
         'utf8',
@@ -1086,6 +1100,9 @@ describe('Gunshi CLI core routing', () => {
       expect(parsed.error?.detailLines).toContain(
         'case variant: <project-root>/src/case.ts',
       );
+      expect(parsed.error?.detailLines).toContain(
+        'alternate separators: <project-root>/src/alternate.ts',
+      );
       expect(parsed.error?.message).not.toContain(fs.realpathSync(tempRoot));
       expect(parsed.error?.data).toEqual({
         command: 'npm run sync',
@@ -1103,6 +1120,9 @@ describe('Gunshi CLI core routing', () => {
       );
       expect(textResult.stderr).toContain(
         'case variant: <project-root>/src/case.ts',
+      );
+      expect(textResult.stderr).toContain(
+        'alternate separators: <project-root>/src/alternate.ts',
       );
       expect(textResult.stderr).not.toContain(fs.realpathSync(tempRoot));
       expect(textResult.stderr).not.toContain('\n    at ');

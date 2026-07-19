@@ -38,7 +38,6 @@ import {
 import {
   executeSyncCommand,
   resolveSyncExecutionTarget,
-  type SyncExecutionResult,
 } from './runtime-bridge-sync';
 import { normalizeWpTypiaArgv } from './command-contract';
 import {
@@ -69,6 +68,7 @@ const PORTABLE_CLI_OPTION_PARSER = buildCommandOptionParser(
   ALL_COMMAND_OPTION_METADATA,
 );
 const PORTABLE_CLI_BOOLEAN_OPTION_NAMES = ['help', 'version'] as const;
+const MAX_PENDING_SYNC_STDERR_LINE = 64 * 1024;
 const printLine: PrintLine = (line) => {
   console.log(line);
 };
@@ -291,31 +291,49 @@ async function dispatchPortableCliSkills({
   });
 }
 
-function replayCapturedOutput(
-  output: string | undefined,
-  emitLine: PrintLine,
-): void {
-  if (!output) {
-    return;
-  }
+function createSyncStderrWriter(): {
+  flush: () => void;
+  write: (chunk: string) => void;
+} {
+  let pending = '';
+  const emit = (line: string) => {
+    if (!/^\s*at\s+/u.test(line)) {
+      process.stderr.write(line);
+    }
+  };
+  const append = (chunk: string, final: boolean) => {
+    pending += chunk;
+    pending = pending
+      .replace(/\r\n/gu, '\n')
+      .replace(final ? /\r/gu : /\r(?!$)/gu, '\n');
 
-  for (const line of output
-    .replace(/\r\n?/gu, '\n')
-    .replace(/\n$/u, '')
-    .split('\n')) {
-    emitLine(line);
-  }
-}
+    let newlineIndex = pending.indexOf('\n');
+    while (newlineIndex >= 0) {
+      emit(pending.slice(0, newlineIndex + 1));
+      pending = pending.slice(newlineIndex + 1);
+      newlineIndex = pending.indexOf('\n');
+    }
+  };
 
-function replayCapturedSyncOutput(
-  sync: SyncExecutionResult,
-  printLine: PrintLine,
-  warnLine: PrintLine,
-): void {
-  for (const command of sync.executedCommands ?? []) {
-    replayCapturedOutput(command.stdout, printLine);
-    replayCapturedOutput(command.stderr, warnLine);
-  }
+  return {
+    flush: () => {
+      append('', true);
+      if (pending.length > 0) {
+        emit(pending);
+      }
+      pending = '';
+    },
+    write: (chunk) => {
+      append(chunk, false);
+
+      // Stack frames are short, line-oriented records. Do not retain an
+      // arbitrarily large stderr line just to determine whether it is one.
+      if (pending.length > MAX_PENDING_SYNC_STDERR_LINE) {
+        emit(pending);
+        pending = '';
+      }
+    },
+  };
 }
 
 const PORTABLE_CLI_COMMAND_DISPATCHERS = {
@@ -382,17 +400,27 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
     structuredNotices,
     warnLine,
   }: PortableCliDispatchContext) => {
+    let stderrWriter: ReturnType<typeof createSyncStderrWriter> | undefined;
     try {
       const syncTarget = resolveSyncExecutionTarget(positionals[1]);
       const dryRun = Boolean(mergedFlags['dry-run']);
+      const structured = mergedFlags.format === 'json';
+      stderrWriter = structured || dryRun ? undefined : createSyncStderrWriter();
       const sync = await executeSyncCommand({
         captureOutput: !dryRun,
         check: Boolean(mergedFlags.check),
         cwd,
         dryRun,
+        onStderr: stderrWriter?.write,
+        onStdout: stderrWriter
+          ? (chunk) => {
+              process.stdout.write(chunk);
+            }
+          : undefined,
         target: syncTarget,
       });
-      if (mergedFlags.format === 'json') {
+      stderrWriter?.flush();
+      if (structured) {
         printLine(
           JSON.stringify(
             withStructuredOutputNotices({ sync }, structuredNotices),
@@ -402,7 +430,6 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
         );
         return;
       }
-      replayCapturedSyncOutput(sync, printLine, warnLine);
       if (sync.dryRun) {
         printCompletionPayload(
           buildSyncDryRunPayload({
@@ -419,6 +446,8 @@ const PORTABLE_CLI_COMMAND_DISPATCHERS = {
         );
       }
     } catch (error) {
+      // Flush any final partial stderr line before rendering the summary.
+      stderrWriter?.flush();
       throw createCliCommandError({
         command: 'sync',
         error,

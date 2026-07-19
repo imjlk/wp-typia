@@ -1,6 +1,7 @@
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliCommandError,
@@ -28,6 +29,8 @@ type SyncExecutionInput = {
   check?: boolean;
   cwd: string;
   dryRun?: boolean;
+  onStderr?: (chunk: string) => void;
+  onStdout?: (chunk: string) => void;
   target?: SyncExecutionTarget;
 };
 
@@ -82,6 +85,90 @@ type SyncArtifactIssue = {
   path: string;
   status: 'missing' | 'stale';
 };
+
+type SyncProcessResult = {
+  error?: Error;
+  signal: NodeJS.Signals | null;
+  status: number | null;
+};
+
+class BoundedSyncOutputCapture {
+  private readonly chunks: Buffer[] = [];
+  private size = 0;
+
+  append(chunk: Buffer): void {
+    this.chunks.push(chunk);
+    this.size += chunk.byteLength;
+
+    while (this.size > CAPTURED_SYNC_OUTPUT_MAX_BUFFER) {
+      const first = this.chunks[0];
+      if (!first) {
+        break;
+      }
+      const overflow = this.size - CAPTURED_SYNC_OUTPUT_MAX_BUFFER;
+      if (first.byteLength <= overflow) {
+        this.chunks.shift();
+        this.size -= first.byteLength;
+        continue;
+      }
+      this.chunks[0] = Buffer.from(first.subarray(overflow));
+      this.size -= overflow;
+    }
+  }
+
+  toString(): string | undefined {
+    return this.size > 0
+      ? Buffer.concat(this.chunks, this.size).toString('utf8')
+      : undefined;
+  }
+}
+
+class SanitizedSyncOutputStream {
+  private readonly decoder = new StringDecoder('utf8');
+  private readonly overlapLength: number;
+  private readonly patterns: RegExp[];
+  private pending = '';
+
+  constructor(
+    projectRoots: string[],
+    private readonly write: (chunk: string) => void,
+  ) {
+    this.overlapLength = Math.max(
+      1,
+      ...projectRoots.map((projectRoot) => projectRoot.length),
+    );
+    this.patterns = createSyncOutputPatterns(projectRoots);
+  }
+
+  append(chunk: Buffer): void {
+    this.pending = sanitizeSyncOutputWithPatterns(
+      `${this.pending}${this.decoder.write(chunk)}`,
+      this.patterns,
+    );
+    if (this.pending.length <= this.overlapLength) {
+      return;
+    }
+
+    const emitLength = this.pending.length - this.overlapLength;
+    this.write(this.pending.slice(0, emitLength));
+    this.pending = this.pending.slice(emitLength);
+  }
+
+  flush(): void {
+    const tail = this.decoder.end();
+    if (tail) {
+      this.pending = sanitizeSyncOutputWithPatterns(
+        `${this.pending}${tail}`,
+        this.patterns,
+      );
+    }
+    if (this.pending.length === 0) {
+      return;
+    }
+    this.write(this.pending);
+    this.pending = '';
+  }
+}
 
 export function resolveSyncExecutionTarget(
   subcommand?: string,
@@ -415,11 +502,31 @@ function collectSyncArtifactIssues(
   return issues;
 }
 
+function createSyncOutputPatterns(projectRoots: string[]): RegExp[] {
+  return projectRoots.map(
+    (projectRoot) =>
+      new RegExp(
+        projectRoot.split(/[\\/]/u).map(escapeRegExp).join(String.raw`[\\/]`),
+        'giu',
+      ),
+  );
+}
+
+function sanitizeSyncOutputWithPatterns(
+  line: string,
+  patterns: RegExp[],
+): string {
+  return patterns.reduce(
+    (sanitized, pattern) => sanitized.replace(pattern, '<project-root>'),
+    line,
+  );
+}
+
 function sanitizeSyncOutputLine(line: string, projectRoots: string[]): string {
-  return projectRoots.reduce((sanitized, projectRoot) => {
-    const pattern = new RegExp(escapeRegExp(projectRoot), 'giu');
-    return sanitized.replace(pattern, '<project-root>');
-  }, line);
+  return sanitizeSyncOutputWithPatterns(
+    line,
+    createSyncOutputPatterns(projectRoots),
+  );
 }
 
 function collectSyncFailureOutputLines(
@@ -448,11 +555,11 @@ function collectSyncFailureOutputLines(
 function createSyncExecutionError(
   project: SyncProjectContext,
   plannedCommand: SyncPlannedCommand,
-  result: ReturnType<typeof spawnSync>,
+  result: SyncProcessResult,
   stdout: string | undefined,
   stderr: string | undefined,
+  includeOutputLines: boolean,
 ): Error {
-  const exitCode = result.status ?? 1;
   const projectRoots = resolveSyncProjectRoots(project.cwd);
   const artifacts = collectSyncArtifactIssues(
     project.cwd,
@@ -460,7 +567,18 @@ function createSyncExecutionError(
     stdout,
     stderr,
   );
-  const commandDetail = `\`${plannedCommand.displayCommand}\` failed with exit code ${exitCode}.`;
+  let commandDetail: string;
+  if (result.status !== null) {
+    commandDetail = `\`${plannedCommand.displayCommand}\` failed with exit code ${result.status}.`;
+  } else if (result.signal) {
+    commandDetail = `\`${plannedCommand.displayCommand}\` was terminated by signal ${result.signal}.`;
+  } else {
+    commandDetail = `\`${plannedCommand.displayCommand}\` failed before reporting an exit code.`;
+  }
+  const processData = {
+    ...(result.status !== null ? { exitCode: result.status } : {}),
+    ...(result.signal ? { signal: result.signal } : {}),
+  };
 
   if (artifacts.length > 0) {
     const applyCommand = formatRunScript(
@@ -473,7 +591,7 @@ function createSyncExecutionError(
       data: {
         artifacts,
         command: plannedCommand.displayCommand,
-        exitCode,
+        ...processData,
       },
       detailLines: [
         commandDetail,
@@ -488,18 +606,15 @@ function createSyncExecutionError(
     });
   }
 
-  const outputLines = collectSyncFailureOutputLines(
-    projectRoots,
-    stdout,
-    stderr,
-  );
+  const outputLines = includeOutputLines
+    ? collectSyncFailureOutputLines(projectRoots, stdout, stderr)
+    : [];
   return createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.COMMAND_EXECUTION,
     command: 'sync',
     data: {
       command: plannedCommand.displayCommand,
-      exitCode,
-      ...(result.signal ? { signal: result.signal } : {}),
+      ...processData,
     },
     detailLines: [
       commandDetail,
@@ -513,30 +628,72 @@ function createSyncExecutionError(
   });
 }
 
-function runProjectScript(
+async function runProjectScript(
   project: SyncProjectContext,
   plannedCommand: SyncPlannedCommand,
   options: {
     captureOutput: boolean;
+    onStderr?: (chunk: string) => void;
+    onStdout?: (chunk: string) => void;
   },
-): SyncExecutedCommand {
-  const result = spawnSync(plannedCommand.command, plannedCommand.args, {
+): Promise<SyncExecutedCommand> {
+  const pipeOutput =
+    options.captureOutput ||
+    options.onStderr !== undefined ||
+    options.onStdout !== undefined;
+  const stderrCapture = new BoundedSyncOutputCapture();
+  const stdoutCapture = new BoundedSyncOutputCapture();
+  const projectRoots = resolveSyncProjectRoots(project.cwd);
+  const stdoutStream = options.onStdout
+    ? new SanitizedSyncOutputStream(projectRoots, options.onStdout)
+    : undefined;
+  const stderrStream = options.onStderr
+    ? new SanitizedSyncOutputStream(projectRoots, options.onStderr)
+    : undefined;
+  const child = spawn(plannedCommand.command, plannedCommand.args, {
     cwd: project.cwd,
-    encoding: options.captureOutput ? 'utf8' : undefined,
-    ...(options.captureOutput
-      ? { maxBuffer: CAPTURED_SYNC_OUTPUT_MAX_BUFFER }
-      : {}),
     shell: process.platform === 'win32',
-    stdio: options.captureOutput ? 'pipe' : 'inherit',
+    stdio: pipeOutput ? 'pipe' : 'inherit',
   });
-  const stderr =
-    options.captureOutput && typeof result.stderr === 'string'
-      ? result.stderr
-      : undefined;
-  const stdout =
-    options.captureOutput && typeof result.stdout === 'string'
-      ? result.stdout
-      : undefined;
+  let spawnError: Error | undefined;
+
+  child.stdout?.on('data', (chunk: Buffer) => {
+    if (options.captureOutput) {
+      stdoutCapture.append(chunk);
+    }
+    stdoutStream?.append(chunk);
+  });
+  child.stderr?.on('data', (chunk: Buffer) => {
+    if (options.captureOutput) {
+      stderrCapture.append(chunk);
+    }
+    stderrStream?.append(chunk);
+  });
+  child.once('error', (error) => {
+    spawnError ??= error;
+  });
+  // Readable stream failures must feed the command diagnostic instead of
+  // becoming uncaught async exceptions outside the sync error boundary.
+  child.stdout?.once('error', (error) => {
+    spawnError ??= error;
+  });
+  child.stderr?.once('error', (error) => {
+    spawnError ??= error;
+  });
+
+  const result = await new Promise<SyncProcessResult>((resolve) => {
+    child.once('close', (status, signal) => {
+      resolve({
+        ...(spawnError ? { error: spawnError } : {}),
+        signal,
+        status,
+      });
+    });
+  });
+  const stderr = options.captureOutput ? stderrCapture.toString() : undefined;
+  const stdout = options.captureOutput ? stdoutCapture.toString() : undefined;
+  stderrStream?.flush();
+  stdoutStream?.flush();
 
   if (result.error || result.status !== 0) {
     throw createSyncExecutionError(
@@ -545,6 +702,7 @@ function runProjectScript(
       result,
       stdout,
       stderr,
+      options.onStderr === undefined && options.onStdout === undefined,
     );
   }
 
@@ -569,6 +727,8 @@ export async function executeSyncCommand({
   check = false,
   cwd,
   dryRun = false,
+  onStderr,
+  onStdout,
   target = 'default',
 }: SyncExecutionInput): Promise<SyncExecutionResult> {
   const project = resolveSyncProjectContext(cwd);
@@ -589,10 +749,17 @@ export async function executeSyncCommand({
   }
 
   assertSyncDependenciesInstalled(project, target);
-  result.executedCommands = plannedCommands.map((plannedCommand) =>
-    runProjectScript(project, plannedCommand, {
-      captureOutput,
-    }),
-  );
+  // Keep legacy split sync plans ordered because later scripts can consume
+  // generated type and REST artifacts produced by earlier commands.
+  result.executedCommands = [];
+  for (const plannedCommand of plannedCommands) {
+    result.executedCommands.push(
+      await runProjectScript(project, plannedCommand, {
+        captureOutput,
+        onStderr,
+        onStdout,
+      }),
+    );
+  }
   return result;
 }

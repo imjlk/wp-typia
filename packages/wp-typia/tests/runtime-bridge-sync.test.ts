@@ -214,6 +214,92 @@ test('sync can capture executed script output for structured callers', async () 
   expect(result.executedCommands?.[0]?.stdout).toContain('ran:sync\n');
 });
 
+test('text sync streams output beyond the diagnostic capture limit', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-stream-large-output',
+    scripts: {
+      sync: 'node scripts/large-output.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'large-output.mjs'),
+    [
+      'process.stdout.write("x".repeat(17 * 1024 * 1024));',
+      'process.stderr.write("y".repeat(17 * 1024 * 1024));',
+    ].join('\n'),
+    'utf8',
+  );
+  let streamedStderrBytes = 0;
+  let streamedBytes = 0;
+
+  const result = await executeSyncCommand({
+    captureOutput: true,
+    cwd: projectDir,
+    onStderr: (chunk) => {
+      streamedStderrBytes += Buffer.byteLength(chunk);
+    },
+    onStdout: (chunk) => {
+      streamedBytes += Buffer.byteLength(chunk);
+    },
+  });
+
+  expect(result.executedCommands?.[0]?.exitCode).toBe(0);
+  expect(streamedBytes).toBeGreaterThan(16 * 1024 * 1024);
+  expect(streamedStderrBytes).toBeGreaterThan(16 * 1024 * 1024);
+  expect(
+    Buffer.byteLength(result.executedCommands?.[0]?.stderr ?? ''),
+  ).toBeLessThanOrEqual(16 * 1024 * 1024);
+  expect(
+    Buffer.byteLength(result.executedCommands?.[0]?.stdout ?? ''),
+  ).toBeLessThanOrEqual(16 * 1024 * 1024);
+});
+
+test('text sync preserves UTF-8 characters split across output chunks', async () => {
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-stream-split-utf8',
+    scripts: {
+      sync: 'node scripts/split-utf8.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'split-utf8.mjs'),
+    [
+      "const stdout = Buffer.from('한글🙂');",
+      "const stderr = Buffer.from('진단✅');",
+      'process.stdout.write(stdout.subarray(0, 1));',
+      'process.stderr.write(stderr.subarray(0, 2));',
+      'await new Promise((resolve) => setTimeout(resolve, 25));',
+      'process.stdout.write(stdout.subarray(1));',
+      'process.stderr.write(stderr.subarray(2));',
+    ].join('\n'),
+    'utf8',
+  );
+  let streamedStderr = '';
+  let streamedStdout = '';
+
+  await executeSyncCommand({
+    captureOutput: true,
+    cwd: projectDir,
+    onStderr: (chunk) => {
+      streamedStderr += chunk;
+    },
+    onStdout: (chunk) => {
+      streamedStdout += chunk;
+    },
+  });
+
+  expect(streamedStdout).toContain('한글🙂');
+  expect(streamedStderr).toContain('진단✅');
+  expect(streamedStdout).not.toContain('�');
+  expect(streamedStderr).not.toContain('�');
+});
+
 test('sync execution failures carry a stable command-execution code', async () => {
   const projectDir = writeSyncFixture({
     name: 'demo-sync-failure-code',
@@ -301,6 +387,47 @@ test('sync check exposes generated artifact drift with project-relative paths', 
   expect((error as Error).message).not.toContain(projectDir);
   expect((error as Error).message).not.toContain(path.dirname(projectDir));
   expect((error as Error).message).not.toContain('at runSyncScript');
+});
+
+test('signaled artifact drift reports the signal without inventing an exit code', async () => {
+  if (process.platform === 'win32') {
+    return;
+  }
+
+  const projectDir = writeSyncFixture({
+    name: 'demo-sync-signaled-artifact-drift',
+    scripts: {
+      sync: 'node scripts/signaled-drift.mjs',
+    },
+    withInstallMarker: true,
+  });
+  const scriptsDir = path.join(projectDir, 'scripts');
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(scriptsDir, 'signaled-drift.mjs'),
+    [
+      "console.error('- src/block.json (stale)');",
+      "process.kill(process.ppid, 'SIGTERM');",
+      'setTimeout(() => process.exit(0), 25);',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const error = await executeSyncCommand({
+    captureOutput: true,
+    check: true,
+    cwd: projectDir,
+  }).catch((thrown) => thrown);
+
+  expect((error as { code?: string }).code).toBe('generated-artifact-drift');
+  expect((error as { detailLines?: string[] }).detailLines?.[0]).toBe(
+    '`npm run sync -- --check` was terminated by signal SIGTERM.',
+  );
+  expect((error as { data?: Record<string, unknown> }).data).toEqual({
+    artifacts: [{ path: 'src/block.json', status: 'stale' }],
+    command: 'npm run sync -- --check',
+    signal: 'SIGTERM',
+  });
 });
 
 test('sync drift diagnostics cap the structured artifact list', async () => {
