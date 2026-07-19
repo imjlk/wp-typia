@@ -1036,7 +1036,10 @@ export function findPhpFunctionRange(
 	const openBraceIndex = functionStart + openBraceOffset;
 
 	let depth = 0;
-	const scanner = createPhpScannerState();
+	const scanner = createPhpScannerState(options);
+	// The signature was already verified at a PHP code offset, and the body scan
+	// starts at its opening brace rather than at the beginning of the source.
+	scanner.inPhp = true;
 	let index = openBraceIndex;
 	while (index < source.length) {
 		const scan = advancePhpScanner(source, index, scanner);

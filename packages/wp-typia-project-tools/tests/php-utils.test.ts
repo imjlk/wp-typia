@@ -83,6 +83,28 @@ function wp_typia_target() {
 	expect(range?.source).not.toContain("return 'outside-php';");
 });
 
+test("findPhpFunctionRange ignores braces in HTML inside a PHP function", () => {
+	const source = `<?php
+function wp_typia_target() {
+?>
+<div>}</div>
+<?php
+	return 'inside-php';
+}
+
+function keep_me() {
+	return true;
+}
+`;
+
+	const range = findPhpFunctionRange(source, "wp_typia_target", {
+		requirePhpOpenTag: true,
+	});
+
+	expect(range?.source).toContain("return 'inside-php';");
+	expect(range?.source).not.toContain("function keep_me()");
+});
+
 test("findPhpFunctionRange ignores braces inside PHP string literals", () => {
 	const source = `<?php
 function wp_typia_demo() {
