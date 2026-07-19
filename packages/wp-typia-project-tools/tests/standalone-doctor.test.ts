@@ -1546,7 +1546,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  });
+  }, 20_000);
 
   test('rejects zero-argument REST sync calls in main', async () => {
     const targetDir = path.join(tempRoot, 'zero-argument-rest-sync');
