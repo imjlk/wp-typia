@@ -30,6 +30,7 @@ import {
 import {
   containsCompletion,
   hasEarlierAbruptCompletion,
+  isAllowedSyncHelperTopLevelStatement,
   isProcessExitCompletion,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
@@ -513,7 +514,10 @@ function findSyncOptionsObject(
       { flagName: '--strict', propertyName: 'strict' },
       { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
     ], true) ||
-    !hasTopLevelMainInvocation(sourceFile)
+    !hasTopLevelMainInvocation(
+      sourceFile,
+      new Set(['@wp-typia/block-runtime/metadata-core']),
+    )
   ) {
     return null;
   }
@@ -1489,7 +1493,10 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   );
 }
 
-function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
+function hasTopLevelMainInvocation(
+  sourceFile: ts.SourceFile,
+  allowedRuntimeImportModules: ReadonlySet<string>,
+): boolean {
   if (
     hasImportedBinding(sourceFile, 'process') ||
     hasShadowedBinding(sourceFile, new Set(['process']))
@@ -1571,6 +1578,14 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
     );
   return (
     invocationIndex === sourceFile.statements.length - 1 &&
+    sourceFile.statements
+      .slice(0, invocationIndex)
+      .every((statement) =>
+        isAllowedSyncHelperTopLevelStatement(
+          statement,
+          allowedRuntimeImportModules,
+        ),
+      ) &&
     !hasEarlierAbruptCompletion(sourceFile.statements, invocationIndex) &&
     !hasEarlierMainCall
   );
@@ -2084,7 +2099,10 @@ function getCanonicalSyncProjectDelegationIndex(
   const main = getSingleTopLevelFunction(sourceFile, 'main');
   if (
     !main?.body ||
-    !hasTopLevelMainInvocation(sourceFile) ||
+    !hasTopLevelMainInvocation(
+      sourceFile,
+      new Set(['node:child_process', 'node:fs', 'node:path']),
+    ) ||
     hasImportedBinding(sourceFile, 'console') ||
     hasShadowedBinding(sourceFile, new Set(['console'])) ||
     hasShadowedBinding(
@@ -2228,7 +2246,17 @@ function getSyncProjectDelegationProblem(
   const optionsDeclaration = mainStatements
     ? getDirectVariableBinding(mainStatements, isParseCliOptionsCall)
     : null;
-  if (!mainStatements || !optionsDeclaration) {
+  const typeScriptPathDeclaration = mainStatements
+    ? getDirectVariableBinding(mainStatements, (initializer) =>
+        isSyncScriptPathExpression(initializer, STANDALONE_SYNC_SCRIPT),
+      )
+    : null;
+  const restScriptPathDeclaration = mainStatements
+    ? getDirectVariableBinding(mainStatements, (initializer) =>
+        isSyncScriptPathExpression(initializer, STANDALONE_SYNC_REST_SCRIPT),
+      )
+    : null;
+  if (!mainStatements || !optionsDeclaration || !typeScriptPathDeclaration) {
     return `${STANDALONE_SYNC_PROJECT_SCRIPT} must keep its canonical sync completion flow.`;
   }
   const restDelegationIndex = getCanonicalSyncProjectDelegationIndex(
@@ -2247,7 +2275,11 @@ function getSyncProjectDelegationProblem(
   const hasTypeOnlyTail =
     !requiresRest &&
     restDelegationIndex === null &&
-    typeDelegationIndex === completionIndex - 1 &&
+    restScriptPathDeclaration === null &&
+    optionsDeclaration.index === 0 &&
+    typeScriptPathDeclaration.index === 1 &&
+    typeDelegationIndex === 2 &&
+    completionIndex === 3 &&
     isCanonicalSyncProjectCompletionLog(
       mainStatements[completionIndex],
       optionsDeclaration.binding,
@@ -2255,8 +2287,13 @@ function getSyncProjectDelegationProblem(
   // Basic scaffolds intentionally retain the guarded REST delegation so they
   // can gain persistence later without replacing the project sync runner.
   const hasRestTail =
-    restDelegationIndex === typeDelegationIndex + 1 &&
-    restDelegationIndex === completionIndex - 1 &&
+    restScriptPathDeclaration !== null &&
+    optionsDeclaration.index === 0 &&
+    typeScriptPathDeclaration.index === 1 &&
+    restScriptPathDeclaration.index === 2 &&
+    typeDelegationIndex === 3 &&
+    restDelegationIndex === 4 &&
+    completionIndex === 5 &&
     isCanonicalSyncProjectCompletionLog(
       mainStatements[completionIndex],
       optionsDeclaration.binding,
@@ -2375,6 +2412,12 @@ function shellCommandMatches(
   );
 }
 
+function shellCommandChangesDirectory(segment: ShellCommandSegment): boolean {
+  return /^(?:(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s]+))\s+)*(?:(?:builtin|command)\s+)?(?:cd|chdir|pushd|popd)(?:\s|$)/u.test(
+    segment.command,
+  );
+}
+
 function getShellSegmentStaticReachability(
   segments: readonly ShellCommandSegment[],
 ): readonly boolean[] {
@@ -2413,7 +2456,14 @@ function shellScriptInvokesCommand(
   return segments.some(
     (segment, index) =>
       shellCommandMatches(segment, command, allowTrailingArguments) &&
-      reachability[index] === true,
+      reachability[index] === true &&
+      !segments
+        .slice(0, index)
+        .some(
+          (earlierSegment, earlierIndex) =>
+            reachability[earlierIndex] === true &&
+            shellCommandChangesDirectory(earlierSegment),
+        ),
   );
 }
 

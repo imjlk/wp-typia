@@ -477,6 +477,28 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('rejects package sync commands after changing directories', async () => {
+    const targetDir = path.join(tempRoot, 'directory-changing-sync');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+      scripts: Record<string, string>;
+    };
+    packageJson.scripts.sync =
+      'cd other && tsx scripts/sync-project.ts';
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const packageCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+
+    expect(packageCheck?.status).toBe('fail');
+    expect(packageCheck?.detail).toContain(
+      'sync script must invoke `tsx scripts/sync-project.ts`',
+    );
+  });
+
   test('rejects check-only generated sync package scripts', async () => {
     const cases = [
       {
@@ -982,13 +1004,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const original = fs.readFileSync(syncScriptPath, 'utf8');
     const source = original
       .replace(
-        'import { runSyncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";',
-        [
-          'import { runSyncBlockMetadata } from "@wp-typia/block-runtime/metadata-core";',
-          'const paths = { blockJsonFile: "src/block.json" };',
-        ].join('\n'),
+        '    blockJsonFile: "src/block.json",',
+        '    ...{ blockJsonFile: "src/block.json" },',
       )
-      .replace('    blockJsonFile: "src/block.json",', '    ...paths,')
       .replace('    sourceTypeName:', '    ["sourceTypeName"]:');
     expect(source).not.toBe(original);
     fs.writeFileSync(syncScriptPath, source);
@@ -1442,7 +1460,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     }
   }, 20_000);
 
-  test('rejects top-level termination or duplicate main calls before helper replay', async () => {
+  test('rejects top-level execution before generated helper main calls', async () => {
     const cases = [
       {
         name: 'sync-types-exit',
@@ -1474,6 +1492,47 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
       },
+      {
+        name: 'sync-types-side-effect',
+        prefix:
+          "process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        name: 'sync-project-side-effect',
+        prefix:
+          "process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        name: 'sync-rest-side-effect',
+        prefix:
+          "process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+      {
+        name: 'sync-types-side-effectful-constant',
+        prefix:
+          "const hidden = process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        name: 'sync-types-class-static-block',
+        prefix:
+          "class Hidden { static { process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x'); } }",
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
+        name: 'sync-types-side-effect-import',
+        prefix: "import './unchecked-side-effect.js';",
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
     ] as const;
     for (const fixture of cases) {
       const targetDir = path.join(tempRoot, fixture.name);
@@ -1493,7 +1552,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
     }
-  }, 30_000);
+  }, 60_000);
 
   test('rejects trailing work after the REST main failure boundary', async () => {
     const targetDir = path.join(tempRoot, 'sync-rest-after-main');
@@ -1626,6 +1685,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('allows type-only process imports in standalone sync helpers', async () => {
     const cases = [
       {
+        name: 'sync-types',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-types-to-block-json.ts'),
+      },
+      {
         name: 'sync-project',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
@@ -1644,10 +1708,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       await fixture.scaffold(targetDir);
       const scriptPath = path.join(targetDir, fixture.script);
       const original = fs.readFileSync(scriptPath, 'utf8');
-      const source = original.replace(
-        '/* eslint-disable no-console */',
-        "import type * as process from 'node:process';\n\n/* eslint-disable no-console */",
-      );
+      const source =
+        "import type * as process from 'node:process';\n\n" + original;
       expect(source).not.toBe(original);
       fs.writeFileSync(scriptPath, source);
 
@@ -1972,6 +2034,45 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'must keep only the canonical optional REST delegation and completion report after type sync',
     );
   });
+
+  test('rejects check-mode mutations before generated sync work', async () => {
+    const cases = [
+      {
+        name: 'sync-project',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+      },
+      {
+        name: 'sync-rest',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const targetDir = path.join(
+        tempRoot,
+        `${fixture.name}-check-mode-mutation`,
+      );
+      await fixture.scaffold(targetDir);
+      const scriptPath = path.join(targetDir, fixture.script);
+      const original = fs.readFileSync(scriptPath, 'utf8');
+      const source = original.replace(
+        '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
+        [
+          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
+          '\toptions.check = false;',
+        ].join('\n'),
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(scriptPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+    }
+  }, 20_000);
 
   test('rejects a sync-project runner that drops --check forwarding', async () => {
     const targetDir = path.join(tempRoot, 'sync-project-without-check');
@@ -2769,7 +2870,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
       )?.status,
     ).toBe('fail');
-  });
+  }, 10_000);
 
   test('rejects shadowed endpoint-manifest imports', async () => {
     const targetDir = path.join(tempRoot, 'shadowed-rest-manifest');
@@ -2795,6 +2896,63 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(sourceLayoutCheck?.detail).toContain(
       'must not shadow its canonical defineEndpointManifest() import binding',
     );
+  });
+
+  test('rejects malformed static endpoint manifest entries without throwing', async () => {
+    for (const [name, entry] of [
+      ['empty-object', '{}'],
+      ['null', 'null'],
+    ] as const) {
+      const targetDir = path.join(tempRoot, `rest-manifest-entry-${name}`);
+      await scaffoldPersistence(targetDir);
+      const syncRestPath = path.join(
+        targetDir,
+        'scripts',
+        'sync-rest-contracts.ts',
+      );
+      const original = fs.readFileSync(syncRestPath, 'utf8');
+      const source = original.replace(
+        '\tendpoints: [',
+        `\tendpoints: [\n\t\t${entry},`,
+      );
+      expect(source).not.toBe(original);
+      fs.writeFileSync(syncRestPath, source);
+
+      const sourceLayoutCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+      );
+      expect(sourceLayoutCheck?.status).toBe('fail');
+      expect(sourceLayoutCheck?.detail).toContain(
+        'must define a static endpoint manifest through defineEndpointManifest()',
+      );
+    }
+  }, 20_000);
+
+  test('rejects side effects attached to the REST manifest declaration', async () => {
+    const targetDir = path.join(tempRoot, 'rest-manifest-side-effect');
+    await scaffoldPersistence(targetDir);
+    const syncRestPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-rest-contracts.ts',
+    );
+    const original = fs.readFileSync(syncRestPath, 'utf8');
+    const source = original.replace(
+      'const REST_ENDPOINT_MANIFEST = defineEndpointManifest( {',
+      [
+        "const leaked = process.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' ),",
+        '\tREST_ENDPOINT_MANIFEST = defineEndpointManifest( {',
+      ].join('\n'),
+    );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncRestPath, source);
+
+    const sourceLayoutCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    expect(sourceLayoutCheck?.status).toBe('fail');
   });
 
   test('rejects package names that could escape the bootstrap path', async () => {

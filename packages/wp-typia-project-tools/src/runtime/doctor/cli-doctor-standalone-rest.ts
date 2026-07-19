@@ -6,6 +6,7 @@ import ts from 'typescript';
 import {
   containsCompletion,
   hasEarlierAbruptCompletion,
+  isAllowedSyncHelperTopLevelStatement,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
 
@@ -242,6 +243,14 @@ function isStaticRecord(
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasStaticEndpointPath(value: StaticExpressionValue): boolean {
+  return (
+    isStaticRecord(value) &&
+    typeof value.path === 'string' &&
+    value.path.startsWith('/')
+  );
+}
+
 function isEndpointManifestDefinition(value: StaticExpressionValue): boolean {
   if (!isStaticRecord(value)) {
     return false;
@@ -251,13 +260,15 @@ function isEndpointManifestDefinition(value: StaticExpressionValue): boolean {
   if (!contracts || !isStaticRecord(contracts) || !Array.isArray(endpoints)) {
     return false;
   }
-  return Object.values(contracts).every(
-    (contract) =>
-      isStaticRecord(contract) &&
-      typeof contract.sourceTypeName === 'string' &&
-      contract.sourceTypeName.length > 0 &&
-      (contract.schemaName === undefined ||
-        typeof contract.schemaName === 'string'),
+  return (
+    Object.values(contracts).every(
+      (contract) =>
+        isStaticRecord(contract) &&
+        typeof contract.sourceTypeName === 'string' &&
+        contract.sourceTypeName.length > 0 &&
+        (contract.schemaName === undefined ||
+          typeof contract.schemaName === 'string'),
+    ) && endpoints.every(hasStaticEndpointPath)
   );
 }
 
@@ -371,38 +382,60 @@ function hasImportedBinding(
   });
 }
 
+function getStaticEndpointManifestInitializer(
+  statement: ts.Statement,
+  bindings: ReadonlySet<string>,
+): ts.Expression | null {
+  if (
+    !ts.isVariableStatement(statement) ||
+    !(statement.declarationList.flags & ts.NodeFlags.Const) ||
+    statement.declarationList.declarations.length !== 1
+  ) {
+    return null;
+  }
+  const declaration = statement.declarationList.declarations[0];
+  if (
+    !ts.isIdentifier(declaration.name) ||
+    declaration.name.text !== 'REST_ENDPOINT_MANIFEST' ||
+    !declaration.initializer ||
+    !ts.isCallExpression(declaration.initializer) ||
+    !ts.isIdentifier(declaration.initializer.expression) ||
+    !bindings.has(declaration.initializer.expression.text) ||
+    declaration.initializer.arguments.length !== 1
+  ) {
+    return null;
+  }
+  return declaration.initializer.arguments[0];
+}
+
+function parseStaticEndpointManifestDeclaration(
+  statement: ts.Statement,
+  bindings: ReadonlySet<string>,
+): EndpointManifestDefinition | null {
+  const initializer = getStaticEndpointManifestInitializer(
+    statement,
+    bindings,
+  );
+  if (!initializer) {
+    return null;
+  }
+  const parsed = parseStaticExpression(initializer);
+  return parsed.ok && isEndpointManifestDefinition(parsed.value)
+    ? (parsed.value as unknown as EndpointManifestDefinition)
+    : null;
+}
+
 function findStaticEndpointManifest(
   sourceFile: ts.SourceFile,
   bindings: ReadonlySet<string>,
 ): EndpointManifestDefinition | null {
-  const manifests: EndpointManifestDefinition[] = [];
-  for (const statement of sourceFile.statements) {
-    if (
-      !ts.isVariableStatement(statement) ||
-      !(statement.declarationList.flags & ts.NodeFlags.Const)
-    ) {
-      continue;
-    }
-    for (const declaration of statement.declarationList.declarations) {
-      if (
-        !ts.isIdentifier(declaration.name) ||
-        declaration.name.text !== 'REST_ENDPOINT_MANIFEST' ||
-        !declaration.initializer ||
-        !ts.isCallExpression(declaration.initializer) ||
-        !ts.isIdentifier(declaration.initializer.expression) ||
-        !bindings.has(declaration.initializer.expression.text) ||
-        declaration.initializer.arguments.length !== 1
-      ) {
-        continue;
-      }
-      const parsed = parseStaticExpression(
-        declaration.initializer.arguments[0],
-      );
-      if (parsed.ok && isEndpointManifestDefinition(parsed.value)) {
-        manifests.push(parsed.value as unknown as EndpointManifestDefinition);
-      }
-    }
-  }
+  const manifests = sourceFile.statements.flatMap((statement) => {
+    const manifest = parseStaticEndpointManifestDeclaration(
+      statement,
+      bindings,
+    );
+    return manifest ? [manifest] : [];
+  });
   return manifests.length === 1 ? manifests[0] : null;
 }
 
@@ -1085,6 +1118,10 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
   const processBindings = new Set(['process']);
+  const manifestBindings = getNamedImportBindings(
+    sourceFile,
+    'defineEndpointManifest',
+  );
   if (
     hasImportedBinding(sourceFile, 'process') ||
     hasShadowedImportBinding(sourceFile, processBindings)
@@ -1166,6 +1203,23 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
     );
   return (
     invocationIndex === sourceFile.statements.length - 1 &&
+    sourceFile.statements
+      .slice(0, invocationIndex)
+      .every((statement) =>
+        isAllowedSyncHelperTopLevelStatement(
+          statement,
+          new Set(['@wp-typia/block-runtime/metadata-core']),
+          (variableStatement) => {
+            const initializer = getStaticEndpointManifestInitializer(
+              variableStatement,
+              manifestBindings,
+            );
+            return (
+              initializer !== null && parseStaticExpression(initializer).ok
+            );
+          },
+        ),
+      ) &&
     !hasEarlierAbruptCompletion(sourceFile.statements, invocationIndex) &&
     !hasEarlierMainCall
   );
@@ -1368,12 +1422,12 @@ function hasCanonicalRestSyncCalls(
   const [openApiCallIndex] = openApiCallIndexes;
   const [clientCallIndex] = clientCallIndexes;
   return (
-    optionsDeclaration.index < schemaCallIndex &&
-    optionsDeclaration.index < preflightCallIndex &&
-    preflightCallIndex < schemaCallIndex &&
-    schemaCallIndex < openApiCallIndex &&
-    openApiCallIndex < clientCallIndex &&
-    clientCallIndex === mainBody.statements.length - 2 &&
+    optionsDeclaration.index === 0 &&
+    preflightCallIndex === 1 &&
+    schemaCallIndex === 2 &&
+    openApiCallIndex === 3 &&
+    clientCallIndex === 4 &&
+    mainBody.statements.length === 6 &&
     hasCanonicalRestCompletionLog(
       mainBody.statements[clientCallIndex + 1],
       optionsBinding,

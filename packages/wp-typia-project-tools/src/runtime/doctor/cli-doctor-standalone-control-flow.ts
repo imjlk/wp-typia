@@ -1,5 +1,52 @@
 import ts from 'typescript';
 
+/**
+ * Check whether a generated sync helper statement is inert until main() runs.
+ * Runtime imports are limited to the modules used by that helper; all other
+ * imports must be erased by TypeScript.
+ */
+export function isAllowedSyncHelperTopLevelStatement(
+  statement: ts.Statement,
+  allowedRuntimeImportModules: ReadonlySet<string>,
+  isAllowedVariableStatement: (
+    statement: ts.VariableStatement,
+  ) => boolean = () => false,
+): boolean {
+  if (ts.isImportDeclaration(statement)) {
+    if (
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.importClause
+    ) {
+      return false;
+    }
+    if (statement.importClause.isTypeOnly) {
+      return true;
+    }
+    const namedBindings = statement.importClause.namedBindings;
+    const hasOnlyNamedTypeImports =
+      !statement.importClause.name &&
+      namedBindings !== undefined &&
+      ts.isNamedImports(namedBindings) &&
+      namedBindings.elements.length > 0 &&
+      namedBindings.elements.every((element) => element.isTypeOnly);
+    return (
+      hasOnlyNamedTypeImports ||
+      allowedRuntimeImportModules.has(statement.moduleSpecifier.text)
+    );
+  }
+  if (
+    ts.isInterfaceDeclaration(statement) ||
+    ts.isTypeAliasDeclaration(statement) ||
+    ts.isFunctionDeclaration(statement)
+  ) {
+    return true;
+  }
+  return (
+    ts.isVariableStatement(statement) &&
+    isAllowedVariableStatement(statement)
+  );
+}
+
 /** Find a control-flow completion without crossing a nested function boundary. */
 export function containsCompletion(
   node: ts.Node,
