@@ -286,6 +286,34 @@ describe('Gunshi CLI core routing', () => {
     expect(forwardedErrors).toEqual([error]);
   });
 
+  test('does not rethrow a non-pipe error already reported by the write callback', async () => {
+    const error = Object.assign(new Error('callback stream failure'), {
+      code: 'ERR_STREAM_WRITE_AFTER_END',
+    });
+    const forwardedErrors: Error[] = [];
+    const stream = new Writable({
+      write(_chunk, _encoding, callback) {
+        callback(error);
+      },
+    });
+    const emit = stream.emit.bind(stream);
+    stream.emit = ((event: string | symbol, ...args: unknown[]) => {
+      if (event === 'error' && stream.listenerCount('error') === 0) {
+        forwardedErrors.push(args[0] as Error);
+        return true;
+      }
+      return emit(event, ...args);
+    }) as typeof stream.emit;
+
+    const caught = await Promise.resolve(
+      writeProcessOutput(stream, 'sync output'),
+    ).catch((thrown) => thrown);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(caught).toBe(error);
+    expect(forwardedErrors).toEqual([]);
+  });
+
   afterEach(() => {
     process.exitCode = 0;
   });
@@ -1290,6 +1318,10 @@ describe('Gunshi CLI core routing', () => {
           'console.error("outside windows: C:\\\\Users\\\\Alice\\\\.cache\\\\wp-typia\\\\schema.json");',
           'console.error(\'outside spaced: "/Users/alice/Library/Application Support/wp-typia/schema.json"\');',
           'console.error("outside spaced unquoted: /Users/alice/Library/Application Support/wp-typia/schema.json");',
+          'console.error("outside spaced diagnostic: /Users/alice/Library/Application Support/wp-typia/schema.json - error: not found");',
+          'await new Promise((resolve) => process.stderr.write("outside split diagnostic: /Users/alice/Library/Application Support/wp-typia/schema.json", resolve));',
+          'await new Promise((resolve) => setImmediate(resolve));',
+          'console.error(" - error: split preserved");',
           'console.error(`case variant: ${process.cwd().toUpperCase()}/src/case.ts`);',
           'console.error(`alternate separators: ${process.cwd().replaceAll("/", "\\\\")}/src/alternate.ts`);',
           'console.error("at least 3 generated files need attention");',
@@ -1349,6 +1381,12 @@ describe('Gunshi CLI core routing', () => {
         'outside spaced unquoted: <redacted-path>',
       );
       expect(parsed.error?.detailLines).toContain(
+        'outside spaced diagnostic: <redacted-path> - error: not found',
+      );
+      expect(parsed.error?.detailLines).toContain(
+        'outside split diagnostic: <redacted-path> - error: split preserved',
+      );
+      expect(parsed.error?.detailLines).toContain(
         'case variant: <project-root>/src/case.ts',
       );
       expect(parsed.error?.detailLines).toContain(
@@ -1388,6 +1426,12 @@ describe('Gunshi CLI core routing', () => {
       );
       expect(textResult.stderr).toContain(
         'outside spaced unquoted: <redacted-path>',
+      );
+      expect(textResult.stderr).toContain(
+        'outside spaced diagnostic: <redacted-path> - error: not found',
+      );
+      expect(textResult.stderr).toMatch(
+        /outside split diagnostic:\s*<redacted-path> - error: split preserved/u,
       );
       expect(textResult.stderr).toContain(
         'case variant: <project-root>/src/case.ts',

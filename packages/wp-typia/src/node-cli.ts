@@ -313,6 +313,9 @@ export function writeProcessOutput(
   stream: Writable,
   chunk: string,
 ): Promise<void> | void {
+  // A downstream shell consumer already closed this pipe, so later output is
+  // intentionally discarded instead of turning a successful command into an
+  // EPIPE failure.
   if (CLOSED_PROCESS_OUTPUT_STREAMS.has(stream) || stream.destroyed) {
     return;
   }
@@ -320,6 +323,7 @@ export function writeProcessOutput(
   return new Promise<void>((resolve, reject) => {
     let drainRequired = false;
     let drained = false;
+    let rejectedWriteError = false;
     let settled = false;
     let writeCallbackComplete = false;
     let writeResultObserved = false;
@@ -352,6 +356,7 @@ export function writeProcessOutput(
         resolve();
         return;
       }
+      rejectedWriteError = true;
       cleanup(deferErrorCleanup);
       reject(error);
     };
@@ -373,11 +378,18 @@ export function writeProcessOutput(
         CLOSED_PROCESS_OUTPUT_STREAMS.add(stream);
       }
       if (settled) {
+        if (rejectedWriteError) {
+          return;
+        }
         // `once` removes this listener before invoking it. If no other error
         // listener remains, forward a non-pipe failure so it retains normal
         // EventEmitter error semantics instead of being swallowed.
         if (!isClosedPipeError(error) && stream.listenerCount('error') === 0) {
-          queueMicrotask(() => stream.emit('error', error));
+          queueMicrotask(() => {
+            if (stream.listenerCount('error') === 0) {
+              stream.emit('error', error);
+            }
+          });
         }
         return;
       }

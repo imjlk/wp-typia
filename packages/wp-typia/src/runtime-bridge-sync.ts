@@ -80,6 +80,8 @@ const LOCAL_SYNC_TOOL_PATTERN =
   /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
+const CAPTURED_SYNC_DRIFT_LINE_LIMIT =
+  CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT * 2;
 const CAPTURED_SYNC_DIAGNOSTIC_LINE_MAX_BUFFER = 64 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_CONTEXT_LIMIT = 4;
 const STREAMED_SYNC_OUTPUT_PATH_TOKEN_MAX_BUFFER = 64 * 1024;
@@ -91,16 +93,17 @@ const GENERATED_ARTIFACT_INLINE_ISSUE_PATTERN =
 const GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN =
   /(?:Generated (?:WordPress AI |typia\.llm )?artifacts are missing or stale:|Generated AI feature artifact is (?:missing|stale):)/iu;
 const GENERIC_ABSOLUTE_PATH_SUFFIX_PATTERN =
-  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)[^\r\n"'`<>]*)$/u;
+  /(?:^|[\s("'`=:\[\]{},;])((?:\/(?!\/)|[A-Za-z]:[\\/]|\\\\)(?:(?!\s+(?:-\s|:\s|(?:error|warning|note):\s))[^\r\n"'`<>])*)$/iu;
 const GENERIC_ABSOLUTE_PATH_PARTIAL_PREFIX_PATTERN =
   /(?:^|[\s("'`=:\[\]{},;])([A-Za-z](?::[\\/]?)?|\\{1,2})$/u;
-const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN = /[\r\n"'`<>]/u;
+const GENERIC_ABSOLUTE_PATH_TERMINATOR_PATTERN =
+  /(?:\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>])/iu;
 const POSIX_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\r\n"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\/(?!\/)[^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
 const UNC_ABSOLUTE_PATH_PATTERN =
-  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\r\n"'`<>]+[\\/][^\r\n"'`<>]*/gu;
+  /(^|[\s("'`=:\[\]{},;])\\\\[^\\/\r\n"'`<>]+[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
 const WINDOWS_ABSOLUTE_PATH_PATTERN =
-  /\b[A-Za-z]:[\\/][^\r\n"'`<>]*/gu;
+  /\b[A-Za-z]:[\\/][^\r\n"'`<>]*?(?=\s+(?:-\s|:\s|(?:error|warning|note):\s)|[\r\n"'`<>]|$)/giu;
 
 type SyncArtifactIssue = {
   path: string;
@@ -127,7 +130,9 @@ function matchGeneratedArtifactCheckIssue(
     !artifactPath ||
     !(
       /^(?:\.{0,2}[\\/]|[A-Za-z]:[\\/]|\\\\)/u.test(artifactPath) ||
-      /(?:^|[\\/])[^\\/\s()]+\.[^\\/\s()]+$/u.test(artifactPath)
+      /(?:^|[\\/])[^\\/\s()]+\.[A-Za-z][A-Za-z0-9]{0,11}$/u.test(
+        artifactPath,
+      )
     )
   ) {
     return undefined;
@@ -156,7 +161,7 @@ class BoundedSyncOutputCapture {
   private readonly diagnosticIssueSet = new Set<string>();
   private diagnosticPending = '';
   private diagnosticsFinalized = false;
-  private hasDiagnosticDriftContext = false;
+  private diagnosticDriftLinesRemaining = 0;
   private size = 0;
 
   append(chunk: Buffer): void {
@@ -229,7 +234,7 @@ class BoundedSyncOutputCapture {
       !isInlineIssue &&
       GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine);
     if (isDriftContext) {
-      this.hasDiagnosticDriftContext = true;
+      this.diagnosticDriftLinesRemaining = CAPTURED_SYNC_DRIFT_LINE_LIMIT;
     }
     if (
       isDriftContext &&
@@ -243,13 +248,20 @@ class BoundedSyncOutputCapture {
     if (
       (isInlineIssue ||
         GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine) ||
-        (this.hasDiagnosticDriftContext &&
+        (this.diagnosticDriftLinesRemaining > 0 &&
           matchGeneratedArtifactCheckIssue(trimmedLine))) &&
       this.diagnosticIssueLines.length < CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT &&
       !this.diagnosticIssueSet.has(trimmedLine)
     ) {
       this.diagnosticIssueSet.add(trimmedLine);
       this.diagnosticIssueLines.push(trimmedLine);
+    }
+    if (
+      trimmedLine.length > 0 &&
+      !isDriftContext &&
+      this.diagnosticDriftLinesRemaining > 0
+    ) {
+      this.diagnosticDriftLinesRemaining -= 1;
     }
   }
 }
@@ -689,9 +701,18 @@ function collectSyncArtifactCheckIssues(
 ): SyncArtifactCheckIssue[] {
   const issues: SyncArtifactCheckIssue[] = [];
   const seen = new Set<string>();
+  let driftLinesRemaining = 0;
 
   for (const line of iterateSyncOutputLines(stdout, stderr)) {
     const trimmedLine = line.trim();
+    if (GENERATED_ARTIFACT_DRIFT_CONTEXT_PATTERN.test(trimmedLine)) {
+      driftLinesRemaining = CAPTURED_SYNC_DRIFT_LINE_LIMIT;
+      continue;
+    }
+    if (trimmedLine.length === 0 || driftLinesRemaining === 0) {
+      continue;
+    }
+    driftLinesRemaining -= 1;
     const match = matchGeneratedArtifactCheckIssue(trimmedLine);
     if (!match || GENERATED_ARTIFACT_ISSUE_PATTERN.test(trimmedLine)) {
       continue;

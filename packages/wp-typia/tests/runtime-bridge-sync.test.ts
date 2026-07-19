@@ -577,6 +577,8 @@ test('sync check exposes generated artifact drift with project-relative paths', 
       "console.error(`- ${path.join(process.cwd(), '..', 'private-schema.php')} (stale)`);",
       "console.error('❌ Project sync failed: Error: Sync script failed: scripts/sync-types-to-block-json.ts');",
       "console.error('    at runSyncScript (sync-project.ts:78:9)');",
+      "for (let index = 0; index < 41; index += 1) console.error(`diagnostic note ${index}`);",
+      "console.error(`- ${path.join(process.cwd(), 'src', 'far.php')} (unreadable: EACCES)`);",
       'process.exit(1);',
     ].join('\n'),
     'utf8',
@@ -610,6 +612,7 @@ test('sync check exposes generated artifact drift with project-relative paths', 
   expect((error as Error).message).not.toContain(projectDir);
   expect((error as Error).message).not.toContain(path.dirname(projectDir));
   expect((error as Error).message).not.toContain('at runSyncScript');
+  expect((error as Error).message).not.toContain('far.php');
 });
 
 test('sync ai recognizes first-party inline artifact drift output', async () => {
