@@ -5,6 +5,7 @@ import {
   CREATE_OPTION_METADATA,
   DOCTOR_OPTION_METADATA,
   formatPortableCliOptionHelp,
+  GLOBAL_OPTION_METADATA,
   INIT_OPTION_METADATA,
   MCP_OPTION_METADATA,
   MIGRATE_OPTION_METADATA,
@@ -63,6 +64,9 @@ export function renderGeneralHelp(printLine: PrintLine) {
     '- wp-typia init [project-dir]',
     `- ${WP_TYPIA_CANONICAL_MIGRATE_USAGE}`,
     `- ${WP_TYPIA_POSITIONAL_ALIAS_USAGE}`,
+    '',
+    'Global flags:',
+    ...formatPortableCliOptionHelp(GLOBAL_OPTION_METADATA),
   ]);
 }
 
@@ -93,6 +97,14 @@ export function renderPortableCliCommandHelp(
   printLine: PrintLine,
   config: PortableCliCommandHelpConfig,
 ) {
+  const commandOptionNames = new Set(Object.keys(config.optionMetadata));
+  const globalOptionMetadata = Object.fromEntries(
+    Object.entries(GLOBAL_OPTION_METADATA).filter(
+      ([name]) => !commandOptionNames.has(name),
+    ),
+  );
+  const globalFlagLines = formatPortableCliOptionHelp(globalOptionMetadata);
+
   printBlock(printLine, [
     config.heading,
     '',
@@ -101,6 +113,9 @@ export function renderPortableCliCommandHelp(
     ...(config.bodyLines ? [...config.bodyLines, ''] : []),
     'Supported flags:',
     ...formatPortableCliOptionHelp(config.optionMetadata),
+    ...(globalFlagLines.length > 0
+      ? ['', 'Global flags:', ...globalFlagLines]
+      : []),
   ]);
 }
 

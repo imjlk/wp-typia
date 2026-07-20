@@ -206,10 +206,18 @@ describe('wp-typia package', () => {
     expect(helpOutput).toContain('Runtime: Node-first wp-typia CLI');
     expect(helpOutput).toContain('non-empty NO_COLOR requests ASCII markers');
     expect(helpOutput).toContain('create: Scaffold a new wp-typia project.');
+    expect(helpOutput).toContain('Global flags:');
+    expect(helpOutput).toContain(
+      '- --format <value>: Output format for supported commands (`json` or `text`); defaults to `json` in detected AI-agent environments and `text` otherwise. Choices: json, text.',
+    );
+    expect(helpOutput).not.toContain('- --id');
     expect(createHelpOutput).toContain('--external-layer-source');
     expect(createHelpOutput).toContain('--external-layer-id');
     expect(createHelpOutput).toContain('--alternate-render-targets');
     expect(createHelpOutput).toContain('Query Loop');
+    expect(createHelpOutput).toContain('Global flags:');
+    expect(createHelpOutput).toContain('Choices: json, text.');
+    expect(createHelpOutput).not.toContain('- --id');
     expect(initHelpOutput).toContain('Preview-by-default retrofit planner');
     expect(initHelpOutput).toContain('--apply');
     expect(initHelpOutput).toContain('--package-manager');
@@ -230,6 +238,9 @@ describe('wp-typia package', () => {
     expect(doctorHelpOutput).toContain(
       '`json` for machine-readable doctor check output or `text` for human-readable output',
     );
+    expect(doctorHelpOutput).toContain('Global flags:');
+    expect(doctorHelpOutput).toContain('--config <value>');
+    expect(doctorHelpOutput.match(/- --format <value>/g)).toHaveLength(1);
     expect(doctorHelpOutput).not.toContain('toon');
   });
 

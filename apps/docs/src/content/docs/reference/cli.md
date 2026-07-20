@@ -18,12 +18,15 @@ package-runner invocation, but npm-installed CLI commands such as `mcp`,
 
 ## Global flags
 
-| Flag                      | Description                                                                                                        |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `--help`                  | Show top-level or command-specific help.                                                                           |
-| `--version`               | Print the installed `wp-typia` version.                                                                            |
-| `--config <path>`         | Load a config override file for the current invocation.                                                            |
-| `--format <json \| text>` | Select command output for supported commands; `json` is machine-readable and `text` is the human-readable default. |
+| Flag                      | Description                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--help`                  | Show top-level or command-specific help.                                                                                                    |
+| `--version`               | Print the installed `wp-typia` version.                                                                                                     |
+| `--config <path>`         | Load a config override file for the current invocation.                                                                                     |
+| `--format <json \| text>` | Select command output for supported commands; detected AI-agent environments default to `json`, while other environments default to `text`. |
+
+An explicit `--format json` or `--format text` always overrides the detected
+environment default.
 
 Status markers honor `WP_TYPIA_ASCII=1`, `WP_TYPIA_ASCII=0`, and `NO_COLOR` in
 the same way as generated project onboarding output.
