@@ -196,6 +196,12 @@ export function ensureWorkspacePackageBuilt(
 	const lock = acquireWorkspaceBuildLock(packagePath);
 	try {
 		if (!fs.existsSync(distPath)) {
+			if (process.env.WP_TYPIA_PROJECT_TOOLS_REQUIRE_PREBUILT === "1") {
+				throw new Error(
+					`Expected prebuilt workspace package "${packageName}" at ${distPath}. ` +
+						"Run the package build preparation step before executing run-only project-tools tests.",
+				);
+			}
 			runCli("bun", ["run", "build"], { cwd: packagePath });
 		}
 		builtWorkspacePackages.add(packageName);

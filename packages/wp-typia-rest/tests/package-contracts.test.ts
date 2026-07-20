@@ -89,6 +89,48 @@ describe('@wp-typia/rest export contracts', () => {
     expect(builtReactDts).toContain("export * from './react-resource.js';");
   });
 
+  test('build rewrites dist imports for node esm consumers', () => {
+    const clientDist = readFileSync(
+      new URL('../dist/client.js', import.meta.url),
+      'utf8',
+    );
+    const clientTypes = readFileSync(
+      new URL('../dist/client.d.ts', import.meta.url),
+      'utf8',
+    );
+    const reactDist = readFileSync(
+      new URL('../dist/react.js', import.meta.url),
+      'utf8',
+    );
+    const reactTypes = readFileSync(
+      new URL('../dist/react.d.ts', import.meta.url),
+      'utf8',
+    );
+    const sharedRuntimePrimitivesDist = readFileSync(
+      new URL('../dist/internal/runtime-primitives.js', import.meta.url),
+      'utf8',
+    );
+    const sharedRuntimePrimitivesTypes = readFileSync(
+      new URL('../dist/internal/runtime-primitives.d.ts', import.meta.url),
+      'utf8',
+    );
+
+    expect(clientDist).toContain('@wp-typia/api-client/client-utils');
+    expect(clientTypes).toContain('./internal/runtime-primitives.js');
+    expect(reactDist).toContain('./react-client.js');
+    expect(reactDist).toContain('./react-query.js');
+    expect(reactDist).toContain('./react-mutation.js');
+    expect(reactTypes).toContain('./react-client.js');
+    expect(reactTypes).toContain('./react-query.js');
+    expect(reactTypes).toContain('./react-mutation.js');
+    expect(sharedRuntimePrimitivesDist).toContain(
+      '@wp-typia/api-client/runtime-primitives',
+    );
+    expect(sharedRuntimePrimitivesTypes).toContain(
+      '@wp-typia/api-client/runtime-primitives',
+    );
+  });
+
   test('react source keeps the facade thin and pushes hook internals into focused modules', () => {
     const reactFacadeSource = readFileSync(
       new URL('../src/react.ts', import.meta.url),

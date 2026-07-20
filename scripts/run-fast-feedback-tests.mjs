@@ -16,6 +16,7 @@ const FAST_TEST_PATHS = Object.freeze([
   'tests/unit/package-manifest-policy.test.ts',
   'tests/unit/formatting-toolchain-policy.test.ts',
   'tests/unit/local-toolchain-policy.test.ts',
+  'tests/unit/project-tools-prebuilt.test.ts',
   'tests/unit/maintenance-automation-policy.test.ts',
   'tests/unit/typescript-runtime-dependency-placement.test.ts',
   'tests/unit/typescript-strictness-policy.test.ts',
@@ -77,7 +78,13 @@ const extraBunTestArgs = process.argv.slice(2);
 
 const result = spawnSync(
   'bun',
-  ['test', ...FAST_TEST_PATHS, ...extraBunTestArgs],
+  [
+    'test',
+    '--preload',
+    'scripts/preload-fast-feedback-workspace.ts',
+    ...FAST_TEST_PATHS,
+    ...extraBunTestArgs,
+  ],
   {
     cwd: repoRoot,
     env: {

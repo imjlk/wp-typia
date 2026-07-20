@@ -149,23 +149,10 @@ jobs:
           flags: unit-core
           name: codecov-unit-core
 
-  test-project-tools:
-    name: 'Project Tools: ${{ matrix.label }}'
+  prepare-project-tools:
+    name: Prepare Project Tools Workspace
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: Scaffold Core
-            command: bun run test:project-tools:scaffold-core
-          - label: Workspace
-            command: bun run test:project-tools:workspace
-          - label: Compound
-            command: bun run test:project-tools:compound
-          - label: Migration Planning
-            command: bun run test:project-tools:migration-planning
-          - label: Migration Execution
-            command: bun run test:project-tools:migration-execution
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -175,8 +162,68 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Build Project Tools workspace packages
+        run: bun run project-tools-prebuilt:prepare
+
+      - name: Validate prebuilt workspace
+        run: bun run project-tools-prebuilt:validate
+
+      - name: Upload prebuilt workspace
+        uses: actions/upload-artifact@v7
+        with:
+          name: project-tools-workspace-dist
+          path: |
+            packages/wp-typia-api-client/dist/
+            packages/wp-typia-block-types/dist/
+            packages/wp-typia-block-runtime/dist/
+            packages/wp-typia-dataviews/dist/
+            packages/wp-typia-rest/dist/
+            packages/wp-typia-project-tools/dist/
+            packages/wp-typia/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  test-project-tools:
+    name: 'Project Tools: ${{ matrix.label }}'
+    runs-on: ubuntu-latest
+    needs: prepare-project-tools
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Scaffold Core
+            script: test:project-tools:scaffold-core:run
+          - label: Workspace
+            script: test:project-tools:workspace:run
+          - label: Compound
+            script: test:project-tools:compound:run
+          - label: Migration Planning
+            script: test:project-tools:migration-planning:run
+          - label: Migration Execution
+            script: test:project-tools:migration-execution:run
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup workspace toolchain
+        uses: ./.github/actions/setup-bun-workspace
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download prebuilt workspace
+        uses: actions/download-artifact@v8
+        with:
+          name: project-tools-workspace-dist
+          path: packages
+
+      - name: Validate prebuilt workspace
+        run: bun run project-tools-prebuilt:validate
+
       - name: Run ${{ matrix.label }} regression tests
-        run: ${{ matrix.command }}
+        env:
+          PROJECT_TOOLS_TEST_SCRIPT: ${{ matrix.script }}
+          WP_TYPIA_PROJECT_TOOLS_REQUIRE_PREBUILT: '1'
+        run: bun run "$PROJECT_TOOLS_TEST_SCRIPT"
 
   test-project-tools-coverage:
     name: Project Tools Coverage
