@@ -121,6 +121,20 @@ describe('repository DX baseline', () => {
     expect(fastPathBlock).not.toContain(
       "'packages/wp-typia-block-types/tests/package-contracts.test.ts',",
     );
+    expect(runner).toContain(
+      "'--preload',\n    'scripts/preload-fast-feedback-workspace.ts'",
+    );
+
+    const restRuntimeTests = fs.readFileSync(
+      path.join(repoRoot, 'packages', 'wp-typia-rest', 'tests', 'rest.test.ts'),
+      'utf8',
+    );
+    expect(restRuntimeTests).not.toContain('../dist/');
+    expect(
+      fs.existsSync(
+        path.join(repoRoot, 'scripts', 'preload-fast-feedback-workspace.ts'),
+      ),
+    ).toBe(true);
   });
 
   test('WordPress example workspaces keep the ESLint 8 compat wrapper', () => {

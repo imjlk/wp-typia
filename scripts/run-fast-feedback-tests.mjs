@@ -77,7 +77,13 @@ const extraBunTestArgs = process.argv.slice(2);
 
 const result = spawnSync(
   'bun',
-  ['test', ...FAST_TEST_PATHS, ...extraBunTestArgs],
+  [
+    'test',
+    '--preload',
+    'scripts/preload-fast-feedback-workspace.ts',
+    ...FAST_TEST_PATHS,
+    ...extraBunTestArgs,
+  ],
   {
     cwd: repoRoot,
     env: {
