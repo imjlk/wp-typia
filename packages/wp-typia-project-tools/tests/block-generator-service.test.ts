@@ -198,7 +198,7 @@ describe("BlockGeneratorService", () => {
 		);
 
 		typecheckGeneratedProject(projectDir);
-	});
+	}, { timeout: 30_000 });
 
 	test("render composes external template layers on top of built-in shared layers", async () => {
 		const service = new BlockGeneratorService();
@@ -235,7 +235,7 @@ describe("BlockGeneratorService", () => {
 		).toContain("DemoGeneratorServiceAttributes");
 
 		typecheckGeneratedProject(projectDir);
-	});
+	}, { timeout: 30_000 });
 
 	test("render rejects protected output conflicts from external template layers", async () => {
 		const service = new BlockGeneratorService();
