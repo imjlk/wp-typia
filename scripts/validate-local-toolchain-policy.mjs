@@ -43,6 +43,21 @@ function readJson(repoRoot, relativePath) {
   return JSON.parse(readText(repoRoot, relativePath));
 }
 
+function readRequiredText(repoRoot, relativePath, errors) {
+  const filePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(filePath)) {
+    errors.push(`${relativePath} must exist.`);
+    return null;
+  }
+
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    errors.push(`${relativePath} must be readable.`);
+    return null;
+  }
+}
+
 function readWorkflowEnv(workflowSource, variableName) {
   const match = workflowSource.match(
     new RegExp(
@@ -102,29 +117,38 @@ export function validateLocalToolchainPolicy(repoRoot = DEFAULT_REPO_ROOT) {
     }
   }
 
-  const workflowSource = readText(repoRoot, policy.ciWorkflowFile);
-  for (const [toolName, variableName] of [
-    ['bun', 'BUN_VERSION'],
-    ['node', 'NODE_VERSION'],
-    ['php', 'PHP_VERSION'],
-  ]) {
-    const expectedVersion = policy.ciVersions[toolName];
-    const actualVersion = readWorkflowEnv(workflowSource, variableName);
-    if (actualVersion !== expectedVersion) {
+  const workflowSource = readRequiredText(
+    repoRoot,
+    policy.ciWorkflowFile,
+    errors,
+  );
+  if (workflowSource !== null) {
+    for (const [toolName, variableName] of [
+      ['bun', 'BUN_VERSION'],
+      ['node', 'NODE_VERSION'],
+      ['php', 'PHP_VERSION'],
+    ]) {
+      const expectedVersion = policy.ciVersions[toolName];
+      const actualVersion = readWorkflowEnv(workflowSource, variableName);
+      if (actualVersion !== expectedVersion) {
+        errors.push(
+          `${policy.ciWorkflowFile} must declare ${variableName}=${JSON.stringify(expectedVersion)}, found ${JSON.stringify(actualVersion)}.`,
+        );
+      }
+    }
+
+    if (!workflowSource.includes('run: bun run toolchain-policy:validate')) {
       errors.push(
-        `${policy.ciWorkflowFile} must declare ${variableName}=${JSON.stringify(expectedVersion)}, found ${JSON.stringify(actualVersion)}.`,
+        `${policy.ciWorkflowFile} must run bun run toolchain-policy:validate.`,
       );
     }
   }
 
-  if (!workflowSource.includes('run: bun run toolchain-policy:validate')) {
-    errors.push(
-      `${policy.ciWorkflowFile} must run bun run toolchain-policy:validate.`,
-    );
-  }
-
   for (const [relativePath, requiredSnippets] of Object.entries(policy.docs)) {
-    const source = readText(repoRoot, relativePath);
+    const source = readRequiredText(repoRoot, relativePath, errors);
+    if (source === null) {
+      continue;
+    }
     for (const snippet of requiredSnippets) {
       if (!source.includes(snippet)) {
         errors.push(

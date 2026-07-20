@@ -110,4 +110,15 @@ describe('validateLocalToolchainPolicy', () => {
       'CONTRIBUTING.md must document "mise install".',
     );
   });
+
+  test('reports missing workflow and documentation files without throwing', () => {
+    const repoRoot = createPolicyRepo();
+    fs.rmSync(path.join(repoRoot, '.github/workflows/ci.yml'));
+    fs.rmSync(path.join(repoRoot, 'README.md'));
+
+    expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+      errors: ['.github/workflows/ci.yml must exist.', 'README.md must exist.'],
+      valid: false,
+    });
+  });
 });
