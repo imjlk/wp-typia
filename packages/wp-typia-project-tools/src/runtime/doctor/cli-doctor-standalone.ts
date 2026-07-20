@@ -2943,20 +2943,20 @@ function shellScriptRunsCommandAfterPrerequisite(
   targetCommand: string,
 ): boolean {
   const segments = splitShellCommandSegments(script);
-  let syncCheckInAndList = false;
+  let prerequisiteInAndList = false;
   let foundTarget = false;
   for (const segment of segments) {
     if (shellCommandMatches(segment, prerequisiteCommand, false)) {
-      syncCheckInAndList = true;
+      prerequisiteInAndList = true;
     }
     if (shellCommandMatches(segment, targetCommand)) {
-      if (!syncCheckInAndList) {
+      if (!prerequisiteInAndList) {
         return false;
       }
       foundTarget = true;
     }
     if (segment.operatorAfter !== '&&') {
-      syncCheckInAndList = false;
+      prerequisiteInAndList = false;
     }
   }
   return foundTarget;
