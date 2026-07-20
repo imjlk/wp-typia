@@ -3,6 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
+import { toValidatorAccessExpression } from "../src/metadata-core-endpoint-client.js";
+
 const importModule = (specifier: string) => import(specifier);
 
 function writeMockPackage(projectRoot: string, packageName: string, version: string) {
@@ -284,6 +286,18 @@ describe("@wp-typia/block-runtime", () => {
 		} finally {
 			rmSync(projectRoot, { force: true, recursive: true });
 		}
+	});
+
+	test("endpoint validator access strips trailing contract separators", () => {
+		const seenPropertyNames = new Map<string, string>();
+		expect(toValidatorAccessExpression("state-query", seenPropertyNames)).toBe(
+			"apiValidators.stateQuery",
+		);
+		expect(() =>
+			toValidatorAccessExpression("state-query-", seenPropertyNames),
+		).toThrow(
+			"Contract keys \"state-query\" and \"state-query-\" both normalize to apiValidators['stateQuery']",
+		);
 	});
 
 	test("Typia/Webpack compatibility preflight accepts the supported matrix", async () => {

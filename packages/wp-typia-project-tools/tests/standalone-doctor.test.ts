@@ -3560,6 +3560,12 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       },
       {
         mutate(source: string): string {
+          return source.split("'bootstrap-query'").join("'state-query-'");
+        },
+        name: 'trailing-contract-collision',
+      },
+      {
+        mutate(source: string): string {
           return source.replace(
             '\tendpoints: [',
             [

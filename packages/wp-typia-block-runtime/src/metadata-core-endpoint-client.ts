@@ -244,5 +244,6 @@ export function reserveUniqueClientTypeIdentifier(
 function toClientPropertyName(value: string): string {
   return value
     .replace(/[^A-Za-z0-9]+(.)/g, (_match, next: string) => next.toUpperCase())
+    .replace(/[^A-Za-z0-9]+$/g, '')
     .replace(/^[A-Z]/, (match) => match.toLowerCase());
 }

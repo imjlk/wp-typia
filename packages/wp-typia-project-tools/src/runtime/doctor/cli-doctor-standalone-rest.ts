@@ -373,18 +373,19 @@ function getNormalizedStaticWordPressAuth(
       wordpressMechanism: undefined,
     };
   }
-  return value.mechanism === 'public-signed-token'
-    ? {
-        publicTokenField:
-          typeof value.publicTokenField === 'string'
-            ? value.publicTokenField
-            : 'publicWriteToken',
-        wordpressMechanism: value.mechanism,
-      }
-    : {
-        publicTokenField: undefined,
-        wordpressMechanism: value.mechanism as string,
-      };
+  if (value.mechanism === 'public-signed-token') {
+    return {
+      publicTokenField:
+        typeof value.publicTokenField === 'string'
+          ? value.publicTokenField
+          : 'publicWriteToken',
+      wordpressMechanism: value.mechanism,
+    };
+  }
+  return {
+    publicTokenField: undefined,
+    wordpressMechanism: value.mechanism as string,
+  };
 }
 
 function hasMatchingStaticEndpointAuth(value: {
@@ -406,45 +407,51 @@ function hasMatchingStaticEndpointAuth(value: {
     ) {
       return false;
     }
+    let derivedAuthMode: string | undefined;
+    if (auth === 'public') {
+      derivedAuthMode = 'public-read';
+    } else if (
+      auth === 'authenticated' &&
+      wordpressAuth.wordpressMechanism === 'rest-nonce'
+    ) {
+      derivedAuthMode = 'authenticated-rest-nonce';
+    } else if (
+      auth === 'public-write-protected' &&
+      wordpressAuth.wordpressMechanism === 'public-signed-token'
+    ) {
+      derivedAuthMode = 'public-signed-token';
+    }
     normalizedAuth = {
       auth,
-      authMode:
-        auth === 'public'
-          ? 'public-read'
-          : auth === 'authenticated' &&
-              wordpressAuth.wordpressMechanism === 'rest-nonce'
-            ? 'authenticated-rest-nonce'
-            : auth === 'public-write-protected' &&
-                wordpressAuth.wordpressMechanism === 'public-signed-token'
-              ? 'public-signed-token'
-              : undefined,
+      authMode: derivedAuthMode,
       ...wordpressAuth,
     };
   }
 
   let legacyAuth: NormalizedStaticEndpointAuth | undefined;
   if (authMode) {
-    legacyAuth =
-      authMode === 'public-read'
-        ? {
-            auth: 'public',
-            authMode,
-            publicTokenField: undefined,
-            wordpressMechanism: undefined,
-          }
-        : authMode === 'authenticated-rest-nonce'
-          ? {
-              auth: 'authenticated',
-              authMode,
-              publicTokenField: undefined,
-              wordpressMechanism: 'rest-nonce',
-            }
-          : {
-              auth: 'public-write-protected',
-              authMode,
-              publicTokenField: 'publicWriteToken',
-              wordpressMechanism: 'public-signed-token',
-            };
+    if (authMode === 'public-read') {
+      legacyAuth = {
+        auth: 'public',
+        authMode,
+        publicTokenField: undefined,
+        wordpressMechanism: undefined,
+      };
+    } else if (authMode === 'authenticated-rest-nonce') {
+      legacyAuth = {
+        auth: 'authenticated',
+        authMode,
+        publicTokenField: undefined,
+        wordpressMechanism: 'rest-nonce',
+      };
+    } else {
+      legacyAuth = {
+        auth: 'public-write-protected',
+        authMode,
+        publicTokenField: 'publicWriteToken',
+        wordpressMechanism: 'public-signed-token',
+      };
+    }
   }
 
   if (normalizedAuth && legacyAuth) {
@@ -470,6 +477,7 @@ function toEndpointClientPropertyName(value: string): string {
     .replace(/[^A-Za-z0-9]+(.)/gu, (_match, next: string) =>
       next.toUpperCase(),
     )
+    .replace(/[^A-Za-z0-9]+$/u, '')
     .replace(/^[A-Z]/u, (match) => match.toLowerCase());
 }
 
