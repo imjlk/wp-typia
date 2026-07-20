@@ -4,7 +4,13 @@ export type PhpFunctionRange = {
 	start: number;
 };
 
-export type PhpFunctionRangeOptions = {
+/** Options controlling whether PHP call helpers scan snippets or full PHP files. */
+export type PhpFunctionCallScanOptions = {
+	/** Ignore text outside explicit PHP open/close tag regions. */
+	requirePhpOpenTag?: boolean;
+};
+
+export type PhpFunctionRangeOptions = PhpFunctionCallScanOptions & {
 	includeTrailingNewlines?: boolean;
 };
 
@@ -28,10 +34,12 @@ type PhpHeredocStart = {
 
 type PhpScannerState = {
 	heredocDelimiter: string;
+	inPhp: boolean;
 	interpolationComment: "" | "block" | "line";
 	interpolationDepth: number;
 	interpolationQuote: string;
 	mode: PhpFunctionScanMode;
+	requirePhpOpenTag: boolean;
 };
 
 type PhpScannerAdvanceResult = {
@@ -316,14 +324,30 @@ function getPhpFunctionCallFirstArgumentStart(
 	return skipPhpCallTrivia(source, callStart + 1);
 }
 
-function createPhpScannerState(): PhpScannerState {
+function createPhpScannerState(
+	options: PhpFunctionCallScanOptions = {},
+): PhpScannerState {
+	const requirePhpOpenTag = options.requirePhpOpenTag === true;
 	return {
 		heredocDelimiter: "",
+		inPhp: !requirePhpOpenTag,
 		interpolationComment: "",
 		interpolationDepth: 0,
 		interpolationQuote: "",
 		mode: "code",
+		requirePhpOpenTag,
 	};
+}
+
+function getPhpOpenTagLength(source: string, index: number): number {
+	if (source.startsWith("<?=", index)) {
+		return 3;
+	}
+	if (source.slice(index, index + 5).toLowerCase() === "<?php") {
+		const nextCharacter = source[index + 5];
+		return nextCharacter === undefined || isPhpWhitespace(nextCharacter) ? 5 : 0;
+	}
+	return 0;
 }
 
 function advancePhpScanner(
@@ -332,6 +356,20 @@ function advancePhpScanner(
 	state: PhpScannerState,
 ): PhpScannerAdvanceResult {
 	const character = source[index];
+
+	if (state.requirePhpOpenTag && !state.inPhp) {
+		const openTagLength = getPhpOpenTagLength(source, index);
+		if (openTagLength > 0) {
+			state.inPhp = true;
+			state.mode = "code";
+			return {
+				ambiguous: false,
+				inCode: false,
+				index: index + openTagLength,
+			};
+		}
+		return { ambiguous: false, inCode: false, index: index + 1 };
+	}
 
 	if (state.mode === "heredoc") {
 		const closingEnd = findPhpHeredocClosingEnd(
@@ -433,6 +471,15 @@ function advancePhpScanner(
 	}
 
 	if (state.mode === "line-comment") {
+		if (
+			state.requirePhpOpenTag &&
+			character === "?" &&
+			source[index + 1] === ">"
+		) {
+			state.inPhp = false;
+			state.mode = "code";
+			return { ambiguous: false, inCode: false, index: index + 2 };
+		}
 		if (character === "\r" || character === "\n") {
 			state.mode = "code";
 		}
@@ -445,6 +492,16 @@ function advancePhpScanner(
 			return { ambiguous: false, inCode: false, index: index + 2 };
 		}
 		return { ambiguous: false, inCode: false, index: index + 1 };
+	}
+
+	if (
+		state.requirePhpOpenTag &&
+		character === "?" &&
+		source[index + 1] === ">"
+	) {
+		state.inPhp = false;
+		state.mode = "code";
+		return { ambiguous: false, inCode: false, index: index + 2 };
 	}
 
 	if (character === "'") {
@@ -488,10 +545,15 @@ function advancePhpScanner(
  *
  * @param source PHP source to scan.
  * @param functionName Literal PHP function identifier to find.
+ * @param options Scanner options for full files that require explicit PHP tags.
  * @returns Whether `source` contains a code-mode call to `functionName`.
  */
-export function hasPhpFunctionCall(source: string, functionName: string): boolean {
-	const scanner = createPhpScannerState();
+export function hasPhpFunctionCall(
+	source: string,
+	functionName: string,
+	options: PhpFunctionCallScanOptions = {},
+): boolean {
+	const scanner = createPhpScannerState(options);
 	let index = 0;
 	while (index < source.length) {
 		const scan = advancePhpScanner(source, index, scanner);
@@ -508,6 +570,162 @@ export function hasPhpFunctionCall(source: string, functionName: string): boolea
 		}
 
 		index += 1;
+	}
+
+	return false;
+}
+
+/**
+ * Find the exclusive end offset of one PHP function call at a known offset.
+ *
+ * Parentheses inside strings, comments, heredoc, and nowdoc blocks are ignored
+ * by the same scanner used by {@link hasPhpFunctionCall}.
+ *
+ * @param source PHP source containing the call.
+ * @param functionOffset Offset where the function identifier starts.
+ * @param functionName Literal PHP function identifier expected at the offset.
+ * @param options Scanner options for full files that require explicit PHP tags.
+ * @returns The offset after the matching closing parenthesis, or `null`.
+ */
+export function findPhpFunctionCallEnd(
+	source: string,
+	functionOffset: number,
+	functionName: string,
+	options: PhpFunctionCallScanOptions = {},
+): number | null {
+	if (!matchesPhpFunctionCallAt(source, functionOffset, functionName)) {
+		return null;
+	}
+	const openParenthesis = skipPhpCallTrivia(
+		source,
+		functionOffset + functionName.length,
+	);
+	if (openParenthesis === null || source[openParenthesis] !== "(") {
+		return null;
+	}
+
+	const scanner = createPhpScannerState(options);
+	let depth = 0;
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return null;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+		if (index < openParenthesis) {
+			index += 1;
+			continue;
+		}
+
+		if (source[index] === "(") {
+			depth += 1;
+		} else if (source[index] === ")") {
+			depth -= 1;
+			if (depth === 0) {
+				return index + 1;
+			}
+		}
+		index += 1;
+	}
+
+	return null;
+}
+
+type PhpStringArgumentMatcher = string | ((value: string) => boolean);
+
+function matchesPhpStringArgument(
+	matcher: PhpStringArgumentMatcher,
+	value: string,
+): boolean {
+	return typeof matcher === "string" ? value === matcher : matcher(value);
+}
+
+/**
+ * Detect a PHP function call whose leading arguments are literal strings that
+ * satisfy the supplied matchers.
+ *
+ * Each matcher applies to the corresponding argument in the same code-mode
+ * function call. Additional arguments after the matched prefix are allowed.
+ *
+ * @param source PHP source to scan.
+ * @param functionName Literal PHP function identifier to find.
+ * @param argumentMatchers Matchers for the leading literal string arguments.
+ * @param options Scanner options for full files that require explicit PHP tags.
+ * @returns Whether one code-mode call satisfies every supplied matcher.
+ */
+export function hasPhpFunctionCallWithStringArguments(
+	source: string,
+	functionName: string,
+	argumentMatchers: readonly PhpStringArgumentMatcher[],
+	options: PhpFunctionCallScanOptions = {},
+): boolean {
+	if (argumentMatchers.length === 0) {
+		return hasPhpFunctionCall(source, functionName, options);
+	}
+
+	const scanner = createPhpScannerState(options);
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return false;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+
+		if (!matchesPhpFunctionCallAt(source, index, functionName)) {
+			index += 1;
+			continue;
+		}
+
+		let argumentStart = getPhpFunctionCallFirstArgumentStart(
+			source,
+			index,
+			functionName,
+		);
+		let argumentsMatch = argumentStart !== null;
+		for (const [argumentIndex, matcher] of argumentMatchers.entries()) {
+			if (!argumentsMatch || argumentStart === null) {
+				argumentsMatch = false;
+				break;
+			}
+			const argument = parsePhpQuotedStringLiteralAt(source, argumentStart);
+			if (
+				!argument ||
+				!matchesPhpStringArgument(matcher, argument.value)
+			) {
+				argumentsMatch = false;
+				break;
+			}
+
+			const argumentEnd = skipPhpCallTrivia(source, argument.end);
+			const nextToken =
+				argumentEnd === null ? undefined : source[argumentEnd];
+			const isLastMatcher = argumentIndex === argumentMatchers.length - 1;
+			if (isLastMatcher) {
+				argumentsMatch =
+					argumentEnd !== null && (nextToken === "," || nextToken === ")");
+				break;
+			}
+			if (argumentEnd === null || nextToken !== ",") {
+				argumentsMatch = false;
+				break;
+			}
+			argumentStart = skipPhpCallTrivia(source, argumentEnd + 1);
+			argumentsMatch = argumentStart !== null;
+		}
+
+		if (argumentsMatch) {
+			return true;
+		}
+
+		index += functionName.length;
 	}
 
 	return false;
@@ -818,6 +1036,45 @@ function hasPhpFunctionCallWithStringArgumentMatching(
 	return false;
 }
 
+/** Return the PHP code-block brace depth at an executable source offset. */
+export function getPhpCodeBraceDepth(
+	source: string,
+	offset: number,
+	options: PhpFunctionCallScanOptions = {},
+): number | null {
+	const scanner = createPhpScannerState(options);
+	let depth = 0;
+	let index = 0;
+	while (index < source.length && index <= offset) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (index === offset) {
+			return !scan.ambiguous && scan.inCode ? depth : null;
+		}
+		if (scan.ambiguous) {
+			return null;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+		if (source[index] === "{") {
+			depth += 1;
+		} else if (source[index] === "}") {
+			depth = Math.max(0, depth - 1);
+		}
+		index += 1;
+	}
+	return null;
+}
+
+function isPhpCodeOffset(
+	source: string,
+	offset: number,
+	options: PhpFunctionCallScanOptions,
+): boolean {
+	return getPhpCodeBraceDepth(source, offset, options) !== null;
+}
+
 /**
  * Locate a PHP function body without counting braces in non-code regions.
  *
@@ -832,10 +1089,20 @@ export function findPhpFunctionRange(
 	options: PhpFunctionRangeOptions = {},
 ): PhpFunctionRange | null {
 	const signaturePattern = new RegExp(
-		`function\\s+${escapeRegex(functionName)}\\s*\\([^)]*\\)\\s*(?::\\s*[^{};]+)?\\s*\\{`,
-		"u",
+		`function\\s+&?\\s*${escapeRegex(functionName)}\\s*\\([^)]*\\)\\s*(?::\\s*[^{};]+)?\\s*\\{`,
+		"gu",
 	);
-	const signatureMatch = signaturePattern.exec(source);
+	let signatureMatch: RegExpExecArray | null = null;
+	for (
+		let candidate = signaturePattern.exec(source);
+		candidate;
+		candidate = signaturePattern.exec(source)
+	) {
+		if (isPhpCodeOffset(source, candidate.index, options)) {
+			signatureMatch = candidate;
+			break;
+		}
+	}
 	if (!signatureMatch) {
 		return null;
 	}
@@ -848,7 +1115,10 @@ export function findPhpFunctionRange(
 	const openBraceIndex = functionStart + openBraceOffset;
 
 	let depth = 0;
-	const scanner = createPhpScannerState();
+	const scanner = createPhpScannerState(options);
+	// The signature was already verified at a PHP code offset, and the body scan
+	// starts at its opening brace rather than at the beginning of the source.
+	scanner.inPhp = true;
 	let index = openBraceIndex;
 	while (index < source.length) {
 		const scan = advancePhpScanner(source, index, scanner);

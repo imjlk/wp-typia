@@ -128,8 +128,10 @@ function toFailureSummary(
  *
  * The returned array concatenates environment checks (command availability,
  * directory writability, and built-in template assets) followed by
- * workspace checks (package metadata, inventory, blocks, variations,
- * patterns, bindings, and optional migration hints) in display order.
+ * project checks in display order. Official workspaces cover package metadata,
+ * inventory, blocks, variations, patterns, bindings, and optional migration
+ * hints. Supported standalone scaffolds cover package/bootstrap integrity,
+ * source layout, dependencies, and canonical generated-artifact freshness.
  *
  * @param cwd Working directory to validate for writability.
  * @param options Optional feature gates for additional doctor rows.

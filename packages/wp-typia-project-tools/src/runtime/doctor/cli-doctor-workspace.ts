@@ -20,6 +20,11 @@ import {
 	createDoctorScopeCheck,
 } from "./cli-doctor-workspace-shared.js";
 import {
+	getStandaloneScaffoldDoctorChecks,
+	tryResolveStandaloneScaffoldProject,
+	type StandaloneScaffoldProject,
+} from "./cli-doctor-standalone.js";
+import {
 	readWorkspaceInventoryAsync,
 	type WorkspaceInventory,
 } from "../workspace/workspace-inventory.js";
@@ -59,9 +64,11 @@ function formatWorkspaceInventorySummary(inventory: WorkspaceInventory): string 
 /**
  * Collect workspace-scoped doctor checks for the given working directory.
  *
- * When the directory is not an official workspace, the function returns a
- * "Doctor scope" row explaining that only environment checks ran, plus a
- * failing workspace metadata row when a nearby candidate workspace is invalid.
+ * When the directory is not an official workspace, the function runs supported
+ * standalone single-block diagnostics when that project surface is detected.
+ * Otherwise it returns a "Doctor scope" row explaining that only environment
+ * checks ran, plus a failing workspace metadata row when a nearby candidate
+ * workspace is invalid.
  * When workspace resolution or metadata parsing throws, the corresponding
  * failing rows are returned early and the remaining checks are skipped.
  * When an official workspace is detected, a passing "Doctor scope" row is
@@ -79,6 +86,19 @@ export async function getWorkspaceDoctorChecks(
 	options: WorkspaceDoctorChecksOptions = {},
 ): Promise<DoctorCheck[]> {
 	const checks: DoctorCheck[] = [];
+	let standaloneProject: StandaloneScaffoldProject | null = null;
+	let standaloneDiscoveryError: unknown = null;
+	try {
+		// The nearest standalone package boundary wins over unrelated ancestor
+		// workspace metadata. Official workspace manifests are rejected by the
+		// standalone detector and continue through workspace discovery below.
+		standaloneProject = tryResolveStandaloneScaffoldProject(cwd);
+	} catch (error) {
+		standaloneDiscoveryError = error;
+	}
+	if (standaloneProject) {
+		return getStandaloneScaffoldDoctorChecks(standaloneProject);
+	}
 
 	let workspace: WorkspaceProject | null = null;
 	let invalidWorkspaceReason: string | null = null;
@@ -119,6 +139,24 @@ export async function getWorkspaceDoctorChecks(
 				),
 			);
 		} else {
+			if (standaloneDiscoveryError) {
+				checks.push(
+					createDoctorScopeCheck(
+						"fail",
+						"Scope: blocked before standalone scaffold checks. Environment checks ran, but standalone discovery could not continue. Fix the nearest package metadata and rerun `wp-typia doctor`.",
+					),
+				);
+				checks.push(
+					createDoctorCheck(
+						"Standalone package metadata",
+						"fail",
+						standaloneDiscoveryError instanceof Error
+							? standaloneDiscoveryError.message
+							: String(standaloneDiscoveryError),
+					),
+				);
+				return checks;
+			}
 			checks.push(
 				createDoctorScopeCheck(
 					"pass",

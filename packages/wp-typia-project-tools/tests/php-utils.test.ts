@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 
 import {
 	escapeRegex,
+	findPhpFunctionCallEnd,
 	findPhpFunctionRange,
 	hasPhpCodeStringLiteralPrefix,
 	hasPhpFunctionCall,
 	hasPhpFunctionCallWithAssignedStringPrefixArgument,
 	hasPhpFunctionCallWithStringArgument,
 	hasPhpFunctionCallWithStringArgumentPrefix,
+	hasPhpFunctionCallWithStringArguments,
 	hasPhpFunctionDefinition,
 	quotePhpString,
 	replacePhpFunctionDefinition,
@@ -23,6 +25,36 @@ test("escapeRegex produces a literal-safe regular expression fragment", () => {
 
 	expect(pattern.test(literal)).toBe(true);
 	expect(pattern.test("featureXvalue[1](draft)?")).toBe(false);
+});
+
+test("findPhpFunctionCallEnd bounds nested calls in PHP code mode", () => {
+	const source = `<?php
+register_rest_route(
+	'demo/v1',
+	'/state',
+	array(
+		array(
+			'callback' => fn() => sprintf( ')' ),
+			'methods' => WP_REST_Server::READABLE /* ignored ) */,
+		),
+	),
+);
+$after = true;
+`;
+	const callOffset = source.indexOf("register_rest_route");
+	const callEnd = findPhpFunctionCallEnd(
+		source,
+		callOffset,
+		"register_rest_route",
+		{ requirePhpOpenTag: true },
+	);
+
+	expect(callEnd).not.toBeNull();
+	expect(source.slice(callOffset, callEnd ?? 0)).toContain(
+		"WP_REST_Server::READABLE",
+	);
+	expect(source[callEnd ?? 0]).toBe(";");
+	expect(source.slice(callOffset, callEnd ?? 0)).not.toContain("$after");
 });
 
 test("findPhpFunctionRange locates a complete PHP function with nested braces", () => {
@@ -62,6 +94,46 @@ function wp_typia_typed() : array {
 	expect(findPhpFunctionRange(source, "wp_typia_typed")?.source).toContain(
 		"function wp_typia_typed() : array",
 	);
+});
+
+test("findPhpFunctionRange can require a function signature inside PHP code", () => {
+	const source = `function wp_typia_target() {
+	return 'outside-php';
+}
+<?php
+function wp_typia_target() {
+	return 'inside-php';
+}
+`;
+
+	const range = findPhpFunctionRange(source, "wp_typia_target", {
+		requirePhpOpenTag: true,
+	});
+
+	expect(range?.source).toContain("return 'inside-php';");
+	expect(range?.source).not.toContain("return 'outside-php';");
+});
+
+test("findPhpFunctionRange ignores braces in HTML inside a PHP function", () => {
+	const source = `<?php
+function wp_typia_target() {
+?>
+<div>}</div>
+<?php
+	return 'inside-php';
+}
+
+function keep_me() {
+	return true;
+}
+`;
+
+	const range = findPhpFunctionRange(source, "wp_typia_target", {
+		requirePhpOpenTag: true,
+	});
+
+	expect(range?.source).toContain("return 'inside-php';");
+	expect(range?.source).not.toContain("function keep_me()");
 });
 
 test("findPhpFunctionRange ignores braces inside PHP string literals", () => {
@@ -281,6 +353,55 @@ TEXT;
 	).toBe(false);
 });
 
+test("PHP call scanning can require actual PHP code regions", () => {
+	const outsidePhp = `
+register_block_type( 'outside-before' );
+<?php register_block_type( 'inside' ); ?>
+register_block_type( 'outside-after' );
+`;
+
+	expect(
+		hasPhpFunctionCall(outsidePhp, "register_block_type", {
+			requirePhpOpenTag: true,
+		}),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCall(
+			"register_block_type( 'outside-only' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?php // register_block_type( 'commented' ); ?> register_block_type( 'outside' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?xml version='1.0'?> register_block_type( 'outside' );",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<? register_block_type( 'short-tag' ); ?>",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCall(
+			"<?= register_block_type( 'echo-tag' ); ?>",
+			"register_block_type",
+			{ requirePhpOpenTag: true },
+		),
+	).toBe(true);
+});
+
 test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
 	const filterName = "block_bindings_supported_attributes_demo-space/card";
 	const source = `<?php
@@ -359,6 +480,53 @@ add_filter( 'other_filter', '${filterName}' );
 
 	expect(
 		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+	).toBe(false);
+});
+
+test("hasPhpFunctionCallWithStringArguments matches literals from the same code-mode call", () => {
+	const registrationCallback = (value: string): boolean =>
+		/^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(value);
+	const source = `<?php
+$example = "add_action( 'init', 'string_register_block' );";
+add_action( 'init', 'demo_register_textdomain' );
+add_action(
+\t'init',
+\t'demo_register_block',
+\t10
+);
+`;
+
+	expect(
+		hasPhpFunctionCallWithStringArguments(source, "add_action", [
+			"init",
+			registrationCallback,
+		]),
+	).toBe(true);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			`<?php
+add_action( 'init', 'demo_register_textdomain' );
+add_action( 'rest_api_init', 'demo_register_block' );
+`,
+			"add_action",
+			["init", registrationCallback],
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			`<?php
+$example = "add_action( 'init', 'string_register_block' );";
+`,
+			"add_action",
+			["init", registrationCallback],
+		),
+	).toBe(false);
+	expect(
+		hasPhpFunctionCallWithStringArguments(
+			"<?php add_action( 'init', 'unfinished_register_block'",
+			"add_action",
+			["init", registrationCallback],
+		),
 	).toBe(false);
 });
 

@@ -50,6 +50,8 @@ import type {
   BlockNestingContract,
 } from './metadata-core-nesting.js';
 
+export { resolveSyncBlockMetadataPaths };
+
 export interface SyncBlockMetadataOptions {
   allowExternalBlockNames?: boolean;
   blockJsonFile: string;
