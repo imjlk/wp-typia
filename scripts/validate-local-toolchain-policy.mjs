@@ -35,14 +35,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..');
 
-function readText(repoRoot, relativePath) {
-  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
-}
-
-function readJson(repoRoot, relativePath) {
-  return JSON.parse(readText(repoRoot, relativePath));
-}
-
 function readRequiredText(repoRoot, relativePath, errors) {
   const filePath = path.join(repoRoot, relativePath);
   try {
@@ -60,6 +52,26 @@ function readRequiredText(repoRoot, relativePath, errors) {
   }
 }
 
+function readRequiredJson(repoRoot, relativePath, errors) {
+  const source = readRequiredText(repoRoot, relativePath, errors);
+  if (source === null) {
+    return null;
+  }
+
+  try {
+    const value = JSON.parse(source);
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      errors.push(`${relativePath} must contain a JSON object.`);
+      return null;
+    }
+    return value;
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : '';
+    errors.push(`${relativePath} must contain valid JSON${detail}`);
+    return null;
+  }
+}
+
 function readWorkflowEnv(workflowSource, variableName) {
   const match = workflowSource.match(
     new RegExp(
@@ -73,27 +85,29 @@ function readWorkflowEnv(workflowSource, variableName) {
 export function validateLocalToolchainPolicy(repoRoot = DEFAULT_REPO_ROOT) {
   const errors = [];
   const policy = LOCAL_TOOLCHAIN_POLICY;
-  const packageJson = readJson(repoRoot, 'package.json');
-  const scripts = packageJson.scripts ?? {};
+  const packageJson = readRequiredJson(repoRoot, 'package.json', errors);
+  if (packageJson !== null) {
+    const scripts = packageJson.scripts ?? {};
 
-  if (packageJson.packageManager !== policy.packageManager) {
-    errors.push(
-      `package.json must declare packageManager=${JSON.stringify(policy.packageManager)}, found ${JSON.stringify(packageJson.packageManager ?? null)}.`,
-    );
-  }
+    if (packageJson.packageManager !== policy.packageManager) {
+      errors.push(
+        `package.json must declare packageManager=${JSON.stringify(policy.packageManager)}, found ${JSON.stringify(packageJson.packageManager ?? null)}.`,
+      );
+    }
 
-  if (scripts['toolchain-policy:validate'] !== policy.validateScript) {
-    errors.push(
-      `package.json must keep scripts["toolchain-policy:validate"]=${JSON.stringify(policy.validateScript)}, found ${JSON.stringify(scripts['toolchain-policy:validate'] ?? null)}.`,
-    );
-  }
+    if (scripts['toolchain-policy:validate'] !== policy.validateScript) {
+      errors.push(
+        `package.json must keep scripts["toolchain-policy:validate"]=${JSON.stringify(policy.validateScript)}, found ${JSON.stringify(scripts['toolchain-policy:validate'] ?? null)}.`,
+      );
+    }
 
-  const ciLocal =
-    typeof scripts['ci:local'] === 'string' ? scripts['ci:local'] : '';
-  if (!ciLocal.includes('bun run toolchain-policy:validate')) {
-    errors.push(
-      'package.json must include "bun run toolchain-policy:validate" in scripts["ci:local"].',
-    );
+    const ciLocal =
+      typeof scripts['ci:local'] === 'string' ? scripts['ci:local'] : '';
+    if (!ciLocal.includes('bun run toolchain-policy:validate')) {
+      errors.push(
+        'package.json must include "bun run toolchain-policy:validate" in scripts["ci:local"].',
+      );
+    }
   }
 
   const configPath = path.join(repoRoot, policy.configFile);

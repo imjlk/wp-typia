@@ -121,4 +121,36 @@ describe('validateLocalToolchainPolicy', () => {
       valid: false,
     });
   });
+
+  test('reports missing and malformed package metadata without throwing', () => {
+    const repoRoot = createPolicyRepo();
+    fs.rmSync(path.join(repoRoot, 'package.json'));
+
+    expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+      errors: ['package.json must exist.'],
+      valid: false,
+    });
+
+    writeFile(repoRoot, 'package.json', '{');
+    const malformedResult = validateLocalToolchainPolicy(repoRoot);
+
+    expect(malformedResult.valid).toBe(false);
+    expect(malformedResult.errors).toHaveLength(1);
+    expect(malformedResult.errors[0]).toStartWith(
+      'package.json must contain valid JSON:',
+    );
+  });
+
+  test('reports non-object package metadata without cascading errors', () => {
+    const repoRoot = createPolicyRepo();
+
+    for (const source of ['null', '[]', '42', '"wp-typia"']) {
+      writeFile(repoRoot, 'package.json', source);
+
+      expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+        errors: ['package.json must contain a JSON object.'],
+        valid: false,
+      });
+    }
+  });
 });
