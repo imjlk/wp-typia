@@ -27,6 +27,10 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 		resolve(sourceRoot, "cli-doctor-standalone-rest.ts"),
 		"utf8",
 	);
+	const standaloneSharedSource = readFileSync(
+		resolve(sourceRoot, "cli-doctor-standalone-shared.ts"),
+		"utf8",
+	);
 	const workspaceBlocksSource = readFileSync(
 		resolve(sourceRoot, "cli-doctor-workspace-blocks.ts"),
 		"utf8",
@@ -123,6 +127,21 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	expect(standaloneRestSource).toContain(
 		"export async function checkStandaloneRestArtifacts(",
 	);
+	expect(standaloneSource).toContain(
+		"from './cli-doctor-standalone-shared.js'",
+	);
+	expect(standaloneRestSource).toContain(
+		"from './cli-doctor-standalone-shared.js'",
+	);
+	for (const helperName of [
+		"hasTypeScriptSyntaxErrors",
+		"isProjectLocalRelativePath",
+		"isSafeProjectRelativePath",
+	]) {
+		expect(standaloneSharedSource).toContain(`export function ${helperName}(`);
+		expect(standaloneSource).not.toContain(`function ${helperName}(`);
+		expect(standaloneRestSource).not.toContain(`function ${helperName}(`);
+	}
 	expect(standaloneRestSource).not.toContain("execFileSync(");
 	expect(standaloneRestSource).not.toContain("spawnSync(");
 	expect(standaloneSource).toContain(

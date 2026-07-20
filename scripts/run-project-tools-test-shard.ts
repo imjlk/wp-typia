@@ -8,6 +8,8 @@ export const PROJECT_TOOLS_TEST_SHARDS = Object.freeze({
     'scaffold-test-workspace-prebuilt.test.ts',
     'block-generator-service.test.ts',
     'built-in-block-artifacts.test.ts',
+    'cli-doctor-boundaries.test.ts',
+    'cli-doctor-standalone-shared.test.ts',
     'scaffold-basic.test.ts',
     'scaffold-persistence.test.ts',
     'template-source.test.ts',

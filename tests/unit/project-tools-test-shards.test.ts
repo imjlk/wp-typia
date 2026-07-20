@@ -18,6 +18,12 @@ const testsRoot = path.join(
   'wp-typia-project-tools',
   'tests',
 );
+const packageManifest = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, 'packages', 'wp-typia-project-tools', 'package.json'),
+    'utf8',
+  ),
+) as { scripts?: Record<string, string> };
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -34,6 +40,21 @@ describe('Project Tools test shard manifest', () => {
     for (const testFile of testFiles) {
       expect(fs.statSync(path.join(testsRoot, testFile)).isFile()).toBe(true);
     }
+  });
+
+  test('keeps the package scaffold-core wrapper aligned with its CI shard', () => {
+    const packageScript = packageManifest.scripts?.['test:scaffold-core'] ?? '';
+    const packageTestFiles = Array.from(
+      packageScript.matchAll(/\btests\/([a-z0-9-]+\.test\.ts)\b/g),
+      (match) => match[1],
+    );
+    const expectedTestFiles = PROJECT_TOOLS_TEST_SHARDS[
+      'scaffold-core'
+    ].filter(
+      (testFile) => testFile !== 'scaffold-test-workspace-prebuilt.test.ts',
+    );
+
+    expect(packageTestFiles).toEqual(expectedTestFiles);
   });
 
   test('rejects missing and unknown selections', () => {
