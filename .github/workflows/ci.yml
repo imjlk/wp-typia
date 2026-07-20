@@ -146,7 +146,7 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           disable_search: true
-          files: ./coverage/unit/lcov.info,./packages/wp-typia-api-client/coverage/lcov.info,./packages/wp-typia-block-runtime/coverage/lcov.info,./packages/wp-typia-block-types/coverage/lcov.info,./packages/wp-typia-rest/coverage/lcov.info,./packages/wp-typia/coverage/lcov.info
+          files: ./coverage/unit/lcov.info,./packages/wp-typia-api-client/coverage/lcov.info,./packages/wp-typia-block-runtime/coverage/lcov.info,./packages/wp-typia-block-types/coverage/lcov.info,./packages/wp-typia-dataviews/coverage/lcov.info,./packages/wp-typia-rest/coverage/lcov.info,./packages/wp-typia/coverage/lcov.info
           flags: unit-core
           name: codecov-unit-core
 
