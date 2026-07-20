@@ -1,10 +1,49 @@
 import { afterEach, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 const tempDirs: string[] = [];
+
+interface GeneratedPhpHelper {
+	collectGeneratedProjectPhpFiles: (projectDir: string) => string[];
+	lintGeneratedProjectPhp: (
+		projectDir: string,
+		requiredPhpVersion: string | undefined,
+		options?: {
+			executePhp?: (args: readonly string[], options: unknown) => string;
+		},
+	) => string[];
+}
+
+function getWorkflowJobBlock(workflow: string, jobName: string): string {
+	const marker = `  ${jobName}:\n`;
+	const start = workflow.indexOf(marker);
+	if (start === -1) {
+		return "";
+	}
+
+	const remainder = workflow.slice(start + marker.length);
+	const nextJob = remainder.search(/^  [a-z0-9-]+:\n/m);
+	return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
+}
+
+function loadGeneratedPhpHelper(): Promise<GeneratedPhpHelper> {
+	return import(
+		new URL(
+			"../../scripts/lib/generated-project-smoke-php.mjs",
+			import.meta.url,
+		).href
+	) as Promise<GeneratedPhpHelper>;
+}
+
+function writeFixtureFile(rootDir: string, relativePath: string, source: string) {
+	const filePath = join(rootDir, relativePath);
+	fs.mkdirSync(dirname(filePath), { recursive: true });
+	fs.writeFileSync(filePath, source, "utf8");
+	return filePath;
+}
 
 afterEach(() => {
 	for (const tempDir of tempDirs) {
@@ -30,11 +69,17 @@ test("generated project smoke script supports a reference example lane", () => {
 		join(repoRoot, "scripts", "lib", "generated-project-smoke-core.mjs"),
 		"utf8",
 	);
+	const phpHelper = fs.readFileSync(
+		join(repoRoot, "scripts", "lib", "generated-project-smoke-php.mjs"),
+		"utf8",
+	);
 
 	expect(smokeScript).toContain("exampleProject");
 	expect(smokeScript).toContain("--example-project");
+	expect(smokeScript).toContain("--php-version");
 	expect(smokeScript).toContain('./lib/generated-project-smoke-example.mjs');
 	expect(smokeScript).toContain('./lib/generated-project-smoke-assertions.mjs');
+	expect(smokeScript).toContain('./lib/generated-project-smoke-php.mjs');
 	expect(smokeScript).toContain("runExampleProjectSmoke");
 	expect(smokeScript).toContain("assertGeneratedProjectScaffold");
 	expect(smokeScript).toContain("assertScaffoldPackageManagerField");
@@ -43,6 +88,7 @@ test("generated project smoke script supports a reference example lane", () => {
 	expect(exampleHelper).toContain("ensureCopiedExampleSupportDependencies");
 	expect(exampleHelper).toContain("runExampleProjectSmoke");
 	expect(exampleHelper).toContain("shouldRunMigrationSmoke");
+	expect(exampleHelper).toContain("lintGeneratedProjectPhp(exampleDir, phpVersion)");
 	expect(exampleHelper).toContain('devDependencies["bun-types"]');
 	expect(exampleHelper).toContain('devDependencies["@types/node"]');
 	expect(assertionHelper).toContain("assertExampleProjectScaffold");
@@ -59,6 +105,8 @@ test("generated project smoke script supports a reference example lane", () => {
 	expect(coreHelper).toContain("cleanupTemporaryProjectRoot");
 	expect(coreHelper).toContain("maxRetries: 5");
 	expect(coreHelper).toContain("retryDelay: 100");
+	expect(phpHelper).toContain("collectGeneratedProjectPhpFiles");
+	expect(smokeScript).toContain("lintGeneratedProjectPhp(projectDir, phpVersion)");
 	expect(exampleHelper).toContain('Missing "typecheck" script in');
 	expect(exampleHelper).toContain('path.resolve(repoRoot, "examples", exampleProject)');
 });
@@ -68,7 +116,10 @@ test("CI generated smoke matrix includes the checked-in example lanes", () => {
 		join(repoRoot, ".github", "workflows", "ci.yml"),
 		"utf8",
 	);
+	const generatedSmokeJob = getWorkflowJobBlock(ciWorkflow, "generated-smoke");
 
+	expect(ciWorkflow).toContain("PHP_VERSION: '8.1'");
+	expect(ciWorkflow).toContain("GENERATED_PHP_VERSION: '8.0'");
 	expect(ciWorkflow).toContain("example_project: my-typia-block");
 	expect(ciWorkflow).toContain("example_project: compound-patterns");
 	expect(ciWorkflow).toContain("example_project: persistence-examples");
@@ -81,6 +132,116 @@ test("CI generated smoke matrix includes the checked-in example lanes", () => {
 	expect(ciWorkflow).toContain('if [ -n "${{ matrix.template || \'\' }}" ]; then');
 	expect(ciWorkflow).toContain('args+=(--template "${{ matrix.template }}")');
 	expect(ciWorkflow).toContain('--example-project "${{ matrix.example_project }}"');
+	expect(generatedSmokeJob).toContain(
+		"uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2",
+	);
+	expect(generatedSmokeJob).toContain(
+		"php-version: ${{ env.GENERATED_PHP_VERSION }}",
+	);
+	expect(generatedSmokeJob).toContain(
+		'--php-version "${{ env.GENERATED_PHP_VERSION }}"',
+	);
+});
+
+test("generated PHP collection is deterministic and excludes dependencies and symlinks", async () => {
+	const projectDir = fs.mkdtempSync(
+		join(os.tmpdir(), "wp-typia-generated-php-collection-"),
+	);
+	const linkedDir = fs.mkdtempSync(
+		join(os.tmpdir(), "wp-typia-generated-php-linked-"),
+	);
+	tempDirs.push(projectDir, linkedDir);
+
+	const rootPhp = writeFixtureFile(projectDir, "alpha.php", "<?php\n");
+	const buildPhp = writeFixtureFile(
+		projectDir,
+		"build/generated.php",
+		"<?php\n",
+	);
+	const nestedPhp = writeFixtureFile(
+		projectDir,
+		"src/nested/runtime.php",
+		"<?php\n",
+	);
+	writeFixtureFile(projectDir, "src/nested/readme.txt", "not PHP\n");
+	writeFixtureFile(projectDir, ".git/ignored.php", "<?php\n");
+	writeFixtureFile(projectDir, "node_modules/pkg/ignored.php", "<?php\n");
+	writeFixtureFile(projectDir, "vendor/pkg/ignored.php", "<?php\n");
+	writeFixtureFile(linkedDir, "linked.php", "<?php\n");
+	fs.symlinkSync(linkedDir, join(projectDir, "linked-directory"), "dir");
+	fs.symlinkSync(rootPhp, join(projectDir, "linked-file.php"), "file");
+
+	const { collectGeneratedProjectPhpFiles } = await loadGeneratedPhpHelper();
+
+	expect(collectGeneratedProjectPhpFiles(projectDir)).toEqual([
+		rootPhp,
+		buildPhp,
+		nestedPhp,
+	]);
+});
+
+test("required generated PHP lint rejects an unavailable runtime", async () => {
+	const projectDir = fs.mkdtempSync(
+		join(os.tmpdir(), "wp-typia-generated-php-missing-"),
+	);
+	tempDirs.push(projectDir);
+	const { lintGeneratedProjectPhp } = await loadGeneratedPhpHelper();
+	const missingPhpError = Object.assign(new Error("spawn php ENOENT"), {
+		code: "ENOENT",
+	});
+
+	expect(() =>
+		lintGeneratedProjectPhp(projectDir, "8.0", {
+			executePhp() {
+				throw missingPhpError;
+			},
+		}),
+	).toThrow(
+		"Generated project PHP syntax lint requires PHP 8.0, but the php executable is unavailable or failed to start",
+	);
+});
+
+test("required generated PHP lint rejects a different major.minor runtime", async () => {
+	const projectDir = fs.mkdtempSync(
+		join(os.tmpdir(), "wp-typia-generated-php-version-"),
+	);
+	tempDirs.push(projectDir);
+	const { lintGeneratedProjectPhp } = await loadGeneratedPhpHelper();
+
+	expect(() =>
+		lintGeneratedProjectPhp(projectDir, "8.0", {
+			executePhp: () => "8.1",
+		}),
+	).toThrow(
+		"Generated project PHP syntax lint requires PHP 8.0, but php resolved to 8.1.",
+	);
+});
+
+test("required generated PHP lint checks every collected file", async () => {
+	const projectDir = fs.mkdtempSync(
+		join(os.tmpdir(), "wp-typia-generated-php-lint-"),
+	);
+	tempDirs.push(projectDir);
+	writeFixtureFile(projectDir, "src/runtime.php", "<?php\n");
+	writeFixtureFile(projectDir, "build/validator.php", "<?php\n");
+
+	const { collectGeneratedProjectPhpFiles, lintGeneratedProjectPhp } =
+		await loadGeneratedPhpHelper();
+	const phpFiles = collectGeneratedProjectPhpFiles(projectDir);
+	const calls: string[][] = [];
+
+	expect(
+		lintGeneratedProjectPhp(projectDir, "8.0", {
+			executePhp(args) {
+				calls.push([...args]);
+				return args[0] === "-r" ? "8.0" : "No syntax errors detected";
+			},
+		}),
+	).toEqual(phpFiles);
+	expect(calls[0]?.[0]).toBe("-r");
+	expect(calls.slice(1)).toEqual(
+		phpFiles.map((filePath) => ["-l", filePath]),
+	);
 });
 
 test("generated smoke script forwards run arguments per package manager", async () => {

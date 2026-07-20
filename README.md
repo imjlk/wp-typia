@@ -497,8 +497,10 @@ bun run examples:test:e2e
 ```
 
 Without mise, install the Bun and Node.js versions declared in `mise.toml`, then
-run `bun install --frozen-lockfile` directly. PHP 8.1 remains the primary CI
-baseline without forcing a local source build through mise.
+run `bun install --frozen-lockfile` directly. PHP 8.1 remains the primary
+maintainer lint baseline without forcing a local source build through mise.
+Generated-project smoke jobs separately provision PHP 8.0 and syntax-check every
+emitted PHP file against the scaffold's declared `Requires PHP: 8.0` floor.
 
 Root ESLint covers repository infrastructure code such as `scripts/**`,
 `tests/**`, root config files, and package-side non-example sources. Example app

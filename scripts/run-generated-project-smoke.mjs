@@ -20,6 +20,10 @@ import {
 	runFreshScaffoldSyncCheck,
 } from "./lib/generated-project-smoke-core.mjs";
 import { runExampleProjectSmoke } from "./lib/generated-project-smoke-example.mjs";
+import {
+	assertPhpMajorMinorVersion,
+	lintGeneratedProjectPhp,
+} from "./lib/generated-project-smoke-php.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +51,7 @@ function parseArgs(argv) {
 		packageManager: undefined,
 		persistencePolicy: undefined,
 		phpPrefix: undefined,
+		phpVersion: undefined,
 		projectName: undefined,
 		runtime: undefined,
 		template: undefined,
@@ -151,6 +156,11 @@ function parseArgs(argv) {
 		}
 		if (arg === "--php-prefix") {
 			parsed.phpPrefix = next;
+			index += 1;
+			continue;
+		}
+		if (arg === "--php-version") {
+			parsed.phpVersion = assertPhpMajorMinorVersion(next);
 			index += 1;
 			continue;
 		}
@@ -280,6 +290,7 @@ function main() {
 		namespace,
 		textDomain,
 		phpPrefix,
+		phpVersion,
 		exampleProject,
 		addBlockName,
 		addBindingSourceName,
@@ -305,7 +316,7 @@ function main() {
 		(template && exampleProject)
 	) {
 		throw new Error(
-			"Usage: node scripts/run-generated-project-smoke.mjs --runtime <node|bun> (--template <id> | --example-project <slug>) [--variant <name>] [--namespace <value>] [--text-domain <value>] [--php-prefix <value>] [--data-storage <post-meta|custom-table>] [--persistence-policy <authenticated|public>] [--with-migration-ui] [--add-block-name <name> --add-template <basic|interactivity|persistence|compound> [--add-data-storage <post-meta|custom-table>] [--add-persistence-policy <authenticated|public>]] [--add-variation-name <name> --add-variation-block <block-slug>] [--add-pattern-name <name>] [--add-binding-source-name <name>] [--add-editor-plugin-name <name> [--add-editor-plugin-slot <sidebar|document-setting-panel>]] [--add-hooked-block-slug <block-slug> --add-hooked-block-anchor <anchor-block-name> --add-hooked-block-position <before|after|firstChild|lastChild>] --package-manager <id> --project-name <name>",
+			"Usage: node scripts/run-generated-project-smoke.mjs --runtime <node|bun> (--template <id> | --example-project <slug>) [--variant <name>] [--namespace <value>] [--text-domain <value>] [--php-prefix <value>] [--php-version <major.minor>] [--data-storage <post-meta|custom-table>] [--persistence-policy <authenticated|public>] [--with-migration-ui] [--add-block-name <name> --add-template <basic|interactivity|persistence|compound> [--add-data-storage <post-meta|custom-table>] [--add-persistence-policy <authenticated|public>]] [--add-variation-name <name> --add-variation-block <block-slug>] [--add-pattern-name <name>] [--add-binding-source-name <name>] [--add-editor-plugin-name <name> [--add-editor-plugin-slot <sidebar|document-setting-panel>]] [--add-hooked-block-slug <block-slug> --add-hooked-block-anchor <anchor-block-name> --add-hooked-block-position <before|after|firstChild|lastChild>] --package-manager <id> --project-name <name>",
 		);
 	}
 
@@ -322,6 +333,7 @@ function main() {
 			runExampleProjectSmoke({
 				exampleProject,
 				packageManager,
+				phpVersion,
 				projectDir,
 				runtime,
 			});
@@ -498,6 +510,7 @@ function main() {
 
 		const [buildCommand, buildArgs] = getRunCommand(packageManager);
 		run(buildCommand, buildArgs, { cwd: projectDir });
+		lintGeneratedProjectPhp(projectDir, phpVersion);
 
 		assertGeneratedProjectScaffold({
 			addBindingSourceName,
