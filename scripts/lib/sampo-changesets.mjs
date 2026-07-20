@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -10,6 +11,7 @@ export const RELEASE_TYPE_PRIORITY = {
 	minor: 1,
 	major: 2,
 };
+const CHANGESET_COVERAGE_IGNORED_DIRECTORIES = new Set(["coverage", "test", "tests"]);
 
 export function toPosixRelativePath(repoRoot, targetPath) {
 	const pathApi =
@@ -158,6 +160,186 @@ export function collectPendingReleaseTypes(repoRoot) {
 	}
 
 	return releaseTypes;
+}
+
+export function isReleaseRelevantPackagePath(packageDir, changedPath) {
+	const normalizedPackageDir = packageDir.replaceAll("\\", "/");
+	const normalizedChangedPath = changedPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
+	const packagePrefix = `${normalizedPackageDir}/`;
+
+	if (!normalizedChangedPath.startsWith(packagePrefix)) {
+		return false;
+	}
+
+	const packageRelativePath = normalizedChangedPath.slice(packagePrefix.length);
+	const pathSegments = packageRelativePath.split("/");
+	const fileName = pathSegments.at(-1) ?? "";
+
+	if (CHANGESET_COVERAGE_IGNORED_DIRECTORIES.has(pathSegments[0])) {
+		return false;
+	}
+
+	return !/^(?:CHANGELOG|README)(?:\..*)?$/iu.test(fileName);
+}
+
+function runGit(repoRoot, args) {
+	return execFileSync("git", args, {
+		cwd: repoRoot,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim();
+}
+
+function resolveCommit(repoRoot, ref) {
+	return runGit(repoRoot, ["rev-parse", "--verify", `${ref}^{commit}`]);
+}
+
+function requirePackageVersion(version, packageJsonPath, ref) {
+	if (typeof version !== "string" || version.trim() === "") {
+		throw new Error(`${packageJsonPath} at ${ref} must declare a string version.`);
+	}
+
+	return version;
+}
+
+function readPackageVersionAtRef(repoRoot, commit, packageJsonPath) {
+	const manifestPath = runGit(repoRoot, [
+		"ls-tree",
+		"--name-only",
+		commit,
+		"--",
+		packageJsonPath,
+	]);
+	if (manifestPath === "") {
+		return null;
+	}
+
+	// Missing manifests identify new packages. Existing malformed manifests must
+	// fail closed instead of silently receiving the same exemption.
+	const source = runGit(repoRoot, ["show", `${commit}:${packageJsonPath}`]);
+	const manifest = JSON.parse(source);
+	return requirePackageVersion(manifest.version, packageJsonPath, commit);
+}
+
+function collectAddedChangesetReleaseTypes(repoRoot, baseCommit, headCommit) {
+	const diffOutput = runGit(repoRoot, [
+		"diff",
+		"--name-only",
+		"--diff-filter=A",
+		`${baseCommit}...${headCommit}`,
+	]);
+	const addedPathSet = new Set(diffOutput === "" ? [] : diffOutput.split(/\r?\n/u));
+	const releaseTypes = new Map();
+
+	for (const { entries, relativePath } of readPendingChangesets(repoRoot)) {
+		if (!addedPathSet.has(relativePath)) {
+			continue;
+		}
+
+		for (const { packageId, releaseType } of entries) {
+			const current = releaseTypes.get(packageId);
+			if (
+				current === undefined ||
+				RELEASE_TYPE_PRIORITY[releaseType] > RELEASE_TYPE_PRIORITY[current]
+			) {
+				releaseTypes.set(packageId, releaseType);
+			}
+		}
+	}
+
+	return releaseTypes;
+}
+
+function formatChangedPathSummary(changedPaths, limit = 5) {
+	const displayedPaths = changedPaths.slice(0, limit);
+	const remainingCount = changedPaths.length - displayedPaths.length;
+	return remainingCount > 0
+		? `${displayedPaths.join(", ")}, ... ${remainingCount} more`
+		: displayedPaths.join(", ");
+}
+
+export function validateSampoChangesetCoverage(
+	repoRoot,
+	{ allowVersionBumps = false, baseRef },
+) {
+	const baseCommit = resolveCommit(repoRoot, baseRef);
+	const headCommit = resolveCommit(repoRoot, "HEAD");
+	const diffOutput = runGit(repoRoot, [
+		"diff",
+		"--name-only",
+		"--diff-filter=ACDMRT",
+		`${baseCommit}...${headCommit}`,
+	]);
+	const changedPaths = diffOutput === "" ? [] : diffOutput.split(/\r?\n/u);
+	const changedReleaseTypes = collectAddedChangesetReleaseTypes(
+		repoRoot,
+		baseCommit,
+		headCommit,
+	);
+	const packages = [];
+	const errors = [];
+
+	for (const packageInfo of findPublishablePackages(repoRoot)) {
+		const releaseRelevantPaths = changedPaths.filter((changedPath) =>
+			isReleaseRelevantPackagePath(packageInfo.packageDir, changedPath),
+		);
+		if (releaseRelevantPaths.length === 0) {
+			continue;
+		}
+
+		const packageJsonRelativePath = toPosixRelativePath(
+			repoRoot,
+			packageInfo.packageJsonPath,
+		);
+		const currentVersion = requirePackageVersion(
+			packageInfo.version,
+			packageJsonRelativePath,
+			headCommit,
+		);
+		const baseVersion = readPackageVersionAtRef(
+			repoRoot,
+			baseCommit,
+			packageJsonRelativePath,
+		);
+		const pendingReleaseType = changedReleaseTypes.get(packageInfo.packageId) ?? null;
+		const versionChanged = baseVersion === null || baseVersion !== currentVersion;
+		const coveredByVersionBump =
+			baseVersion === null ||
+			(allowVersionBumps &&
+				versionChanged &&
+				releaseRelevantPaths.every(
+					(changedPath) => changedPath === packageJsonRelativePath,
+				));
+		const covered = pendingReleaseType !== null || coveredByVersionBump;
+
+		packages.push({
+			baseVersion,
+			covered,
+			coveredByVersionBump,
+			currentVersion,
+			packageDir: packageInfo.packageDir,
+			packageId: packageInfo.packageId,
+			packageName: packageInfo.packageName,
+			pendingReleaseType,
+			releaseRelevantPaths,
+			versionChanged,
+		});
+
+		if (!covered) {
+			errors.push(
+				`${packageInfo.packageName} has release-relevant changes since ${baseRef}, but remains at ${currentVersion} without a pending ${packageInfo.packageId} changeset in this diff (${formatChangedPathSummary(releaseRelevantPaths)}).`,
+			);
+		}
+	}
+
+	return {
+		baseCommit,
+		changedPaths,
+		errors,
+		headCommit,
+		packages,
+		valid: errors.length === 0,
+	};
 }
 
 export function validateSampoChangesets(repoRoot) {

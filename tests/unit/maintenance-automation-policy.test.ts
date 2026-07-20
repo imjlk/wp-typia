@@ -57,6 +57,11 @@ function createMaintenancePolicyRepo() {
   );
 
   writeText(
+    path.join(repoRoot, '.github/workflows/release-pr.yml'),
+    `jobs:\n  update-release-pr:\n    steps:\n      - name: Create or update release PR\n        with:\n          add-paths: |\n            .sampo/**\n            composer.lock\n            examples/**/CHANGELOG.md\n            examples/**/package.json\n            packages/**/CHANGELOG.md\n            packages/**/package.json\n`,
+  );
+
+  writeText(
     path.join(repoRoot, '.github/workflows/test-matrix.yml'),
     `jobs:\n  security-scan:\n    name: CodeQL Scan\n    steps:\n      - name: Run CodeQL\n        uses: github/codeql-action/init@v4\n`,
   );
@@ -200,6 +205,27 @@ describe('validateMaintenanceAutomationPolicy', () => {
     );
     expect(result.errors).toContain(
       '.github/workflows/gutenberg-upstream-watch.yml must include "WATCH_ISSUE_NUMBER: \'283\'".',
+    );
+  });
+
+  test('fails when release PR staging drops publishable examples or regenerated locks', () => {
+    const repoRoot = createMaintenancePolicyRepo();
+    writeText(
+      path.join(repoRoot, '.github/workflows/release-pr.yml'),
+      `jobs:\n  update-release-pr:\n    steps:\n      - name: Create or update release PR\n        with:\n          add-paths: |\n            .sampo/**\n            packages/**/CHANGELOG.md\n            packages/**/package.json\n`,
+    );
+
+    const result = validateMaintenanceAutomationPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      '.github/workflows/release-pr.yml must stage "composer.lock" in the release PR add-paths block.',
+    );
+    expect(result.errors).toContain(
+      '.github/workflows/release-pr.yml must stage "examples/**/CHANGELOG.md" in the release PR add-paths block.',
+    );
+    expect(result.errors).toContain(
+      '.github/workflows/release-pr.yml must stage "examples/**/package.json" in the release PR add-paths block.',
     );
   });
 
