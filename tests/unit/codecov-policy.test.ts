@@ -36,11 +36,26 @@ function getWorkflowJobBlock(workflow: string, jobName: string): string {
   }
 
   const remainder = workflow.slice(start + marker.length);
-  const nextJob = remainder.search(/^  [a-z0-9-]+:\n/m);
+  const nextJob = remainder.search(/^  [A-Za-z_][A-Za-z0-9_-]*:\n/m);
   return nextJob === -1 ? remainder : remainder.slice(0, nextJob);
 }
 
 describe('Codecov policy', () => {
+  test('recognizes every unquoted GitHub Actions job id character', () => {
+    const workflow = [
+      'jobs:',
+      '  current-job:',
+      '    name: Current job',
+      '  _Next_JOB:',
+      '    name: Next job',
+      '',
+    ].join('\n');
+
+    expect(getWorkflowJobBlock(workflow, 'current-job')).toBe(
+      '    name: Current job\n',
+    );
+  });
+
   test('keeps changed-line coverage informational and pull-request only', () => {
     const policy = Bun.YAML.parse(
       fs.readFileSync(path.join(repoRoot, 'codecov.yml'), 'utf8'),
