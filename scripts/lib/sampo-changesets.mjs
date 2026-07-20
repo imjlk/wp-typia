@@ -3,9 +3,13 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
+
+import { DEPENDENCY_FIELDS } from "../publish-package-utils.mjs";
 
 export const CHANGESET_DIR = path.join(".sampo", "changesets");
 export const WORKSPACE_ROOTS = ["packages", "examples"];
+const WORKSPACE_PACKAGE_MANIFEST_PATTERN = /^(?:packages|examples)\/[^/]+\/package\.json$/u;
 export const RELEASE_TYPE_PRIORITY = {
 	patch: 0,
 	minor: 1,
@@ -33,7 +37,7 @@ export function findPublishablePackages(repoRoot) {
 				continue;
 			}
 
-			const packageDir = path.join(rootDir, entry.name);
+			const packageDir = path.posix.join(rootDir, entry.name);
 			const packageJsonPath = path.join(repoRoot, packageDir, "package.json");
 			if (!fs.existsSync(packageJsonPath)) {
 				continue;
@@ -202,23 +206,126 @@ function requirePackageVersion(version, packageJsonPath, ref) {
 	return version;
 }
 
-function readPackageVersionAtRef(repoRoot, commit, packageJsonPath) {
-	const manifestPath = runGit(repoRoot, [
+function readWorkspacePackageManifestsAtRef(repoRoot, commit) {
+	const manifestOutput = runGit(repoRoot, [
 		"ls-tree",
+		"-r",
 		"--name-only",
 		commit,
 		"--",
-		packageJsonPath,
+		...WORKSPACE_ROOTS,
 	]);
-	if (manifestPath === "") {
-		return null;
+	const manifestPaths = (manifestOutput === "" ? [] : manifestOutput.split(/\r?\n/u)).filter(
+		(manifestPath) => WORKSPACE_PACKAGE_MANIFEST_PATTERN.test(manifestPath),
+	);
+
+	return manifestPaths.map((packageJsonPath) => ({
+		manifest: JSON.parse(runGit(repoRoot, ["show", `${commit}:${packageJsonPath}`])),
+		packageDir: path.posix.dirname(packageJsonPath),
+		packageJsonPath,
+	}));
+}
+
+function isPublishableManifest(manifest) {
+	return (
+		manifest !== null &&
+		typeof manifest === "object" &&
+		!manifest.private &&
+		typeof manifest.name === "string" &&
+		manifest.name.length > 0
+	);
+}
+
+function isStableReleaseVersionBump(baseVersion, currentVersion) {
+	const parseVersion = (version) => {
+		const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(version);
+		return match === null ? null : match.slice(1).map(Number);
+	};
+	const base = parseVersion(baseVersion);
+	const current = parseVersion(currentVersion);
+	if (base === null || current === null) {
+		return false;
 	}
 
-	// Missing manifests identify new packages. Existing malformed manifests must
-	// fail closed instead of silently receiving the same exemption.
-	const source = runGit(repoRoot, ["show", `${commit}:${packageJsonPath}`]);
-	const manifest = JSON.parse(source);
-	return requirePackageVersion(manifest.version, packageJsonPath, commit);
+	const [baseMajor, baseMinor, basePatch] = base;
+	const [currentMajor, currentMinor, currentPatch] = current;
+	return (
+		(currentMajor === baseMajor &&
+			currentMinor === baseMinor &&
+			currentPatch === basePatch + 1) ||
+		(currentMajor === baseMajor &&
+			currentMinor === baseMinor + 1 &&
+			currentPatch === 0) ||
+		(currentMajor === baseMajor + 1 && currentMinor === 0 && currentPatch === 0)
+	);
+}
+
+function normalizeAuthorizedInternalDependencyBumps(
+	baseManifest,
+	currentManifest,
+	versionTransitions,
+) {
+	for (const field of DEPENDENCY_FIELDS) {
+		const baseDependencies = baseManifest[field];
+		const currentDependencies = currentManifest[field];
+		if (
+			baseDependencies === null ||
+			typeof baseDependencies !== "object" ||
+			currentDependencies === null ||
+			typeof currentDependencies !== "object"
+		) {
+			continue;
+		}
+
+		for (const [dependencyName, currentSpec] of Object.entries(currentDependencies)) {
+			const baseSpec = baseDependencies[dependencyName];
+			if (currentSpec === baseSpec) {
+				continue;
+			}
+
+			const transition = versionTransitions.get(dependencyName);
+			if (
+				typeof baseSpec !== "string" ||
+				typeof currentSpec !== "string" ||
+				transition === undefined
+			) {
+				continue;
+			}
+			const rangePrefix = ["", "^", "~"].find(
+				(prefix) => baseSpec === `${prefix}${transition.baseVersion}`,
+			);
+			if (
+				rangePrefix === undefined ||
+				currentSpec !== `${rangePrefix}${transition.currentVersion}`
+			) {
+				continue;
+			}
+
+			currentDependencies[dependencyName] = baseSpec;
+		}
+	}
+}
+
+function isAuthorizedReleaseManifestChange(
+	baseManifest,
+	currentManifest,
+	versionTransitions,
+) {
+	const baseVersion = baseManifest.version;
+	const currentVersion = currentManifest.version;
+	if (!isStableReleaseVersionBump(baseVersion, currentVersion)) {
+		return false;
+	}
+
+	const normalizedCurrentManifest = structuredClone(currentManifest);
+	normalizedCurrentManifest.version = baseVersion;
+	normalizeAuthorizedInternalDependencyBumps(
+		baseManifest,
+		normalizedCurrentManifest,
+		versionTransitions,
+	);
+
+	return isDeepStrictEqual(baseManifest, normalizedCurrentManifest);
 }
 
 function collectAddedChangesetReleaseTypes(repoRoot, baseCommit, headCommit) {
@@ -276,10 +383,70 @@ export function validateSampoChangesetCoverage(
 		baseCommit,
 		headCommit,
 	);
+	const publishablePackages = findPublishablePackages(repoRoot);
+	const baseWorkspacePackages = readWorkspacePackageManifestsAtRef(repoRoot, baseCommit);
+	const currentPackagesByDir = new Map(
+		publishablePackages.map((packageInfo) => [packageInfo.packageDir, packageInfo]),
+	);
+	const baseManifestsByDir = new Map(
+		baseWorkspacePackages.map((packageInfo) => [packageInfo.packageDir, packageInfo.manifest]),
+	);
+	const versionTransitions = new Map();
 	const packages = [];
 	const errors = [];
 
-	for (const packageInfo of findPublishablePackages(repoRoot)) {
+	for (const packageInfo of publishablePackages) {
+		const packageJsonRelativePath = toPosixRelativePath(
+			repoRoot,
+			packageInfo.packageJsonPath,
+		);
+		const baseManifest = baseManifestsByDir.get(packageInfo.packageDir) ?? null;
+		if (baseManifest === null) {
+			continue;
+		}
+
+		const baseVersion = requirePackageVersion(
+			baseManifest.version,
+			packageJsonRelativePath,
+			baseCommit,
+		);
+		const currentVersion = requirePackageVersion(
+			packageInfo.version,
+			packageJsonRelativePath,
+			headCommit,
+		);
+		if (
+			baseManifest.name === packageInfo.packageName &&
+			isStableReleaseVersionBump(baseVersion, currentVersion)
+		) {
+			versionTransitions.set(packageInfo.packageName, {
+				baseVersion,
+				currentVersion,
+			});
+		}
+	}
+
+	for (const basePackage of baseWorkspacePackages) {
+		if (!isPublishableManifest(basePackage.manifest)) {
+			continue;
+		}
+
+		const currentPackage = currentPackagesByDir.get(basePackage.packageDir);
+		if (currentPackage?.packageName === basePackage.manifest.name) {
+			continue;
+		}
+
+		const baseVersion = requirePackageVersion(
+			basePackage.manifest.version,
+			basePackage.packageJsonPath,
+			baseCommit,
+		);
+		errors.push(
+			`${basePackage.manifest.name}@${baseVersion} was publishable at ${baseRef}, but ${basePackage.packageJsonPath} was removed, made private, or renamed. Package removal requires an explicit release migration and cannot bypass Sampo changesets.`,
+		);
+	}
+
+	for (const packageInfo of publishablePackages) {
 		const releaseRelevantPaths = changedPaths.filter((changedPath) =>
 			isReleaseRelevantPackagePath(packageInfo.packageDir, changedPath),
 		);
@@ -296,11 +463,15 @@ export function validateSampoChangesetCoverage(
 			packageJsonRelativePath,
 			headCommit,
 		);
-		const baseVersion = readPackageVersionAtRef(
-			repoRoot,
-			baseCommit,
-			packageJsonRelativePath,
-		);
+		const baseManifest = baseManifestsByDir.get(packageInfo.packageDir) ?? null;
+		const baseVersion =
+			baseManifest === null
+				? null
+				: requirePackageVersion(
+						baseManifest.version,
+						packageJsonRelativePath,
+						baseCommit,
+					);
 		const pendingReleaseType = changedReleaseTypes.get(packageInfo.packageId) ?? null;
 		const versionChanged = baseVersion === null || baseVersion !== currentVersion;
 		const coveredByVersionBump =
@@ -309,6 +480,11 @@ export function validateSampoChangesetCoverage(
 				versionChanged &&
 				releaseRelevantPaths.every(
 					(changedPath) => changedPath === packageJsonRelativePath,
+				) &&
+				isAuthorizedReleaseManifestChange(
+					baseManifest,
+					JSON.parse(fs.readFileSync(packageInfo.packageJsonPath, "utf8")),
+					versionTransitions,
 				));
 		const covered = pendingReleaseType !== null || coveredByVersionBump;
 

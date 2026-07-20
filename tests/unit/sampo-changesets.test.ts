@@ -82,6 +82,23 @@ function commitAll(repoRoot: string, message: string) {
 	runGit(repoRoot, ["commit", "-m", message]);
 }
 
+function updatePackageManifest(
+	repoRoot: string,
+	packageDir: string,
+	update: (manifest: Record<string, unknown>) => void,
+) {
+	const packageJsonPath = path.join(repoRoot, packageDir, "package.json");
+	const manifest = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+	update(manifest);
+	fs.writeFileSync(packageJsonPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+function bumpPackageVersion(repoRoot: string, packageDir: string, version: string) {
+	updatePackageManifest(repoRoot, packageDir, (manifest) => {
+		manifest.version = version;
+	});
+}
+
 describe("validate-sampo-changesets", () => {
 	test("findPublishablePackageIds returns canonical npm ids for non-private workspaces", () => {
 		const repoRoot = createTempRepo();
@@ -313,6 +330,37 @@ describe("validate-sampo-changesets", () => {
 		]);
 	});
 
+	test("validateSampoChangesetCoverage rejects deleting an entire publishable package", () => {
+		const repoRoot = createCommittedTempRepo();
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		fs.rmSync(path.join(repoRoot, "packages", "create"), { recursive: true });
+		commitAll(repoRoot, "delete package");
+
+		const result = validateSampoChangesetCoverage(repoRoot, { baseRef });
+
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain(
+			`@wp-typia/project-tools@0.1.0 was publishable at ${baseRef}, but packages/create/package.json was removed, made private, or renamed. Package removal requires an explicit release migration and cannot bypass Sampo changesets.`,
+		);
+	});
+
+	test("validateSampoChangesetCoverage rejects renaming a publishable package directory", () => {
+		const repoRoot = createCommittedTempRepo();
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		fs.renameSync(
+			path.join(repoRoot, "packages", "create"),
+			path.join(repoRoot, "packages", "renamed-create"),
+		);
+		commitAll(repoRoot, "rename package directory");
+
+		const result = validateSampoChangesetCoverage(repoRoot, { baseRef });
+
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain(
+			`@wp-typia/project-tools@0.1.0 was publishable at ${baseRef}, but packages/create/package.json was removed, made private, or renamed. Package removal requires an explicit release migration and cannot bypass Sampo changesets.`,
+		);
+	});
+
 	test("validateSampoChangesetCoverage accepts changed package inputs with a pending changeset", () => {
 		const repoRoot = createCommittedTempRepo();
 		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
@@ -348,10 +396,7 @@ describe("validate-sampo-changesets", () => {
 	test("validateSampoChangesetCoverage rejects ordinary version-only bumps without pending changesets", () => {
 		const repoRoot = createCommittedTempRepo();
 		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
-		const packageJsonPath = path.join(repoRoot, "packages", "create", "package.json");
-		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-		packageJson.version = "0.1.1";
-		fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+		bumpPackageVersion(repoRoot, "packages/create", "0.1.1");
 		commitAll(repoRoot, "version package");
 
 		const result = validateSampoChangesetCoverage(repoRoot, { baseRef });
@@ -369,10 +414,7 @@ describe("validate-sampo-changesets", () => {
 	test("validateSampoChangesetCoverage accepts authorized release PR version bumps", () => {
 		const repoRoot = createCommittedTempRepo();
 		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
-		const packageJsonPath = path.join(repoRoot, "packages", "create", "package.json");
-		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-		packageJson.version = "0.1.1";
-		fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+		bumpPackageVersion(repoRoot, "packages/create", "0.1.1");
 		commitAll(repoRoot, "version package");
 
 		const result = validateSampoChangesetCoverage(repoRoot, {
@@ -382,6 +424,78 @@ describe("validate-sampo-changesets", () => {
 
 		expect(result.valid).toBe(true);
 		expect(result.packages[0]?.coveredByVersionBump).toBe(true);
+	});
+
+	test("validateSampoChangesetCoverage rejects version downgrades on an authorized release PR", () => {
+		const repoRoot = createCommittedTempRepo();
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		bumpPackageVersion(repoRoot, "packages/create", "0.0.9");
+		commitAll(repoRoot, "downgrade package");
+
+		const result = validateSampoChangesetCoverage(repoRoot, {
+			allowVersionBumps: true,
+			baseRef,
+		});
+
+		expect(result.valid).toBe(false);
+		expect(result.packages[0]?.coveredByVersionBump).toBe(false);
+	});
+
+	test("validateSampoChangesetCoverage rejects skipped versions on an authorized release PR", () => {
+		const repoRoot = createCommittedTempRepo();
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		bumpPackageVersion(repoRoot, "packages/create", "0.1.2");
+		commitAll(repoRoot, "skip package version");
+
+		const result = validateSampoChangesetCoverage(repoRoot, {
+			allowVersionBumps: true,
+			baseRef,
+		});
+
+		expect(result.valid).toBe(false);
+		expect(result.packages[0]?.coveredByVersionBump).toBe(false);
+	});
+
+	test("validateSampoChangesetCoverage rejects unrelated manifest edits on an authorized release PR", () => {
+		const repoRoot = createCommittedTempRepo();
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		updatePackageManifest(repoRoot, "packages/create", (manifest) => {
+			manifest.version = "0.1.1";
+			manifest.scripts = { postinstall: "node unexpected.mjs" };
+		});
+		commitAll(repoRoot, "version package and edit scripts");
+
+		const result = validateSampoChangesetCoverage(repoRoot, {
+			allowVersionBumps: true,
+			baseRef,
+		});
+
+		expect(result.valid).toBe(false);
+		expect(result.packages[0]?.coveredByVersionBump).toBe(false);
+	});
+
+	test("validateSampoChangesetCoverage accepts propagated internal dependency versions on a release PR", () => {
+		const repoRoot = createCommittedTempRepo();
+		updatePackageManifest(repoRoot, "packages/create", (manifest) => {
+			manifest.dependencies = { "@wp-typia/rest": "^0.1.0" };
+		});
+		commitAll(repoRoot, "add internal dependency");
+		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
+		bumpPackageVersion(repoRoot, "packages/rest", "0.1.1");
+		updatePackageManifest(repoRoot, "packages/create", (manifest) => {
+			manifest.version = "0.1.1";
+			manifest.dependencies = { "@wp-typia/rest": "^0.1.1" };
+		});
+		commitAll(repoRoot, "version packages");
+
+		const result = validateSampoChangesetCoverage(repoRoot, {
+			allowVersionBumps: true,
+			baseRef,
+		});
+
+		expect(result.valid).toBe(true);
+		expect(result.packages).toHaveLength(2);
+		expect(result.packages.every(({ coveredByVersionBump }) => coveredByVersionBump)).toBe(true);
 	});
 
 	test("validateSampoChangesetCoverage accepts genuinely new packages", () => {
@@ -427,10 +541,7 @@ describe("validate-sampo-changesets", () => {
 	test("validateSampoChangesetCoverage does not let a source change bypass changesets with a manual version bump", () => {
 		const repoRoot = createCommittedTempRepo();
 		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
-		const packageJsonPath = path.join(repoRoot, "packages", "create", "package.json");
-		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-		packageJson.version = "0.1.1";
-		fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+		bumpPackageVersion(repoRoot, "packages/create", "0.1.1");
 		fs.writeFileSync(
 			path.join(repoRoot, "packages", "create", "src", "index.ts"),
 			"export const initial = false;\n",
@@ -453,10 +564,7 @@ describe("validate-sampo-changesets", () => {
 	test("runCli requires explicit authorization for release version bumps", () => {
 		const repoRoot = createCommittedTempRepo();
 		const baseRef = runGit(repoRoot, ["rev-parse", "HEAD"]);
-		const packageJsonPath = path.join(repoRoot, "packages", "create", "package.json");
-		const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-		packageJson.version = "0.1.1";
-		fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+		bumpPackageVersion(repoRoot, "packages/create", "0.1.1");
 		commitAll(repoRoot, "version package");
 		const stderr: string[] = [];
 		const stdout: string[] = [];
