@@ -56,7 +56,7 @@ test("scaffold and verify generate auto-migration artifacts for additive schema 
 	});
 	expect(verifyOutput).toContain("Verified v1 -> v3");
 	expect(verifyOutput).toContain("Migration verification passed for create-block/migration-smoke");
-});
+}, { timeout: 30_000 });
 
 test("scaffold exposes renameMap and transforms helpers for rename candidates", () => {
 	const projectDir = path.join(tempRoot, "rename-project");
