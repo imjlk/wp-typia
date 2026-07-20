@@ -538,8 +538,8 @@ test('captured sync output keeps the child stdin inherited', async () => {
     path.join(scriptsDir, 'stdin.mjs'),
     [
       "import fs from 'node:fs';",
-      'const { dev, ino, mode, rdev } = fs.fstatSync(0);',
-      "fs.writeFileSync('stdin.json', JSON.stringify({ dev, ino, mode, rdev }));",
+      'const { ino, mode, rdev } = fs.fstatSync(0);',
+      "fs.writeFileSync('stdin.json', JSON.stringify({ ino, mode, rdev }));",
     ].join('\n'),
     'utf8',
   );
@@ -552,10 +552,12 @@ test('captured sync output keeps the child stdin inherited', async () => {
     },
   });
 
-  const { dev, ino, mode, rdev } = fs.fstatSync(0);
+  // Bun 1.3.11 and Node 24 can expose different unsigned `dev_t` values for
+  // the same inherited macOS pipe, while its inode, mode, and device id agree.
+  const { ino, mode, rdev } = fs.fstatSync(0);
   expect(
     JSON.parse(fs.readFileSync(path.join(projectDir, 'stdin.json'), 'utf8')),
-  ).toEqual({ dev, ino, mode, rdev });
+  ).toEqual({ ino, mode, rdev });
   expect(streamedStdout).toContain('> sync');
 });
 
