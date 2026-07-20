@@ -29,9 +29,14 @@ import {
 } from './cli-doctor-workspace-shared.js';
 import {
   containsCompletion,
+  countOuterParserContinues,
+  getSafeErrorConstruction,
+  hasCanonicalRuntimeImports,
+  hasCanonicalUnknownFlagThrow,
   hasEarlierAbruptCompletion,
+  hasOnlyCanonicalParserEffects,
   isAllowedSyncHelperTopLevelStatement,
-  isProcessExitCompletion,
+  isCanonicalSyncMainCatchHandler,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
 import {
@@ -416,6 +421,34 @@ function hasImportedBinding(
   });
 }
 
+const TRUSTED_SYNC_HELPER_GLOBALS = new Set([
+  'Error',
+  'Object',
+  'console',
+  'process',
+]);
+const SYNC_TYPES_RUNTIME_IMPORTS = new Map([
+  [
+    '@wp-typia/block-runtime/metadata-core',
+    { namedBindings: new Set(['runSyncBlockMetadata']) },
+  ],
+]);
+const SYNC_PROJECT_RUNTIME_IMPORTS = new Map([
+  ['node:child_process', { namedBindings: new Set(['spawnSync']) }],
+  ['node:fs', { defaultBinding: 'fs' }],
+  ['node:path', { defaultBinding: 'path' }],
+]);
+
+function hasOverriddenTrustedSyncHelperGlobal(
+  sourceFile: ts.SourceFile,
+): boolean {
+  return (
+    [...TRUSTED_SYNC_HELPER_GLOBALS].some((binding) =>
+      hasImportedBinding(sourceFile, binding),
+    ) || hasShadowedBinding(sourceFile, TRUSTED_SYNC_HELPER_GLOBALS)
+  );
+}
+
 function getAwaitedCallFromVariableStatement(
   statement: ts.Statement,
 ): { binding: string; call: ts.CallExpression } | null {
@@ -510,6 +543,7 @@ function findSyncOptionsObject(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
     hasShadowedBinding(main, new Set(['parseCliOptions'])) ||
+    !hasCanonicalRuntimeImports(sourceFile, SYNC_TYPES_RUNTIME_IMPORTS) ||
     !hasCanonicalCheckParser(sourceFile, [
       { flagName: '--strict', propertyName: 'strict' },
       { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
@@ -916,15 +950,6 @@ function isDirectRunSyncCall(
   );
 }
 
-function containsNonThrowingCompletion(node: ts.Node): boolean {
-  return containsCompletion(
-    node,
-    (candidate) =>
-      ts.isReturnStatement(candidate) ||
-      isProcessExitCompletion(candidate),
-  );
-}
-
 function isNonTargetArgumentGuard(
   node: ts.Node,
   argumentBinding: string,
@@ -1070,7 +1095,53 @@ function isResultPropertyAccess(
   );
 }
 
+function isCanonicalStaticErrorThrow(statement: ts.Statement): boolean {
+  if (!ts.isThrowStatement(statement) || !statement.expression) {
+    return false;
+  }
+  const errorConstruction = getSafeErrorConstruction(statement.expression);
+  return (
+    errorConstruction !== null &&
+    ts.isStringLiteralLike(errorConstruction.arguments![0])
+  );
+}
+
+function isDirectFileNotFoundCondition(
+  expression: ts.Expression,
+  resultBinding: string,
+): boolean {
+  if (
+    !ts.isBinaryExpression(expression) ||
+    expression.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsEqualsToken ||
+    !ts.isStringLiteralLike(expression.right) ||
+    expression.right.text !== 'ENOENT' ||
+    !ts.isPropertyAccessExpression(expression.left) ||
+    expression.left.name.text !== 'code'
+  ) {
+    return false;
+  }
+  return isResultPropertyAccess(
+    unwrapStaticExpression(expression.left.expression),
+    resultBinding,
+    'error',
+  );
+}
+
+function isFileNotFoundHelperCondition(
+  expression: ts.Expression,
+  resultBinding: string,
+): boolean {
+  return (
+    ts.isCallExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    expression.expression.text === 'isFileNotFoundError' &&
+    expression.arguments.length === 1 &&
+    isResultPropertyAccess(expression.arguments[0], resultBinding, 'error')
+  );
+}
+
 function hasCanonicalRunnerErrorGuard(
+  sourceFile: ts.SourceFile,
   statement: ts.Statement | undefined,
   resultBinding: string,
 ): boolean {
@@ -1079,20 +1150,39 @@ function hasCanonicalRunnerErrorGuard(
     !ts.isIfStatement(statement) ||
     statement.elseStatement ||
     !isResultPropertyAccess(statement.expression, resultBinding, 'error') ||
-    !ts.isBlock(statement.thenStatement)
+    !ts.isBlock(statement.thenStatement) ||
+    statement.thenStatement.statements.length !== 2
   ) {
     return false;
   }
-  const finalStatement =
-    statement.thenStatement.statements[
-      statement.thenStatement.statements.length - 1
-    ];
+  const [fileNotFoundGuard, finalStatement] =
+    statement.thenStatement.statements;
+  if (
+    !ts.isIfStatement(fileNotFoundGuard) ||
+    fileNotFoundGuard.elseStatement ||
+    !ts.isBlock(fileNotFoundGuard.thenStatement) ||
+    fileNotFoundGuard.thenStatement.statements.length !== 1 ||
+    !isCanonicalStaticErrorThrow(fileNotFoundGuard.thenStatement.statements[0])
+  ) {
+    return false;
+  }
+  const hasDirectCondition = isDirectFileNotFoundCondition(
+    fileNotFoundGuard.expression,
+    resultBinding,
+  );
+  const hasHelperCondition = isFileNotFoundHelperCondition(
+    fileNotFoundGuard.expression,
+    resultBinding,
+  );
   return (
-    finalStatement !== undefined &&
+    (hasDirectCondition ||
+      (hasHelperCondition &&
+        hasCanonicalFileNotFoundErrorHelpers(sourceFile))) &&
     ts.isThrowStatement(finalStatement) &&
-    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error') &&
-    !statement.thenStatement.statements.some(
-      containsNonThrowingCompletion,
+    isResultPropertyAccess(
+      finalStatement.expression,
+      resultBinding,
+      'error',
     )
   );
 }
@@ -1100,6 +1190,7 @@ function hasCanonicalRunnerErrorGuard(
 function hasCanonicalRunnerStatusGuard(
   statement: ts.Statement | undefined,
   resultBinding: string,
+  scriptPathBinding: string,
 ): boolean {
   if (
     !statement ||
@@ -1115,20 +1206,26 @@ function hasCanonicalRunnerStatusGuard(
     ) ||
     !ts.isNumericLiteral(statement.expression.right) ||
     statement.expression.right.text !== '0' ||
-    !ts.isBlock(statement.thenStatement)
+    !ts.isBlock(statement.thenStatement) ||
+    statement.thenStatement.statements.length !== 1
   ) {
     return false;
   }
-  const finalStatement =
-    statement.thenStatement.statements[
-      statement.thenStatement.statements.length - 1
-    ];
+  const [finalStatement] = statement.thenStatement.statements;
+  if (!ts.isThrowStatement(finalStatement) || !finalStatement.expression) {
+    return false;
+  }
+  const errorConstruction = getSafeErrorConstruction(
+    finalStatement.expression,
+  );
+  if (errorConstruction === null) return false;
+  const message = errorConstruction.arguments![0];
   return (
-    finalStatement !== undefined &&
-    ts.isThrowStatement(finalStatement) &&
-    !statement.thenStatement.statements.some(
-      containsNonThrowingCompletion,
-    )
+    ts.isStringLiteralLike(message) ||
+    (ts.isTemplateExpression(message) &&
+      message.templateSpans.length === 1 &&
+      ts.isIdentifier(message.templateSpans[0].expression) &&
+      message.templateSpans[0].expression.text === scriptPathBinding)
   );
 }
 
@@ -1149,6 +1246,53 @@ function getTypeScriptNodeFingerprint(node: ts.Node): string {
   }
   visit(node);
   return JSON.stringify(parts);
+}
+
+const CANONICAL_FILE_NOT_FOUND_HELPERS_SOURCE = `
+function getOptionalNodeErrorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : undefined;
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return getOptionalNodeErrorCode(error) === 'ENOENT';
+}
+`;
+
+const CANONICAL_FILE_NOT_FOUND_HELPER_FINGERPRINTS = ts
+  .createSourceFile(
+    'canonical-file-not-found-helpers.ts',
+    CANONICAL_FILE_NOT_FOUND_HELPERS_SOURCE,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  )
+  .statements.map(getTypeScriptNodeFingerprint);
+
+function hasCanonicalFileNotFoundErrorHelpers(
+  sourceFile: ts.SourceFile,
+): boolean {
+  const getErrorCode = getSingleTopLevelFunction(
+    sourceFile,
+    'getOptionalNodeErrorCode',
+  );
+  const isFileNotFound = getSingleTopLevelFunction(
+    sourceFile,
+    'isFileNotFoundError',
+  );
+  return (
+    getErrorCode !== null &&
+    isFileNotFound !== null &&
+    !hasImportedBinding(sourceFile, 'getOptionalNodeErrorCode') &&
+    !hasImportedBinding(sourceFile, 'isFileNotFoundError') &&
+    !hasImportedBinding(sourceFile, 'String') &&
+    !hasShadowedBinding(sourceFile, new Set(['String'])) &&
+    getTypeScriptNodeFingerprint(getErrorCode) ===
+      CANONICAL_FILE_NOT_FOUND_HELPER_FINGERPRINTS[0] &&
+    getTypeScriptNodeFingerprint(isFileNotFound) ===
+      CANONICAL_FILE_NOT_FOUND_HELPER_FINGERPRINTS[1]
+  );
 }
 
 const CANONICAL_SYNC_REPORT_HELPER_SOURCE = `
@@ -1365,14 +1509,25 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   if (
     !runner?.body ||
     runner.parameters.length !== 2 ||
-    !hasCanonicalSyncScriptEnv(sourceFile)
+    runner.asteriskToken !== undefined ||
+    runner.modifiers?.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
+    ) ||
+    !hasCanonicalSyncScriptEnv(sourceFile) ||
+    !hasCanonicalRuntimeImports(sourceFile, SYNC_PROJECT_RUNTIME_IMPORTS)
   ) {
     return false;
   }
   const [scriptPathParameter, optionsParameter] = runner.parameters;
   if (
     !ts.isIdentifier(scriptPathParameter.name) ||
-    !ts.isIdentifier(optionsParameter.name)
+    !ts.isIdentifier(optionsParameter.name) ||
+    scriptPathParameter.dotDotDotToken !== undefined ||
+    scriptPathParameter.initializer !== undefined ||
+    scriptPathParameter.questionToken !== undefined ||
+    optionsParameter.dotDotDotToken !== undefined ||
+    optionsParameter.initializer !== undefined ||
+    optionsParameter.questionToken !== undefined
   ) {
     return false;
   }
@@ -1386,12 +1541,22 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
   if (
     spawnBindings.size === 0 ||
     hasShadowedBinding(sourceFile, spawnBindings) ||
-    hasShadowedBinding(runner, new Set(['getSyncScriptEnv']))
+    hasShadowedBinding(
+      runner,
+      new Set([
+        'getOptionalNodeErrorCode',
+        'getSyncScriptEnv',
+        'isFileNotFoundError',
+      ]),
+    )
   ) {
     return false;
   }
 
   const statements = [...runner.body.statements];
+  if (statements.length !== 5) {
+    return false;
+  }
   const argsDeclarations: Array<{ binding: string; index: number }> = [];
   statements.forEach((statement, index) => {
     if (
@@ -1401,17 +1566,16 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
     ) {
       return;
     }
-    for (const declaration of statement.declarationList.declarations) {
-      if (
-        ts.isIdentifier(declaration.name) &&
-        declaration.initializer &&
-        ts.isArrayLiteralExpression(declaration.initializer) &&
-        declaration.initializer.elements.length === 1 &&
-        ts.isIdentifier(declaration.initializer.elements[0]) &&
-        declaration.initializer.elements[0].text === scriptPathParameterName
-      ) {
-        argsDeclarations.push({ binding: declaration.name.text, index });
-      }
+    const declaration = statement.declarationList.declarations[0];
+    if (
+      ts.isIdentifier(declaration.name) &&
+      declaration.initializer &&
+      ts.isArrayLiteralExpression(declaration.initializer) &&
+      declaration.initializer.elements.length === 1 &&
+      ts.isIdentifier(declaration.initializer.elements[0]) &&
+      declaration.initializer.elements[0].text === scriptPathParameterName
+    ) {
+      argsDeclarations.push({ binding: declaration.name.text, index });
     }
   });
   if (argsDeclarations.length !== 1) {
@@ -1481,14 +1645,17 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
     argsIndex === 0 &&
     checkGuardIndex === argsIndex + 1 &&
     spawnIndex === checkGuardIndex + 1 &&
+    statusGuardIndex === statements.length - 1 &&
     !hasEarlierAbruptCompletion(statements, spawnIndex) &&
     hasCanonicalRunnerErrorGuard(
+      sourceFile,
       statements[errorGuardIndex],
       resultBinding,
     ) &&
     hasCanonicalRunnerStatusGuard(
       statements[statusGuardIndex],
       resultBinding,
+      scriptPathParameterName,
     )
   );
 }
@@ -1505,8 +1672,7 @@ function hasTopLevelMainInvocation(
     !main.modifiers?.some(
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
-    hasImportedBinding(sourceFile, 'process') ||
-    hasShadowedBinding(sourceFile, new Set(['process']))
+    hasOverriddenTrustedSyncHelperGlobal(sourceFile)
   ) {
     return false;
   }
@@ -1533,37 +1699,7 @@ function hasTopLevelMainInvocation(
       ) {
         return [];
       }
-      const catchHandler = outerCall.arguments[0];
-      if (
-        (!ts.isArrowFunction(catchHandler) &&
-          !ts.isFunctionExpression(catchHandler)) ||
-        !ts.isBlock(catchHandler.body)
-      ) {
-        return [];
-      }
-      const finalStatement =
-        catchHandler.body.statements[catchHandler.body.statements.length - 1];
-      if (
-        !finalStatement ||
-        !ts.isExpressionStatement(finalStatement) ||
-        hasEarlierAbruptCompletion(
-          catchHandler.body.statements,
-          catchHandler.body.statements.length - 1,
-        )
-      ) {
-        return [];
-      }
-      const exitCall = finalStatement.expression;
-      return (
-        ts.isCallExpression(exitCall) &&
-        ts.isPropertyAccessExpression(exitCall.expression) &&
-        ts.isIdentifier(exitCall.expression.expression) &&
-        exitCall.expression.expression.text === 'process' &&
-        exitCall.expression.name.text === 'exit' &&
-        exitCall.arguments.length === 1 &&
-        ts.isNumericLiteral(exitCall.arguments[0]) &&
-        exitCall.arguments[0].text === '1'
-      )
+      return isCanonicalSyncMainCatchHandler(outerCall.arguments[0])
         ? [statementIndex]
         : [];
     },
@@ -1611,14 +1747,13 @@ function getDirectVariableBinding(
     ) {
       return;
     }
-    for (const declaration of statement.declarationList.declarations) {
-      if (
-        ts.isIdentifier(declaration.name) &&
-        declaration.initializer &&
-        predicate(declaration.initializer)
-      ) {
-        bindings.push({ binding: declaration.name.text, index });
-      }
+    const declaration = statement.declarationList.declarations[0];
+    if (
+      ts.isIdentifier(declaration.name) &&
+      declaration.initializer &&
+      predicate(declaration.initializer)
+    ) {
+      bindings.push({ binding: declaration.name.text, index });
     }
   });
   return bindings.length === 1 ? bindings[0] : null;
@@ -2038,9 +2173,10 @@ function hasCanonicalCheckParser(
     }
     optionProperties.set(property.name.text, property.initializer);
   }
+  const expectedPropertyCount =
+    1 + additionalBooleanFlags.length + (requiresReportMode ? 1 : 0);
   if (
-    optionProperties.size !==
-      1 + additionalBooleanFlags.length + (requiresReportMode ? 1 : 0) ||
+    optionProperties.size !== expectedPropertyCount ||
     optionProperties.get('check')?.kind !== ts.SyntaxKind.FalseKeyword
   ) {
     return false;
@@ -2054,14 +2190,19 @@ function hasCanonicalCheckParser(
       : null;
   const returnStatement = parser.body.statements[2];
   const reportProperty = optionProperties.get('report');
-  const expectedOptionsReferences =
-    1 + additionalBooleanFlags.length + (requiresReportMode ? 1 : 0);
   return (
     loop !== null &&
+    hasOnlyCanonicalParserEffects(
+      loop.body,
+      optionsDeclaration.name.text,
+      loop.indexBinding,
+    ) &&
+    hasCanonicalUnknownFlagThrow(loop.body, loop.argumentBinding) &&
+    countOuterParserContinues(loop.body) === expectedPropertyCount &&
     countIdentifierOccurrences(
       loop.body,
       optionsDeclaration.name.text,
-    ) === expectedOptionsReferences &&
+    ) === expectedPropertyCount &&
     (!requiresReportMode ||
       (reportProperty !== undefined &&
         ts.isStringLiteralLike(reportProperty) &&
@@ -2346,7 +2487,6 @@ const SHELL_DIRECTORY_CHANGE_COMMANDS = new Set([
   '.',
   'cd',
   'chdir',
-  'eval',
   'popd',
   'pushd',
   'source',
@@ -2541,11 +2681,44 @@ function shellCommandChangesDirectory(segment: ShellCommandSegment): boolean {
     words[commandIndex] === 'command'
   ) {
     commandIndex += 1;
-    if (words[commandIndex] === '--') {
+    while (
+      words[commandIndex]?.startsWith('-') &&
+      words[commandIndex] !== '-'
+    ) {
+      if (words[commandIndex] === '--') {
+        commandIndex += 1;
+        break;
+      }
       commandIndex += 1;
     }
   }
-  return SHELL_DIRECTORY_CHANGE_COMMANDS.has(words[commandIndex] ?? '');
+  const commandWord = words[commandIndex] ?? '';
+  if (
+    commandWord === 'function' ||
+    /^[A-Za-z_][A-Za-z0-9_]*\(\)$/u.test(commandWord) ||
+    (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(commandWord) &&
+      words[commandIndex + 1] === '()' &&
+      words[commandIndex + 2] === '{')
+  ) {
+    return true;
+  }
+  if (/[$`]/u.test(commandWord)) {
+    return true;
+  }
+  if (commandWord === 'eval') {
+    const evaluatedWords = getShellCommandWords(
+      words.slice(commandIndex + 1).join(' '),
+    );
+    // Static environment assignments cannot change cwd. Any executable or
+    // dynamic eval body is intentionally treated as an unknown shell context.
+    return (
+      evaluatedWords.length > 0 &&
+      !evaluatedWords.every((word) =>
+        /^[A-Za-z_][A-Za-z0-9_]*=.*$/u.test(word),
+      )
+    );
+  }
+  return SHELL_DIRECTORY_CHANGE_COMMANDS.has(commandWord);
 }
 
 function getShellSegmentStaticReachability(

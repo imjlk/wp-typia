@@ -5,8 +5,14 @@ import ts from 'typescript';
 
 import {
   containsCompletion,
+  countOuterParserContinues,
+  hasCanonicalRuntimeImports,
+  hasCanonicalUnknownFlagThrow,
   hasEarlierAbruptCompletion,
+  hasOnlyCanonicalParserEffects,
   isAllowedSyncHelperTopLevelStatement,
+  isCanonicalSyncMainCatchHandler,
+  isSafeErrorConstruction,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
 
@@ -40,6 +46,75 @@ const ENDPOINT_WORDPRESS_AUTH_MECHANISMS = new Set([
   'public-signed-token',
   'rest-nonce',
 ]);
+const RESERVED_CLIENT_IDENTIFIERS = new Set([
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'interface',
+  'instanceof',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+]);
+const ENDPOINT_CLIENT_BASE_IDENTIFIERS = [
+  'apiValidators',
+  'callEndpoint',
+  'createEndpoint',
+] as const;
+const REST_SYNC_RUNTIME_IMPORTS = new Map([
+  [
+    '@wp-typia/block-runtime/metadata-core',
+    {
+      namedBindings: new Set([
+        'defineEndpointManifest',
+        'runSyncBlockMetadata',
+        'syncEndpointClient',
+        'syncRestOpenApi',
+        'syncTypeSchemas',
+      ]),
+    },
+  ],
+]);
+const WORDPRESS_NAMED_CAPTURE_PREFIX = '(?P<';
+const WORDPRESS_CAPTURE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 
 /** Parsed persistence REST metadata and any integrity problem found in its sync helper. */
 export interface ParsedStandaloneRestConfig {
@@ -279,6 +354,182 @@ function isStaticWordPressAuthDefinition(
   );
 }
 
+interface NormalizedStaticEndpointAuth {
+  auth: string;
+  authMode: string | undefined;
+  publicTokenField: string | undefined;
+  wordpressMechanism: string | undefined;
+}
+
+function getNormalizedStaticWordPressAuth(
+  value: StaticExpressionValue | undefined,
+): Pick<
+  NormalizedStaticEndpointAuth,
+  'publicTokenField' | 'wordpressMechanism'
+> {
+  if (!value || !isStaticRecord(value)) {
+    return {
+      publicTokenField: undefined,
+      wordpressMechanism: undefined,
+    };
+  }
+  return value.mechanism === 'public-signed-token'
+    ? {
+        publicTokenField:
+          typeof value.publicTokenField === 'string'
+            ? value.publicTokenField
+            : 'publicWriteToken',
+        wordpressMechanism: value.mechanism,
+      }
+    : {
+        publicTokenField: undefined,
+        wordpressMechanism: value.mechanism as string,
+      };
+}
+
+function hasMatchingStaticEndpointAuth(value: {
+  [key: string]: StaticExpressionValue;
+}): boolean {
+  const auth = typeof value.auth === 'string' ? value.auth : undefined;
+  const authMode =
+    typeof value.authMode === 'string' ? value.authMode : undefined;
+  const wordpressAuth = getNormalizedStaticWordPressAuth(value.wordpressAuth);
+
+  let normalizedAuth: NormalizedStaticEndpointAuth | undefined;
+  if (auth) {
+    if (
+      (auth === 'public' && wordpressAuth.wordpressMechanism !== undefined) ||
+      (auth === 'authenticated' &&
+        wordpressAuth.wordpressMechanism === 'public-signed-token') ||
+      (auth === 'public-write-protected' &&
+        wordpressAuth.wordpressMechanism === 'rest-nonce')
+    ) {
+      return false;
+    }
+    normalizedAuth = {
+      auth,
+      authMode:
+        auth === 'public'
+          ? 'public-read'
+          : auth === 'authenticated' &&
+              wordpressAuth.wordpressMechanism === 'rest-nonce'
+            ? 'authenticated-rest-nonce'
+            : auth === 'public-write-protected' &&
+                wordpressAuth.wordpressMechanism === 'public-signed-token'
+              ? 'public-signed-token'
+              : undefined,
+      ...wordpressAuth,
+    };
+  }
+
+  let legacyAuth: NormalizedStaticEndpointAuth | undefined;
+  if (authMode) {
+    legacyAuth =
+      authMode === 'public-read'
+        ? {
+            auth: 'public',
+            authMode,
+            publicTokenField: undefined,
+            wordpressMechanism: undefined,
+          }
+        : authMode === 'authenticated-rest-nonce'
+          ? {
+              auth: 'authenticated',
+              authMode,
+              publicTokenField: undefined,
+              wordpressMechanism: 'rest-nonce',
+            }
+          : {
+              auth: 'public-write-protected',
+              authMode,
+              publicTokenField: 'publicWriteToken',
+              wordpressMechanism: 'public-signed-token',
+            };
+  }
+
+  if (normalizedAuth && legacyAuth) {
+    return (
+      normalizedAuth.auth === legacyAuth.auth &&
+      normalizedAuth.authMode === legacyAuth.authMode &&
+      normalizedAuth.wordpressMechanism === legacyAuth.wordpressMechanism &&
+      normalizedAuth.publicTokenField === legacyAuth.publicTokenField
+    );
+  }
+  return normalizedAuth !== undefined || legacyAuth !== undefined;
+}
+
+function isValidEndpointOperationId(value: string): boolean {
+  return (
+    /^[$A-Z_][0-9A-Z_$]*$/iu.test(value) &&
+    !RESERVED_CLIENT_IDENTIFIERS.has(value)
+  );
+}
+
+function toEndpointClientPropertyName(value: string): string {
+  return value
+    .replace(/[^A-Za-z0-9]+(.)/gu, (_match, next: string) =>
+      next.toUpperCase(),
+    )
+    .replace(/^[A-Z]/u, (match) => match.toLowerCase());
+}
+
+function findWordPressRegexGroupEnd(
+  value: string,
+  start: number,
+): number | null {
+  if (value[start] !== '(') return null;
+  let depth = 0;
+  let escaped = false;
+  let inCharacterClass = false;
+  for (let index = start; index < value.length; index += 1) {
+    const character = value[index] ?? '';
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (character === '[' && !inCharacterClass) {
+      inCharacterClass = true;
+      continue;
+    }
+    if (character === ']' && inCharacterClass) {
+      inCharacterClass = false;
+      continue;
+    }
+    if (inCharacterClass) continue;
+    if (character === '(') {
+      depth += 1;
+    } else if (character === ')') {
+      depth -= 1;
+      if (depth === 0) return index + 1;
+    }
+  }
+  return null;
+}
+
+function hasWordPressNamedCapture(value: string): boolean {
+  let start = value.indexOf(WORDPRESS_NAMED_CAPTURE_PREFIX);
+  while (start !== -1) {
+    const nameStart = start + WORDPRESS_NAMED_CAPTURE_PREFIX.length;
+    const nameEnd = value.indexOf('>', nameStart);
+    if (nameEnd === -1) return false;
+    const name = value.slice(nameStart, nameEnd);
+    const groupEnd = findWordPressRegexGroupEnd(value, start);
+    if (
+      WORDPRESS_CAPTURE_NAME_PATTERN.test(name) &&
+      groupEnd !== null &&
+      groupEnd > nameEnd
+    ) {
+      return true;
+    }
+    start = value.indexOf(WORDPRESS_NAMED_CAPTURE_PREFIX, nameStart);
+  }
+  return false;
+}
+
 function isStaticEndpointDefinition(value: StaticExpressionValue): boolean {
   if (!isStaticRecord(value)) {
     return false;
@@ -306,7 +557,8 @@ function isStaticEndpointDefinition(value: StaticExpressionValue): boolean {
     hasOptionalStaticString(value, 'queryContract') &&
     hasOptionalStaticString(value, 'summary') &&
     (value.wordpressAuth === undefined ||
-      isStaticWordPressAuthDefinition(value.wordpressAuth))
+      isStaticWordPressAuthDefinition(value.wordpressAuth)) &&
+    hasMatchingStaticEndpointAuth(value)
   );
 }
 
@@ -328,18 +580,97 @@ function isEndpointManifestDefinition(value: StaticExpressionValue): boolean {
   if (!contracts || !isStaticRecord(contracts) || !Array.isArray(endpoints)) {
     return false;
   }
-  return (
-    Object.values(contracts).every(
+  if (
+    !Object.values(contracts).every(
       (contract) =>
         isStaticRecord(contract) &&
         typeof contract.sourceTypeName === 'string' &&
         contract.sourceTypeName.length > 0 &&
         (contract.schemaName === undefined ||
           typeof contract.schemaName === 'string'),
-    ) &&
-    endpoints.every(isStaticEndpointDefinition) &&
-    (value.info === undefined || isStaticOpenApiInfo(value.info))
-  );
+    ) ||
+    !endpoints.every(isStaticEndpointDefinition) ||
+    (value.info !== undefined && !isStaticOpenApiInfo(value.info))
+  ) {
+    return false;
+  }
+
+  const contractNames = new Set(Object.keys(contracts));
+  const operationIds = new Set<string>();
+  const occupiedIdentifiers = new Set<string>([
+    ...ENDPOINT_CLIENT_BASE_IDENTIFIERS,
+    ...(endpoints.some(
+      (endpoint) =>
+        isStaticRecord(endpoint) &&
+        endpoint.bodyContract === undefined &&
+        endpoint.queryContract === undefined,
+    )
+      ? ['validateNoRequest']
+      : []),
+    ...(endpoints.some(
+      (endpoint) =>
+        isStaticRecord(endpoint) &&
+        endpoint.bodyContract !== undefined &&
+        endpoint.queryContract !== undefined,
+    )
+      ? ['validateCombinedRequest']
+      : []),
+  ]);
+  const validatorPropertyNames = new Map<string, string>();
+  for (const endpointValue of endpoints) {
+    const endpoint = endpointValue as {
+      [key: string]: StaticExpressionValue;
+    };
+    const operationId = endpoint.operationId as string;
+    const endpointConstantName = `${operationId}Endpoint`;
+    if (
+      !isValidEndpointOperationId(operationId) ||
+      !isValidEndpointOperationId(endpointConstantName) ||
+      operationIds.has(operationId)
+    ) {
+      return false;
+    }
+    for (const identifier of [operationId, endpointConstantName]) {
+      if (occupiedIdentifiers.has(identifier)) {
+        return false;
+      }
+      occupiedIdentifiers.add(identifier);
+    }
+    operationIds.add(operationId);
+    if (
+      typeof endpoint.path === 'string' &&
+      hasWordPressNamedCapture(endpoint.path) &&
+      endpoint.bodyContract === undefined &&
+      endpoint.queryContract === undefined
+    ) {
+      return false;
+    }
+    for (const fieldName of [
+      'bodyContract',
+      'queryContract',
+      'responseContract',
+    ] as const) {
+      const contractName = endpoint[fieldName];
+      if (
+        contractName !== undefined &&
+        (!contractNames.has(contractName as string) || contractName === '')
+      ) {
+        return false;
+      }
+      if (typeof contractName === 'string') {
+        const propertyName = toEndpointClientPropertyName(contractName);
+        const previousContractName = validatorPropertyNames.get(propertyName);
+        if (
+          previousContractName !== undefined &&
+          previousContractName !== contractName
+        ) {
+          return false;
+        }
+        validatorPropertyNames.set(propertyName, contractName);
+      }
+    }
+  }
+  return true;
 }
 
 function getNamedImportBindings(
@@ -847,11 +1178,12 @@ function hasDirectThrowingBlock(statement: ts.Statement): boolean {
     return false;
   }
   const statements = statement.thenStatement.statements;
-  const finalStatement = statements[statements.length - 1];
+  if (statements.length !== 1 || !ts.isThrowStatement(statements[0])) {
+    return false;
+  }
   return (
-    finalStatement !== undefined &&
-    ts.isThrowStatement(finalStatement) &&
-    !hasEarlierAbruptCompletion(statements, statements.length - 1)
+    statements[0].expression !== undefined &&
+    isSafeErrorConstruction(statements[0].expression)
   );
 }
 
@@ -1097,7 +1429,9 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
     parser.body.statements.length !== 3 ||
-    countBindingDeclarations(sourceFile, 'parseCliOptions') !== 1
+    countBindingDeclarations(sourceFile, 'parseCliOptions') !== 1 ||
+    hasImportedBinding(sourceFile, 'Error') ||
+    hasShadowedImportBinding(sourceFile, new Set(['Error']))
   ) {
     return false;
   }
@@ -1178,6 +1512,9 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
   if (
     guardIndexes.length !== 1 ||
     countIdentifierOccurrences(loop.statement, optionsBinding) !== 1 ||
+    !hasOnlyCanonicalParserEffects(loop.statement, optionsBinding) ||
+    !hasCanonicalUnknownFlagThrow(loop.statement, argumentBinding) ||
+    countOuterParserContinues(loop.statement) !== 1 ||
     hasEarlierAbruptCompletion(
       loop.statement.statements,
       guardIndexes[0],
@@ -1210,7 +1547,12 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
 
 function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
   const main = getTopLevelFunctionDeclaration(sourceFile, 'main');
-  const processBindings = new Set(['process']);
+  const trustedGlobalBindings = new Set([
+    'console',
+    'Error',
+    'Object',
+    'process',
+  ]);
   const manifestBindings = getNamedImportBindings(
     sourceFile,
     'defineEndpointManifest',
@@ -1223,8 +1565,10 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
       (modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
     ) ||
     countBindingDeclarations(sourceFile, 'main') !== 1 ||
-    hasImportedBinding(sourceFile, 'process') ||
-    hasShadowedImportBinding(sourceFile, processBindings)
+    [...trustedGlobalBindings].some((binding) =>
+      hasImportedBinding(sourceFile, binding),
+    ) ||
+    hasShadowedImportBinding(sourceFile, trustedGlobalBindings)
   ) {
     return false;
   }
@@ -1251,37 +1595,7 @@ function hasTopLevelMainInvocation(sourceFile: ts.SourceFile): boolean {
       ) {
         return [];
       }
-      const catchHandler = unwrapStaticExpression(expression.arguments[0]);
-      if (
-        (!ts.isArrowFunction(catchHandler) &&
-          !ts.isFunctionExpression(catchHandler)) ||
-        !ts.isBlock(catchHandler.body)
-      ) {
-        return [];
-      }
-      const finalStatement =
-        catchHandler.body.statements[catchHandler.body.statements.length - 1];
-      if (
-        !finalStatement ||
-        !ts.isExpressionStatement(finalStatement) ||
-        hasEarlierAbruptCompletion(
-          catchHandler.body.statements,
-          catchHandler.body.statements.length - 1,
-        )
-      ) {
-        return [];
-      }
-      const exitCall = unwrapStaticExpression(finalStatement.expression);
-      return (
-        ts.isCallExpression(exitCall) &&
-        ts.isPropertyAccessExpression(exitCall.expression) &&
-        ts.isIdentifier(exitCall.expression.expression) &&
-        exitCall.expression.expression.text === 'process' &&
-        exitCall.expression.name.text === 'exit' &&
-        exitCall.arguments.length === 1 &&
-        ts.isNumericLiteral(exitCall.arguments[0]) &&
-        exitCall.arguments[0].text === '1'
-      )
+      return isCanonicalSyncMainCatchHandler(expression.arguments[0])
         ? [statementIndex]
         : [];
     },
@@ -1397,6 +1711,7 @@ function hasCanonicalRestSyncCalls(
     ) ||
     hasImportedBinding(sourceFile, 'console') ||
     hasShadowedImportBinding(sourceFile, new Set(['console'])) ||
+    !hasCanonicalRuntimeImports(sourceFile, REST_SYNC_RUNTIME_IMPORTS) ||
     !hasCanonicalRestCheckParser(sourceFile) ||
     !hasTopLevelMainInvocation(sourceFile)
   ) {
