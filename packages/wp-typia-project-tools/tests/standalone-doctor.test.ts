@@ -65,6 +65,22 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     });
   }
 
+  async function scaffoldInteractivity(targetDir: string): Promise<void> {
+    await scaffoldProject({
+      projectDir: targetDir,
+      templateId: 'interactivity',
+      packageManager: 'npm',
+      noInstall: true,
+      answers: {
+        author: 'Test Runner',
+        description: 'Standalone doctor interactivity fixture',
+        namespace: 'doctor-demo',
+        slug: path.basename(targetDir),
+        title: 'Standalone Doctor Interactivity Fixture',
+      },
+    });
+  }
+
   function getCheck(
     checks: DoctorCheck[],
     code: string,
@@ -109,6 +125,57 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     ).toBe(true);
     expect(createDoctorRunSummary(checks).exitCode).toBe(1);
   });
+
+  test('requires each scaffold family source surface', async () => {
+    const fixtures = [
+      {
+        files: ['src/validator-toolkit.ts', 'src/style.scss'],
+        name: 'basic-source-surface',
+        scaffold: scaffoldBasic,
+      },
+      {
+        files: ['src/interactivity-store.ts'],
+        name: 'interactivity-source-surface',
+        scaffold: scaffoldInteractivity,
+      },
+      {
+        files: [
+          'src/api.ts',
+          'src/data.ts',
+          'src/transport.ts',
+          'inc/rest-auth.php',
+        ],
+        name: 'persistence-source-surface',
+        scaffold: scaffoldPersistence,
+      },
+    ] as const;
+
+    for (const fixture of fixtures) {
+      const targetDir = path.join(tempRoot, fixture.name);
+      await fixture.scaffold(targetDir);
+      expect(
+        getCheck(
+          await getDoctorChecks(targetDir),
+          STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+        )?.status,
+      ).toBe('pass');
+      for (const relativePath of fixture.files) {
+        const filePath = path.join(targetDir, relativePath);
+        const source = fs.readFileSync(filePath);
+        fs.rmSync(filePath);
+
+        const sourceLayoutCheck = getCheck(
+          await getDoctorChecks(targetDir),
+          STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+        );
+        expect(sourceLayoutCheck?.status).toBe('fail');
+        expect(sourceLayoutCheck?.detail).toContain(relativePath);
+
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, source);
+      }
+    }
+  }, 30_000);
 
   test('does not classify generated compound scaffolds as single-block projects', async () => {
     const targetDir = path.join(tempRoot, 'compound-project');
@@ -210,6 +277,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ['typia', 'typia'],
       ['typescript', 'typescript'],
       ['tsx', 'tsx/cli'],
+      ['@wordpress/block-editor', '@wordpress/block-editor/package.json'],
+      ['@wordpress/blocks', '@wordpress/blocks/package.json'],
+      ['@wordpress/components', '@wordpress/components/package.json'],
+      ['@wordpress/element', '@wordpress/element/package.json'],
+      ['@wordpress/i18n', '@wordpress/i18n/package.json'],
       ['@wordpress/scripts', '@wordpress/scripts/bin/wp-scripts.js'],
       ['@typia/unplugin', '@typia/unplugin/webpack'],
     ] as const;
@@ -403,6 +475,92 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(dependenciesCheck?.detail).toContain('@wp-typia/api-client');
   }, 30_000);
 
+  test('requires WordPress runtime dependencies used by standalone scaffolds', async () => {
+    const basicTarget = path.join(tempRoot, 'missing-wordpress-declarations');
+    await scaffoldBasic(basicTarget);
+    const basicPackagePath = path.join(basicTarget, 'package.json');
+    const basicPackage = JSON.parse(
+      fs.readFileSync(basicPackagePath, 'utf8'),
+    ) as { dependencies: Record<string, string> };
+    delete basicPackage.dependencies['@wordpress/blocks'];
+    delete basicPackage.dependencies['@wordpress/element'];
+    fs.writeFileSync(basicPackagePath, JSON.stringify(basicPackage, null, 2));
+
+    const basicPackageCheck = getCheck(
+      await getDoctorChecks(basicTarget),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(basicPackageCheck?.status).toBe('fail');
+    expect(basicPackageCheck?.detail).toContain(
+      'must declare @wordpress/blocks',
+    );
+    expect(basicPackageCheck?.detail).toContain(
+      'must declare @wordpress/element',
+    );
+
+    const persistenceTarget = path.join(
+      tempRoot,
+      'missing-persistence-wordpress-declarations',
+    );
+    await scaffoldPersistence(persistenceTarget);
+    const persistencePackagePath = path.join(
+      persistenceTarget,
+      'package.json',
+    );
+    const persistencePackage = JSON.parse(
+      fs.readFileSync(persistencePackagePath, 'utf8'),
+    ) as { dependencies: Record<string, string> };
+    for (const packageName of [
+      '@wordpress/api-fetch',
+      '@wordpress/data',
+      '@wordpress/interactivity',
+    ]) {
+      delete persistencePackage.dependencies[packageName];
+    }
+    fs.writeFileSync(
+      persistencePackagePath,
+      JSON.stringify(persistencePackage, null, 2),
+    );
+
+    const persistencePackageCheck = getCheck(
+      await getDoctorChecks(persistenceTarget),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(persistencePackageCheck?.status).toBe('fail');
+    expect(persistencePackageCheck?.detail).toContain(
+      'must declare @wordpress/api-fetch',
+    );
+    expect(persistencePackageCheck?.detail).toContain(
+      'must declare @wordpress/data',
+    );
+    expect(persistencePackageCheck?.detail).toContain(
+      'must declare @wordpress/interactivity',
+    );
+
+    const installationTarget = path.join(
+      tempRoot,
+      'missing-wordpress-installation',
+    );
+    await scaffoldBasic(installationTarget);
+    linkWorkspaceNodeModules(installationTarget);
+    fs.rmSync(
+      path.join(
+        installationTarget,
+        'node_modules',
+        '@wordpress',
+        'element',
+      ),
+      { force: true, recursive: true },
+    );
+
+    const dependenciesCheck = getCheck(
+      await getDoctorChecks(installationTarget),
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+    expect(dependenciesCheck?.status).toBe('fail');
+    expect(dependenciesCheck?.detail).toContain('@wordpress/element');
+  }, 30_000);
+
   test('requires the persistence sync-rest package script', async () => {
     const targetDir = path.join(tempRoot, 'persistence-sync-rest-script');
     await scaffoldPersistence(targetDir);
@@ -446,6 +604,56 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         delete packageJson.scripts['sync-rest'];
       } else {
         packageJson.scripts['sync-rest'] = fixture.script;
+      }
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+      const packageCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.PACKAGE,
+      );
+      expect(packageCheck?.status).toBe('fail');
+      expect(packageCheck?.detail).toContain(fixture.expected);
+    }
+  }, 20_000);
+
+  test('requires start to sync before launching wp-scripts', async () => {
+    const targetDir = path.join(tempRoot, 'damaged-start-script');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const originalPackageJson = JSON.parse(
+      fs.readFileSync(packageJsonPath, 'utf8'),
+    ) as { scripts: Record<string, string> };
+    const cases = [
+      {
+        expected: 'must define the start script',
+        script: undefined,
+      },
+      {
+        expected: 'start script must invoke `npm run sync`',
+        script: 'wp-scripts start --experimental-modules',
+      },
+      {
+        expected:
+          'start script must run `npm run sync` before `wp-scripts start` in the same && command list',
+        script: 'wp-scripts start --experimental-modules && npm run sync',
+      },
+      {
+        expected:
+          'start script must propagate failures from `npm run sync`',
+        script:
+          'npm run sync || true && wp-scripts start --experimental-modules',
+      },
+    ] as const;
+
+    for (const fixture of cases) {
+      const packageJson = {
+        ...originalPackageJson,
+        scripts: { ...originalPackageJson.scripts },
+      };
+      if (fixture.script === undefined) {
+        delete packageJson.scripts.start;
+      } else {
+        packageJson.scripts.start = fixture.script;
       }
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
@@ -4245,6 +4453,45 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
   });
 
+  test('requires every generated REST method for shared endpoint paths', async () => {
+    const targetDir = path.join(tempRoot, 'rest-bootstrap-method-drift');
+    await scaffoldPersistence(targetDir);
+    const bootstrapPath = path.join(
+      targetDir,
+      'rest-bootstrap-method-drift.php',
+    );
+    const original = fs.readFileSync(bootstrapPath, 'utf8');
+    const source = original.replace(
+      /\n\s*array\(\n\s*'methods'\s*=>\s*WP_REST_Server::CREATABLE,[\s\S]*?\n\s*\),/u,
+      '',
+    );
+    expect(source).not.toBe(original);
+    expect(source).toContain('WP_REST_Server::READABLE');
+    expect(source).not.toContain('WP_REST_Server::CREATABLE');
+    fs.writeFileSync(bootstrapPath, source);
+
+    const bootstrapCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+    expect(bootstrapCheck?.status).toBe('fail');
+    expect(bootstrapCheck?.detail).toContain(
+      'does not hook REST route registration to rest_api_init',
+    );
+
+    const sourceWithTrailingMethodLookalike = source.replace(
+      /(\n\}\n\nfunction [A-Za-z_][A-Za-z0-9_]*_register_block\(\))/u,
+      '\n\t$unused_method = WP_REST_Server::CREATABLE;$1',
+    );
+    expect(sourceWithTrailingMethodLookalike).not.toBe(source);
+    fs.writeFileSync(bootstrapPath, sourceWithTrailingMethodLookalike);
+    const trailingLookalikeCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.BOOTSTRAP,
+    );
+    expect(trailingLookalikeCheck?.status).toBe('fail');
+  });
+
   test('rejects bootstrap init hook text inside PHP strings', async () => {
     const targetDir = path.join(tempRoot, 'string-init-registration');
     await scaffoldBasic(targetDir);
@@ -4419,6 +4666,51 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'does not export defineEndpointManifest()',
     );
   }, 30_000);
+
+  test('rechecks canonical persistence block schema artifacts', async () => {
+    const targetDir = path.join(
+      tempRoot,
+      'missing-persistence-block-schema-artifacts',
+    );
+    await scaffoldPersistence(targetDir);
+    runGeneratedScript(targetDir, 'scripts/sync-project.ts');
+    const syncTypesPath = path.join(
+      targetDir,
+      'scripts',
+      'sync-types-to-block-json.ts',
+    );
+    const original = fs.readFileSync(syncTypesPath, 'utf8');
+    const source = original
+      .replace(
+        /^\s*jsonSchemaFile:\s*['"]src\/typia\.schema\.json['"],\r?\n/mu,
+        '',
+      )
+      .replace(
+        /^\s*openApiFile:\s*['"]src\/typia\.openapi\.json['"],\r?\n/mu,
+        '',
+      );
+    expect(source).not.toBe(original);
+    fs.writeFileSync(syncTypesPath, source);
+    fs.rmSync(path.join(targetDir, 'src', 'typia.schema.json'));
+    fs.rmSync(path.join(targetDir, 'src', 'typia.openapi.json'));
+
+    const checks = await getDoctorChecks(targetDir);
+    const sourceLayoutCheck = getCheck(
+      checks,
+      STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
+    );
+    const artifactsCheck = getCheck(checks, STANDALONE_DOCTOR_CODES.ARTIFACTS);
+
+    expect(sourceLayoutCheck?.status).toBe('pass');
+    expect(artifactsCheck?.status).toBe('fail');
+    expect(artifactsCheck?.detail).toContain(
+      './src/typia.schema.json (missing)',
+    );
+    expect(artifactsCheck?.detail).toContain(
+      './src/typia.openapi.json (missing)',
+    );
+    expect(artifactsCheck?.detail).not.toContain(targetDir);
+  }, 60_000);
 
   test('reports stale persistence REST artifacts', async () => {
     const targetDir = path.join(tempRoot, 'stale-persistence-rest');

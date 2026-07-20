@@ -25,6 +25,10 @@ const STANDALONE_SYNC_REST_SCRIPT = path.join(
 );
 const STANDALONE_REST_OPEN_API_FILE = path.join('src', 'api.openapi.json');
 const STANDALONE_REST_CLIENT_FILE = path.join('src', 'api-client.ts');
+export const STANDALONE_PERSISTENCE_BLOCK_SCHEMA_ARTIFACTS = {
+  jsonSchemaFile: path.join('src', 'typia.schema.json'),
+  openApiFile: path.join('src', 'typia.openapi.json'),
+} as const;
 const STANDALONE_REST_SURFACE_PATHS = [
   path.join('src', 'api-types.ts'),
   path.join('src', 'api-schemas'),
@@ -1277,9 +1281,15 @@ function hasCanonicalTypeArtifactPreflight(
   if (
     input?.size !== 6 ||
     !isStringValue(input.get('blockJsonFile'), 'src/block.json') ||
-    !isStringValue(input.get('jsonSchemaFile'), 'src/typia.schema.json') ||
+    !isStringValue(
+      input.get('jsonSchemaFile'),
+      STANDALONE_PERSISTENCE_BLOCK_SCHEMA_ARTIFACTS.jsonSchemaFile,
+    ) ||
     !isStringValue(input.get('manifestFile'), 'src/typia.manifest.json') ||
-    !isStringValue(input.get('openApiFile'), 'src/typia.openapi.json') ||
+    !isStringValue(
+      input.get('openApiFile'),
+      STANDALONE_PERSISTENCE_BLOCK_SCHEMA_ARTIFACTS.openApiFile,
+    ) ||
     !isStringValue(input.get('typesFile'), 'src/types.ts') ||
     preflightSourceTypeName === undefined ||
     !ts.isStringLiteralLike(preflightSourceTypeName) ||

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 
 import {
 	escapeRegex,
+	findPhpFunctionCallEnd,
 	findPhpFunctionRange,
 	hasPhpCodeStringLiteralPrefix,
 	hasPhpFunctionCall,
@@ -24,6 +25,36 @@ test("escapeRegex produces a literal-safe regular expression fragment", () => {
 
 	expect(pattern.test(literal)).toBe(true);
 	expect(pattern.test("featureXvalue[1](draft)?")).toBe(false);
+});
+
+test("findPhpFunctionCallEnd bounds nested calls in PHP code mode", () => {
+	const source = `<?php
+register_rest_route(
+	'demo/v1',
+	'/state',
+	array(
+		array(
+			'callback' => fn() => sprintf( ')' ),
+			'methods' => WP_REST_Server::READABLE /* ignored ) */,
+		),
+	),
+);
+$after = true;
+`;
+	const callOffset = source.indexOf("register_rest_route");
+	const callEnd = findPhpFunctionCallEnd(
+		source,
+		callOffset,
+		"register_rest_route",
+		{ requirePhpOpenTag: true },
+	);
+
+	expect(callEnd).not.toBeNull();
+	expect(source.slice(callOffset, callEnd ?? 0)).toContain(
+		"WP_REST_Server::READABLE",
+	);
+	expect(source[callEnd ?? 0]).toBe(";");
+	expect(source.slice(callOffset, callEnd ?? 0)).not.toContain("$after");
 });
 
 test("findPhpFunctionRange locates a complete PHP function with nested braces", () => {

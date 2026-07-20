@@ -575,6 +575,66 @@ export function hasPhpFunctionCall(
 	return false;
 }
 
+/**
+ * Find the exclusive end offset of one PHP function call at a known offset.
+ *
+ * Parentheses inside strings, comments, heredoc, and nowdoc blocks are ignored
+ * by the same scanner used by {@link hasPhpFunctionCall}.
+ *
+ * @param source PHP source containing the call.
+ * @param functionOffset Offset where the function identifier starts.
+ * @param functionName Literal PHP function identifier expected at the offset.
+ * @param options Scanner options for full files that require explicit PHP tags.
+ * @returns The offset after the matching closing parenthesis, or `null`.
+ */
+export function findPhpFunctionCallEnd(
+	source: string,
+	functionOffset: number,
+	functionName: string,
+	options: PhpFunctionCallScanOptions = {},
+): number | null {
+	if (!matchesPhpFunctionCallAt(source, functionOffset, functionName)) {
+		return null;
+	}
+	const openParenthesis = skipPhpCallTrivia(
+		source,
+		functionOffset + functionName.length,
+	);
+	if (openParenthesis === null || source[openParenthesis] !== "(") {
+		return null;
+	}
+
+	const scanner = createPhpScannerState(options);
+	let depth = 0;
+	let index = 0;
+	while (index < source.length) {
+		const scan = advancePhpScanner(source, index, scanner);
+		if (scan.ambiguous) {
+			return null;
+		}
+		if (!scan.inCode) {
+			index = scan.index;
+			continue;
+		}
+		if (index < openParenthesis) {
+			index += 1;
+			continue;
+		}
+
+		if (source[index] === "(") {
+			depth += 1;
+		} else if (source[index] === ")") {
+			depth -= 1;
+			if (depth === 0) {
+				return index + 1;
+			}
+		}
+		index += 1;
+	}
+
+	return null;
+}
+
 type PhpStringArgumentMatcher = string | ((value: string) => boolean);
 
 function matchesPhpStringArgument(

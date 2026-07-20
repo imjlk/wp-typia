@@ -16,6 +16,7 @@ import {
   inferPackageManagerId,
 } from '../shared/package-managers.js';
 import {
+  findPhpFunctionCallEnd,
   findPhpFunctionRange,
   getPhpCodeBraceDepth,
   hasPhpFunctionCall,
@@ -42,6 +43,7 @@ import {
 import {
   checkStandaloneRestArtifacts,
   parseStandaloneRestConfig,
+  STANDALONE_PERSISTENCE_BLOCK_SCHEMA_ARTIFACTS,
   standaloneProjectRequiresRest,
 } from './cli-doctor-standalone-rest.js';
 
@@ -65,6 +67,40 @@ const STANDALONE_TYPES_FILE = path.join('src', 'types.ts');
 const STANDALONE_VALIDATORS_FILE = path.join('src', 'validators.ts');
 const STANDALONE_BLOCK_JSON_FILE = 'src/block.json';
 const STANDALONE_MANIFEST_FILE = 'src/typia.manifest.json';
+const STANDALONE_COMMON_SOURCE_FILES = [
+  STANDALONE_SYNC_SCRIPT,
+  STANDALONE_SYNC_PROJECT_SCRIPT,
+  STANDALONE_INDEX_FILE,
+  STANDALONE_EDIT_FILE,
+  STANDALONE_TYPES_FILE,
+  STANDALONE_SAVE_FILE,
+  STANDALONE_VALIDATORS_FILE,
+  path.join('src', 'hooks.ts'),
+  path.join('src', 'block-metadata.ts'),
+  path.join('src', 'manifest-document.ts'),
+  path.join('src', 'manifest-defaults-document.ts'),
+  path.join('src', 'validator-toolkit.ts'),
+  path.join('src', 'style.scss'),
+] as const;
+const STANDALONE_BASIC_SOURCE_FILES = [
+  path.join('src', 'editor.scss'),
+  path.join('src', 'render.php'),
+] as const;
+const STANDALONE_INTERACTIVITY_SOURCE_FILES = [
+  path.join('src', 'editor.scss'),
+  path.join('src', 'interactivity.ts'),
+  path.join('src', 'interactivity-store.ts'),
+] as const;
+const STANDALONE_PERSISTENCE_SOURCE_FILES = [
+  STANDALONE_SYNC_REST_SCRIPT,
+  path.join('src', 'api-types.ts'),
+  path.join('src', 'api-validators.ts'),
+  path.join('src', 'api.ts'),
+  path.join('src', 'data.ts'),
+  path.join('src', 'transport.ts'),
+  path.join('src', 'interactivity.ts'),
+  path.join('src', 'render.php'),
+] as const;
 // WordPress core's get_file_data() reads the first 8 KiB for plugin headers.
 const WORDPRESS_PLUGIN_HEADER_SCAN_BYTES = 8 * 1024;
 // Mirrors get_file_data()'s `[ \t\/*#@]*` header prefix. Its zero-length
@@ -76,9 +112,23 @@ const REQUIRED_RUNTIME_PACKAGES = [
   '@wp-typia/block-types',
   'typia',
 ] as const;
+const REQUIRED_WORDPRESS_RUNTIME_PACKAGES = [
+  '@wordpress/block-editor',
+  '@wordpress/blocks',
+  '@wordpress/components',
+  '@wordpress/element',
+  '@wordpress/i18n',
+] as const;
+const REQUIRED_INTERACTIVITY_RUNTIME_PACKAGES = [
+  '@wordpress/interactivity',
+] as const;
 const REQUIRED_REST_RUNTIME_PACKAGES = [
   '@wp-typia/rest',
   '@wp-typia/api-client',
+] as const;
+const REQUIRED_REST_WORDPRESS_RUNTIME_PACKAGES = [
+  '@wordpress/api-fetch',
+  '@wordpress/data',
 ] as const;
 const REQUIRED_INSTALLED_PACKAGES = [
   {
@@ -116,7 +166,20 @@ const REQUIRED_INSTALLED_PACKAGES = [
     packageName: '@typia/unplugin',
     resolutionSpecifier: '@typia/unplugin/webpack',
   },
+  // Resolve manifests so import-only packages such as
+  // @wordpress/interactivity remain verifiable through createRequire().
+  ...REQUIRED_WORDPRESS_RUNTIME_PACKAGES.map((packageName) => ({
+    diagnosticName: packageName,
+    packageName,
+    resolutionSpecifier: `${packageName}/package.json`,
+  })),
 ] as const;
+const REQUIRED_INTERACTIVITY_INSTALLED_PACKAGES =
+  REQUIRED_INTERACTIVITY_RUNTIME_PACKAGES.map((packageName) => ({
+    diagnosticName: packageName,
+    packageName,
+    resolutionSpecifier: `${packageName}/package.json`,
+  }));
 const REQUIRED_REST_INSTALLED_PACKAGES = [
   {
     diagnosticName: '@wp-typia/rest',
@@ -133,6 +196,11 @@ const REQUIRED_REST_INSTALLED_PACKAGES = [
     packageName: '@wp-typia/rest',
     resolutionSpecifier: '@wp-typia/rest/react',
   },
+  ...REQUIRED_REST_WORDPRESS_RUNTIME_PACKAGES.map((packageName) => ({
+    diagnosticName: packageName,
+    packageName,
+    resolutionSpecifier: `${packageName}/package.json`,
+  })),
 ] as const;
 
 /** Stable codes emitted by standalone-scaffold doctor rows. */
@@ -150,6 +218,19 @@ interface ParsedStandaloneSyncConfig {
   options: SyncBlockMetadataOptions | null;
   problem: string | null;
 }
+
+type ExpectedRestRegistration = Pick<
+  NonNullable<ParsedStandaloneRestConfig['manifest']>['endpoints'][number],
+  'method' | 'path'
+>;
+
+const WORDPRESS_REST_METHOD_CONSTANTS = {
+  DELETE: 'DELETABLE',
+  GET: 'READABLE',
+  PATCH: 'EDITABLE',
+  POST: 'CREATABLE',
+  PUT: 'EDITABLE',
+} as const satisfies Record<ExpectedRestRegistration['method'], string>;
 
 type StandaloneMetadataCoreModule = Pick<
   typeof import('@wp-typia/block-runtime/metadata-core'),
@@ -219,6 +300,38 @@ function isStandaloneScaffoldCandidate(
     syncSurfaceSignals >= 3 ||
     (syncSurfaceSignals >= 2 && dependencySignals >= 1)
   );
+}
+
+function standaloneProjectRequiresInteractivity(
+  project: StandaloneScaffoldProject,
+  requiresRest: boolean,
+): boolean {
+  if (
+    requiresRest ||
+    typeof getDeclaredDependency(
+      project.packageJson,
+      '@wordpress/interactivity',
+    ) === 'string' ||
+    fs.existsSync(path.join(project.projectDir, 'src', 'interactivity.ts')) ||
+    fs.existsSync(
+      path.join(project.projectDir, 'src', 'interactivity-store.ts'),
+    )
+  ) {
+    return true;
+  }
+
+  try {
+    const blockJson = readJsonFileSync<{ viewScriptModule?: unknown }>(
+      path.join(project.projectDir, STANDALONE_BLOCK_JSON_FILE),
+      { context: 'standalone block metadata' },
+    );
+    const viewScriptModules = Array.isArray(blockJson.viewScriptModule)
+      ? blockJson.viewScriptModule
+      : [blockJson.viewScriptModule];
+    return viewScriptModules.includes('file:./interactivity.js');
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -2824,16 +2937,16 @@ function shellScriptPropagatesCommandFailure(
   });
 }
 
-function shellScriptRunsCommandAfterSyncCheck(
+function shellScriptRunsCommandAfterPrerequisite(
   script: string,
-  syncCheckCommand: string,
+  prerequisiteCommand: string,
   targetCommand: string,
 ): boolean {
   const segments = splitShellCommandSegments(script);
   let syncCheckInAndList = false;
   let foundTarget = false;
   for (const segment of segments) {
-    if (shellCommandMatches(segment, syncCheckCommand, false)) {
+    if (shellCommandMatches(segment, prerequisiteCommand, false)) {
       syncCheckInAndList = true;
     }
     if (shellCommandMatches(segment, targetCommand)) {
@@ -2860,6 +2973,7 @@ function getPackageManagerSelector(
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
+  requiresInteractivity: boolean,
 ): DoctorCheck {
   const issues: string[] = [];
   if (
@@ -2881,6 +2995,7 @@ function getPackageMetadataCheck(
     getPackageManagerSelector(project),
   );
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
+  const syncCommand = formatRunScript(packageManager, 'sync');
   const scriptRequirements = [
     {
       allowTrailingArguments: false,
@@ -2903,14 +3018,23 @@ function getPackageMetadataCheck(
       : []),
     {
       allowTrailingArguments: true,
+      commands: [syncCommand, 'wp-scripts start'],
+      name: 'start',
+      orderedPrerequisite: syncCommand,
+      orderedTarget: 'wp-scripts start',
+    },
+    {
+      allowTrailingArguments: true,
       commands: [syncCheckCommand, 'wp-scripts build'],
       name: 'build',
+      orderedPrerequisite: syncCheckCommand,
       orderedTarget: 'wp-scripts build',
     },
     {
       allowTrailingArguments: true,
       commands: [syncCheckCommand, 'tsc --noEmit'],
       name: 'typecheck',
+      orderedPrerequisite: syncCheckCommand,
       orderedTarget: 'tsc --noEmit',
     },
   ] as const;
@@ -2952,20 +3076,25 @@ function getPackageMetadataCheck(
           requirement.allowTrailingArguments,
         ),
       ) &&
-      !shellScriptRunsCommandAfterSyncCheck(
+      !shellScriptRunsCommandAfterPrerequisite(
         script,
-        syncCheckCommand,
+        requirement.orderedPrerequisite,
         requirement.orderedTarget,
       )
     ) {
       issues.push(
-        `package.json ${requirement.name} script must run \`${syncCheckCommand}\` before \`${requirement.orderedTarget}\` in the same && command list`,
+        `package.json ${requirement.name} script must run \`${requirement.orderedPrerequisite}\` before \`${requirement.orderedTarget}\` in the same && command list`,
       );
     }
   }
   for (const packageName of [
     ...REQUIRED_RUNTIME_PACKAGES,
+    ...REQUIRED_WORDPRESS_RUNTIME_PACKAGES,
+    ...(requiresInteractivity
+      ? REQUIRED_INTERACTIVITY_RUNTIME_PACKAGES
+      : []),
     ...(requiresRest ? REQUIRED_REST_RUNTIME_PACKAGES : []),
+    ...(requiresRest ? REQUIRED_REST_WORDPRESS_RUNTIME_PACKAGES : []),
     '@typia/unplugin',
     '@wordpress/scripts',
     'tsx',
@@ -3190,9 +3319,9 @@ function hasDirectBuildDirectoryRegistration(
 function hasDirectRestRouteRegistration(
   bootstrapSource: string,
   callbackRange: PhpFunctionRange,
-  expectedEndpointPaths: readonly string[],
+  expectedRegistrations: readonly ExpectedRestRegistration[],
 ): boolean {
-  if (expectedEndpointPaths.length === 0) {
+  if (expectedRegistrations.length === 0) {
     return false;
   }
   const matches = [
@@ -3221,7 +3350,7 @@ function hasDirectRestRouteRegistration(
     }
     return arrowBodyStarted;
   };
-  const directCalls = matches.flatMap((match, matchIndex) => {
+  const directCalls = matches.flatMap((match) => {
     const relativeOffset = match.index ?? 0;
     const registrationOffset = callbackRange.start + relativeOffset;
     const sourceBeforeCall = callbackRange.source.slice(0, relativeOffset);
@@ -3246,17 +3375,24 @@ function hasDirectRestRouteRegistration(
           callbackRange.source[previousIndex - 1] === ':')
       )
     ) {
-      const nextOffset = matches[matchIndex + 1]?.index;
+      const callEnd = findPhpFunctionCallEnd(
+        callbackRange.source,
+        relativeOffset,
+        'register_rest_route',
+      );
+      if (callEnd === null) {
+        return [];
+      }
       return [
-        callbackRange.source.slice(
-          relativeOffset,
-          nextOffset === undefined ? callbackRange.source.length : nextOffset,
-        ),
+        {
+          relativeStart: relativeOffset,
+          source: callbackRange.source.slice(relativeOffset, callEnd),
+        },
       ];
     }
     return [];
   });
-  return expectedEndpointPaths.every((endpointPath) => {
+  return expectedRegistrations.every(({ method, path: endpointPath }) => {
     const pathSegments = endpointPath.split('/').filter(Boolean);
     if (pathSegments.length < 2) {
       return false;
@@ -3265,17 +3401,41 @@ function hasDirectRestRouteRegistration(
       pathSegments.slice(0, splitIndex + 1).join('/'),
       `/${pathSegments.slice(splitIndex + 1).join('/')}`,
     ] as const);
-    return directCalls.some((callSource) =>
-      argumentPairs.some((argumentPair) =>
-        // callSource begins inside an already-open PHP callback, so snippet
+    const expectedMethodConstant = WORDPRESS_REST_METHOD_CONSTANTS[method];
+    return directCalls.some((call) => {
+      const hasEndpointPath = argumentPairs.some((argumentPair) =>
+        // The exact call begins inside an already-open PHP callback, so snippet
         // scanning must start in PHP mode instead of requiring another tag.
         hasPhpFunctionCallWithStringArguments(
-          callSource,
+          call.source,
           'register_rest_route',
           argumentPair,
         ),
-      ),
-    );
+      );
+      if (!hasEndpointPath) {
+        return false;
+      }
+      return [
+        ...call.source.matchAll(
+          /(?:'methods'|"methods")\s*=>\s*\\?WP_REST_Server::(READABLE|CREATABLE|EDITABLE|DELETABLE)\b/gu,
+        ),
+      ].some((methodMatch) => {
+        if (methodMatch[1] !== expectedMethodConstant) {
+          return false;
+        }
+        const classOffset = methodMatch[0].lastIndexOf('WP_REST_Server');
+        const relativeClassOffset =
+          call.relativeStart + (methodMatch.index ?? 0) + classOffset;
+        return (
+          classOffset >= 0 &&
+          !isInsideArrowFunction(relativeClassOffset) &&
+          getPhpFileBraceDepth(
+            bootstrapSource,
+            callbackRange.start + relativeClassOffset,
+          ) === 1
+        );
+      });
+    });
   });
 }
 
@@ -3284,13 +3444,11 @@ function getBootstrapCheck(
   parsedRestConfig: ParsedStandaloneRestConfig,
 ): DoctorCheck {
   const { requiresRest } = parsedRestConfig;
-  const expectedRestEndpointPaths = parsedRestConfig.manifest
-    ? [
-        ...new Set(
-          parsedRestConfig.manifest.endpoints.map((endpoint) => endpoint.path),
-        ),
-      ]
-    : [];
+  const expectedRestRegistrations =
+    parsedRestConfig.manifest?.endpoints.map(({ method, path: endpointPath }) => ({
+      method,
+      path: endpointPath,
+    })) ?? [];
   const packageBaseName = getSafePackageBaseName(project.packageName);
   if (!packageBaseName) {
     return createDoctorCheck(
@@ -3382,7 +3540,7 @@ function getBootstrapCheck(
             hasDirectRestRouteRegistration(
               source,
               callbackRange,
-              expectedRestEndpointPaths,
+              expectedRestRegistrations,
             )
           );
         },
@@ -3420,16 +3578,44 @@ function getSourceLayoutCheck(
   project: StandaloneScaffoldProject,
   parsedConfig: ParsedStandaloneSyncConfig,
   parsedRestConfig: ParsedStandaloneRestConfig,
+  requiresInteractivity: boolean,
 ): DoctorCheck {
-  const missingFiles = [
-    STANDALONE_SYNC_SCRIPT,
-    STANDALONE_SYNC_PROJECT_SCRIPT,
-    STANDALONE_INDEX_FILE,
-    STANDALONE_EDIT_FILE,
-    STANDALONE_TYPES_FILE,
-    STANDALONE_SAVE_FILE,
-    STANDALONE_VALIDATORS_FILE,
-  ].filter(
+  const packageBaseName = getSafePackageBaseName(project.packageName);
+  const bootstrapPath = packageBaseName
+    ? path.join(project.projectDir, `${packageBaseName}.php`)
+    : null;
+  const bootstrapLocalIncludes: string[] = [];
+  if (bootstrapPath && fs.existsSync(bootstrapPath)) {
+    try {
+      const bootstrapSource = fs.readFileSync(bootstrapPath, 'utf8');
+      for (const match of bootstrapSource.matchAll(
+        /\brequire_once\s+__DIR__\s*\.\s*(['"])\/([^'"]+)\1\s*;/gu,
+      )) {
+        const relativePath = match[2];
+        if (
+          relativePath &&
+          getPhpFileBraceDepth(bootstrapSource, match.index ?? 0) !== null &&
+          isSafeProjectRelativePath(project.projectDir, relativePath)
+        ) {
+          bootstrapLocalIncludes.push(path.normalize(relativePath));
+        }
+      }
+    } catch {
+      // The bootstrap row reports unreadable plugin files directly.
+    }
+  }
+  let featureSourceFiles: readonly string[] = STANDALONE_BASIC_SOURCE_FILES;
+  if (parsedRestConfig.requiresRest) {
+    featureSourceFiles = STANDALONE_PERSISTENCE_SOURCE_FILES;
+  } else if (requiresInteractivity) {
+    featureSourceFiles = STANDALONE_INTERACTIVITY_SOURCE_FILES;
+  }
+  const requiredFiles = new Set([
+    ...STANDALONE_COMMON_SOURCE_FILES,
+    ...featureSourceFiles,
+    ...bootstrapLocalIncludes,
+  ]);
+  const missingFiles = [...requiredFiles].filter(
     (relativePath) =>
       !fs.existsSync(path.join(project.projectDir, relativePath)),
   );
@@ -3448,7 +3634,7 @@ function getSourceLayoutCheck(
     'Standalone source layout',
     issues.length === 0 ? 'pass' : 'fail',
     issues.length === 0
-      ? 'Supported src/types.ts single-block layout and static canonical sync configuration detected'
+      ? 'Supported standalone source surface and static canonical sync configuration detected'
       : issues.join('; '),
     STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
   );
@@ -3586,9 +3772,13 @@ async function loadProjectMetadataCore(
 function getDependenciesCheck(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
+  requiresInteractivity: boolean,
 ): DoctorCheck {
   const requiredInstalledPackages = [
     ...REQUIRED_INSTALLED_PACKAGES,
+    ...(requiresInteractivity
+      ? REQUIRED_INTERACTIVITY_INSTALLED_PACKAGES
+      : []),
     ...(requiresRest ? REQUIRED_REST_INSTALLED_PACKAGES : []),
   ];
   const missingPackages = requiredInstalledPackages
@@ -3697,9 +3887,15 @@ async function getGeneratedArtifactsCheck(
       STANDALONE_DOCTOR_CODES.ARTIFACTS,
     );
   }
+  const freshnessOptions = parsedRestConfig.manifest
+    ? {
+        ...parsedConfig.options,
+        ...STANDALONE_PERSISTENCE_BLOCK_SCHEMA_ARTIFACTS,
+      }
+    : parsedConfig.options;
 
   let artifactPaths = [
-    ...getConfiguredArtifactPaths(parsedConfig.options),
+    ...getConfiguredArtifactPaths(freshnessOptions),
     ...parsedRestConfig.artifactPaths,
   ];
   const missingArtifacts = artifactPaths.filter(
@@ -3730,10 +3926,10 @@ async function getGeneratedArtifactsCheck(
       parsedRestConfig.requiresRest,
     );
     artifactPaths = [
-      ...getConfiguredArtifactPaths(parsedConfig.options, metadataCore),
+      ...getConfiguredArtifactPaths(freshnessOptions, metadataCore),
       ...parsedRestConfig.artifactPaths,
     ];
-    report = await metadataCore.runSyncBlockMetadata(parsedConfig.options, {
+    report = await metadataCore.runSyncBlockMetadata(freshnessOptions, {
       check: true,
     });
   } catch (error) {
@@ -3804,20 +4000,33 @@ export async function getStandaloneScaffoldDoctorChecks(
     project.projectDir,
     project.packageJson,
   );
+  const requiresInteractivity = standaloneProjectRequiresInteractivity(
+    project,
+    requiresRest,
+  );
   const parsedRestConfig = parseStandaloneRestConfig(
     project.projectDir,
     requiresRest,
     parsedConfig.options?.sourceTypeName ?? null,
   );
-  const dependenciesCheck = getDependenciesCheck(project, requiresRest);
+  const dependenciesCheck = getDependenciesCheck(
+    project,
+    requiresRest,
+    requiresInteractivity,
+  );
   return [
     createDoctorScopeCheck(
       'pass',
       `Scope: standalone scaffold diagnostics for ${project.packageName}. Environment readiness checks ran and package metadata, plugin bootstrap, source layout, dependencies, and canonical generated artifacts are checked below.`,
     ),
-    getPackageMetadataCheck(project, requiresRest),
+    getPackageMetadataCheck(project, requiresRest, requiresInteractivity),
     getBootstrapCheck(project, parsedRestConfig),
-    getSourceLayoutCheck(project, parsedConfig, parsedRestConfig),
+    getSourceLayoutCheck(
+      project,
+      parsedConfig,
+      parsedRestConfig,
+      requiresInteractivity,
+    ),
     dependenciesCheck,
     await getGeneratedArtifactsCheck(
       project,
