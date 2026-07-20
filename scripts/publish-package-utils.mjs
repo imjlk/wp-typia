@@ -33,7 +33,8 @@ export function resolvePackageDir(packageDir) {
 	return path.isAbsolute(packageDir) ? packageDir : path.join(repoRoot, packageDir);
 }
 
-export function packWorkspacePackage(packageDir, destinationDir) {
+/** Packs a workspace and returns both the tarball path and npm pack metadata. */
+export function packWorkspacePackageDetailed(packageDir, destinationDir) {
 	const absolutePackageDir = resolvePackageDir(packageDir);
 	const absoluteDestinationDir = path.resolve(destinationDir);
 	fs.mkdirSync(absoluteDestinationDir, { recursive: true });
@@ -50,13 +51,22 @@ export function packWorkspacePackage(packageDir, destinationDir) {
 	const jsonStart = raw.startsWith("[") ? 0 : raw.lastIndexOf("\n[");
 	const jsonSource = (jsonStart >= 0 ? raw.slice(jsonStart === 0 ? 0 : jsonStart + 1) : raw).trim();
 	const parsed = JSON.parse(jsonSource);
-	const filename = Array.isArray(parsed) ? parsed[0]?.filename : null;
+	const metadata = Array.isArray(parsed) ? parsed[0] : null;
+	const filename = metadata?.filename;
 
 	if (typeof filename !== "string" || filename.length === 0) {
 		throw new Error(`Unable to resolve packed tarball filename for ${absolutePackageDir}.`);
 	}
 
-	return path.join(absoluteDestinationDir, filename);
+	return {
+		metadata,
+		tarballPath: path.join(absoluteDestinationDir, filename),
+	};
+}
+
+/** Packs a workspace and preserves the legacy tarball-path-only contract. */
+export function packWorkspacePackage(packageDir, destinationDir) {
+	return packWorkspacePackageDetailed(packageDir, destinationDir).tarballPath;
 }
 
 export function readPackedPackageManifest(tarballPath) {

@@ -52,6 +52,19 @@ No other publishable runtime package should use `workspace:` protocol dependenci
 
 Private manifests, including the repo root, may still use `workspace:*` where that improves monorepo ergonomics. The publish-time coupling rules above apply only to publishable workspace packages.
 
+## Published Package Footprint Budgets
+
+The published-install smoke checks all eight release packages under `packages/` against the unpacked-byte and file-count budgets in `scripts/lib/publish-package-footprint.mjs`. These limits catch accidentally published source trees, caches, and build artifacts while reusing the tarballs that the smoke test already creates.
+
+When an intentional package-content change exceeds a budget:
+
+1. run `bun run test:publish-install-smoke`
+2. review the footprint summary and the tarball contents
+3. remove unintended files through the package's `files` allowlist or build output
+4. if the growth is intentional, update that package's unpacked-byte and file-count limits with about 20% headroom and include the rationale in the PR
+
+The summary also reports the compressed tarball size for visibility, but compressed bytes are not a failure criterion. Compression results are more sensitive to npm/tar implementation details and content entropy; unpacked bytes and file count are the stable signals for installed footprint and accidental file inclusion.
+
 ## When Touching Package Metadata
 
 When a PR edits package manifests:

@@ -9,22 +9,17 @@ import {
 	findWorkspaceProtocolLeaks,
 	getNpmCommand,
 	getTarCommand,
-	packWorkspacePackage,
+	packWorkspacePackageDetailed,
 	readPackedPackageManifest,
 	repoRoot,
 	withTempDir,
 } from "./publish-package-utils.mjs";
+import {
+	PUBLISH_PACKAGE_CHAIN,
+	formatPublishPackageFootprintReport,
+	validatePublishPackageFootprint,
+} from "./lib/publish-package-footprint.mjs";
 
-const PACKAGE_CHAIN = [
-	["packages/wp-typia-api-client", "@wp-typia/api-client"],
-	["packages/wp-typia-rest", "@wp-typia/rest"],
-	["packages/wp-typia-block-types", "@wp-typia/block-types"],
-	["packages/wp-typia-dataviews", "@wp-typia/dataviews"],
-	["packages/wp-typia-block-runtime", "@wp-typia/block-runtime"],
-	["packages/wp-typia-project-tools", "@wp-typia/project-tools"],
-	["packages/create-workspace-template", "@wp-typia/create-workspace-template"],
-	["packages/wp-typia", "wp-typia"],
-];
 const GENERATED_PROJECT_OVERRIDE_PACKAGES = [
 	"@wp-typia/api-client",
 	"@wp-typia/rest",
@@ -198,9 +193,19 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	const defaultCliDir = path.join(tempRoot, "default-cli-install");
 	const tarballs = new Map();
 	const packedManifests = new Map();
+	const footprintResults = [];
 
-	for (const [packageDir, packageName] of PACKAGE_CHAIN) {
-		const tarballPath = packWorkspacePackage(packageDir, tarballDir);
+	for (const [packageDir, packageName] of PUBLISH_PACKAGE_CHAIN) {
+		const { metadata, tarballPath } = packWorkspacePackageDetailed(
+			packageDir,
+			tarballDir,
+		);
+		if (metadata.name !== packageName) {
+			throw new Error(
+				`Packed ${packageDir} as ${JSON.stringify(metadata.name ?? null)} instead of ${packageName}.`,
+			);
+		}
+		footprintResults.push(validatePublishPackageFootprint(metadata));
 		tarballs.set(packageName, tarballPath);
 		packedManifests.set(packageName, readPackedPackageManifest(tarballPath));
 
@@ -232,6 +237,21 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 				throw new Error("Packed wp-typia tarball should no longer publish package/src/cli.ts.");
 			}
 		}
+	}
+
+	process.stdout.write(
+		[
+			"Publish package footprint summary:",
+			...footprintResults.map(
+				(result) => `- ${formatPublishPackageFootprintReport(result)}`,
+			),
+		].join("\n") + "\n",
+	);
+	const footprintErrors = footprintResults.flatMap((result) => result.errors);
+	if (footprintErrors.length > 0) {
+		throw new Error(
+			`Publish package footprint budgets failed:\n${footprintErrors.map((error) => `- ${error}`).join("\n")}`,
+		);
 	}
 
 	fs.mkdirSync(defaultCliDir, { recursive: true });
