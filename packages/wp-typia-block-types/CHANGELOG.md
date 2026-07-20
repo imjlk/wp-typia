@@ -1,5 +1,11 @@
 # @wp-typia/block-types
 
+## 0.4.0 — 2026-07-20
+
+### Minor changes
+
+- [b5278399](https://github.com/imjlk/wp-typia/commit/b52783990671e2591dc4a640290579c2ed86c4e1) Mark the WordPress registration facade peers as optional and isolate its runtime and declaration entrypoint so installing the wp-typia CLI no longer downloads or loads the full WordPress editor dependency graph unless a generated project explicitly needs it. Registration-only exports are removed from the package root and `blocks` aggregate; import them from `@wp-typia/block-types/blocks/registration` instead. Retrofit `init` plans now add `@wordpress/blocks` and its WordPress block types directly so later `add variation` workflows retain their build contract. — Thanks @imjlk!
+
 ## 0.3.5 — 2026-06-06
 
 ### Patch changes

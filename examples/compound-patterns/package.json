@@ -1,6 +1,6 @@
 {
   "name": "compound-patterns",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageManager": "bun@1.3.11",
   "description": "A parent-and-child WordPress block scaffold with InnerBlocks, optional persistence wiring, and hidden implementation child blocks",
   "author": "imjlk",
