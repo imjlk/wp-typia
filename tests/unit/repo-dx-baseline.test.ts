@@ -374,15 +374,43 @@ describe('repository DX baseline', () => {
       'utf8',
     );
 
-    expect(workflow).toContain('test-project-tools:');
-    expect(workflow).toContain('Project Tools: ${{ matrix.label }}');
+    const prepareJob = getWorkflowJobBlock(workflow, 'prepare-project-tools');
+    const testJob = getWorkflowJobBlock(workflow, 'test-project-tools');
+
+    expect(prepareJob).toContain('Prepare Project Tools Workspace');
+    expect(prepareJob).toContain('timeout-minutes: 15');
+    expect(prepareJob).toContain('bun run project-tools-prebuilt:prepare');
+    expect(prepareJob).toContain('name: project-tools-workspace-dist');
+    expect(prepareJob).toContain('bun run project-tools-prebuilt:validate');
+    for (const packagePath of [
+      'wp-typia-api-client/dist/',
+      'wp-typia-block-types/dist/',
+      'wp-typia-block-runtime/dist/',
+      'wp-typia-dataviews/dist/',
+      'wp-typia-rest/dist/',
+      'wp-typia-project-tools/dist/',
+      'wp-typia/dist/',
+    ]) {
+      expect(prepareJob).toContain(`packages/${packagePath}`);
+    }
+    expect(testJob).toContain('Project Tools: ${{ matrix.label }}');
+    expect(testJob).toContain('needs: prepare-project-tools');
     expect(workflow).toContain('uses: ./.github/actions/setup-bun-workspace');
-    expect(workflow).toContain(
-      'command: bun run test:project-tools:scaffold-core',
+    expect(testJob).toContain(
+      'script: test:project-tools:scaffold-core:run',
     );
-    expect(workflow).toContain(
-      'command: bun run test:project-tools:migration-execution',
+    expect(testJob).toContain(
+      'script: test:project-tools:migration-execution:run',
     );
+    expect(testJob).toContain('uses: actions/download-artifact@v8');
+    expect(testJob).toContain('path: packages');
+    expect(testJob).toContain(
+      'PROJECT_TOOLS_TEST_SCRIPT: ${{ matrix.script }}',
+    );
+    expect(testJob).toContain('run: bun run "$PROJECT_TOOLS_TEST_SCRIPT"');
+    expect(testJob).not.toContain('run: ${{ matrix.');
+    expect(testJob).toContain("WP_TYPIA_PROJECT_TOOLS_REQUIRE_PREBUILT: '1'");
+    expect(testJob).toContain('bun run project-tools-prebuilt:validate');
     expect(workflow).toContain('run: bun run samchon-graph:validate');
     expect(workflow).toContain('run: bun run samchon-graph:smoke');
     expect(workflow).not.toContain('test-project-tools-scaffold-core:');
