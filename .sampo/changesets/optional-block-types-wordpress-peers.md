@@ -1,5 +1,5 @@
 ---
-npm/@wp-typia/block-types: major
+npm/@wp-typia/block-types: minor
 npm/@wp-typia/project-tools: patch
 npm/wp-typia: patch
 ---

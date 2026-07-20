@@ -31,6 +31,14 @@ export const MAINTENANCE_AUTOMATION_POLICY = Object.freeze({
     '@wordpress/data',
     GUTENBERG_WATCH_ISSUE_SNIPPET,
   ]),
+  releasePrAddPaths: Object.freeze([
+    '.sampo/**',
+    'composer.lock',
+    'examples/**/CHANGELOG.md',
+    'examples/**/package.json',
+    'packages/**/CHANGELOG.md',
+    'packages/**/package.json',
+  ]),
   ciScript: 'node scripts/validate-maintenance-automation-policy.mjs',
 });
 
@@ -250,6 +258,44 @@ function validateScheduledWorkflow(sourceText, errors) {
   }
 }
 
+function extractYamlLiteralBlockValues(sourceText, key) {
+  const lines = sourceText.split(/\r?\n/);
+  const keyPattern = new RegExp(`^(\\s*)${key}:\\s*\\|\\s*$`);
+  const startIndex = lines.findIndex((line) => keyPattern.test(line));
+  if (startIndex < 0) {
+    return [];
+  }
+
+  const keyIndent = leadingSpaceCount(lines[startIndex]);
+  const values = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.trim() !== '' && leadingSpaceCount(line) <= keyIndent) {
+      break;
+    }
+    if (line.trim() !== '') {
+      values.push(line.trim());
+    }
+  }
+
+  return values;
+}
+
+function validateReleasePrWorkflow(sourceText, errors) {
+  const releasePrJob = workflowJobBlock(sourceText, 'update-release-pr');
+  const addPaths = new Set(
+    extractYamlLiteralBlockValues(releasePrJob, 'add-paths'),
+  );
+
+  for (const requiredPath of MAINTENANCE_AUTOMATION_POLICY.releasePrAddPaths) {
+    if (!addPaths.has(requiredPath)) {
+      errors.push(
+        `.github/workflows/release-pr.yml must stage ${JSON.stringify(requiredPath)} in the release PR add-paths block.`,
+      );
+    }
+  }
+}
+
 function validateGutenbergWatchWorkflow(sourceText, errors) {
   for (const requiredSnippet of [
     'name: Gutenberg Upstream TypeScript Watch',
@@ -316,6 +362,10 @@ export function validateMaintenanceAutomationPolicy(
       repoRoot,
       '.github/workflows/gutenberg-upstream-watch.yml',
     ),
+    errors,
+  );
+  validateReleasePrWorkflow(
+    readRelativeText(repoRoot, '.github/workflows/release-pr.yml'),
     errors,
   );
 

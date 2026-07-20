@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -45,6 +48,19 @@ jobs:
 
       - name: Validate pending changesets
         run: bun run changesets:validate
+
+      - name: Validate changed package changeset coverage
+        if: github.event_name == 'pull_request'
+        env:
+          ALLOW_VERSION_BUMPS: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'release/sampo' }}
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          args=(--base-ref "$BASE_REF")
+          if [[ "$ALLOW_VERSION_BUMPS" == "true" ]]; then
+            args+=(--allow-version-bumps)
+          fi
+          bun scripts/validate-sampo-changesets.mjs "${args[@]}"
 
       - name: Validate maintenance automation policy
         run: bun run maintenance-automation:validate

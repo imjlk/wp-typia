@@ -116,6 +116,9 @@ jobs:
           body: ${{ steps.release_notes.outputs.body }}
           add-paths: |
             .sampo/**
+            composer.lock
+            examples/**/CHANGELOG.md
+            examples/**/package.json
             packages/**/package.json
             packages/**/CHANGELOG.md
 
