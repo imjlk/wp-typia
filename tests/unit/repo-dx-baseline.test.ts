@@ -137,6 +137,47 @@ describe('repository DX baseline', () => {
     ).toBe(true);
   });
 
+  test('project-tools test scripts separate local build wrappers from run-only shards', () => {
+    const rootScripts = readJson('package.json').scripts as Record<
+      string,
+      string
+    >;
+    const projectToolsScripts = readJson(
+      'packages/wp-typia-project-tools/package.json',
+    ).scripts as Record<string, string>;
+    const shards = [
+      'scaffold-core',
+      'workspace',
+      'compound',
+      'migration-planning',
+      'migration-execution',
+    ];
+
+    expect(rootScripts['project-tools-prebuilt:prepare']).toBe(
+      'bun run packages:build && bun run --filter wp-typia build',
+    );
+    expect(rootScripts['project-tools-prebuilt:validate']).toBe(
+      'bun scripts/validate-project-tools-prebuilt.ts',
+    );
+    expect(rootScripts['test:project-tools']).toBe(
+      'bun run project-tools-prebuilt:prepare && bun run test:project-tools:run',
+    );
+    expect(rootScripts['test:project-tools:run']).toBe(
+      'bun scripts/run-project-tools-test-shard.ts all',
+    );
+    expect(projectToolsScripts['test:project-tools']).toBe(
+      'bun run test:scaffold-core && bun run test:workspace && bun run test:compound && bun run test:migration-planning && bun run test:migration-execution',
+    );
+    for (const shard of shards) {
+      expect(rootScripts[`test:project-tools:${shard}:run`]).toBe(
+        `bun scripts/run-project-tools-test-shard.ts ${shard}`,
+      );
+      expect(projectToolsScripts[`test:${shard}`]).toStartWith(
+        'bun run build && bun test ',
+      );
+    }
+  });
+
   test('WordPress example workspaces keep the ESLint 8 compat wrapper', () => {
     for (const relativePath of [
       'examples/my-typia-block/package.json',

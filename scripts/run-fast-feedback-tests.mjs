@@ -16,6 +16,7 @@ const FAST_TEST_PATHS = Object.freeze([
   'tests/unit/package-manifest-policy.test.ts',
   'tests/unit/formatting-toolchain-policy.test.ts',
   'tests/unit/local-toolchain-policy.test.ts',
+  'tests/unit/project-tools-prebuilt.test.ts',
   'tests/unit/maintenance-automation-policy.test.ts',
   'tests/unit/typescript-runtime-dependency-placement.test.ts',
   'tests/unit/typescript-strictness-policy.test.ts',
