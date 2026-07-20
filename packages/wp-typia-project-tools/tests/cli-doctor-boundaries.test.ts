@@ -125,7 +125,9 @@ test("cli-doctor keeps environment and workspace checks in dedicated modules", (
 	);
 	expect(standaloneRestSource).not.toContain("execFileSync(");
 	expect(standaloneRestSource).not.toContain("spawnSync(");
-	expect(standaloneSource).toContain("runSyncBlockMetadata(parsedConfig.options, {");
+	expect(standaloneSource).toContain(
+		"metadataCore.runSyncBlockMetadata(freshnessOptions, {",
+	);
 	expect(standaloneSource).not.toContain("execFileSync(");
 	expect(standaloneSource).not.toContain("spawnSync(");
 	expect(workspaceSource).toContain("readWorkspaceInventoryAsync(");
