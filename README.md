@@ -481,10 +481,13 @@ wp-typia/
 The repository itself stays Bun-first even though generated projects can use `bun`, `npm`, `pnpm`, or `yarn`.
 
 ```bash
-bun install
+mise trust
+mise install
+mise exec -- bun install --frozen-lockfile
 bun run lint:repo
 bun run format:check
 bun run maintenance-automation:validate
+bun run toolchain-policy:validate
 bun run typecheck
 bun run test:repo:fast
 bun run test:repo
@@ -492,6 +495,10 @@ bun run build
 bun run ci:local
 bun run examples:test:e2e
 ```
+
+Without mise, install the Bun and Node.js versions declared in `mise.toml`, then
+run `bun install --frozen-lockfile` directly. PHP 8.1 remains the primary CI
+baseline without forcing a local source build through mise.
 
 Root ESLint covers repository infrastructure code such as `scripts/**`,
 `tests/**`, root config files, and package-side non-example sources. Example app

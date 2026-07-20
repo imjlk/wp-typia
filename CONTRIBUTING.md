@@ -4,11 +4,20 @@ Thanks for helping improve `wp-typia`.
 
 ## Local setup
 
-This repository is Bun-first:
+This repository is Bun-first. The checked-in `mise.toml` matches the primary CI
+baseline for Bun and Node.js without forcing contributors to compile PHP from
+source. The reproducible setup path is:
 
 ```bash
-bun install
+mise trust
+mise install
+mise exec -- bun install --frozen-lockfile
 ```
+
+If you do not use mise, install the Bun and Node.js versions declared in
+`mise.toml` and run `bun install --frozen-lockfile` directly. PHP 8.1 remains
+the primary CI baseline and can be supplied by the system or another version
+manager.
 
 ## Common checks
 
@@ -18,6 +27,7 @@ bun run lint:fix
 bun run format:check
 bun run format:write
 bun run maintenance-automation:validate
+bun run toolchain-policy:validate
 bun run samchon-graph:validate
 bun run samchon-graph:smoke
 bun run formatting-policy:validate
@@ -42,6 +52,7 @@ Quick command map:
 - `bun run format:check` = non-mutating Prettier check for repo-owned files
 - `bun run format:write` = mutating Prettier write pass for that same repo-owned file set
 - `bun run maintenance-automation:validate` = verifies Dependabot and audit workflow policy
+- `bun run toolchain-policy:validate` = keeps mise, package-manager, and primary CI runtime versions aligned
 - `bun run samchon-graph:validate` = verifies the pinned project code-graph server and its TypeScript/PHP-only scope
 - `bun run samchon-graph:smoke` = runs a real static graph dump against TypeScript, PHP, and excluded fixture files
 - `bun run formatting-policy:validate` = verifies the documented Prettier/CI baseline

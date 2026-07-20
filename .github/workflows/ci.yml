@@ -65,6 +65,9 @@ jobs:
       - name: Validate maintenance automation policy
         run: bun run maintenance-automation:validate
 
+      - name: Validate local toolchain policy
+        run: bun run toolchain-policy:validate
+
       - name: Validate samchon graph configuration
         run: bun run samchon-graph:validate
 
