@@ -6,6 +6,7 @@ import path from "node:path";
 
 import {
 	appendPhpSnippetBeforeClosingTag,
+	createWorkspaceMutationSnapshot,
 	executeWorkspaceMutationPlan,
 	insertPhpSnippetBeforeWorkspaceAnchors,
 	WorkspaceMutationRollbackError,
@@ -20,6 +21,42 @@ afterAll(() => {
 });
 
 describe("workspace add mutation executor", () => {
+	test("creates deduplicated snapshots with defensive path copies", async () => {
+		const projectDir = path.join(tempRoot, "snapshot");
+		const existingPath = path.join(projectDir, "existing.txt");
+		const snapshotDir = path.join(projectDir, "snapshot-dir");
+		const targetPath = path.join(projectDir, "target");
+		await fsp.mkdir(projectDir, { recursive: true });
+		await fsp.writeFile(existingPath, "before", "utf8");
+
+		const snapshotDirs = [snapshotDir];
+		const targetPaths = [targetPath];
+		const mutationSnapshot = await createWorkspaceMutationSnapshot({
+			filePaths: [existingPath, existingPath],
+			snapshotDirs,
+			targetPaths,
+		});
+
+		snapshotDirs.push(path.join(projectDir, "later-snapshot-dir"));
+		targetPaths.push(path.join(projectDir, "later-target"));
+
+		expect(mutationSnapshot).toEqual({
+			fileSources: [{ filePath: existingPath, source: "before" }],
+			snapshotDirs: [snapshotDir],
+			targetPaths: [targetPath],
+		});
+	});
+
+	test("defaults optional snapshot path arrays to empty", async () => {
+		expect(
+			await createWorkspaceMutationSnapshot({ filePaths: [] }),
+		).toEqual({
+			fileSources: [],
+			snapshotDirs: [],
+			targetPaths: [],
+		});
+	});
+
 	test("keeps successful workspace mutation results", async () => {
 		const projectDir = path.join(tempRoot, "success");
 		const existingPath = path.join(projectDir, "existing.txt");
