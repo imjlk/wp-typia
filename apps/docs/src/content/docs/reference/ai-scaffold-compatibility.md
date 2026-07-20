@@ -14,6 +14,11 @@ Generated non-AI projects keep the current hard-floor baseline:
 - WordPress `Requires at least: 6.7`
 - PHP `Requires PHP: 8.0`
 
+Repository maintainer linting uses PHP 8.1, while the generated-project smoke
+matrix separately provisions PHP 8.0 and runs `php -l` over every emitted PHP
+file. A missing or mismatched PHP runtime fails that compatibility gate instead
+of skipping it.
+
 `wp-typia create` targets WordPress 7.0 for generated `Tested up to` plugin
 headers by default. Use `--wp-version 6.9` to restore the legacy 6.9 target.
 Changing the target does not by itself raise `Requires at least`; required

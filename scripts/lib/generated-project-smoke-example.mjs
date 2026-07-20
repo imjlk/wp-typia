@@ -17,6 +17,7 @@ import {
 	assertExampleProjectScaffold,
 	shouldRunMigrationSmoke,
 } from "./generated-project-smoke-assertions.mjs";
+import { lintGeneratedProjectPhp } from "./generated-project-smoke-php.mjs";
 
 export function prepareExampleWorkspaceRoot(workspaceRoot) {
 	const packagesLinkPath = path.join(workspaceRoot, "packages");
@@ -125,6 +126,7 @@ function readCurrentMigrationVersion(projectDir) {
 export function runExampleProjectSmoke({
 	exampleProject,
 	packageManager,
+	phpVersion,
 	projectDir,
 	runtime,
 }) {
@@ -206,6 +208,7 @@ export function runExampleProjectSmoke({
 		"typecheck",
 	);
 	run(typecheckCommand, typecheckArgs, { cwd: exampleDir });
+	lintGeneratedProjectPhp(exampleDir, phpVersion);
 
 	assertExampleProjectScaffold(exampleDir, exampleProject);
 }

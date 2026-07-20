@@ -16,8 +16,9 @@ mise exec -- bun install --frozen-lockfile
 
 If you do not use mise, install the Bun and Node.js versions declared in
 `mise.toml` and run `bun install --frozen-lockfile` directly. PHP 8.1 remains
-the primary CI baseline and can be supplied by the system or another version
-manager.
+the primary maintainer lint baseline and can be supplied by the system or
+another version manager. Generated-project CI uses a separate PHP 8.0 runtime
+to enforce the scaffold's declared syntax floor.
 
 ## Common checks
 
@@ -122,6 +123,10 @@ For generated project smoke checks:
 ```bash
 node scripts/run-generated-project-smoke.mjs --runtime node --template basic --package-manager npm --project-name smoke-basic
 ```
+
+CI adds `--php-version 8.0` to that command. The option is strict: it requires
+the matching PHP major/minor runtime and runs `php -l` over every generated PHP
+file instead of silently skipping syntax compatibility checks.
 
 ## Documentation
 

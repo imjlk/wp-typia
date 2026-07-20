@@ -17,6 +17,7 @@ env:
   NODE_VERSION: '24'
   BUN_VERSION: '1.3.11'
   PHP_VERSION: '8.1'
+  GENERATED_PHP_VERSION: '8.0'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
@@ -31,7 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
@@ -453,6 +454,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup generated PHP compatibility runtime
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: ${{ env.GENERATED_PHP_VERSION }}
+          coverage: none
+          github-token: ''
+
       - name: Setup workspace toolchain
         uses: ./.github/actions/setup-bun-workspace
         with:
@@ -473,6 +481,7 @@ jobs:
           args=(
             --runtime "${{ matrix.runtime }}"
             --package-manager "${{ matrix.package_manager }}"
+            --php-version "${{ env.GENERATED_PHP_VERSION }}"
             --project-name "${{ matrix.project_name }}"
           )
           if [ -n "${{ matrix.template || '' }}" ]; then
