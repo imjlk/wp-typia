@@ -1,5 +1,16 @@
 # @wp-typia/project-tools
 
+## 0.24.12 — 2026-07-20
+
+### Patch changes
+
+- [bb6ed414](https://github.com/imjlk/wp-typia/commit/bb6ed414ecbd4bee31a427f1143d33d736b0b6c3) Diagnose type-derived standalone block scaffolds with static package, bootstrap, source-layout, generated-artifact, and REST contract checks. Export the canonical block metadata artifact-path resolver for project-tools and reject malformed or unsafe standalone sync configurations without executing project code. — Thanks @imjlk!
+- [bb6ed414](https://github.com/imjlk/wp-typia/commit/bb6ed414ecbd4bee31a427f1143d33d736b0b6c3) Keep fresh built-in scaffolds sync-clean by seeding canonical compiler-derived block metadata, validation, schema, OpenAPI, PHP, and persistence artifacts after scaffold transforms and before dependency installation. Align generated project manifests, runtime identifiers, development startup sync, and package smoke coverage with the same artifact contracts. — Thanks @imjlk!
+- [2de33f08](https://github.com/imjlk/wp-typia/commit/2de33f08733041335970c40d6a4cada0896daf1e) Keep structured template discovery output portable by replacing installation-local template directory paths with stable built-in ids and official npm package source metadata. — Thanks @imjlk!
+- [b5278399](https://github.com/imjlk/wp-typia/commit/b52783990671e2591dc4a640290579c2ed86c4e1) Mark the WordPress registration facade peers as optional and isolate its runtime and declaration entrypoint so installing the wp-typia CLI no longer downloads or loads the full WordPress editor dependency graph unless a generated project explicitly needs it. Registration-only exports are removed from the package root and `blocks` aggregate; import them from `@wp-typia/block-types/blocks/registration` instead. Retrofit `init` plans now add `@wordpress/blocks` and its WordPress block types directly so later `add variation` workflows retain their build contract. — Thanks @imjlk!
+- [7d6dbbbd](https://github.com/imjlk/wp-typia/commit/7d6dbbbd8cbfc8bf8732f18f263e677bdc0c3cec) Expose stable generated-artifact drift codes and sanitized, structured sync failure details while preserving streaming text output and reporting signal termination without an invented exit code. — Thanks @imjlk!
+- Updated dependencies: block-runtime (npm)@0.7.2, block-types (npm)@0.4.0
+
 ## 0.24.11 — 2026-06-07
 
 ### Patch changes

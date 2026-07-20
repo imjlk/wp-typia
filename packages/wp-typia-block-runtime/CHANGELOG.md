@@ -1,5 +1,12 @@
 # @wp-typia/block-runtime
 
+## 0.7.2 — 2026-07-20
+
+### Patch changes
+
+- [bb6ed414](https://github.com/imjlk/wp-typia/commit/bb6ed414ecbd4bee31a427f1143d33d736b0b6c3) Diagnose type-derived standalone block scaffolds with static package, bootstrap, source-layout, generated-artifact, and REST contract checks. Export the canonical block metadata artifact-path resolver for project-tools and reject malformed or unsafe standalone sync configurations without executing project code. — Thanks @imjlk!
+- [bb6ed414](https://github.com/imjlk/wp-typia/commit/bb6ed414ecbd4bee31a427f1143d33d736b0b6c3) Keep fresh built-in scaffolds sync-clean by seeding canonical compiler-derived block metadata, validation, schema, OpenAPI, PHP, and persistence artifacts after scaffold transforms and before dependency installation. Align generated project manifests, runtime identifiers, development startup sync, and package smoke coverage with the same artifact contracts. — Thanks @imjlk!
+
 ## 0.7.1 — 2026-06-02
 
 ### Patch changes

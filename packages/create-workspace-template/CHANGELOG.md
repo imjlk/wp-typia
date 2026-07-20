@@ -1,5 +1,11 @@
 # @wp-typia/create-workspace-template
 
+## 0.18.2 — 2026-07-20
+
+### Patch changes
+
+- [bb6ed414](https://github.com/imjlk/wp-typia/commit/bb6ed414ecbd4bee31a427f1143d33d736b0b6c3) Keep fresh built-in scaffolds sync-clean by seeding canonical compiler-derived block metadata, validation, schema, OpenAPI, PHP, and persistence artifacts after scaffold transforms and before dependency installation. Align generated project manifests, runtime identifiers, development startup sync, and package smoke coverage with the same artifact contracts. — Thanks @imjlk!
+
 ## 0.18.1 — 2026-06-02
 
 ### Patch changes
