@@ -45,15 +45,17 @@ function readJson(repoRoot, relativePath) {
 
 function readRequiredText(repoRoot, relativePath, errors) {
   const filePath = path.join(repoRoot, relativePath);
-  if (!fs.existsSync(filePath)) {
-    errors.push(`${relativePath} must exist.`);
-    return null;
-  }
-
   try {
     return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    errors.push(`${relativePath} must be readable.`);
+  } catch (error) {
+    const errorCode =
+      error && typeof error === 'object' && 'code' in error ? error.code : null;
+    if (errorCode === 'ENOENT') {
+      errors.push(`${relativePath} must exist.`);
+    } else {
+      const detail = typeof errorCode === 'string' ? ` (${errorCode})` : '';
+      errors.push(`${relativePath} must be readable${detail}.`);
+    }
     return null;
   }
 }
