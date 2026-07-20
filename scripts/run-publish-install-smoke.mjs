@@ -648,6 +648,21 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"--yes",
 		"--no-install",
 	]);
+	const adminViewPluginBootstrap = fs.readFileSync(
+		path.join(adminViewDir, "demo-admin-view.php"),
+		"utf8",
+	);
+	for (const expectedHeader of [
+		"Requires at least: 6.7",
+		"Tested up to:      7.0",
+		"Requires PHP:      8.0",
+	]) {
+		if (!adminViewPluginBootstrap.includes(expectedHeader)) {
+			throw new Error(
+				`Generated workspace plugin header is missing ${JSON.stringify(expectedHeader)}.`,
+			);
+		}
+	}
 	runWpTypiaCli(projectDir, cliPath, ["add", "admin-view", "snapshots"], {
 		cwd: adminViewDir,
 	});

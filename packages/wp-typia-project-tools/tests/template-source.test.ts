@@ -2082,35 +2082,49 @@ test("official workspace template scaffolds through the local npm template resol
   expect(workspaceSyncProjectSource).not.toContain("getLocalTsxBinary");
 });
 
-test("official workspace templates accept local path references with migration UI", async () => {
-  const targetDir = path.join(tempRoot, "demo-workspace-template-local-path");
+test.each(["7.0", "6.9"] as const)(
+  "official workspace templates accept local path references with WordPress %s compatibility",
+  async (wpVersion) => {
+    const targetDir = path.join(
+      tempRoot,
+      `demo-workspace-template-local-path-${wpVersion.replace(".", "-")}`
+    );
 
-  await scaffoldProject({
-    projectDir: targetDir,
-    templateId: path.resolve(packageRoot, "..", "create-workspace-template"),
-    packageManager: "npm",
-    noInstall: true,
-    withMigrationUi: true,
-    answers: {
-      author: "Test Runner",
-      description: "Demo empty workspace local path",
-      namespace: "demo-space",
-      phpPrefix: "demo_space",
-      slug: "demo-workspace-template-local-path",
-      textDomain: "demo-space",
-      title: "Demo Workspace Template Local Path",
-    },
-  });
+    await scaffoldProject({
+      projectDir: targetDir,
+      templateId: path.resolve(packageRoot, "..", "create-workspace-template"),
+      packageManager: "npm",
+      noInstall: true,
+      withMigrationUi: true,
+      wpVersion,
+      answers: {
+        author: "Test Runner",
+        description: "Demo empty workspace local path",
+        namespace: "demo-space",
+        phpPrefix: "demo_space",
+        slug: "demo-workspace-template-local-path",
+        textDomain: "demo-space",
+        title: "Demo Workspace Template Local Path",
+      },
+    });
 
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.join(targetDir, "package.json"), "utf8")
-  );
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(targetDir, "package.json"), "utf8")
+    );
+    const pluginBootstrap = fs.readFileSync(
+      path.join(targetDir, "demo-workspace-template-local-path.php"),
+      "utf8"
+    );
 
-  expect(packageJson.wpTypia?.templatePackage).toBe(
-    workspaceTemplatePackageManifest.name
-  );
-  expect(packageJson.scripts["migration:doctor"]).toContain("wp-typia");
-});
+    expect(packageJson.wpTypia?.templatePackage).toBe(
+      workspaceTemplatePackageManifest.name
+    );
+    expect(packageJson.scripts["migration:doctor"]).toContain("wp-typia");
+    expect(pluginBootstrap).toContain("Requires at least: 6.7");
+    expect(pluginBootstrap).toContain(`Tested up to:      ${wpVersion}`);
+    expect(pluginBootstrap).toContain("Requires PHP:      8.0");
+  }
+);
 
 test("workspace-shaped direct wp-typia templates accept local path references with migration UI", async () => {
   const targetDir = path.join(tempRoot, "demo-external-workspace-template-local-path");

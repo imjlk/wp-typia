@@ -191,7 +191,7 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		);
 		expect(blockConfigSource).toContain("defineEndpointManifest");
 		expect(bootstrapSource).toContain("Requires at least: 6.7");
-		expect(bootstrapSource).toContain("Tested up to:      6.9");
+		expect(bootstrapSource).toContain("Tested up to:      7.0");
 		expect(bootstrapSource).toContain(
 			"function demo_space_register_ai_features()",
 		);
