@@ -3,8 +3,9 @@ import {
   createCliCommandError,
 } from '@wp-typia/project-tools/cli-diagnostics';
 import { resolveEntrypointCliCommand } from './cli-command-resolution';
+import { PUBLIC_CLI_OUTPUT_FORMATS } from './command-options/global';
 
-export const PUBLIC_CLI_OUTPUT_FORMATS = ['json', 'text'] as const;
+export { PUBLIC_CLI_OUTPUT_FORMATS } from './command-options/global';
 
 // `toon` was the original internal spelling for human output. Keep accepting it
 // for old automation, but do not advertise it in user-facing supported lists.

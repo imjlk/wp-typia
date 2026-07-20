@@ -340,6 +340,41 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			`Unexpected default-install wp-typia --version output: ${defaultVersionOutput}`,
 		);
 	}
+	const defaultHelpOutput = runWpTypiaCli(
+		defaultCliDir,
+		defaultCliPath,
+		["--help"],
+		{ env: createNodeOnlyEnv() },
+	);
+	if (!defaultHelpOutput.includes("--format <value>")) {
+		throw new Error(
+			`Default-install wp-typia --help did not expose --format: ${defaultHelpOutput}`,
+		);
+	}
+	if (!defaultHelpOutput.includes("Choices: json, text.")) {
+		throw new Error(
+			`Default-install wp-typia --help did not expose public format choices: ${defaultHelpOutput}`,
+		);
+	}
+	if (defaultHelpOutput.includes("--id")) {
+		throw new Error(
+			`Default-install wp-typia --help leaked hidden --id option: ${defaultHelpOutput}`,
+		);
+	}
+	const defaultCreateHelpOutput = runWpTypiaCli(
+		defaultCliDir,
+		defaultCliPath,
+		["create", "--help"],
+		{ env: createNodeOnlyEnv() },
+	);
+	if (
+		!defaultCreateHelpOutput.includes("Global flags:") ||
+		!defaultCreateHelpOutput.includes("Choices: json, text.")
+	) {
+		throw new Error(
+			`Default-install wp-typia create --help did not expose global format guidance: ${defaultCreateHelpOutput}`,
+		);
+	}
 
 	const defaultTemplatesOutput = runWpTypiaCli(
 		defaultCliDir,
