@@ -1,0 +1,15 @@
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        target: 80%
+        informational: true
+        only_pulls: true
+
+comment:
+  layout: 'diff, flags, files'
+  behavior: default
+  require_changes: true
