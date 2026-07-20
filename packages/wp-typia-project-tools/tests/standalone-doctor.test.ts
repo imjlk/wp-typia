@@ -2185,6 +2185,20 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         script: path.join('scripts', 'sync-rest-contracts.ts'),
         statement: '\t\twhile ( true ) {}',
       },
+      {
+        guard: "\t\tif ( argument === '--check' ) {",
+        name: 'sync-project-parser-array-spread',
+        scaffold: scaffoldBasic,
+        script: path.join('scripts', 'sync-project.ts'),
+        statement: '\t\tconst spread = [ ...( options as never[] ) ];',
+      },
+      {
+        guard: "\t\tif ( argument === '--check' ) {",
+        name: 'sync-rest-parser-object-spread',
+        scaffold: scaffoldPersistence,
+        script: path.join('scripts', 'sync-rest-contracts.ts'),
+        statement: '\t\tconst spread = { ...options };',
+      },
     ] as const;
     for (const fixture of cases) {
       const targetDir = path.join(tempRoot, fixture.name);

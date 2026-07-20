@@ -206,6 +206,7 @@ function hasUnsafeStaticExpression(node: ts.Node): boolean {
     ts.isYieldExpression(node) ||
     ts.isDeleteExpression(node) ||
     ts.isSpreadElement(node) ||
+    ts.isSpreadAssignment(node) ||
     ts.isFunctionLike(node) ||
     ts.isClassDeclaration(node) ||
     ts.isClassExpression(node)
@@ -306,6 +307,8 @@ export function hasOnlyCanonicalParserEffects(
       ts.isAwaitExpression(candidate) ||
       ts.isYieldExpression(candidate) ||
       ts.isDeleteExpression(candidate) ||
+      ts.isSpreadElement(candidate) ||
+      ts.isSpreadAssignment(candidate) ||
       ts.isFunctionLike(candidate) ||
       ts.isClassDeclaration(candidate) ||
       ts.isClassExpression(candidate)
