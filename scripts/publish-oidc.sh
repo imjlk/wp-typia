@@ -53,6 +53,7 @@ publish_package() {
   local publish_log
   local publish_args=("--access" "public")
   local manifest_prepared=0
+  local restore_status=0
 
   package_name="$(read_package_field "$package_json" "name")"
   package_version="$(read_package_field "$package_json" "version")"
@@ -84,20 +85,20 @@ publish_package() {
     cd "$package_dir"
     WP_TYPIA_SKIP_POSTPACK_RESTORE=1 npm publish "${publish_args[@]}"
   ) >"$publish_log" 2>&1; then
-    restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script"
+    restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script" || restore_status=$?
     cat "$publish_log"
     rm -f "$publish_log"
-    return
+    return "$restore_status"
   fi
 
-  restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script"
+  restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script" || restore_status=$?
 
   cat "$publish_log"
 
   if grep -q "previously published versions" "$publish_log"; then
     echo "Skipping ${package_name}@${package_version}; version was already published."
     rm -f "$publish_log"
-    return
+    return "$restore_status"
   fi
 
   rm -f "$publish_log"
