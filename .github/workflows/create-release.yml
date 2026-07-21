@@ -115,6 +115,8 @@ jobs:
           complete=true
           expected_asset_count=0
           while read -r _ asset_name; do
+            asset_name="${asset_name#\*}"
+            asset_name="${asset_name%$'\r'}"
             [[ -z "$asset_name" ]] && continue
             ((expected_asset_count += 1))
             if ! grep -Fxq "$asset_name" <<< "$asset_names"; then

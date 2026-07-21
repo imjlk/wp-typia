@@ -475,6 +475,10 @@ describe('repository DX baseline', () => {
       'gh release download "$RELEASE_TAG"',
     );
     expect(createReleaseJob).toContain('--pattern SHA256SUMS');
+    expect(createReleaseJob).toContain('asset_name="${asset_name#\\*}"');
+    expect(createReleaseJob).toContain(
+      "asset_name=\"${asset_name%$'\\r'}\"",
+    );
     expect(createReleaseJob).toContain(
       "if: steps.standalone_assets.outputs.complete != 'true'",
     );
