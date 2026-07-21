@@ -471,6 +471,13 @@ describe('repository DX baseline', () => {
     expect(createReleaseJob).toContain(
       'gh workflow run release-standalone-assets.yml',
     );
+    expect(createReleaseJob).toContain(
+      'gh release download "$RELEASE_TAG"',
+    );
+    expect(createReleaseJob).toContain('--pattern SHA256SUMS');
+    expect(createReleaseJob).toContain(
+      "if: steps.standalone_assets.outputs.complete != 'true'",
+    );
     expect(createReleaseJob).toContain('--ref main');
     expect(createReleaseJob).toContain(
       '--field "release_tag=${RELEASE_TAG}"',
