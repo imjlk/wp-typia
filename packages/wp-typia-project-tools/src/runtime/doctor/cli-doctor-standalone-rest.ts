@@ -15,6 +15,10 @@ import {
   isSafeErrorConstruction,
   unwrapStaticExpression,
 } from './cli-doctor-standalone-control-flow.js';
+import {
+  hasTypeScriptSyntaxErrors,
+  isSafeProjectRelativePath,
+} from './cli-doctor-standalone-shared.js';
 
 import type { EndpointManifestDefinition } from '@wp-typia/block-runtime/metadata-core';
 import type { GeneratedPackageJson } from '../shared/package-json-types.js';
@@ -144,38 +148,6 @@ type StaticExpressionValue =
 type StaticExpressionResult =
   | { ok: true; value: StaticExpressionValue }
   | { ok: false };
-
-function hasTypeScriptSyntaxErrors(source: string, fileName: string): boolean {
-  const result = ts.transpileModule(source, {
-    compilerOptions: { target: ts.ScriptTarget.Latest },
-    fileName,
-    reportDiagnostics: true,
-  });
-  return (result.diagnostics ?? []).some(
-    (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
-  );
-}
-
-function isProjectLocalRelativePath(relativePath: string): boolean {
-  return (
-    relativePath.length > 0 &&
-    !relativePath.startsWith(`..${path.sep}`) &&
-    relativePath !== '..' &&
-    !path.isAbsolute(relativePath)
-  );
-}
-
-function isSafeProjectRelativePath(
-  projectDir: string,
-  filePath: string,
-): boolean {
-  if (path.isAbsolute(filePath)) {
-    return false;
-  }
-  return isProjectLocalRelativePath(
-    path.relative(projectDir, path.resolve(projectDir, filePath)),
-  );
-}
 
 function getStandaloneRestContractArtifactPaths(baseName: string): {
   jsonSchemaFile: string;

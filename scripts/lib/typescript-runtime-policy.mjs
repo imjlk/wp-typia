@@ -33,6 +33,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 			"src/runtime/cli/cli-init-plan.ts",
 			"src/runtime/doctor/cli-doctor-standalone-control-flow.ts",
 			"src/runtime/doctor/cli-doctor-standalone-rest.ts",
+			"src/runtime/doctor/cli-doctor-standalone-shared.ts",
 			"src/runtime/doctor/cli-doctor-standalone.ts",
 			"src/runtime/shared/ts-property-names.ts",
 			"src/runtime/workspace/workspace-inventory-parser-entries.ts",

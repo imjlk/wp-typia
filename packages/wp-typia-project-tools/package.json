@@ -126,7 +126,7 @@
     "postpack": "node ./scripts/publish-manifest.mjs restore",
     "test": "bun run build && bun test tests/*.test.ts",
     "test:quick": "bun run build && bun test tests/workspace-add.test.ts tests/cli-add-workspace-ability.test.ts tests/cli-add-workspace-ai.test.ts tests/workspace-doctor.test.ts tests/scaffold-compound.test.ts",
-    "test:scaffold-core": "bun run build && bun test tests/block-generator-service.test.ts tests/built-in-block-artifacts.test.ts tests/scaffold-basic.test.ts tests/scaffold-persistence.test.ts tests/template-source.test.ts tests/init-command.test.ts tests/package-versions.test.ts tests/cli-entry.test.ts tests/cli-prompt.test.ts tests/import-policy.test.ts tests/wordpress-ai-spec.test.ts tests/typia-llm.test.ts",
+    "test:scaffold-core": "bun run build && bun test tests/block-generator-service.test.ts tests/built-in-block-artifacts.test.ts tests/cli-doctor-boundaries.test.ts tests/cli-doctor-standalone-shared.test.ts tests/scaffold-basic.test.ts tests/scaffold-persistence.test.ts tests/template-source.test.ts tests/init-command.test.ts tests/package-versions.test.ts tests/cli-entry.test.ts tests/cli-prompt.test.ts tests/import-policy.test.ts tests/wordpress-ai-spec.test.ts tests/typia-llm.test.ts",
     "test:workspace": "bun run build && bun test tests/workspace-add.test.ts tests/cli-add-workspace-ability.test.ts tests/cli-add-workspace-ai.test.ts tests/workspace-doctor.test.ts",
     "test:compound": "bun run build && bun test tests/scaffold-compound.test.ts",
     "test:migration-planning": "bun run build && bun test tests/migration-init.test.ts tests/migration-config.test.ts tests/migration-plan-wizard.test.ts",
