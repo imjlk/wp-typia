@@ -22,6 +22,23 @@ read_package_field() {
   node -p "require(process.argv[1])[process.argv[2]]" "$package_json" "$field"
 }
 
+restore_package_state() {
+  local manifest_prepared="$1"
+  local publish_manifest_script="$2"
+  local publish_runtime_maps_script="$3"
+  local restore_status=0
+
+  if [[ "$manifest_prepared" == "1" ]] && ! node "$publish_manifest_script" restore; then
+    restore_status=1
+  fi
+
+  if [[ -f "$publish_runtime_maps_script" ]] && ! node "$publish_runtime_maps_script" restore; then
+    restore_status=1
+  fi
+
+  return "$restore_status"
+}
+
 # npm registry propagation can lag briefly after a successful publish, so reruns
 # should also tolerate the publish endpoint reporting "already published".
 
@@ -32,6 +49,7 @@ publish_package() {
   local package_version
   local package_main
   local publish_manifest_script="$package_dir/scripts/publish-manifest.mjs"
+  local publish_runtime_maps_script="$package_dir/scripts/publish-runtime-maps.mjs"
   local publish_log
   local publish_args=("--access" "public")
   local manifest_prepared=0
@@ -66,17 +84,13 @@ publish_package() {
     cd "$package_dir"
     WP_TYPIA_SKIP_POSTPACK_RESTORE=1 npm publish "${publish_args[@]}"
   ) >"$publish_log" 2>&1; then
-    if [[ "$manifest_prepared" == "1" ]]; then
-      node "$publish_manifest_script" restore
-    fi
+    restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script"
     cat "$publish_log"
     rm -f "$publish_log"
     return
   fi
 
-  if [[ "$manifest_prepared" == "1" ]]; then
-    node "$publish_manifest_script" restore
-  fi
+  restore_package_state "$manifest_prepared" "$publish_manifest_script" "$publish_runtime_maps_script"
 
   cat "$publish_log"
 

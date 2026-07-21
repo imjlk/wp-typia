@@ -8,9 +8,11 @@ const DEFAULT_PACKAGE_ROOT = path.resolve(
 );
 
 function getPublishRuntimeMapPaths(packageRoot) {
-	const backupRoot = path.join(packageRoot, ".pack-backup", "runtime-maps");
+	const backupBaseRoot = path.join(packageRoot, ".pack-backup");
+	const backupRoot = path.join(backupBaseRoot, "runtime-maps");
 
 	return {
+		backupBaseRoot,
 		backupRoot,
 		distRoot: path.join(packageRoot, "dist"),
 		manifestPath: path.join(backupRoot, "manifest.json"),
@@ -70,7 +72,8 @@ export function restorePublishedRuntimeMaps(packageRoot = DEFAULT_PACKAGE_ROOT) 
 		return;
 	}
 
-	const { backupRoot, distRoot, manifestPath } = getPublishRuntimeMapPaths(packageRoot);
+	const { backupBaseRoot, backupRoot, distRoot, manifestPath } =
+		getPublishRuntimeMapPaths(packageRoot);
 	if (!fs.existsSync(manifestPath)) {
 		return;
 	}
@@ -95,6 +98,9 @@ export function restorePublishedRuntimeMaps(packageRoot = DEFAULT_PACKAGE_ROOT) 
 	}
 
 	fs.rmSync(backupRoot, { force: true, recursive: true });
+	if (fs.existsSync(backupBaseRoot) && fs.readdirSync(backupBaseRoot).length === 0) {
+		fs.rmdirSync(backupBaseRoot);
+	}
 }
 
 export function runPublishRuntimeMapsCli({
