@@ -1,5 +1,11 @@
 # @wp-typia/create-workspace-template
 
+## 0.18.3 — 2026-07-21
+
+### Patch changes
+
+- [ee5e9bbf](https://github.com/imjlk/wp-typia/commit/ee5e9bbff4bf87fbc54a8e9c02afe8333c8110eb) Honor the selected WordPress target in generated workspace plugin headers while preserving the shared WordPress and PHP compatibility floors. — Thanks @imjlk!
+
 ## 0.18.2 — 2026-07-20
 
 ### Patch changes

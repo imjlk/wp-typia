@@ -1,5 +1,13 @@
 # wp-typia
 
+## 0.24.15 — 2026-07-21
+
+### Patch changes
+
+- [c502291c](https://github.com/imjlk/wp-typia/commit/c502291cc63e5cbd48c200e5a7c59b995fc53177) Expose the global output format flag in CLI help and document its agent-aware JSON default alongside the human-readable text default for other environments. — Thanks @imjlk!
+- [2d0a2b16](https://github.com/imjlk/wp-typia/commit/2d0a2b1653fe1a9faf61c7440f565cb2824fd91e) Restore runtime source maps and remove temporary pack backups after local publish dry runs finish. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.24.13
+
 ## 0.24.14 — 2026-07-20
 
 ### Patch changes
