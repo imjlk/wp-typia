@@ -50,9 +50,7 @@ describe("publish runtime maps", () => {
 		restorePublishedRuntimeMaps(packageRoot);
 
 		expect(fs.existsSync(mapPath)).toBe(true);
-		expect(
-			fs.existsSync(path.join(packageRoot, ".pack-backup", "runtime-maps")),
-		).toBe(false);
+		expect(fs.existsSync(path.join(packageRoot, ".pack-backup"))).toBe(false);
 	});
 
 	test("restore fails when a backup entry is missing and the destination was not already restored", async () => {
