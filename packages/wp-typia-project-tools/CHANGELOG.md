@@ -1,5 +1,12 @@
 # @wp-typia/project-tools
 
+## 0.24.13 — 2026-07-21
+
+### Patch changes
+
+- [819f7828](https://github.com/imjlk/wp-typia/commit/819f7828efe0a944823180c3c90d5c6d4cdf3696) Centralize workspace mutation snapshots and route hooked-block writes through the shared rollback executor so mutation and rollback failures remain available together. — Thanks @imjlk!
+- [0c8c96bd](https://github.com/imjlk/wp-typia/commit/0c8c96bd55fb267ba39b1b3bee0689b07f313dda) Share standalone doctor syntax and project-path validation across the core and REST checks without changing their diagnostics or execution policy. — Thanks @imjlk!
+
 ## 0.24.12 — 2026-07-20
 
 ### Patch changes
