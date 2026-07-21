@@ -446,6 +446,50 @@ describe('repository DX baseline', () => {
     expect(e2eJob).toContain("needs.build.result == 'success'");
   });
 
+  test('GitHub releases explicitly dispatch standalone asset publishing', () => {
+    const createReleaseWorkflow = fs.readFileSync(
+      path.join(repoRoot, '.github', 'workflows', 'create-release.yml'),
+      'utf8',
+    );
+    const standaloneWorkflow = fs.readFileSync(
+      path.join(
+        repoRoot,
+        '.github',
+        'workflows',
+        'release-standalone-assets.yml',
+      ),
+      'utf8',
+    );
+    const createReleaseJob = getWorkflowJobBlock(
+      createReleaseWorkflow,
+      'create-release',
+    );
+
+    expect(createReleaseWorkflow).toContain(
+      'permissions:\n  actions: write\n  contents: write',
+    );
+    expect(createReleaseJob).toContain(
+      'gh workflow run release-standalone-assets.yml',
+    );
+    expect(createReleaseJob).toContain(
+      'gh release download "$RELEASE_TAG"',
+    );
+    expect(createReleaseJob).toContain('--pattern SHA256SUMS');
+    expect(createReleaseJob).toContain('asset_name="${asset_name#\\*}"');
+    expect(createReleaseJob).toContain(
+      "asset_name=\"${asset_name%$'\\r'}\"",
+    );
+    expect(createReleaseJob).toContain(
+      "if: steps.standalone_assets.outputs.complete != 'true'",
+    );
+    expect(createReleaseJob).toContain('--ref main');
+    expect(createReleaseJob).toContain(
+      '--field "release_tag=${RELEASE_TAG}"',
+    );
+    expect(standaloneWorkflow).toContain('workflow_dispatch:');
+    expect(standaloneWorkflow).toContain('release_tag:');
+  });
+
   test('docs explain lint ownership and ci:local guidance', () => {
     const readme = fs.readFileSync(path.join(repoRoot, 'README.md'), 'utf8');
     const contributing = fs.readFileSync(

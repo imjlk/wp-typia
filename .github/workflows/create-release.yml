@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 env:
@@ -89,3 +90,52 @@ jobs:
             --title "${{ steps.release.outputs.name }}" \
             --notes "$RELEASE_NOTES_PREFIX" \
             --generate-notes
+
+      - name: Check standalone release assets
+        id: standalone_assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          asset_names="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+          if ! grep -Fxq 'SHA256SUMS' <<< "$asset_names"; then
+            echo 'complete=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          checksum_contents="$(
+            gh release download "$RELEASE_TAG" \
+              --pattern SHA256SUMS \
+              --output -
+          )"
+
+          complete=true
+          expected_asset_count=0
+          while read -r _ asset_name; do
+            asset_name="${asset_name#\*}"
+            asset_name="${asset_name%$'\r'}"
+            [[ -z "$asset_name" ]] && continue
+            ((expected_asset_count += 1))
+            if ! grep -Fxq "$asset_name" <<< "$asset_names"; then
+              complete=false
+              break
+            fi
+          done <<< "$checksum_contents"
+
+          if ((expected_asset_count == 0)); then
+            complete=false
+          fi
+          echo "complete=${complete}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch standalone release assets
+        if: steps.standalone_assets.outputs.complete != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh workflow run release-standalone-assets.yml \
+            --ref main \
+            --field "release_tag=${RELEASE_TAG}"

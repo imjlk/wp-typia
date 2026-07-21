@@ -187,9 +187,10 @@ GitHub release automation is split into two workflows:
 2. `.github/workflows/release-pr.yml` updates the `release/sampo` PR from `main`
 3. Review and **Squash and merge** the release PR
 4. `.github/workflows/create-release.yml` creates a GitHub Release automatically from the merged release commit
-5. `.github/workflows/publish.yml` publishes packages with npm OIDC from that GitHub Release event
+5. `.github/workflows/publish.yml` publishes packages with npm OIDC from the merged release commit's `main` push
+6. `.github/workflows/create-release.yml` dispatches `.github/workflows/release-standalone-assets.yml` for the new release tag so standalone archives are attached to the GitHub Release
 
-`workflow_dispatch` remains available as a manual fallback if the publish workflow ever needs to be rerun for the current commit.
+`workflow_dispatch` remains available as a manual fallback if package publishing or standalone asset generation needs to be rerun.
 
 ### First release of a new npm package
 
