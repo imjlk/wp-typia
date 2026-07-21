@@ -2,6 +2,7 @@ import { promises as fsp } from "node:fs";
 import path from "node:path";
 
 import type { HookedBlockPositionId } from "./hooked-blocks.js";
+import { executeWorkspaceMutationPlan } from "./cli-add-workspace-mutation.js";
 import {
 	assertValidHookAnchor,
 	assertValidHookedBlockPosition,
@@ -9,10 +10,7 @@ import {
 	normalizeBlockSlug,
 	readWorkspaceBlockJson,
 	resolveWorkspaceBlock,
-	rollbackWorkspaceMutation,
 	type RunAddHookedBlockCommandOptions,
-	type WorkspaceMutationSnapshot,
-	snapshotWorkspaceFiles,
 } from "./cli-add-shared.js";
 import { readWorkspaceInventoryAsync } from "../workspace/workspace-inventory.js";
 import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
@@ -69,24 +67,22 @@ export async function runAddHookedBlockCommand({
 		);
 	}
 
-	const mutationSnapshot: WorkspaceMutationSnapshot = {
-		fileSources: await snapshotWorkspaceFiles([blockJsonPath]),
-		snapshotDirs: [],
-		targetPaths: [],
-	};
+	return executeWorkspaceMutationPlan({
+		filePaths: [blockJsonPath],
+		run: async () => {
+			blockHooks[resolvedAnchorBlockName] = resolvedPosition;
+			await fsp.writeFile(
+				blockJsonPath,
+				JSON.stringify(blockJson, null, "\t"),
+				"utf8",
+			);
 
-	try {
-		blockHooks[resolvedAnchorBlockName] = resolvedPosition;
-		await fsp.writeFile(blockJsonPath, JSON.stringify(blockJson, null, "\t"), "utf8");
-
-		return {
-			anchorBlockName: resolvedAnchorBlockName,
-			blockSlug,
-			position: resolvedPosition,
-			projectDir: workspace.projectDir,
-		};
-	} catch (error) {
-		await rollbackWorkspaceMutation(mutationSnapshot);
-		throw error;
-	}
+			return {
+				anchorBlockName: resolvedAnchorBlockName,
+				blockSlug,
+				position: resolvedPosition,
+				projectDir: workspace.projectDir,
+			};
+		},
+	});
 }

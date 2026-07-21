@@ -1028,6 +1028,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
     abilityScaffoldSource,
     adminViewScaffoldSource,
     aiScaffoldSource,
+    hookedBlockSource,
     integrationEnvSource,
   ]) {
     expect(scaffoldSource).toContain('executeWorkspaceMutationPlan');

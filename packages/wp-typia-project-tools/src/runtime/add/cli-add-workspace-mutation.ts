@@ -1,15 +1,26 @@
 import {
 	rollbackWorkspaceMutation,
 	snapshotWorkspaceFiles,
+	type WorkspaceMutationSnapshot,
 } from "./cli-add-shared.js";
 
-export interface WorkspaceMutationPlan<TResult> {
+/**
+ * Paths captured before a workspace mutation so its filesystem changes can be rolled back.
+ */
+export interface WorkspaceMutationSnapshotPlan {
 	/** Files to capture before the mutation starts. Missing files are restored as absent. */
 	filePaths: string[];
 	/** Snapshot directories created by the mutation, usually migration fixtures. */
 	snapshotDirs?: string[];
 	/** Created files or directories to remove if the mutation fails. */
 	targetPaths?: string[];
+}
+
+/**
+ * A workspace mutation snapshot plan paired with the operation to execute.
+ */
+export interface WorkspaceMutationPlan<TResult>
+	extends WorkspaceMutationSnapshotPlan {
 	/** Mutating work to execute after the snapshot is captured. */
 	run: () => Promise<TResult>;
 }
@@ -35,22 +46,30 @@ export class WorkspaceMutationRollbackError extends Error {
 }
 
 /**
- * Execute a workspace add mutation with rollback on any failure.
+ * Capture the files and paths needed to roll back a workspace add mutation.
  */
-export async function executeWorkspaceMutationPlan<TResult>({
+export async function createWorkspaceMutationSnapshot({
 	filePaths,
-	run,
 	snapshotDirs = [],
 	targetPaths = [],
-}: WorkspaceMutationPlan<TResult>): Promise<TResult> {
-	const mutationSnapshot = {
+}: WorkspaceMutationSnapshotPlan): Promise<WorkspaceMutationSnapshot> {
+	return {
 		fileSources: await snapshotWorkspaceFiles(filePaths),
 		snapshotDirs: [...snapshotDirs],
 		targetPaths: [...targetPaths],
 	};
+}
+
+/**
+ * Execute a workspace add mutation with rollback on any failure.
+ */
+export async function executeWorkspaceMutationPlan<TResult>(
+	plan: WorkspaceMutationPlan<TResult>,
+): Promise<TResult> {
+	const mutationSnapshot = await createWorkspaceMutationSnapshot(plan);
 
 	try {
-		return await run();
+		return await plan.run();
 	} catch (error) {
 		try {
 			await rollbackWorkspaceMutation(mutationSnapshot);

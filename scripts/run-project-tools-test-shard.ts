@@ -22,6 +22,8 @@ export const PROJECT_TOOLS_TEST_SHARDS = Object.freeze({
     'typia-llm.test.ts',
   ],
   workspace: [
+    'cli-add-workspace-mutation.test.ts',
+    'cli-add-workspace-boundaries.test.ts',
     'workspace-add.test.ts',
     'cli-add-workspace-ability.test.ts',
     'cli-add-workspace-ai.test.ts',
