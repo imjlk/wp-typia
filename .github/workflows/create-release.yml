@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
 
 env:
@@ -89,3 +90,12 @@ jobs:
             --title "${{ steps.release.outputs.name }}" \
             --notes "$RELEASE_NOTES_PREFIX" \
             --generate-notes
+
+      - name: Dispatch standalone release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh workflow run release-standalone-assets.yml \
+            --ref main \
+            --field "release_tag=${RELEASE_TAG}"
