@@ -1,235 +1,207 @@
 import {
-	useEndpointMutation,
-	useEndpointQuery,
-	type UseEndpointMutationOptions,
-	type UseEndpointQueryOptions,
+  useEndpointMutation,
+  useEndpointQuery,
+  type UseEndpointMutationOptions,
+  type UseEndpointQueryOptions,
 } from '@wp-typia/rest/react';
 
 import type {
-	{{pascalCase}}BootstrapQuery,
-	{{pascalCase}}BootstrapResponse,
-	{{pascalCase}}StateQuery,
-	{{pascalCase}}StateResponse,
-	{{pascalCase}}WriteStateRequest,
+  {{pascalCase}}BootstrapQuery,
+  {{pascalCase}}BootstrapResponse,
+  {{pascalCase}}StateQuery,
+  {{pascalCase}}StateResponse,
+  {{pascalCase}}WriteStateRequest,
 } from './api-types';
+import { bootstrapEndpoint, stateEndpoint, writeStateEndpoint } from './api';
 import {
-	bootstrapEndpoint,
-	stateEndpoint,
-	writeStateEndpoint,
-} from './api';
-import {
-	resolveTransportCallOptions,
-	type PersistenceTransportTarget,
+  resolveTransportCallOptions,
+  type PersistenceTransportTarget,
 } from './transport';
 
-interface WriteStateMutationContext< Context > {
-	previous:
-		| {{pascalCase}}StateResponse
-		| undefined;
-	userContext: Context | undefined;
+interface WriteStateMutationContext<Context> {
+  previous: {{pascalCase}}StateResponse | undefined;
+  userContext: Context | undefined;
 }
 
 export interface Use{{pascalCase}}StateQueryOptions<
-	Selected = {{pascalCase}}StateResponse,
+  Selected = {{pascalCase}}StateResponse,
 > extends Omit<
-	UseEndpointQueryOptions<
-		{{pascalCase}}StateQuery,
-		{{pascalCase}}StateResponse,
-		Selected
-	>,
-	'resolveCallOptions'
+  UseEndpointQueryOptions<
+    {{pascalCase}}StateQuery,
+    {{pascalCase}}StateResponse,
+    Selected
+  >,
+  'resolveCallOptions'
 > {
-	restNonce?: string;
-	transportTarget?: PersistenceTransportTarget;
+  restNonce?: string;
+  transportTarget?: PersistenceTransportTarget;
 }
 
 export interface Use{{pascalCase}}BootstrapQueryOptions<
-	Selected = {{pascalCase}}BootstrapResponse,
+  Selected = {{pascalCase}}BootstrapResponse,
 > extends Omit<
-	UseEndpointQueryOptions<
-		{{pascalCase}}BootstrapQuery,
-		{{pascalCase}}BootstrapResponse,
-		Selected
-	>,
-	'resolveCallOptions'
+  UseEndpointQueryOptions<
+    {{pascalCase}}BootstrapQuery,
+    {{pascalCase}}BootstrapResponse,
+    Selected
+  >,
+  'resolveCallOptions'
 > {
-	restNonce?: string;
-	transportTarget?: PersistenceTransportTarget;
+  restNonce?: string;
+  transportTarget?: PersistenceTransportTarget;
 }
 
 export interface UseWrite{{pascalCase}}StateMutationOptions<
-	Context = unknown,
+  Context = unknown,
 > extends Omit<
-	UseEndpointMutationOptions<
-		{{pascalCase}}WriteStateRequest,
-		{{pascalCase}}StateResponse,
-		WriteStateMutationContext< Context >
-	>,
-	'invalidate' | 'onError' | 'onMutate' | 'resolveCallOptions'
+  UseEndpointMutationOptions<
+    {{pascalCase}}WriteStateRequest,
+    {{pascalCase}}StateResponse,
+    WriteStateMutationContext<Context>
+  >,
+  'invalidate' | 'onError' | 'onMutate' | 'resolveCallOptions'
 > {
-	onError?: (
-		error: unknown,
-		request: {{pascalCase}}WriteStateRequest,
-		client: import('@wp-typia/rest/react').EndpointDataClient,
-		context: Context | undefined
-	) => void | Promise<void>;
-	onMutate?: (
-		request: {{pascalCase}}WriteStateRequest,
-		client: import('@wp-typia/rest/react').EndpointDataClient
-	) => Context | Promise<Context>;
-	restNonce?: string;
-	transportTarget?: PersistenceTransportTarget;
+  onError?: (
+    error: unknown,
+    request: {{pascalCase}}WriteStateRequest,
+    client: import('@wp-typia/rest/react').EndpointDataClient,
+    context: Context | undefined,
+  ) => void | Promise<void>;
+  onMutate?: (
+    request: {{pascalCase}}WriteStateRequest,
+    client: import('@wp-typia/rest/react').EndpointDataClient,
+  ) => Context | Promise<Context>;
+  restNonce?: string;
+  transportTarget?: PersistenceTransportTarget;
 }
 
 export function use{{pascalCase}}StateQuery<
-	Selected = {{pascalCase}}StateResponse,
+  Selected = {{pascalCase}}StateResponse,
 >(
-	request: {{pascalCase}}StateQuery,
-	options: Use{{pascalCase}}StateQueryOptions< Selected > = {}
+  request: {{pascalCase}}StateQuery,
+  options: Use{{pascalCase}}StateQueryOptions<Selected> = {},
 ) {
-	const {
-		restNonce,
-		transportTarget = 'editor',
-		...queryOptions
-	} = options;
+  const { restNonce, transportTarget = 'editor', ...queryOptions } = options;
 
-	return useEndpointQuery( stateEndpoint, request, {
-		...queryOptions,
-		resolveCallOptions: () =>
-			resolveTransportCallOptions(
-				transportTarget,
-				'read',
-				stateEndpoint,
-				request,
-				{
-					restNonce,
-					transportTarget,
-				}
-			),
-	} );
+  return useEndpointQuery(stateEndpoint, request, {
+    ...queryOptions,
+    resolveCallOptions: () =>
+      resolveTransportCallOptions(
+        transportTarget,
+        'read',
+        stateEndpoint,
+        request,
+        {
+          restNonce,
+          transportTarget,
+        },
+      ),
+  });
 }
 
 export function use{{pascalCase}}BootstrapQuery<
-	Selected = {{pascalCase}}BootstrapResponse,
+  Selected = {{pascalCase}}BootstrapResponse,
 >(
-	request: {{pascalCase}}BootstrapQuery,
-	options: Use{{pascalCase}}BootstrapQueryOptions< Selected > = {}
+  request: {{pascalCase}}BootstrapQuery,
+  options: Use{{pascalCase}}BootstrapQueryOptions<Selected> = {},
 ) {
-	const {
-		restNonce,
-		transportTarget = 'editor',
-		...queryOptions
-	} = options;
+  const { restNonce, transportTarget = 'editor', ...queryOptions } = options;
 
-	return useEndpointQuery( bootstrapEndpoint, request, {
-		...queryOptions,
-		resolveCallOptions: () =>
-			resolveTransportCallOptions(
-				transportTarget,
-				'read',
-				bootstrapEndpoint,
-				request,
-				{
-					restNonce,
-					transportTarget,
-				}
-			),
-	} );
+  return useEndpointQuery(bootstrapEndpoint, request, {
+    ...queryOptions,
+    resolveCallOptions: () =>
+      resolveTransportCallOptions(
+        transportTarget,
+        'read',
+        bootstrapEndpoint,
+        request,
+        {
+          restNonce,
+          transportTarget,
+        },
+      ),
+  });
 }
 
-export function useWrite{{pascalCase}}StateMutation<
-	Context = unknown,
->(
-	options: UseWrite{{pascalCase}}StateMutationOptions< Context > = {}
+export function useWrite{{pascalCase}}StateMutation<Context = unknown>(
+  options: UseWrite{{pascalCase}}StateMutationOptions<Context> = {},
 ) {
-	const {
-		onError,
-		onMutate,
-		restNonce,
-		transportTarget = 'editor',
-		...mutationOptions
-	} = options;
+  const {
+    onError,
+    onMutate,
+    restNonce,
+    transportTarget = 'editor',
+    ...mutationOptions
+  } = options;
 
-	return useEndpointMutation( writeStateEndpoint, {
-		...mutationOptions,
-		invalidate: ( _data, request ) => ( {
-			endpoint: stateEndpoint,
-			request: {
-				postId: request.postId,
-				resourceKey: request.resourceKey,
-			},
-		} ),
-		onError: async ( error, request, client, context ) => {
-			if ( context?.previous ) {
-				client.setData(
-					stateEndpoint,
-					{
-						postId: request.postId,
-						resourceKey: request.resourceKey,
-					},
-					context.previous
-				);
-			}
+  return useEndpointMutation(writeStateEndpoint, {
+    ...mutationOptions,
+    invalidate: (_data, request) => ({
+      endpoint: stateEndpoint,
+      request: {
+        postId: request.postId,
+        resourceKey: request.resourceKey,
+      },
+    }),
+    onError: async (error, request, client, context) => {
+      if (context?.previous) {
+        client.setData(
+          stateEndpoint,
+          {
+            postId: request.postId,
+            resourceKey: request.resourceKey,
+          },
+          context.previous,
+        );
+      }
 
-			await onError?.( error, request, client, context?.userContext );
-		},
-		onMutate: async ( request, client ) => {
-			const queryRequest = {
-				postId: request.postId,
-				resourceKey: request.resourceKey,
-			} satisfies {{pascalCase}}StateQuery;
-			const previous = client.getData(
-				stateEndpoint,
-				queryRequest
-			);
+      await onError?.(error, request, client, context?.userContext);
+    },
+    onMutate: async (request, client) => {
+      const queryRequest = {
+        postId: request.postId,
+        resourceKey: request.resourceKey,
+      } satisfies {{pascalCase}}StateQuery;
+      const previous = client.getData(stateEndpoint, queryRequest);
 
-			if ( previous !== undefined ) {
-				client.setData(
-					stateEndpoint,
-					queryRequest,
-					( current ) => {
-						if ( ! current ) {
-							return current;
-						}
+      if (previous !== undefined) {
+        client.setData(stateEndpoint, queryRequest, (current) => {
+          if (!current) {
+            return current;
+          }
 
-						return {
-							...current,
-							count: Math.max(
-								0,
-								current.count + ( request.delta ?? 1 )
-							),
-						};
-					}
-				);
-			}
+          return {
+            ...current,
+            count: Math.max(0, current.count + (request.delta ?? 1)),
+          };
+        });
+      }
 
-			let userContext: Context | undefined;
-			try {
-				userContext = onMutate
-					? await onMutate( request, client )
-					: undefined;
-			} catch ( error ) {
-				if ( previous !== undefined ) {
-					client.setData( stateEndpoint, queryRequest, previous );
-				}
-				throw error;
-			}
+      let userContext: Context | undefined;
+      try {
+        userContext = onMutate ? await onMutate(request, client) : undefined;
+      } catch (error) {
+        if (previous !== undefined) {
+          client.setData(stateEndpoint, queryRequest, previous);
+        }
+        throw error;
+      }
 
-			return {
-				previous,
-				userContext,
-			};
-		},
-		resolveCallOptions: ( request ) =>
-			resolveTransportCallOptions(
-				transportTarget,
-				'write',
-				writeStateEndpoint,
-				request,
-				{
-					restNonce,
-					transportTarget,
-				}
-			),
-	} );
+      return {
+        previous,
+        userContext,
+      };
+    },
+    resolveCallOptions: (request) =>
+      resolveTransportCallOptions(
+        transportTarget,
+        'write',
+        writeStateEndpoint,
+        request,
+        {
+          restNonce,
+          transportTarget,
+        },
+      ),
+  });
 }

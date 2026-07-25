@@ -276,7 +276,7 @@ import { ${operationId}Endpoint } from './api-client';
 
 export * from './api-client';
 
-${requestTypeSource}${formatResolveRestNonceSource('compact')}
+${requestTypeSource}${formatResolveRestNonceSource()}
 
 function resolveEndpointRouteOptions(request: ${requestTypeName}) {
 \tconst requestOptions = ${operationId}Endpoint.buildRequestOptions?.(request) ?? {};

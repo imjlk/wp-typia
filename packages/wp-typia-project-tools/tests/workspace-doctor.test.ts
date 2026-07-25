@@ -1547,8 +1547,8 @@ test('workspace inventory section descriptors support optional interface and con
     'utf8',
   );
 
-  expect(barrelSource).toContain('from "./workspace-inventory-parser.js"');
-  expect(barrelSource).toContain('from "./workspace-inventory-mutations.js"');
+  expect(barrelSource).toContain("from './workspace-inventory-parser.js'");
+  expect(barrelSource).toContain("from './workspace-inventory-mutations.js'");
   expect(templatesSource).toContain('export const VARIATIONS_INTERFACE_SECTION');
   expect(sectionDescriptorSource).toContain(
     'export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[]',
@@ -1558,10 +1558,10 @@ test('workspace inventory section descriptors support optional interface and con
   expect(parserValidationSource).toContain('parse?: {');
   expect(parserValidationSource).toContain('value?: {');
   expect(parserSource).toContain(
-    'from "./workspace-inventory-section-descriptors.js"',
+    "from './workspace-inventory-section-descriptors.js'",
   );
   expect(parserSource).toMatch(
-    /export\s*\{\s*BLOCK_INVENTORY_SECTION,\s*INVENTORY_SECTIONS,\s*\}\s*from\s+"\.\/workspace-inventory-section-descriptors\.js";/u,
+    /export\s*\{\s*BLOCK_INVENTORY_SECTION,\s*INVENTORY_SECTIONS,\s*\}\s*from\s*'\.\/workspace-inventory-section-descriptors\.js';/u,
   );
   expect(parserEntriesSource).toContain('export function parseInventorySection');
   expect(parserValidationSource).toContain(
@@ -1572,7 +1572,7 @@ test('workspace inventory section descriptors support optional interface and con
   );
   expect(parserSource).toContain('parseInventorySection(sourceFile, section)');
   expect(mutationsSource).toContain(
-    'from "./workspace-inventory-section-descriptors.js"',
+    "from './workspace-inventory-section-descriptors.js'",
   );
   expect(parserSource).not.toContain('function parseVariationEntries');
   expect(parserSource).not.toContain('function parseRestResourceEntries');
@@ -2122,8 +2122,8 @@ export interface WorkspaceAiFeatureConfig {
   expect(
     repairedSource.match(/\brequiredFeatureIds:\s*string\[\];/gu)?.length,
   ).toBe(2);
-  expect(repairedSource).toContain('\t};\n  configFile: string;');
-  expect(repairedSource).toContain('\t};\n  dataFile: string;');
+  expect(repairedSource).toContain('  };\n  configFile: string;');
+  expect(repairedSource).toContain('  };\n  dataFile: string;');
 });
 
 test('doctor passes on a healthy multi-block workspace', async () => {
@@ -2669,7 +2669,7 @@ test('doctor fails when workspace inventory exports use non-array initializers',
   fs.writeFileSync(
     blockConfigPath,
     blockConfigSource.replace(
-      'export const VARIATIONS: WorkspaceVariationConfig[] = [\n\t// wp-typia add variation entries\n];',
+      /export const VARIATIONS: WorkspaceVariationConfig\[\] = \[\r?\n[ \t]*\/\/ wp-typia add variation entries\r?\n\];/u,
       'export const VARIATIONS: WorkspaceVariationConfig[] = {} as never;',
     ),
     'utf8',

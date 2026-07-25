@@ -6,6 +6,7 @@ import {
 import {
 	toSnakeCase,
 } from '../shared/string-case.js';
+import { quoteTypeScriptString } from '../shared/ts-string-literals.js';
 import {
   ADD_BLOCK_TEMPLATE_IDS,
   type AddBlockTemplateId,
@@ -583,7 +584,7 @@ export function isAddBlockTemplateId(value: string): value is AddBlockTemplateId
  * @returns JSON-escaped TypeScript string literal.
  */
 export function quoteTsString(value: string): string {
-  return JSON.stringify(value);
+  return quoteTypeScriptString(value);
 }
 
 /**

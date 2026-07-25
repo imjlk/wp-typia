@@ -1,31 +1,31 @@
 import { tags } from 'typia';
 
 export interface {{pascalCase}}StateQuery {
-	postId: number & tags.Type< 'uint32' >;
-	resourceKey: string & tags.MinLength< 1 > & tags.MaxLength< 100 >;
+  postId: number & tags.Type<'uint32'>;
+  resourceKey: string & tags.MinLength<1> & tags.MaxLength<100>;
 }
 
 export interface {{pascalCase}}BootstrapQuery {
-	postId: number & tags.Type< 'uint32' >;
-	resourceKey: string & tags.MinLength< 1 > & tags.MaxLength< 100 >;
+  postId: number & tags.Type<'uint32'>;
+  resourceKey: string & tags.MinLength<1> & tags.MaxLength<100>;
 }
 
 export interface {{pascalCase}}WriteStateRequest {
-	postId: number & tags.Type< 'uint32' >;
-	{{publicWriteRequestIdDeclaration}}
-	publicWriteToken?: string & tags.MinLength< 1 > & tags.MaxLength< 512 >;
-	resourceKey: string & tags.MinLength< 1 > & tags.MaxLength< 100 >;
-	delta?: number & tags.Minimum< 1 > & tags.Type< 'uint32' > & tags.Default< 1 >;
+  postId: number & tags.Type<'uint32'>;
+  {{publicWriteRequestIdDeclaration}}
+  publicWriteToken?: string & tags.MinLength<1> & tags.MaxLength<512>;
+  resourceKey: string & tags.MinLength<1> & tags.MaxLength<100>;
+  delta?: number & tags.Minimum<1> & tags.Type<'uint32'> & tags.Default<1>;
 }
 
 export interface {{pascalCase}}BootstrapResponse {
-	canWrite: boolean;
-	{{bootstrapCredentialDeclarations}}
+  canWrite: boolean;
+  {{bootstrapCredentialDeclarations}}
 }
 
 export interface {{pascalCase}}StateResponse {
-	postId: number & tags.Type< 'uint32' >;
-	resourceKey: string & tags.MinLength< 1 > & tags.MaxLength< 100 >;
-	count: number & tags.Minimum< 0 > & tags.Type< 'uint32' >;
-	storage: ( 'post-meta' | 'custom-table' );
+  postId: number & tags.Type<'uint32'>;
+  resourceKey: string & tags.MinLength<1> & tags.MaxLength<100>;
+  count: number & tags.Minimum<0> & tags.Type<'uint32'>;
+  storage: 'post-meta' | 'custom-table';
 }

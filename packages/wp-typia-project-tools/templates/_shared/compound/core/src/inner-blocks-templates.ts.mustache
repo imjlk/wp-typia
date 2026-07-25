@@ -2,12 +2,16 @@
 
 export type WpTypiaInnerBlocksTemplateAttributes = Record<string, unknown>;
 export type WpTypiaInnerBlocksTemplateItem = [
-	blockName: string,
-	attributes?: WpTypiaInnerBlocksTemplateAttributes,
-	innerBlocks?: WpTypiaInnerBlocksTemplate,
+  blockName: string,
+  attributes?: WpTypiaInnerBlocksTemplateAttributes,
+  innerBlocks?: WpTypiaInnerBlocksTemplate,
 ];
 export type WpTypiaInnerBlocksTemplate = WpTypiaInnerBlocksTemplateItem[];
 
-export const INNER_BLOCKS_TEMPLATES = {} satisfies Record<string, WpTypiaInnerBlocksTemplate>;
+export const INNER_BLOCKS_TEMPLATES = {} satisfies Record<
+  string,
+  WpTypiaInnerBlocksTemplate
+>;
 
-export type WpTypiaInnerBlocksTemplateName = keyof typeof INNER_BLOCKS_TEMPLATES;
+export type WpTypiaInnerBlocksTemplateName =
+  keyof typeof INNER_BLOCKS_TEMPLATES;

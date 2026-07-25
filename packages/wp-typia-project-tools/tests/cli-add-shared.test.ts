@@ -29,8 +29,10 @@ import {
   resolvePostMetaKey,
   resolveManualRestContractPathPattern,
   resolveRestResourceNamespace,
+  quoteTsString,
 } from '../src/runtime/cli-add-validation.js';
 import type { WorkspaceInventory } from '../src/runtime/workspace-inventory.js';
+import { renderTypeScriptValue } from '../src/runtime/shared/ts-string-literals.js';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-add-shared-'));
@@ -81,13 +83,13 @@ function createEmptyInventory(
 test('shared add runtime keeps compatibility exports around focused modules', () => {
   const sharedSource = readRuntimeSource('cli-add-shared.ts');
 
-  expect(sharedSource).toContain('export * from "./cli-add-types.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-validation.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-filesystem.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-block-json.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-collision.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-help.js";');
-  expect(sharedSource).toContain('from "../templates/scaffold-identifiers.js"');
+  expect(sharedSource).toContain(`export * from './cli-add-types.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-validation.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-filesystem.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-block-json.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-collision.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-help.js';`);
+  expect(sharedSource).toContain(`from '../templates/scaffold-identifiers.js'`);
   expect(sharedSource).not.toContain(
     'export interface RunAddBlockCommandOptions',
   );
@@ -118,9 +120,9 @@ test('focused add runtime modules own their helper categories', () => {
 
   expect(addKindIdsSource).toContain('export const ADD_KIND_IDS');
   expect(typesSource).toContain('export interface RunAddBlockCommandOptions');
-  expect(typesSource).toContain('from "./cli-add-kind-ids.js"');
+  expect(typesSource).toContain(`from './cli-add-kind-ids.js'`);
   expect(typesSource).toContain(
-    'export type { AddKindId } from "./cli-add-kind-ids.js";',
+    `export type { AddKindId } from './cli-add-kind-ids.js';`,
   );
   expect(typesSource).not.toContain('export const ADD_KIND_IDS = [');
   expect(validationSource).toContain('export function assertValidGeneratedSlug');
@@ -157,7 +159,7 @@ test('focused add runtime modules own their helper categories', () => {
     'export function assertEditorPluginDoesNotExist',
   );
   expect(helpSource).toContain('export function formatAddHelpText');
-  expect(helpSource).toContain('REST_RESOURCE_METHOD_IDS.join(",")');
+  expect(helpSource).toContain(`REST_RESOURCE_METHOD_IDS.join(',')`);
 });
 
 // Filesystem mutation helpers and add help rendering stay covered by their
@@ -307,6 +309,37 @@ test('focused validation helpers accept TypeScript identifiers and reject malfor
       `Contract type must not be a reserved TypeScript keyword, such as ${reservedName}.`,
     );
   }
+});
+
+test('TypeScript string quoting follows the generated single-quote policy', () => {
+  expect(quoteTsString('plain "double" quotes')).toBe(
+    `'plain "double" quotes'`,
+  );
+  expect(
+    quoteTsString("apostrophe ' slash \\\nline\t\u2028"),
+  ).toBe(`'apostrophe \\' slash \\\\\\nline\\t\\u2028'`);
+  expect(quoteTsString('\u0000\u0001')).toBe(`'\\u0000\\u0001'`);
+});
+
+test('TypeScript value rendering preserves JSON data with formatter-safe literals', () => {
+  expect(
+    renderTypeScriptValue({
+      enabled: true,
+      labels: ['plain', "apostrophe's"],
+      'non-identifier': {
+        count: 2,
+      },
+    }),
+  ).toBe(`{
+  enabled: true,
+  labels: ['plain', 'apostrophe\\'s'],
+  'non-identifier': {
+    count: 2,
+  },
+}`);
+  expect(() => renderTypeScriptValue(Number.NaN)).toThrow(
+    'TypeScript value rendering requires finite numbers.',
+  );
 });
 
 test('shared add collision helper allows missing filesystem paths and inventory entries', () => {

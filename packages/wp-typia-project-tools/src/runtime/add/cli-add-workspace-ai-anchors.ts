@@ -9,6 +9,13 @@ import {
 } from './cli-add-workspace-mutation.js';
 import { readJsonFile } from '../shared/json-utils.js';
 import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  detectSourceLineEnding,
+  findExecutablePatternMatch,
+  findUncommentedPatternMatch,
+  hasExecutablePattern,
+  hasUncommentedPattern,
+} from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 const AI_FEATURE_SERVER_GLOB = '/inc/ai-features/*.php';
@@ -132,19 +139,31 @@ export async function ensureAiFeatureSyncProjectAnchors(
   );
 
   await patchFile(syncProjectScriptPath, (source) => {
-		let nextSource = source;
-		const syncRestConst = "const syncRestScriptPath = path.join( 'scripts', 'sync-rest-contracts.ts' );";
-		const syncAiConst = "const syncAiScriptPath = path.join( 'scripts', 'sync-ai-features.ts' );";
-		const syncRestBlockPattern =
-			/if \( fs\.existsSync\( path\.resolve\( process\.cwd\(\), syncRestScriptPath \) \) \) \{\n\s*runSyncScript\( syncRestScriptPath, options \);\n\s*\}/u;
-		const syncAiBlock = [
-			'if ( fs.existsSync( path.resolve( process.cwd(), syncAiScriptPath ) ) ) {',
-			'\trunSyncScript( syncAiScriptPath, options );',
-			'}',
-		].join('\n');
+    let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
+    const syncRestConstPattern =
+      /^([ \t]*)const\s+syncRestScriptPath\s*=\s*path\.join\(\s*(['"])scripts\2\s*,\s*(['"])sync-rest-contracts\.ts\3\s*\);/mu;
+    const syncAiConstPattern =
+      /const\s+syncAiScriptPath\s*=\s*path\.join\(\s*(['"])scripts\1\s*,\s*(['"])sync-ai-features\.ts\2\s*\);/u;
+    const syncRestBlockPattern =
+      /^([ \t]*)if\s*\(\s*fs\.existsSync\(\s*path\.resolve\(\s*process\.cwd\(\)\s*,\s*syncRestScriptPath\s*\)\s*\)\s*\)\s*\{\r?\n([ \t]*)runSyncScript\(\s*syncRestScriptPath\s*,\s*options\s*\);\r?\n[ \t]*\}/mu;
+    const syncAiCallPattern =
+      /runSyncScript\(\s*syncAiScriptPath\s*,\s*options\s*\);/u;
+    const buildSyncAiBlock = (
+      indentation: string,
+      bodyIndentation: string,
+    ): string =>
+      [
+        `${indentation}if (fs.existsSync(path.resolve(process.cwd(), syncAiScriptPath))) {`,
+        `${bodyIndentation}runSyncScript(syncAiScriptPath, options);`,
+        `${indentation}}`,
+      ].join(lineEnding);
 
-		if (!nextSource.includes(syncAiConst)) {
-			if (!nextSource.includes(syncRestConst)) {
+    if (!hasUncommentedPattern(nextSource, syncAiConstPattern)) {
+      const syncRestConstRange = findUncommentedPatternMatch(nextSource, [
+        syncRestConstPattern,
+      ]);
+      if (!syncRestConstRange) {
 				throw new Error(
 					[
 						`ensureAiFeatureSyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
@@ -153,14 +172,29 @@ export async function ensureAiFeatureSyncProjectAnchors(
 					].join(' '),
 				);
 			}
-			nextSource = nextSource.replace(
-				syncRestConst,
-				`${syncRestConst}\n${syncAiConst}`,
-			);
-		}
+      const syncRestConstSource = nextSource.slice(
+        syncRestConstRange.start,
+        syncRestConstRange.end,
+      );
+      const syncRestConstMatch = syncRestConstPattern.exec(syncRestConstSource);
+      const indentation = syncRestConstMatch?.[1] ?? '';
+      const directoryQuote = syncRestConstMatch?.[2] ?? "'";
+      const fileQuote = syncRestConstMatch?.[3] ?? directoryQuote;
+      const syncAiConst =
+        `const syncAiScriptPath = path.join(` +
+        `${directoryQuote}scripts${directoryQuote}, ` +
+        `${fileQuote}sync-ai-features.ts${fileQuote});`;
+      nextSource =
+        `${nextSource.slice(0, syncRestConstRange.end)}${lineEnding}` +
+        `${indentation}${syncAiConst}` +
+        nextSource.slice(syncRestConstRange.end);
+    }
 
-		if (!nextSource.includes('runSyncScript( syncAiScriptPath, options );')) {
-			if (!syncRestBlockPattern.test(nextSource)) {
+    if (!hasExecutablePattern(nextSource, syncAiCallPattern)) {
+      const syncRestBlockRange = findExecutablePatternMatch(nextSource, [
+        syncRestBlockPattern,
+      ]);
+      if (!syncRestBlockRange) {
 				throw new Error(
 					[
 						`ensureAiFeatureSyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
@@ -169,13 +203,22 @@ export async function ensureAiFeatureSyncProjectAnchors(
 					].join(' '),
 				);
 			}
+      const syncRestBlockSource = nextSource.slice(
+        syncRestBlockRange.start,
+        syncRestBlockRange.end,
+      );
+      const syncRestBlockMatch = syncRestBlockPattern.exec(syncRestBlockSource);
+      const indentation = syncRestBlockMatch?.[1] ?? '';
+      const bodyIndentation =
+        syncRestBlockMatch?.[2] ?? `${indentation}  `;
+      nextSource =
+        nextSource.slice(0, syncRestBlockRange.end) +
+        lineEnding +
+        lineEnding +
+        buildSyncAiBlock(indentation, bodyIndentation) +
+        nextSource.slice(syncRestBlockRange.end);
+    }
 
-			nextSource = nextSource.replace(
-				syncRestBlockPattern,
-				(match) => `${match}\n\n${syncAiBlock}`,
-			);
-		}
-
-		return nextSource;
-	});
+    return nextSource;
+  });
 }

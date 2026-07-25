@@ -1,32 +1,47 @@
 import typia from 'typia';
 
 import {
-	toValidationResult,
-	type ValidationResult,
+  toValidationResult,
+  type ValidationResult,
 } from '@wp-typia/api-client';
 import type {
-	{{pascalCase}}StateQuery,
-	{{pascalCase}}StateResponse,
-	{{pascalCase}}WriteStateRequest,
+  {{pascalCase}}BootstrapQuery,
+  {{pascalCase}}BootstrapResponse,
+  {{pascalCase}}StateQuery,
+  {{pascalCase}}StateResponse,
+  {{pascalCase}}WriteStateRequest,
 } from './api-types';
 
-const validateStateQuery = typia.createValidate< {{pascalCase}}StateQuery >();
+const validateBootstrapQuery =
+  typia.createValidate<{{pascalCase}}BootstrapQuery>();
+const validateBootstrapResponse =
+  typia.createValidate<{{pascalCase}}BootstrapResponse>();
+const validateStateQuery =
+  typia.createValidate<{{pascalCase}}StateQuery>();
 const validateWriteStateRequest =
-	typia.createValidate< {{pascalCase}}WriteStateRequest >();
+  typia.createValidate<{{pascalCase}}WriteStateRequest>();
 const validateStateResponse =
-	typia.createValidate< {{pascalCase}}StateResponse >();
+  typia.createValidate<{{pascalCase}}StateResponse>();
 
 export const apiValidators = {
-	stateQuery: (
-		input: unknown
-	): ValidationResult< {{pascalCase}}StateQuery > =>
-		toValidationResult( validateStateQuery( input ) ),
-	stateResponse: (
-		input: unknown
-	): ValidationResult< {{pascalCase}}StateResponse > =>
-		toValidationResult( validateStateResponse( input ) ),
-	writeStateRequest: (
-		input: unknown
-	): ValidationResult< {{pascalCase}}WriteStateRequest > =>
-		toValidationResult( validateWriteStateRequest( input ) ),
+  bootstrapQuery: (
+    input: unknown,
+  ): ValidationResult<{{pascalCase}}BootstrapQuery> =>
+    toValidationResult(validateBootstrapQuery(input)),
+  bootstrapResponse: (
+    input: unknown,
+  ): ValidationResult<{{pascalCase}}BootstrapResponse> =>
+    toValidationResult(validateBootstrapResponse(input)),
+  stateQuery: (
+    input: unknown,
+  ): ValidationResult<{{pascalCase}}StateQuery> =>
+    toValidationResult(validateStateQuery(input)),
+  stateResponse: (
+    input: unknown,
+  ): ValidationResult<{{pascalCase}}StateResponse> =>
+    toValidationResult(validateStateResponse(input)),
+  writeStateRequest: (
+    input: unknown,
+  ): ValidationResult<{{pascalCase}}WriteStateRequest> =>
+    toValidationResult(validateWriteStateRequest(input)),
 };

@@ -3,19 +3,27 @@ import path from 'node:path';
 import { patchFile } from './cli-add-shared.js';
 import {
   buildNoResourcesGuard,
+  FINAL_SYNC_SUMMARY_PATTERN,
   replaceBlockConfigImport,
   replaceNoResourcesGuard,
 } from './cli-add-workspace-rest-sync-script-shared.js';
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
+type SourceMatcher = string | RegExp;
+
+function matchesSource(source: string, matcher: SourceMatcher): boolean {
+  return typeof matcher === 'string'
+    ? source.includes(matcher)
+    : matcher.test(source);
+}
+
 function assertSyncRestAnchor(
-	nextSource: string,
-	target: string,
 	anchorDescription: string,
 	hasAnchor: boolean,
 	syncRestScriptPath: string,
 ): void {
-  if (!nextSource.includes(target) && !hasAnchor) {
+  if (!hasAnchor) {
     throw new Error(
 			[
 				`ensureRestResourceSyncScriptAnchors could not patch ${path.basename(syncRestScriptPath)}.`,
@@ -28,27 +36,18 @@ function assertSyncRestAnchor(
 
 function replaceRequiredSyncRestSource(
 	nextSource: string,
-	target: string,
-	anchor: string | RegExp,
+	target: SourceMatcher,
+	anchor: SourceMatcher,
 	replacement: string,
 	anchorDescription: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes(target)) {
+  if (matchesSource(nextSource, target)) {
     return nextSource;
   }
 
-  const hasAnchor =
-		typeof anchor === 'string'
-      ? nextSource.includes(anchor)
-      : anchor.test(nextSource);
-  assertSyncRestAnchor(
-    nextSource,
-    target,
-    anchorDescription,
-    hasAnchor,
-    syncRestScriptPath,
-  );
+  const hasAnchor = matchesSource(nextSource, anchor);
+  assertSyncRestAnchor(anchorDescription, hasAnchor, syncRestScriptPath);
 
   return nextSource.replace(anchor, replacement);
 }
@@ -57,19 +56,23 @@ function insertRestResourceNoResourcesGuard(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  const hasStandaloneContracts = nextSource.includes(
-    'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
-  );
-  const hasAiFeatures = nextSource.includes(
-    'const aiFeatures = AI_FEATURES.filter( isWorkspaceAiFeature );',
-  );
-  const hasPostMeta = nextSource.includes(
-    'const postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );',
-  );
+  const hasStandaloneContracts =
+    /const\s+standaloneContracts\s*=\s*CONTRACTS\.filter\(\s*isWorkspaceStandaloneContract\s*,?\s*\);/u.test(
+      nextSource,
+    );
+  const hasAiFeatures =
+    /const\s+aiFeatures\s*=\s*AI_FEATURES\.filter\(\s*isWorkspaceAiFeature\s*\);/u.test(
+      nextSource,
+    );
+  const hasPostMeta =
+    /const\s+postMetaContracts\s*=\s*POST_META\.filter\(\s*isWorkspacePostMetaContract\s*\);/u.test(
+      nextSource,
+    );
 
   return replaceNoResourcesGuard(
     nextSource,
     buildNoResourcesGuard({
+      lineEnding: detectSourceLineEnding(nextSource),
       subjects: [
         {
           condition: 'restBlocks.length === 0',
@@ -121,6 +124,7 @@ export async function ensureRestResourceSyncScriptAnchors(
   );
 
   await patchFile(syncRestScriptPath, (source) => {
+    const lineEnding = detectSourceLineEnding(source);
 		let nextSource = replaceBlockConfigImport({
 			functionName: 'ensureRestResourceSyncScriptAnchors',
 			nextSource: source,
@@ -131,12 +135,12 @@ export async function ensureRestResourceSyncScriptAnchors(
 			syncRestScriptPath,
 		});
 		const helperInsertionAnchor = 'async function assertTypeArtifactsCurrent';
-		const restBlocksAnchor = 'const restBlocks = BLOCKS.filter( isRestEnabledBlock );';
-		const consoleLogPattern = /\n\tconsole\.log\(\n\t\toptions\.check/u;
+		const restBlocksAnchor =
+      /^([ \t]*)const\s+restBlocks\s*=\s*BLOCKS\.filter\(\s*isRestEnabledBlock\s*\);/mu;
 
 		nextSource = replaceRequiredSyncRestSource(
 			nextSource,
-			'function isWorkspaceRestResource(',
+			/function\s+isWorkspaceRestResource\s*\(/u,
 			helperInsertionAnchor,
 			[
 				'function isWorkspaceRestResource(',
@@ -159,19 +163,19 @@ export async function ensureRestResourceSyncScriptAnchors(
 				'}',
 				'',
 				'async function assertTypeArtifactsCurrent',
-			].join('\n'),
+			].join(lineEnding),
 			'type artifact assertion helper',
 			syncRestScriptPath,
 		);
 
 		nextSource = replaceRequiredSyncRestSource(
 			nextSource,
-			'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
+			/const\s+restResources\s*=\s*REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*\);/u,
 			restBlocksAnchor,
 			[
-				'const restBlocks = BLOCKS.filter( isRestEnabledBlock );',
-				'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
-			].join('\n'),
+				'$1const restBlocks = BLOCKS.filter(isRestEnabledBlock);',
+				'$1const restResources = REST_RESOURCES.filter(isWorkspaceRestResource);',
+			].join(lineEnding),
 			'restBlocks filter',
 			syncRestScriptPath,
 		);
@@ -183,8 +187,8 @@ export async function ensureRestResourceSyncScriptAnchors(
 
 		nextSource = replaceRequiredSyncRestSource(
 			nextSource,
-			'for ( const resource of restResources ) {',
-			consoleLogPattern,
+			/for\s*\(\s*const\s+resource\s+of\s+restResources\s*\)\s*\{/u,
+			FINAL_SYNC_SUMMARY_PATTERN,
 			[
 				'',
 				'\tfor ( const resource of restResources ) {',
@@ -238,7 +242,7 @@ export async function ensureRestResourceSyncScriptAnchors(
 				'',
 				'\tconsole.log(',
 				'\t\toptions.check',
-			].join('\n'),
+			].join(lineEnding),
 			'success log insertion point',
 			syncRestScriptPath,
 		);

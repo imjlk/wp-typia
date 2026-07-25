@@ -33,21 +33,24 @@ interface TypeAliasDefinition {
 }
 
 const STANDARD_PREAMBLE_LINES = [
-  'import type { TextAlignment } from "@wp-typia/block-types/block-editor/alignment";',
+  "import type { TextAlignment } from '@wp-typia/block-types/block-editor/alignment';",
   'import type {',
-  '\tTypiaValidationError,',
-  '\tValidationResult,',
-  '} from "@wp-typia/block-runtime/validation";',
-  'import type { tags } from "@wp-typia/block-runtime/typia-tags";',
+  '  TypiaValidationError,',
+  '  ValidationResult,',
+  "} from '@wp-typia/block-runtime/validation';",
+  "import type { tags } from '@wp-typia/block-runtime/typia-tags';",
   '',
-  'export type { TypiaValidationError, ValidationResult } from "@wp-typia/block-runtime/validation";',
+  'export type {',
+  '  TypiaValidationError,',
+  '  ValidationResult,',
+  "} from '@wp-typia/block-runtime/validation';",
 ] as const satisfies readonly string[];
 
 const VALIDATION_ONLY_PREAMBLE_LINES = [
-  'import type { ValidationResult } from "@wp-typia/block-runtime/validation";',
-  'import type { tags } from "@wp-typia/block-runtime/typia-tags";',
+  "import type { ValidationResult } from '@wp-typia/block-runtime/validation';",
+  "import type { tags } from '@wp-typia/block-runtime/typia-tags';",
   '',
-  'export type { ValidationResult } from "@wp-typia/block-runtime/validation";',
+  "export type { ValidationResult } from '@wp-typia/block-runtime/validation';",
 ] as const satisfies readonly string[];
 
 function emitDocComment(
@@ -74,9 +77,9 @@ function emitInterface(definition: InterfaceDefinition): string[] {
   ];
 
   for (const member of definition.members) {
-    lines.push(...emitDocComment(member.description, '\t'));
+    lines.push(...emitDocComment(member.description, '  '));
     lines.push(
-      `\t${member.name}${member.optional ? '?' : ''}: ${member.typeExpression};`,
+      `  ${member.name}${member.optional ? '?' : ''}: ${member.typeExpression};`,
     );
   }
 
@@ -182,7 +185,7 @@ export function buildInteractivityTypesSource(
           { name: 'isVisible', typeExpression: 'boolean' },
           {
             name: 'animation',
-            typeExpression: '"none" | "bounce" | "pulse" | "shake" | "flip"',
+            typeExpression: "'none' | 'bounce' | 'pulse' | 'shake' | 'flip'",
           },
           { name: 'maxClicks', typeExpression: 'number' },
         ],
@@ -243,13 +246,13 @@ export function buildPersistenceTypesSource(
           { name: 'isSaving', typeExpression: 'boolean' },
           {
             name: 'persistencePolicy',
-            typeExpression: '"authenticated" | "public"',
+            typeExpression: "'authenticated' | 'public'",
           },
           { name: 'postId', typeExpression: 'number' },
           { name: 'resourceKey', typeExpression: 'string' },
           {
             name: 'storage',
-            typeExpression: '"post-meta" | "custom-table"',
+            typeExpression: "'post-meta' | 'custom-table'",
           },
           { name: 'isVisible', typeExpression: 'boolean' },
           {
@@ -323,14 +326,14 @@ export function buildCompoundTypesSource(
 								{ name: 'isSaving', typeExpression: 'boolean' },
 								{
 									name: 'persistencePolicy',
-									typeExpression: '"authenticated" | "public"',
+									typeExpression: "'authenticated' | 'public'",
 								},
 								{ name: 'postId', typeExpression: 'number' },
 								{ name: 'resourceKey', typeExpression: 'string' },
 								{ name: 'showCount', typeExpression: 'boolean' },
 								{
 									name: 'storage',
-									typeExpression: '"post-meta" | "custom-table"',
+									typeExpression: "'post-meta' | 'custom-table'",
 								},
 								{
 									name: 'client',

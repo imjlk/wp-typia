@@ -232,19 +232,19 @@ function demo_space_enqueue_workflow_abilities() {
 			(entry) => entry.slug === 'review-workflow',
 		);
 
-		expect(blockConfigSource).toContain('slug: "review-workflow"');
+		expect(blockConfigSource).toContain("slug: 'review-workflow'");
 		expect(blockConfigSource).toContain(
-			'configFile: "src/abilities/review-workflow/ability.config.json"',
+			"configFile: 'src/abilities/review-workflow/ability.config.json'",
 		);
 		expect(blockConfigSource).toContain(
-			'inputTypeName: "ReviewWorkflowAbilityInput"',
+			"inputTypeName: 'ReviewWorkflowAbilityInput'",
 		);
 		expect(blockConfigSource).toContain(
-			'outputTypeName: "ReviewWorkflowAbilityOutput"',
+			"outputTypeName: 'ReviewWorkflowAbilityOutput'",
 		);
-		expect(blockConfigSource).toContain('"mode": "required"');
-		expect(blockConfigSource).toContain('"hardMinimums": {');
-		expect(blockConfigSource).toContain('"wordpress": "7.0"');
+		expect(blockConfigSource).toContain("mode: 'required'");
+		expect(blockConfigSource).toContain('hardMinimums: {');
+		expect(blockConfigSource).toContain("wordpress: '7.0'");
 		expect(blockConfigSource).toContain('WordPress Abilities API');
 		expect(blockConfigSource).toContain('@wordpress/core-abilities');
 		expect(bootstrapSource).toContain('Requires at least: 7.0');
@@ -268,7 +268,7 @@ function demo_space_enqueue_workflow_abilities() {
 		);
 		expect(syncProjectSource).toContain('const syncAbilitiesScriptPath');
 		expect(syncProjectSource).toContain(
-			'runSyncScript( syncAbilitiesScriptPath, options );',
+			'runSyncScript(syncAbilitiesScriptPath, options);',
 		);
 		expect(syncAbilitiesSource).toContain('ABILITIES');
 		expect(syncAbilitiesSource).toContain('syncTypeSchemas');

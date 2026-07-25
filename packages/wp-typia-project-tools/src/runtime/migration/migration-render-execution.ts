@@ -14,9 +14,8 @@ export function renderVerifyFile(
     throw new Error(`Unknown migration block target: ${blockKey}`);
   }
   if (entries.length === 0) {
-    return `/* eslint-disable no-console */
-console.log(
-\t'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before verify.'
+    return `console.log(
+  'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before verify.',
 );
 `;
   }
@@ -60,7 +59,7 @@ console.log(
     checks.push(`\t}`);
   });
 
-  return `/* eslint-disable prettier/prettier, no-console, @typescript-eslint/no-unused-vars, no-nested-ternary */
+  return `/* eslint-disable no-console, @typescript-eslint/no-unused-vars, no-nested-ternary */
 ${imports.join('\n')}
 
 function isValidationSuccess(result: unknown): boolean {
@@ -110,9 +109,8 @@ export function renderFuzzFile(
     throw new Error(`Unknown migration block target: ${blockKey}`);
   }
   if (entries.length === 0) {
-    return `/* eslint-disable no-console */
-console.log(
-\t'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before fuzz.'
+    return `console.log(
+  'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before fuzz.',
 );
 `;
   }
@@ -136,7 +134,7 @@ console.log(
 }`);
 	});
 
-  return `/* eslint-disable prettier/prettier, no-console, no-bitwise, @typescript-eslint/no-unused-vars, no-nested-ternary, @typescript-eslint/method-signature-style */
+  return `/* eslint-disable no-console, no-bitwise, @typescript-eslint/no-unused-vars, no-nested-ternary */
 ${imports.join('\n')}
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };

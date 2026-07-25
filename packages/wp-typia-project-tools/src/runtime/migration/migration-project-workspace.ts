@@ -32,6 +32,7 @@ import type {
   MigrationConfig,
   MigrationProjectState,
 } from './migration-types.js';
+import { renderTypeScriptValue } from '../shared/ts-string-literals.js';
 
 const LEGACY_VERSIONED_EDGE_FILE_PATTERN = /^(\d+\.\d+\.\d+)-to-(\d+\.\d+\.\d+)\.(?:ts|json)$/;
 
@@ -271,49 +272,33 @@ export function loadMigrationProject(
 export function writeMigrationConfig(projectDir: string, config: MigrationConfig): void {
   const paths = getProjectPaths(projectDir);
   fs.mkdirSync(path.dirname(paths.configFile), { recursive: true });
-  if (!Array.isArray(config.blocks)) {
-    fs.writeFileSync(
-			paths.configFile,
-			`export const migrationConfig = {
-\tblockName: '${config.blockName ?? readProjectBlockName(projectDir)}',
-\tcurrentMigrationVersion: '${config.currentMigrationVersion}',
-\tsupportedMigrationVersions: [ ${config.supportedMigrationVersions.map((version) => `'${version}'`).join(', ')} ],
-\tsnapshotDir: '${config.snapshotDir}',
-} as const;
-
-export default migrationConfig;
-`,
-			'utf8',
-		);
-    return;
-  }
-
-  const blocksSource = config.blocks
-		.map(
-			(block) =>
-				`\t\t{
-\t\t\tkey: '${block.key}',
-\t\t\tblockName: '${block.blockName}',
-\t\t\tblockJsonFile: '${normalizeRelativePath(block.blockJsonFile)}',
-\t\t\tmanifestFile: '${normalizeRelativePath(block.manifestFile)}',
-\t\t\tsaveFile: '${normalizeRelativePath(block.saveFile)}',
-\t\t\ttypesFile: '${normalizeRelativePath(block.typesFile)}',
-\t\t},`,
-		)
-		.join('\n');
+  const renderedConfig = Array.isArray(config.blocks)
+    ? renderTypeScriptValue({
+        currentMigrationVersion: config.currentMigrationVersion,
+        supportedMigrationVersions: config.supportedMigrationVersions,
+        snapshotDir: config.snapshotDir,
+        blocks: config.blocks.map((block) => ({
+          key: block.key,
+          blockName: block.blockName,
+          blockJsonFile: normalizeRelativePath(block.blockJsonFile),
+          manifestFile: normalizeRelativePath(block.manifestFile),
+          saveFile: normalizeRelativePath(block.saveFile),
+          typesFile: normalizeRelativePath(block.typesFile),
+        })),
+      })
+    : renderTypeScriptValue({
+        blockName: config.blockName ?? readProjectBlockName(projectDir),
+        currentMigrationVersion: config.currentMigrationVersion,
+        supportedMigrationVersions: config.supportedMigrationVersions,
+        snapshotDir: config.snapshotDir,
+      });
   fs.writeFileSync(
-		paths.configFile,
-		`export const migrationConfig = {
-\tcurrentMigrationVersion: '${config.currentMigrationVersion}',
-\tsupportedMigrationVersions: [ ${config.supportedMigrationVersions.map((version) => `'${version}'`).join(', ')} ],
-\tsnapshotDir: '${config.snapshotDir}',
-\tblocks: [
-${blocksSource}
-\t],
-} as const;
+    paths.configFile,
+    `const migrationConfig = ${renderedConfig};
 
+export { migrationConfig };
 export default migrationConfig;
 `,
-		'utf8',
-	);
+    'utf8',
+  );
 }

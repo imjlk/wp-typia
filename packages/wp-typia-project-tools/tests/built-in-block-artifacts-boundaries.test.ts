@@ -32,9 +32,9 @@ test('built-in block artifacts delegate type and document helpers to focused mod
     'utf8',
   );
 
-  expect(artifactSource).toContain('from "./built-in-block-artifact-types.js"');
+  expect(artifactSource).toContain("from './built-in-block-artifact-types.js'");
   expect(artifactSource).toContain(
-    'from "./built-in-block-artifact-documents.js"',
+    "from './built-in-block-artifact-documents.js'",
   );
   expect(artifactSource).not.toContain('function emitTypesModule(');
   expect(artifactSource).not.toContain('function buildBasicTypesSource(');
@@ -52,9 +52,9 @@ test('built-in block artifacts delegate type and document helpers to focused mod
     /export\s+function\s+buildCompoundChildTypesSource\s*\(/,
   );
   expect(documentSource).toContain(
-    'from "./built-in-block-attribute-emitters.js"',
+    "from './built-in-block-attribute-emitters.js'",
   );
-  expect(documentSource).toContain('from "./built-in-block-attribute-specs.js"');
+  expect(documentSource).toContain("from './built-in-block-attribute-specs.js'");
   expect(documentSource).not.toMatch(
     /export\s+function\s+buildManifestDocument\s*\(/,
   );

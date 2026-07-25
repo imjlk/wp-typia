@@ -401,33 +401,33 @@ function buildEndpointPathRequestOptionLines(options: {
       ? 'request.query'
       : 'request';
   return [
-		`\tbuildRequestOptions: (${hasPathParameters ? 'request' : ''}) => {`,
+		`  buildRequestOptions: (${hasPathParameters ? 'request' : ''}) => {`,
 		...(hasPathParameters
 			? [
-					`\t\tconst rawPathParams = ${pathParamSource} as unknown;`,
-					`\t\tconst pathParams = rawPathParams && typeof rawPathParams === 'object'`,
-					`\t\t\t? (rawPathParams as Record<string, unknown>)`,
-					`\t\t\t: {};`,
+					`    const rawPathParams = ${pathParamSource} as unknown;`,
+					`    const pathParams = rawPathParams && typeof rawPathParams === 'object'`,
+					`      ? (rawPathParams as Record<string, unknown>)`,
+					`      : {};`,
 					...pathParameterNames.map(
 						(name, index) =>
-							`\t\tconst pathParam${index} = pathParams[${toJavaScriptStringLiteral(name)}];`,
+							`    const pathParam${index} = pathParams[${toJavaScriptStringLiteral(name)}];`,
 					),
 				]
 			: []),
 		...requiredPathParameterNames.flatMap((name) => {
 			const index = pathParameterNames.indexOf(name);
 			return [
-				`\t\tif (pathParam${index} === undefined || pathParam${index} === null || pathParam${index} === '') {`,
-				`\t\t\tthrow new Error(${toJavaScriptStringLiteral(
+				`    if (pathParam${index} === undefined || pathParam${index} === null || pathParam${index} === '') {`,
+				`      throw new Error(${toJavaScriptStringLiteral(
 					`Missing path parameter "${name}" for endpoint path "${options.endpointPath}".`,
 				)});`,
-				`\t\t}`,
+				`    }`,
 			];
 		}),
-		`\t\treturn {`,
-		`\t\t\tpath: ${buildEndpointPathTemplate(pathParts, pathParameterNames)},`,
-		`\t\t};`,
-		`\t},`,
+		`    return {`,
+		`      path: ${buildEndpointPathTemplate(pathParts, pathParameterNames)},`,
+		`    };`,
+		`  },`,
 	];
 }
 
@@ -535,7 +535,7 @@ export async function syncEndpointClientModule(
         validatorPropertyNames,
       );
       requestTypeName = `{ query: ${queryContract.sourceTypeName}; body: ${bodyContract.sourceTypeName} }`;
-      requestValidatorExpression = `(input) => validateCombinedRequest( input, ${queryValidatorExpression}, ${bodyValidatorExpression} )`;
+      requestValidatorExpression = `(input) => validateCombinedRequest(input, ${queryValidatorExpression}, ${bodyValidatorExpression})`;
       requestLocationExpression = "'query-and-body'";
       importedTypeNames.add(queryContract.sourceTypeName);
       importedTypeNames.add(bodyContract.sourceTypeName);
@@ -564,18 +564,17 @@ export async function syncEndpointClientModule(
       endpointPath: endpoint.path,
       requestLocationExpression,
     });
-    const returnCallExpression = hasRequest
-      ? `callEndpoint( ${endpoint.operationId}Endpoint, request, options )`
-      : `callEndpoint( ${endpoint.operationId}Endpoint, undefined, options )`;
+    const requestArgument = hasRequest ? 'request' : 'undefined';
+    const returnCallExpression = `callEndpoint(${endpoint.operationId}Endpoint, ${requestArgument}, options)`;
     const returnCallLines =
-			returnCallExpression.length <= 68
-        ? [`\treturn ${returnCallExpression};`]
+			returnCallExpression.length + 10 <= 80
+        ? [`  return ${returnCallExpression};`]
         : [
-            `\treturn callEndpoint(`,
-            `\t\t${endpoint.operationId}Endpoint,`,
-            `\t\t${hasRequest ? 'request' : 'undefined'},`,
-            `\t\toptions`,
-            `\t);`,
+            `  return callEndpoint(`,
+            `    ${endpoint.operationId}Endpoint,`,
+            `    ${requestArgument},`,
+            `    options,`,
+            `  );`,
           ];
 
     endpointLines.push(
@@ -583,28 +582,28 @@ export async function syncEndpointClientModule(
 				`export const ${endpointConstantName} = createEndpoint<`,
 				`\t${requestTypeName},`,
 				`\t${responseContract.sourceTypeName}`,
-				`>( {`,
-				`\tauthIntent: ${toJavaScriptStringLiteral(normalizedAuth.auth)},`,
+				`>({`,
+				`  authIntent: ${toJavaScriptStringLiteral(normalizedAuth.auth)},`,
 				...(normalizedAuth.authMode
-					? [`\tauthMode: ${toJavaScriptStringLiteral(normalizedAuth.authMode)},`]
+					? [`  authMode: ${toJavaScriptStringLiteral(normalizedAuth.authMode)},`]
 					: []),
-				`\tmethod: ${toJavaScriptStringLiteral(endpoint.method)},`,
-				`\toperationId: ${toJavaScriptStringLiteral(endpoint.operationId)},`,
-				`\tpath: ${toJavaScriptStringLiteral(endpoint.path)},`,
+				`  method: ${toJavaScriptStringLiteral(endpoint.method)},`,
+				`  operationId: ${toJavaScriptStringLiteral(endpoint.operationId)},`,
+				`  path: ${toJavaScriptStringLiteral(endpoint.path)},`,
 				...(requestLocationExpression
-					? [`\trequestLocation: ${requestLocationExpression},`]
+					? [`  requestLocation: ${requestLocationExpression},`]
 					: []),
 				...buildRequestOptionsLines,
-				`\tvalidateRequest: ${requestValidatorExpression},`,
-				`\tvalidateResponse: ${toValidatorAccessExpression(
+				`  validateRequest: ${requestValidatorExpression},`,
+				`  validateResponse: ${toValidatorAccessExpression(
 					endpoint.responseContract,
 					validatorPropertyNames,
 				)},`,
-				`} );`,
+				`});`,
 				'',
 				`export function ${endpoint.operationId}(`,
 				...(hasRequest ? [`\trequest: ${requestTypeName},`] : []),
-				`\toptions: EndpointCallOptions`,
+				`\toptions: EndpointCallOptions,`,
 				`) {`,
 				...returnCallLines,
 				`}`,
@@ -632,13 +631,13 @@ export async function syncEndpointClientModule(
     : null;
   const lines = [
 		`import {`,
-		`\tcallEndpoint,`,
-		`\tcreateEndpoint,`,
-		`\ttype EndpointCallOptions,`,
+		`  callEndpoint,`,
+		`  createEndpoint,`,
+		`  type EndpointCallOptions,`,
 		...(inlineHelpers.has('validateCombinedRequest')
 			? [
-					`\ttype ValidationError as ${combinedValidationErrorTypeName},`,
-					`\ttype ValidationResult as ${combinedValidationResultTypeName},`,
+					`  type ValidationError as ${combinedValidationErrorTypeName},`,
+					`  type ValidationResult as ${combinedValidationResultTypeName},`,
 				]
 			: []),
 		`} from '@wp-typia/api-client';`,
@@ -650,7 +649,7 @@ export async function syncEndpointClientModule(
 				]
 			: [
 					`import type {`,
-					...sortedTypeNames.map((typeName) => `\t${typeName},`),
+					...sortedTypeNames.map((typeName) => `  ${typeName},`),
 					`} from ${toJavaScriptStringLiteral(
 						toModuleImportPath(clientPath, path.resolve(projectRoot, typesFile)),
 					)};`,

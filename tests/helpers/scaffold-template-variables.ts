@@ -19,6 +19,8 @@ export function createTestScaffoldTemplateVariables(
 		alternateRenderTargetsJson: '[]',
 		apiClientPackageVersion: '^0.2.0',
 		author: 'Test Author',
+		bootstrapEndpointDeclaration:
+			'export const bootstrapEndpoint = createRestEndpoint(getDemoBlockBootstrapEndpoint);',
 		blockMetadataVersion: '0.1.0',
 		blockRuntimePackageVersion: '^0.3.0',
 		blockTypesPackageVersion: '^0.2.0',
@@ -28,6 +30,7 @@ export function createTestScaffoldTemplateVariables(
 			compoundChildIcon: 'excerpt-view',
 			compoundChildTitle: 'Demo Item',
 			compoundChildTitleJson: JSON.stringify('Demo Item'),
+			compoundChildTitleTsLiteral: "'Demo Item'",
 			compoundPersistenceEnabled: 'false',
 			compoundInnerBlocksDirectInsert: 'false',
 			compoundInnerBlocksOrientation: 'vertical',
@@ -48,6 +51,7 @@ export function createTestScaffoldTemplateVariables(
 		dataStorageMode: 'custom-table',
 		description: 'Demo description',
 		descriptionJson: JSON.stringify('Demo description'),
+		descriptionTsLiteral: "'Demo description'",
 		frontendCssClassName: 'wp-block-demo-demo-block-frontend',
 		icon: 'smiley',
 		isAuthenticatedPersistencePolicy: 'true',
@@ -57,6 +61,8 @@ export function createTestScaffoldTemplateVariables(
 		persistencePolicyDescriptionJson: JSON.stringify(
 			'Writes require a logged-in user and a valid REST nonce.',
 		),
+		persistencePolicyDescriptionTsLiteral:
+			"'Writes require a logged-in user and a valid REST nonce.'",
 		keyword: 'demo',
 		namespace: 'demo',
 		needsMigration: 'false',
@@ -65,10 +71,13 @@ export function createTestScaffoldTemplateVariables(
 		phpPrefix: 'demo_block',
 		phpPrefixUpper: 'DEMO_BLOCK',
 		queryAllowedControlsJson: JSON.stringify([]),
+		queryAllowedControlsTsLiteral: '[]',
 		queryPostType: 'post',
 			queryPostTypeJson: JSON.stringify('post'),
+			queryPostTypeTsLiteral: "'post'",
 			queryVariationNamespace: 'demo/demo-block',
 			queryVariationNamespaceJson: JSON.stringify('demo/demo-block'),
+			queryVariationNamespaceTsLiteral: "'demo/demo-block'",
 			publicWriteRequestIdDeclaration: 'publicWriteRequestId?: string;',
 			requiresAtLeast: '6.7',
 			requiresPhp: '8.0',
@@ -80,12 +89,17 @@ export function createTestScaffoldTemplateVariables(
 		slugCamelCase: 'demoBlock',
 		slugKebabCase: 'demo-block',
 		slugSnakeCase: 'demo_block',
+		stateEndpointDeclaration:
+			'export const stateEndpoint = createRestEndpoint(getDemoBlockStateEndpoint);',
 		textDomain: 'demo-block',
 		textdomain: 'demo-block',
 			title: 'Demo Block',
 			titleCase: 'Demo Block',
 			titleJson: JSON.stringify('Demo Block'),
+			titleTsLiteral: "'Demo Block'",
 			testedUpTo: '6.9',
+			writeStateEndpointDeclaration:
+				'export const writeStateEndpoint = createRestEndpoint(writeDemoBlockStateEndpoint);',
 		};
 
   const variables: FlatScaffoldTemplateVariables = {

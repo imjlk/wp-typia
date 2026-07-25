@@ -3,741 +3,750 @@ import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
 import {
-	runSyncBlockMetadata,
-	syncEndpointClient,
-	syncRestOpenApi,
-	syncTypeSchemas,
+  runSyncBlockMetadata,
+  syncEndpointClient,
+  syncRestOpenApi,
+  syncTypeSchemas,
 } from '@wp-typia/block-runtime/metadata-core';
 
 import * as workspaceConfig from './block-config';
 import {
-	BLOCKS,
-	CONTRACTS,
-	POST_META,
-	REST_RESOURCES,
-	type WorkspaceBlockConfig,
-	type WorkspaceContractConfig,
-	type WorkspacePostMetaConfig,
-	type WorkspaceRestResourceConfig,
+  BLOCKS,
+  CONTRACTS,
+  POST_META,
+  REST_RESOURCES,
+  type WorkspaceBlockConfig,
+  type WorkspaceContractConfig,
+  type WorkspacePostMetaConfig,
+  type WorkspaceRestResourceConfig,
 } from './block-config';
 
 type WorkspaceRestSchemaPackageConfig = {
-	manifestFile?: string;
-	outputDir: string;
+  manifestFile?: string;
+  outputDir: string;
 };
 
 const DEFAULT_REST_SCHEMA_PACKAGE: WorkspaceRestSchemaPackageConfig = {
-	manifestFile: 'inc/rest-schemas/manifest.json',
-	outputDir: 'inc/rest-schemas',
+  manifestFile: 'inc/rest-schemas/manifest.json',
+  outputDir: 'inc/rest-schemas',
 };
 const workspaceConfigWithPackage = workspaceConfig as {
-	REST_SCHEMA_PACKAGE?: WorkspaceRestSchemaPackageConfig;
+  REST_SCHEMA_PACKAGE?: WorkspaceRestSchemaPackageConfig;
 };
 const REST_SCHEMA_PACKAGE =
-	workspaceConfigWithPackage.REST_SCHEMA_PACKAGE ?? DEFAULT_REST_SCHEMA_PACKAGE;
+  workspaceConfigWithPackage.REST_SCHEMA_PACKAGE ?? DEFAULT_REST_SCHEMA_PACKAGE;
 
-function parseCliOptions( argv: string[] ) {
-	const options = {
-		check: false,
-		packageSchemas: false,
-	};
+function parseCliOptions(argv: string[]) {
+  const options = {
+    check: false,
+    packageSchemas: false,
+  };
 
-	for ( const argument of argv ) {
-		if ( argument === '--check' ) {
-			options.check = true;
-			continue;
-		}
+  for (const argument of argv) {
+    if (argument === '--check') {
+      options.check = true;
+      continue;
+    }
 
-		if ( argument === '--package' ) {
-			options.packageSchemas = true;
-			continue;
-		}
+    if (argument === '--package') {
+      options.packageSchemas = true;
+      continue;
+    }
 
-		throw new Error( `Unknown sync-rest flag: ${ argument }` );
-	}
+    throw new Error(`Unknown sync-rest flag: ${argument}`);
+  }
 
-	return options;
+  return options;
 }
 
 type RuntimeRestSchemaPackageEntry = {
-	id: string;
-	kind: 'block' | 'rest-resource';
-	owner: string;
-	path: string;
-	schema: string;
-	source: string;
+  id: string;
+  kind: 'block' | 'rest-resource';
+  owner: string;
+  path: string;
+  schema: string;
+  source: string;
 };
 
 type RuntimeRestSchemaPackageManifest = {
-	generatedBy: 'wp-typia sync-rest --package';
-	outputDir: string;
-	schemaVersion: 1;
-	schemas: RuntimeRestSchemaPackageEntry[];
+  generatedBy: 'wp-typia sync-rest --package';
+  outputDir: string;
+  schemaVersion: 1;
+  schemas: RuntimeRestSchemaPackageEntry[];
 };
 
-function getNodeErrorCode( error: unknown ) {
-	return typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		typeof ( error as { code?: unknown } ).code === 'string'
-		? ( error as { code: string } ).code
-		: undefined;
+function getNodeErrorCode(error: unknown) {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : undefined;
 }
 
-function normalizeProjectPath( filePath: string, label: string ) {
-	if ( path.isAbsolute( filePath ) ) {
-		throw new Error( `${ label } must be project-relative: ${ filePath }` );
-	}
+function normalizeProjectPath(filePath: string, label: string) {
+  if (path.isAbsolute(filePath)) {
+    throw new Error(`${label} must be project-relative: ${filePath}`);
+  }
 
-	const normalized = path.normalize( filePath );
-	if ( normalized === '..' || normalized.startsWith( `..${ path.sep }` ) ) {
-		throw new Error( `${ label } cannot point outside the project: ${ filePath }` );
-	}
+  const normalized = path.normalize(filePath);
+  if (normalized === '..' || normalized.startsWith(`..${path.sep}`)) {
+    throw new Error(`${label} cannot point outside the project: ${filePath}`);
+  }
 
-	return normalized.split( path.sep ).join( '/' );
+  return normalized.split(path.sep).join('/');
 }
 
 function resolveRestSchemaPackageConfig() {
-	const outputDir = normalizeProjectPath(
-		REST_SCHEMA_PACKAGE.outputDir,
-		'REST_SCHEMA_PACKAGE.outputDir'
-	);
-	const manifestFile = normalizeProjectPath(
-		REST_SCHEMA_PACKAGE.manifestFile ?? path.join( outputDir, 'manifest.json' ),
-		'REST_SCHEMA_PACKAGE.manifestFile'
-	);
+  const outputDir = normalizeProjectPath(
+    REST_SCHEMA_PACKAGE.outputDir,
+    'REST_SCHEMA_PACKAGE.outputDir',
+  );
+  const manifestFile = normalizeProjectPath(
+    REST_SCHEMA_PACKAGE.manifestFile ?? path.join(outputDir, 'manifest.json'),
+    'REST_SCHEMA_PACKAGE.manifestFile',
+  );
 
-	if ( outputDir === '.' ) {
-		throw new Error(
-			'REST_SCHEMA_PACKAGE.outputDir must not be the project root; use a dedicated subdirectory such as "inc/rest-schemas".'
-		);
-	}
+  if (outputDir === '.') {
+    throw new Error(
+      'REST_SCHEMA_PACKAGE.outputDir must not be the project root; use a dedicated subdirectory such as "inc/rest-schemas".',
+    );
+  }
 
-	if ( manifestFile === outputDir || ! manifestFile.startsWith( `${ outputDir }/` ) ) {
-		throw new Error(
-			`REST_SCHEMA_PACKAGE.manifestFile must stay inside REST_SCHEMA_PACKAGE.outputDir (${ outputDir }): ${ manifestFile }`
-		);
-	}
+  if (manifestFile === outputDir || !manifestFile.startsWith(`${outputDir}/`)) {
+    throw new Error(
+      `REST_SCHEMA_PACKAGE.manifestFile must stay inside REST_SCHEMA_PACKAGE.outputDir (${outputDir}): ${manifestFile}`,
+    );
+  }
 
-	return {
-		manifestFile,
-		outputDir,
-	};
+  return {
+    manifestFile,
+    outputDir,
+  };
 }
 
-function assertSafeSchemaBaseName( baseName: string, owner: string ) {
-	if (
-		! /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test( baseName ) ||
-		baseName === '.' ||
-		baseName === '..'
-	) {
-		throw new Error(
-			`${ owner }: REST schema contract key must be a file basename containing only letters, numbers, dots, underscores, or hyphens: ${ baseName }`
-		);
-	}
+function assertSafeSchemaBaseName(baseName: string, owner: string) {
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(baseName) ||
+    baseName === '.' ||
+    baseName === '..'
+  ) {
+    throw new Error(
+      `${owner}: REST schema contract key must be a file basename containing only letters, numbers, dots, underscores, or hyphens: ${baseName}`,
+    );
+  }
 }
 
-function getPackagePath( outputDir: string, owner: string, ...segments: string[] ) {
-	const packagePath = normalizeProjectPath(
-		path.join( outputDir, ...segments ),
-		'REST schema package path'
-	);
+function getPackagePath(
+  outputDir: string,
+  owner: string,
+  ...segments: string[]
+) {
+  const packagePath = normalizeProjectPath(
+    path.join(outputDir, ...segments),
+    'REST schema package path',
+  );
 
-	if ( ! packagePath.startsWith( `${ outputDir }/` ) ) {
-		throw new Error(
-			`${ owner }: REST schema package path must stay inside ${ outputDir }: ${ packagePath }`
-		);
-	}
+  if (!packagePath.startsWith(`${outputDir}/`)) {
+    throw new Error(
+      `${owner}: REST schema package path must stay inside ${outputDir}: ${packagePath}`,
+    );
+  }
 
-	return packagePath;
+  return packagePath;
 }
 
 function isRestEnabledBlock(
-	block: WorkspaceBlockConfig
+  block: WorkspaceBlockConfig,
 ): block is WorkspaceBlockConfig & {
-	apiTypesFile: string;
-	openApiFile: string;
-	restManifest: NonNullable< WorkspaceBlockConfig[ 'restManifest' ] >;
+  apiTypesFile: string;
+  openApiFile: string;
+  restManifest: NonNullable<WorkspaceBlockConfig['restManifest']>;
 } {
-	return (
-		typeof block.apiTypesFile === 'string' &&
-		typeof block.openApiFile === 'string' &&
-		typeof block.restManifest === 'object' &&
-		block.restManifest !== null
-	);
+  return (
+    typeof block.apiTypesFile === 'string' &&
+    typeof block.openApiFile === 'string' &&
+    typeof block.restManifest === 'object' &&
+    block.restManifest !== null
+  );
 }
 
 function isWorkspaceRestResource(
-	resource: WorkspaceRestResourceConfig
+  resource: WorkspaceRestResourceConfig,
 ): resource is WorkspaceRestResourceConfig & {
-	clientFile: string;
-	openApiFile: string;
-	restManifest: NonNullable< WorkspaceRestResourceConfig[ 'restManifest' ] >;
-	typesFile: string;
-	validatorsFile: string;
+  clientFile: string;
+  openApiFile: string;
+  restManifest: NonNullable<WorkspaceRestResourceConfig['restManifest']>;
+  typesFile: string;
+  validatorsFile: string;
 } {
-	return (
-		typeof resource.clientFile === 'string' &&
-		typeof resource.openApiFile === 'string' &&
-		typeof resource.typesFile === 'string' &&
-		typeof resource.validatorsFile === 'string' &&
-		typeof resource.restManifest === 'object' &&
-		resource.restManifest !== null
-	);
+  return (
+    typeof resource.clientFile === 'string' &&
+    typeof resource.openApiFile === 'string' &&
+    typeof resource.typesFile === 'string' &&
+    typeof resource.validatorsFile === 'string' &&
+    typeof resource.restManifest === 'object' &&
+    resource.restManifest !== null
+  );
 }
 
 function isWorkspaceStandaloneContract(
-	contract: WorkspaceContractConfig
+  contract: WorkspaceContractConfig,
 ): contract is WorkspaceContractConfig & {
-	schemaFile: string;
-	sourceTypeName: string;
-	typesFile: string;
+  schemaFile: string;
+  sourceTypeName: string;
+  typesFile: string;
 } {
-	return (
-		typeof contract.schemaFile === 'string' &&
-		typeof contract.sourceTypeName === 'string' &&
-		typeof contract.typesFile === 'string'
-	);
+  return (
+    typeof contract.schemaFile === 'string' &&
+    typeof contract.sourceTypeName === 'string' &&
+    typeof contract.typesFile === 'string'
+  );
 }
 
 function isWorkspacePostMetaContract(
-	postMeta: WorkspacePostMetaConfig
+  postMeta: WorkspacePostMetaConfig,
 ): postMeta is WorkspacePostMetaConfig & {
-	schemaFile: string;
-	sourceTypeName: string;
-	typesFile: string;
+  schemaFile: string;
+  sourceTypeName: string;
+  typesFile: string;
 } {
-	return (
-		typeof postMeta.schemaFile === 'string' &&
-		typeof postMeta.sourceTypeName === 'string' &&
-		typeof postMeta.typesFile === 'string'
-	);
+  return (
+    typeof postMeta.schemaFile === 'string' &&
+    typeof postMeta.sourceTypeName === 'string' &&
+    typeof postMeta.typesFile === 'string'
+  );
 }
 
 function getBlockRestSchemaEntries(
-	block: WorkspaceBlockConfig & {
-		restManifest: NonNullable< WorkspaceBlockConfig[ 'restManifest' ] >;
-	},
-	outputDir: string
+  block: WorkspaceBlockConfig & {
+    restManifest: NonNullable<WorkspaceBlockConfig['restManifest']>;
+  },
+  outputDir: string,
 ): RuntimeRestSchemaPackageEntry[] {
-	return Object.keys( block.restManifest.contracts ).map( ( baseName ) => {
-		const owner = `Block ${ block.slug }`;
-		assertSafeSchemaBaseName( baseName, owner );
+  return Object.keys(block.restManifest.contracts).map((baseName) => {
+    const owner = `Block ${block.slug}`;
+    assertSafeSchemaBaseName(baseName, owner);
 
-		return {
-			id: `block:${ block.slug }:${ baseName }`,
-			kind: 'block',
-			owner: block.slug,
-			path: getPackagePath(
-				outputDir,
-				owner,
-				'blocks',
-				block.slug,
-				`${ baseName }.schema.json`
-			),
-			schema: baseName,
-			source: normalizeProjectPath(
-				path.join(
-					'src',
-					'blocks',
-					block.slug,
-					'api-schemas',
-					`${ baseName }.schema.json`
-				),
-				'REST schema source path'
-			),
-		};
-	} );
+    return {
+      id: `block:${block.slug}:${baseName}`,
+      kind: 'block',
+      owner: block.slug,
+      path: getPackagePath(
+        outputDir,
+        owner,
+        'blocks',
+        block.slug,
+        `${baseName}.schema.json`,
+      ),
+      schema: baseName,
+      source: normalizeProjectPath(
+        path.join(
+          'src',
+          'blocks',
+          block.slug,
+          'api-schemas',
+          `${baseName}.schema.json`,
+        ),
+        'REST schema source path',
+      ),
+    };
+  });
 }
 
 function getRestResourceSchemaEntries(
-	resource: WorkspaceRestResourceConfig & {
-		restManifest: NonNullable< WorkspaceRestResourceConfig[ 'restManifest' ] >;
-		typesFile: string;
-	},
-	outputDir: string
+  resource: WorkspaceRestResourceConfig & {
+    restManifest: NonNullable<WorkspaceRestResourceConfig['restManifest']>;
+    typesFile: string;
+  },
+  outputDir: string,
 ): RuntimeRestSchemaPackageEntry[] {
-	return Object.keys( resource.restManifest.contracts ).map( ( baseName ) => {
-		const owner = `REST resource ${ resource.slug }`;
-		assertSafeSchemaBaseName( baseName, owner );
+  return Object.keys(resource.restManifest.contracts).map((baseName) => {
+    const owner = `REST resource ${resource.slug}`;
+    assertSafeSchemaBaseName(baseName, owner);
 
-		return {
-			id: `rest:${ resource.slug }:${ baseName }`,
-			kind: 'rest-resource',
-			owner: resource.slug,
-			path: getPackagePath(
-				outputDir,
-				owner,
-				'rest',
-				resource.slug,
-				`${ baseName }.schema.json`
-			),
-			schema: baseName,
-			source: normalizeProjectPath(
-				path.join(
-					path.dirname( resource.typesFile ),
-					'api-schemas',
-					`${ baseName }.schema.json`
-				),
-				'REST schema source path'
-			),
-		};
-	} );
+    return {
+      id: `rest:${resource.slug}:${baseName}`,
+      kind: 'rest-resource',
+      owner: resource.slug,
+      path: getPackagePath(
+        outputDir,
+        owner,
+        'rest',
+        resource.slug,
+        `${baseName}.schema.json`,
+      ),
+      schema: baseName,
+      source: normalizeProjectPath(
+        path.join(
+          path.dirname(resource.typesFile),
+          'api-schemas',
+          `${baseName}.schema.json`,
+        ),
+        'REST schema source path',
+      ),
+    };
+  });
 }
 
 function buildRuntimeRestSchemaPackageManifest(
-	restBlocks: Array<
-		WorkspaceBlockConfig & {
-			restManifest: NonNullable< WorkspaceBlockConfig[ 'restManifest' ] >;
-		}
-	>,
-	restResources: Array<
-		WorkspaceRestResourceConfig & {
-			restManifest: NonNullable< WorkspaceRestResourceConfig[ 'restManifest' ] >;
-			typesFile: string;
-		}
-	>
+  restBlocks: Array<
+    WorkspaceBlockConfig & {
+      restManifest: NonNullable<WorkspaceBlockConfig['restManifest']>;
+    }
+  >,
+  restResources: Array<
+    WorkspaceRestResourceConfig & {
+      restManifest: NonNullable<WorkspaceRestResourceConfig['restManifest']>;
+      typesFile: string;
+    }
+  >,
 ): RuntimeRestSchemaPackageManifest {
-	const { outputDir } = resolveRestSchemaPackageConfig();
-	const schemas = [
-		...restBlocks.flatMap( ( block ) =>
-			getBlockRestSchemaEntries( block, outputDir )
-		),
-		...restResources.flatMap( ( resource ) =>
-			getRestResourceSchemaEntries( resource, outputDir )
-		),
-	].sort(
-		( left, right ) =>
-			left.path.localeCompare( right.path ) || left.id.localeCompare( right.id )
-	);
-	const seenPaths = new Set< string >();
-	const seenIds = new Set< string >();
+  const { outputDir } = resolveRestSchemaPackageConfig();
+  const schemas = [
+    ...restBlocks.flatMap((block) =>
+      getBlockRestSchemaEntries(block, outputDir),
+    ),
+    ...restResources.flatMap((resource) =>
+      getRestResourceSchemaEntries(resource, outputDir),
+    ),
+  ].sort(
+    (left, right) =>
+      left.path.localeCompare(right.path) || left.id.localeCompare(right.id),
+  );
+  const seenPaths = new Set<string>();
+  const seenIds = new Set<string>();
 
-	for ( const schema of schemas ) {
-		if ( seenIds.has( schema.id ) ) {
-			throw new Error( `Duplicate runtime REST schema package id: ${ schema.id }` );
-		}
+  for (const schema of schemas) {
+    if (seenIds.has(schema.id)) {
+      throw new Error(`Duplicate runtime REST schema package id: ${schema.id}`);
+    }
 
-		if ( seenPaths.has( schema.path ) ) {
-			throw new Error(
-				`Duplicate runtime REST schema package path: ${ schema.path }`
-			);
-		}
+    if (seenPaths.has(schema.path)) {
+      throw new Error(
+        `Duplicate runtime REST schema package path: ${schema.path}`,
+      );
+    }
 
-		seenIds.add( schema.id );
-		seenPaths.add( schema.path );
-	}
+    seenIds.add(schema.id);
+    seenPaths.add(schema.path);
+  }
 
-	return {
-		generatedBy: 'wp-typia sync-rest --package',
-		outputDir,
-		schemaVersion: 1,
-		schemas,
-	};
+  return {
+    generatedBy: 'wp-typia sync-rest --package',
+    outputDir,
+    schemaVersion: 1,
+    schemas,
+  };
 }
 
-async function readUtf8IfExists( filePath: string ) {
-	try {
-		return await fsp.readFile( filePath, 'utf8' );
-	} catch ( error ) {
-		if ( getNodeErrorCode( error ) === 'ENOENT' ) {
-			return undefined;
-		}
+async function readUtf8IfExists(filePath: string) {
+  try {
+    return await fsp.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (getNodeErrorCode(error) === 'ENOENT') {
+      return undefined;
+    }
 
-		throw error;
-	}
+    throw error;
+  }
 }
 
-async function writeUtf8IfChanged( filePath: string, content: string ) {
-	const existing = await readUtf8IfExists( filePath );
-	if ( existing === content ) {
-		return;
-	}
+async function writeUtf8IfChanged(filePath: string, content: string) {
+  const existing = await readUtf8IfExists(filePath);
+  if (existing === content) {
+    return;
+  }
 
-	await fsp.mkdir( path.dirname( filePath ), { recursive: true } );
-	await fsp.writeFile( filePath, content, 'utf8' );
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  await fsp.writeFile(filePath, content, 'utf8');
 }
 
-async function unlinkIfExists( filePath: string ) {
-	try {
-		await fsp.unlink( filePath );
-	} catch ( error ) {
-		if ( getNodeErrorCode( error ) === 'ENOENT' ) {
-			return;
-		}
+async function unlinkIfExists(filePath: string) {
+  try {
+    await fsp.unlink(filePath);
+  } catch (error) {
+    if (getNodeErrorCode(error) === 'ENOENT') {
+      return;
+    }
 
-		throw error;
-	}
+    throw error;
+  }
 }
 
-async function collectPackagedSchemaFiles( outputDir: string ) {
-	const schemaFiles: string[] = [];
+async function collectPackagedSchemaFiles(outputDir: string) {
+  const schemaFiles: string[] = [];
 
-	async function walk( relativeDir: string ) {
-		const currentDir =
-			relativeDir.length > 0 ? path.join( outputDir, relativeDir ) : outputDir;
-		let directoryEntries: import( 'node:fs' ).Dirent[];
+  async function walk(relativeDir: string) {
+    const currentDir =
+      relativeDir.length > 0 ? path.join(outputDir, relativeDir) : outputDir;
+    let directoryEntries: import('node:fs').Dirent[];
 
-		try {
-			directoryEntries = await fsp.readdir( currentDir, {
-				withFileTypes: true,
-			} );
-		} catch ( error ) {
-			if ( getNodeErrorCode( error ) === 'ENOENT' ) {
-				return;
-			}
+    try {
+      directoryEntries = await fsp.readdir(currentDir, {
+        withFileTypes: true,
+      });
+    } catch (error) {
+      if (getNodeErrorCode(error) === 'ENOENT') {
+        return;
+      }
 
-			throw error;
-		}
+      throw error;
+    }
 
-		for ( const directoryEntry of directoryEntries ) {
-			const relativePath = path.join( relativeDir, directoryEntry.name );
+    for (const directoryEntry of directoryEntries) {
+      const relativePath = path.join(relativeDir, directoryEntry.name);
 
-			if ( directoryEntry.isDirectory() ) {
-				await walk( relativePath );
-				continue;
-			}
+      if (directoryEntry.isDirectory()) {
+        await walk(relativePath);
+        continue;
+      }
 
-			if (
-				directoryEntry.isFile() &&
-				directoryEntry.name.endsWith( '.schema.json' )
-			) {
-				schemaFiles.push(
-					normalizeProjectPath(
-						path.join( outputDir, relativePath ),
-						'REST schema package file'
-					)
-				);
-			}
-		}
-	}
+      if (
+        directoryEntry.isFile() &&
+        directoryEntry.name.endsWith('.schema.json')
+      ) {
+        schemaFiles.push(
+          normalizeProjectPath(
+            path.join(outputDir, relativePath),
+            'REST schema package file',
+          ),
+        );
+      }
+    }
+  }
 
-	await walk( '' );
-	return schemaFiles.sort();
+  await walk('');
+  return schemaFiles.sort();
 }
 
 async function syncRuntimeRestSchemaPackage(
-	restBlocks: Array<
-		WorkspaceBlockConfig & {
-			restManifest: NonNullable< WorkspaceBlockConfig[ 'restManifest' ] >;
-		}
-	>,
-	restResources: Array<
-		WorkspaceRestResourceConfig & {
-			restManifest: NonNullable< WorkspaceRestResourceConfig[ 'restManifest' ] >;
-			typesFile: string;
-		}
-	>,
-	options: { check: boolean }
+  restBlocks: Array<
+    WorkspaceBlockConfig & {
+      restManifest: NonNullable<WorkspaceBlockConfig['restManifest']>;
+    }
+  >,
+  restResources: Array<
+    WorkspaceRestResourceConfig & {
+      restManifest: NonNullable<WorkspaceRestResourceConfig['restManifest']>;
+      typesFile: string;
+    }
+  >,
+  options: { check: boolean },
 ) {
-	const { manifestFile, outputDir } = resolveRestSchemaPackageConfig();
-	const manifest = buildRuntimeRestSchemaPackageManifest(
-		restBlocks,
-		restResources
-	);
-	const manifestContent = `${ JSON.stringify( manifest, null, 2 ) }\n`;
-	const expectedPackagePaths = new Set(
-		manifest.schemas.map( ( schema ) => schema.path )
-	);
-	const packageFailures: string[] = [];
+  const { manifestFile, outputDir } = resolveRestSchemaPackageConfig();
+  const manifest = buildRuntimeRestSchemaPackageManifest(
+    restBlocks,
+    restResources,
+  );
+  const manifestContent = `${JSON.stringify(manifest, null, 2)}\n`;
+  const expectedPackagePaths = new Set(
+    manifest.schemas.map((schema) => schema.path),
+  );
+  const packageFailures: string[] = [];
 
-	for ( const schema of manifest.schemas ) {
-		const sourceContent = await readUtf8IfExists( schema.source );
+  for (const schema of manifest.schemas) {
+    const sourceContent = await readUtf8IfExists(schema.source);
 
-		if ( sourceContent === undefined ) {
-			if ( ! options.check ) {
-				throw new Error(
-					`Runtime REST schema source is missing: ${ schema.source }\nRun \`sync-rest\` before \`sync-rest --package\` to generate source schemas.`
-				);
-			}
+    if (sourceContent === undefined) {
+      if (!options.check) {
+        throw new Error(
+          `Runtime REST schema source is missing: ${schema.source}\nRun \`sync-rest\` before \`sync-rest --package\` to generate source schemas.`,
+        );
+      }
 
-			packageFailures.push( `${ schema.source } (source missing)` );
-			continue;
-		}
+      packageFailures.push(`${schema.source} (source missing)`);
+      continue;
+    }
 
-		if ( options.check ) {
-			const packagedContent = await readUtf8IfExists( schema.path );
+    if (options.check) {
+      const packagedContent = await readUtf8IfExists(schema.path);
 
-			if ( packagedContent === undefined ) {
-				packageFailures.push( `${ schema.path } (missing)` );
-				continue;
-			}
+      if (packagedContent === undefined) {
+        packageFailures.push(`${schema.path} (missing)`);
+        continue;
+      }
 
-			if ( packagedContent !== sourceContent ) {
-				packageFailures.push( `${ schema.path } (stale)` );
-			}
+      if (packagedContent !== sourceContent) {
+        packageFailures.push(`${schema.path} (stale)`);
+      }
 
-			continue;
-		}
+      continue;
+    }
 
-		await writeUtf8IfChanged( schema.path, sourceContent );
-	}
+    await writeUtf8IfChanged(schema.path, sourceContent);
+  }
 
-	const existingPackagedSchemas = await collectPackagedSchemaFiles( outputDir );
-	for ( const schemaPath of existingPackagedSchemas ) {
-		if ( expectedPackagePaths.has( schemaPath ) ) {
-			continue;
-		}
+  const existingPackagedSchemas = await collectPackagedSchemaFiles(outputDir);
+  for (const schemaPath of existingPackagedSchemas) {
+    if (expectedPackagePaths.has(schemaPath)) {
+      continue;
+    }
 
-		if ( options.check ) {
-			packageFailures.push( `${ schemaPath } (unexpected)` );
-			continue;
-		}
+    if (options.check) {
+      packageFailures.push(`${schemaPath} (unexpected)`);
+      continue;
+    }
 
-		await unlinkIfExists( schemaPath );
-	}
+    await unlinkIfExists(schemaPath);
+  }
 
-	if ( options.check ) {
-		const existingManifestContent = await readUtf8IfExists( manifestFile );
+  if (options.check) {
+    const existingManifestContent = await readUtf8IfExists(manifestFile);
 
-		if ( existingManifestContent === undefined ) {
-			if ( manifest.schemas.length > 0 ) {
-				packageFailures.push( `${ manifestFile } (missing)` );
-			}
-		} else if ( existingManifestContent !== manifestContent ) {
-			packageFailures.push( `${ manifestFile } (stale)` );
-		}
+    if (existingManifestContent === undefined) {
+      if (manifest.schemas.length > 0) {
+        packageFailures.push(`${manifestFile} (missing)`);
+      }
+    } else if (existingManifestContent !== manifestContent) {
+      packageFailures.push(`${manifestFile} (stale)`);
+    }
 
-		if ( packageFailures.length > 0 ) {
-			throw new Error(
-				`Runtime REST schema package is missing or stale:\n${ packageFailures
-					.map( ( failure ) => `- ${ failure }` )
-					.join(
-						'\n'
-					) }\nRun \`sync-rest --package\` to refresh packaged REST schemas before building a release zip.`
-			);
-		}
+    if (packageFailures.length > 0) {
+      throw new Error(
+        `Runtime REST schema package is missing or stale:\n${packageFailures
+          .map((failure) => `- ${failure}`)
+          .join(
+            '\n',
+          )}\nRun \`sync-rest --package\` to refresh packaged REST schemas before building a release zip.`,
+      );
+    }
 
-		return manifest.schemas.length;
-	}
+    return manifest.schemas.length;
+  }
 
-	await writeUtf8IfChanged( manifestFile, manifestContent );
-	return manifest.schemas.length;
+  await writeUtf8IfChanged(manifestFile, manifestContent);
+  return manifest.schemas.length;
 }
 
-async function assertTypeArtifactsCurrent( block: WorkspaceBlockConfig ) {
-	const report = await runSyncBlockMetadata(
-		{
-			blockJsonFile: path.join( 'src', 'blocks', block.slug, 'block.json' ),
-			jsonSchemaFile: path.join( 'src', 'blocks', block.slug, 'typia.schema.json' ),
-			manifestFile: path.join( 'src', 'blocks', block.slug, 'typia.manifest.json' ),
-			openApiFile: path.join( 'src', 'blocks', block.slug, 'typia.openapi.json' ),
-			sourceTypeName: block.attributeTypeName,
-			typesFile: block.typesFile,
-		},
-		{
-			check: true,
-		}
-	);
+async function assertTypeArtifactsCurrent(block: WorkspaceBlockConfig) {
+  const report = await runSyncBlockMetadata(
+    {
+      blockJsonFile: path.join('src', 'blocks', block.slug, 'block.json'),
+      jsonSchemaFile: path.join(
+        'src',
+        'blocks',
+        block.slug,
+        'typia.schema.json',
+      ),
+      manifestFile: path.join(
+        'src',
+        'blocks',
+        block.slug,
+        'typia.manifest.json',
+      ),
+      openApiFile: path.join('src', 'blocks', block.slug, 'typia.openapi.json'),
+      sourceTypeName: block.attributeTypeName,
+      typesFile: block.typesFile,
+    },
+    {
+      check: true,
+    },
+  );
 
-	if ( report.failure?.code === 'stale-generated-artifact' ) {
-		throw new Error(
-			`${ block.slug }: ${ report.failure.message }\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`
-		);
-	}
+  if (report.failure?.code === 'stale-generated-artifact') {
+    throw new Error(
+      `${block.slug}: ${report.failure.message}\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`,
+    );
+  }
 
-	if ( report.failure ) {
-		throw new Error(
-			`${ block.slug }: type-derived artifact preflight failed before sync-rest.\n${ report.failure.message }`
-		);
-	}
+  if (report.failure) {
+    throw new Error(
+      `${block.slug}: type-derived artifact preflight failed before sync-rest.\n${report.failure.message}`,
+    );
+  }
 }
 
 async function main() {
-	const options = parseCliOptions( process.argv.slice( 2 ) );
-	const restBlocks = BLOCKS.filter( isRestEnabledBlock );
-	const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );
-	const postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );
-	const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );
+  const options = parseCliOptions(process.argv.slice(2));
+  const restBlocks = BLOCKS.filter(isRestEnabledBlock);
+  const standaloneContracts = CONTRACTS.filter(isWorkspaceStandaloneContract);
+  const postMetaContracts = POST_META.filter(isWorkspacePostMetaContract);
+  const restResources = REST_RESOURCES.filter(isWorkspaceRestResource);
 
-	if (
-		restBlocks.length === 0 &&
-		standaloneContracts.length === 0 &&
-		postMetaContracts.length === 0 &&
-		restResources.length === 0
-	) {
-		if ( options.packageSchemas ) {
-			const packagedSchemaCount = await syncRuntimeRestSchemaPackage(
-				restBlocks,
-				restResources,
-				{
-					check: options.check,
-				}
-			);
+  if (
+    restBlocks.length === 0 &&
+    standaloneContracts.length === 0 &&
+    postMetaContracts.length === 0 &&
+    restResources.length === 0
+  ) {
+    if (options.packageSchemas) {
+      const packagedSchemaCount = await syncRuntimeRestSchemaPackage(
+        restBlocks,
+        restResources,
+        {
+          check: options.check,
+        },
+      );
 
-			console.log(
-				options.check
-					? `✅ Runtime REST schema package is already up to date (${ packagedSchemaCount } schemas).`
-					: `✅ Runtime REST schema package generated (${ packagedSchemaCount } schemas).`
-			);
-		}
+      console.log(
+        options.check
+          ? `✅ Runtime REST schema package is already up to date (${packagedSchemaCount} schemas).`
+          : `✅ Runtime REST schema package generated (${packagedSchemaCount} schemas).`,
+      );
+    }
 
-		console.log(
-			options.check
-				? 'ℹ️ No REST-enabled workspace blocks, standalone contracts, post meta contracts, or plugin-level REST resources are registered yet. `sync-rest --check` is already clean.'
-				: 'ℹ️ No REST-enabled workspace blocks, standalone contracts, post meta contracts, or plugin-level REST resources are registered yet.'
-		);
-		return;
-	}
+    console.log(
+      options.check
+        ? 'ℹ️ No REST-enabled workspace blocks, standalone contracts, post meta contracts, or plugin-level REST resources are registered yet. `sync-rest --check` is already clean.'
+        : 'ℹ️ No REST-enabled workspace blocks, standalone contracts, post meta contracts, or plugin-level REST resources are registered yet.',
+    );
+    return;
+  }
 
-	for ( const block of restBlocks ) {
-		await assertTypeArtifactsCurrent( block );
+  for (const block of restBlocks) {
+    await assertTypeArtifactsCurrent(block);
 
-		const contracts = block.restManifest.contracts;
+    const contracts = block.restManifest.contracts;
 
-		for ( const [ baseName, contract ] of Object.entries( contracts ) ) {
-			await syncTypeSchemas(
-				{
-					jsonSchemaFile: path.join(
-						'src',
-						'blocks',
-						block.slug,
-						'api-schemas',
-						`${ baseName }.schema.json`
-					),
-					openApiFile: path.join(
-						'src',
-						'blocks',
-						block.slug,
-						'api-schemas',
-						`${ baseName }.openapi.json`
-					),
-					sourceTypeName: contract.sourceTypeName,
-					typesFile: block.apiTypesFile,
-				},
-				{
-					check: options.check,
-				}
-			);
-		}
+    for (const [baseName, contract] of Object.entries(contracts)) {
+      await syncTypeSchemas(
+        {
+          jsonSchemaFile: path.join(
+            'src',
+            'blocks',
+            block.slug,
+            'api-schemas',
+            `${baseName}.schema.json`,
+          ),
+          openApiFile: path.join(
+            'src',
+            'blocks',
+            block.slug,
+            'api-schemas',
+            `${baseName}.openapi.json`,
+          ),
+          sourceTypeName: contract.sourceTypeName,
+          typesFile: block.apiTypesFile,
+        },
+        {
+          check: options.check,
+        },
+      );
+    }
 
-		await syncRestOpenApi(
-			{
-				manifest: block.restManifest,
-				openApiFile: block.openApiFile,
-				typesFile: block.apiTypesFile,
-			},
-			{
-				check: options.check,
-			}
-		);
+    await syncRestOpenApi(
+      {
+        manifest: block.restManifest,
+        openApiFile: block.openApiFile,
+        typesFile: block.apiTypesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
 
-		await syncEndpointClient(
-			{
-				clientFile: path.join(
-					'src',
-					'blocks',
-					block.slug,
-					'api-client.ts'
-				),
-				manifest: block.restManifest,
-				typesFile: block.apiTypesFile,
-			},
-			{
-				check: options.check,
-			}
-		);
-	}
+    await syncEndpointClient(
+      {
+        clientFile: path.join('src', 'blocks', block.slug, 'api-client.ts'),
+        manifest: block.restManifest,
+        typesFile: block.apiTypesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-	for ( const contract of standaloneContracts ) {
-		await syncTypeSchemas(
-			{
-				jsonSchemaFile: contract.schemaFile,
-				sourceTypeName: contract.sourceTypeName,
-				typesFile: contract.typesFile,
-			},
-			{
-				check: options.check,
-			}
-		);
-	}
+  for (const contract of standaloneContracts) {
+    await syncTypeSchemas(
+      {
+        jsonSchemaFile: contract.schemaFile,
+        sourceTypeName: contract.sourceTypeName,
+        typesFile: contract.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-	for ( const postMeta of postMetaContracts ) {
-		await syncTypeSchemas(
-			{
-				jsonSchemaFile: postMeta.schemaFile,
-				sourceTypeName: postMeta.sourceTypeName,
-				typesFile: postMeta.typesFile,
-			},
-			{
-				check: options.check,
-			}
-		);
-	}
+  for (const postMeta of postMetaContracts) {
+    await syncTypeSchemas(
+      {
+        jsonSchemaFile: postMeta.schemaFile,
+        sourceTypeName: postMeta.sourceTypeName,
+        typesFile: postMeta.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-	for ( const resource of restResources ) {
-		const contracts = resource.restManifest.contracts;
+  for (const resource of restResources) {
+    const contracts = resource.restManifest.contracts;
 
-		for ( const [ baseName, contract ] of Object.entries( contracts ) ) {
-			await syncTypeSchemas(
-				{
-					jsonSchemaFile: path.join(
-						path.dirname( resource.typesFile ),
-						'api-schemas',
-						`${ baseName }.schema.json`
-					),
-					openApiFile: path.join(
-						path.dirname( resource.typesFile ),
-						'api-schemas',
-						`${ baseName }.openapi.json`
-					),
-					sourceTypeName: contract.sourceTypeName,
-					typesFile: resource.typesFile,
-				},
-				{
-					check: options.check,
-				}
-			);
-		}
+    for (const [baseName, contract] of Object.entries(contracts)) {
+      await syncTypeSchemas(
+        {
+          jsonSchemaFile: path.join(
+            path.dirname(resource.typesFile),
+            'api-schemas',
+            `${baseName}.schema.json`,
+          ),
+          openApiFile: path.join(
+            path.dirname(resource.typesFile),
+            'api-schemas',
+            `${baseName}.openapi.json`,
+          ),
+          sourceTypeName: contract.sourceTypeName,
+          typesFile: resource.typesFile,
+        },
+        {
+          check: options.check,
+        },
+      );
+    }
 
-		await syncRestOpenApi(
-			{
-				manifest: resource.restManifest,
-				openApiFile: resource.openApiFile,
-				typesFile: resource.typesFile,
-			},
-			{
-				check: options.check,
-			}
-		);
+    await syncRestOpenApi(
+      {
+        manifest: resource.restManifest,
+        openApiFile: resource.openApiFile,
+        typesFile: resource.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
 
-		await syncEndpointClient(
-			{
-				clientFile: resource.clientFile,
-				manifest: resource.restManifest,
-				typesFile: resource.typesFile,
-				validatorsFile: resource.validatorsFile,
-			},
-			{
-				check: options.check,
-			}
-		);
-	}
+    await syncEndpointClient(
+      {
+        clientFile: resource.clientFile,
+        manifest: resource.restManifest,
+        typesFile: resource.typesFile,
+        validatorsFile: resource.validatorsFile,
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-	if ( options.packageSchemas ) {
-		const packagedSchemaCount = await syncRuntimeRestSchemaPackage(
-			restBlocks,
-			restResources,
-			{
-				check: options.check,
-			}
-		);
+  if (options.packageSchemas) {
+    const packagedSchemaCount = await syncRuntimeRestSchemaPackage(
+      restBlocks,
+      restResources,
+      {
+        check: options.check,
+      },
+    );
 
-		console.log(
-			options.check
-				? `✅ Runtime REST schema package is already up to date (${ packagedSchemaCount } schemas).`
-				: `✅ Runtime REST schema package generated (${ packagedSchemaCount } schemas).`
-		);
-	}
+    console.log(
+      options.check
+        ? `✅ Runtime REST schema package is already up to date (${packagedSchemaCount} schemas).`
+        : `✅ Runtime REST schema package generated (${packagedSchemaCount} schemas).`,
+    );
+  }
 
-	console.log(
-		options.check
-			? '✅ REST contract schemas, standalone schemas, post meta schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date for workspace blocks, standalone contracts, post meta contracts, and plugin-level resources!'
-			: '✅ REST contract schemas, standalone schemas, post meta schemas, portable API clients, and endpoint-aware OpenAPI documents generated for workspace blocks, standalone contracts, post meta contracts, and plugin-level resources!'
-	);
+  console.log(
+    options.check
+      ? '✅ REST contract schemas, standalone schemas, post meta schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date for workspace blocks, standalone contracts, post meta contracts, and plugin-level resources!'
+      : '✅ REST contract schemas, standalone schemas, post meta schemas, portable API clients, and endpoint-aware OpenAPI documents generated for workspace blocks, standalone contracts, post meta contracts, and plugin-level resources!',
+  );
 }
 
-main().catch( ( error ) => {
-	console.error( '❌ REST contract sync failed:', error );
-	process.exit( 1 );
-} );
+main().catch((error) => {
+  console.error('❌ REST contract sync failed:', error);
+  process.exit(1);
+});

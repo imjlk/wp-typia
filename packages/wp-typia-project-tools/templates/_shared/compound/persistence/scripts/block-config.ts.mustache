@@ -1,96 +1,96 @@
 import {
-	defineBlockNesting,
-	defineEndpointManifest,
-	defineInnerBlocksTemplates,
+  defineBlockNesting,
+  defineEndpointManifest,
+  defineInnerBlocksTemplates,
 } from '@wp-typia/block-runtime/metadata-core';
 
-export const BLOCK_NESTING = defineBlockNesting( {
-	// Add parent, ancestor, and allowedBlocks relationships here.
-} );
+export const BLOCK_NESTING = defineBlockNesting({
+  // Add parent, ancestor, and allowedBlocks relationships here.
+});
 
-export const BLOCK_TEMPLATES = defineInnerBlocksTemplates( {
-	// Add default InnerBlocks templates here.
-} );
+export const BLOCK_TEMPLATES = defineInnerBlocksTemplates({
+  // Add default InnerBlocks templates here.
+});
 
 export interface WorkspacePatternConfig {
-	file: string;
-	slug: string;
+  file: string;
+  slug: string;
 }
 
 export const BLOCKS = [
-	{
-		apiTypesFile: 'src/blocks/{{slugKebabCase}}/api-types.ts',
-		attributeTypeName: '{{pascalCase}}Attributes',
-		restManifest: defineEndpointManifest( {
-			contracts: {
-				'state-query': {
-					sourceTypeName: '{{pascalCase}}StateQuery',
-				},
-				'bootstrap-query': {
-					sourceTypeName: '{{pascalCase}}BootstrapQuery',
-				},
-				'write-state-request': {
-					sourceTypeName: '{{pascalCase}}WriteStateRequest',
-				},
-				'bootstrap-response': {
-					sourceTypeName: '{{pascalCase}}BootstrapResponse',
-				},
-				'state-response': {
-					sourceTypeName: '{{pascalCase}}StateResponse',
-				},
-			},
-			endpoints: [
-				{
-					auth: 'public',
-					method: 'GET',
-					operationId: 'get{{pascalCase}}State',
-					path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
-					queryContract: 'state-query',
-					responseContract: 'state-response',
-					summary: 'Read the current persisted state.',
-					tags: [ {{titleJson}} ],
-				},
-				{
-					auth: '{{restWriteAuthIntent}}',
-					bodyContract: 'write-state-request',
-					method: 'POST',
-					operationId: 'write{{pascalCase}}State',
-					path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
-					responseContract: 'state-response',
-					summary: 'Write the current persisted state.',
-					tags: [ {{titleJson}} ],
-					wordpressAuth: {
-						mechanism: '{{restWriteAuthMechanism}}',
-					},
-				},
-				{
-					auth: 'public',
-					method: 'GET',
-					operationId: 'get{{pascalCase}}Bootstrap',
-					path: '/{{namespace}}/v1/{{slugKebabCase}}/bootstrap',
-					queryContract: 'bootstrap-query',
-					responseContract: 'bootstrap-response',
-					summary: 'Read fresh session bootstrap state for the current viewer.',
-					tags: [ {{titleJson}} ],
-				},
-			],
-			info: {
-				title: {{titleJson}} + ' REST API',
-				version: '1.0.0',
-			},
-		} ),
-		openApiFile: 'src/blocks/{{slugKebabCase}}/api.openapi.json',
-		slug: '{{slugKebabCase}}',
-		typesFile: 'src/blocks/{{slugKebabCase}}/types.ts',
-	},
-	{
-		slug: '{{slugKebabCase}}-item',
-		attributeTypeName: '{{pascalCase}}ItemAttributes',
-		typesFile: 'src/blocks/{{slugKebabCase}}-item/types.ts',
-	},
-	// add-child: insert new block config entries here
+  {
+    apiTypesFile: 'src/blocks/{{slugKebabCase}}/api-types.ts',
+    attributeTypeName: '{{pascalCase}}Attributes',
+    restManifest: defineEndpointManifest({
+      contracts: {
+        'state-query': {
+          sourceTypeName: '{{pascalCase}}StateQuery',
+        },
+        'bootstrap-query': {
+          sourceTypeName: '{{pascalCase}}BootstrapQuery',
+        },
+        'write-state-request': {
+          sourceTypeName: '{{pascalCase}}WriteStateRequest',
+        },
+        'bootstrap-response': {
+          sourceTypeName: '{{pascalCase}}BootstrapResponse',
+        },
+        'state-response': {
+          sourceTypeName: '{{pascalCase}}StateResponse',
+        },
+      },
+      endpoints: [
+        {
+          auth: 'public',
+          method: 'GET',
+          operationId: 'get{{pascalCase}}State',
+          path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
+          queryContract: 'state-query',
+          responseContract: 'state-response',
+          summary: 'Read the current persisted state.',
+          tags: [{{titleTsLiteral}}],
+        },
+        {
+          auth: '{{restWriteAuthIntent}}',
+          bodyContract: 'write-state-request',
+          method: 'POST',
+          operationId: 'write{{pascalCase}}State',
+          path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
+          responseContract: 'state-response',
+          summary: 'Write the current persisted state.',
+          tags: [{{titleTsLiteral}}],
+          wordpressAuth: {
+            mechanism: '{{restWriteAuthMechanism}}',
+          },
+        },
+        {
+          auth: 'public',
+          method: 'GET',
+          operationId: 'get{{pascalCase}}Bootstrap',
+          path: '/{{namespace}}/v1/{{slugKebabCase}}/bootstrap',
+          queryContract: 'bootstrap-query',
+          responseContract: 'bootstrap-response',
+          summary: 'Read fresh session bootstrap state for the current viewer.',
+          tags: [{{titleTsLiteral}}],
+        },
+      ],
+      info: {
+        title: {{titleTsLiteral}} + ' REST API',
+        version: '1.0.0',
+      },
+    }),
+    openApiFile: 'src/blocks/{{slugKebabCase}}/api.openapi.json',
+    slug: '{{slugKebabCase}}',
+    typesFile: 'src/blocks/{{slugKebabCase}}/types.ts',
+  },
+  {
+    slug: '{{slugKebabCase}}-item',
+    attributeTypeName: '{{pascalCase}}ItemAttributes',
+    typesFile: 'src/blocks/{{slugKebabCase}}-item/types.ts',
+  },
+  // add-child: insert new block config entries here
 ] as const;
 
 export const PATTERNS: WorkspacePatternConfig[] = [
-	// wp-typia add pattern entries
+  // wp-typia add pattern entries
 ];

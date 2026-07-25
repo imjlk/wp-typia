@@ -1,4 +1,5 @@
 import type { ScaffoldTemplateVariables } from './scaffold.js';
+import { quoteTypeScriptString } from '../shared/ts-string-literals.js';
 import { isCompoundPersistenceEnabled } from './scaffold-template-variable-groups.js';
 import {
   DEFAULT_COMPOUND_CHILD_BODY_PLACEHOLDER,
@@ -28,7 +29,7 @@ const BASIC_ATTRIBUTE_SPECS = [
     description: describe('Main block content'),
     name: 'content',
     optional: false,
-    typeExpression: 'string & tags.MaxLength<1000> & tags.Default<"">',
+    typeExpression: `string & tags.MaxLength<1000> & tags.Default<''>`,
   },
   {
     attributeType: 'string',
@@ -37,7 +38,7 @@ const BASIC_ATTRIBUTE_SPECS = [
     enumValues: [...ALIGNMENT_VALUES],
     name: 'alignment',
     optional: true,
-    typeExpression: 'TextAlignment & tags.Default<"left">',
+    typeExpression: `TextAlignment & tags.Default<'left'>`,
   },
   {
     attributeType: 'boolean',
@@ -56,7 +57,7 @@ const BASIC_ATTRIBUTE_SPECS = [
     description: describe('Custom CSS class'),
     name: 'className',
     optional: true,
-    typeExpression: 'string & tags.MaxLength<100> & tags.Default<"">',
+    typeExpression: "string & tags.MaxLength<100> & tags.Default<''>",
   },
   {
     attributeType: 'string',
@@ -66,7 +67,7 @@ const BASIC_ATTRIBUTE_SPECS = [
     description: describe('Generated runtime ID'),
     name: 'id',
     optional: true,
-    typeExpression: 'string & tags.Format<"uuid">',
+    typeExpression: "string & tags.Format<'uuid'>",
   },
   {
     attributeType: 'number',
@@ -77,7 +78,7 @@ const BASIC_ATTRIBUTE_SPECS = [
     description: describe('Block version for migrations'),
     name: 'schemaVersion',
     optional: true,
-    typeExpression: 'number & tags.Type<"uint32"> & tags.Default<1>',
+    typeExpression: "number & tags.Type<'uint32'> & tags.Default<1>",
   },
 ] as const satisfies readonly BuiltInAttributeTemplateSpec<void>[];
 
@@ -93,7 +94,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		selector: (variables: ScaffoldTemplateVariables) =>
 			`.${variables.cssClassName}__content`,
 		source: 'html',
-		typeExpression: 'string & tags.MaxLength<1000> & tags.Default<"">',
+		typeExpression: "string & tags.MaxLength<1000> & tags.Default<''>",
 	},
 	{
 		attributeType: 'string',
@@ -101,7 +102,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		enumValues: [...ALIGNMENT_VALUES],
 		name: 'alignment',
 		optional: true,
-		typeExpression: 'TextAlignment & tags.Default<"left">',
+		typeExpression: "TextAlignment & tags.Default<'left'>",
 	},
 	{
 		attributeType: 'boolean',
@@ -116,7 +117,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		enumValues: [...INTERACTIVE_MODE_VALUES],
 		name: 'interactiveMode',
 		optional: true,
-		typeExpression: '("click" | "hover") & tags.Default<"click">',
+		typeExpression: "('click' | 'hover') & tags.Default<'click'>",
 	},
 	{
 		attributeType: 'string',
@@ -125,7 +126,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		name: 'animation',
 		optional: true,
 		typeExpression:
-			'("none" | "bounce" | "pulse" | "shake" | "flip") & tags.Default<"none">',
+			"('none' | 'bounce' | 'pulse' | 'shake' | 'flip') & tags.Default<'none'>",
 	},
 	{
 		attributeType: 'number',
@@ -136,7 +137,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		defaultValue: 0,
 		name: 'clickCount',
 		optional: true,
-		typeExpression: 'number & tags.Minimum<0> & tags.Type<"uint32"> & tags.Default<0>',
+		typeExpression: "number & tags.Minimum<0> & tags.Type<'uint32'> & tags.Default<0>",
 	},
 	{
 		attributeType: 'boolean',
@@ -161,7 +162,7 @@ const INTERACTIVITY_ATTRIBUTE_SPECS = [
 		defaultValue: 10,
 		name: 'maxClicks',
 		optional: true,
-		typeExpression: 'number & tags.Minimum<0> & tags.Type<"uint32"> & tags.Default<10>',
+		typeExpression: "number & tags.Minimum<0> & tags.Type<'uint32'> & tags.Default<10>",
 	},
 ] as const satisfies readonly BuiltInAttributeTemplateSpec<ScaffoldTemplateVariables>[];
 
@@ -180,7 +181,7 @@ const PERSISTENCE_ATTRIBUTE_SPECS = [
 			`.${variables.cssClassName}__content`,
 		source: 'html',
 		typeExpression: (variables: ScaffoldTemplateVariables) =>
-			`string & tags.MinLength<1> & tags.MaxLength<250> & tags.Default<${JSON.stringify(`${variables.title} persistence block`)}>`,
+			`string & tags.MinLength<1> & tags.MaxLength<250> & tags.Default<${quoteTypeScriptString(`${variables.title} persistence block`)}>`,
 	},
 	{
 		attributeType: 'string',
@@ -188,7 +189,7 @@ const PERSISTENCE_ATTRIBUTE_SPECS = [
 		enumValues: [...ALIGNMENT_VALUES],
 		name: 'alignment',
 		optional: true,
-		typeExpression: 'TextAlignment & tags.Default<"left">',
+		typeExpression: `TextAlignment & tags.Default<'left'>`,
 	},
 	{
 		attributeType: 'boolean',
@@ -214,7 +215,7 @@ const PERSISTENCE_ATTRIBUTE_SPECS = [
 		name: 'buttonLabel',
 		optional: true,
 		typeExpression:
-			'string & tags.MinLength<1> & tags.MaxLength<40> & tags.Default<"Persist Count">',
+			"string & tags.MinLength<1> & tags.MaxLength<40> & tags.Default<'Persist Count'>",
 	},
 	{
 		attributeType: 'string',
@@ -242,7 +243,7 @@ const COMPOUND_PARENT_BASE_ATTRIBUTE_SPECS = [
 			`.${variables.cssClassName}__heading`,
 		source: 'html',
 		typeExpression: (variables: ScaffoldTemplateVariables) =>
-			`string & tags.MinLength<1> & tags.MaxLength<80> & tags.Default<${JSON.stringify(variables.title)}>`,
+			`string & tags.MinLength<1> & tags.MaxLength<80> & tags.Default<${quoteTypeScriptString(variables.title)}>`,
 	},
 	{
 		attributeType: 'string',
@@ -257,7 +258,7 @@ const COMPOUND_PARENT_BASE_ATTRIBUTE_SPECS = [
 			`.${variables.cssClassName}__intro`,
 		source: 'html',
 		typeExpression:
-			'string & tags.MinLength<1> & tags.MaxLength<180> & tags.Default<"Add and reorder internal items inside this compound block.">',
+			"string & tags.MinLength<1> & tags.MaxLength<180> & tags.Default<'Add and reorder internal items inside this compound block.'>",
 	},
 	{
 		attributeType: 'boolean',
@@ -286,7 +287,7 @@ const COMPOUND_PARENT_PERSISTENCE_ATTRIBUTE_SPECS = [
 		name: 'buttonLabel',
 		optional: true,
 		typeExpression:
-			'string & tags.MinLength<1> & tags.MaxLength<40> & tags.Default<"Persist Count">',
+			"string & tags.MinLength<1> & tags.MaxLength<40> & tags.Default<'Persist Count'>",
 	},
 	{
 		attributeType: 'string',
@@ -315,7 +316,7 @@ const COMPOUND_CHILD_ATTRIBUTE_SPECS = [
 		source: ({ childCssClassName }: CompoundChildAttributeVariables) =>
 			childCssClassName ? 'html' : null,
 		typeExpression: ({ childTitle }: CompoundChildAttributeVariables) =>
-			`string & tags.MinLength<1> & tags.MaxLength<80> & tags.Default<${JSON.stringify(childTitle)}>`,
+			`string & tags.MinLength<1> & tags.MaxLength<80> & tags.Default<${quoteTypeScriptString(childTitle)}>`,
 	},
 	{
 		attributeType: 'string',
@@ -332,7 +333,7 @@ const COMPOUND_CHILD_ATTRIBUTE_SPECS = [
 		source: ({ childCssClassName }: CompoundChildAttributeVariables) =>
 			childCssClassName ? 'html' : null,
 		typeExpression: ({ bodyPlaceholder }: CompoundChildAttributeVariables) =>
-			`string & tags.MinLength<1> & tags.MaxLength<280> & tags.Default<${JSON.stringify(bodyPlaceholder)}>`,
+			`string & tags.MinLength<1> & tags.MaxLength<280> & tags.Default<${quoteTypeScriptString(bodyPlaceholder)}>`,
 	},
 ] as const satisfies readonly BuiltInAttributeTemplateSpec<CompoundChildAttributeVariables>[];
 

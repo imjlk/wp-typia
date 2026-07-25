@@ -2,7 +2,6 @@ import { quoteTsString } from './cli-add-shared.js';
 import { buildAiFeatureEndpointManifest } from './ai-feature-artifacts.js';
 import {
   OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-  createScaffoldCompatibilityConfig,
   renderScaffoldCompatibilityConfig,
   resolveScaffoldCompatibilityPolicy,
 } from '../templates/scaffold-compatibility.js';
@@ -11,17 +10,18 @@ import {
   indentMultiline,
 } from './cli-add-workspace-rest-source-utils.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
+import { renderTypeScriptValue } from '../shared/ts-string-literals.js';
 
 export {
-	buildAiFeatureSyncScriptSource,
+  buildAiFeatureSyncScriptSource,
 } from './cli-add-workspace-ai-sync-script-source.js';
 
 /**
  * Build the workspace inventory entry written into `scripts/block-config.ts` for one AI feature.
  */
 export function buildAiFeatureConfigEntry(
-	aiFeatureSlug: string,
-	namespace: string,
+  aiFeatureSlug: string,
+  namespace: string,
 ): string {
   const pascalCase = toPascalCase(aiFeatureSlug);
   const title = toTitleCase(aiFeatureSlug);
@@ -36,35 +36,35 @@ export function buildAiFeatureConfigEntry(
   });
 
   return [
-		'\t{',
-		`\t\taiSchemaFile: ${quoteTsString(
-			`src/ai-features/${aiFeatureSlug}/ai-schemas/feature-result.ai.schema.json`,
-		)},`,
-		`\t\tapiFile: ${quoteTsString(`src/ai-features/${aiFeatureSlug}/api.ts`)},`,
-		`\t\tclientFile: ${quoteTsString(
-			`src/ai-features/${aiFeatureSlug}/api-client.ts`,
-		)},`,
-		`\t\tcompatibility: ${renderScaffoldCompatibilityConfig(
-			compatibilityPolicy,
-		)},`,
-		`\t\tdataFile: ${quoteTsString(`src/ai-features/${aiFeatureSlug}/data.ts`)},`,
-		`\t\tnamespace: ${quoteTsString(namespace)},`,
-		`\t\topenApiFile: ${quoteTsString(
-			`src/ai-features/${aiFeatureSlug}/api.openapi.json`,
-		)},`,
-		`\t\tphpFile: ${quoteTsString(`inc/ai-features/${aiFeatureSlug}.php`)},`,
-		'\t\trestManifest: defineEndpointManifest(',
-		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
-		'\t\t),',
-		`\t\tslug: ${quoteTsString(aiFeatureSlug)},`,
-		`\t\ttypesFile: ${quoteTsString(
-			`src/ai-features/${aiFeatureSlug}/api-types.ts`,
-		)},`,
-		`\t\tvalidatorsFile: ${quoteTsString(
-			`src/ai-features/${aiFeatureSlug}/api-validators.ts`,
-		)},`,
-		'\t},',
-	].join('\n');
+    '  {',
+    `    aiSchemaFile: ${quoteTsString(
+      `src/ai-features/${aiFeatureSlug}/ai-schemas/feature-result.ai.schema.json`,
+    )},`,
+    `    apiFile: ${quoteTsString(`src/ai-features/${aiFeatureSlug}/api.ts`)},`,
+    `    clientFile: ${quoteTsString(
+      `src/ai-features/${aiFeatureSlug}/api-client.ts`,
+    )},`,
+    `    compatibility: ${renderScaffoldCompatibilityConfig(
+      compatibilityPolicy,
+    )},`,
+    `    dataFile: ${quoteTsString(`src/ai-features/${aiFeatureSlug}/data.ts`)},`,
+    `    namespace: ${quoteTsString(namespace)},`,
+    `    openApiFile: ${quoteTsString(
+      `src/ai-features/${aiFeatureSlug}/api.openapi.json`,
+    )},`,
+    `    phpFile: ${quoteTsString(`inc/ai-features/${aiFeatureSlug}.php`)},`,
+    '    restManifest: defineEndpointManifest(',
+    indentMultiline(`${renderTypeScriptValue(manifest)},`, '      '),
+    '    ),',
+    `    slug: ${quoteTsString(aiFeatureSlug)},`,
+    `    typesFile: ${quoteTsString(
+      `src/ai-features/${aiFeatureSlug}/api-types.ts`,
+    )},`,
+    `    validatorsFile: ${quoteTsString(
+      `src/ai-features/${aiFeatureSlug}/api-validators.ts`,
+    )},`,
+    '  },',
+  ].join('\n');
 }
 
 /**
@@ -76,75 +76,75 @@ export function buildAiFeatureTypesSource(aiFeatureSlug: string): string {
   return `import { tags } from 'typia';
 
 export interface ${pascalCase}AiFeatureRequest {
-\tbrief: string & tags.MinLength< 1 > & tags.MaxLength< 4000 >;
-\tcontext?: string & tags.MaxLength< 4000 >;
+  brief: string & tags.MinLength<1> & tags.MaxLength<4000>;
+  context?: string & tags.MaxLength<4000>;
 }
 
 export interface ${pascalCase}AiFeatureResult {
-\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tsummary: string & tags.MinLength< 1 > & tags.MaxLength< 2000 >;
-\tconfidence?: number & tags.Minimum< 0 > & tags.Maximum< 1 >;
+  title: string & tags.MinLength<1> & tags.MaxLength<160>;
+  summary: string & tags.MinLength<1> & tags.MaxLength<2000>;
+  confidence?: number & tags.Minimum<0> & tags.Maximum<1>;
 }
 
 export interface ${pascalCase}AiFeatureTokenUsage {
-\tcompletionTokens: number & tags.Type< 'uint32' >;
-\tpromptTokens: number & tags.Type< 'uint32' >;
-\ttotalTokens: number & tags.Type< 'uint32' >;
-\tthoughtTokens?: number & tags.Type< 'uint32' >;
+  completionTokens: number & tags.Type<'uint32'>;
+  promptTokens: number & tags.Type<'uint32'>;
+  totalTokens: number & tags.Type<'uint32'>;
+  thoughtTokens?: number & tags.Type<'uint32'>;
 }
 
 export interface ${pascalCase}AiFeatureTelemetry {
-\tmodelId: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tmodelName: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tproviderId: string & tags.MinLength< 1 > & tags.MaxLength< 80 >;
-\tproviderName: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tproviderType: 'client' | 'cloud' | 'server';
-\tresultId: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\ttokenUsage: ${pascalCase}AiFeatureTokenUsage;
+  modelId: string & tags.MinLength<1> & tags.MaxLength<160>;
+  modelName: string & tags.MinLength<1> & tags.MaxLength<160>;
+  providerId: string & tags.MinLength<1> & tags.MaxLength<80>;
+  providerName: string & tags.MinLength<1> & tags.MaxLength<160>;
+  providerType: 'client' | 'cloud' | 'server';
+  resultId: string & tags.MinLength<1> & tags.MaxLength<160>;
+  tokenUsage: ${pascalCase}AiFeatureTokenUsage;
 }
 
 export interface ${pascalCase}AiFeatureResponse {
-\tresult: ${pascalCase}AiFeatureResult;
-\ttelemetry: ${pascalCase}AiFeatureTelemetry;
+  result: ${pascalCase}AiFeatureResult;
+  telemetry: ${pascalCase}AiFeatureTelemetry;
 }
 
 export type ${pascalCase}AiFeatureSupportProbeMode = 'request-time';
 
 export type ${pascalCase}AiFeatureUnavailableErrorCode =
-\t'ai_client_unavailable';
+  'ai_client_unavailable';
 
 export type ${pascalCase}AiFeatureUnavailableReasonCode =
-\t| 'missing-wordpress-ai-client'
-\t| 'request-time-support-probe';
+  | 'missing-wordpress-ai-client'
+  | 'request-time-support-probe';
 
 export interface ${pascalCase}AiFeatureSupportReason {
-\tcode: ${pascalCase}AiFeatureUnavailableReasonCode;
-\tlabel: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tmessage: string & tags.MinLength< 1 > & tags.MaxLength< 4000 >;
+  code: ${pascalCase}AiFeatureUnavailableReasonCode;
+  label: string & tags.MinLength<1> & tags.MaxLength<160>;
+  message: string & tags.MinLength<1> & tags.MaxLength<4000>;
 }
 
 export interface ${pascalCase}AiFeatureSupportMetadata {
-\tfeatureLabel: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tfeatureSlug: string & tags.MinLength< 1 > & tags.MaxLength< 160 >;
-\tcompatibility: {
-\t\thardMinimums: {
-\t\t\tphp?: string;
-\t\t\twordpress?: string;
-\t\t};
-\t\tmode: 'baseline' | 'optional' | 'required';
-\t\toptionalFeatureIds: string[];
-\t\toptionalFeatures: string[];
-\t\trequiredFeatureIds: string[];
-\t\trequiredFeatures: string[];
-\t\truntimeGates: string[];
-\t};
-\tsupportProbe: {
-\t\tendpointMethod: 'POST';
-\t\tendpointPath: string & tags.MinLength< 1 > & tags.MaxLength< 200 >;
-\t\tmode: ${pascalCase}AiFeatureSupportProbeMode;
-\t\tunavailableErrorCode: ${pascalCase}AiFeatureUnavailableErrorCode;
-\t};
-\tunavailableReasons: ${pascalCase}AiFeatureSupportReason[];
+  featureLabel: string & tags.MinLength<1> & tags.MaxLength<160>;
+  featureSlug: string & tags.MinLength<1> & tags.MaxLength<160>;
+  compatibility: {
+    hardMinimums: {
+      php?: string;
+      wordpress?: string;
+    };
+    mode: 'baseline' | 'optional' | 'required';
+    optionalFeatureIds: string[];
+    optionalFeatures: string[];
+    requiredFeatureIds: string[];
+    requiredFeatures: string[];
+    runtimeGates: string[];
+  };
+  supportProbe: {
+    endpointMethod: 'POST';
+    endpointPath: string & tags.MinLength<1> & tags.MaxLength<200>;
+    mode: ${pascalCase}AiFeatureSupportProbeMode;
+    unavailableErrorCode: ${pascalCase}AiFeatureUnavailableErrorCode;
+  };
+  unavailableReasons: ${pascalCase}AiFeatureSupportReason[];
 }
 `;
 }
@@ -153,7 +153,7 @@ export interface ${pascalCase}AiFeatureSupportMetadata {
  * Generate runtime validators for the AI feature request/result/response contracts.
  */
 export function buildAiFeatureValidatorsSource(
-	aiFeatureSlug: string,
+  aiFeatureSlug: string,
 ): string {
   const pascalCase = toPascalCase(aiFeatureSlug);
 
@@ -161,28 +161,31 @@ export function buildAiFeatureValidatorsSource(
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
-\t${pascalCase}AiFeatureRequest,
-\t${pascalCase}AiFeatureResponse,
-\t${pascalCase}AiFeatureResult,
+  ${pascalCase}AiFeatureRequest,
+  ${pascalCase}AiFeatureResponse,
+  ${pascalCase}AiFeatureResult,
 } from './api-types';
 
-const validateFeatureRequest = typia.createValidate< ${pascalCase}AiFeatureRequest >();
-const validateFeatureResult = typia.createValidate< ${pascalCase}AiFeatureResult >();
-const validateFeatureResponse = typia.createValidate< ${pascalCase}AiFeatureResponse >();
+const validateFeatureRequest =
+  typia.createValidate<${pascalCase}AiFeatureRequest>();
+const validateFeatureResult =
+  typia.createValidate<${pascalCase}AiFeatureResult>();
+const validateFeatureResponse =
+  typia.createValidate<${pascalCase}AiFeatureResponse>();
 
 export const apiValidators = {
-\tfeatureRequest: ( input: unknown ) =>
-\t\ttoValidationResult< ${pascalCase}AiFeatureRequest >(
-\t\t\tvalidateFeatureRequest( input )
-\t\t),
-\tfeatureResult: ( input: unknown ) =>
-\t\ttoValidationResult< ${pascalCase}AiFeatureResult >(
-\t\t\tvalidateFeatureResult( input )
-\t\t),
-\tfeatureResponse: ( input: unknown ) =>
-\t\ttoValidationResult< ${pascalCase}AiFeatureResponse >(
-\t\t\tvalidateFeatureResponse( input )
-\t\t),
+  featureRequest: (input: unknown) =>
+    toValidationResult<${pascalCase}AiFeatureRequest>(
+      validateFeatureRequest(input),
+    ),
+  featureResult: (input: unknown) =>
+    toValidationResult<${pascalCase}AiFeatureResult>(
+      validateFeatureResult(input),
+    ),
+  featureResponse: (input: unknown) =>
+    toValidationResult<${pascalCase}AiFeatureResponse>(
+      validateFeatureResponse(input),
+    ),
 };
 `;
 }
@@ -192,110 +195,104 @@ export const apiValidators = {
  */
 export function buildAiFeatureApiSource(aiFeatureSlug: string): string {
   const pascalCase = toPascalCase(aiFeatureSlug);
-  const compatibility = createScaffoldCompatibilityConfig(
+  const compatibilitySource = renderScaffoldCompatibilityConfig(
     resolveScaffoldCompatibilityPolicy(
       OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
     ),
+    '  ',
   );
   const title = toTitleCase(aiFeatureSlug);
 
-  return `import {
-\tcallEndpoint,
-\tresolveRestRouteUrl,
-} from '@wp-typia/rest';
+  return `import { callEndpoint, resolveRestRouteUrl } from '@wp-typia/rest';
 
 import type {
-\t${pascalCase}AiFeatureRequest,
-\t${pascalCase}AiFeatureSupportMetadata,
+  ${pascalCase}AiFeatureRequest,
+  ${pascalCase}AiFeatureSupportMetadata,
 } from './api-types';
-import {
-\trun${pascalCase}AiFeatureEndpoint,
-} from './api-client';
+import { run${pascalCase}AiFeatureEndpoint } from './api-client';
 
-${formatResolveRestNonceSource('spaced')}
+${formatResolveRestNonceSource()}
 
-function isPlainObject( value: unknown ): value is Record< string, unknown > {
-\treturn (
-\t\t!! value &&
-\t\ttypeof value === 'object' &&
-\t\t! Array.isArray( value )
-\t);
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 export const aiFeatureRunEndpoint = {
-\t...run${pascalCase}AiFeatureEndpoint,
-\tbuildRequestOptions: () => {
-\t\tconst nonce = resolveRestNonce();
-\t\treturn {
-\t\t\theaders: nonce
-\t\t\t\t? {
-\t\t\t\t\t'X-WP-Nonce': nonce,
-\t\t\t\t}
-\t\t\t\t: undefined,
-\t\t\turl: resolveRestRouteUrl( run${pascalCase}AiFeatureEndpoint.path ),
-\t\t};
-\t},
+  ...run${pascalCase}AiFeatureEndpoint,
+  buildRequestOptions: () => {
+    const nonce = resolveRestNonce();
+    return {
+      headers: nonce
+        ? {
+            'X-WP-Nonce': nonce,
+          }
+        : undefined,
+      url: resolveRestRouteUrl(run${pascalCase}AiFeatureEndpoint.path),
+    };
+  },
 };
 
 export const aiFeatureSupportMetadata = {
-\tcompatibility: ${JSON.stringify(compatibility, null, '\t')},
-\tfeatureLabel: ${quoteTsString(title)},
-\tfeatureSlug: ${quoteTsString(aiFeatureSlug)},
-\tsupportProbe: {
-\t\tendpointMethod: 'POST',
-\t\tendpointPath: aiFeatureRunEndpoint.path,
-\t\tmode: 'request-time',
-\t\tunavailableErrorCode: 'ai_client_unavailable',
-\t},
-\tunavailableReasons: [
-\t\t{
-\t\t\tcode: 'missing-wordpress-ai-client',
-\t\t\tlabel: 'WordPress AI Client unavailable',
-\t\t\tmessage:
-\t\t\t\t'This AI feature stays disabled until the WordPress AI Client is available on the site.',
-\t\t},
-\t\t{
-\t\t\tcode: 'request-time-support-probe',
-\t\t\tlabel: 'Support is checked at request time',
-\t\t\tmessage:
-\t\t\t\t'Support is verified when the feature runs, so editor and admin UIs should degrade gracefully when the site rejects the request.',
-\t\t},
-\t],
+  compatibility: ${compatibilitySource},
+  featureLabel: ${quoteTsString(title)},
+  featureSlug: ${quoteTsString(aiFeatureSlug)},
+  supportProbe: {
+    endpointMethod: 'POST',
+    endpointPath: aiFeatureRunEndpoint.path,
+    mode: 'request-time',
+    unavailableErrorCode: 'ai_client_unavailable',
+  },
+  unavailableReasons: [
+    {
+      code: 'missing-wordpress-ai-client',
+      label: 'WordPress AI Client unavailable',
+      message:
+        'This AI feature stays disabled until the WordPress AI Client is available on the site.',
+    },
+    {
+      code: 'request-time-support-probe',
+      label: 'Support is checked at request time',
+      message:
+        'Support is verified when the feature runs, so editor and admin UIs should degrade gracefully when the site rejects the request.',
+    },
+  ],
 } satisfies ${pascalCase}AiFeatureSupportMetadata;
 
 export function getAiFeatureSupportHintLines() {
-\treturn aiFeatureSupportMetadata.unavailableReasons.map(
-\t\t( reason ) => reason.message
-\t);
+  return aiFeatureSupportMetadata.unavailableReasons.map(
+    (reason) => reason.message,
+  );
 }
 
-export function isAiFeatureSupportUnavailableError( error: unknown ) {
-\tif ( ! isPlainObject( error ) ) {
-\t\treturn false;
-\t}
+export function isAiFeatureSupportUnavailableError(error: unknown) {
+  if (!isPlainObject(error)) {
+    return false;
+  }
 
-\tconst data = isPlainObject( error.data ) ? error.data : undefined;
-\treturn (
-\t\terror.code === aiFeatureSupportMetadata.supportProbe.unavailableErrorCode ||
-\t\tdata?.status === 501
-\t);
+  const data = isPlainObject(error.data) ? error.data : undefined;
+  return (
+    error.code === aiFeatureSupportMetadata.supportProbe.unavailableErrorCode ||
+    data?.status === 501
+  );
 }
 
-export function resolveAiFeatureUnavailableMessage( error: unknown ) {
-\tif (
-\t\tisPlainObject( error ) &&
-\t\ttypeof error.message === 'string' &&
-\t\terror.message.length > 0
-\t) {
-\t\treturn error.message;
-\t}
+export function resolveAiFeatureUnavailableMessage(error: unknown) {
+  if (
+    isPlainObject(error) &&
+    typeof error.message === 'string' &&
+    error.message.length > 0
+  ) {
+    return error.message;
+  }
 
-\treturn aiFeatureSupportMetadata.unavailableReasons[ 0 ]?.message ??
-\t\t'This AI feature is currently unavailable.';
+  return (
+    aiFeatureSupportMetadata.unavailableReasons[0]?.message ??
+    'This AI feature is currently unavailable.'
+  );
 }
 
-export function runAiFeature( request: ${pascalCase}AiFeatureRequest ) {
-\treturn callEndpoint( aiFeatureRunEndpoint, request );
+export function runAiFeature(request: ${pascalCase}AiFeatureRequest) {
+  return callEndpoint(aiFeatureRunEndpoint, request);
 }
 `;
 }
@@ -307,40 +304,40 @@ export function buildAiFeatureDataSource(aiFeatureSlug: string): string {
   const pascalCase = toPascalCase(aiFeatureSlug);
 
   return `import {
-\tuseEndpointMutation,
-\ttype UseEndpointMutationOptions,
+  useEndpointMutation,
+  type UseEndpointMutationOptions,
 } from '@wp-typia/rest/react';
 
 import type {
-\t${pascalCase}AiFeatureRequest,
-\t${pascalCase}AiFeatureResponse,
+  ${pascalCase}AiFeatureRequest,
+  ${pascalCase}AiFeatureResponse,
 } from './api-types';
 import {
-\taiFeatureRunEndpoint,
-\taiFeatureSupportMetadata,
-\tgetAiFeatureSupportHintLines,
-\tisAiFeatureSupportUnavailableError,
-\tresolveAiFeatureUnavailableMessage,
+  aiFeatureRunEndpoint,
+  aiFeatureSupportMetadata,
+  getAiFeatureSupportHintLines,
+  isAiFeatureSupportUnavailableError,
+  resolveAiFeatureUnavailableMessage,
 } from './api';
 
 export type UseRun${pascalCase}AiFeatureMutationOptions =
-\tUseEndpointMutationOptions<
-\t\t${pascalCase}AiFeatureRequest,
-\t\t${pascalCase}AiFeatureResponse,
-\t\tunknown
-\t>;
+  UseEndpointMutationOptions<
+    ${pascalCase}AiFeatureRequest,
+    ${pascalCase}AiFeatureResponse,
+    unknown
+  >;
 
 export function useRun${pascalCase}AiFeatureMutation(
-\toptions: UseRun${pascalCase}AiFeatureMutationOptions = {}
+  options: UseRun${pascalCase}AiFeatureMutationOptions = {},
 ) {
-\treturn useEndpointMutation( aiFeatureRunEndpoint, options );
+  return useEndpointMutation(aiFeatureRunEndpoint, options);
 }
 
 export {
-\taiFeatureSupportMetadata,
-\tgetAiFeatureSupportHintLines,
-\tisAiFeatureSupportUnavailableError,
-\tresolveAiFeatureUnavailableMessage,
+  aiFeatureSupportMetadata,
+  getAiFeatureSupportHintLines,
+  isAiFeatureSupportUnavailableError,
+  resolveAiFeatureUnavailableMessage,
 };
 `;
 }

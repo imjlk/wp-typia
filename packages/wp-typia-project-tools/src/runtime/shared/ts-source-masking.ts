@@ -15,6 +15,36 @@ function testPattern(source: string, pattern: RegExp): boolean {
   return matched;
 }
 
+function findPatternMatch(
+  maskedSource: string,
+  patterns: readonly RegExp[],
+): SourceRange | undefined {
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(maskedSource);
+    pattern.lastIndex = 0;
+
+    if (match && match.index !== undefined) {
+      return {
+        end: match.index + match[0].length,
+        start: match.index,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Detects the dominant newline sequence, preferring the repository LF default
+ * when a source contains equal numbers of CRLF and bare LF line endings.
+ */
+export function detectSourceLineEnding(source: string): '\n' | '\r\n' {
+  const crlfCount = source.split('\r\n').length - 1;
+  const bareLfCount = source.replace(/\r\n/gu, '').split('\n').length - 1;
+  return crlfCount > bareLfCount ? '\r\n' : '\n';
+}
+
 /**
  * Masks TypeScript comments with spaces while preserving newlines and offsets.
  */
@@ -122,20 +152,18 @@ export function findExecutablePatternMatch(
 	source: string,
 	patterns: readonly RegExp[],
 ): SourceRange | undefined {
-  const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+  return findPatternMatch(maskTypeScriptCommentsAndLiterals(source), patterns);
+}
 
-  for (const pattern of patterns) {
-    pattern.lastIndex = 0;
-    const match = pattern.exec(maskedSource);
-    pattern.lastIndex = 0;
-
-    if (match && match.index !== undefined) {
-      return {
-        end: match.index + match[0].length,
-        start: match.index,
-      };
-    }
-  }
-
-  return undefined;
+/**
+ * Finds the first comment-masked match while retaining string literal content.
+ *
+ * This is useful for imports and path declarations whose patterns need to
+ * inspect literal values without accepting a commented-out declaration.
+ */
+export function findUncommentedPatternMatch(
+  source: string,
+  patterns: readonly RegExp[],
+): SourceRange | undefined {
+  return findPatternMatch(maskTypeScriptComments(source), patterns);
 }

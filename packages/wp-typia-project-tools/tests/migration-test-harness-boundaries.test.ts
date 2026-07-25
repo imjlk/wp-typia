@@ -30,16 +30,16 @@ test('migration test harness facade delegates runtime, manifest, and project fix
     'utf8',
   );
 
-  expect(harnessSource).toContain('from "./migration-test-harness-runtime.js"');
-  expect(harnessSource).toContain('from "./migration-test-harness-manifest.js"');
+  expect(harnessSource).toContain("from './migration-test-harness-runtime.js'");
+  expect(harnessSource).toContain("from './migration-test-harness-manifest.js'");
   expect(harnessSource).toContain(
-    'from "./migration-test-harness-basic-projects.js"',
+    "from './migration-test-harness-basic-projects.js'",
   );
   expect(harnessSource).toContain(
-    'from "./migration-test-harness-workspace-projects.js"',
+    "from './migration-test-harness-workspace-projects.js'",
   );
   expect(harnessSource).toContain(
-    'from "./migration-test-harness-case-projects.js"',
+    "from './migration-test-harness-case-projects.js'",
   );
   expect(harnessSource).not.toContain('function resolvePackageRoot(');
   expect(harnessSource).not.toContain('function createManifestAttribute(');

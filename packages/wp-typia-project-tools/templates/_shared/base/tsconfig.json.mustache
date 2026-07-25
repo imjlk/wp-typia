@@ -13,8 +13,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["wordpress__block-editor", "wordpress__blocks"]
+    "rootDir": ".",
+    "types": ["node", "wordpress__block-editor", "wordpress__blocks"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "build"]
 }

@@ -87,11 +87,24 @@ describe('package manager runtime helpers', () => {
 
 		expect(transformPackageManagerText(content, 'npm')).toBe(
 			[
-				'npm install --no-audit && npm run sync-types -- --strict || npm install --save-dev @types/node;',
+				'npm install --no-audit&&npm run sync-types -- --strict||npm install --save-dev @types/node;',
 				'`npm run lint`, npm ci.',
 				'postbun run should stay untouched.',
 			].join(' '),
 		);
+	});
+
+	test('preserves logical-expression whitespace in generated source files', () => {
+		const content = [
+			'if (',
+			'  isReady &&',
+			'  (isEnabled || isRequired)',
+			') {',
+			'  run();',
+			'}',
+		].join('\n');
+
+		expect(transformPackageManagerText(content, 'npm')).toBe(content);
 	});
 
 	test('keeps bun text stable when no transformation is required', () => {

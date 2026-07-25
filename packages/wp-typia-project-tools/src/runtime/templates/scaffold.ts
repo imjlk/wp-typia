@@ -93,6 +93,7 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   alternateRenderTargetsJson: string;
   apiClientPackageVersion: string;
   author: string;
+  bootstrapEndpointDeclaration: string;
   blockRuntimePackageVersion: string;
   blockMetadataVersion: string;
   blockTypesPackageVersion: string;
@@ -103,6 +104,7 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   compoundChildCssClassName: string;
   compoundChildIcon: string;
   compoundChildTitleJson: string;
+  compoundChildTitleTsLiteral: string;
   compoundPersistenceEnabled: 'false' | 'true';
   compoundInnerBlocksDirectInsert: 'false' | 'true';
   compoundInnerBlocksOrientation: '' | 'horizontal' | 'vertical';
@@ -124,6 +126,7 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   dataStorageMode: DataStorageMode;
   description: string;
   descriptionJson: string;
+  descriptionTsLiteral: string;
   frontendCssClassName: string;
   keyword: string;
   namespace: string;
@@ -132,14 +135,18 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   phpPrefix: string;
   phpPrefixUpper: string;
   queryAllowedControlsJson: string;
+  queryAllowedControlsTsLiteral: string;
   queryPostTypeJson: string;
+  queryPostTypeTsLiteral: string;
   queryPostType: string;
   queryVariationNamespace: string;
   queryVariationNamespaceJson: string;
+  queryVariationNamespaceTsLiteral: string;
   isAuthenticatedPersistencePolicy: 'false' | 'true';
   isPublicPersistencePolicy: 'false' | 'true';
   bootstrapCredentialDeclarations: string;
   persistencePolicyDescriptionJson: string;
+  persistencePolicyDescriptionTsLiteral: string;
   publicWriteRequestIdDeclaration: string;
   restPackageVersion: string;
   restWriteAuthIntent: 'authenticated' | 'public-write-protected';
@@ -149,13 +156,16 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   slugCamelCase: string;
   slugKebabCase: string;
   slugSnakeCase: string;
+  stateEndpointDeclaration: string;
   textDomain: string;
   textdomain: string;
   testedUpTo: string;
   title: string;
   titleJson: string;
+  titleTsLiteral: string;
   titleCase: string;
   persistencePolicy: PersistencePolicy;
+  writeStateEndpointDeclaration: string;
 }
 
 export interface ScaffoldTemplateVariables

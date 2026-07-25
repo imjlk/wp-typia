@@ -600,68 +600,68 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
 > = {
   basic: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': 'ac2ae7eacefc1c3d',
+    'src/edit.tsx': '74ff8f4d6fc9e8ac',
     'src/editor.scss': 'd0287f8349249da4',
-    'src/hooks.ts': '3c1b432bd711ee70',
-    'src/index.tsx': '0dafa14df856a6ea',
+    'src/hooks.ts': 'e95dea31e16a6ec7',
+    'src/index.tsx': '0acf1831bfb24ac1',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
     'src/render.php': 'cfa163e5806011fb',
     'src/save.tsx': '7cd5f465672f0907',
     'src/style.scss': '6e77df2f2a7aac8f',
-    'src/validators.ts': '5f1402b636e752d1',
+    'src/validators.ts': '2177d8be82a6eabc',
   },
   interactivity: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': '66850eb8f15d41db',
+    'src/edit.tsx': '8c82bfd9888d0c5e',
     'src/editor.scss': '7da532bf2acdc7c1',
-    'src/hooks.ts': '3c1b432bd711ee70',
-    'src/index.tsx': '09971fea0bb30b8f',
-    'src/interactivity-store.ts': 'c29d6e1f3da5ef8e',
-    'src/interactivity.ts': '02607a60ca356d79',
+    'src/hooks.ts': 'e95dea31e16a6ec7',
+    'src/index.tsx': '339921f3d9acdafe',
+    'src/interactivity-store.ts': '1fd02a161c5c86fa',
+    'src/interactivity.ts': '36f76ed153e02cdc',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
-    'src/save.tsx': '6301f5948d610fcb',
+    'src/save.tsx': '9e3f69db9ff3ed24',
     'src/style.scss': '7d77511799b41826',
-    'src/validators.ts': '1bd57292163b3488',
+    'src/validators.ts': 'f02f2f0d77bdbfe8',
   },
   persistence: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': '8b2ffb507c386326',
-    'src/hooks.ts': '3c1b432bd711ee70',
-    'src/index.tsx': 'b0a68949bcc558dc',
-    'src/interactivity.ts': '37e6d16e5df98fd4',
+    'src/edit.tsx': '33c0a9b47345459d',
+    'src/hooks.ts': 'e95dea31e16a6ec7',
+    'src/index.tsx': 'b18acd5e44a4c395',
+    'src/interactivity.ts': '80a54fdedd633e62',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
     'src/render.php': '7c378bd44328c706',
-    'src/save.tsx': '1d87a20aecee4173',
+    'src/save.tsx': '512a513b9145e649',
     'src/style.scss': 'a48f3de45038a032',
-    'src/validators.ts': '36295eb1f6a12ddc',
+    'src/validators.ts': 'b419801aff987f63',
   },
   compound: {
     'src/blocks/demo-compound-item/block-metadata.ts': '50956333a97a824a',
-    'src/blocks/demo-compound-item/edit.tsx': '7f80c9b38b36f2ac',
-    'src/blocks/demo-compound-item/hooks.ts': '485092aef1c4e019',
-    'src/blocks/demo-compound-item/index.tsx': '5b5805db42c0b1f6',
+    'src/blocks/demo-compound-item/edit.tsx': '5a85be1c020db77d',
+    'src/blocks/demo-compound-item/hooks.ts': '35d4b1ace23be502',
+    'src/blocks/demo-compound-item/index.tsx': '4a8f2225b2554197',
     'src/blocks/demo-compound-item/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound-item/manifest-document.ts': 'b8fffee2c728488e',
-    'src/blocks/demo-compound-item/save.tsx': 'e2a9d7c5df3e615f',
-    'src/blocks/demo-compound-item/validators.ts': '7123c8ea0e650172',
+    'src/blocks/demo-compound-item/save.tsx': 'ad030c7483974d40',
+    'src/blocks/demo-compound-item/validators.ts': 'dc2339e1f385b488',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
-    'src/blocks/demo-compound/children.ts': '97ab81740f946e5a',
-    'src/blocks/demo-compound/edit.tsx': '1ea532b1d5e56f37',
-    'src/blocks/demo-compound/hooks.ts': '485092aef1c4e019',
-    'src/blocks/demo-compound/index.tsx': 'c9d9139901e6e4b9',
-    'src/blocks/demo-compound/interactivity.ts': 'eddaf331fa622b91',
+    'src/blocks/demo-compound/children.ts': 'f38bf8f884b06dfe',
+    'src/blocks/demo-compound/edit.tsx': '0cd6f57e52f3f375',
+    'src/blocks/demo-compound/hooks.ts': '35d4b1ace23be502',
+    'src/blocks/demo-compound/index.tsx': 'e41dfb0b954670a5',
+    'src/blocks/demo-compound/interactivity.ts': 'e088bb3facaeaefe',
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
     'src/blocks/demo-compound/render.php': '945ae15d97cb040d',
-    'src/blocks/demo-compound/save.tsx': '67a2bd4dce77cef6',
+    'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
     'src/blocks/demo-compound/style.scss': '41a7a2bbf5cd2a34',
-    'src/blocks/demo-compound/validators.ts': '71018b1d52460cf2',
-    'src/hooks.ts': '3c1b432bd711ee70',
+    'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',
+    'src/hooks.ts': 'e95dea31e16a6ec7',
   },
 };
 
@@ -781,15 +781,15 @@ describe('built-in block artifacts', () => {
 		);
 
     expect(assemblySource).toContain(
-      'from "./built-in-block-code-templates.js"',
+      "from './built-in-block-code-templates.js'",
     );
     expect(assemblySource).not.toContain('const BASIC_EDIT_TEMPLATE =');
     expect(assemblySource).not.toContain('const PERSISTENCE_EDIT_TEMPLATE =');
     expect(templateBarrelSource).toContain(
-      'from "./built-in-block-code-templates/basic.js"',
+      "from './built-in-block-code-templates/basic.js'",
     );
     expect(templateBarrelSource).toContain(
-      'from "./built-in-block-code-templates/compound.js"',
+      "from './built-in-block-code-templates/compound.js'",
     );
     expect(basicTemplateSource).toContain('export const BASIC_EDIT_TEMPLATE =');
     expect(compoundTemplateSource).toContain("from './compound-parent.js'");
@@ -865,9 +865,9 @@ describe('built-in block artifacts', () => {
       expect(editSource).toContain(`prefix: '${expectedPrefix}'`);
       expect(editSource).not.toContain(`prefix: '${longSlug}'`);
       expect(validatorsSource).toContain(
-        `generateResourceKey( '${expectedPrefix}' )`,
+        `generateResourceKey('${expectedPrefix}')`,
       );
-      expect(interactivitySource).toContain(`store( '${longSlug}', {`);
+      expect(interactivitySource).toContain(`store('${longSlug}', {`);
     }
   });
 
@@ -955,13 +955,13 @@ describe('built-in block artifacts', () => {
           `export interface ${variables.pascalCase}Attributes`,
         );
         expect(artifacts[0]?.typesSource).toContain(
-          'tags.MaxLength<1000> & tags.Default<"">',
+          "tags.MaxLength<1000> & tags.Default<''>",
         );
         expect(artifacts[0]?.typesSource).not.toContain(
-          'tags.MinLength<1> & tags.MaxLength<1000> & tags.Default<"">',
+          "tags.MinLength<1> & tags.MaxLength<1000> & tags.Default<''>",
         );
         expect(artifacts[0]?.typesSource).toContain(
-          'import type { TextAlignment } from "@wp-typia/block-types/block-editor/alignment";',
+          "import type { TextAlignment } from '@wp-typia/block-types/block-editor/alignment';",
         );
         expect(artifacts[0]?.blockJsonDocument).toEqual(
           expect.objectContaining({
@@ -976,10 +976,10 @@ describe('built-in block artifacts', () => {
           `export interface ${variables.pascalCase}Context`,
         );
         expect(artifacts[0]?.typesSource).toContain(
-          'tags.MaxLength<1000> & tags.Default<"">',
+          "tags.MaxLength<1000> & tags.Default<''>",
         );
         expect(artifacts[0]?.typesSource).not.toContain(
-          'tags.MinLength<1> & tags.MaxLength<1000> & tags.Default<"">',
+          "tags.MinLength<1> & tags.MaxLength<1000> & tags.Default<''>",
         );
         expect(artifacts[0]?.blockJsonDocument).toEqual(
           expect.objectContaining({
@@ -1133,7 +1133,7 @@ describe('built-in block artifacts', () => {
     expect(
       codeArtifacts.find((artifact) => artifact.relativePath === 'src/index.ts')
         ?.source,
-    ).toContain('postType: "3d-model"');
+    ).toContain("postType: '3d-model'");
   });
 
   test('compound persistence render emitter quotes heading fallbacks safely', () => {

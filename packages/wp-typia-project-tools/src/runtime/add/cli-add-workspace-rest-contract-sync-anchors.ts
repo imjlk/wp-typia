@@ -3,28 +3,35 @@ import path from 'node:path';
 import { patchFile } from './cli-add-shared.js';
 import {
   buildNoResourcesGuard,
+  FINAL_SYNC_SUMMARY_PATTERN,
   getSyncRestPatchErrorMessage,
   replaceBlockConfigImport,
   replaceNoResourcesGuard,
 } from './cli-add-workspace-rest-sync-script-shared.js';
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
+
+type SourceMatcher = string | RegExp;
+
+function matchesSource(source: string, matcher: SourceMatcher): boolean {
+  return typeof matcher === 'string'
+    ? source.includes(matcher)
+    : matcher.test(source);
+}
 
 function replaceRequiredContractSyncRestSource(
 	nextSource: string,
-	target: string,
-	anchor: string | RegExp,
+	target: SourceMatcher,
+	anchor: SourceMatcher,
 	replacement: string,
 	anchorDescription: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes(target)) {
+  if (matchesSource(nextSource, target)) {
     return nextSource;
   }
 
-  const hasAnchor =
-		typeof anchor === 'string'
-      ? nextSource.includes(anchor)
-      : anchor.test(nextSource);
+  const hasAnchor = matchesSource(nextSource, anchor);
   if (!hasAnchor) {
     throw new Error(
       getSyncRestPatchErrorMessage(
@@ -40,53 +47,68 @@ function replaceRequiredContractSyncRestSource(
 }
 
 function insertStandaloneContractFilter(nextSource: string, syncRestScriptPath: string): string {
-  if (nextSource.includes('const standaloneContracts = CONTRACTS.filter')) {
+  const lineEnding = detectSourceLineEnding(nextSource);
+  if (
+    /const\s+standaloneContracts\s*=\s*CONTRACTS\.filter\(\s*isWorkspaceStandaloneContract\s*,?\s*\);/u.test(
+      nextSource,
+    )
+  ) {
     return nextSource;
   }
 
   const restResourcesFilter =
-		'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );';
-  if (nextSource.includes(restResourcesFilter)) {
+    /^([ \t]*)const\s+restResources\s*=\s*REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*\);/mu;
+  if (restResourcesFilter.test(nextSource)) {
     return nextSource.replace(
-			restResourcesFilter,
-			[
-				'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
-				restResourcesFilter,
-			].join('\n\t'),
-		);
+      restResourcesFilter,
+      (match, indentation: string) =>
+        [
+          `${indentation}const standaloneContracts = CONTRACTS.filter(`,
+          `${indentation}  isWorkspaceStandaloneContract,`,
+          `${indentation});`,
+          match,
+        ].join(lineEnding),
+    );
   }
 
-  const restBlocksFilter = 'const restBlocks = BLOCKS.filter( isRestEnabledBlock );';
+  const restBlocksFilter =
+    /^([ \t]*)const\s+restBlocks\s*=\s*BLOCKS\.filter\(\s*isRestEnabledBlock\s*\);/mu;
   return replaceRequiredContractSyncRestSource(
-		nextSource,
-		'const standaloneContracts = CONTRACTS.filter',
-		restBlocksFilter,
-		[
-			restBlocksFilter,
-			'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
-		].join('\n\t'),
-		'restBlocks filter',
-		syncRestScriptPath,
-	);
+    nextSource,
+    /const\s+standaloneContracts\s*=\s*CONTRACTS\.filter/u,
+    restBlocksFilter,
+    [
+      '$1const restBlocks = BLOCKS.filter(isRestEnabledBlock);',
+      '$1const standaloneContracts = CONTRACTS.filter(',
+      '$1  isWorkspaceStandaloneContract,',
+      '$1);',
+    ].join(lineEnding),
+    'restBlocks filter',
+    syncRestScriptPath,
+  );
 }
 
 function insertStandaloneContractNoResourcesGuard(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  const hasRestResources = nextSource.includes(
-    'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
-  );
-  const hasAiFeatures = nextSource.includes(
-    'const aiFeatures = AI_FEATURES.filter( isWorkspaceAiFeature );',
-  );
-  const hasPostMeta = nextSource.includes(
-    'const postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );',
-  );
+  const hasRestResources =
+    /const\s+restResources\s*=\s*REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*\);/u.test(
+      nextSource,
+    );
+  const hasAiFeatures =
+    /const\s+aiFeatures\s*=\s*AI_FEATURES\.filter\(\s*isWorkspaceAiFeature\s*\);/u.test(
+      nextSource,
+    );
+  const hasPostMeta =
+    /const\s+postMetaContracts\s*=\s*POST_META\.filter\(\s*isWorkspacePostMetaContract\s*\);/u.test(
+      nextSource,
+    );
 
   return replaceNoResourcesGuard(
     nextSource,
     buildNoResourcesGuard({
+      lineEnding: detectSourceLineEnding(nextSource),
       subjects: [
         {
           condition: 'restBlocks.length === 0',
@@ -125,47 +147,48 @@ function insertStandaloneContractSyncLoop(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes('for ( const contract of standaloneContracts )')) {
+  if (
+    /for\s*\(\s*const\s+contract\s+of\s+standaloneContracts\s*\)\s*\{/u.test(
+      nextSource,
+    )
+  ) {
     return nextSource;
   }
 
+  const lineEnding = detectSourceLineEnding(nextSource);
   const loopSource = [
-		'\tfor ( const contract of standaloneContracts ) {',
-		'\t\tawait syncTypeSchemas(',
-		'\t\t\t{',
-		'\t\t\t\tjsonSchemaFile: contract.schemaFile,',
-		'\t\t\t\tsourceTypeName: contract.sourceTypeName,',
-		'\t\t\t\ttypesFile: contract.typesFile,',
-		'\t\t\t},',
-		'\t\t\t{',
-		'\t\t\t\tcheck: options.check,',
-		'\t\t\t}',
-		'\t\t);',
-		'\t}',
-	].join('\n');
-  const resourceLoopAnchor = '\n\tfor ( const resource of restResources ) {';
-  if (nextSource.includes(resourceLoopAnchor)) {
+    '  for (const contract of standaloneContracts) {',
+    '    await syncTypeSchemas(',
+    '      {',
+    '        jsonSchemaFile: contract.schemaFile,',
+    '        sourceTypeName: contract.sourceTypeName,',
+    '        typesFile: contract.typesFile,',
+    '      },',
+    '      {',
+    '        check: options.check,',
+    '      },',
+    '    );',
+    '  }',
+  ].join(lineEnding);
+  const resourceLoopAnchor =
+    /\r?\n[ \t]+for\s*\(\s*const\s+resource\s+of\s+restResources\s*\)\s*\{/u;
+  if (resourceLoopAnchor.test(nextSource)) {
     return nextSource.replace(
       resourceLoopAnchor,
-      `\n${loopSource}\n${resourceLoopAnchor}`,
+      (match) => `${lineEnding}${loopSource}${lineEnding}${match}`,
     );
   }
 
-  const consoleLogPattern = /\n\tconsole\.log\(\n\t\toptions\.check/u;
   return replaceRequiredContractSyncRestSource(
-		nextSource,
-		'for ( const contract of standaloneContracts )',
-		consoleLogPattern,
-		[
-			'',
-			loopSource,
-			'',
-			'\tconsole.log(',
-			'\t\toptions.check',
-		].join('\n'),
-		'success log insertion point',
-		syncRestScriptPath,
-	);
+    nextSource,
+    /for\s*\(\s*const\s+contract\s+of\s+standaloneContracts\s*\)/u,
+    FINAL_SYNC_SUMMARY_PATTERN,
+    ['', loopSource, '', '  console.log(', '    options.check'].join(
+      lineEnding,
+    ),
+    'success log insertion point',
+    syncRestScriptPath,
+  );
 }
 
 /**
@@ -185,6 +208,7 @@ export async function ensureContractSyncScriptAnchors(
   );
 
   await patchFile(syncRestScriptPath, (source) => {
+    const lineEnding = detectSourceLineEnding(source);
 		let nextSource = replaceBlockConfigImport({
 			functionName: 'ensureContractSyncScriptAnchors',
 			nextSource: source,
@@ -198,25 +222,25 @@ export async function ensureContractSyncScriptAnchors(
 
 		nextSource = replaceRequiredContractSyncRestSource(
 			nextSource,
-			'function isWorkspaceStandaloneContract(',
+			/function\s+isWorkspaceStandaloneContract\s*\(/u,
 			helperInsertionAnchor,
 			[
-				'function isWorkspaceStandaloneContract(',
-				'\tcontract: WorkspaceContractConfig',
-				'): contract is WorkspaceContractConfig & {',
-				'\tschemaFile: string;',
-				'\tsourceTypeName: string;',
-				'\ttypesFile: string;',
-				'} {',
-				'\treturn (',
-				"\t\ttypeof contract.schemaFile === 'string' &&",
-				"\t\ttypeof contract.sourceTypeName === 'string' &&",
-				"\t\ttypeof contract.typesFile === 'string'",
-				'\t);',
-				'}',
-				'',
-				'async function assertTypeArtifactsCurrent',
-			].join('\n'),
+        'function isWorkspaceStandaloneContract(',
+        '  contract: WorkspaceContractConfig,',
+        '): contract is WorkspaceContractConfig & {',
+        '  schemaFile: string;',
+        '  sourceTypeName: string;',
+        '  typesFile: string;',
+        '} {',
+        '  return (',
+        "    typeof contract.schemaFile === 'string' &&",
+        "    typeof contract.sourceTypeName === 'string' &&",
+        "    typeof contract.typesFile === 'string'",
+        '  );',
+        '}',
+        '',
+        'async function assertTypeArtifactsCurrent',
+      ].join(lineEnding),
 			'type artifact assertion helper',
 			syncRestScriptPath,
 		);

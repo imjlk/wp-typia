@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  detectSourceLineEnding,
   findExecutablePatternMatch,
+  findUncommentedPatternMatch,
   hasExecutablePattern,
   hasUncommentedPattern,
   maskTypeScriptComments,
@@ -40,7 +42,20 @@ describe('TypeScript source masking', () => {
 
 		expect(hasUncommentedPattern(commentedSource, importPattern)).toBe(false);
 		expect(hasUncommentedPattern(activeSource, importPattern)).toBe(true);
+    expect(findUncommentedPatternMatch(commentedSource, [importPattern])).toBe(
+      undefined,
+    );
+    expect(findUncommentedPatternMatch(activeSource, [importPattern])).toEqual({
+      end: activeSource.indexOf('\n'),
+      start: 0,
+    });
 	});
+
+  test('detects the dominant source line ending and prefers LF for ties', () => {
+    expect(detectSourceLineEnding('first\r\nsecond\r\nthird')).toBe('\r\n');
+    expect(detectSourceLineEnding('first\nsecond\nthird')).toBe('\n');
+    expect(detectSourceLineEnding('first\r\nsecond\nthird')).toBe('\n');
+  });
 
 	test('ignores string and template literal text for executable pattern checks', () => {
 		const callPattern = /registerWorkspaceBlockStyles\s*\(\s*\)\s*;?/u;

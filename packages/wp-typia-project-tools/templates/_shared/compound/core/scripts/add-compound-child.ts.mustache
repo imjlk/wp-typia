@@ -5,1393 +5,1472 @@ import path from 'node:path';
 const PROJECT_ROOT = process.cwd();
 
 const CHILD_SPEC_MARKER = '// add-child: insert new child specs here';
-const BLOCK_CONFIG_MARKER = '// add-child: insert new block config entries here';
+const BLOCK_CONFIG_MARKER =
+  '// add-child: insert new block config entries here';
 const CHILD_PLACEHOLDER = 'Add supporting details for this internal item.';
 const BLOCK_SLUG_PATTERN = /^[a-z][a-z0-9-]*$/;
 
 type StarterManifestDocument = {
-	attributes: Record< string, unknown >;
-	manifestVersion: 2;
-	sourceType: string;
+  attributes: Record<string, unknown>;
+  manifestVersion: 2;
+  sourceType: string;
 };
 
 type CompoundParentConfig = {
-	blockJsonPath: string;
-	blockName: string;
-	namespace: string;
-	blocksRoot: string;
-	slug: string;
-	styleImport: string;
-	textDomain: string;
-	title: string;
-	typeName: string;
+  blockJsonPath: string;
+  blockName: string;
+  namespace: string;
+  blocksRoot: string;
+  slug: string;
+  styleImport: string;
+  textDomain: string;
+  title: string;
+  typeName: string;
 };
 
 type ExistingCompoundChild = {
-	ancestorBlockNames: string[];
-	blockJsonPath: string;
-	blockName: string;
-	container: boolean;
-	directAllowedBlocks: string[];
-	folderSlug: string;
-	key: string;
-	parentBlockNames: string[];
-	placement: 'nested' | 'root';
-	supportsInserter: boolean;
-	title: string;
+  ancestorBlockNames: string[];
+  blockJsonPath: string;
+  blockName: string;
+  container: boolean;
+  directAllowedBlocks: string[];
+  folderSlug: string;
+  key: string;
+  parentBlockNames: string[];
+  placement: 'nested' | 'root';
+  supportsInserter: boolean;
+  title: string;
 };
 
 type ParsedArgs = {
-	ancestorValues: string[];
-	container: boolean;
-	dryRun: boolean;
-	inserter?: 'hidden' | 'visible';
-	slug?: string;
-	title?: string;
+  ancestorValues: string[];
+  container: boolean;
+  dryRun: boolean;
+  inserter?: 'hidden' | 'visible';
+  slug?: string;
+  title?: string;
 };
 
 type CompoundChildGraphNode = {
-	blockName: string;
-	container: boolean;
-	directParentBlockName: string;
-	isProspective: boolean;
-	key: string;
-	placement: 'nested' | 'root';
-	supportsInserter: boolean;
-	title: string;
+  blockName: string;
+  container: boolean;
+  directParentBlockName: string;
+  isProspective: boolean;
+  key: string;
+  placement: 'nested' | 'root';
+  supportsInserter: boolean;
+  title: string;
 };
 
 function parseArgs() {
-	const args = process.argv.slice( 2 );
-	const parsed: ParsedArgs = {
-		ancestorValues: [],
-		container: false,
-		dryRun: false,
-	};
+  const args = process.argv.slice(2);
+  const parsed: ParsedArgs = {
+    ancestorValues: [],
+    container: false,
+    dryRun: false,
+  };
 
-	for ( let index = 0; index < args.length; index += 1 ) {
-		const arg = args[ index ];
-		if ( arg === '--slug' ) {
-			const value = args[ index + 1 ];
-			if ( ! value || value.startsWith( '--' ) ) {
-				throw new Error( '--slug requires a value.' );
-			}
-			parsed.slug = value;
-			index += 1;
-			continue;
-		}
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--slug') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--slug requires a value.');
+      }
+      parsed.slug = value;
+      index += 1;
+      continue;
+    }
 
-		if ( arg === '--title' ) {
-			const value = args[ index + 1 ];
-			if ( ! value || value.startsWith( '--' ) ) {
-				throw new Error( '--title requires a value.' );
-			}
-			parsed.title = value;
-			index += 1;
-			continue;
-		}
+    if (arg === '--title') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--title requires a value.');
+      }
+      parsed.title = value;
+      index += 1;
+      continue;
+    }
 
-		if ( arg === '--ancestor' ) {
-			const value = args[ index + 1 ];
-			if ( ! value || value.startsWith( '--' ) ) {
-				throw new Error( '--ancestor requires a value.' );
-			}
-			parsed.ancestorValues.push( value );
-			index += 1;
-			continue;
-		}
+    if (arg === '--ancestor') {
+      const value = args[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--ancestor requires a value.');
+      }
+      parsed.ancestorValues.push(value);
+      index += 1;
+      continue;
+    }
 
-		if ( arg === '--container' ) {
-			parsed.container = true;
-			continue;
-		}
+    if (arg === '--container') {
+      parsed.container = true;
+      continue;
+    }
 
-		if ( arg === '--dry-run' ) {
-			parsed.dryRun = true;
-			continue;
-		}
+    if (arg === '--dry-run') {
+      parsed.dryRun = true;
+      continue;
+    }
 
-		if ( arg === '--inserter' ) {
-			const value = args[ index + 1 ];
-			if ( value !== 'hidden' && value !== 'visible' ) {
-				throw new Error( "--inserter must be either 'hidden' or 'visible'." );
-			}
-			parsed.inserter = value;
-			index += 1;
-			continue;
-		}
+    if (arg === '--inserter') {
+      const value = args[index + 1];
+      if (value !== 'hidden' && value !== 'visible') {
+        throw new Error("--inserter must be either 'hidden' or 'visible'.");
+      }
+      parsed.inserter = value;
+      index += 1;
+      continue;
+    }
 
-		if ( arg.startsWith( '--' ) ) {
-			throw new Error( `Unknown option: ${ arg }.` );
-		}
-	}
+    if (arg.startsWith('--')) {
+      throw new Error(`Unknown option: ${arg}.`);
+    }
+  }
 
-	return parsed;
+  return parsed;
 }
 
-function toKebabCase( input: string ): string {
-	return input
-		.trim()
-		.replace( /([a-z0-9])([A-Z])/g, '$1-$2' )
-		.replace( /[^A-Za-z0-9]+/g, '-' )
-		.replace( /^-+|-+$/g, '' )
-		.replace( /-{2,}/g, '-' )
-		.toLowerCase();
+function toKebabCase(input: string): string {
+  return input
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .toLowerCase();
 }
 
-function toPascalCase( input: string ): string {
-	return toKebabCase( input )
-		.split( '-' )
-		.filter( Boolean )
-		.map( ( segment ) => segment.charAt( 0 ).toUpperCase() + segment.slice( 1 ) )
-		.join( '' );
+function toPascalCase(input: string): string {
+  return toKebabCase(input)
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join('');
 }
 
-function toTitleCase( input: string ): string {
-	return toKebabCase( input )
-		.split( '-' )
-		.filter( Boolean )
-		.map( ( segment ) => segment.charAt( 0 ).toUpperCase() + segment.slice( 1 ) )
-		.join( ' ' );
+function toTitleCase(input: string): string {
+  return toKebabCase(input)
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
 }
 
-function readJsonFile( filePath: string ): Record< string, unknown > {
-	let parsed: unknown;
+function quoteTypeScriptString(value: string): string {
+  let escaped = '';
 
-	try {
-		parsed = JSON.parse( fs.readFileSync( filePath, 'utf8' ) );
-	} catch ( error ) {
-		const errorMessage = error instanceof Error ? error.message : String( error );
-		throw new Error(
-			`Unable to parse JSON from ${ filePath }: ${ errorMessage }`,
-			{ cause: error instanceof Error ? error : undefined }
-		);
-	}
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    const character = value[index] ?? '';
 
-	if ( ! parsed || typeof parsed !== 'object' || Array.isArray( parsed ) ) {
-		throw new Error( `${ filePath } must contain a JSON object.` );
-	}
+    switch (character) {
+      case '\\':
+        escaped += '\\\\';
+        break;
+      case "'":
+        escaped += "\\'";
+        break;
+      case '\b':
+        escaped += '\\b';
+        break;
+      case '\f':
+        escaped += '\\f';
+        break;
+      case '\n':
+        escaped += '\\n';
+        break;
+      case '\r':
+        escaped += '\\r';
+        break;
+      case '\t':
+        escaped += '\\t';
+        break;
+      case '\v':
+        escaped += '\\v';
+        break;
+      default:
+        if (
+          code < 0x20 ||
+          code === 0x2028 ||
+          code === 0x2029 ||
+          (code >= 0xd800 && code <= 0xdfff)
+        ) {
+          escaped += `\\u${code.toString(16).padStart(4, '0')}`;
+        } else {
+          escaped += character;
+        }
+    }
+  }
 
-	return parsed as Record< string, unknown >;
+  return `'${escaped}'`;
 }
 
-function resolveValidatedNamespace( value: string ): string {
-	const normalizedNamespace = toKebabCase( value );
+function readJsonFile(filePath: string): Record<string, unknown> {
+  let parsed: unknown;
 
-	if ( ! BLOCK_SLUG_PATTERN.test( normalizedNamespace ) ) {
-		throw new Error( 'Use a block namespace with lowercase letters, numbers, and hyphens only.' );
-	}
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to parse JSON from ${filePath}: ${errorMessage}`);
+  }
 
-	return normalizedNamespace;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${filePath} must contain a JSON object.`);
+  }
+
+  return parsed as Record<string, unknown>;
 }
 
-function resolveValidatedBlockSlug( value: string ): string {
-	const normalizedSlug = toKebabCase( value );
+function resolveValidatedNamespace(value: string): string {
+  const normalizedNamespace = toKebabCase(value);
 
-	if ( ! BLOCK_SLUG_PATTERN.test( normalizedSlug ) ) {
-		throw new Error( 'Use a child slug with lowercase letters, numbers, and hyphens only.' );
-	}
+  if (!BLOCK_SLUG_PATTERN.test(normalizedNamespace)) {
+    throw new Error(
+      'Use a block namespace with lowercase letters, numbers, and hyphens only.',
+    );
+  }
 
-	return normalizedSlug;
+  return normalizedNamespace;
+}
+
+function resolveValidatedBlockSlug(value: string): string {
+  const normalizedSlug = toKebabCase(value);
+
+  if (!BLOCK_SLUG_PATTERN.test(normalizedSlug)) {
+    throw new Error(
+      'Use a child slug with lowercase letters, numbers, and hyphens only.',
+    );
+  }
+
+  return normalizedSlug;
 }
 
 function resolveCompoundParentConfig(): CompoundParentConfig {
-	const blocksRoot = path.join( PROJECT_ROOT, 'src', 'blocks' );
+  const blocksRoot = path.join(PROJECT_ROOT, 'src', 'blocks');
 
-	if ( ! fs.existsSync( blocksRoot ) ) {
-		throw new Error(
-			'This command expects a compound scaffold with src/blocks/<parent>/children.ts and scripts/block-config.ts.'
-		);
-	}
+  if (!fs.existsSync(blocksRoot)) {
+    throw new Error(
+      'This command expects a compound scaffold with src/blocks/<parent>/children.ts and scripts/block-config.ts.',
+    );
+  }
 
-	const parentCandidates = fs
-		.readdirSync( blocksRoot, { withFileTypes: true } )
-		.filter( ( entry ) => entry.isDirectory() )
-		.map( ( entry ) => path.join( blocksRoot, entry.name ) )
-		.filter( ( candidateDir ) =>
-			fs.existsSync( path.join( candidateDir, 'children.ts' ) )
-		);
+  const parentCandidates = fs
+    .readdirSync(blocksRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(blocksRoot, entry.name))
+    .filter((candidateDir) =>
+      fs.existsSync(path.join(candidateDir, 'children.ts')),
+    );
 
-	if ( parentCandidates.length !== 1 ) {
-		throw new Error(
-			`Unable to resolve the compound parent block. Expected exactly one src/blocks/<parent>/children.ts entry, found ${ parentCandidates.length }.`
-		);
-	}
+  if (parentCandidates.length !== 1) {
+    throw new Error(
+      `Unable to resolve the compound parent block. Expected exactly one src/blocks/<parent>/children.ts entry, found ${parentCandidates.length}.`,
+    );
+  }
 
-	const parentDir = parentCandidates[ 0 ];
-	const parentSlug = resolveValidatedBlockSlug( path.basename( parentDir ) );
-	const blockJsonPath = path.join( parentDir, 'block.json' );
+  const parentDir = parentCandidates[0];
+  const parentSlug = resolveValidatedBlockSlug(path.basename(parentDir));
+  const blockJsonPath = path.join(parentDir, 'block.json');
 
-	if ( ! fs.existsSync( blockJsonPath ) ) {
-		throw new Error( `Unable to resolve ${ blockJsonPath } for the compound parent block.` );
-	}
+  if (!fs.existsSync(blockJsonPath)) {
+    throw new Error(
+      `Unable to resolve ${blockJsonPath} for the compound parent block.`,
+    );
+  }
 
-	const blockJson = readJsonFile( blockJsonPath );
-	const blockName = typeof blockJson.name === 'string' ? blockJson.name.trim() : '';
-	const separatorIndex = blockName.indexOf( '/' );
+  const blockJson = readJsonFile(blockJsonPath);
+  const blockName =
+    typeof blockJson.name === 'string' ? blockJson.name.trim() : '';
+  const separatorIndex = blockName.indexOf('/');
 
-	if ( separatorIndex <= 0 || separatorIndex === blockName.length - 1 ) {
-		throw new Error(
-			`The parent block metadata at ${ blockJsonPath } must declare a valid "name" like "namespace/slug".`
-		);
-	}
+  if (separatorIndex <= 0 || separatorIndex === blockName.length - 1) {
+    throw new Error(
+      `The parent block metadata at ${blockJsonPath} must declare a valid "name" like "namespace/slug".`,
+    );
+  }
 
-	const namespace = resolveValidatedNamespace( blockName.slice( 0, separatorIndex ) );
-	const title =
-		typeof blockJson.title === 'string' && blockJson.title.trim().length > 0
-			? blockJson.title.trim()
-			: toTitleCase( parentSlug );
-	const textDomain =
-		typeof blockJson.textdomain === 'string' &&
-		blockJson.textdomain.trim().length > 0
-			? blockJson.textdomain.trim()
-			: parentSlug;
+  const namespace = resolveValidatedNamespace(
+    blockName.slice(0, separatorIndex),
+  );
+  const title =
+    typeof blockJson.title === 'string' && blockJson.title.trim().length > 0
+      ? blockJson.title.trim()
+      : toTitleCase(parentSlug);
+  const textDomain =
+    typeof blockJson.textdomain === 'string' &&
+    blockJson.textdomain.trim().length > 0
+      ? blockJson.textdomain.trim()
+      : parentSlug;
 
-	return {
-		blockJsonPath,
-		blockName,
-		namespace,
-		blocksRoot,
-		slug: parentSlug,
-		styleImport: `../${ parentSlug }/style.scss`,
-		textDomain,
-		title,
-		typeName: toPascalCase( parentSlug ),
-	};
+  return {
+    blockJsonPath,
+    blockName,
+    namespace,
+    blocksRoot,
+    slug: parentSlug,
+    styleImport: `../${parentSlug}/style.scss`,
+    textDomain,
+    title,
+    typeName: toPascalCase(parentSlug),
+  };
 }
 
 const {
-	blockJsonPath: PARENT_BLOCK_JSON_PATH,
-	blockName: PARENT_BLOCK_NAME,
-	namespace: PARENT_BLOCK_NAMESPACE,
-	blocksRoot: BLOCKS_ROOT,
-	slug: PARENT_BLOCK_SLUG,
-	styleImport: PARENT_STYLE_IMPORT,
-	textDomain: TEXT_DOMAIN,
-	title: PARENT_BLOCK_TITLE,
-	typeName: PARENT_TYPE_NAME,
+  blockJsonPath: PARENT_BLOCK_JSON_PATH,
+  blockName: PARENT_BLOCK_NAME,
+  namespace: PARENT_BLOCK_NAMESPACE,
+  blocksRoot: BLOCKS_ROOT,
+  slug: PARENT_BLOCK_SLUG,
+  styleImport: PARENT_STYLE_IMPORT,
+  textDomain: TEXT_DOMAIN,
+  title: PARENT_BLOCK_TITLE,
+  typeName: PARENT_TYPE_NAME,
 } = resolveCompoundParentConfig();
 
-function buildBlockCssClassName( namespace: string, slug: string ): string {
-	const normalizedSlug = resolveValidatedBlockSlug( slug );
-	const normalizedNamespace =
-		namespace.trim().length > 0
-			? resolveValidatedNamespace( namespace )
-			: '';
+function buildBlockCssClassName(namespace: string, slug: string): string {
+  const normalizedSlug = resolveValidatedBlockSlug(slug);
+  const normalizedNamespace =
+    namespace.trim().length > 0 ? resolveValidatedNamespace(namespace) : '';
 
-	if ( normalizedNamespace === normalizedSlug ) {
-		return `wp-block-${ normalizedSlug }-block`;
-	}
+  if (normalizedNamespace === normalizedSlug) {
+    return `wp-block-${normalizedSlug}-block`;
+  }
 
-	return normalizedNamespace.length > 0
-		? `wp-block-${ normalizedNamespace }-${ normalizedSlug }`
-		: `wp-block-${ normalizedSlug }`;
+  return normalizedNamespace.length > 0
+    ? `wp-block-${normalizedNamespace}-${normalizedSlug}`
+    : `wp-block-${normalizedSlug}`;
 }
 
-function escapeForRegExp( value: string ): string {
-	return value.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function createStringStarterAttribute(
-	defaultValue: string,
-	maxLength: number
-): Record< string, unknown > {
-	return {
-		ts: {
-			items: null,
-			kind: 'string',
-			properties: null,
-			required: true,
-			union: null,
-		},
-		typia: {
-			constraints: {
-				exclusiveMaximum: null,
-				exclusiveMinimum: null,
-				format: null,
-				maxItems: null,
-				maxLength,
-				maximum: null,
-				minItems: null,
-				minLength: 1,
-				minimum: null,
-				multipleOf: null,
-				pattern: null,
-				typeTag: null,
-			},
-			defaultValue,
-			hasDefault: true,
-		},
-		wp: {
-			defaultValue,
-			enum: null,
-			hasDefault: true,
-			type: 'string',
-		},
-	};
+  defaultValue: string,
+  maxLength: number,
+): Record<string, unknown> {
+  return {
+    ts: {
+      items: null,
+      kind: 'string',
+      properties: null,
+      required: true,
+      union: null,
+    },
+    typia: {
+      constraints: {
+        exclusiveMaximum: null,
+        exclusiveMinimum: null,
+        format: null,
+        maxItems: null,
+        maxLength,
+        maximum: null,
+        minItems: null,
+        minLength: 1,
+        minimum: null,
+        multipleOf: null,
+        pattern: null,
+        typeTag: null,
+      },
+      defaultValue,
+      hasDefault: true,
+    },
+    wp: {
+      defaultValue,
+      enum: null,
+      hasDefault: true,
+      type: 'string',
+    },
+  };
 }
 
 function createCompoundChildStarterManifest(
-	childTypeName: string,
-	childTitle: string,
-	bodyPlaceholder = CHILD_PLACEHOLDER
+  childTypeName: string,
+  childTitle: string,
+  bodyPlaceholder = CHILD_PLACEHOLDER,
 ): StarterManifestDocument {
-	return {
-		attributes: {
-			body: createStringStarterAttribute( bodyPlaceholder, 280 ),
-			title: createStringStarterAttribute( childTitle, 80 ),
-		},
-		manifestVersion: 2,
-		sourceType: childTypeName,
-	};
+  return {
+    attributes: {
+      body: createStringStarterAttribute(bodyPlaceholder, 280),
+      title: createStringStarterAttribute(childTitle, 80),
+    },
+    manifestVersion: 2,
+    sourceType: childTypeName,
+  };
 }
 
-function stringifyStarterManifest( document: StarterManifestDocument ): string {
-	return JSON.stringify( document, null, '\t' );
+function stringifyStarterManifest(document: StarterManifestDocument): string {
+  return JSON.stringify(document, null, '\t');
 }
 
-function insertBeforeMarker( filePath: string, marker: string, insertionLines: string[] ) {
-	const source = fs.readFileSync( filePath, 'utf8' );
-	const markerPattern = new RegExp(
-		`^(?<indent>\\s*)${ escapeForRegExp( marker ) }\\s*$`,
-		'm'
-	);
-	const markerMatch = source.match( markerPattern );
+function insertBeforeMarker(
+  filePath: string,
+  marker: string,
+  insertionLines: string[],
+) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  const markerPattern = new RegExp(
+    `^(?<indent>\\s*)${escapeForRegExp(marker)}\\s*$`,
+    'm',
+  );
+  const markerMatch = source.match(markerPattern);
 
-	if ( ! markerMatch ) {
-		throw new Error( `Unable to update ${ filePath }: marker not found.` );
-	}
+  if (!markerMatch) {
+    throw new Error(`Unable to update ${filePath}: marker not found.`);
+  }
 
-	const indent = markerMatch.groups?.indent ?? '';
-	const markerLine = markerMatch[ 0 ];
-	const insertion = insertionLines
-		.map( ( line ) => ( line.length > 0 ? `${ indent }${ line }` : line ) )
-		.join( '\n' );
+  const indent = markerMatch.groups?.indent ?? '';
+  const markerLine = markerMatch[0];
+  const insertion = insertionLines
+    .map((line) => (line.length > 0 ? `${indent}${line}` : line))
+    .join('\n');
 
-	fs.writeFileSync(
-		filePath,
-		source.replace( markerPattern, `${ insertion }\n${ markerLine }` ),
-		'utf8'
-	);
+  fs.writeFileSync(
+    filePath,
+    source.replace(markerPattern, `${insertion}\n${markerLine}`),
+    'utf8',
+  );
 }
 
-function readBlockJsonDocument(
-	filePath: string
-): Record< string, unknown > {
-	return readJsonFile( filePath );
+function readBlockJsonDocument(filePath: string): Record<string, unknown> {
+  return readJsonFile(filePath);
 }
 
 function writeBlockJsonDocument(
-	filePath: string,
-	document: Record< string, unknown >
+  filePath: string,
+  document: Record<string, unknown>,
 ) {
-	fs.writeFileSync(
-		filePath,
-		`${ JSON.stringify( document, null, '\t' ) }\n`,
-		'utf8'
-	);
+  fs.writeFileSync(
+    filePath,
+    `${JSON.stringify(document, null, '\t')}\n`,
+    'utf8',
+  );
 }
 
-function deriveChildKey( folderSlug: string ): string {
-	if ( folderSlug.startsWith( `${ PARENT_BLOCK_SLUG }-` ) ) {
-		return folderSlug.slice( PARENT_BLOCK_SLUG.length + 1 );
-	}
+function deriveChildKey(folderSlug: string): string {
+  if (folderSlug.startsWith(`${PARENT_BLOCK_SLUG}-`)) {
+    return folderSlug.slice(PARENT_BLOCK_SLUG.length + 1);
+  }
 
-	return resolveValidatedBlockSlug( folderSlug );
+  return resolveValidatedBlockSlug(folderSlug);
 }
 
 function listExistingCompoundChildren(): ExistingCompoundChild[] {
-	if ( ! fs.existsSync( BLOCKS_ROOT ) ) {
-		return [];
-	}
+  if (!fs.existsSync(BLOCKS_ROOT)) {
+    return [];
+  }
 
-	return fs
-		.readdirSync( BLOCKS_ROOT, { withFileTypes: true } )
-		.filter( ( entry ) => entry.isDirectory() )
-		.map( ( entry ) => entry.name )
-		.filter( ( folderSlug ) => folderSlug !== PARENT_BLOCK_SLUG )
-		.filter( ( folderSlug ) => folderSlug.startsWith( `${ PARENT_BLOCK_SLUG }-` ) )
-		.map( ( folderSlug ) => {
-			const blockJsonPath = path.join( BLOCKS_ROOT, folderSlug, 'block.json' );
-			if ( ! fs.existsSync( blockJsonPath ) ) {
-				return null;
-			}
+  return fs
+    .readdirSync(BLOCKS_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((folderSlug) => folderSlug !== PARENT_BLOCK_SLUG)
+    .filter((folderSlug) => folderSlug.startsWith(`${PARENT_BLOCK_SLUG}-`))
+    .map((folderSlug) => {
+      const blockJsonPath = path.join(BLOCKS_ROOT, folderSlug, 'block.json');
+      if (!fs.existsSync(blockJsonPath)) {
+        return null;
+      }
 
-			const blockJson = readBlockJsonDocument( blockJsonPath );
-			const blockName =
-				typeof blockJson.name === 'string' ? blockJson.name.trim() : '';
-			if ( blockName.length === 0 ) {
-				return null;
-			}
+      const blockJson = readBlockJsonDocument(blockJsonPath);
+      const blockName =
+        typeof blockJson.name === 'string' ? blockJson.name.trim() : '';
+      if (blockName.length === 0) {
+        return null;
+      }
 
-			const ancestorBlockNames = Array.isArray( blockJson.ancestor )
-				? blockJson.ancestor.filter(
-					( value ): value is string => typeof value === 'string'
-				)
-				: [];
-			const parentBlockNames = Array.isArray( blockJson.parent )
-				? blockJson.parent.filter(
-					( value ): value is string => typeof value === 'string'
-				)
-				: [];
-			const directAllowedBlocks = Array.isArray( blockJson.allowedBlocks )
-				? blockJson.allowedBlocks.filter(
-					( value ): value is string => typeof value === 'string'
-				)
-				: [];
-			const supports =
-				typeof blockJson.supports === 'object' &&
-				blockJson.supports &&
-				! Array.isArray( blockJson.supports )
-					? blockJson.supports
-					: null;
-			const supportsInserter =
-				supports && typeof supports.inserter === 'boolean'
-					? supports.inserter
-					: true;
-			const title =
-				typeof blockJson.title === 'string' &&
-				blockJson.title.trim().length > 0
-					? blockJson.title.trim()
-					: toTitleCase( deriveChildKey( folderSlug ) );
+      const ancestorBlockNames = Array.isArray(blockJson.ancestor)
+        ? blockJson.ancestor.filter(
+            (value): value is string => typeof value === 'string',
+          )
+        : [];
+      const parentBlockNames = Array.isArray(blockJson.parent)
+        ? blockJson.parent.filter(
+            (value): value is string => typeof value === 'string',
+          )
+        : [];
+      const directAllowedBlocks = Array.isArray(blockJson.allowedBlocks)
+        ? blockJson.allowedBlocks.filter(
+            (value): value is string => typeof value === 'string',
+          )
+        : [];
+      const supports =
+        typeof blockJson.supports === 'object' &&
+        blockJson.supports &&
+        !Array.isArray(blockJson.supports)
+          ? blockJson.supports
+          : null;
+      const supportsInserter =
+        supports &&
+        'inserter' in supports &&
+        typeof supports.inserter === 'boolean'
+          ? supports.inserter
+          : true;
+      const title =
+        typeof blockJson.title === 'string' && blockJson.title.trim().length > 0
+          ? blockJson.title.trim()
+          : toTitleCase(deriveChildKey(folderSlug));
 
-			return {
-				ancestorBlockNames,
-				blockJsonPath,
-				blockName,
-				container: Object.prototype.hasOwnProperty.call(
-					blockJson,
-					'allowedBlocks'
-				),
-				directAllowedBlocks,
-				folderSlug,
-				key: deriveChildKey( folderSlug ),
-				parentBlockNames,
-				placement: ancestorBlockNames.length > 0 ? 'nested' : 'root',
-				supportsInserter,
-				title,
-			} satisfies ExistingCompoundChild;
-		} )
-		.filter( ( child ): child is ExistingCompoundChild => child !== null );
+      return {
+        ancestorBlockNames,
+        blockJsonPath,
+        blockName,
+        container: Object.prototype.hasOwnProperty.call(
+          blockJson,
+          'allowedBlocks',
+        ),
+        directAllowedBlocks,
+        folderSlug,
+        key: deriveChildKey(folderSlug),
+        parentBlockNames,
+        placement: ancestorBlockNames.length > 0 ? 'nested' : 'root',
+        supportsInserter,
+        title,
+      } satisfies ExistingCompoundChild;
+    })
+    .filter((child): child is ExistingCompoundChild => child !== null);
 }
 
 function buildCompoundChildGraphMap(
-	existingChildren: ExistingCompoundChild[]
-): Map< string, ExistingCompoundChild > {
-	return new Map(
-		existingChildren.map( ( child ) => [ child.blockName, child ] )
-	);
+  existingChildren: ExistingCompoundChild[],
+): Map<string, ExistingCompoundChild> {
+  return new Map(existingChildren.map((child) => [child.blockName, child]));
 }
 
-function resolveDirectParentBlockName( child: ExistingCompoundChild ): string {
-	return (
-		child.ancestorBlockNames[ child.ancestorBlockNames.length - 1 ] ??
-		child.parentBlockNames[ 0 ] ??
-		PARENT_BLOCK_NAME
-	);
+function resolveDirectParentBlockName(child: ExistingCompoundChild): string {
+  return (
+    child.ancestorBlockNames[child.ancestorBlockNames.length - 1] ??
+    child.parentBlockNames[0] ??
+    PARENT_BLOCK_NAME
+  );
 }
 
 function validateExistingCompoundChildGraph(
-	existingChildren: ExistingCompoundChild[]
+  existingChildren: ExistingCompoundChild[],
 ) {
-	const seenKeys = new Set< string >();
-	const seenBlockNames = new Set< string >();
-	const childByBlockName = buildCompoundChildGraphMap( existingChildren );
+  const seenKeys = new Set<string>();
+  const seenBlockNames = new Set<string>();
+  const childByBlockName = buildCompoundChildGraphMap(existingChildren);
 
-	for ( const child of existingChildren ) {
-		if ( seenKeys.has( child.key ) ) {
-			throw new Error(
-				`Existing compound child graph is invalid: child key "${ child.key }" is declared more than once.`
-			);
-		}
+  for (const child of existingChildren) {
+    if (seenKeys.has(child.key)) {
+      throw new Error(
+        `Existing compound child graph is invalid: child key "${child.key}" is declared more than once.`,
+      );
+    }
 
-		if ( seenBlockNames.has( child.blockName ) ) {
-			throw new Error(
-				`Existing compound child graph is invalid: ${ child.blockName } is declared more than once.`
-			);
-		}
+    if (seenBlockNames.has(child.blockName)) {
+      throw new Error(
+        `Existing compound child graph is invalid: ${child.blockName} is declared more than once.`,
+      );
+    }
 
-		seenKeys.add( child.key );
-		seenBlockNames.add( child.blockName );
+    seenKeys.add(child.key);
+    seenBlockNames.add(child.blockName);
 
-		if ( child.ancestorBlockNames.length === 0 ) {
-			if ( child.parentBlockNames.length === 0 ) {
-				throw new Error(
-					`Existing compound child graph is invalid: ${ child.blockName } must declare a parent block.`
-				);
-			}
-			continue;
-		}
+    if (child.ancestorBlockNames.length === 0) {
+      if (child.parentBlockNames.length === 0) {
+        throw new Error(
+          `Existing compound child graph is invalid: ${child.blockName} must declare a parent block.`,
+        );
+      }
+      continue;
+    }
 
-		for ( let index = 0; index < child.ancestorBlockNames.length; index += 1 ) {
-			const ancestorBlockName = child.ancestorBlockNames[ index ];
-			const ancestorChild = childByBlockName.get( ancestorBlockName );
+    for (let index = 0; index < child.ancestorBlockNames.length; index += 1) {
+      const ancestorBlockName = child.ancestorBlockNames[index];
+      const ancestorChild = childByBlockName.get(ancestorBlockName);
 
-			if ( ! ancestorChild ) {
-				throw new Error(
-					`Existing compound child graph is invalid: ${ child.blockName } references missing ancestor ${ ancestorBlockName }.`
-				);
-			}
+      if (!ancestorChild) {
+        throw new Error(
+          `Existing compound child graph is invalid: ${child.blockName} references missing ancestor ${ancestorBlockName}.`,
+        );
+      }
 
-			if ( ! ancestorChild.container ) {
-				throw new Error(
-					`Existing compound child graph is invalid: ${ ancestorChild.blockName } is not declared as a container child but has nested descendants.`
-				);
-			}
+      if (!ancestorChild.container) {
+        throw new Error(
+          `Existing compound child graph is invalid: ${ancestorChild.blockName} is not declared as a container child but has nested descendants.`,
+        );
+      }
 
-			const expectedAncestorRoute = child.ancestorBlockNames.slice( 0, index );
-			const ancestorRouteMatches =
-				ancestorChild.ancestorBlockNames.length === expectedAncestorRoute.length &&
-				expectedAncestorRoute.every(
-					( expectedAncestorBlockName, expectedIndex ) =>
-						ancestorChild.ancestorBlockNames[ expectedIndex ] ===
-						expectedAncestorBlockName
-				);
+      const expectedAncestorRoute = child.ancestorBlockNames.slice(0, index);
+      const ancestorRouteMatches =
+        ancestorChild.ancestorBlockNames.length ===
+          expectedAncestorRoute.length &&
+        expectedAncestorRoute.every(
+          (expectedAncestorBlockName, expectedIndex) =>
+            ancestorChild.ancestorBlockNames[expectedIndex] ===
+            expectedAncestorBlockName,
+        );
 
-			if ( ! ancestorRouteMatches ) {
-				throw new Error(
-					`Existing compound child graph is invalid: ${ ancestorChild.blockName } is not on the declared ancestor route for ${ child.blockName }.`
-				);
-			}
+      if (!ancestorRouteMatches) {
+        throw new Error(
+          `Existing compound child graph is invalid: ${ancestorChild.blockName} is not on the declared ancestor route for ${child.blockName}.`,
+        );
+      }
 
-			const nextBlockName =
-				child.ancestorBlockNames[ index + 1 ] ?? child.blockName;
-			if ( ancestorChild.directAllowedBlocks.includes( nextBlockName ) ) {
-				continue;
-			}
+      const nextBlockName =
+        child.ancestorBlockNames[index + 1] ?? child.blockName;
+      if (ancestorChild.directAllowedBlocks.includes(nextBlockName)) {
+        continue;
+      }
 
-			throw new Error(
-				`Existing compound child graph is invalid: ${ ancestorChild.blockName } does not currently allow ${ nextBlockName } as a direct child.`
-			);
-		}
-	}
+      throw new Error(
+        `Existing compound child graph is invalid: ${ancestorChild.blockName} does not currently allow ${nextBlockName} as a direct child.`,
+      );
+    }
+  }
 }
 
 function resolveExistingCompoundChild(
-	value: string,
-	existingChildren: ExistingCompoundChild[]
+  value: string,
+  existingChildren: ExistingCompoundChild[],
 ): ExistingCompoundChild {
-	const trimmedValue = value.trim();
-	if ( trimmedValue.length === 0 ) {
-		throw new Error( 'Ancestor references must not be empty.' );
-	}
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    throw new Error('Ancestor references must not be empty.');
+  }
 
-	const normalizedCandidate = resolveValidatedBlockSlug(
-		trimmedValue.includes( '/' )
-			? trimmedValue.slice( trimmedValue.lastIndexOf( '/' ) + 1 )
-			: trimmedValue
-	);
-	const resolved = existingChildren.find(
-		( child ) =>
-			child.blockName === trimmedValue ||
-			child.folderSlug === trimmedValue ||
-			child.key === normalizedCandidate ||
-			child.folderSlug === `${ PARENT_BLOCK_SLUG }-${ normalizedCandidate }`
-	);
+  const normalizedCandidate = resolveValidatedBlockSlug(
+    trimmedValue.includes('/')
+      ? trimmedValue.slice(trimmedValue.lastIndexOf('/') + 1)
+      : trimmedValue,
+  );
+  const resolved = existingChildren.find(
+    (child) =>
+      child.blockName === trimmedValue ||
+      child.folderSlug === trimmedValue ||
+      child.key === normalizedCandidate ||
+      child.folderSlug === `${PARENT_BLOCK_SLUG}-${normalizedCandidate}`,
+  );
 
-	if ( ! resolved ) {
-		throw new Error(
-			`Unable to resolve compound child ancestor "${ value }". Use an existing child key, folder slug, or block name.`
-		);
-	}
+  if (!resolved) {
+    throw new Error(
+      `Unable to resolve compound child ancestor "${value}". Use an existing child key, folder slug, or block name.`,
+    );
+  }
 
-	return resolved;
+  return resolved;
 }
 
 function ensureUniqueAncestorChain(
-	ancestors: ExistingCompoundChild[]
+  ancestors: ExistingCompoundChild[],
 ): ExistingCompoundChild[] {
-	const seenKeys = new Set< string >();
+  const seenKeys = new Set<string>();
 
-	return ancestors.filter( ( ancestor ) => {
-		if ( seenKeys.has( ancestor.key ) ) {
-			return false;
-		}
+  return ancestors.filter((ancestor) => {
+    if (seenKeys.has(ancestor.key)) {
+      return false;
+    }
 
-		seenKeys.add( ancestor.key );
-		return true;
-	} );
+    seenKeys.add(ancestor.key);
+    return true;
+  });
 }
 
-function validateAncestorChain(
-	ancestorChain: ExistingCompoundChild[]
-) {
-	for ( let index = 0; index < ancestorChain.length - 1; index += 1 ) {
-		const currentAncestor = ancestorChain[ index ];
-		const nextAncestor = ancestorChain[ index + 1 ];
+function validateAncestorChain(ancestorChain: ExistingCompoundChild[]) {
+  for (let index = 0; index < ancestorChain.length - 1; index += 1) {
+    const currentAncestor = ancestorChain[index];
+    const nextAncestor = ancestorChain[index + 1];
 
-		if ( currentAncestor.directAllowedBlocks.includes( nextAncestor.blockName ) ) {
-			continue;
-		}
+    if (currentAncestor.directAllowedBlocks.includes(nextAncestor.blockName)) {
+      continue;
+    }
 
-		throw new Error(
-			`Invalid ancestor chain: ${ currentAncestor.blockName } does not currently allow ${ nextAncestor.blockName } as a direct child.`
-		);
-	}
+    throw new Error(
+      `Invalid ancestor chain: ${currentAncestor.blockName} does not currently allow ${nextAncestor.blockName} as a direct child.`,
+    );
+  }
 }
 
-function validateNestedAncestorTarget( ancestorChain: ExistingCompoundChild[] ) {
-	const directAncestor = ancestorChain[ ancestorChain.length - 1 ];
+function validateNestedAncestorTarget(ancestorChain: ExistingCompoundChild[]) {
+  const directAncestor = ancestorChain[ancestorChain.length - 1];
 
-	if ( ! directAncestor ) {
-		return;
-	}
+  if (!directAncestor) {
+    return;
+  }
 
-	if ( directAncestor.container ) {
-		return;
-	}
+  if (directAncestor.container) {
+    return;
+  }
 
-	throw new Error(
-		`Cannot nest descendants under ${ directAncestor.blockName } because it is not declared as a container child. Re-add that child with --container or target an existing container child.`
-	);
+  throw new Error(
+    `Cannot nest descendants under ${directAncestor.blockName} because it is not declared as a container child. Re-add that child with --container or target an existing container child.`,
+  );
 }
 
 function findCompoundChildSpecSource(
-	childrenRegistrySource: string,
-	childKey: string
+  childrenRegistrySource: string,
+  childKey: string,
 ): string | null {
-	const childSpecPattern = /\{[\s\S]*?key:\s*["'][^"']+["'][\s\S]*?\n\s*\},/g;
+  const childSpecPattern = /\{[\s\S]*?key:\s*["'][^"']+["'][\s\S]*?\n\s*\},/g;
 
-	for ( const match of childrenRegistrySource.matchAll( childSpecPattern ) ) {
-		const candidate = match[ 0 ];
-		if (
-			candidate.includes( `key: "${ childKey }"` ) ||
-			candidate.includes( `key: '${ childKey }'` )
-		) {
-			return candidate;
-		}
-	}
+  for (const match of childrenRegistrySource.matchAll(childSpecPattern)) {
+    const candidate = match[0];
+    const hasDoubleQuotedKey = candidate.includes(`key: "${childKey}"`);
+    const hasSingleQuotedKey = candidate.includes(`key: '${childKey}'`);
+    if (hasDoubleQuotedKey || hasSingleQuotedKey) {
+      return candidate;
+    }
+  }
 
-	return null;
+  return null;
 }
 
 function validateAncestorInstantiability(
-	childrenFile: string,
-	ancestorChain: ExistingCompoundChild[]
+  childrenFile: string,
+  ancestorChain: ExistingCompoundChild[],
 ) {
-	if ( ancestorChain.length === 0 ) {
-		return;
-	}
+  if (ancestorChain.length === 0) {
+    return;
+  }
 
-	const childrenRegistrySource = fs.readFileSync( childrenFile, 'utf8' );
+  const childrenRegistrySource = fs.readFileSync(childrenFile, 'utf8');
 
-	for ( const ancestor of ancestorChain ) {
-		const childSpecSource = findCompoundChildSpecSource(
-			childrenRegistrySource,
-			ancestor.key
-		);
-		if ( ! childSpecSource ) {
-			continue;
-		}
+  for (const ancestor of ancestorChain) {
+    const childSpecSource = findCompoundChildSpecSource(
+      childrenRegistrySource,
+      ancestor.key,
+    );
+    if (!childSpecSource) {
+      continue;
+    }
 
-		const supportsInserterMatch = childSpecSource.match(
-			/supportsInserter:\s*(true|false)/
-		);
-		const supportsInserter = supportsInserterMatch?.[ 1 ] === 'true';
-		const hasTemplateInstances = ! /templateInstances:\s*\[\s*\]/.test( childSpecSource );
+    const supportsInserterMatch = childSpecSource.match(
+      /supportsInserter:\s*(true|false)/,
+    );
+    const supportsInserter = supportsInserterMatch?.[1] === 'true';
+    const hasTemplateInstances = !/templateInstances:\s*\[\s*\]/.test(
+      childSpecSource,
+    );
 
-		if ( supportsInserter || hasTemplateInstances ) {
-			continue;
-		}
+    if (supportsInserter || hasTemplateInstances) {
+      continue;
+    }
 
-		throw new Error(
-			`Cannot nest descendants under ${ ancestor.blockName } because it is hidden and has no seeded template instances. Re-add or promote that child with a visible inserter or a seeded template first.`
-		);
-	}
+    throw new Error(
+      `Cannot nest descendants under ${ancestor.blockName} because it is hidden and has no seeded template instances. Re-add or promote that child with a visible inserter or a seeded template first.`,
+    );
+  }
 }
 
-function formatProjectRelativePath( filePath: string ): string {
-	return path.relative( PROJECT_ROOT, filePath ) || '.';
+function formatProjectRelativePath(filePath: string): string {
+  return path.relative(PROJECT_ROOT, filePath) || '.';
 }
 
 function buildCompoundChildGraphNodes(
-	existingChildren: ExistingCompoundChild[],
-	prospectiveChild: CompoundChildGraphNode
+  existingChildren: ExistingCompoundChild[],
+  prospectiveChild: CompoundChildGraphNode,
 ): CompoundChildGraphNode[] {
-	return [
-		...existingChildren.map( ( child ) => ( {
-			blockName: child.blockName,
-			container: child.container,
-			directParentBlockName: resolveDirectParentBlockName( child ),
-			isProspective: false,
-			key: child.key,
-			placement: child.placement,
-			supportsInserter: child.supportsInserter,
-			title: child.title,
-		} ) ),
-		prospectiveChild,
-	];
+  return [
+    ...existingChildren.map((child) => ({
+      blockName: child.blockName,
+      container: child.container,
+      directParentBlockName: resolveDirectParentBlockName(child),
+      isProspective: false,
+      key: child.key,
+      placement: child.placement,
+      supportsInserter: child.supportsInserter,
+      title: child.title,
+    })),
+    prospectiveChild,
+  ];
 }
 
 function renderCompoundChildGraphPreview(
-	graphNodes: CompoundChildGraphNode[],
-	plannedWritePaths: string[],
-	options: {
-		dryRun: boolean;
-	}
+  graphNodes: CompoundChildGraphNode[],
+  plannedWritePaths: string[],
+  options: {
+    dryRun: boolean;
+  },
 ): string {
-	const childrenByParent = new Map< string, CompoundChildGraphNode[] >();
+  const childrenByParent = new Map<string, CompoundChildGraphNode[]>();
 
-	for ( const graphNode of graphNodes ) {
-		const existingChildren = childrenByParent.get( graphNode.directParentBlockName ) ?? [];
-		existingChildren.push( graphNode );
-		childrenByParent.set( graphNode.directParentBlockName, existingChildren );
-	}
+  for (const graphNode of graphNodes) {
+    const existingChildren =
+      childrenByParent.get(graphNode.directParentBlockName) ?? [];
+    existingChildren.push(graphNode);
+    childrenByParent.set(graphNode.directParentBlockName, existingChildren);
+  }
 
-	const renderChildLines = (
-		parentBlockName: string,
-		indent: string
-	): string[] => {
-		const directChildren = [ ...( childrenByParent.get( parentBlockName ) ?? [] ) ].sort(
-			( left, right ) => left.key.localeCompare( right.key )
-		);
+  const renderChildLines = (
+    parentBlockName: string,
+    indent: string,
+  ): string[] => {
+    const directChildren = [
+      ...(childrenByParent.get(parentBlockName) ?? []),
+    ].sort((left, right) => left.key.localeCompare(right.key));
 
-		return directChildren.flatMap( ( child ) => {
-			const labels = [
-				child.isProspective ? 'new' : 'existing',
-				child.placement === 'root' ? 'root' : 'nested',
-				child.container ? 'container' : 'leaf',
-				child.supportsInserter ? 'visible' : 'hidden',
-			];
-			const line = `${ indent }- ${ child.key } -> ${ child.blockName } [${ labels.join( ', ' ) }]`;
-			return [ line, ...renderChildLines( child.blockName, `${ indent }  ` ) ];
-		} );
-	};
+    return directChildren.flatMap((child) => {
+      const labels = [
+        child.isProspective ? 'new' : 'existing',
+        child.placement === 'root' ? 'root' : 'nested',
+        child.container ? 'container' : 'leaf',
+        child.supportsInserter ? 'visible' : 'hidden',
+      ];
+      const line = `${indent}- ${child.key} -> ${child.blockName} [${labels.join(', ')}]`;
+      return [line, ...renderChildLines(child.blockName, `${indent}  `)];
+    });
+  };
 
-	return [
-		'Compound child graph preview',
-		`Parent block: ${ PARENT_BLOCK_NAME }`,
-		...renderChildLines( PARENT_BLOCK_NAME, '' ),
-		'',
-		'Planned writes',
-		...plannedWritePaths.map( ( plannedWritePath ) => `- ${ plannedWritePath }` ),
-		options.dryRun ? '' : '',
-		options.dryRun
-			? 'Dry run only; no files were written.'
-			: 'Applying these updates now.',
-	]
-		.filter( ( line, index, lines ) => {
-			if ( line.length > 0 ) {
-				return true;
-			}
+  return [
+    'Compound child graph preview',
+    `Parent block: ${PARENT_BLOCK_NAME}`,
+    ...renderChildLines(PARENT_BLOCK_NAME, ''),
+    '',
+    'Planned writes',
+    ...plannedWritePaths.map((plannedWritePath) => `- ${plannedWritePath}`),
+    options.dryRun ? '' : '',
+    options.dryRun
+      ? 'Dry run only; no files were written.'
+      : 'Applying these updates now.',
+  ]
+    .filter((line, index, lines) => {
+      if (line.length > 0) {
+        return true;
+      }
 
-			return index > 0 && lines[ index - 1 ].length > 0;
-		} )
-		.join( '\n' );
+      return index > 0 && lines[index - 1].length > 0;
+    })
+    .join('\n');
 }
 
-function updateAllowedBlocks(
-	filePath: string,
-	blockName: string
-) {
-	const blockJson = readBlockJsonDocument( filePath );
-	const existingAllowedBlocks = Array.isArray( blockJson.allowedBlocks )
-		? blockJson.allowedBlocks.filter(
-			( value ): value is string => typeof value === 'string'
-		)
-		: [];
+function updateAllowedBlocks(filePath: string, blockName: string) {
+  const blockJson = readBlockJsonDocument(filePath);
+  const existingAllowedBlocks = Array.isArray(blockJson.allowedBlocks)
+    ? blockJson.allowedBlocks.filter(
+        (value): value is string => typeof value === 'string',
+      )
+    : [];
 
-	if ( existingAllowedBlocks.includes( blockName ) ) {
-		return;
-	}
+  if (existingAllowedBlocks.includes(blockName)) {
+    return;
+  }
 
-	blockJson.allowedBlocks = [ ...existingAllowedBlocks, blockName ];
-	writeBlockJsonDocument( filePath, blockJson );
+  blockJson.allowedBlocks = [...existingAllowedBlocks, blockName];
+  writeBlockJsonDocument(filePath, blockJson);
 }
 
 function renderBlockJson(
-	childBlockName: string,
-	childFolderSlug: string,
-	childTitle: string,
-	options: {
-		allowedBlocks?: string[];
-		ancestorBlockNames: string[];
-		container: boolean;
-		supportsInserter: boolean;
-	}
+  childBlockName: string,
+  childFolderSlug: string,
+  childTitle: string,
+  options: {
+    allowedBlocks?: string[];
+    ancestorBlockNames: string[];
+    container: boolean;
+    supportsInserter: boolean;
+  },
 ): string {
-	const childCssClassName = buildBlockCssClassName( PARENT_BLOCK_NAMESPACE, childFolderSlug );
-	const document: Record< string, unknown > = {
-		$schema: 'https://schemas.wp.org/trunk/block.json',
-		apiVersion: 3,
-		name: childBlockName,
-		version: '{{blockMetadataVersion}}',
-		title: childTitle,
-		category: '{{compoundChildCategory}}',
-		icon: '{{compoundChildIcon}}',
-		description: `Internal item block used by ${ PARENT_BLOCK_TITLE }.`,
-		example: {},
-		supports: {
-			html: false,
-			inserter: options.supportsInserter,
-			reusable: false,
-		},
-		attributes: {
-			title: {
-				type: 'string',
-				source: 'html',
-				selector: `.${ childCssClassName }__title`,
-				default: childTitle,
-			},
-			body: {
-				type: 'string',
-				source: 'html',
-				selector: `.${ childCssClassName }__body`,
-				default: CHILD_PLACEHOLDER,
-			},
-		},
-		textdomain: TEXT_DOMAIN,
-		editorScript: 'file:./index.js',
-	};
+  const childCssClassName = buildBlockCssClassName(
+    PARENT_BLOCK_NAMESPACE,
+    childFolderSlug,
+  );
+  const document: Record<string, unknown> = {
+    $schema: 'https://schemas.wp.org/trunk/block.json',
+    apiVersion: 3,
+    name: childBlockName,
+    version: '{{blockMetadataVersion}}',
+    title: childTitle,
+    category: '{{compoundChildCategory}}',
+    icon: '{{compoundChildIcon}}',
+    description: `Internal item block used by ${PARENT_BLOCK_TITLE}.`,
+    example: {},
+    supports: {
+      html: false,
+      inserter: options.supportsInserter,
+      reusable: false,
+    },
+    attributes: {
+      title: {
+        type: 'string',
+        source: 'html',
+        selector: `.${childCssClassName}__title`,
+        default: childTitle,
+      },
+      body: {
+        type: 'string',
+        source: 'html',
+        selector: `.${childCssClassName}__body`,
+        default: CHILD_PLACEHOLDER,
+      },
+    },
+    textdomain: TEXT_DOMAIN,
+    editorScript: 'file:./index.js',
+  };
 
-	if ( options.ancestorBlockNames.length > 0 ) {
-		document.ancestor = options.ancestorBlockNames;
-	} else {
-		document.parent = [ PARENT_BLOCK_NAME ];
-	}
+  if (options.ancestorBlockNames.length > 0) {
+    document.ancestor = options.ancestorBlockNames;
+  } else {
+    document.parent = [PARENT_BLOCK_NAME];
+  }
 
-	if ( options.container || ( options.allowedBlocks && options.allowedBlocks.length > 0 ) ) {
-		document.allowedBlocks = options.allowedBlocks ?? [];
-	}
+  if (
+    options.container ||
+    (options.allowedBlocks && options.allowedBlocks.length > 0)
+  ) {
+    document.allowedBlocks = options.allowedBlocks ?? [];
+  }
 
-	return `${ JSON.stringify( document, null, '\t' ) }\n`;
+  return `${JSON.stringify(document, null, '\t')}\n`;
 }
 
 function renderTypesFile(
-	childTypeName: string,
-	childInterfaceName: string,
-	childTitle: string
+  childTypeName: string,
+  childInterfaceName: string,
+  childTitle: string,
 ): string {
-	return `import type { ValidationResult } from '@wp-typia/block-runtime/validation';
-import { tags } from 'typia';
+  return `import type { ValidationResult } from '@wp-typia/block-runtime/validation';
+import type { tags } from '@wp-typia/block-runtime/typia-tags';
 
 export type { ValidationResult } from '@wp-typia/block-runtime/validation';
 
-export interface ${ childTypeName } {
-\ttitle: string &
-\t\ttags.MinLength< 1 > &
-\t\ttags.MaxLength< 80 > &
-\t\ttags.Default< ${ JSON.stringify( childTitle ) } >;
-\tbody: string &
-\t\ttags.MinLength< 1 > &
-\t\ttags.MaxLength< 280 > &
-\t\ttags.Default< ${ JSON.stringify( CHILD_PLACEHOLDER ) } >;
+export interface ${childTypeName} {
+  title: string &
+    tags.MinLength<1> &
+    tags.MaxLength<80> &
+    tags.Default<${quoteTypeScriptString(childTitle)}>;
+  body: string &
+    tags.MinLength<1> &
+    tags.MaxLength<280> &
+    tags.Default<${quoteTypeScriptString(CHILD_PLACEHOLDER)}>;
 }
 
-export type ${ childInterfaceName }ValidationResult = ValidationResult< ${ childTypeName } >;
+export type ${childInterfaceName}ValidationResult =
+  ValidationResult<${childTypeName}>;
 `;
 }
 
 function renderStarterManifestFile(
-	childTypeName: string,
-	childTitle: string
+  childTypeName: string,
+  childTitle: string,
 ): string {
-	return stringifyStarterManifest(
-		createCompoundChildStarterManifest(
-			childTypeName,
-			childTitle,
-			CHILD_PLACEHOLDER
-		)
-	);
+  return stringifyStarterManifest(
+    createCompoundChildStarterManifest(
+      childTypeName,
+      childTitle,
+      CHILD_PLACEHOLDER,
+    ),
+  );
 }
 
 function renderHooksFile(): string {
-	return `import { useMemo } from '@wordpress/element';
+  return `import { useMemo } from '@wordpress/element';
 
 import {
-\tcreateUseTypiaValidationHook,
-\tformatValidationError,
-\tformatValidationErrors,
-\ttype TypiaValidationError,
-\ttype ValidationResult,
-\ttype ValidationState,
+  createUseTypiaValidationHook,
+  formatValidationError,
+  formatValidationErrors,
+  type TypiaValidationError,
+  type ValidationResult,
+  type ValidationState,
 } from '@wp-typia/block-runtime/validation';
 
 export {
-\tformatValidationError,
-\tformatValidationErrors,
-\ttype TypiaValidationError,
-\ttype ValidationResult,
-\ttype ValidationState,
+  formatValidationError,
+  formatValidationErrors,
+  type TypiaValidationError,
+  type ValidationResult,
+  type ValidationState,
 } from '@wp-typia/block-runtime/validation';
 
-export const useTypiaValidation = createUseTypiaValidationHook( {
-\tuseMemo,
-} );
+export const useTypiaValidation = createUseTypiaValidationHook({
+  useMemo,
+});
 `;
 }
 
 function renderBlockMetadataFile(): string {
-	return `import rawMetadata from './block.json';
+  return `import rawMetadata from './block.json';
 import { defineScaffoldBlockMetadata } from '@wp-typia/block-runtime/blocks';
 
-const metadata = defineScaffoldBlockMetadata( rawMetadata );
+const metadata = defineScaffoldBlockMetadata(rawMetadata);
 
 export default metadata;
 `;
 }
 
 function renderManifestDocumentFile(): string {
-	return `import rawCurrentManifest from './typia.manifest.json';
+  return `import rawCurrentManifest from './typia.manifest.json';
 import { defineManifestDocument } from '@wp-typia/block-runtime/editor';
 
-const currentManifest = defineManifestDocument( rawCurrentManifest );
+const currentManifest = defineManifestDocument(rawCurrentManifest);
 
 export default currentManifest;
 `;
 }
 
 function renderManifestDefaultsDocumentFile(): string {
-	return `import rawCurrentManifest from './typia.manifest.json';
+  return `import rawCurrentManifest from './typia.manifest.json';
 import { defineManifestDefaultsDocument } from '@wp-typia/block-runtime/defaults';
 
-const currentManifest = defineManifestDefaultsDocument( rawCurrentManifest );
+const currentManifest = defineManifestDefaultsDocument(rawCurrentManifest);
 
 export default currentManifest;
 `;
 }
 
 function renderValidatorsFile(
-	childTypeName: string,
-	childInterfaceName: string
+  childTypeName: string,
+  childInterfaceName: string,
 ): string {
-	return `import typia from 'typia';
+  return `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
 import type {
-\t${ childTypeName },
-\t${ childInterfaceName }ValidationResult,
+  ${childTypeName},
+  ${childInterfaceName}ValidationResult,
 } from './types';
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
-const scaffoldValidators = createTemplateValidatorToolkit< ${ childTypeName } >( {
-\tassert: typia.createAssert< ${ childTypeName } >(),
-\tclone: typia.plain.createClone< ${ childTypeName } >() as (
-\t\tvalue: ${ childTypeName },
-\t) => ${ childTypeName },
-\tis: typia.createIs< ${ childTypeName } >(),
-\tmanifest: currentManifest,
-\tprune: typia.plain.createPrune< ${ childTypeName } >(),
-\trandom: typia.createRandom< ${ childTypeName } >() as (
-\t\t...args: unknown[]
-\t) => ${ childTypeName },
-\tvalidate: typia.createValidate< ${ childTypeName } >(),
-} );
+const scaffoldValidators =
+  createTemplateValidatorToolkit<${childTypeName}>({
+    assert: typia.createAssert<${childTypeName}>(),
+    clone: typia.plain.createClone<${childTypeName}>() as (
+      value: ${childTypeName},
+    ) => ${childTypeName},
+    is: typia.createIs<${childTypeName}>(),
+    manifest: currentManifest,
+    prune: typia.plain.createPrune<${childTypeName}>(),
+    random: typia.createRandom<${childTypeName}>() as (
+      ...args: unknown[]
+    ) => ${childTypeName},
+    validate: typia.createValidate<${childTypeName}>(),
+  });
 
-export const validate${ childInterfaceName } =
-\tscaffoldValidators.validateAttributes as (
-\t\tattributes: unknown
-\t) => ${ childInterfaceName }ValidationResult;
+export const validate${childInterfaceName} =
+  scaffoldValidators.validateAttributes as (
+    attributes: unknown,
+  ) => ${childInterfaceName}ValidationResult;
 
 export const validators = scaffoldValidators.validators;
 
-export const sanitize${ childInterfaceName } =
-\tscaffoldValidators.sanitizeAttributes as (
-\t\tattributes: Partial< ${ childTypeName } >
-\t) => ${ childTypeName };
+export const sanitize${childInterfaceName} =
+  scaffoldValidators.sanitizeAttributes as (
+    attributes: Partial<${childTypeName}>,
+  ) => ${childTypeName};
 
 export const createAttributeUpdater = scaffoldValidators.createAttributeUpdater;
 `;
 }
 
 function renderEditFile(
-	childFolderSlug: string,
-	childTypeName: string,
-	childInterfaceName: string,
-	childTitle: string
+  childFolderSlug: string,
+  childTypeName: string,
+  childInterfaceName: string,
+  childTitle: string,
 ): string {
-	const childCssClassName = buildBlockCssClassName( PARENT_BLOCK_NAMESPACE, childFolderSlug );
+  const childCssClassName = buildBlockCssClassName(
+    PARENT_BLOCK_NAMESPACE,
+    childFolderSlug,
+  );
 
-	return `import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';
+  return `import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';
 import { InnerBlocks, RichText, useBlockProps } from '@wordpress/block-editor';
 import { Notice } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
 import metadata from './block-metadata';
 import {
-\tgetChildInnerBlocksPropsOptions,
-\thasNestedChildBlocks,
-} from '../${ PARENT_BLOCK_SLUG }/children';
+  getChildInnerBlocksPropsOptions,
+  hasNestedChildBlocks,
+} from '../${PARENT_BLOCK_SLUG}/children';
 import { useTypiaValidation } from './hooks';
-import type { ${ childTypeName } } from './types';
+import type { ${childTypeName} } from './types';
 import {
-\tcreateAttributeUpdater,
-\tvalidate${ childInterfaceName },
+  createAttributeUpdater,
+  validate${childInterfaceName},
 } from './validators';
 
-type EditProps = BlockEditProps< ${ childTypeName } >;
-type CompoundInnerBlocksProps = Parameters< typeof InnerBlocks >[ 0 ] & {
-\tdefaultBlock?: [ string, Record< string, unknown > ];
-\tdirectInsert?: boolean;
+type EditProps = BlockEditProps<${childTypeName}>;
+type CompoundInnerBlocksProps = Parameters<typeof InnerBlocks>[0] & {
+  defaultBlock?: [string, Record<string, unknown>];
+  directInsert?: boolean;
 };
 
 const TypedInnerBlocks = InnerBlocks as unknown as (
-\tprops: CompoundInnerBlocksProps
-) => ReturnType< typeof InnerBlocks >;
+  props: CompoundInnerBlocksProps,
+) => ReturnType<typeof InnerBlocks>;
 
-export default function Edit( {
-\tattributes,
-\tsetAttributes,
-}: EditProps ) {
-\tconst updateAttribute = createAttributeUpdater( attributes, setAttributes );
-\tconst { errorMessages, isValid } = useTypiaValidation(
-\t\tattributes,
-\t\tvalidate${ childInterfaceName }
-\t);
-\tconst nestedInnerBlocksPropsOptions = getChildInnerBlocksPropsOptions(
-\t\tmetadata.name
-\t);
-\tconst showsNestedChildren = hasNestedChildBlocks( metadata.name );
+export default function Edit({ attributes, setAttributes }: EditProps) {
+  const updateAttribute = createAttributeUpdater(attributes, setAttributes);
+  const { errorMessages, isValid } = useTypiaValidation(
+    attributes,
+    validate${childInterfaceName},
+  );
+  const nestedInnerBlocksPropsOptions = getChildInnerBlocksPropsOptions(
+    metadata.name,
+  );
+  const showsNestedChildren = hasNestedChildBlocks(metadata.name);
+  const blockProps = useBlockProps({
+    className: '${childCssClassName}',
+  });
 
-\treturn (
-\t\t<div { ...useBlockProps( { className: '${ childCssClassName }' } ) }>
-\t\t\t<RichText
-\t\t\t\ttagName="h4"
-\t\t\t\tclassName="${ childCssClassName }__title"
-\t\t\t\tvalue={ attributes.title ?? '' }
-\t\t\t\tonChange={ ( title ) => updateAttribute( 'title', title ) }
-\t\t\t\tplaceholder={ __( ${ JSON.stringify( childTitle ) }, '${ TEXT_DOMAIN }' ) }
-\t\t\t/>
-\t\t\t<RichText
-\t\t\t\ttagName="p"
-\t\t\t\tclassName="${ childCssClassName }__body"
-\t\t\t\tvalue={ attributes.body ?? '' }
-\t\t\t\tonChange={ ( body ) => updateAttribute( 'body', body ) }
-\t\t\t\tplaceholder={ __( ${ JSON.stringify( CHILD_PLACEHOLDER ) }, '${ TEXT_DOMAIN }' ) }
-\t\t\t/>
-\t\t\t{ ! isValid && (
-\t\t\t\t<Notice status="error" isDismissible={ false }>
-\t\t\t\t\t<ul>
-\t\t\t\t\t\t{ errorMessages.map( ( error, index ) => (
-\t\t\t\t\t\t\t<li key={ index }>{ error }</li>
-\t\t\t\t\t\t) ) }
-\t\t\t\t\t</ul>
-\t\t\t\t</Notice>
-\t\t\t) }
-\t\t\t{ showsNestedChildren && (
-\t\t\t\t<div className="${ childCssClassName }__children">
-\t\t\t\t\t<TypedInnerBlocks
-\t\t\t\t\t\t{ ...( nestedInnerBlocksPropsOptions ?? {} ) }
-\t\t\t\t\t/>
-\t\t\t\t</div>
-\t\t\t) }
-\t\t</div>
-\t);
+  return (
+    <div {...blockProps}>
+      <RichText
+        tagName="h4"
+        className="${childCssClassName}__title"
+        value={attributes.title ?? ''}
+        onChange={(title) => updateAttribute('title', title)}
+        placeholder={__(${quoteTypeScriptString(childTitle)}, '${TEXT_DOMAIN}')}
+      />
+      <RichText
+        tagName="p"
+        className="${childCssClassName}__body"
+        value={attributes.body ?? ''}
+        onChange={(body) => updateAttribute('body', body)}
+        placeholder={__(
+          ${quoteTypeScriptString(CHILD_PLACEHOLDER)},
+          '${TEXT_DOMAIN}',
+        )}
+      />
+      {!isValid && (
+        <Notice status="error" isDismissible={false}>
+          <ul>
+            {errorMessages.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+      {showsNestedChildren && (
+        <div className="${childCssClassName}__children">
+          <TypedInnerBlocks {...(nestedInnerBlocksPropsOptions ?? {})} />
+        </div>
+      )}
+    </div>
+  );
 }
 `;
 }
 
-function renderSaveFile( childFolderSlug: string, childTypeName: string ): string {
-	const childCssClassName = buildBlockCssClassName( PARENT_BLOCK_NAMESPACE, childFolderSlug );
+function renderSaveFile(
+  childFolderSlug: string,
+  childTypeName: string,
+): string {
+  const childCssClassName = buildBlockCssClassName(
+    PARENT_BLOCK_NAMESPACE,
+    childFolderSlug,
+  );
 
-	return `import { InnerBlocks, RichText, useBlockProps } from '@wordpress/block-editor';
+  return `import { InnerBlocks, RichText, useBlockProps } from '@wordpress/block-editor';
 
 import metadata from './block-metadata';
-import { hasNestedChildBlocks } from '../${ PARENT_BLOCK_SLUG }/children';
-import type { ${ childTypeName } } from './types';
+import { hasNestedChildBlocks } from '../${PARENT_BLOCK_SLUG}/children';
+import type { ${childTypeName} } from './types';
 
-export default function Save( {
-\tattributes,
+export default function Save({
+  attributes,
 }: {
-\tattributes: ${ childTypeName };
-} ) {
-\tconst showsNestedChildren = hasNestedChildBlocks( metadata.name );
+  attributes: ${childTypeName};
+}) {
+  const showsNestedChildren = hasNestedChildBlocks(metadata.name);
+  const blockProps = useBlockProps.save({
+    className: '${childCssClassName}',
+  });
 
-\treturn (
-\t\t<div { ...useBlockProps.save( { className: '${ childCssClassName }' } ) }>
-\t\t\t<RichText.Content
-\t\t\t\ttagName="h4"
-\t\t\t\tclassName="${ childCssClassName }__title"
-\t\t\t\tvalue={ attributes.title }
-\t\t\t/>
-\t\t\t<RichText.Content
-\t\t\t\ttagName="p"
-\t\t\t\tclassName="${ childCssClassName }__body"
-\t\t\t\tvalue={ attributes.body }
-\t\t\t/>
-\t\t\t{ showsNestedChildren && (
-\t\t\t\t<div className="${ childCssClassName }__children">
-\t\t\t\t\t<InnerBlocks.Content />
-\t\t\t\t</div>
-\t\t\t) }
-\t\t</div>
-\t);
+  return (
+    <div {...blockProps}>
+      <RichText.Content
+        tagName="h4"
+        className="${childCssClassName}__title"
+        value={attributes.title}
+      />
+      <RichText.Content
+        tagName="p"
+        className="${childCssClassName}__body"
+        value={attributes.body}
+      />
+      {showsNestedChildren && (
+        <div className="${childCssClassName}__children">
+          <InnerBlocks.Content />
+        </div>
+      )}
+    </div>
+  );
 }
 `;
 }
 
-function renderIndexFile( childTypeName: string ): string {
-return `import {
-\tregisterScaffoldBlockType,
-\ttype BlockConfiguration,
+function renderIndexFile(
+  childFolderSlug: string,
+  childTypeName: string,
+): string {
+  return `import {
+  registerScaffoldBlockType,
+  type BlockConfiguration,
 } from '@wp-typia/block-types/blocks/registration';
 import {
-\tbuildScaffoldBlockRegistration,
-\tparseScaffoldBlockMetadata,
+  buildScaffoldBlockRegistration,
+  parseScaffoldBlockMetadata,
 } from '@wp-typia/block-runtime/blocks';
 
 import Edit from './edit';
 import Save from './save';
 import metadata from './block-metadata';
-import '${ PARENT_STYLE_IMPORT }';
+import '${PARENT_STYLE_IMPORT}';
 
-import type { ${ childTypeName } } from './types';
+import type { ${childTypeName} } from './types';
 
 const registration = buildScaffoldBlockRegistration(
-\tparseScaffoldBlockMetadata<BlockConfiguration< ${ childTypeName } >>( metadata ),
-\t{
-\t\tedit: Edit,
-\t\tsave: Save,
-\t}
+  parseScaffoldBlockMetadata<
+    BlockConfiguration<${childTypeName}>
+  >(metadata),
+  {
+    edit: Edit,
+    save: Save,
+  },
 );
 
-registerScaffoldBlockType( registration.name, registration.settings );
+registerScaffoldBlockType(registration.name, registration.settings);
 `;
 }
 
-function renderChildSpecLines(
-	options: {
-		ancestorKeys: string[];
-		blockName: string;
-		container: boolean;
-		folderSlug: string;
-		key: string;
-		placement: 'nested' | 'root';
-		seedTemplate: boolean;
-		supportsInserter: boolean;
-		title: string;
-	}
-): string[] {
-	const templateLines =
-		options.seedTemplate
-			? [
-				'\ttemplateInstances: [',
-				'\t\t{',
-				`\t\t\tbody: ${ JSON.stringify( CHILD_PLACEHOLDER ) },`,
-				`\t\t\ttitle: ${ JSON.stringify( options.title ) },`,
-				'\t\t},',
-				'\t],',
-			]
-			: [ '\ttemplateInstances: [],' ];
+function renderChildSpecLines(options: {
+  ancestorKeys: string[];
+  blockName: string;
+  container: boolean;
+  folderSlug: string;
+  key: string;
+  placement: 'nested' | 'root';
+  seedTemplate: boolean;
+  supportsInserter: boolean;
+  title: string;
+}): string[] {
+  const templateLines = options.seedTemplate
+    ? [
+        '  templateInstances: [',
+        '    {',
+        `      body: ${quoteTypeScriptString(CHILD_PLACEHOLDER)},`,
+        `      title: ${quoteTypeScriptString(options.title)},`,
+        '    },',
+        '  ],',
+      ]
+    : ['  templateInstances: [],'];
 
-	return [
-		'{',
-		`\tancestorKeys: [ ${ options.ancestorKeys.map( ( value ) => JSON.stringify( value ) ).join( ', ' ) } ],`,
-		`\tblockName: ${ JSON.stringify( options.blockName ) },`,
-		`\tbodyPlaceholder: ${ JSON.stringify( CHILD_PLACEHOLDER ) },`,
-		`\tcontainer: ${ options.container ? 'true' : 'false' },`,
-		`\tfolderSlug: ${ JSON.stringify( options.folderSlug ) },`,
-		`\tkey: ${ JSON.stringify( options.key ) },`,
-		`\tplacement: ${ JSON.stringify( options.placement ) },`,
-		`\tsupportsInserter: ${ options.supportsInserter ? 'true' : 'false' },`,
-		...templateLines,
-		`\ttitle: ${ JSON.stringify( options.title ) },`,
-		'},',
-	];
+  return [
+    '{',
+    `  ancestorKeys: [${options.ancestorKeys.map((value) => quoteTypeScriptString(value)).join(', ')}],`,
+    `  blockName: ${quoteTypeScriptString(options.blockName)},`,
+    `  bodyPlaceholder: ${quoteTypeScriptString(CHILD_PLACEHOLDER)},`,
+    `  container: ${options.container ? 'true' : 'false'},`,
+    `  folderSlug: ${quoteTypeScriptString(options.folderSlug)},`,
+    `  key: ${quoteTypeScriptString(options.key)},`,
+    `  placement: ${quoteTypeScriptString(options.placement)},`,
+    `  supportsInserter: ${options.supportsInserter ? 'true' : 'false'},`,
+    ...templateLines,
+    `  title: ${quoteTypeScriptString(options.title)},`,
+    '},',
+  ];
 }
 
 function main() {
-	const {
-		ancestorValues,
-		container,
-		dryRun,
-		inserter,
-		slug,
-		title,
-	} = parseArgs();
-	const normalizedSlug = slug ? resolveValidatedBlockSlug( slug ) : '';
+  const { ancestorValues, container, dryRun, inserter, slug, title } =
+    parseArgs();
+  const normalizedSlug = slug ? resolveValidatedBlockSlug(slug) : '';
 
-	if ( normalizedSlug.length === 0 ) {
-		throw new Error( 'Use a child slug with lowercase letters, numbers, and hyphens only.' );
-	}
+  if (normalizedSlug.length === 0) {
+    throw new Error(
+      'Use a child slug with lowercase letters, numbers, and hyphens only.',
+    );
+  }
 
-	const existingChildren = listExistingCompoundChildren();
-	validateExistingCompoundChildGraph( existingChildren );
-	const ancestorChain = ensureUniqueAncestorChain(
-		ancestorValues.map( ( value ) =>
-			resolveExistingCompoundChild( value, existingChildren )
-		)
-	);
-	validateAncestorChain( ancestorChain );
-	const childTitle = title?.trim().length ? title.trim() : toTitleCase( normalizedSlug );
-	const childFolderSlug = `${ PARENT_BLOCK_SLUG }-${ normalizedSlug }`;
-	const childBlockName = `${ PARENT_BLOCK_NAME }-${ normalizedSlug }`;
-	const childTypeSuffix = toPascalCase( normalizedSlug );
-	const childTypeName = `${ PARENT_TYPE_NAME }${ childTypeSuffix }Attributes`;
-	const childInterfaceName = `${ PARENT_TYPE_NAME }${ childTypeSuffix }`;
-	const childDir = path.join( PROJECT_ROOT, 'src', 'blocks', childFolderSlug );
-	const childrenFile = path.join(
-		PROJECT_ROOT,
-		'src',
-		'blocks',
-		PARENT_BLOCK_SLUG,
-		'children.ts'
-	);
-	const blockConfigFile = path.join( PROJECT_ROOT, 'scripts', 'block-config.ts' );
+  const existingChildren = listExistingCompoundChildren();
+  validateExistingCompoundChildGraph(existingChildren);
+  const ancestorChain = ensureUniqueAncestorChain(
+    ancestorValues.map((value) =>
+      resolveExistingCompoundChild(value, existingChildren),
+    ),
+  );
+  validateAncestorChain(ancestorChain);
+  const childTitle = title?.trim().length
+    ? title.trim()
+    : toTitleCase(normalizedSlug);
+  const childFolderSlug = `${PARENT_BLOCK_SLUG}-${normalizedSlug}`;
+  const childBlockName = `${PARENT_BLOCK_NAME}-${normalizedSlug}`;
+  const childTypeSuffix = toPascalCase(normalizedSlug);
+  const childTypeName = `${PARENT_TYPE_NAME}${childTypeSuffix}Attributes`;
+  const childInterfaceName = `${PARENT_TYPE_NAME}${childTypeSuffix}`;
+  const childDir = path.join(PROJECT_ROOT, 'src', 'blocks', childFolderSlug);
+  const childrenFile = path.join(
+    PROJECT_ROOT,
+    'src',
+    'blocks',
+    PARENT_BLOCK_SLUG,
+    'children.ts',
+  );
+  const blockConfigFile = path.join(PROJECT_ROOT, 'scripts', 'block-config.ts');
 
-	if ( ancestorChain.some( ( ancestor ) => ancestor.key === normalizedSlug ) ) {
-		throw new Error( 'A child block cannot list itself as an ancestor.' );
-	}
+  if (ancestorChain.some((ancestor) => ancestor.key === normalizedSlug)) {
+    throw new Error('A child block cannot list itself as an ancestor.');
+  }
 
-	if ( fs.existsSync( childDir ) ) {
-		throw new Error( `Child block already exists: ${ childFolderSlug }` );
-	}
+  if (fs.existsSync(childDir)) {
+    throw new Error(`Child block already exists: ${childFolderSlug}`);
+  }
 
-	if ( ! fs.existsSync( childrenFile ) || ! fs.existsSync( blockConfigFile ) ) {
-		throw new Error(
-			'This command expects a compound scaffold with src/blocks/<parent>/children.ts and scripts/block-config.ts.'
-		);
-	}
+  if (!fs.existsSync(childrenFile) || !fs.existsSync(blockConfigFile)) {
+    throw new Error(
+      'This command expects a compound scaffold with src/blocks/<parent>/children.ts and scripts/block-config.ts.',
+    );
+  }
 
-	validateAncestorInstantiability( childrenFile, ancestorChain );
-	validateNestedAncestorTarget( ancestorChain );
-	const supportsInserter =
-		inserter === 'visible'
-			? true
-			: inserter === 'hidden'
-				? false
-				: container || ancestorChain.length > 0;
-	const placement = ancestorChain.length > 0 ? 'nested' : 'root';
-	const seedTemplate = supportsInserter || container || ancestorChain.length > 0;
-	const directAllowedBlocks: string[] = [];
-	const directAncestor = ancestorChain[ ancestorChain.length - 1 ];
-	const plannedWritePaths = [
-		formatProjectRelativePath( path.join( childDir, 'block.json' ) ),
-		formatProjectRelativePath( path.join( childDir, 'types.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'typia.manifest.json' ) ),
-		formatProjectRelativePath( path.join( childDir, 'block-metadata.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'manifest-document.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'manifest-defaults-document.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'hooks.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'validators.ts' ) ),
-		formatProjectRelativePath( path.join( childDir, 'edit.tsx' ) ),
-		formatProjectRelativePath( path.join( childDir, 'save.tsx' ) ),
-		formatProjectRelativePath( path.join( childDir, 'index.tsx' ) ),
-		formatProjectRelativePath( childrenFile ),
-		formatProjectRelativePath( blockConfigFile ),
-		formatProjectRelativePath(
-			placement === 'root' ? PARENT_BLOCK_JSON_PATH : directAncestor.blockJsonPath
-		),
-	];
+  validateAncestorInstantiability(childrenFile, ancestorChain);
+  validateNestedAncestorTarget(ancestorChain);
+  const supportsInserter =
+    inserter === 'visible'
+      ? true
+      : inserter === 'hidden'
+        ? false
+        : container || ancestorChain.length > 0;
+  const placement = ancestorChain.length > 0 ? 'nested' : 'root';
+  const seedTemplate =
+    supportsInserter || container || ancestorChain.length > 0;
+  const directAllowedBlocks: string[] = [];
+  const directAncestor = ancestorChain[ancestorChain.length - 1];
+  const plannedWritePaths = [
+    formatProjectRelativePath(path.join(childDir, 'block.json')),
+    formatProjectRelativePath(path.join(childDir, 'types.ts')),
+    formatProjectRelativePath(path.join(childDir, 'typia.manifest.json')),
+    formatProjectRelativePath(path.join(childDir, 'block-metadata.ts')),
+    formatProjectRelativePath(path.join(childDir, 'manifest-document.ts')),
+    formatProjectRelativePath(
+      path.join(childDir, 'manifest-defaults-document.ts'),
+    ),
+    formatProjectRelativePath(path.join(childDir, 'hooks.ts')),
+    formatProjectRelativePath(path.join(childDir, 'validators.ts')),
+    formatProjectRelativePath(path.join(childDir, 'edit.tsx')),
+    formatProjectRelativePath(path.join(childDir, 'save.tsx')),
+    formatProjectRelativePath(path.join(childDir, 'index.tsx')),
+    formatProjectRelativePath(childrenFile),
+    formatProjectRelativePath(blockConfigFile),
+    formatProjectRelativePath(
+      placement === 'root'
+        ? PARENT_BLOCK_JSON_PATH
+        : directAncestor.blockJsonPath,
+    ),
+  ];
 
-	console.log(
-		renderCompoundChildGraphPreview(
-			buildCompoundChildGraphNodes( existingChildren, {
-				blockName: childBlockName,
-				container,
-				directParentBlockName:
-					directAncestor?.blockName ?? PARENT_BLOCK_NAME,
-				isProspective: true,
-				key: normalizedSlug,
-				placement,
-				supportsInserter,
-				title: childTitle,
-			} ),
-			plannedWritePaths,
-			{ dryRun }
-		)
-	);
+  console.log(
+    renderCompoundChildGraphPreview(
+      buildCompoundChildGraphNodes(existingChildren, {
+        blockName: childBlockName,
+        container,
+        directParentBlockName: directAncestor?.blockName ?? PARENT_BLOCK_NAME,
+        isProspective: true,
+        key: normalizedSlug,
+        placement,
+        supportsInserter,
+        title: childTitle,
+      }),
+      plannedWritePaths,
+      { dryRun },
+    ),
+  );
 
-	if ( dryRun ) {
-		return;
-	}
+  if (dryRun) {
+    return;
+  }
 
-	fs.mkdirSync( childDir, { recursive: true } );
+  fs.mkdirSync(childDir, { recursive: true });
 
-	fs.writeFileSync(
-		path.join( childDir, 'block.json' ),
-		renderBlockJson( childBlockName, childFolderSlug, childTitle, {
-			allowedBlocks: directAllowedBlocks,
-			ancestorBlockNames: ancestorChain.map( ( ancestor ) => ancestor.blockName ),
-			container,
-			supportsInserter,
-		} ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'types.ts' ),
-		renderTypesFile( childTypeName, childInterfaceName, childTitle ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'typia.manifest.json' ),
-		renderStarterManifestFile( childTypeName, childTitle ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'block-metadata.ts' ),
-		renderBlockMetadataFile(),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'manifest-document.ts' ),
-		renderManifestDocumentFile(),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'manifest-defaults-document.ts' ),
-		renderManifestDefaultsDocumentFile(),
-		'utf8'
-	);
-	fs.writeFileSync( path.join( childDir, 'hooks.ts' ), renderHooksFile(), 'utf8' );
-	fs.writeFileSync(
-		path.join( childDir, 'validators.ts' ),
-		renderValidatorsFile( childTypeName, childInterfaceName ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'edit.tsx' ),
-		renderEditFile( childFolderSlug, childTypeName, childInterfaceName, childTitle ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'save.tsx' ),
-		renderSaveFile( childFolderSlug, childTypeName ),
-		'utf8'
-	);
-	fs.writeFileSync(
-		path.join( childDir, 'index.tsx' ),
-		renderIndexFile( childTypeName ),
-		'utf8'
-	);
+  fs.writeFileSync(
+    path.join(childDir, 'block.json'),
+    renderBlockJson(childBlockName, childFolderSlug, childTitle, {
+      allowedBlocks: directAllowedBlocks,
+      ancestorBlockNames: ancestorChain.map((ancestor) => ancestor.blockName),
+      container,
+      supportsInserter,
+    }),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'types.ts'),
+    renderTypesFile(childTypeName, childInterfaceName, childTitle),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'typia.manifest.json'),
+    renderStarterManifestFile(childTypeName, childTitle),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'block-metadata.ts'),
+    renderBlockMetadataFile(),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'manifest-document.ts'),
+    renderManifestDocumentFile(),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'manifest-defaults-document.ts'),
+    renderManifestDefaultsDocumentFile(),
+    'utf8',
+  );
+  fs.writeFileSync(path.join(childDir, 'hooks.ts'), renderHooksFile(), 'utf8');
+  fs.writeFileSync(
+    path.join(childDir, 'validators.ts'),
+    renderValidatorsFile(childTypeName, childInterfaceName),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'edit.tsx'),
+    renderEditFile(
+      childFolderSlug,
+      childTypeName,
+      childInterfaceName,
+      childTitle,
+    ),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'save.tsx'),
+    renderSaveFile(childFolderSlug, childTypeName),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(childDir, 'index.tsx'),
+    renderIndexFile(childFolderSlug, childTypeName),
+    'utf8',
+  );
 
-	insertBeforeMarker(
-		childrenFile,
-		CHILD_SPEC_MARKER,
-		renderChildSpecLines( {
-			ancestorKeys: ancestorChain.map( ( ancestor ) => ancestor.key ),
-			blockName: childBlockName,
-			container,
-			folderSlug: childFolderSlug,
-			key: normalizedSlug,
-			placement,
-			seedTemplate,
-			supportsInserter,
-			title: childTitle,
-		} )
-	);
-	insertBeforeMarker(
-		blockConfigFile,
-		BLOCK_CONFIG_MARKER,
-		[
-			'{',
-			`\tslug: '${ childFolderSlug }',`,
-			`\tattributeTypeName: '${ childTypeName }',`,
-			`\ttypesFile: 'src/blocks/${ childFolderSlug }/types.ts',`,
-			'},',
-		]
-	);
+  insertBeforeMarker(
+    childrenFile,
+    CHILD_SPEC_MARKER,
+    renderChildSpecLines({
+      ancestorKeys: ancestorChain.map((ancestor) => ancestor.key),
+      blockName: childBlockName,
+      container,
+      folderSlug: childFolderSlug,
+      key: normalizedSlug,
+      placement,
+      seedTemplate,
+      supportsInserter,
+      title: childTitle,
+    }),
+  );
+  insertBeforeMarker(blockConfigFile, BLOCK_CONFIG_MARKER, [
+    '{',
+    `  slug: '${childFolderSlug}',`,
+    `  attributeTypeName: '${childTypeName}',`,
+    `  typesFile: 'src/blocks/${childFolderSlug}/types.ts',`,
+    '},',
+  ]);
 
-	if ( placement === 'root' ) {
-		updateAllowedBlocks( PARENT_BLOCK_JSON_PATH, childBlockName );
-	} else {
-		const directAncestor = ancestorChain[ ancestorChain.length - 1 ];
-		updateAllowedBlocks( directAncestor.blockJsonPath, childBlockName );
-	}
+  if (placement === 'root') {
+    updateAllowedBlocks(PARENT_BLOCK_JSON_PATH, childBlockName);
+  } else {
+    const directAncestor = ancestorChain[ancestorChain.length - 1];
+    updateAllowedBlocks(directAncestor.blockJsonPath, childBlockName);
+  }
 
-	console.log( `✅ Added compound child block ${ childBlockName }` );
-	console.log(
-		'Run `sync-types` next to generate block.json metadata, manifests, schemas, and PHP validators for the new child block.'
-	);
+  console.log(`✅ Added compound child block ${childBlockName}`);
+  console.log(
+    'Run `sync-types` next to generate block.json metadata, manifests, schemas, and PHP validators for the new child block.',
+  );
 }
 
 main();

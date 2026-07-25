@@ -274,6 +274,10 @@ export async function removeQueryLoopPlaceholderFiles(
   await fsp.rm(path.join(projectDir, 'src', 'validator-toolkit.ts'), {
     force: true,
   });
+  await fsp.rm(path.join(projectDir, 'scripts'), {
+    force: true,
+    recursive: true,
+  });
 }
 
 export async function removeUnexpectedLockfiles(

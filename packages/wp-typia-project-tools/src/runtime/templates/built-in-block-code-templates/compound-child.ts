@@ -5,72 +5,75 @@ import { __ } from '@wordpress/i18n';
 
 import metadata from './block-metadata';
 import {
-\tgetChildInnerBlocksPropsOptions,
-\thasNestedChildBlocks,
+  getChildInnerBlocksPropsOptions,
+  hasNestedChildBlocks,
 } from '../{{slugKebabCase}}/children';
 import { useTypiaValidation } from './hooks';
 import type { {{pascalCase}}ItemAttributes } from './types';
 import {
-\tcreateAttributeUpdater,
-\tvalidate{{pascalCase}}ItemAttributes,
+  createAttributeUpdater,
+  validate{{pascalCase}}ItemAttributes,
 } from './validators';
 
-type EditProps = BlockEditProps< {{pascalCase}}ItemAttributes >;
-type CompoundInnerBlocksProps = Parameters< typeof InnerBlocks >[ 0 ] & {
-\tdefaultBlock?: [ string, Record< string, unknown > ];
-\tdirectInsert?: boolean;
+type EditProps = BlockEditProps<{{pascalCase}}ItemAttributes>;
+type CompoundInnerBlocksProps = Parameters<typeof InnerBlocks>[0] & {
+  defaultBlock?: [string, Record<string, unknown>];
+  directInsert?: boolean;
 };
 
 const TypedInnerBlocks = InnerBlocks as unknown as (
-\tprops: CompoundInnerBlocksProps
-) => ReturnType< typeof InnerBlocks >;
+  props: CompoundInnerBlocksProps,
+) => ReturnType<typeof InnerBlocks>;
 
-export default function Edit( {
-\tattributes,
-\tsetAttributes,
-}: EditProps ) {
-\tconst updateAttribute = createAttributeUpdater( attributes, setAttributes );
-\tconst { errorMessages, isValid } = useTypiaValidation(
-\t\tattributes,
-\t\tvalidate{{pascalCase}}ItemAttributes
-\t);
-\tconst nestedInnerBlocksPropsOptions = getChildInnerBlocksPropsOptions(
-\t\tmetadata.name
-\t);
-\tconst showsNestedChildren = hasNestedChildBlocks( metadata.name );
+export default function Edit({ attributes, setAttributes }: EditProps) {
+  const updateAttribute = createAttributeUpdater(attributes, setAttributes);
+  const { errorMessages, isValid } = useTypiaValidation(
+    attributes,
+    validate{{pascalCase}}ItemAttributes,
+  );
+  const nestedInnerBlocksPropsOptions = getChildInnerBlocksPropsOptions(
+    metadata.name,
+  );
+  const showsNestedChildren = hasNestedChildBlocks(metadata.name);
+  const blockProps = useBlockProps({
+    className: '{{compoundChildCssClassName}}',
+  });
 
-\treturn (
-\t\t<div { ...useBlockProps( { className: '{{compoundChildCssClassName}}' } ) }>
-\t\t\t<RichText
-\t\t\t\ttagName="h4"
-\t\t\t\tclassName="{{compoundChildCssClassName}}__title"
-\t\t\t\tvalue={ attributes.title ?? '' }
-\t\t\t\tonChange={ ( title ) => updateAttribute( 'title', title ) }
-\t\t\t\tplaceholder={ __( {{compoundChildTitleJson}}, '{{textDomain}}' ) }
-\t\t\t/>
-\t\t\t<RichText
-\t\t\t\ttagName="p"
-\t\t\t\tclassName="{{compoundChildCssClassName}}__body"
-\t\t\t\tvalue={ attributes.body ?? '' }
-\t\t\t\tonChange={ ( body ) => updateAttribute( 'body', body ) }
-\t\t\t\tplaceholder={ __( 'Add supporting details for this internal item.', '{{textDomain}}' ) }
-\t\t\t/>
-\t\t\t{ ! isValid && (
-\t\t\t\t<Notice status="error" isDismissible={ false }>
-\t\t\t\t\t<ul>
-\t\t\t\t\t\t{ errorMessages.map( ( error, index ) => <li key={ index }>{ error }</li> ) }
-\t\t\t\t\t</ul>
-\t\t\t\t</Notice>
-\t\t\t) }
-\t\t\t{ showsNestedChildren && (
-\t\t\t\t<div className="{{compoundChildCssClassName}}__children">
-\t\t\t\t\t<TypedInnerBlocks
-\t\t\t\t\t\t{ ...( nestedInnerBlocksPropsOptions ?? {} ) }
-\t\t\t\t\t/>
-\t\t\t\t</div>
-\t\t\t) }
-\t\t</div>
-\t);
+  return (
+    <div {...blockProps}>
+      <RichText
+        tagName="h4"
+        className="{{compoundChildCssClassName}}__title"
+        value={attributes.title ?? ''}
+        onChange={(title) => updateAttribute('title', title)}
+        placeholder={__({{compoundChildTitleTsLiteral}}, '{{textDomain}}')}
+      />
+      <RichText
+        tagName="p"
+        className="{{compoundChildCssClassName}}__body"
+        value={attributes.body ?? ''}
+        onChange={(body) => updateAttribute('body', body)}
+        placeholder={__(
+          'Add supporting details for this internal item.',
+          '{{textDomain}}',
+        )}
+      />
+      {!isValid && (
+        <Notice status="error" isDismissible={false}>
+          <ul>
+            {errorMessages.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+      {showsNestedChildren && (
+        <div className="{{compoundChildCssClassName}}__children">
+          <TypedInnerBlocks {...(nestedInnerBlocksPropsOptions ?? {})} />
+        </div>
+      )}
+    </div>
+  );
 }
 `;
 
@@ -80,42 +83,45 @@ import metadata from './block-metadata';
 import { hasNestedChildBlocks } from '../{{slugKebabCase}}/children';
 import type { {{pascalCase}}ItemAttributes } from './types';
 
-export default function Save( {
-\tattributes,
+export default function Save({
+  attributes,
 }: {
-\tattributes: {{pascalCase}}ItemAttributes;
-} ) {
-\tconst showsNestedChildren = hasNestedChildBlocks( metadata.name );
+  attributes: {{pascalCase}}ItemAttributes;
+}) {
+  const showsNestedChildren = hasNestedChildBlocks(metadata.name);
+  const blockProps = useBlockProps.save({
+    className: '{{compoundChildCssClassName}}',
+  });
 
-\treturn (
-\t\t<div { ...useBlockProps.save( { className: '{{compoundChildCssClassName}}' } ) }>
-\t\t\t<RichText.Content
-\t\t\t\ttagName="h4"
-\t\t\t\tclassName="{{compoundChildCssClassName}}__title"
-\t\t\t\tvalue={ attributes.title }
-\t\t\t/>
-\t\t\t<RichText.Content
-\t\t\t\ttagName="p"
-\t\t\t\tclassName="{{compoundChildCssClassName}}__body"
-\t\t\t\tvalue={ attributes.body }
-\t\t\t/>
-\t\t\t{ showsNestedChildren && (
-\t\t\t\t<div className="{{compoundChildCssClassName}}__children">
-\t\t\t\t\t<InnerBlocks.Content />
-\t\t\t\t</div>
-\t\t\t) }
-\t\t</div>
-\t);
+  return (
+    <div {...blockProps}>
+      <RichText.Content
+        tagName="h4"
+        className="{{compoundChildCssClassName}}__title"
+        value={attributes.title}
+      />
+      <RichText.Content
+        tagName="p"
+        className="{{compoundChildCssClassName}}__body"
+        value={attributes.body}
+      />
+      {showsNestedChildren && (
+        <div className="{{compoundChildCssClassName}}__children">
+          <InnerBlocks.Content />
+        </div>
+      )}
+    </div>
+  );
 }
 `;
 
 export const COMPOUND_CHILD_INDEX_TEMPLATE = `import {
-\tregisterScaffoldBlockType,
-\ttype BlockConfiguration,
+  registerScaffoldBlockType,
+  type BlockConfiguration,
 } from '@wp-typia/block-types/blocks/registration';
 import {
-\tbuildScaffoldBlockRegistration,
-\tparseScaffoldBlockMetadata,
+  buildScaffoldBlockRegistration,
+  parseScaffoldBlockMetadata,
 } from '@wp-typia/block-runtime/blocks';
 
 import Edit from './edit';
@@ -126,11 +132,13 @@ import '../{{slugKebabCase}}/style.scss';
 import type { {{pascalCase}}ItemAttributes } from './types';
 
 const registration = buildScaffoldBlockRegistration(
-\tparseScaffoldBlockMetadata<BlockConfiguration< {{pascalCase}}ItemAttributes >>( metadata ),
-\t{
-\t\tedit: Edit,
-\t\tsave: Save,
-\t}
+  parseScaffoldBlockMetadata<
+    BlockConfiguration<{{pascalCase}}ItemAttributes>
+  >(metadata),
+  {
+    edit: Edit,
+    save: Save,
+  },
 );
 
 registerScaffoldBlockType(registration.name, registration.settings);
@@ -139,36 +147,37 @@ registerScaffoldBlockType(registration.name, registration.settings);
 export const COMPOUND_CHILD_VALIDATORS_TEMPLATE = `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
 import type {
-\t{{pascalCase}}ItemAttributes,
-\t{{pascalCase}}ItemValidationResult,
+  {{pascalCase}}ItemAttributes,
+  {{pascalCase}}ItemValidationResult,
 } from './types';
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
-const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}ItemAttributes >( {
-\tassert: typia.createAssert< {{pascalCase}}ItemAttributes >(),
-\tclone: typia.plain.createClone< {{pascalCase}}ItemAttributes >() as (
-\t\tvalue: {{pascalCase}}ItemAttributes,
-\t) => {{pascalCase}}ItemAttributes,
-\tis: typia.createIs< {{pascalCase}}ItemAttributes >(),
-\tmanifest: currentManifest,
-\tprune: typia.plain.createPrune< {{pascalCase}}ItemAttributes >(),
-\trandom: typia.createRandom< {{pascalCase}}ItemAttributes >() as (
-\t\t...args: unknown[]
-\t) => {{pascalCase}}ItemAttributes,
-\tvalidate: typia.createValidate< {{pascalCase}}ItemAttributes >(),
-} );
+const scaffoldValidators =
+  createTemplateValidatorToolkit<{{pascalCase}}ItemAttributes>({
+    assert: typia.createAssert<{{pascalCase}}ItemAttributes>(),
+    clone: typia.plain.createClone<{{pascalCase}}ItemAttributes>() as (
+      value: {{pascalCase}}ItemAttributes,
+    ) => {{pascalCase}}ItemAttributes,
+    is: typia.createIs<{{pascalCase}}ItemAttributes>(),
+    manifest: currentManifest,
+    prune: typia.plain.createPrune<{{pascalCase}}ItemAttributes>(),
+    random: typia.createRandom<{{pascalCase}}ItemAttributes>() as (
+      ...args: unknown[]
+    ) => {{pascalCase}}ItemAttributes,
+    validate: typia.createValidate<{{pascalCase}}ItemAttributes>(),
+  });
 
 export const validate{{pascalCase}}ItemAttributes =
-\tscaffoldValidators.validateAttributes as (
-\t\tattributes: unknown
-\t) => {{pascalCase}}ItemValidationResult;
+  scaffoldValidators.validateAttributes as (
+    attributes: unknown,
+  ) => {{pascalCase}}ItemValidationResult;
 
 export const validators = scaffoldValidators.validators;
 
 export const sanitize{{pascalCase}}ItemAttributes =
-\tscaffoldValidators.sanitizeAttributes as (
-\t\tattributes: Partial< {{pascalCase}}ItemAttributes >
-\t) => {{pascalCase}}ItemAttributes;
+  scaffoldValidators.sanitizeAttributes as (
+    attributes: Partial<{{pascalCase}}ItemAttributes>,
+  ) => {{pascalCase}}ItemAttributes;
 
 export const createAttributeUpdater = scaffoldValidators.createAttributeUpdater;
 `;

@@ -1,6 +1,11 @@
 import { getPackageVersions } from '../shared/package-versions.js';
 import type { PackageManagerId } from '../shared/package-managers.js';
 import {
+  quoteTypeScriptString,
+  renderTypeScriptConstCall,
+  renderTypeScriptStringArray,
+} from '../shared/ts-string-literals.js';
+import {
   BUILTIN_BLOCK_METADATA_VERSION,
   COMPOUND_CHILD_BLOCK_METADATA_DEFAULTS,
   getBuiltInTemplateMetadataDefaults,
@@ -312,6 +317,21 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
   const hasAlternatePlainTextRenderTarget =
 		alternateRenderTargets.includes('plain-text');
   const compoundChildTitle = `${title} Item`;
+  const bootstrapEndpointDeclaration = renderTypeScriptConstCall(
+    'bootstrapEndpoint',
+    'createRestEndpoint',
+    `get${pascalCase}BootstrapEndpoint`,
+  );
+  const stateEndpointDeclaration = renderTypeScriptConstCall(
+    'stateEndpoint',
+    'createRestEndpoint',
+    `get${pascalCase}StateEndpoint`,
+  );
+  const writeStateEndpointDeclaration = renderTypeScriptConstCall(
+    'writeStateEndpoint',
+    'createRestEndpoint',
+    `write${pascalCase}StateEndpoint`,
+  );
   const cssClassName = buildBlockCssClassName(namespace, slug);
   const compoundChildCssClassName = buildBlockCssClassName(
     namespace,
@@ -329,6 +349,10 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
   const persistencePolicy = persistenceEnabled
     ? spec.persistence.persistencePolicy
     : 'authenticated';
+  const persistencePolicyDescription =
+    persistencePolicy === 'authenticated'
+      ? 'Writes require a logged-in user and a valid REST nonce.'
+      : 'Anonymous writes use signed short-lived public tokens, per-request ids, and coarse rate limiting.';
   const queryVariationNamespace = `${namespace}/${slug}`;
   const compatibility = resolveScaffoldCompatibilityPolicy([], {
     baseline: createScaffoldCompatibilityBaseline(spec.runtime.wpVersion),
@@ -341,6 +365,7 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		alternateRenderTargetsJson: JSON.stringify(alternateRenderTargets),
 		apiClientPackageVersion,
 		author: spec.project.author,
+		bootstrapEndpointDeclaration,
 		blockRuntimePackageVersion,
 		blockMetadataVersion: BUILTIN_BLOCK_METADATA_VERSION,
 		blockTypesPackageVersion,
@@ -351,6 +376,7 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		compoundChildCssClassName,
 		compoundChildIcon: COMPOUND_CHILD_BLOCK_METADATA_DEFAULTS.icon,
 		compoundChildTitleJson: JSON.stringify(compoundChildTitle),
+		compoundChildTitleTsLiteral: quoteTypeScriptString(compoundChildTitle),
 		compoundPersistenceEnabled:
 			spec.template.family === 'compound' && persistenceEnabled ? 'true' : 'false',
 		compoundInnerBlocksDirectInsert:
@@ -391,29 +417,40 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		dataStorageMode,
 		description: spec.metadata.description,
 		descriptionJson: JSON.stringify(spec.metadata.description),
+		descriptionTsLiteral: quoteTypeScriptString(spec.metadata.description),
 		frontendCssClassName: buildFrontendCssClassName(cssClassName),
 		queryAllowedControlsJson: JSON.stringify(
 			spec.queryLoop.enabled ? spec.queryLoop.allowedControls : [],
 			null,
 			2,
 		),
+		queryAllowedControlsTsLiteral: renderTypeScriptStringArray(
+			spec.queryLoop.enabled ? spec.queryLoop.allowedControls : [],
+		),
 		queryPostType: spec.queryLoop.enabled ? spec.queryLoop.postType : 'post',
 		queryPostTypeJson: JSON.stringify(
 			spec.queryLoop.enabled ? spec.queryLoop.postType : 'post',
 		),
+		queryPostTypeTsLiteral: quoteTypeScriptString(
+			spec.queryLoop.enabled ? spec.queryLoop.postType : 'post',
+		),
 		queryVariationNamespace,
 		queryVariationNamespaceJson: JSON.stringify(queryVariationNamespace),
+		queryVariationNamespaceTsLiteral: quoteTypeScriptString(
+			queryVariationNamespace,
+		),
 		isAuthenticatedPersistencePolicy:
 			persistencePolicy === 'authenticated' ? 'true' : 'false',
 		isPublicPersistencePolicy: persistencePolicy === 'public' ? 'true' : 'false',
 		bootstrapCredentialDeclarations:
 			persistencePolicy === 'public'
-				? "publicWriteExpiresAt?: number & tags.Type< 'uint32' >;\n\tpublicWriteToken?: string & tags.MinLength< 1 > & tags.MaxLength< 512 >;"
-				: 'restNonce?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
+				? "publicWriteExpiresAt?: number & tags.Type<'uint32'>;\n  publicWriteToken?: string & tags.MinLength<1> & tags.MaxLength<512>;"
+				: 'restNonce?: string & tags.MinLength<1> & tags.MaxLength<128>;',
 		persistencePolicyDescriptionJson: JSON.stringify(
-			persistencePolicy === 'authenticated'
-				? 'Writes require a logged-in user and a valid REST nonce.'
-				: 'Anonymous writes use signed short-lived public tokens, per-request ids, and coarse rate limiting.',
+			persistencePolicyDescription,
+		),
+		persistencePolicyDescriptionTsLiteral: quoteTypeScriptString(
+			persistencePolicyDescription,
 		),
 		keyword: spec.metadata.keyword,
 		namespace,
@@ -424,8 +461,8 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		restPackageVersion,
 		publicWriteRequestIdDeclaration:
 			persistencePolicy === 'public'
-				? 'publicWriteRequestId: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;'
-				: 'publicWriteRequestId?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
+				? 'publicWriteRequestId: string & tags.MinLength<1> & tags.MaxLength<128>;'
+				: 'publicWriteRequestId?: string & tags.MinLength<1> & tags.MaxLength<128>;',
 		restWriteAuthIntent:
 			persistencePolicy === 'public'
 				? 'public-write-protected'
@@ -438,12 +475,15 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		slugCamelCase: pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1),
 		slugKebabCase: slug,
 		slugSnakeCase,
+		stateEndpointDeclaration,
 		textDomain,
 		textdomain: textDomain,
 		title,
 		titleJson: JSON.stringify(title),
+		titleTsLiteral: quoteTypeScriptString(title),
 		titleCase: pascalCase,
 		persistencePolicy,
+		writeStateEndpointDeclaration,
 	};
 
   const shared = {

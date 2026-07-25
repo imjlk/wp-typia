@@ -2,128 +2,147 @@
 import path from 'node:path';
 
 import {
-	runSyncBlockMetadata,
-	syncEndpointClient,
-	syncRestOpenApi,
-	syncTypeSchemas,
+  runSyncBlockMetadata,
+  syncEndpointClient,
+  syncRestOpenApi,
+  syncTypeSchemas,
 } from '@wp-typia/block-runtime/metadata-core';
 
 import { BLOCKS } from './block-config';
 
-function parseCliOptions( argv: string[] ) {
-	const options = {
-		check: false,
-	};
+function parseCliOptions(argv: string[]) {
+  const options = {
+    check: false,
+  };
 
-	for ( const argument of argv ) {
-		if ( argument === '--check' ) {
-			options.check = true;
-			continue;
-		}
+  for (const argument of argv) {
+    if (argument === '--check') {
+      options.check = true;
+      continue;
+    }
 
-		throw new Error( `Unknown sync-rest flag: ${ argument }` );
-	}
+    throw new Error(`Unknown sync-rest flag: ${argument}`);
+  }
 
-	return options;
+  return options;
 }
 
-async function assertTypeArtifactsCurrent( block: ( typeof BLOCKS )[ number ] ) {
-	const report = await runSyncBlockMetadata( {
-		blockJsonFile: path.join( 'src', 'blocks', block.slug, 'block.json' ),
-		jsonSchemaFile: path.join( 'src', 'blocks', block.slug, 'typia.schema.json' ),
-		manifestFile: path.join( 'src', 'blocks', block.slug, 'typia.manifest.json' ),
-		openApiFile: path.join( 'src', 'blocks', block.slug, 'typia.openapi.json' ),
-		sourceTypeName: block.attributeTypeName,
-		typesFile: block.typesFile,
-	}, {
-		check: true,
-	} );
+async function assertTypeArtifactsCurrent(block: (typeof BLOCKS)[number]) {
+  const report = await runSyncBlockMetadata(
+    {
+      blockJsonFile: path.join('src', 'blocks', block.slug, 'block.json'),
+      jsonSchemaFile: path.join(
+        'src',
+        'blocks',
+        block.slug,
+        'typia.schema.json',
+      ),
+      manifestFile: path.join(
+        'src',
+        'blocks',
+        block.slug,
+        'typia.manifest.json',
+      ),
+      openApiFile: path.join('src', 'blocks', block.slug, 'typia.openapi.json'),
+      sourceTypeName: block.attributeTypeName,
+      typesFile: block.typesFile,
+    },
+    {
+      check: true,
+    },
+  );
 
-	if ( report.failure?.code === 'stale-generated-artifact' ) {
-		throw new Error(
-			`${ block.slug }: ${ report.failure.message }\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`
-		);
-	}
+  if (report.failure?.code === 'stale-generated-artifact') {
+    throw new Error(
+      `${block.slug}: ${report.failure.message}\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`,
+    );
+  }
 
-	if ( report.failure ) {
-		throw new Error(
-			`${ block.slug }: type-derived artifact preflight failed before sync-rest.\n${ report.failure.message }`
-		);
-	}
+  if (report.failure) {
+    throw new Error(
+      `${block.slug}: type-derived artifact preflight failed before sync-rest.\n${report.failure.message}`,
+    );
+  }
 }
 
 async function main() {
-	const options = parseCliOptions( process.argv.slice( 2 ) );
+  const options = parseCliOptions(process.argv.slice(2));
 
-	for ( const block of BLOCKS ) {
-		if (
-			! ( 'apiTypesFile' in block ) ||
-			! block.apiTypesFile ||
-			! ( 'restManifest' in block ) ||
-			! block.restManifest
-		) {
-			continue;
-		}
+  for (const block of BLOCKS) {
+    if (
+      !('apiTypesFile' in block) ||
+      !block.apiTypesFile ||
+      !('restManifest' in block) ||
+      !block.restManifest
+    ) {
+      continue;
+    }
 
-		await assertTypeArtifactsCurrent( block );
+    await assertTypeArtifactsCurrent(block);
 
-		for ( const [ baseName, contract ] of Object.entries( block.restManifest.contracts ) ) {
-			await syncTypeSchemas( {
-				jsonSchemaFile: path.join(
-					'src',
-					'blocks',
-					block.slug,
-					'api-schemas',
-					`${ baseName }.schema.json`
-				),
-				openApiFile: path.join(
-					'src',
-					'blocks',
-					block.slug,
-					'api-schemas',
-					`${ baseName }.openapi.json`
-				),
-				sourceTypeName: contract.sourceTypeName,
-				typesFile: block.apiTypesFile,
-			}, {
-				check: options.check,
-			} );
-		}
+    for (const [baseName, contract] of Object.entries(
+      block.restManifest.contracts,
+    )) {
+      await syncTypeSchemas(
+        {
+          jsonSchemaFile: path.join(
+            'src',
+            'blocks',
+            block.slug,
+            'api-schemas',
+            `${baseName}.schema.json`,
+          ),
+          openApiFile: path.join(
+            'src',
+            'blocks',
+            block.slug,
+            'api-schemas',
+            `${baseName}.openapi.json`,
+          ),
+          sourceTypeName: contract.sourceTypeName,
+          typesFile: block.apiTypesFile,
+        },
+        {
+          check: options.check,
+        },
+      );
+    }
 
-		if ( block.restManifest.endpoints.length > 0 ) {
-			await syncEndpointClient( {
-				clientFile: path.join(
-					'src',
-					'blocks',
-					block.slug,
-					'api-client.ts'
-				),
-				manifest: block.restManifest,
-				typesFile: block.apiTypesFile,
-			}, {
-				check: options.check,
-			} );
+    if (block.restManifest.endpoints.length > 0) {
+      await syncEndpointClient(
+        {
+          clientFile: path.join('src', 'blocks', block.slug, 'api-client.ts'),
+          manifest: block.restManifest,
+          typesFile: block.apiTypesFile,
+        },
+        {
+          check: options.check,
+        },
+      );
 
-			if ( block.openApiFile ) {
-				await syncRestOpenApi( {
-					manifest: block.restManifest,
-					openApiFile: block.openApiFile,
-					typesFile: block.apiTypesFile,
-				}, {
-					check: options.check,
-				} );
-			}
-		}
-	}
+      if (block.openApiFile) {
+        await syncRestOpenApi(
+          {
+            manifest: block.restManifest,
+            openApiFile: block.openApiFile,
+            typesFile: block.apiTypesFile,
+          },
+          {
+            check: options.check,
+          },
+        );
+      }
+    }
+  }
 
-	console.log(
-		options.check
-			? '✅ REST contract schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date with the TypeScript types!'
-			: '✅ REST contract schemas, portable API clients, and endpoint-aware OpenAPI documents generated from TypeScript types!'
-	);
+  console.log(
+    options.check
+      ? '✅ REST contract schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date with the TypeScript types!'
+      : '✅ REST contract schemas, portable API clients, and endpoint-aware OpenAPI documents generated from TypeScript types!',
+  );
 }
 
-main().catch( ( error ) => {
-	console.error( '❌ REST contract sync failed:', error );
-	process.exit( 1 );
-} );
+main().catch((error) => {
+  console.error('❌ REST contract sync failed:', error);
+  process.exit(1);
+});

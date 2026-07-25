@@ -246,6 +246,29 @@ export default {
     ).toBe(true);
   });
 
+  test('rejects malformed ttsc lint config syntax', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    writeText(
+      path.join(repoRoot, 'lint.config.ts'),
+      `export default {
+  format: {
+    severity: 'error',
+  },
+`,
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith(
+          'lint.config.ts must export a statically readable @ttsc/lint configuration:',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   test('does not reject an explanatory TypeScript ESLint comment', () => {
     const repoRoot = createFormattingPolicyRepo();
     writeText(

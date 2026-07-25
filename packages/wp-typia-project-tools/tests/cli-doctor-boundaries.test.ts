@@ -102,8 +102,8 @@ test('cli-doctor keeps environment and workspace checks in dedicated modules', (
 		'utf8',
 	);
 
-	expect(cliDoctorSource).toContain('from "./cli-doctor-environment.js"');
-	expect(cliDoctorSource).toContain('from "./cli-doctor-workspace.js"');
+	expect(cliDoctorSource).toContain("from './cli-doctor-environment.js'");
+	expect(cliDoctorSource).toContain("from './cli-doctor-workspace.js'");
 	expect(cliDoctorSource).toContain('await getWorkspaceDoctorChecks(cwd, {');
 	expect(cliDoctorSource).toContain(
 		'wordpressVersionCheck: options.wordpressVersionCheck,',
@@ -116,7 +116,7 @@ test('cli-doctor keeps environment and workspace checks in dedicated modules', (
 	expect(cliDoctorSource).not.toContain('function checkWorkspacePackageMetadata(');
 	expect(cliDoctorSource).not.toContain('function checkWorkspaceBindingBootstrap(');
 	expect(environmentSource).toContain('export async function getEnvironmentDoctorChecks(');
-	expect(environmentSource).toContain('from "./cli-doctor-workspace-shared.js"');
+	expect(environmentSource).toContain("from './cli-doctor-workspace-shared.js'");
 	expect(environmentSource).not.toContain('function createDoctorCheck(');
 	expect(workspaceSource).toContain('export async function getWorkspaceDoctorChecks(');
 	expect(workspaceSource).toContain('getStandaloneScaffoldDoctorChecks(');
@@ -157,11 +157,11 @@ test('cli-doctor keeps environment and workspace checks in dedicated modules', (
 	expect(standaloneSource).not.toContain('spawnSync(');
 	expect(workspaceSource).toContain('readWorkspaceInventoryAsync(');
 	expect(workspaceSource).toContain('prepareWorkspacePackageDoctorSnapshot(');
-	expect(workspaceSource).toContain('from "./cli-doctor-workspace-bindings.js"');
-	expect(workspaceSource).toContain('from "./cli-doctor-workspace-blocks.js"');
-	expect(workspaceSource).toContain('from "./cli-doctor-workspace-features.js"');
-	expect(workspaceSource).toContain('from "./cli-doctor-workspace-package.js"');
-	expect(workspaceSource).toContain('from "./cli-doctor-wordpress-version.js"');
+	expect(workspaceSource).toContain("from './cli-doctor-workspace-bindings.js'");
+	expect(workspaceSource).toContain("from './cli-doctor-workspace-blocks.js'");
+	expect(workspaceSource).toContain("from './cli-doctor-workspace-features.js'");
+	expect(workspaceSource).toContain("from './cli-doctor-workspace-package.js'");
+	expect(workspaceSource).toContain("from './cli-doctor-wordpress-version.js'");
 	expect(workspaceSource).toContain('intentionally stay synchronous');
 	expect(workspaceSharedSource).toContain('category collectors remain synchronous');
 	expect(migrationDoctorSource).toContain('synchronous maintenance command');
@@ -227,7 +227,7 @@ test('cli-doctor keeps environment and workspace checks in dedicated modules', (
 	expect(workspacePackageSource).toContain(
 		'export async function prepareWorkspacePackageDoctorSnapshot(',
 	);
-	expect(workspacePackageSource).toContain('from "../shared/fs-async.js"');
+	expect(workspacePackageSource).toContain("from '../shared/fs-async.js'");
 	expect(workspacePackageSource).toContain('Promise.all([');
 	expect(workspacePackageSource).not.toMatch(
 		/\bfs\.(?:existsSync|readFileSync|readdirSync)\b/u,

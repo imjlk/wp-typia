@@ -86,6 +86,74 @@ function injectAfterBlockMetadataImport(source: string, insertion: string): stri
   return injectAfter(source, LEGACY_BLOCK_JSON_IMPORT_LINE, insertion);
 }
 
+function injectAfterBlockMetadataImportInFunction(
+  source: string,
+  functionName: string,
+  insertion: string,
+): string {
+  const functionStart = source.indexOf(`function ${functionName}(`);
+  if (functionStart === -1) {
+    return source;
+  }
+
+  const nextFunctionStart = source.indexOf('\nfunction ', functionStart + 1);
+  const functionEnd =
+    nextFunctionStart === -1 ? source.length : nextFunctionStart;
+  const functionSource = source.slice(functionStart, functionEnd);
+  const nextFunctionSource = injectAfterBlockMetadataImport(
+    functionSource,
+    insertion,
+  );
+
+  return nextFunctionSource === functionSource
+    ? source
+    : `${source.slice(0, functionStart)}${nextFunctionSource}${source.slice(functionEnd)}`;
+}
+
+function renderAppendMigrationBlockConfigHelper(): string {
+  return [
+    'function appendMigrationBlockConfig(',
+    '  filePath: string,',
+    '  childBlockName: string,',
+    '  childFolderSlug: string,',
+    ') {',
+    '  if (!fs.existsSync(filePath)) {',
+    '    return;',
+    '  }',
+    '',
+    "  const source = fs.readFileSync(filePath, 'utf8');",
+    '  const childKeyLiteral = quoteTypeScriptString(childFolderSlug);',
+    '  if (source.includes(`key: ${childKeyLiteral}`)) {',
+    '    return;',
+    '  }',
+    '',
+    '  const blockEntry = [',
+    "    '    {',",
+    '    `      key: ${childKeyLiteral},`,',
+    '    `      blockName: ${quoteTypeScriptString(childBlockName)},`,',
+    '    `      blockJsonFile: ${quoteTypeScriptString(`src/blocks/${childFolderSlug}/block.json`)},`,',
+    '    `      manifestFile: ${quoteTypeScriptString(`src/blocks/${childFolderSlug}/typia.manifest.json`)},`,',
+    '    `      saveFile: ${quoteTypeScriptString(`src/blocks/${childFolderSlug}/save.tsx`)},`,',
+    '    `      typesFile: ${quoteTypeScriptString(`src/blocks/${childFolderSlug}/types.ts`)},`,',
+    "    '    },',",
+    "  ].join('\\n');",
+    '  const blocksPattern = /(\\n  blocks: \\[[\\s\\S]*?)(\\n  \\],\\n\\};)/;',
+    '',
+    '  if (!blocksPattern.test(source)) {',
+    '    throw new Error(',
+    '      `Unable to update ${filePath}: migration blocks array not found.`,',
+    '    );',
+    '  }',
+    '',
+    '  const nextSource = source.replace(',
+    '    blocksPattern,',
+    '    `$1\\n${blockEntry}$2`,',
+    '  );',
+    "  fs.writeFileSync(filePath, nextSource, 'utf8');",
+    '}',
+  ].join('\n');
+}
+
 function buildMigrationBlocks(
 	templateId: string,
 	variables: ScaffoldTemplateVariables,
@@ -130,13 +198,13 @@ async function applySingleBlockPatches(
   const editPath = path.join(projectDir, 'src', 'edit.tsx');
   const indexPath = path.join(projectDir, 'src', 'index.tsx');
   const deprecatedImport = `import { deprecated } from './migrations/generated/${variables.slugKebabCase}/deprecated';`;
-  const deprecatedLine = '  deprecated,';
+  const deprecatedLine = '    deprecated,';
   const dashboardImport = `import { MigrationDashboard } from './admin/migration-dashboard';`;
   const migrationPanel = `\n        <PanelBody title={__('Migration Manager', '${variables.textDomain}')}>\n          <MigrationDashboard />\n        </PanelBody>\n      </InspectorControls>`;
 
   await patchFile(indexPath, (source) => {
     let nextSource = injectAfterBlockMetadataImport(source, deprecatedImport);
-    nextSource = injectBefore(nextSource, '  edit: Edit,', deprecatedLine);
+    nextSource = injectBefore(nextSource, '    edit: Edit,', deprecatedLine);
     return nextSource;
   });
 
@@ -146,7 +214,10 @@ async function applySingleBlockPatches(
       "import { useTypiaValidation } from './hooks';",
       dashboardImport,
     );
-    nextSource = nextSource.replace('</InspectorControls>', migrationPanel);
+    nextSource = nextSource.replace(
+      '      </InspectorControls>',
+      migrationPanel,
+    );
     return nextSource;
   });
 }
@@ -183,103 +254,71 @@ async function applyCompoundPatches(
   );
 
   await patchFile(parentIndexPath, (source) => {
-		let nextSource = injectAfterBlockMetadataImport(
-			source,
-			`import { deprecated } from '../../migrations/generated/${variables.slugKebabCase}/deprecated';`,
-		);
-		nextSource = injectBefore(
-			nextSource,
-			'\tedit: Edit,',
-			'\tdeprecated,',
-		);
-		return nextSource;
-	});
+    let nextSource = injectAfterBlockMetadataImport(
+      source,
+      `import { deprecated } from '../../migrations/generated/${variables.slugKebabCase}/deprecated';`,
+    );
+    nextSource = injectBefore(
+      nextSource,
+      '    edit: Edit,',
+      '    deprecated,',
+    );
+    return nextSource;
+  });
 
   await patchFile(childIndexPath, (source) => {
-		let nextSource = injectAfterBlockMetadataImport(
-			source,
-			`import { deprecated } from '../../migrations/generated/${variables.slugKebabCase}-item/deprecated';`,
-		);
-		nextSource = injectBefore(
-			nextSource,
-			'\tedit: Edit,',
-			'\tdeprecated,',
-		);
-		return nextSource;
-	});
+    let nextSource = injectAfterBlockMetadataImport(
+      source,
+      `import { deprecated } from '../../migrations/generated/${variables.slugKebabCase}-item/deprecated';`,
+    );
+    nextSource = injectBefore(
+      nextSource,
+      '    edit: Edit,',
+      '    deprecated,',
+    );
+    return nextSource;
+  });
 
   await patchFile(parentEditPath, (source) => {
-		let nextSource = injectAfter(
-			source,
-			"import { useTypiaValidation } from './hooks';",
-			`import { MigrationDashboard } from '../../admin/migration-dashboard';`,
-		);
-		nextSource = nextSource.replace(
-			'</InspectorControls>',
-			`\n\t\t\t\t<PanelBody title={ __( 'Migration Manager', '${variables.textDomain}' ) }>\n\t\t\t\t\t<MigrationDashboard />\n\t\t\t\t</PanelBody>\n\t\t\t</InspectorControls>`,
-		);
-		return nextSource;
-	});
+    let nextSource = injectAfter(
+      source,
+      "import { useTypiaValidation } from './hooks';",
+      `import { MigrationDashboard } from '../../admin/migration-dashboard';`,
+    );
+    nextSource = nextSource.replace(
+      '      </InspectorControls>',
+      `        <PanelBody title={__('Migration Manager', '${variables.textDomain}')}>\n          <MigrationDashboard />\n        </PanelBody>\n      </InspectorControls>`,
+    );
+    return nextSource;
+  });
 
   await patchFile(addChildScriptPath, (source) => {
-		let nextSource = injectAfter(
-			source,
-			'const PROJECT_ROOT = process.cwd();',
-			"const MIGRATION_CONFIG_FILE = path.join( PROJECT_ROOT, 'src', 'migrations', 'config.ts' );",
-		);
-		nextSource = injectAfterBlockMetadataImport(
-			nextSource,
-			"import { deprecated } from '../../migrations/generated/${ childFolderSlug }/deprecated';",
-		);
-		nextSource = nextSource.replace(
-			'\\t\\tedit: Edit,\n\\t\\tsave: Save,',
-			'\\t\\tdeprecated,\n\\t\\tedit: Edit,\n\\t\\tsave: Save,',
-		);
-		nextSource = injectAfter(
-			nextSource,
-			'function insertBeforeMarker( filePath: string, marker: string, insertionLines: string[] ) {',
-			'',
-		);
-		if ( ! nextSource.includes( 'function appendMigrationBlockConfig' ) ) {
-			const appendMigrationHelper = [
-				'function appendMigrationBlockConfig( filePath: string, childBlockName: string, childFolderSlug: string ) {',
-				'\tif ( ! fs.existsSync( filePath ) ) {',
-				'\t\treturn;',
-				'\t}',
-				'',
-				"\tconst source = fs.readFileSync( filePath, 'utf8' );",
-				'\tconst blockEntry = [',
-				'\t\t`\\t\\t{`,',
-				"\t\t`\\t\\t\\tkey: '${ childFolderSlug }',`,",
-				"\t\t`\\t\\t\\tblockName: '${ childBlockName }',`,",
-				"\t\t`\\t\\t\\tblockJsonFile: 'src/blocks/${ childFolderSlug }/block.json',`,",
-				"\t\t`\\t\\t\\tmanifestFile: 'src/blocks/${ childFolderSlug }/typia.manifest.json',`,",
-				"\t\t`\\t\\t\\tsaveFile: 'src/blocks/${ childFolderSlug }/save.tsx',`,",
-				"\t\t`\\t\\t\\ttypesFile: 'src/blocks/${ childFolderSlug }/types.ts',`,",
-				'\t\t`\\t\\t},`,',
-				"\t].join( '\\n' );",
-				"\tif ( source.includes( `key: '${ childFolderSlug }'` ) ) {",
-				'\t\treturn;',
-				'\t}',
-				'\tconst nextSource = source.replace( /\\tblocks:\\s*\\[([\\s\\S]*?)\\n\\t\\],/m, ( match ) => {',
-				'\t\treturn match.replace( /\\n\\t\\],$/, `\\n${ blockEntry }\\n\\t],` );',
-				'\t} );',
-				"\tfs.writeFileSync( filePath, nextSource, 'utf8' );",
-				'}',
-				'',
-				'function renderBlockJson(',
-			].join( '\n' );
-			nextSource = nextSource.replace(
-				'function renderBlockJson(',
-				appendMigrationHelper,
-			);
-		}
-		nextSource = nextSource.replace(
-			'console.log( `✅ Added compound child block ${ childBlockName }` );',
-			'appendMigrationBlockConfig( MIGRATION_CONFIG_FILE, childBlockName, childFolderSlug );\n\n\tconsole.log( `✅ Added compound child block ${ childBlockName }` );',
-		);
-		return nextSource;
-	});
+    let nextSource = injectAfter(
+      source,
+      'const PROJECT_ROOT = process.cwd();',
+      "const MIGRATION_CONFIG_FILE = path.join(PROJECT_ROOT, 'src', 'migrations', 'config.ts');",
+    );
+    nextSource = injectAfterBlockMetadataImportInFunction(
+      nextSource,
+      'renderIndexFile',
+      "import { deprecated } from '../../migrations/generated/${childFolderSlug}/deprecated';",
+    );
+    nextSource = nextSource.replace(
+      '    edit: Edit,\n    save: Save,',
+      '    deprecated,\n    edit: Edit,\n    save: Save,',
+    );
+    if (!nextSource.includes('function appendMigrationBlockConfig')) {
+      nextSource = nextSource.replace(
+        'function readBlockJsonDocument(',
+        `${renderAppendMigrationBlockConfigHelper()}\n\nfunction readBlockJsonDocument(`,
+      );
+    }
+    nextSource = nextSource.replace(
+      '  console.log(`✅ Added compound child block ${childBlockName}`);',
+      '  appendMigrationBlockConfig(\n    MIGRATION_CONFIG_FILE,\n    childBlockName,\n    childFolderSlug,\n  );\n\n  console.log(`✅ Added compound child block ${childBlockName}`);',
+    );
+    return nextSource;
+  });
 }
 
 /**

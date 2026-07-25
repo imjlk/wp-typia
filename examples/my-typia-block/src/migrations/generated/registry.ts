@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier, @typescript-eslint/method-signature-style */
 import currentManifest from '../../manifest-document';
 import type { ManifestDocument, MigrationRiskSummary } from '../helpers';
 

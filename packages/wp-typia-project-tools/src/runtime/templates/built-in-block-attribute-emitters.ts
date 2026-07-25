@@ -4,6 +4,7 @@ import type {
   ManifestConstraints,
   ManifestDocument,
 } from '../migration/migration-types.js';
+import { quoteTypeScriptString } from '../shared/ts-string-literals.js';
 
 /**
  * Default placeholder copy used for generated compound child body fields.
@@ -386,8 +387,8 @@ function appendWordPressExtractionTags(
 ): string {
   return [
 		typeExpression,
-		...(source ? [`tags.Source<${JSON.stringify(source)}>`] : []),
-		...(selector ? [`tags.Selector<${JSON.stringify(selector)}>`] : []),
+		...(source ? [`tags.Source<${quoteTypeScriptString(source)}>`] : []),
+		...(selector ? [`tags.Selector<${quoteTypeScriptString(selector)}>`] : []),
 	].join(' & ');
 }
 

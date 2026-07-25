@@ -1,14 +1,14 @@
 import { registerBlockCollection } from '@wordpress/blocks';
 
 const globalScope = globalThis as typeof globalThis & {
-	__wpTypiaCollections?: Record< string, true >;
+  __wpTypiaCollections?: Record<string, true>;
 };
 
 globalScope.__wpTypiaCollections ??= {};
 
-if ( ! globalScope.__wpTypiaCollections[ '{{namespace}}' ] ) {
-	registerBlockCollection( '{{namespace}}', {
-		title: '{{title}}',
-	} );
-	globalScope.__wpTypiaCollections[ '{{namespace}}' ] = true;
+if (!globalScope.__wpTypiaCollections['{{namespace}}']) {
+  registerBlockCollection('{{namespace}}', {
+    title: '{{title}}',
+  });
+  globalScope.__wpTypiaCollections['{{namespace}}'] = true;
 }

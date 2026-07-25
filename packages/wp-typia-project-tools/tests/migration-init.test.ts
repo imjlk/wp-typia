@@ -163,7 +163,7 @@ test('migrate init keeps generated registry imports compatible with legacy-root 
 		'utf8',
 	);
 	expect(registrySource).toContain(
-		'import rawCurrentManifest from "../../../typia.manifest.json";',
+		"import rawCurrentManifest from '../../../typia.manifest.json';",
 	);
 	expect(registrySource).toContain(
 		'currentManifest: parseManifestDocument<ManifestDocument>(rawCurrentManifest),',
@@ -193,7 +193,7 @@ test('migrate init prefers src manifest wrappers for legacy-root retrofit layout
 		'utf8',
 	);
 	expect(registrySource).toContain(
-		'import rawCurrentManifest from "../../manifest-document";',
+		"import rawCurrentManifest from '../../manifest-document';",
 	);
 	expect(registrySource).toContain(
 		'currentManifest: parseManifestDocument<ManifestDocument>(rawCurrentManifest),',

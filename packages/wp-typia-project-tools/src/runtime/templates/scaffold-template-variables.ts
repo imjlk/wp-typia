@@ -26,6 +26,11 @@ import { getTemplateById, isBuiltInTemplateId } from './template-registry.js';
 import { toPascalCase, toSnakeCase } from '../shared/string-case.js';
 import { attachScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
 import {
+  quoteTypeScriptString,
+  renderTypeScriptConstCall,
+  renderTypeScriptStringArray,
+} from '../shared/ts-string-literals.js';
+import {
   createScaffoldCompatibilityBaseline,
   resolveScaffoldCompatibilityPolicy,
   type ScaffoldWordPressTargetVersion,
@@ -96,6 +101,21 @@ export function getTemplateVariables(
   const phpPrefix = identifiers.phpPrefix;
   const phpPrefixUpper = phpPrefix.toUpperCase();
   const compoundChildTitle = `${title} Item`;
+  const bootstrapEndpointDeclaration = renderTypeScriptConstCall(
+    'bootstrapEndpoint',
+    'createRestEndpoint',
+    `get${pascalCase}BootstrapEndpoint`,
+  );
+  const stateEndpointDeclaration = renderTypeScriptConstCall(
+    'stateEndpoint',
+    'createRestEndpoint',
+    `get${pascalCase}StateEndpoint`,
+  );
+  const writeStateEndpointDeclaration = renderTypeScriptConstCall(
+    'writeStateEndpoint',
+    'createRestEndpoint',
+    `write${pascalCase}StateEndpoint`,
+  );
   const cssClassName = buildBlockCssClassName(namespace, slug);
   const compoundChildCssClassName = buildBlockCssClassName(
     namespace,
@@ -119,6 +139,12 @@ export function getTemplateVariables(
     templateId === 'persistence' || compoundPersistenceEnabled
       ? (answers.persistencePolicy ?? 'authenticated')
       : 'authenticated';
+  const persistencePolicyDescription =
+    persistencePolicy === 'authenticated'
+      ? 'Writes require a logged-in user and a valid REST nonce.'
+      : 'Anonymous writes use signed short-lived public tokens, per-request ids, and coarse rate limiting.';
+  const queryPostType = answers.queryPostType?.trim() || 'post';
+  const queryVariationNamespace = `${namespace}/${slug}`;
   const compatibility = resolveScaffoldCompatibilityPolicy([], {
     baseline: createScaffoldCompatibilityBaseline(options.wpVersion),
   });
@@ -128,6 +154,7 @@ export function getTemplateVariables(
     alternateRenderTargetsJson: '[]',
     apiClientPackageVersion,
     author: answers.author.trim(),
+    bootstrapEndpointDeclaration,
     blockRuntimePackageVersion,
     blockMetadataVersion: BUILTIN_BLOCK_METADATA_VERSION,
     blockTypesPackageVersion,
@@ -138,6 +165,7 @@ export function getTemplateVariables(
     compoundChildCssClassName,
     compoundChildIcon: COMPOUND_CHILD_BLOCK_METADATA_DEFAULTS.icon,
     compoundChildTitleJson: JSON.stringify(compoundChildTitle),
+    compoundChildTitleTsLiteral: quoteTypeScriptString(compoundChildTitle),
     compoundPersistenceEnabled: compoundPersistenceEnabled ? 'true' : 'false',
     compoundInnerBlocksDirectInsert: compoundInnerBlocksPresetDefinition.directInsert
       ? 'true'
@@ -169,23 +197,30 @@ export function getTemplateVariables(
     dashCase: slug,
     description,
     descriptionJson: JSON.stringify(description),
+    descriptionTsLiteral: quoteTypeScriptString(description),
     frontendCssClassName: buildFrontendCssClassName(cssClassName),
     queryAllowedControlsJson: JSON.stringify([], null, 2),
-    queryPostType: answers.queryPostType?.trim() || 'post',
-    queryPostTypeJson: JSON.stringify(answers.queryPostType?.trim() || 'post'),
-    queryVariationNamespace: `${namespace}/${slug}`,
-    queryVariationNamespaceJson: JSON.stringify(`${namespace}/${slug}`),
+    queryAllowedControlsTsLiteral: renderTypeScriptStringArray([]),
+    queryPostType,
+    queryPostTypeJson: JSON.stringify(queryPostType),
+    queryPostTypeTsLiteral: quoteTypeScriptString(queryPostType),
+    queryVariationNamespace,
+    queryVariationNamespaceJson: JSON.stringify(queryVariationNamespace),
+    queryVariationNamespaceTsLiteral: quoteTypeScriptString(
+      queryVariationNamespace,
+    ),
     isAuthenticatedPersistencePolicy:
       persistencePolicy === 'authenticated' ? 'true' : 'false',
     isPublicPersistencePolicy: persistencePolicy === 'public' ? 'true' : 'false',
     bootstrapCredentialDeclarations:
       persistencePolicy === 'public'
-        ? "publicWriteExpiresAt?: number & tags.Type< 'uint32' >;\n\tpublicWriteToken?: string & tags.MinLength< 1 > & tags.MaxLength< 512 >;"
-        : 'restNonce?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
+        ? "publicWriteExpiresAt?: number & tags.Type<'uint32'>;\n  publicWriteToken?: string & tags.MinLength<1> & tags.MaxLength<512>;"
+        : 'restNonce?: string & tags.MinLength<1> & tags.MaxLength<128>;',
     persistencePolicyDescriptionJson: JSON.stringify(
-      persistencePolicy === 'authenticated'
-        ? 'Writes require a logged-in user and a valid REST nonce.'
-        : 'Anonymous writes use signed short-lived public tokens, per-request ids, and coarse rate limiting.',
+      persistencePolicyDescription,
+    ),
+    persistencePolicyDescriptionTsLiteral: quoteTypeScriptString(
+      persistencePolicyDescription,
     ),
     keyword: slug.replace(/-/g, ' '),
     namespace,
@@ -197,8 +232,8 @@ export function getTemplateVariables(
     testedUpTo: compatibility.pluginHeader.testedUpTo,
     publicWriteRequestIdDeclaration:
       persistencePolicy === 'public'
-        ? 'publicWriteRequestId: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;'
-        : 'publicWriteRequestId?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
+        ? 'publicWriteRequestId: string & tags.MinLength<1> & tags.MaxLength<128>;'
+        : 'publicWriteRequestId?: string & tags.MinLength<1> & tags.MaxLength<128>;',
     restWriteAuthIntent:
       persistencePolicy === 'public'
         ? 'public-write-protected'
@@ -211,12 +246,15 @@ export function getTemplateVariables(
     slugCamelCase: pascalCase.charAt(0).toLowerCase() + pascalCase.slice(1),
     slugKebabCase: slug,
     slugSnakeCase,
+    stateEndpointDeclaration,
     textDomain,
     textdomain: textDomain,
     title,
     titleJson: JSON.stringify(title),
+    titleTsLiteral: quoteTypeScriptString(title),
     titleCase: pascalCase,
     persistencePolicy,
+    writeStateEndpointDeclaration,
   };
 
   return attachScaffoldTemplateVariableGroups(flatVariables, {

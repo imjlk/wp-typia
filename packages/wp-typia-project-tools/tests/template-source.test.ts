@@ -1876,19 +1876,19 @@ test('workspace template package identity is defined once and imported by runtim
   );
 
   expect(templateRegistry).toContain(
-    'export const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = "@wp-typia/create-workspace-template";',
+    "export const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = '@wp-typia/create-workspace-template';",
   );
   expect(templateSource).toContain('OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE');
   expect(cliScaffold).toContain('OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE');
   expect(scaffoldRuntime).toContain('normalizeTemplateLookupId');
   expect(templateSource).not.toContain(
-    'const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = "@wp-typia/create-workspace-template";',
+    "const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = '@wp-typia/create-workspace-template';",
   );
   expect(cliScaffold).not.toContain(
-    'const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = "@wp-typia/create-workspace-template";',
+    "const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = '@wp-typia/create-workspace-template';",
   );
   expect(scaffoldRuntime).not.toContain(
-    'const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = "@wp-typia/create-workspace-template";',
+    "const OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE = '@wp-typia/create-workspace-template';",
   );
 });
 
@@ -2094,7 +2094,7 @@ test('official workspace template scaffolds through the local npm template resol
   expect(workspaceSyncProjectSource).toContain(
     "shell: process.platform === 'win32'",
   );
-  expect(workspaceSyncProjectSource).toContain("spawnSync( 'ttsx', args");
+  expect(workspaceSyncProjectSource).toContain("spawnSync('ttsx', args");
   expect(workspaceSyncProjectSource).not.toContain('getLocalTtsxBinary');
 });
 

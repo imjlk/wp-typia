@@ -26,6 +26,13 @@ import {
   hasPhpFunctionDefinition,
   replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  detectSourceLineEnding,
+  findExecutablePatternMatch,
+  findUncommentedPatternMatch,
+  hasExecutablePattern,
+  hasUncommentedPattern,
+} from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 function resolveManagedDependencyVersion(
@@ -231,21 +238,31 @@ export async function ensureAbilitySyncProjectAnchors(
   );
 
   await patchFile(syncProjectScriptPath, (source) => {
-		let nextSource = source;
-		const syncRestConst =
-			"const syncRestScriptPath = path.join( 'scripts', 'sync-rest-contracts.ts' );";
-		const syncAbilitiesConst =
-			"const syncAbilitiesScriptPath = path.join( 'scripts', 'sync-abilities.ts' );";
-		const syncRestBlockPattern =
-			/if \( fs\.existsSync\( path\.resolve\( process\.cwd\(\), syncRestScriptPath \) \) \) \{\n\s*runSyncScript\( syncRestScriptPath, options \);\n\s*\}/u;
-		const syncAbilitiesBlock = [
-			'if ( fs.existsSync( path.resolve( process.cwd(), syncAbilitiesScriptPath ) ) ) {',
-			'\trunSyncScript( syncAbilitiesScriptPath, options );',
-			'}',
-		].join('\n');
+    let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
+    const syncRestConstPattern =
+      /^([ \t]*)const\s+syncRestScriptPath\s*=\s*path\.join\(\s*(['"])scripts\2\s*,\s*(['"])sync-rest-contracts\.ts\3\s*\);/mu;
+    const syncAbilitiesConstPattern =
+      /const\s+syncAbilitiesScriptPath\s*=\s*path\.join\(\s*(['"])scripts\1\s*,\s*(['"])sync-abilities\.ts\2\s*\);/u;
+    const syncRestBlockPattern =
+      /^([ \t]*)if\s*\(\s*fs\.existsSync\(\s*path\.resolve\(\s*process\.cwd\(\)\s*,\s*syncRestScriptPath\s*\)\s*\)\s*\)\s*\{\r?\n([ \t]*)runSyncScript\(\s*syncRestScriptPath\s*,\s*options\s*\);\r?\n[ \t]*\}/mu;
+    const syncAbilitiesCallPattern =
+      /runSyncScript\(\s*syncAbilitiesScriptPath\s*,\s*options\s*\);/u;
+    const buildSyncAbilitiesBlock = (
+      indentation: string,
+      bodyIndentation: string,
+    ): string =>
+      [
+        `${indentation}if (fs.existsSync(path.resolve(process.cwd(), syncAbilitiesScriptPath))) {`,
+        `${bodyIndentation}runSyncScript(syncAbilitiesScriptPath, options);`,
+        `${indentation}}`,
+      ].join(lineEnding);
 
-		if (!nextSource.includes(syncAbilitiesConst)) {
-			if (!nextSource.includes(syncRestConst)) {
+    if (!hasUncommentedPattern(nextSource, syncAbilitiesConstPattern)) {
+      const syncRestConstRange = findUncommentedPatternMatch(nextSource, [
+        syncRestConstPattern,
+      ]);
+      if (!syncRestConstRange) {
 				throw new Error(
 					[
 						`ensureAbilitySyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
@@ -253,15 +270,30 @@ export async function ensureAbilitySyncProjectAnchors(
 						'Restore the generated template or wire sync-abilities manually before retrying.',
 					].join(' '),
 				);
-			}
-			nextSource = nextSource.replace(
-				syncRestConst,
-				`${syncRestConst}\n${syncAbilitiesConst}`,
-			);
-		}
+      }
+      const syncRestConstSource = nextSource.slice(
+        syncRestConstRange.start,
+        syncRestConstRange.end,
+      );
+      const syncRestConstMatch = syncRestConstPattern.exec(syncRestConstSource);
+      const indentation = syncRestConstMatch?.[1] ?? '';
+      const directoryQuote = syncRestConstMatch?.[2] ?? "'";
+      const fileQuote = syncRestConstMatch?.[3] ?? directoryQuote;
+      const syncAbilitiesConst =
+        `const syncAbilitiesScriptPath = path.join(` +
+        `${directoryQuote}scripts${directoryQuote}, ` +
+        `${fileQuote}sync-abilities.ts${fileQuote});`;
+      nextSource =
+        `${nextSource.slice(0, syncRestConstRange.end)}${lineEnding}` +
+        `${indentation}${syncAbilitiesConst}` +
+        nextSource.slice(syncRestConstRange.end);
+    }
 
-		if (!nextSource.includes('runSyncScript( syncAbilitiesScriptPath, options );')) {
-			if (!syncRestBlockPattern.test(nextSource)) {
+    if (!hasExecutablePattern(nextSource, syncAbilitiesCallPattern)) {
+      const syncRestBlockRange = findExecutablePatternMatch(nextSource, [
+        syncRestBlockPattern,
+      ]);
+      if (!syncRestBlockRange) {
 				throw new Error(
 					[
 						`ensureAbilitySyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
@@ -270,15 +302,24 @@ export async function ensureAbilitySyncProjectAnchors(
 					].join(' '),
 				);
 			}
+      const syncRestBlockSource = nextSource.slice(
+        syncRestBlockRange.start,
+        syncRestBlockRange.end,
+      );
+      const syncRestBlockMatch = syncRestBlockPattern.exec(syncRestBlockSource);
+      const indentation = syncRestBlockMatch?.[1] ?? '';
+      const bodyIndentation =
+        syncRestBlockMatch?.[2] ?? `${indentation}  `;
+      nextSource =
+        nextSource.slice(0, syncRestBlockRange.end) +
+        lineEnding +
+        lineEnding +
+        buildSyncAbilitiesBlock(indentation, bodyIndentation) +
+        nextSource.slice(syncRestBlockRange.end);
+    }
 
-			nextSource = nextSource.replace(
-				syncRestBlockPattern,
-				(match) => `${match}\n\n${syncAbilitiesBlock}`,
-			);
-		}
-
-		return nextSource;
-	});
+    return nextSource;
+  });
 }
 
 /**

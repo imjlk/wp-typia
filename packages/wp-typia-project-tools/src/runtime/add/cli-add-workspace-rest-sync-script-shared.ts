@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
+
 /**
  * Build the standard sync-rest patch failure message for missing anchors.
  *
@@ -23,7 +25,7 @@ export function getSyncRestPatchErrorMessage(
 }
 
 const BLOCK_CONFIG_IMPORT_PATTERNS = [
-  /^import\s*\{\n(?:\t[^\n]*\n)+\} from ["']\.\/block-config["'];?$/mu,
+  /^import\s*\{\r?\n(?:[ \t]+[^\r\n]*\r?\n)+\}\s*from\s*["']\.\/block-config["'];?$/mu,
   /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
 ] as const;
 
@@ -42,6 +44,15 @@ const BLOCK_CONFIG_TYPE_IMPORT_ORDER = [
   'WorkspacePostMetaConfig',
   'WorkspaceRestResourceConfig',
 ] as const;
+
+/**
+ * Match the last `console.log(options.check ? ...)` block in sync-rest.
+ *
+ * Earlier logs can belong to the no-resources guard or package export branch;
+ * generated sync loops must be inserted immediately before the final summary.
+ */
+export const FINAL_SYNC_SUMMARY_PATTERN =
+  /\r?\n[ \t]+console\.log\(\r?\n[ \t]+options\.check(?![\s\S]*\r?\n[ \t]+console\.log\(\r?\n[ \t]+options\.check)/u;
 
 /**
  * Add a required block-config value and type import to sync-rest source.
@@ -106,20 +117,20 @@ export function replaceBlockConfigImport({
   }
 
   const replacement = [
-		'import {',
-		...BLOCK_CONFIG_VALUE_IMPORT_ORDER.flatMap((constName) =>
-			constName === subject.constName || importSource.includes(constName)
-				? [`\t${constName},`]
-				: [],
-		),
-		...BLOCK_CONFIG_TYPE_IMPORT_ORDER.flatMap((configTypeName) =>
-			configTypeName === subject.configTypeName ||
-			importSource.includes(configTypeName)
-				? [`\ttype ${configTypeName},`]
-				: [],
-		),
-		"} from './block-config';",
-	].join('\n');
+    'import {',
+    ...BLOCK_CONFIG_VALUE_IMPORT_ORDER.flatMap((constName) =>
+      constName === subject.constName || importSource.includes(constName)
+        ? [`  ${constName},`]
+        : [],
+    ),
+    ...BLOCK_CONFIG_TYPE_IMPORT_ORDER.flatMap((configTypeName) =>
+      configTypeName === subject.configTypeName ||
+      importSource.includes(configTypeName)
+        ? [`  type ${configTypeName},`]
+        : [],
+    ),
+    "} from './block-config';",
+  ].join(detectSourceLineEnding(nextSource));
 
   return nextSource.replace(importSource, replacement);
 }
@@ -137,12 +148,15 @@ function formatNoResourcesSubject(subjects: readonly string[]): string {
  * Render a sync-rest guard for the selected empty resource collections.
  *
  * @param options Guard rendering options.
+ * @param options.lineEnding Newline sequence to use in the emitted block.
  * @param options.subjects Candidate guard subjects and conditions.
  * @returns TypeScript source for the no-resources guard block.
  */
 export function buildNoResourcesGuard({
+	lineEnding = '\n',
 	subjects,
 }: {
+  lineEnding?: '\n' | '\r\n';
   subjects: readonly {
     condition: string;
     include: boolean;
@@ -158,21 +172,21 @@ export function buildNoResourcesGuard({
   );
 
   return [
-		'if (',
-		...condition.map((line) => `\t\t${line}`),
-		'\t) {',
-		'\t\tconsole.log(',
-		'\t\t\toptions.check',
-		`\t\t\t\t? 'ℹ️ No ${noResourcesSubject} are registered yet. \`sync-rest --check\` is already clean.'`,
-		`\t\t\t\t: 'ℹ️ No ${noResourcesSubject} are registered yet.'`,
-		'\t\t);',
-		'\t\treturn;',
-		'\t}',
-	].join('\n');
+    'if (',
+    ...condition.map((line) => `    ${line}`),
+    '  ) {',
+    '    console.log(',
+    '      options.check',
+    `        ? 'ℹ️ No ${noResourcesSubject} are registered yet. \`sync-rest --check\` is already clean.'`,
+    `        : 'ℹ️ No ${noResourcesSubject} are registered yet.',`,
+    '    );',
+    '    return;',
+    '  }',
+  ].join(lineEnding);
 }
 
 const NO_RESOURCES_GUARD_PATTERN =
-	/if \(\s*restBlocks\.length === 0(?:\s*&&\s*standaloneContracts\.length === 0)?(?:\s*&&\s*postMetaContracts\.length === 0)?(?:\s*&&\s*restResources\.length === 0)?(?:\s*&&\s*aiFeatures\.length === 0)?\s*\) \{[\s\S]*?\n\t\treturn;\n\t\}/u;
+  /if\s*\(\s*restBlocks\.length === 0(?:\s*&&\s*standaloneContracts\.length === 0)?(?:\s*&&\s*postMetaContracts\.length === 0)?(?:\s*&&\s*restResources\.length === 0)?(?:\s*&&\s*aiFeatures\.length === 0)?\s*\)\s*\{[\s\S]*?\r?\n[ \t]+return;\r?\n[ \t]*\}/u;
 
 /**
  * Replace the generated no-resources guard in sync-rest source.

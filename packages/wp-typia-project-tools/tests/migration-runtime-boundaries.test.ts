@@ -19,9 +19,9 @@ test('migration runtime source keeps planning and generated-artifact helpers in 
     'utf8',
   );
 
-  expect(migrationsSource).toContain('from "./migration-planning.js"');
+  expect(migrationsSource).toContain("from './migration-planning.js'");
   expect(migrationsSource).toContain(
-    'from "./migration-generated-artifacts.js"',
+    "from './migration-generated-artifacts.js'",
   );
   expect(migrationsSource).not.toContain('function hasSnapshotForVersion(');
   expect(migrationsSource).not.toContain('function resolveLegacyVersions(');
@@ -69,9 +69,9 @@ test('migration project barrel delegates layout, config parsing, and workspace h
     'utf8',
   );
 
-  expect(projectSource).toContain('from "./migration-project-config-source.js"');
-  expect(projectSource).toContain('from "./migration-project-layout.js"');
-  expect(projectSource).toContain('from "./migration-project-workspace.js"');
+  expect(projectSource).toContain("from './migration-project-config-source.js'");
+  expect(projectSource).toContain("from './migration-project-layout.js'");
+  expect(projectSource).toContain("from './migration-project-workspace.js'");
   expect(projectSource).not.toContain(
     'export function discoverMigrationInitLayout(',
   );
@@ -81,9 +81,9 @@ test('migration project barrel delegates layout, config parsing, and workspace h
   expect(configSource).toContain('function stripCommentsAndStrings(');
   expect(configSource).toContain('export function hasLegacyConfigKeys(');
   expect(layoutSource).toContain(
-    'from "./migration-project-layout-discovery.js"',
+    "from './migration-project-layout-discovery.js'",
   );
-  expect(layoutSource).toContain('from "./migration-project-layout-paths.js"');
+  expect(layoutSource).toContain("from './migration-project-layout-paths.js'");
   expect(layoutSource).not.toContain('function discoverSingleBlockTarget(');
   expect(layoutSource).not.toContain(
     'export function discoverMigrationEntries(',
@@ -121,9 +121,9 @@ test('migration render barrel delegates renderer families to focused modules', (
     'utf8',
   );
 
-  expect(renderBarrelSource).toContain('from "./migration-render-diff-rule.js"');
-  expect(renderBarrelSource).toContain('from "./migration-render-generated.js"');
-  expect(renderBarrelSource).toContain('from "./migration-render-execution.js"');
+  expect(renderBarrelSource).toContain("from './migration-render-diff-rule.js'");
+  expect(renderBarrelSource).toContain("from './migration-render-generated.js'");
+  expect(renderBarrelSource).toContain("from './migration-render-execution.js'");
   expect(renderBarrelSource).not.toContain(
     'export function renderMigrationRegistryFile(',
   );

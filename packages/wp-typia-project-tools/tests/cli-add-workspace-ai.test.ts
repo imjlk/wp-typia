@@ -171,20 +171,20 @@ describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 			(entry) => entry.slug === 'brief-suggestions',
 		);
 
-		expect(blockConfigSource).toContain('slug: "brief-suggestions"');
-		expect(blockConfigSource).toContain('namespace: "demo-space/v1"');
+		expect(blockConfigSource).toContain("slug: 'brief-suggestions'");
+		expect(blockConfigSource).toContain("namespace: 'demo-space/v1'");
 		expect(blockConfigSource).toContain(
-			'aiSchemaFile: "src/ai-features/brief-suggestions/ai-schemas/feature-result.ai.schema.json"',
+			"aiSchemaFile: 'src/ai-features/brief-suggestions/ai-schemas/feature-result.ai.schema.json'",
 		);
 		expect(blockConfigSource).toContain(
-			'apiFile: "src/ai-features/brief-suggestions/api.ts"',
+			"apiFile: 'src/ai-features/brief-suggestions/api.ts'",
 		);
 		expect(blockConfigSource).toContain(
-			'phpFile: "inc/ai-features/brief-suggestions.php"',
+			"phpFile: 'inc/ai-features/brief-suggestions.php'",
 		);
-		expect(blockConfigSource).toContain('"mode": "optional"');
-		expect(blockConfigSource).toContain('"optionalFeatureIds": [');
-		expect(blockConfigSource).toContain('"wordpress-ai-client"');
+		expect(blockConfigSource).toContain("mode: 'optional'");
+		expect(blockConfigSource).toContain('optionalFeatureIds: [');
+		expect(blockConfigSource).toContain("'wordpress-ai-client'");
 		expect(blockConfigSource).toContain('WordPress AI Client');
 		expect(blockConfigSource).toContain(
 			'WordPress AI Client: wordpress-core-feature WordPress AI Client',
@@ -200,7 +200,7 @@ describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 		expect(packageJson.devDependencies?.['@wp-typia/project-tools']).toBeDefined();
 		expect(syncProjectSource).toContain('const syncAiScriptPath');
 		expect(syncProjectSource).toContain(
-			'runSyncScript( syncAiScriptPath, options );',
+			'runSyncScript(syncAiScriptPath, options);',
 		);
 		expect(syncRestSource).toContain('AI_FEATURES');
 		expect(syncRestSource).toContain('isWorkspaceAiFeature');
@@ -419,6 +419,20 @@ describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 				entryPath,
 				'add',
 				'contract',
+				'secondary-response',
+				'--type',
+				'SecondaryResponse',
+			],
+			{
+				cwd: targetDir,
+			},
+		);
+		runCli(
+			'node',
+			[
+				entryPath,
+				'add',
+				'contract',
 				'external-response',
 				'--type',
 				'ExternalResponse',
@@ -455,6 +469,11 @@ describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 		expect(syncRestSource).toContain('standaloneContracts.length === 0');
 		expect(syncRestSource).toContain('restResources.length === 0');
 		expect(syncRestSource).toContain('aiFeatures.length === 0');
+		expect(
+			syncRestSource.match(
+				/^[ \t]*const standaloneContracts = CONTRACTS\.filter\(/gmu,
+			)?.length,
+		).toBe(1);
 
 		runGeneratedScript(targetDir, 'scripts/sync-rest-contracts.ts', ['--check']);
 	}, 120_000);

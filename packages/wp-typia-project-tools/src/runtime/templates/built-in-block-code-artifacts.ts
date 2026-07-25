@@ -44,6 +44,10 @@ import {
 import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
 import { assertScaffoldTemplateCodeIdentifiers } from './scaffold-template-assertions.js';
 import { renderMustacheTemplateString } from './template-render.js';
+import {
+  quoteTypeScriptString,
+  renderTypeScriptStringArray,
+} from '../shared/ts-string-literals.js';
 
 /**
  * Emits built-in scaffold source files from typed block generation inputs.
@@ -77,12 +81,39 @@ function renderCodeTemplate(
 	variables: ScaffoldTemplateVariables,
 ): string {
   assertScaffoldTemplateCodeIdentifiers(variables);
+  const queryLoop =
+    getScaffoldTemplateVariableGroups(variables).queryLoop;
+  const validationTypesImport =
+    `import type { ${variables.pascalCase}Attributes, ${variables.pascalCase}ValidationResult } from './types';`;
+  const persistenceTypesImport =
+    `import type { ${variables.pascalCase}ClientState, ${variables.pascalCase}Context, ${variables.pascalCase}State } from './types';`;
   const rendered = renderMustacheTemplateString(template, {
     ...variables,
+    descriptionTsLiteral: quoteTypeScriptString(variables.description),
+    queryAllowedControlsTsLiteral: queryLoop.enabled
+      ? renderTypeScriptStringArray(queryLoop.allowedControls)
+      : '[]',
+    queryPostTypeTsLiteral: quoteTypeScriptString(
+      queryLoop.enabled ? queryLoop.postType : variables.queryPostType,
+    ),
+    queryVariationNamespaceTsLiteral: quoteTypeScriptString(
+      queryLoop.enabled
+        ? queryLoop.variationNamespace
+        : variables.queryVariationNamespace,
+    ),
     resourceKeyPrefix: variables.slugKebabCase.slice(
       0,
       RESOURCE_KEY_PREFIX_MAX_LENGTH,
     ),
+    persistenceTypesImport:
+      persistenceTypesImport.length <= 80
+        ? persistenceTypesImport
+        : `import type {\n  ${variables.pascalCase}ClientState,\n  ${variables.pascalCase}Context,\n  ${variables.pascalCase}State,\n} from './types';`,
+    titleTsLiteral: quoteTypeScriptString(variables.title),
+    validationTypesImport:
+      validationTypesImport.length <= 80
+        ? validationTypesImport
+        : `import type {\n  ${variables.pascalCase}Attributes,\n  ${variables.pascalCase}ValidationResult,\n} from './types';`,
   });
   return rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 }

@@ -288,12 +288,12 @@ test(
     expect(generatedEdit).toMatch(
       /editorFields\.getStringValue\(\s*attributes,\s*['"]alignment['"]/u,
     );
-    expect(generatedEdit).toContain('attributes={ attributes }');
+    expect(generatedEdit).toContain('attributes={attributes}');
     expect(generatedEdit).toContain(
       "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
     );
     expect(generatedEdit).toContain(
-      'type EditProps = BlockEditProps< DemoPersistencePublicAttributes >;',
+      'type EditProps = BlockEditProps<DemoPersistencePublicAttributes>;',
     );
     expect(generatedIndex).toContain('buildScaffoldBlockRegistration');
     expect(generatedIndex).toContain(
@@ -301,18 +301,16 @@ test(
     );
     expect(generatedIndex).not.toContain('registerBlockType<');
     expect(generatedIndex).toContain('registerScaffoldBlockType');
-    expect(generatedEdit).toContain('}: EditProps )');
+    expect(generatedEdit).toContain('}: EditProps)');
     expect(generatedEdit).not.toContain(
-      'attributes as unknown as Record< string, unknown >',
+      'attributes as unknown as Record<string, unknown>',
     );
+    expect(generatedEdit).toContain("'Storage mode: post-meta'");
     expect(generatedEdit).toContain(
-      "{ __( 'Storage mode: post-meta', 'demo-persistence-public' ) }",
+      "{__('Storage mode:', 'demo-persistence-public')} post-meta",
     );
-    expect(generatedEdit).toContain(
-      "{ __( 'Storage mode:', 'demo-persistence-public' ) } post-meta",
-    );
-    expect(generatedEdit).toContain(
-      `placeholder={ __( ${JSON.stringify(`John's "Counter" Public`)} + ' persistence block', 'demo-persistence-public' ) }`,
+    expect(generatedEdit).toMatch(
+      /John\\'s "Counter" Public' \+ ' persistence block/u,
     );
     expect(generatedData).toContain('useDemoPersistencePublicStateQuery');
     expect(generatedData).toContain(
@@ -339,11 +337,11 @@ test(
     expect(generatedSyncRest).not.toContain(
       'openApiInfo: REST_ENDPOINT_MANIFEST.info',
     );
-    expect(generatedSyncRest).toContain(
-      `tags: [ ${JSON.stringify(`John's "Counter" Public`)} ]`,
+    expect(generatedSyncRest).toMatch(
+      /tags: \['John\\'s "Counter" Public'\]/u,
     );
-    expect(generatedSyncRest).toContain(
-      `title: ${JSON.stringify(`John's "Counter" Public`)} + ' REST API'`,
+    expect(generatedSyncRest).toMatch(
+      /title: 'John\\'s "Counter" Public' \+ ' REST API'/u,
     );
     expect(generatedSyncRest).toMatch(
       /auth:\s*'public'[\s\S]*?operationId:\s*'getDemoPersistencePublicBootstrap'/,
@@ -387,7 +385,7 @@ test(
     expect(generatedSyncProject).toContain(
       "shell: process.platform === 'win32'",
     );
-    expect(generatedSyncProject).toContain("spawnSync( 'ttsx', args");
+    expect(generatedSyncProject).toContain("spawnSync('ttsx', args");
     expect(generatedSyncProject).not.toContain('getLocalTtsxBinary');
     expect(generatedRender).not.toContain('publicWriteToken');
     expect(generatedRender).toContain(
@@ -406,7 +404,7 @@ test(
     expect(generatedRender).toContain('aria-live="polite"');
     expect(generatedApiTypes).toContain('publicWriteRequestId: string');
     expect(generatedTypes).toContain(
-      'persistencePolicy: "authenticated" | "public";',
+      "persistencePolicy: 'authenticated' | 'public';",
     );
     expect(generatedSave).toContain('intentionally server-rendered');
     expect(generatedSave).toContain('return null;');
@@ -653,11 +651,11 @@ test(
   expect(generatedSyncRest).toMatch(
     /auth:\s*'public'[\s\S]*?operationId:\s*'getDemoPersistenceAuthenticatedBootstrap'/,
   );
-  expect(generatedSyncRest).toContain(
-    `tags: [ ${JSON.stringify(`John's "Counter" Authenticated`)} ]`,
+  expect(generatedSyncRest).toMatch(
+    /tags: \['John\\'s "Counter" Authenticated'\]/u,
   );
-  expect(generatedSyncRest).toContain(
-    `title: ${JSON.stringify(`John's "Counter" Authenticated`)} + ' REST API'`,
+  expect(generatedSyncRest).toMatch(
+    /title: 'John\\'s "Counter" Authenticated' \+ ' REST API'/u,
   );
   expect(fs.existsSync(path.join(targetDir, 'src', 'api-client.ts'))).toBe(
     true,
@@ -701,7 +699,7 @@ test(
     "'storage'     => DEMO_PERSISTENCE_AUTHENTICATED_DATA_STORAGE_MODE,",
   );
   expect(generatedTypes).toContain(
-    'persistencePolicy: "authenticated" | "public";',
+    "persistencePolicy: 'authenticated' | 'public';",
   );
   expect(generatedEdit).toContain(
     'const alignmentValue = editorFields.getStringValue(',
@@ -709,25 +707,23 @@ test(
   expect(generatedEdit).toMatch(
     /editorFields\.getStringValue\(\s*attributes,\s*['"]alignment['"]/u,
   );
-  expect(generatedEdit).toContain('attributes={ attributes }');
+  expect(generatedEdit).toContain('attributes={attributes}');
   expect(generatedEdit).toContain(
     "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
   );
   expect(generatedEdit).toContain(
-    'type EditProps = BlockEditProps< DemoPersistenceAuthenticatedAttributes >;',
+    'type EditProps = BlockEditProps<DemoPersistenceAuthenticatedAttributes>;',
   );
-  expect(generatedEdit).toContain('}: EditProps )');
+  expect(generatedEdit).toContain('}: EditProps)');
   expect(generatedEdit).not.toContain(
-    'attributes as unknown as Record< string, unknown >',
+    'attributes as unknown as Record<string, unknown>',
   );
+  expect(generatedEdit).toContain("'Storage mode: custom-table'");
   expect(generatedEdit).toContain(
-    "{ __( 'Storage mode: custom-table', 'demo-persistence-authenticated' ) }",
+    "{__('Storage mode:', 'demo-persistence-authenticated')} custom-table",
   );
-  expect(generatedEdit).toContain(
-    "{ __( 'Storage mode:', 'demo-persistence-authenticated' ) } custom-table",
-  );
-  expect(generatedEdit).toContain(
-    `placeholder={ __( ${JSON.stringify(`John's "Counter" Authenticated`)} + ' persistence block', 'demo-persistence-authenticated' ) }`,
+  expect(generatedEdit).toMatch(
+    /John\\'s "Counter" Authenticated' \+ ' persistence block/u,
   );
   expect(generatedEdit).toContain(
     'Stable persisted identifier used by the storage-backed counter endpoint.',

@@ -287,9 +287,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
       );
       expect(parentEdit).toContain(
-        'type EditProps = BlockEditProps< DemoCompoundAttributes >;',
+        'type EditProps = BlockEditProps<DemoCompoundAttributes>;',
       );
-      expect(parentEdit).toContain('}: EditProps )');
+      expect(parentEdit).toContain('}: EditProps)');
       expect(parentEdit).toContain('useTypiaValidation');
       expect(parentEdit).toContain('getRootInnerBlocksPropsOptions');
       expect(parentEdit).toContain('rootInnerBlocksPropsOptions');
@@ -342,13 +342,13 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
       );
       expect(childEdit).toContain(
-        'type EditProps = BlockEditProps< DemoCompoundItemAttributes >;',
+        'type EditProps = BlockEditProps<DemoCompoundItemAttributes>;',
       );
-      expect(childEdit).toContain('}: EditProps )');
+      expect(childEdit).toContain('}: EditProps)');
       expect(childEdit).toContain('useTypiaValidation');
       expect(childEdit).not.toMatch(/setAttributes\s*\(\s*\{/);
       expect(childEdit).toContain('getChildInnerBlocksPropsOptions');
-      expect(childEdit).toContain('hasNestedChildBlocks( metadata.name )');
+      expect(childEdit).toContain('hasNestedChildBlocks(metadata.name)');
       expect(childEdit).not.toContain('allowedBlocks={');
       expect(childEdit).toContain("from '../demo-compound/children'");
       expect(childEdit).toContain(
@@ -394,11 +394,11 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
       );
       expect(addChildScript).toContain(
-        'type EditProps = BlockEditProps< ${ childTypeName } >;',
+        'type EditProps = BlockEditProps<${childTypeName}>;',
       );
       expect(addChildScript).toContain('buildScaffoldBlockRegistration');
       expect(addChildScript).toContain(
-        'registerScaffoldBlockType( registration.name, registration.settings );',
+        'registerScaffoldBlockType(registration.name, registration.settings);',
       );
       expect(addChildScript).not.toContain('registerBlockType<');
       expect(addChildScript).toContain('registerScaffoldBlockType');
@@ -580,7 +580,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       addChildScriptPath,
       fs
         .readFileSync(addChildScriptPath, 'utf8')
-        .replace("import metadata from './block-metadata';", "import metadata from './block.json';"),
+        .split("import metadata from './block-metadata';")
+        .join("import metadata from './block.json';"),
       'utf8',
     );
 
@@ -598,10 +599,10 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     const addChildScript = fs.readFileSync(addChildScriptPath, 'utf8');
     expect(addChildScript).toContain("import metadata from './block.json';");
     expect(addChildScript).toContain(
-      "import { deprecated } from '../../migrations/generated/${ childFolderSlug }/deprecated';",
+      "import { deprecated } from '../../migrations/generated/${childFolderSlug}/deprecated';",
     );
     expect(addChildScript).toContain(
-      '\\t\\tdeprecated,\n\\t\\tedit: Edit,\n\\t\\tsave: Save,',
+      '    deprecated,\n    edit: Edit,\n    save: Save,',
     );
   });
 
@@ -923,9 +924,9 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         "import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';",
       );
       expect(parentEdit).toContain(
-        'type EditProps = BlockEditProps< DemoCompoundStorageAttributes >;',
+        'type EditProps = BlockEditProps<DemoCompoundStorageAttributes>;',
       );
-      expect(parentEdit).toContain('}: EditProps )');
+      expect(parentEdit).toContain('}: EditProps)');
       expect(parentEdit).toContain('useTypiaValidation');
       expect(parentEdit).toContain('getRootInnerBlocksPropsOptions');
       expect(parentEdit).toContain('rootInnerBlocksPropsOptions');
@@ -994,7 +995,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(generatedAddChild).toContain('CHILD_SPEC_MARKER');
       expect(generatedAddChild).toContain('buildScaffoldBlockRegistration');
       expect(generatedAddChild).toContain(
-        'registerScaffoldBlockType( registration.name, registration.settings );',
+        'registerScaffoldBlockType(registration.name, registration.settings);',
       );
       expect(generatedAddChild).not.toContain('registerBlockType<');
       expect(generatedAddChild).toContain('registerScaffoldBlockType');
@@ -1023,7 +1024,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(generatedParentSyncProject).toContain(
         "shell: process.platform === 'win32'",
       );
-      expect(generatedParentSyncProject).toContain("spawnSync( 'ttsx', args");
+      expect(generatedParentSyncProject).toContain("spawnSync('ttsx', args");
       expect(generatedParentSyncProject).not.toContain('getLocalTtsxBinary');
       expect(generatedWebpackConfig).toContain('createTypiaWebpackConfig');
       expect(readme).toContain('npm run dev');
@@ -1290,7 +1291,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         "import metadata from './block-metadata';",
       );
       expect(newChildIndex).toContain(
-        'registerScaffoldBlockType( registration.name, registration.settings );',
+        'registerScaffoldBlockType(registration.name, registration.settings);',
       );
       expect(newChildIndex).not.toContain('registerBlockType<');
       expect(newChildIndex).toContain('registerScaffoldBlockType');
@@ -1527,13 +1528,13 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         '  - clause -> create-block/demo-compound-nested-clause [new, nested, leaf, visible]',
       );
       expect(sectionEdit).toContain('InnerBlocks');
-      expect(sectionEdit).toContain('hasNestedChildBlocks( metadata.name )');
+      expect(sectionEdit).toContain('hasNestedChildBlocks(metadata.name)');
       expect(sectionEdit).not.toContain('allowedBlocks={');
       expect(sectionSave).toContain('InnerBlocks.Content');
-      expect(childrenRegistry).toContain('key: "section"');
-      expect(childrenRegistry).toContain('key: "clause"');
-      expect(childrenRegistry).toContain('ancestorKeys: [ "section" ]');
-      expect(childrenRegistry).toContain('placement: "nested"');
+      expect(childrenRegistry).toContain("key: 'section'");
+      expect(childrenRegistry).toContain("key: 'clause'");
+      expect(childrenRegistry).toContain("ancestorKeys: ['section']");
+      expect(childrenRegistry).toContain("placement: 'nested'");
       expect(childrenRegistry).toContain(
         'create-block/demo-compound-nested-clause',
       );

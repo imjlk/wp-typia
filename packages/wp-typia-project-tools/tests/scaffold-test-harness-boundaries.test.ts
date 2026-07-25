@@ -14,8 +14,8 @@ test('scaffold test harness facade delegates environment and support helpers', (
     'utf8',
   );
 
-  expect(harnessSource).toContain('from "./scaffold-test-environment.js"');
-  expect(harnessSource).toContain('from "./scaffold-test-support.js"');
+  expect(harnessSource).toContain("from './scaffold-test-environment.js'");
+  expect(harnessSource).toContain("from './scaffold-test-support.js'");
   expect(harnessSource).not.toContain('function acquireWorkspaceBuildLock(');
   expect(harnessSource).not.toContain(
     'export async function scaffoldOfficialWorkspace(',

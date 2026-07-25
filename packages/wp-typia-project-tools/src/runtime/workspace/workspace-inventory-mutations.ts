@@ -9,22 +9,95 @@ import {
 import { WORKSPACE_COMPATIBILITY_CONFIG_FIELD } from './workspace-inventory-templates.js';
 import type { WorkspaceInventoryUpdateOptions } from './workspace-inventory-types.js';
 
+function getIndentationDepth(indentation: string): number | null {
+  if (/^\t+$/u.test(indentation)) {
+    return indentation.length;
+  }
+  if (/^ +$/u.test(indentation) && indentation.length % 2 === 0) {
+    return indentation.length / 2;
+  }
+  return null;
+}
+
+function reindentInventorySource(
+  source: string,
+  indentationUnit: string,
+  lineEnding: string,
+): string {
+  return source
+    .split(/\r?\n/u)
+    .map((line) => {
+      const indentation = /^([ \t]+)/u.exec(line)?.[1];
+      if (!indentation) {
+        return line;
+      }
+
+      const depth = getIndentationDepth(indentation);
+      return depth === null
+        ? line
+        : `${indentationUnit.repeat(depth)}${line.slice(indentation.length)}`;
+    })
+    .join(lineEnding);
+}
+
+function detectInventoryIndentationUnit(source: string): string {
+  const markerIndentation =
+    /^([ \t]+)\/\/ wp-typia add [^\r\n]+ entries[ \t]*\r?$/mu.exec(source)?.[1];
+  if (
+    markerIndentation &&
+    getIndentationDepth(markerIndentation) !== null
+  ) {
+    return markerIndentation;
+  }
+
+  const memberIndentation =
+    /export\s+interface\s+[A-Za-z_$][\w$]*\s*\{\r?\n([ \t]+)[A-Za-z_$]/mu.exec(
+      source,
+    )?.[1];
+  return memberIndentation &&
+    getIndentationDepth(memberIndentation) !== null
+    ? memberIndentation
+    : '  ';
+}
+
+function formatInventoryFragment(
+  source: string,
+  indentationUnit: string,
+  lineEnding: string,
+): string {
+  return reindentInventorySource(
+    source.replace(/\r?\n$/u, ''),
+    indentationUnit,
+    lineEnding,
+  );
+}
+
 function ensureWorkspaceInventorySections(source: string): string {
+  const indentationUnit = detectInventoryIndentationUnit(source);
+  const lineEnding = source.includes('\r\n') ? '\r\n' : '\n';
   let nextSource = source.trimEnd();
+  const appendSection = (section: string): void => {
+    const formattedSection = formatInventoryFragment(
+      section.trim(),
+      indentationUnit,
+      lineEnding,
+    );
+    nextSource = `${nextSource.trimEnd()}${lineEnding}${lineEnding}${formattedSection}${lineEnding}`;
+  };
 
   for (const section of INVENTORY_SECTIONS) {
     if (
 			section.interface &&
 			!hasExportedTypeDeclaration(nextSource, section.interface.name)
 		) {
-      nextSource += section.interface.section;
+      appendSection(section.interface.section);
     }
     if (section.value && !hasExportedConst(nextSource, section.value.name)) {
-      nextSource += section.value.section;
+      appendSection(section.value.section);
     }
   }
 
-  return `${nextSource}\n`;
+  return `${nextSource.trimEnd()}${lineEnding}`;
 }
 
 function hasExportedTypeDeclaration(source: string, interfaceName: string): boolean {
@@ -49,14 +122,28 @@ function appendEntriesAtMarker(
   if (entries.length === 0) {
     return source;
   }
-  if (!source.includes(marker)) {
+  const markerText = marker.trim();
+  const markerPattern = new RegExp(
+    `^([ \\t]*)${escapeRegex(markerText)}[ \\t]*\\r?$`,
+    'mu',
+  );
+  const markerMatch = markerPattern.exec(source);
+  if (!markerMatch) {
     throw new Error(
       `Workspace inventory marker "${marker}" is missing in scripts/block-config.ts.`,
     );
   }
 
-  const replacement = `${entries.join('\n')}\n${marker}`;
-  return source.replace(marker, () => replacement);
+  const markerIndentation = markerMatch[1] ?? '';
+  const indentationUnit = markerIndentation || '  ';
+  const lineEnding = source.includes('\r\n') ? '\r\n' : '\n';
+  const lineEndingPrefix = lineEnding === '\r\n' ? '\r' : '';
+  const replacement = `${entries
+    .map((entry) =>
+      reindentInventorySource(entry, indentationUnit, lineEnding),
+    )
+    .join(lineEnding)}${lineEnding}${markerIndentation}${markerText}${lineEndingPrefix}`;
+  return source.replace(markerPattern, () => replacement);
 }
 
 function appendInventorySectionEntries(
@@ -100,10 +187,14 @@ function ensureInterfaceField(
 			}
 
 			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
-			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, '')
-				.split('\n')
-				.join(lineEnding)}${lineEnding}`;
+			const indentationUnit =
+				/^([ \t]+)[A-Za-z_$][\w$]*\??:/mu.exec(body)?.[1] ??
+				detectInventoryIndentationUnit(source);
+			const formattedFieldSource = `${formatInventoryFragment(
+				fieldSource,
+				indentationUnit,
+				lineEnding,
+			)}${lineEnding}`;
 			const memberPattern = /^[ \t]*([A-Za-z_$][\w$]*)\??:/gmu;
 
 			for (const member of body.matchAll(memberPattern)) {
@@ -144,10 +235,14 @@ function upsertInterfaceField(
 		interfacePattern,
 		(match, start: string, body: string, end: string) => {
 			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
-			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, '')
-				.split('\n')
-				.join(lineEnding)}${lineEnding}`;
+			const indentationUnit =
+				/^([ \t]+)[A-Za-z_$][\w$]*\??:/mu.exec(body)?.[1] ??
+				detectInventoryIndentationUnit(source);
+			const formattedFieldSource = `${formatInventoryFragment(
+				fieldSource,
+				indentationUnit,
+				lineEnding,
+			)}${lineEnding}`;
 			const existingFieldPattern = new RegExp(
 				`(^[ \\t]*${escapeRegex(fieldName)}\\??:\\s*[^;\\r\\n]+;?\\r?\\n?)`,
 				'mu',
@@ -225,10 +320,13 @@ function normalizeInterfaceFieldBlock(
 			}
 
 			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
-			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, '')
-				.split('\n')
-				.join(lineEnding)}${lineEnding}`;
+			const indentationUnit =
+				fieldMatch[2] || detectInventoryIndentationUnit(source);
+			const formattedFieldSource = `${formatInventoryFragment(
+				fieldSource,
+				indentationUnit,
+				lineEnding,
+			)}${lineEnding}`;
 
 			return `${start}${body.slice(
 				0,

@@ -397,9 +397,7 @@ export function deleteResource( request: ${pascalCase}DeleteQuery ) {
   }
 
   const resolveRestNonceSource =
-		writeMethods.length > 0
-      ? `${formatResolveRestNonceSource('spaced')}\n\n`
-      : '';
+		writeMethods.length > 0 ? `${formatResolveRestNonceSource()}\n\n` : '';
 
   return `import {
 \tcallEndpoint,

@@ -312,7 +312,13 @@ function replaceBunRunCommands(content: string, packageManagerId: PackageManager
       content,
       argsStart,
     );
-    result += formatRunScript(packageManagerId, scriptName, args);
+    const trailingWhitespace =
+      content.slice(argsStart, nextCursor).match(/\s*$/u)?.[0] ?? '';
+    result += `${formatRunScript(
+      packageManagerId,
+      scriptName,
+      args,
+    )}${trailingWhitespace}`;
     cursor = nextCursor;
   }
 
@@ -340,7 +346,5 @@ export function transformPackageManagerText(content: string, packageManagerId: P
 			packageManagerId,
 		),
 		packageManagerId,
-	)
-		.replace(/\s*&&\s*/g, ' && ')
-		.replace(/\s*\|\|\s*/g, ' || ');
+	);
 }

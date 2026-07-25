@@ -1,6 +1,12 @@
 export const INTERACTIVITY_EDIT_TEMPLATE = `import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';
 import { __ } from '@wordpress/i18n';
-import { useBlockProps, InspectorControls, RichText, BlockControls, AlignmentToolbar } from '@wordpress/block-editor';
+import {
+  useBlockProps,
+  InspectorControls,
+  RichText,
+  BlockControls,
+  AlignmentToolbar,
+} from '@wordpress/block-editor';
 import { PanelBody, RangeControl, Button, Notice } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import currentManifest from './manifest-document';
@@ -22,7 +28,11 @@ type EditProps = BlockEditProps<{{pascalCase}}Attributes>;
 const actionButtonRowStyle = { display: 'flex', gap: '8px', marginTop: '16px' };
 const validationListStyle = { margin: 0, paddingLeft: '1em' };
 
-export default function Edit({ attributes, setAttributes, isSelected }: EditProps) {
+export default function Edit({
+  attributes,
+  setAttributes,
+  isSelected,
+}: EditProps) {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const editorFields = useEditorFields(currentManifest, {
     manual: ['content', 'clickCount', 'maxClicks'],
@@ -38,7 +48,9 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
     attributes,
     validate{{pascalCase}}Attributes,
   );
-  const validateEditorUpdate = (nextAttributes: {{pascalCase}}Attributes) => {
+  const validateEditorUpdate = (
+    nextAttributes: {{pascalCase}}Attributes,
+  ) => {
     try {
       return {
         data: sanitize{{pascalCase}}Attributes(nextAttributes),
@@ -52,35 +64,31 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
   const { updateField } = useTypedAttributeUpdater(
     attributes,
     setAttributes,
-    validateEditorUpdate
+    validateEditorUpdate,
   );
   const alignmentValue = editorFields.getStringValue(
     attributes,
     'alignment',
-    'left'
+    'left',
   ) as NonNullable<{{pascalCase}}Attributes['alignment']>;
   const clickCount = attributes.clickCount ?? 0;
-  const isVisible = editorFields.getBooleanValue(
-    attributes,
-    'isVisible',
-    true
-  );
+  const isVisible = editorFields.getBooleanValue(attributes, 'isVisible', true);
   const isAnimating = attributes.isAnimating ?? false;
   const maxClicks = attributes.maxClicks ?? 0;
   const showCounter = editorFields.getBooleanValue(
     attributes,
     'showCounter',
-    true
+    true,
   );
   const interactiveMode = editorFields.getStringValue(
     attributes,
     'interactiveMode',
-    'click'
+    'click',
   ) as NonNullable<{{pascalCase}}Attributes['interactiveMode']>;
   const animation = editorFields.getStringValue(
     attributes,
     'animation',
-    'none'
+    'none',
   ) as NonNullable<{{pascalCase}}Attributes['animation']>;
 
   const blockProps = useBlockProps({
@@ -93,14 +101,16 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
         isVisible,
         animation,
         maxClicks,
-      })
-    )
+      }),
+    ),
   });
   const previewContentStyle = { textAlign: alignmentValue };
   const progressBarStyle = { width: \`\${(clickCount / maxClicks) * 100}%\` };
   const clicksDirective = {{slugCamelCase}}Store.directive.state('clicks');
-  const isAnimatingDirective = {{slugCamelCase}}Store.directive.state('isAnimating');
-  const progressDirective = {{slugCamelCase}}Store.directive.state('progress') + " + '%'";
+  const isAnimatingDirective =
+    {{slugCamelCase}}Store.directive.state('isAnimating');
+  const progressDirective =
+    {{slugCamelCase}}Store.directive.state('progress') + " + '%'";
 
   const resetCounter = () => {
     updateField('clickCount', 0);
@@ -119,7 +129,14 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
       <BlockControls>
         <AlignmentToolbar
           value={alignmentValue}
-          onChange={(value) => updateField('alignment', (value || alignmentValue) as NonNullable<{{pascalCase}}Attributes['alignment']>)}
+          onChange={(value) =>
+            updateField(
+              'alignment',
+              (value || alignmentValue) as NonNullable<
+                {{pascalCase}}Attributes['alignment']
+              >,
+            )
+          }
         />
       </BlockControls>
 
@@ -128,7 +145,13 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
           attributes={attributes}
           fieldLookup={editorFields}
           onChange={updateField}
-          paths={['alignment', 'interactiveMode', 'animation', 'showCounter', 'isVisible']}
+          paths={[
+            'alignment',
+            'interactiveMode',
+            'animation',
+            'showCounter',
+            'isVisible',
+          ]}
           title={__('Interactive Settings', '{{textDomain}}')}
         />
 
@@ -143,25 +166,20 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
           />
 
           <div style={actionButtonRowStyle}>
-            <Button
-              variant="secondary"
-              onClick={resetCounter}
-              isSmall
-            >
+            <Button variant="secondary" onClick={resetCounter} isSmall>
               {__('Reset Counter', '{{textDomain}}')}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={testAnimation}
-              isSmall
-            >
+            <Button variant="secondary" onClick={testAnimation} isSmall>
               {__('Test Animation', '{{textDomain}}')}
             </Button>
           </div>
         </PanelBody>
 
         {!isValid && (
-          <PanelBody title={__('Validation Errors', '{{textDomain}}')} initialOpen>
+          <PanelBody
+            title={__('Validation Errors', '{{textDomain}}')}
+            initialOpen
+          >
             {errorMessages.map((error, index) => (
               <Notice key={index} status="error" isDismissible={false}>
                 {error}
@@ -197,21 +215,38 @@ export default function Edit({ attributes, setAttributes, isSelected }: EditProp
         <div
           className={\`{{cssClassName}}__content \${isAnimating ? 'is-animating' : ''}\`}
           style={previewContentStyle}
-          data-wp-on--click={isPreviewing ? {{slugCamelCase}}Store.directive.action('handleClick') : undefined}
-          data-wp-on--mouseenter={isPreviewing && interactiveMode === 'hover' ? {{slugCamelCase}}Store.directive.action('handleMouseEnter') : undefined}
-          data-wp-on--mouseleave={isPreviewing && interactiveMode === 'hover' ? {{slugCamelCase}}Store.directive.action('handleMouseLeave') : undefined}
+          data-wp-on--click={
+            isPreviewing
+              ? {{slugCamelCase}}Store.directive.action('handleClick')
+              : undefined
+          }
+          data-wp-on--mouseenter={
+            isPreviewing && interactiveMode === 'hover'
+              ? {{slugCamelCase}}Store.directive.action('handleMouseEnter')
+              : undefined
+          }
+          data-wp-on--mouseleave={
+            isPreviewing && interactiveMode === 'hover'
+              ? {{slugCamelCase}}Store.directive.action('handleMouseLeave')
+              : undefined
+          }
         >
           <RichText
             tagName="p"
             value={attributes.content}
             onChange={(value) => updateField('content', value)}
-            placeholder={__( {{titleJson}} + ' – click me to interact!', '{{textDomain}}')}
+            placeholder={__(
+              {{titleTsLiteral}} + ' – click me to interact!',
+              '{{textDomain}}',
+            )}
           />
 
           {!isValid && (
             <Notice status="error" isDismissible={false}>
               <p>
-                <strong>{__('Validation Errors', '{{textDomain}}')}</strong>
+                <strong>
+                  {__('Validation Errors', '{{textDomain}}')}
+                </strong>
               </p>
               <ul style={validationListStyle}>
                 {errorMessages.map((error, index) => (
@@ -265,7 +300,11 @@ import { __ } from '@wordpress/i18n';
 import { {{slugCamelCase}}Store } from './interactivity-store';
 import type { {{pascalCase}}Attributes } from './types';
 
-export default function Save({ attributes }: { attributes: {{pascalCase}}Attributes }) {
+export default function Save({
+  attributes,
+}: {
+  attributes: {{pascalCase}}Attributes;
+}) {
   const clickCount = attributes.clickCount ?? 0;
   const interactiveMode = attributes.interactiveMode ?? 'click';
   const animation = attributes.animation ?? 'none';
@@ -274,17 +313,23 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
   const maxClicks = attributes.maxClicks ?? 0;
   const showCounter = attributes.showCounter ?? true;
   const contentStyle = { textAlign: attributes.alignment };
-  const clickActionDirective = {{slugCamelCase}}Store.directive.action('handleClick');
-  const visibilityHiddenDirective = {{slugCamelCase}}Store.directive.negate(
-    {{slugCamelCase}}Store.directive.state('isVisible')
-  );
+  const clickActionDirective =
+    {{slugCamelCase}}Store.directive.action('handleClick');
+  const visibilityHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.state('isVisible'),
+    );
   const clicksDirective = {{slugCamelCase}}Store.directive.state('clicks');
-  const clampedClicksDirective = {{slugCamelCase}}Store.directive.state('clampedClicks');
-  const isAnimatingDirective = {{slugCamelCase}}Store.directive.state('isAnimating');
-  const completionHiddenDirective = {{slugCamelCase}}Store.directive.negate(
-    {{slugCamelCase}}Store.directive.state('isComplete')
-  );
-  const resetActionDirective = {{slugCamelCase}}Store.directive.action('reset');
+  const clampedClicksDirective =
+    {{slugCamelCase}}Store.directive.state('clampedClicks');
+  const isAnimatingDirective =
+    {{slugCamelCase}}Store.directive.state('isAnimating');
+  const completionHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.state('isComplete'),
+    );
+  const resetActionDirective =
+    {{slugCamelCase}}Store.directive.action('reset');
   const blockProps = useBlockProps.save({
     className: \`{{cssClassName}} {{cssClassName}}--\${interactiveMode}\`,
     'data-wp-interactive': {{slugCamelCase}}Store.directive.interactive,
@@ -295,10 +340,11 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
         isVisible,
         animation,
         maxClicks,
-      })
-    )
+      }),
+    ),
   });
-  const progressDirective = {{slugCamelCase}}Store.directive.state('progress') + " + '%'";
+  const progressDirective =
+    {{slugCamelCase}}Store.directive.state('progress') + " + '%'";
 
   return (
     <div {...blockProps}>
@@ -306,8 +352,16 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
         className={\`{{cssClassName}}__content \${isAnimating ? 'is-animating' : ''}\`}
         style={contentStyle}
         data-wp-on--click={clickActionDirective}
-        data-wp-on--mouseenter={interactiveMode === 'hover' ? {{slugCamelCase}}Store.directive.action('handleMouseEnter') : undefined}
-        data-wp-on--mouseleave={interactiveMode === 'hover' ? {{slugCamelCase}}Store.directive.action('handleMouseLeave') : undefined}
+        data-wp-on--mouseenter={
+          interactiveMode === 'hover'
+            ? {{slugCamelCase}}Store.directive.action('handleMouseEnter')
+            : undefined
+        }
+        data-wp-on--mouseleave={
+          interactiveMode === 'hover'
+            ? {{slugCamelCase}}Store.directive.action('handleMouseLeave')
+            : undefined
+        }
         data-wp-bind--hidden={visibilityHiddenDirective}
       >
         <RichText.Content
@@ -324,7 +378,7 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
             aria-atomic="true"
           >
             <span className="{{cssClassName}}__counter-label">
-              { __( 'Clicks:', '{{textDomain}}' ) }
+              {__('Clicks:', '{{textDomain}}')}
             </span>
             <span
               className="{{cssClassName}}__counter-value"
@@ -340,7 +394,7 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
             <div
               className="{{cssClassName}}__progress-bar"
               role="progressbar"
-              aria-label={ __( 'Click progress', '{{textDomain}}' ) }
+              aria-label={__('Click progress', '{{textDomain}}')}
               aria-valuemin={0}
               aria-valuemax={maxClicks}
               aria-valuenow={Math.min(clickCount, maxClicks)}
@@ -364,18 +418,18 @@ export default function Save({ attributes }: { attributes: {{pascalCase}}Attribu
             aria-atomic="true"
             data-wp-bind--hidden={completionHiddenDirective}
           >
-            { __( '🎉 Complete!', '{{textDomain}}' ) }
+            {__('🎉 Complete!', '{{textDomain}}')}
           </div>
         )}
 
         <button
           className="{{cssClassName}}__reset"
           data-wp-on--click={resetActionDirective}
-          aria-label={ __( 'Reset counter', '{{textDomain}}' ) }
+          aria-label={__('Reset counter', '{{textDomain}}')}
         >
           <span aria-hidden="true">↻</span>
           <span className="screen-reader-text">
-            { __( 'Reset counter', '{{textDomain}}' ) }
+            {__('Reset counter', '{{textDomain}}')}
           </span>
         </button>
       </div>
@@ -411,21 +465,20 @@ const scaffoldSupports = {
 } satisfies BlockSupports;
 
 const registration = buildScaffoldBlockRegistration(
-  parseScaffoldBlockMetadata<BlockConfiguration<{{pascalCase}}Attributes>>(metadata),
+  parseScaffoldBlockMetadata<
+    BlockConfiguration<{{pascalCase}}Attributes>
+  >(metadata),
   {
     supports: scaffoldSupports,
     edit: Edit,
     save: Save,
-  }
+  },
 );
 
 registerScaffoldBlockType(registration.name, registration.settings);
 `;
 
-export const INTERACTIVITY_STORE_TEMPLATE = `import type {
-  {{pascalCase}}Context,
-  {{pascalCase}}State,
-} from './types';
+export const INTERACTIVITY_STORE_TEMPLATE = `import type { {{pascalCase}}Context, {{pascalCase}}State } from './types';
 
 type InteractivityActionShape = object;
 type InteractivityCallbackShape = object;
@@ -436,7 +489,9 @@ type InteractivityCallable =
   | ReturnType<typeof import('@wordpress/interactivity').withSyncEvent>;
 type InteractivityKey<T extends object> = Extract<keyof T, string>;
 type InteractivityMethodKey<T extends object> = {
-  [Key in InteractivityKey<T>]: T[Key] extends InteractivityCallable ? Key : never;
+  [Key in InteractivityKey<T>]: T[Key] extends InteractivityCallable
+    ? Key
+    : never;
 }[InteractivityKey<T>];
 
 type InteractivityDirectivePath<
@@ -518,7 +573,10 @@ export function defineInteractivityStore<
         return \`actions.\${key}\` as InteractivityDirectivePath<'actions', Key>;
       },
       callback<Key extends InteractivityMethodKey<Callbacks>>(key: Key) {
-        return \`callbacks.\${key}\` as InteractivityDirectivePath<'callbacks', Key>;
+        return \`callbacks.\${key}\` as InteractivityDirectivePath<
+          'callbacks',
+          Key
+        >;
       },
       state<Key extends InteractivityKey<State>>(key: Key) {
         return \`state.\${key}\` as InteractivityDirectivePath<'state', Key>;
@@ -559,7 +617,12 @@ export const {{slugCamelCase}}Store = defineInteractivityStore({
 export const INTERACTIVITY_SCRIPT_TEMPLATE = `/**
  * WordPress Interactivity API implementation for {{title}} block
  */
-import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
+import {
+  store,
+  getContext,
+  getElement,
+  withSyncEvent,
+} from '@wordpress/interactivity';
 import {
   {{slugCamelCase}}Store,
   type {{pascalCase}}StoreActions,
@@ -598,15 +661,23 @@ const actions: {{pascalCase}}StoreActions = {
     }
 
     // Emit custom event
-    ref.dispatchEvent(new CustomEvent('{{slugKebabCase}}:click', {
-      detail: { clicks: context.clicks }
-    }));
+    ref.dispatchEvent(
+      new CustomEvent('{{slugKebabCase}}:click', {
+        detail: { clicks: context.clicks },
+      }),
+    );
 
     // Check if max clicks reached
-    if (context.maxClicks > 0 && previousClicks < context.maxClicks && context.clicks === context.maxClicks) {
-      ref.dispatchEvent(new CustomEvent('{{slugKebabCase}}:complete', {
-        detail: { totalClicks: context.clicks }
-      }));
+    if (
+      context.maxClicks > 0 &&
+      previousClicks < context.maxClicks &&
+      context.clicks === context.maxClicks
+    ) {
+      ref.dispatchEvent(
+        new CustomEvent('{{slugKebabCase}}:complete', {
+          detail: { totalClicks: context.clicks },
+        }),
+      );
     }
   },
 
@@ -629,37 +700,39 @@ const actions: {{pascalCase}}StoreActions = {
     const context = getBlockContext();
     context.clicks = 0;
     context.isAnimating = false;
-  })
+  }),
 };
 
 const state = {
-    get clicks() {
-      return getBlockContext().clicks;
-    },
-    get isAnimating() {
-      return getBlockContext().isAnimating;
-    },
-    get isVisible() {
-      return getBlockContext().isVisible;
-    },
-    get progress() {
-      const context = getBlockContext();
-      const clampedClicks =
-        context.maxClicks > 0
-          ? Math.min(context.clicks, context.maxClicks)
-          : context.clicks;
-      return context.maxClicks > 0 ? (clampedClicks / context.maxClicks) * 100 : 0;
-    },
-    get clampedClicks() {
-      const context = getBlockContext();
-      return context.maxClicks > 0
+  get clicks() {
+    return getBlockContext().clicks;
+  },
+  get isAnimating() {
+    return getBlockContext().isAnimating;
+  },
+  get isVisible() {
+    return getBlockContext().isVisible;
+  },
+  get progress() {
+    const context = getBlockContext();
+    const clampedClicks =
+      context.maxClicks > 0
         ? Math.min(context.clicks, context.maxClicks)
         : context.clicks;
-    },
-    get isComplete() {
-      const context = getBlockContext();
-      return context.clicks >= context.maxClicks && context.maxClicks > 0;
-    }
+    return context.maxClicks > 0
+      ? (clampedClicks / context.maxClicks) * 100
+      : 0;
+  },
+  get clampedClicks() {
+    const context = getBlockContext();
+    return context.maxClicks > 0
+      ? Math.min(context.clicks, context.maxClicks)
+      : context.clicks;
+  },
+  get isComplete() {
+    const context = getBlockContext();
+    return context.clicks >= context.maxClicks && context.maxClicks > 0;
+  },
 } satisfies {{pascalCase}}State;
 
 // Store configuration
@@ -672,23 +745,27 @@ store({{slugCamelCase}}Store.namespace, {
 `;
 
 export const INTERACTIVITY_VALIDATORS_TEMPLATE = `import typia from 'typia';
-import currentManifest from "./manifest-defaults-document";
-import { {{pascalCase}}Attributes, {{pascalCase}}ValidationResult } from "./types";
-import { createTemplateValidatorToolkit } from "./validator-toolkit";
+import currentManifest from './manifest-defaults-document';
+import {
+  {{pascalCase}}Attributes,
+  {{pascalCase}}ValidationResult,
+} from './types';
+import { createTemplateValidatorToolkit } from './validator-toolkit';
 
-const scaffoldValidators = createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
-  assert: typia.createAssert<{{pascalCase}}Attributes>(),
-  clone: typia.plain.createClone<{{pascalCase}}Attributes>() as (
-    value: {{pascalCase}}Attributes,
-  ) => {{pascalCase}}Attributes,
-  is: typia.createIs<{{pascalCase}}Attributes>(),
-  manifest: currentManifest,
-  prune: typia.plain.createPrune<{{pascalCase}}Attributes>(),
-  random: typia.createRandom<{{pascalCase}}Attributes>() as (
-    ...args: unknown[]
-  ) => {{pascalCase}}Attributes,
-  validate: typia.createValidate<{{pascalCase}}Attributes>(),
-});
+const scaffoldValidators =
+  createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
+    assert: typia.createAssert<{{pascalCase}}Attributes>(),
+    clone: typia.plain.createClone<{{pascalCase}}Attributes>() as (
+      value: {{pascalCase}}Attributes,
+    ) => {{pascalCase}}Attributes,
+    is: typia.createIs<{{pascalCase}}Attributes>(),
+    manifest: currentManifest,
+    prune: typia.plain.createPrune<{{pascalCase}}Attributes>(),
+    random: typia.createRandom<{{pascalCase}}Attributes>() as (
+      ...args: unknown[]
+    ) => {{pascalCase}}Attributes,
+    validate: typia.createValidate<{{pascalCase}}Attributes>(),
+  });
 
 export const validate{{pascalCase}}Attributes =
   scaffoldValidators.validateAttributes as (
@@ -705,7 +782,9 @@ export const sanitize{{pascalCase}}Attributes =
 /**
  * Runtime type guard for checking if an object is {{pascalCase}}Attributes.
  */
-export const is{{pascalCase}}Attributes = (obj: unknown): obj is {{pascalCase}}Attributes => {
+export const is{{pascalCase}}Attributes = (
+  obj: unknown,
+): obj is {{pascalCase}}Attributes => {
   return validators.is(obj);
 };
 
