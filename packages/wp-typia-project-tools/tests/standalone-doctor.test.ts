@@ -276,19 +276,20 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ['@wp-typia/block-types', '@wp-typia/block-types'],
       ['typia', 'typia'],
       ['typescript', 'typescript'],
-      ['tsx', 'tsx/cli'],
+      ['ttsc', 'ttsc/package.json'],
+      ['@ttsc/lint', '@ttsc/lint/package.json'],
       ['@wordpress/block-editor', '@wordpress/block-editor/package.json'],
       ['@wordpress/blocks', '@wordpress/blocks/package.json'],
       ['@wordpress/components', '@wordpress/components/package.json'],
       ['@wordpress/element', '@wordpress/element/package.json'],
       ['@wordpress/i18n', '@wordpress/i18n/package.json'],
       ['@wordpress/scripts', '@wordpress/scripts/bin/wp-scripts.js'],
-      ['@typia/unplugin', '@typia/unplugin/webpack'],
+      ['@ttsc/unplugin', '@ttsc/unplugin/webpack'],
     ] as const;
     const resolvedPackages = requiredPackages.map(
       ([packageName, resolutionSpecifier]) => [
         projectRequire.resolve(resolutionSpecifier),
-        packageName === 'tsx' ? 'tsx-alias-target' : packageName,
+        packageName,
       ],
     );
     const pnpApiDir = path.join(targetDir, 'node_modules', 'pnpapi');
@@ -301,9 +302,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const serializedDependencies = JSON.stringify(
       requiredPackages.map(([packageName]) => [
         packageName,
-        packageName === 'tsx'
-          ? ['tsx-alias-target', 'fixture-reference']
-          : 'fixture-reference',
+        'fixture-reference',
       ]),
     );
     fs.writeFileSync(
@@ -355,7 +354,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const targetDir = path.join(tempRoot, 'missing-script-runners');
     await scaffoldBasic(targetDir);
     runGeneratedScript(targetDir, 'scripts/sync-types-to-block-json.ts');
-    fs.rmSync(path.join(targetDir, 'node_modules', 'tsx'), {
+    fs.rmSync(path.join(targetDir, 'node_modules', 'ttsc'), {
       force: true,
       recursive: true,
     });
@@ -371,7 +370,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     expect(dependenciesCheck?.status).toBe('fail');
-    expect(dependenciesCheck?.detail).toContain('tsx');
+    expect(dependenciesCheck?.detail).toContain('ttsc/ttsx');
     expect(dependenciesCheck?.detail).toContain('@wordpress/scripts');
     expect(getCheck(checks, STANDALONE_DOCTOR_CODES.ARTIFACTS)?.status).toBe(
       'warn',
@@ -382,7 +381,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const targetDir = path.join(tempRoot, 'missing-typia-webpack-plugin');
     await scaffoldBasic(targetDir);
     runGeneratedScript(targetDir, 'scripts/sync-types-to-block-json.ts');
-    fs.rmSync(path.join(targetDir, 'node_modules', '@typia', 'unplugin'), {
+    fs.rmSync(path.join(targetDir, 'node_modules', '@ttsc', 'unplugin'), {
       force: true,
       recursive: true,
     });
@@ -394,7 +393,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     expect(dependenciesCheck?.status).toBe('fail');
-    expect(dependenciesCheck?.detail).toContain('@typia/unplugin/webpack');
+    expect(dependenciesCheck?.detail).toContain('@ttsc/unplugin/webpack');
   }, 20_000);
 
   test('requires the metadata-core runtime subpath used by sync', async () => {
@@ -585,13 +584,13 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       },
       {
         expected:
-          'sync-rest script must invoke `tsx scripts/sync-rest-contracts.ts`',
+          'sync-rest script must invoke `ttsx scripts/sync-rest-contracts.ts`',
         script: 'node -e "process.exit(0)"',
       },
       {
         expected:
-          'sync-rest script must propagate failures from `tsx scripts/sync-rest-contracts.ts`',
-        script: 'tsx scripts/sync-rest-contracts.ts || true',
+          'sync-rest script must propagate failures from `ttsx scripts/sync-rest-contracts.ts`',
+        script: 'ttsx scripts/sync-rest-contracts.ts || true',
       },
     ] as const;
 
@@ -681,7 +680,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must invoke `tsx scripts/sync-project.ts`',
+      'sync script must invoke `ttsx scripts/sync-project.ts`',
     );
   });
 
@@ -693,19 +692,19 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     const invalidScripts = [
-      'cd other && tsx scripts/sync-project.ts',
-      "'cd' other && tsx scripts/sync-project.ts",
-      String.raw`c\d other && tsx scripts/sync-project.ts`,
-      'EMPTY= cd other && tsx scripts/sync-project.ts',
-      '{ cd other; }; tsx scripts/sync-project.ts',
-      'CMD=cd && $CMD other && tsx scripts/sync-project.ts',
-      '$(printf cd) other && tsx scripts/sync-project.ts',
-      'command -p cd other && tsx scripts/sync-project.ts',
-      "eval 'cd other' && tsx scripts/sync-project.ts",
-      `CMD='cd other'; eval "$CMD" && tsx scripts/sync-project.ts`,
-      'enter() { cd other; }; enter && tsx scripts/sync-project.ts',
-      "eval 'command cd other' && tsx scripts/sync-project.ts",
-      "eval 'enter() { cd other; }; enter' && tsx scripts/sync-project.ts",
+      'cd other && ttsx scripts/sync-project.ts',
+      "'cd' other && ttsx scripts/sync-project.ts",
+      String.raw`c\d other && ttsx scripts/sync-project.ts`,
+      'EMPTY= cd other && ttsx scripts/sync-project.ts',
+      '{ cd other; }; ttsx scripts/sync-project.ts',
+      'CMD=cd && $CMD other && ttsx scripts/sync-project.ts',
+      '$(printf cd) other && ttsx scripts/sync-project.ts',
+      'command -p cd other && ttsx scripts/sync-project.ts',
+      "eval 'cd other' && ttsx scripts/sync-project.ts",
+      `CMD='cd other'; eval "$CMD" && ttsx scripts/sync-project.ts`,
+      'enter() { cd other; }; enter && ttsx scripts/sync-project.ts',
+      "eval 'command cd other' && ttsx scripts/sync-project.ts",
+      "eval 'enter() { cd other; }; enter' && ttsx scripts/sync-project.ts",
     ];
     for (const script of invalidScripts) {
       packageJson.scripts.sync = script;
@@ -718,7 +717,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
       expect(packageCheck?.status).toBe('fail');
       expect(packageCheck?.detail).toContain(
-        'sync script must invoke `tsx scripts/sync-project.ts`',
+        'sync script must invoke `ttsx scripts/sync-project.ts`',
       );
     }
   }, 15_000);
@@ -731,7 +730,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     packageJson.scripts.sync =
-      "eval 'FOO=bar' && tsx scripts/sync-project.ts";
+      "eval 'FOO=bar' && ttsx scripts/sync-project.ts";
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const packageCheck = getCheck(
@@ -745,17 +744,17 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('rejects check-only generated sync package scripts', async () => {
     const cases = [
       {
-        command: 'tsx scripts/sync-project.ts',
+        command: 'ttsx scripts/sync-project.ts',
         name: 'sync',
         scaffold: scaffoldBasic,
       },
       {
-        command: 'tsx scripts/sync-types-to-block-json.ts',
+        command: 'ttsx scripts/sync-types-to-block-json.ts',
         name: 'sync-types',
         scaffold: scaffoldBasic,
       },
       {
-        command: 'tsx scripts/sync-rest-contracts.ts',
+        command: 'ttsx scripts/sync-rest-contracts.ts',
         name: 'sync-rest',
         scaffold: scaffoldPersistence,
       },
@@ -791,7 +790,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
       scripts: Record<string, string>;
     };
-    packageJson.scripts.sync = "echo 'tsx scripts/sync-project.ts'";
+    packageJson.scripts.sync = "echo 'ttsx scripts/sync-project.ts'";
     packageJson.scripts.build =
       "echo 'npm run sync -- --check' && wp-scripts build --experimental-modules";
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
@@ -801,7 +800,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must invoke `tsx scripts/sync-project.ts`',
+      'sync script must invoke `ttsx scripts/sync-project.ts`',
     );
     expect(packageCheck?.detail).toContain(
       'build script must invoke `npm run sync -- --check`',
@@ -816,9 +815,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     packageJson.scripts.sync =
-      'echo disabled # && tsx scripts/sync-project.ts';
+      'echo disabled # && ttsx scripts/sync-project.ts';
     packageJson.scripts['sync-types'] =
-      'echo disabled\n# | tsx scripts/sync-types-to-block-json.ts';
+      'echo disabled\n# | ttsx scripts/sync-types-to-block-json.ts';
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const checks = await getDoctorChecks(targetDir);
@@ -826,10 +825,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must invoke `tsx scripts/sync-project.ts`',
+      'sync script must invoke `ttsx scripts/sync-project.ts`',
     );
     expect(packageCheck?.detail).toContain(
-      'sync-types script must invoke `tsx scripts/sync-types-to-block-json.ts`',
+      'sync-types script must invoke `ttsx scripts/sync-types-to-block-json.ts`',
     );
   });
 
@@ -852,10 +851,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must propagate failures from `tsx scripts/sync-project.ts`',
+      'sync script must propagate failures from `ttsx scripts/sync-project.ts`',
     );
     expect(packageCheck?.detail).toContain(
-      'sync-types script must propagate failures from `tsx scripts/sync-types-to-block-json.ts`',
+      'sync-types script must propagate failures from `ttsx scripts/sync-types-to-block-json.ts`',
     );
     expect(packageCheck?.detail).toContain(
       'build script must propagate failures from `npm run sync -- --check`',
@@ -899,7 +898,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must propagate failures from `tsx scripts/sync-project.ts`',
+      'sync script must propagate failures from `ttsx scripts/sync-project.ts`',
     );
   });
 
@@ -911,7 +910,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     packageJson.scripts.sync =
-      'false && tsx scripts/sync-project.ts';
+      'false && ttsx scripts/sync-project.ts';
     packageJson.scripts.build =
       'false && npm run sync -- --check && wp-scripts build --experimental-modules';
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
@@ -923,7 +922,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
     expect(packageCheck?.status).toBe('fail');
     expect(packageCheck?.detail).toContain(
-      'sync script must invoke `tsx scripts/sync-project.ts`',
+      'sync script must invoke `ttsx scripts/sync-project.ts`',
     );
     expect(packageCheck?.detail).toContain(
       'build script must invoke `npm run sync -- --check`',
@@ -938,11 +937,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     packageJson.scripts.sync =
-      'exit 0; tsx scripts/sync-project.ts';
+      'exit 0; ttsx scripts/sync-project.ts';
     packageJson.scripts.build =
       'exit 0; npm run sync -- --check && wp-scripts build --experimental-modules';
     packageJson.scripts.typecheck =
-      'exit 0; npm run sync -- --check && tsc --noEmit';
+      'exit 0; npm run sync -- --check && ttsc --noEmit';
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const packageCheck = getCheck(
@@ -970,7 +969,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       () => 'false && exit 0',
     ).join('; ');
     packageJson.scripts.sync =
-      `${skippedExits}; tsx scripts/sync-project.ts`;
+      `${skippedExits}; ttsx scripts/sync-project.ts`;
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const packageCheck = getCheck(
@@ -989,9 +988,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       scripts: Record<string, string>;
     };
     packageJson.scripts.sync =
-      "# generated wrapper follows\nprintf 'running standalone sync\\n' & tsx scripts/sync-project.ts";
+      "# generated wrapper follows\nprintf 'running standalone sync\\n' & ttsx scripts/sync-project.ts";
     packageJson.scripts['sync-types'] =
-      "printf 'metadata\\n' | tsx scripts/sync-types-to-block-json.ts";
+      "printf 'metadata\\n' | ttsx scripts/sync-types-to-block-json.ts";
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const checks = await getDoctorChecks(targetDir);
@@ -2799,7 +2798,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(sourceLayoutCheck?.status).toBe('fail');
     expect(sourceLayoutCheck?.detail).toContain(
-      'must forward --check through the canonical tsx runner',
+      'must forward --check through the canonical ttsx runner',
     );
   });
 
@@ -2855,7 +2854,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
       expect(sourceLayoutCheck?.detail).toContain(
-        'must forward --check through the canonical tsx runner',
+        'must forward --check through the canonical ttsx runner',
       );
     }
   }, 20_000);
@@ -2886,7 +2885,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
       expect(sourceLayoutCheck?.detail).toContain(
-        'must forward --check through the canonical tsx runner',
+        'must forward --check through the canonical ttsx runner',
       );
     }
   }, 20_000);
@@ -2920,7 +2919,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
       expect(sourceLayoutCheck?.detail).toContain(
-        'must forward --check through the canonical tsx runner',
+        'must forward --check through the canonical ttsx runner',
       );
     }
   }, 20_000);
@@ -2955,7 +2954,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       expect(sourceLayoutCheck?.status).toBe('fail');
       expect(sourceLayoutCheck?.detail).toContain(
-        'must forward --check through the canonical tsx runner',
+        'must forward --check through the canonical ttsx runner',
       );
     }
   }, 20_000);
@@ -3015,7 +3014,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(sourceLayoutCheck?.status).toBe('fail');
     expect(sourceLayoutCheck?.detail).toContain(
-      'must forward --check through the canonical tsx runner',
+      'must forward --check through the canonical ttsx runner',
     );
   });
 

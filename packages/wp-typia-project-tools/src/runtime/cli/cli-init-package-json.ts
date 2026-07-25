@@ -26,18 +26,19 @@ import type {
 import { parseWorkspacePackageManagerId } from "../workspace/workspace-project.js";
 
 const BASE_RETROFIT_SCRIPTS = {
-	sync: "tsx scripts/sync-project.ts",
-	"sync-types": "tsx scripts/sync-types-to-block-json.ts",
-	typecheck: "bun run sync --check && tsc --noEmit",
+	sync: "ttsx scripts/sync-project.ts",
+	"sync-types": "ttsx scripts/sync-types-to-block-json.ts",
+	typecheck: "bun run sync --check && ttsc --noEmit",
 } as const;
 
 const BASE_RETROFIT_DEV_DEPENDENCIES = [
-	"@typia/unplugin",
+	"@ttsc/lint",
+	"@ttsc/unplugin",
 	"@types/wordpress__blocks",
 	"@wordpress/blocks",
 	"@wp-typia/block-runtime",
 	"@wp-typia/block-types",
-	"tsx",
+	"ttsc",
 	"typescript",
 	"typia",
 ] as const;
@@ -125,12 +126,13 @@ export function getWpTypiaCliSpecifier(): string {
 function buildRequiredDevDependencyMap(): Record<string, string> {
 	const versions = getPackageVersions();
 	return {
-		"@typia/unplugin": versions.typiaUnpluginPackageVersion,
+		"@ttsc/lint": versions.ttscLintPackageVersion,
+		"@ttsc/unplugin": versions.ttscUnpluginPackageVersion,
 		"@types/wordpress__blocks": DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
 		"@wordpress/blocks": DEFAULT_WORDPRESS_BLOCKS_VERSION,
 		"@wp-typia/block-runtime": versions.blockRuntimePackageVersion,
 		"@wp-typia/block-types": versions.blockTypesPackageVersion,
-		tsx: versions.tsxPackageVersion,
+		ttsc: versions.ttscPackageVersion,
 		typescript: versions.typescriptPackageVersion,
 		typia: versions.typiaPackageVersion,
 	};

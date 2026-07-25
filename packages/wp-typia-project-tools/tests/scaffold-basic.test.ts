@@ -137,7 +137,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       ).toBeUndefined();
       expect(packageJson.devDependencies['chokidar-cli']).toBe('^3.0.0');
       expect(packageJson.devDependencies.concurrently).toBe('^9.0.1');
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
@@ -151,7 +151,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'npm run sync && wp-scripts start --experimental-modules',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',
@@ -774,7 +774,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
 
       expect(packageJson.name).toBe('demo-interactivity');
       expect(packageJson.devDependencies.prettier).toBe('3.8.2');
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.dev).toBe(
         'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
@@ -785,7 +785,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'npm run sync && wp-scripts start --experimental-modules',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',

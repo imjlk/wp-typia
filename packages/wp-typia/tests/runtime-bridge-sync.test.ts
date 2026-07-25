@@ -52,7 +52,7 @@ test('sync fails early with install guidance when local dependencies are missing
   const projectDir = writeSyncFixture({
     name: 'demo-sync-no-install',
     scripts: {
-      sync: 'tsx scripts/sync-project.ts',
+      sync: 'ttsx scripts/sync-project.ts',
     },
   });
 
@@ -63,7 +63,7 @@ test('sync fails early with install guidance when local dependencies are missing
   expect(error).toBeInstanceOf(Error);
   expect((error as Error).message).toContain('npm install');
   expect((error as Error).message).toContain('wp-typia sync');
-  expect((error as Error).message).toContain('tsx');
+  expect((error as Error).message).toContain('ttsx');
 });
 
 test('malformed package JSON carries a stable invalid-argument code', async () => {
@@ -85,7 +85,7 @@ test('dry-run sync previews commands without requiring installed dependencies', 
   const projectDir = writeSyncFixture({
     name: 'demo-sync-dry-run-preview',
     scripts: {
-      sync: 'tsx scripts/sync-project.ts',
+      sync: 'ttsx scripts/sync-project.ts',
     },
   });
 

@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 import { getPropertyNameText } from "../shared/ts-property-names.js";
 import { parseVersionFloorParts } from "../shared/version-floor.js";

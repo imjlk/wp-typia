@@ -1421,7 +1421,7 @@ test("node entry fails early for sync when scaffold dependencies are missing", (
 
   expect(errorMessage).toContain("npm install");
   expect(errorMessage).toContain("wp-typia sync");
-  expect(errorMessage).toContain("tsx");
+  expect(errorMessage).toContain("ttsx");
 });
 
 test("node entry supports external layer flags for built-in create scaffolds", () => {

@@ -209,7 +209,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 \t\targs.push( '--check' );
 \t}
 
-\tconst result = spawnSync( 'tsx', args, {
+\tconst result = spawnSync( 'ttsx', args, {
 \t\tcwd: process.cwd(),
 \t\tenv: getSyncScriptEnv(),
 \t\tshell: process.platform === 'win32',
@@ -219,7 +219,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 \tif ( result.error ) {
 \t\tif ( isFileNotFoundError( result.error ) ) {
 \t\t\tthrow new Error(
-\t\t\t\t'Unable to resolve \`tsx\` for project sync. Install project dependencies or rerun the command through your package manager.'
+\t\t\t\t'Unable to resolve \`ttsx\` for project sync. Install project dependencies or rerun the command through your package manager.'
 \t\t\t);
 \t\t}
 

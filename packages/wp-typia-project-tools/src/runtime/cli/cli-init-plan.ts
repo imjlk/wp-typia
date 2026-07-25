@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { analyzeSourceTypes } from "@wp-typia/block-runtime/metadata-parser";
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 import { discoverMigrationInitLayout } from "../migration/migration-project.js";
 import type { MigrationBlockConfig } from "../migration/migration-types.js";

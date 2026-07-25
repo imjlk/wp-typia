@@ -2000,12 +2000,12 @@ test("official workspace template scaffolds through the local npm template resol
   expect(blockConfigSource).toContain("// wp-typia add post-meta entries");
   expect(blockConfigSource).toContain("REST_SCHEMA_PACKAGE");
   expect(blockConfigSource).toContain("outputDir: 'inc/rest-schemas'");
-  expect(packageJson.scripts.sync).toBe("tsx scripts/sync-project.ts");
+  expect(packageJson.scripts.sync).toBe("ttsx scripts/sync-project.ts");
   expect(packageJson.scripts["sync-rest:package"]).toBe(
-    "tsx scripts/sync-rest-contracts.ts --package"
+    "ttsx scripts/sync-rest-contracts.ts --package"
   );
   expect(packageJson.scripts["sync-rest:package:check"]).toBe(
-    "tsx scripts/sync-rest-contracts.ts --package --check"
+    "ttsx scripts/sync-rest-contracts.ts --package --check"
   );
   expect(packageJson.scripts["wp-typia:sync"]).toBe("wp-typia sync");
   expect(packageJson.scripts["wp-typia:doctor"]).toBe("wp-typia doctor");
@@ -2022,7 +2022,7 @@ test("official workspace template scaffolds through the local npm template resol
   expect(packageJson.scripts.dev).toBe("npm run start");
   expect(packageJson.packageManager).toBeUndefined();
   expect(packageJson.scripts.typecheck).toBe(
-    "npm run sync -- --check && tsc --noEmit"
+    "npm run sync -- --check && ttsc --noEmit"
   );
   expect(packageJson.devDependencies["wp-typia"]).toBe(
     `^${wpTypiaPackageManifest.version}`
@@ -2078,8 +2078,8 @@ test("official workspace template scaffolds through the local npm template resol
   expect(workspaceSyncProjectSource).toContain(
     "shell: process.platform === 'win32'"
   );
-  expect(workspaceSyncProjectSource).toContain("spawnSync( 'tsx', args");
-  expect(workspaceSyncProjectSource).not.toContain("getLocalTsxBinary");
+  expect(workspaceSyncProjectSource).toContain("spawnSync( 'ttsx', args");
+  expect(workspaceSyncProjectSource).not.toContain("getLocalTtsxBinary");
 });
 
 test.each(["7.0", "6.9"] as const)(

@@ -210,7 +210,7 @@ describe("wp-typia init", () => {
 		expect(
 			plan.packageChanges.scripts.find((script) => script.name === "typecheck")
 				?.requiredValue,
-		).toBe("pnpm run sync --check && tsc --noEmit");
+		).toBe("pnpm run sync --check && ttsc --noEmit");
 		expect(plan.nextSteps).toContain(
 			`pnpm dlx wp-typia@${wpTypiaPackageManifest.version} doctor`,
 		);
@@ -283,9 +283,9 @@ describe("wp-typia init", () => {
 		expect(packageJson.devDependencies?.["@wordpress/blocks"]).toBe(
 			DEFAULT_WORDPRESS_BLOCKS_VERSION,
 		);
-		expect(packageJson.scripts?.sync).toBe("tsx scripts/sync-project.ts");
+		expect(packageJson.scripts?.sync).toBe("ttsx scripts/sync-project.ts");
 		expect(packageJson.scripts?.typecheck).toBe(
-			"pnpm run sync --check && tsc --noEmit",
+			"pnpm run sync --check && ttsc --noEmit",
 		);
 		expect(blockConfigSource).toContain(`blockJsonFile: "block.json"`);
 		expect(blockConfigSource).toContain(`manifestFile: "typia.manifest.json"`);
@@ -320,7 +320,7 @@ describe("wp-typia init", () => {
 						{
 							action: "add",
 							name: "sync",
-							requiredValue: "tsx scripts/sync-project.ts",
+							requiredValue: "ttsx scripts/sync-project.ts",
 						},
 					],
 				},
@@ -347,7 +347,7 @@ describe("wp-typia init", () => {
 		expect(changes).toEqual([
 			"devDependency add @wp-typia/block-runtime -> 1.2.3",
 			"packageManager update -> npm@11.6.1",
-			"script add sync -> tsx scripts/sync-project.ts",
+			"script add sync -> ttsx scripts/sync-project.ts",
 			"file add scripts/sync-project.ts (Provide one shared sync entrypoint.)",
 			"generated artifact src/typia.manifest.json",
 		]);
@@ -442,18 +442,19 @@ describe("wp-typia init", () => {
 					name: "retrofit-already-initialized",
 					private: true,
 					scripts: {
-						sync: "tsx scripts/sync-project.ts",
-						"sync-types": "tsx scripts/sync-types-to-block-json.ts",
-						typecheck: "npm run sync -- --check && tsc --noEmit",
+						sync: "ttsx scripts/sync-project.ts",
+						"sync-types": "ttsx scripts/sync-types-to-block-json.ts",
+						typecheck: "npm run sync -- --check && ttsc --noEmit",
 					},
 					devDependencies: {
-						"@typia/unplugin": versions.typiaUnpluginPackageVersion,
+						"@ttsc/lint": versions.ttscLintPackageVersion,
+						"@ttsc/unplugin": versions.ttscUnpluginPackageVersion,
 						"@types/wordpress__blocks":
 							DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION,
 						"@wordpress/blocks": DEFAULT_WORDPRESS_BLOCKS_VERSION,
 						"@wp-typia/block-runtime": versions.blockRuntimePackageVersion,
 						"@wp-typia/block-types": versions.blockTypesPackageVersion,
-						tsx: versions.tsxPackageVersion,
+						ttsc: versions.ttscPackageVersion,
 						typescript: versions.typescriptPackageVersion,
 						typia: versions.typiaPackageVersion,
 					},

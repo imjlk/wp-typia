@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 import { parseInventorySection } from "./workspace-inventory-parser-entries.js";
 import {

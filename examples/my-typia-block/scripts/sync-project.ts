@@ -53,7 +53,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 		args.push( '--check' );
 	}
 
-	const result = spawnSync( 'tsx', args, {
+	const result = spawnSync( 'ttsx', args, {
 		cwd: process.cwd(),
 		env: getSyncScriptEnv(),
 		shell: process.platform === 'win32',
@@ -63,7 +63,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 	if ( result.error ) {
 		if ( ( result.error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
 			throw new Error(
-				'Unable to resolve `tsx` for project sync. Install project dependencies or rerun the command through your package manager.'
+				'Unable to resolve `ttsx` for project sync. Install project dependencies or rerun the command through your package manager.'
 			);
 		}
 

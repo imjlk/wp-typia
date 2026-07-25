@@ -7,6 +7,7 @@ import {
 	collectTypeScriptImportFiles,
 	evaluateTypeScriptRuntimePackagePolicy,
 	sourceImportsTypeScriptAtRuntime,
+	TYPESCRIPT_COMPILER_API_PACKAGE,
 	TYPESCRIPT_DEPENDENCY_POLICY,
 } from "../../scripts/lib/typescript-runtime-policy.mjs";
 
@@ -20,7 +21,7 @@ afterEach(() => {
 });
 
 describe("typescript-runtime-policy", () => {
-	test("detects shipped runtime source imports of typescript", () => {
+	test("detects shipped runtime source imports of the TypeScript 6 compatibility package", () => {
 		const importFiles = collectTypeScriptImportFiles(
 			"packages/wp-typia-block-runtime",
 			["src"],
@@ -33,35 +34,39 @@ describe("typescript-runtime-policy", () => {
 	});
 
 	test("detects side-effect imports but ignores type-only TypeScript imports", () => {
-		expect(sourceImportsTypeScriptAtRuntime('import "typescript";')).toBe(true);
 		expect(
 			sourceImportsTypeScriptAtRuntime(
-				'import type { SourceFile } from "typescript";',
-			),
-		).toBe(false);
-		expect(
-			sourceImportsTypeScriptAtRuntime(
-				'import { type SourceFile } from "typescript";',
-			),
-		).toBe(false);
-		expect(
-			sourceImportsTypeScriptAtRuntime(
-				'export type { SourceFile } from "typescript";',
-			),
-		).toBe(false);
-		expect(
-			sourceImportsTypeScriptAtRuntime(
-				'export { type SourceFile } from "typescript";',
-			),
-		).toBe(false);
-		expect(
-			sourceImportsTypeScriptAtRuntime(
-				'import ts = require("typescript");',
+				`import "${TYPESCRIPT_COMPILER_API_PACKAGE}";`,
 			),
 		).toBe(true);
 		expect(
 			sourceImportsTypeScriptAtRuntime(
-				'import type ts = require("typescript");',
+				`import type { SourceFile } from "${TYPESCRIPT_COMPILER_API_PACKAGE}";`,
+			),
+		).toBe(false);
+		expect(
+			sourceImportsTypeScriptAtRuntime(
+				`import { type SourceFile } from "${TYPESCRIPT_COMPILER_API_PACKAGE}";`,
+			),
+		).toBe(false);
+		expect(
+			sourceImportsTypeScriptAtRuntime(
+				`export type { SourceFile } from "${TYPESCRIPT_COMPILER_API_PACKAGE}";`,
+			),
+		).toBe(false);
+		expect(
+			sourceImportsTypeScriptAtRuntime(
+				`export { type SourceFile } from "${TYPESCRIPT_COMPILER_API_PACKAGE}";`,
+			),
+		).toBe(false);
+		expect(
+			sourceImportsTypeScriptAtRuntime(
+				`import ts = require("${TYPESCRIPT_COMPILER_API_PACKAGE}");`,
+			),
+		).toBe(true);
+		expect(
+			sourceImportsTypeScriptAtRuntime(
+				`import type ts = require("${TYPESCRIPT_COMPILER_API_PACKAGE}");`,
 			),
 		).toBe(false);
 	});
@@ -74,12 +79,12 @@ describe("typescript-runtime-policy", () => {
 		fs.mkdirSync(path.join(tempDir, "src"), { recursive: true });
 		fs.writeFileSync(
 			path.join(tempDir, "src", "runtime.d.mts"),
-			'import "typescript";\n',
+			`import "${TYPESCRIPT_COMPILER_API_PACKAGE}";\n`,
 			"utf8",
 		);
 		fs.writeFileSync(
 			path.join(tempDir, "src", "runtime.d.cts"),
-			'import type { SourceFile } from "typescript";\n',
+			`import type { SourceFile } from "${TYPESCRIPT_COMPILER_API_PACKAGE}";\n`,
 			"utf8",
 		);
 
@@ -101,22 +106,22 @@ describe("typescript-runtime-policy", () => {
 		const result = evaluateTypeScriptRuntimePackagePolicy(policy, {
 			packedManifest: {
 				devDependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			sourceManifest: {
 				devDependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			typeScriptImportFiles: ["src/runtime.ts"],
 		});
 
 		expect(result.errors).toContain(
-			"@example/runtime must keep typescript in dependencies because its shipped runtime uses the TypeScript compiler API. Found devDependencies in source package.json.",
+			"@example/runtime must keep @typescript/typescript6 in dependencies because its shipped runtime uses the TypeScript compiler API. Found devDependencies in source package.json.",
 		);
 		expect(result.errors).toContain(
-			"Packed @example/runtime manifest must keep typescript in dependencies because its shipped runtime uses the TypeScript compiler API. Found devDependencies.",
+			"Packed @example/runtime manifest must keep @typescript/typescript6 in dependencies because its shipped runtime uses the TypeScript compiler API. Found devDependencies.",
 		);
 	});
 
@@ -133,19 +138,19 @@ describe("typescript-runtime-policy", () => {
 		const result = evaluateTypeScriptRuntimePackagePolicy(policy, {
 			packedManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			sourceManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			typeScriptImportFiles: ["src/runtime.ts"],
 		});
 
 		expect(result.errors).toContain(
-			"@example/runtime audit is stale: expected shipped runtime sources to import typescript from src/metadata.ts.",
+			"@example/runtime audit is stale: expected shipped runtime sources to import @typescript/typescript6 from src/metadata.ts.",
 		);
 	});
 
@@ -162,19 +167,19 @@ describe("typescript-runtime-policy", () => {
 		const result = evaluateTypeScriptRuntimePackagePolicy(policy, {
 			packedManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			sourceManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			typeScriptImportFiles: ["src/extra-runtime.ts", "src/runtime.ts"],
 		});
 
 		expect(result.errors).toContain(
-			"@example/runtime audit is stale: found additional shipped runtime sources importing typescript from src/extra-runtime.ts.",
+			"@example/runtime audit is stale: found additional shipped runtime sources importing @typescript/typescript6 from src/extra-runtime.ts.",
 		);
 	});
 
@@ -192,22 +197,22 @@ describe("typescript-runtime-policy", () => {
 		const result = evaluateTypeScriptRuntimePackagePolicy(policy, {
 			packedManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			sourceManifest: {
 				dependencies: {
-					typescript: "^5.9.2",
+					[TYPESCRIPT_COMPILER_API_PACKAGE]: "6.0.2",
 				},
 			},
 			typeScriptImportFiles: [],
 		});
 
 		expect(result.errors).toContain(
-			"@example/cli must not list typescript in dependencies because the published package does not import the TypeScript compiler API in shipped runtime sources.",
+			"@example/cli must not list @typescript/typescript6 in dependencies because the published package does not import the TypeScript compiler API in shipped runtime sources.",
 		);
 		expect(result.errors).toContain(
-			"Packed @example/cli manifest must not list typescript in dependencies because the published package does not import the TypeScript compiler API in shipped runtime sources.",
+			"Packed @example/cli manifest must not list @typescript/typescript6 in dependencies because the published package does not import the TypeScript compiler API in shipped runtime sources.",
 		);
 	});
 
@@ -225,7 +230,7 @@ describe("typescript-runtime-policy", () => {
 			packedManifest: {},
 			sourceManifest: {
 				devDependencies: {
-					typescript: "^5.9.2",
+					typescript: "7.0.2",
 				},
 			},
 			typeScriptImportFiles: ["src/index.ts"],

@@ -7,7 +7,7 @@ import {
 } from "./migration-test-harness-manifest.js";
 import {
 	createProjectShell,
-	repoTsxPath,
+	repoTtsxPath,
 	writeFile,
 	writeJson,
 } from "./migration-test-harness-runtime.js";
@@ -269,7 +269,7 @@ export function createVersionedMigrationProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function addLegacyVersion(projectDir: string, version: string, sourceVersion = "v1") {

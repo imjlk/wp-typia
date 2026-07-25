@@ -214,7 +214,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'utf8',
       );
 
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
@@ -225,7 +225,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(pluginBootstrap).toContain('build/blocks');
       expect(
@@ -264,7 +264,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'Demo Compound Item',
       );
       expect(packageJson.scripts['add-child']).toBe(
-        'tsx scripts/add-compound-child.ts',
+        'ttsx scripts/add-compound-child.ts',
       );
       expect(
         fs.existsSync(
@@ -809,12 +809,12 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(packageJson.scripts['watch:sync-rest']).toBe(
         'chokidar "src/blocks/**/api-types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-rest"',
       );
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(
         fs.existsSync(path.join(targetDir, 'inc', 'rest-shared.php')),
@@ -1010,7 +1010,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(generatedAddChild).toContain('createTemplateValidatorToolkit');
       expect(generatedAddChild).not.toContain('createScaffoldValidatorToolkit');
       expect(packageJson.scripts['add-child']).toBe(
-        'tsx scripts/add-compound-child.ts',
+        'ttsx scripts/add-compound-child.ts',
       );
       expect(
         fs.existsSync(path.join(targetDir, 'scripts', 'sync-project.ts')),
@@ -1023,8 +1023,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(generatedParentSyncProject).toContain(
         "shell: process.platform === 'win32'",
       );
-      expect(generatedParentSyncProject).toContain("spawnSync( 'tsx', args");
-      expect(generatedParentSyncProject).not.toContain('getLocalTsxBinary');
+      expect(generatedParentSyncProject).toContain("spawnSync( 'ttsx', args");
+      expect(generatedParentSyncProject).not.toContain('getLocalTtsxBinary');
       expect(generatedWebpackConfig).toContain('createTypiaWebpackConfig');
       expect(readme).toContain('npm run dev');
       expect(readme).toContain('npm run sync');

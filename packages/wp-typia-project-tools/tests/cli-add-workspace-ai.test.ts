@@ -196,7 +196,7 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			"function demo_space_register_ai_features()",
 		);
 		expect(bootstrapSource).toContain("inc/ai-features/*.php");
-		expect(packageJson.scripts?.["sync-ai"]).toBe("tsx scripts/sync-ai-features.ts");
+		expect(packageJson.scripts?.["sync-ai"]).toBe("ttsx scripts/sync-ai-features.ts");
 		expect(packageJson.devDependencies?.["@wp-typia/project-tools"]).toBeDefined();
 		expect(syncProjectSource).toContain("const syncAiScriptPath");
 		expect(syncProjectSource).toContain(

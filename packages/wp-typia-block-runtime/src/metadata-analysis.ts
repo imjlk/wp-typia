@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 /**
  * Hold shared compiler state for metadata parsing and symbol resolution.

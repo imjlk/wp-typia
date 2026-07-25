@@ -19,7 +19,7 @@ import {
   loadMigrationProject,
 } from './migration-project.js'
 import {
-  getLocalTsxBinary,
+  getLocalTtsxBinary,
   isInteractiveTerminal,
   resolveTargetMigrationVersion,
 } from './migration-utils.js'
@@ -148,7 +148,7 @@ export function fuzzProjectMigrations(
     return { fuzzedVersions: [], seed }
   }
 
-  const tsxBinary = getLocalTsxBinary(projectDir)
+  const ttsxBinary = getLocalTtsxBinary(projectDir)
   for (const [blockKey, entries] of Object.entries(blockEntries)) {
     const block = state.blocks.find((entry) => entry.key === blockKey)
     if (!block || entries.length === 0) {
@@ -181,7 +181,7 @@ export function fuzzProjectMigrations(
       String(iterations),
       ...(seed === undefined ? [] : ['--seed', String(seed)]),
     ]
-    execFileSync(tsxBinary, args, {
+    execFileSync(ttsxBinary, args, {
       cwd: projectDir,
       shell: process.platform === 'win32',
       stdio: 'inherit',

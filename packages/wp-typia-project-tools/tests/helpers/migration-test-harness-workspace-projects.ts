@@ -6,7 +6,7 @@ import {
 	HELPERS_SOURCE,
 } from "./migration-test-harness-manifest.js";
 import {
-	repoTsxPath,
+	repoTtsxPath,
 	writeFile,
 	writeJson,
 } from "./migration-test-harness-runtime.js";
@@ -185,7 +185,7 @@ export function createMultiBlockMigrationProject(
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function addOfficialWorkspaceInventory(

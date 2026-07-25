@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 function hasFilesystemRoot(filePath: string): boolean {
   return (

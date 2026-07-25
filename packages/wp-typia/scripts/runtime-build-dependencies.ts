@@ -239,7 +239,7 @@ export async function ensureRuntimeBuildDependencies() {
 		await fs.rm(buildStep.outdir, { force: true, recursive: true });
 		const buildResult = spawnSync(
 			bunExecutable,
-			["x", "tsc", "-p", buildStep.tsconfig],
+			["x", "ttsc", "-p", buildStep.tsconfig],
 			{
 				cwd: buildStep.cwd,
 				env: process.env,

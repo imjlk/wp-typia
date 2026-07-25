@@ -167,7 +167,7 @@ const serviceUrl = getEnv("WP_TYPIA_SERVICE_URL", "").trim();
 
 // Extend this starter with project-specific generated REST clients or schema
 // checks as the workspace grows. For example, read JSON schemas under
-// src/rest/<resource>/api-schemas or import TS clients through a tsx-powered
+// src/rest/<resource>/api-schemas or import TS clients through a ttsx-powered
 // smoke runner when you need authenticated route coverage.
 
 await assertJsonEndpoint(

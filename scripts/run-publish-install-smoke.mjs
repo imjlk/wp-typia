@@ -179,7 +179,7 @@ function installGeneratedProject(projectDir, tarballs) {
 }
 
 function typecheckGeneratedProject(projectDir) {
-	run(npmCommand, ["exec", "--", "tsc", "--noEmit"], { cwd: projectDir });
+	run(npmCommand, ["exec", "--", "ttsc", "--noEmit"], { cwd: projectDir });
 }
 
 execFileSync("bun", ["run", "packages:build"], {
@@ -326,7 +326,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		[
 			"exec",
 			"--",
-			"tsc",
+			"ttsc",
 			"--project",
 			"block-types-peer-free-tsconfig.json",
 		],
@@ -755,7 +755,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	]);
 	assertScaffoldDependencyRanges(compoundDir, "devDependencies", expectedRanges);
 	installGeneratedProject(compoundDir, tarballs);
-	run(npmCommand, ["exec", "--", "tsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
+	run(npmCommand, ["exec", "--", "ttsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
 		cwd: compoundDir,
 	});
 	assertFilesExist(compoundDir, [

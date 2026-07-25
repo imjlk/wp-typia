@@ -213,13 +213,13 @@ export function detectPackageManagerId(
   );
 }
 
-export function getLocalTsxBinary(projectDir: string): string {
-  const filename = process.platform === 'win32' ? 'tsx.cmd' : 'tsx';
+export function getLocalTtsxBinary(projectDir: string): string {
+  const filename = process.platform === 'win32' ? 'ttsx.cmd' : 'ttsx';
   const binaryPath = path.join(projectDir, 'node_modules', '.bin', filename);
 
   if (!fs.existsSync(binaryPath)) {
     throw new Error(
-      'Local tsx binary was not found. Install project dependencies before running migration verification.',
+      'Local ttsx binary was not found. Install project dependencies before running migration verification.',
     );
   }
 

@@ -129,7 +129,7 @@ test(
     expect(packageJson.dependencies["@wordpress/data"]).toBe("~10.46.0");
     expect(packageJson.devDependencies["chokidar-cli"]).toBe("^3.0.0");
     expect(packageJson.devDependencies.concurrently).toBe("^9.0.1");
-    expect(packageJson.scripts.sync).toBe("tsx scripts/sync-project.ts");
+    expect(packageJson.scripts.sync).toBe("ttsx scripts/sync-project.ts");
     expect(packageJson.scripts.build).toBe(
       "npm run sync -- --check && wp-scripts build --experimental-modules"
     );
@@ -146,7 +146,7 @@ test(
       'chokidar "src/api-types.ts" --debounce 200 -c "npm run sync-rest"'
     );
     expect(packageJson.scripts.typecheck).toBe(
-      "npm run sync -- --check && tsc --noEmit"
+      "npm run sync -- --check && ttsc --noEmit"
     );
     expect(blockJson.textdomain).toBe("demo-persistence-public");
     expect(blockJson.version).toBe("0.1.0");
@@ -374,8 +374,8 @@ test(
     expect(generatedSyncProject).toContain(
       "shell: process.platform === 'win32'"
     );
-    expect(generatedSyncProject).toContain("spawnSync( 'tsx', args");
-    expect(generatedSyncProject).not.toContain("getLocalTsxBinary");
+    expect(generatedSyncProject).toContain("spawnSync( 'ttsx', args");
+    expect(generatedSyncProject).not.toContain("getLocalTtsxBinary");
     expect(generatedRender).not.toContain("publicWriteToken");
     expect(generatedRender).toContain(
       "demo_persistence_public_record_rendered_block_instance"

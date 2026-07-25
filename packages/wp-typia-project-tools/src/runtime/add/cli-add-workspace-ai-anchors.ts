@@ -85,7 +85,7 @@ export async function ensureAiFeaturePackageScripts(
 	const nextScripts = {
 		...(packageJson.scripts ?? {}),
 		"sync-ai":
-			packageJson.scripts?.["sync-ai"] ?? "tsx scripts/sync-ai-features.ts",
+			packageJson.scripts?.["sync-ai"] ?? "ttsx scripts/sync-ai-features.ts",
 	};
 	const nextDevDependencies = {
 		...(packageJson.devDependencies ?? {}),

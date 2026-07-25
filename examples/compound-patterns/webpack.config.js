@@ -216,7 +216,7 @@ function getOptionalModuleEntries() {
 
 module.exports = async () => {
 	const { default: UnpluginTypia } = await import(
-		'@typia/unplugin/webpack'
+		'@ttsc/unplugin/webpack'
 	);
 	const resolvedDefaultConfig =
 		typeof defaultConfig === 'function'

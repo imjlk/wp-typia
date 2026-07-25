@@ -221,10 +221,26 @@ async function importCompiledModule(moduleFile: string): Promise<{
 
 async function compileGeneratedModule() {
   const require = createRequire(import.meta.url);
-  const tspcBin = require.resolve("ts-patch/bin/tspc.js");
+  const ttscPackageJsonPath = require.resolve("ttsc/package.json");
+  const ttscManifest = JSON.parse(
+    await readFile(ttscPackageJsonPath, "utf8")
+  ) as {
+    bin?: string | Record<string, string>;
+  };
+  const ttscBinEntry =
+    typeof ttscManifest.bin === "string"
+      ? ttscManifest.bin
+      : ttscManifest.bin?.ttsc;
+  if (typeof ttscBinEntry !== "string" || ttscBinEntry.length === 0) {
+    throw new Error("Unable to locate the ttsc CLI entry point.");
+  }
+  const ttscBin = path.resolve(
+    path.dirname(ttscPackageJsonPath),
+    ttscBinEntry
+  );
 
   await rm(COMPILED_OUTPUT_DIR, { force: true, recursive: true });
-  await execFileAsync("node", [tspcBin, "-p", TSCONFIG_FILE], {
+  await execFileAsync("node", [ttscBin, "-p", TSCONFIG_FILE], {
     cwd: EXAMPLE_ROOT,
     env: process.env,
   });

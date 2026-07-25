@@ -7,6 +7,8 @@ export interface TypeScriptRuntimePackagePolicy {
 	typescriptPlacement: "dependency" | "non-runtime";
 }
 
+export declare const TYPESCRIPT_COMPILER_API_PACKAGE: "@typescript/typescript6";
+
 export declare const TYPESCRIPT_DEPENDENCY_POLICY: {
 	dependency: "dependency";
 	nonRuntime: "non-runtime";

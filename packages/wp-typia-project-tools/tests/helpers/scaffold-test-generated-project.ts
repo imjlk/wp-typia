@@ -3,8 +3,24 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
+import { packageRoot } from "./scaffold-test-paths.js";
 import { runCli } from "./scaffold-test-runtime.js";
 import { linkWorkspaceNodeModules } from "./scaffold-test-workspace.js";
+
+const TTSC_TEST_CACHE_DIR = path.resolve(
+	packageRoot,
+	"..",
+	"..",
+	"node_modules",
+	".cache",
+	"ttsc",
+);
+
+function getTtscTestEnv() {
+	return {
+		TTSC_CACHE_DIR: process.env.TTSC_CACHE_DIR ?? TTSC_TEST_CACHE_DIR,
+	};
+}
 
 export function runGeneratedScript(
 	targetDir: string,
@@ -14,6 +30,7 @@ export function runGeneratedScript(
 	linkWorkspaceNodeModules(targetDir);
 	return runCli("bun", [path.join(targetDir, scriptRelativePath), ...args], {
 		cwd: targetDir,
+		env: getTtscTestEnv(),
 	});
 }
 
@@ -30,6 +47,10 @@ export async function runGeneratedScriptAsync(
 		{
 			cwd: targetDir,
 			encoding: "utf8",
+			env: {
+				...process.env,
+				...getTtscTestEnv(),
+			},
 		},
 	);
 
@@ -39,10 +60,11 @@ export async function runGeneratedScriptAsync(
 export function typecheckGeneratedProject(targetDir: string) {
 	linkWorkspaceNodeModules(targetDir);
 	return runCli(
-		path.join(targetDir, "node_modules", ".bin", "tsc"),
+		path.join(targetDir, "node_modules", ".bin", "ttsc"),
 		["--noEmit"],
 		{
 			cwd: targetDir,
+			env: getTtscTestEnv(),
 		},
 	);
 }
@@ -55,6 +77,10 @@ export function buildGeneratedProject(targetDir: string) {
 		{
 			cwd: targetDir,
 			encoding: "utf8",
+			env: {
+				...process.env,
+				...getTtscTestEnv(),
+			},
 			maxBuffer: 10 * 1024 * 1024,
 		},
 	);

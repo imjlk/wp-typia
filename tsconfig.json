@@ -2,86 +2,90 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@wp-typia/project-tools": [
-        "packages/wp-typia-project-tools/src/runtime/index.ts"
+        "./packages/wp-typia-project-tools/src/runtime/index.ts"
       ],
       "@wp-typia/project-tools/*": [
-        "packages/wp-typia-project-tools/src/runtime/*.ts"
+        "./packages/wp-typia-project-tools/src/runtime/*.ts"
       ],
       "@wp-typia/project-tools/schema-core": [
-        "packages/wp-typia-project-tools/src/runtime/schema-core.ts"
+        "./packages/wp-typia-project-tools/src/runtime/schema-core.ts"
       ],
-      "@wp-typia/rest": ["packages/wp-typia-rest/src/index.ts"],
-      "@wp-typia/rest/*": ["packages/wp-typia-rest/src/*"],
-      "@wp-typia/api-client": ["packages/wp-typia-api-client/src/index.ts"],
-      "@wp-typia/api-client/*": ["packages/wp-typia-api-client/src/*"],
-      "@wp-typia/block-types": ["packages/wp-typia-block-types/src/index.ts"],
-      "@wp-typia/block-types/*": ["packages/wp-typia-block-types/src/*"],
-      "@wp-typia/dataviews": ["packages/wp-typia-dataviews/src/index.ts"],
-      "@wp-typia/dataviews/*": ["packages/wp-typia-dataviews/src/*"],
+      "@wp-typia/rest": ["./packages/wp-typia-rest/src/index.ts"],
+      "@wp-typia/rest/*": ["./packages/wp-typia-rest/src/*"],
+      "@wp-typia/api-client": ["./packages/wp-typia-api-client/src/index.ts"],
+      "@wp-typia/api-client/*": ["./packages/wp-typia-api-client/src/*"],
+      "@wp-typia/block-types": ["./packages/wp-typia-block-types/src/index.ts"],
+      "@wp-typia/block-types/*": ["./packages/wp-typia-block-types/src/*"],
+      "@wp-typia/dataviews": ["./packages/wp-typia-dataviews/src/index.ts"],
+      "@wp-typia/dataviews/*": ["./packages/wp-typia-dataviews/src/*"],
       "@wp-typia/block-runtime": [
-        "packages/wp-typia-block-runtime/src/index.ts"
+        "./packages/wp-typia-block-runtime/src/index.ts"
       ],
       "@wp-typia/block-runtime/blocks": [
-        "packages/wp-typia-block-runtime/src/blocks.ts"
+        "./packages/wp-typia-block-runtime/src/blocks.ts"
       ],
       "@wp-typia/block-runtime/schema-core": [
-        "packages/wp-typia-block-runtime/src/schema-core.ts"
+        "./packages/wp-typia-block-runtime/src/schema-core.ts"
       ],
       "@wp-typia/block-runtime/schema-test": [
-        "packages/wp-typia-block-runtime/src/schema-test.ts"
+        "./packages/wp-typia-block-runtime/src/schema-test.ts"
       ],
       "@wp-typia/block-runtime/migration-types": [
-        "packages/wp-typia-block-runtime/src/migration-types.ts"
+        "./packages/wp-typia-block-runtime/src/migration-types.ts"
       ],
       "@wp-typia/block-runtime/metadata-core": [
-        "packages/wp-typia-block-runtime/src/metadata-core.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-core.ts"
       ],
       "@wp-typia/block-runtime/metadata-analysis": [
-        "packages/wp-typia-block-runtime/src/metadata-analysis.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-analysis.ts"
       ],
       "@wp-typia/block-runtime/metadata-model": [
-        "packages/wp-typia-block-runtime/src/metadata-model.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-model.ts"
       ],
       "@wp-typia/block-runtime/metadata-parser": [
-        "packages/wp-typia-block-runtime/src/metadata-parser.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-parser.ts"
       ],
       "@wp-typia/block-runtime/metadata-php-render": [
-        "packages/wp-typia-block-runtime/src/metadata-php-render.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-php-render.ts"
       ],
       "@wp-typia/block-runtime/metadata-projection": [
-        "packages/wp-typia-block-runtime/src/metadata-projection.ts"
+        "./packages/wp-typia-block-runtime/src/metadata-projection.ts"
       ],
       "@wp-typia/block-runtime/defaults": [
-        "packages/wp-typia-block-runtime/src/defaults.ts"
+        "./packages/wp-typia-block-runtime/src/defaults.ts"
       ],
       "@wp-typia/block-runtime/json-utils": [
-        "packages/wp-typia-block-runtime/src/json-utils.ts"
+        "./packages/wp-typia-block-runtime/src/json-utils.ts"
       ],
       "@wp-typia/block-runtime/editor": [
-        "packages/wp-typia-block-runtime/src/editor.ts"
+        "./packages/wp-typia-block-runtime/src/editor.ts"
       ],
       "@wp-typia/block-runtime/identifiers": [
-        "packages/wp-typia-block-runtime/src/identifiers.ts"
+        "./packages/wp-typia-block-runtime/src/identifiers.ts"
       ],
       "@wp-typia/block-runtime/inspector": [
-        "packages/wp-typia-block-runtime/src/inspector.ts"
+        "./packages/wp-typia-block-runtime/src/inspector.ts"
       ],
       "@wp-typia/block-runtime/validation": [
-        "packages/wp-typia-block-runtime/src/validation.ts"
+        "./packages/wp-typia-block-runtime/src/validation.ts"
       ]
     },
-    "plugins": [{ "transform": "typia/lib/transform" }],
     "types": ["bun-types", "node"]
   },
   "include": [
+    "*.ts",
+    "apps/docs/src/**/*.ts",
     "packages/*/src/**/*",
     "packages/*/tests/**/*",
+    "packages/*/scripts/**/*",
+    "packages/*/bin/**/*",
     "examples/**/src/**/*",
+    "examples/**/scripts/**/*",
     "scripts/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "types/**/*"
   ],
   "exclude": [
     "node_modules",

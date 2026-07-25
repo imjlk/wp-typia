@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import ts from "typescript";
+import ts from "@typescript/typescript6";
+
+export const TYPESCRIPT_COMPILER_API_PACKAGE = "@typescript/typescript6";
 
 export const TYPESCRIPT_DEPENDENCY_POLICY = {
 	dependency: "dependency",
@@ -191,7 +193,7 @@ export function sourceImportsTypeScriptAtRuntime(source, filePath = "source.ts")
 		if (
 			ts.isImportDeclaration(node) &&
 			ts.isStringLiteralLike(node.moduleSpecifier) &&
-			node.moduleSpecifier.text === "typescript"
+			node.moduleSpecifier.text === TYPESCRIPT_COMPILER_API_PACKAGE
 		) {
 			if (importClauseHasRuntimeBindings(node.importClause)) {
 				found = true;
@@ -203,7 +205,7 @@ export function sourceImportsTypeScriptAtRuntime(source, filePath = "source.ts")
 			ts.isExportDeclaration(node) &&
 			node.moduleSpecifier &&
 			ts.isStringLiteralLike(node.moduleSpecifier) &&
-			node.moduleSpecifier.text === "typescript" &&
+			node.moduleSpecifier.text === TYPESCRIPT_COMPILER_API_PACKAGE &&
 			exportDeclarationHasRuntimeBindings(node)
 		) {
 			found = true;
@@ -216,7 +218,7 @@ export function sourceImportsTypeScriptAtRuntime(source, filePath = "source.ts")
 			ts.isExternalModuleReference(node.moduleReference) &&
 			node.moduleReference.expression &&
 			ts.isStringLiteralLike(node.moduleReference.expression) &&
-			node.moduleReference.expression.text === "typescript"
+			node.moduleReference.expression.text === TYPESCRIPT_COMPILER_API_PACKAGE
 		) {
 			found = true;
 			return;
@@ -224,7 +226,10 @@ export function sourceImportsTypeScriptAtRuntime(source, filePath = "source.ts")
 
 		if (ts.isCallExpression(node) && node.arguments.length === 1) {
 			const [argument] = node.arguments;
-			if (ts.isStringLiteralLike(argument) && argument.text === "typescript") {
+			if (
+				ts.isStringLiteralLike(argument) &&
+				argument.text === TYPESCRIPT_COMPILER_API_PACKAGE
+			) {
 				if (
 					(ts.isIdentifier(node.expression) && node.expression.text === "require") ||
 					node.expression.kind === ts.SyntaxKind.ImportKeyword
@@ -260,11 +265,17 @@ export function collectTypeScriptImportFiles(packageDir, runtimeSourceRoots) {
 }
 
 export function getTypeScriptDependencyPlacement(packageJson) {
-	if (typeof packageJson?.dependencies?.typescript === "string") {
+	if (
+		typeof packageJson?.dependencies?.[TYPESCRIPT_COMPILER_API_PACKAGE] ===
+		"string"
+	) {
 		return "dependencies";
 	}
 
-	if (typeof packageJson?.devDependencies?.typescript === "string") {
+	if (
+		typeof packageJson?.devDependencies?.[TYPESCRIPT_COMPILER_API_PACKAGE] ===
+		"string"
+	) {
 		return "devDependencies";
 	}
 
@@ -289,13 +300,13 @@ export function evaluateTypeScriptRuntimePackagePolicy(
 	if (policy.typescriptPlacement === TYPESCRIPT_DEPENDENCY_POLICY.dependency) {
 		if (sourcePlacement !== "dependencies") {
 			errors.push(
-				`${policy.packageName} must keep typescript in dependencies because ${policy.reason}. Found ${sourcePlacement} in source package.json.`,
+				`${policy.packageName} must keep ${TYPESCRIPT_COMPILER_API_PACKAGE} in dependencies because ${policy.reason}. Found ${sourcePlacement} in source package.json.`,
 			);
 		}
 
 		if (packedPlacement !== "dependencies") {
 			errors.push(
-				`Packed ${policy.packageName} manifest must keep typescript in dependencies because ${policy.reason}. Found ${packedPlacement}.`,
+				`Packed ${policy.packageName} manifest must keep ${TYPESCRIPT_COMPILER_API_PACKAGE} in dependencies because ${policy.reason}. Found ${packedPlacement}.`,
 			);
 		}
 
@@ -310,24 +321,24 @@ export function evaluateTypeScriptRuntimePackagePolicy(
 		);
 		if (missingRequiredFiles.length > 0) {
 			errors.push(
-				`${policy.packageName} audit is stale: expected shipped runtime sources to import typescript from ${missingRequiredFiles.join(", ")}.`,
+				`${policy.packageName} audit is stale: expected shipped runtime sources to import ${TYPESCRIPT_COMPILER_API_PACKAGE} from ${missingRequiredFiles.join(", ")}.`,
 			);
 		}
 		if (unexpectedImportFiles.length > 0) {
 			errors.push(
-				`${policy.packageName} audit is stale: found additional shipped runtime sources importing typescript from ${unexpectedImportFiles.join(", ")}.`,
+				`${policy.packageName} audit is stale: found additional shipped runtime sources importing ${TYPESCRIPT_COMPILER_API_PACKAGE} from ${unexpectedImportFiles.join(", ")}.`,
 			);
 		}
 	} else {
 		if (sourcePlacement === "dependencies") {
 			errors.push(
-				`${policy.packageName} must not list typescript in dependencies because ${policy.reason}.`,
+				`${policy.packageName} must not list ${TYPESCRIPT_COMPILER_API_PACKAGE} in dependencies because ${policy.reason}.`,
 			);
 		}
 
 		if (packedPlacement === "dependencies") {
 			errors.push(
-				`Packed ${policy.packageName} manifest must not list typescript in dependencies because ${policy.reason}.`,
+				`Packed ${policy.packageName} manifest must not list ${TYPESCRIPT_COMPILER_API_PACKAGE} in dependencies because ${policy.reason}.`,
 			);
 		}
 

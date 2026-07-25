@@ -8,7 +8,7 @@ import { writeJsonFile, writeTextFile } from "../../../../tests/helpers/file-fix
 
 export const packageRoot = resolvePackageRoot();
 export const entryPath = resolveCliEntryPath();
-export const repoTsxPath = resolveRepoTsxBinary();
+export const repoTtsxPath = resolveRepoTtsxBinary();
 
 export function runCli(
 	command: string,
@@ -26,28 +26,28 @@ export function writeJson(filePath: string, value: unknown) {
 	writeJsonFile(filePath, value, "\t");
 }
 
-export function resolveRepoTsxBinary() {
-	const bunTsxCandidates = [packageRoot, path.resolve(packageRoot, "../..")].flatMap((rootPath) => {
+export function resolveRepoTtsxBinary() {
+	const bunTtsxCandidates = [packageRoot, path.resolve(packageRoot, "../..")].flatMap((rootPath) => {
 		const bunDirectory = path.resolve(rootPath, "node_modules", ".bun");
 		if (!fs.existsSync(bunDirectory)) {
 			return [];
 		}
 
-		const bunTsxEntry = fs.readdirSync(bunDirectory).find((entry) => entry.startsWith("tsx@"));
-		return bunTsxEntry
-			? [path.resolve(bunDirectory, bunTsxEntry, "node_modules", ".bin", "tsx")]
+		const bunTtsxEntry = fs.readdirSync(bunDirectory).find((entry) => entry.startsWith("ttsc@"));
+		return bunTtsxEntry
+			? [path.resolve(bunDirectory, bunTtsxEntry, "node_modules", ".bin", "ttsx")]
 			: [];
 	});
 
 	const candidates = [
-		path.resolve(packageRoot, "node_modules/.bin/tsx"),
-		...bunTsxCandidates,
-		path.resolve(packageRoot, "../../node_modules/.bin/tsx"),
+		path.resolve(packageRoot, "node_modules/.bin/ttsx"),
+		...bunTtsxCandidates,
+		path.resolve(packageRoot, "../../node_modules/.bin/ttsx"),
 	];
 
 	const resolved = candidates.find((candidate) => fs.existsSync(candidate));
 	if (!resolved) {
-		throw new Error("Unable to locate a repo tsx binary for migration verification tests.");
+		throw new Error("Unable to locate a repo ttsx binary for migration verification tests.");
 	}
 
 	return resolved;

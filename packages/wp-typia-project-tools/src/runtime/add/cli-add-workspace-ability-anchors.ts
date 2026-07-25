@@ -189,7 +189,7 @@ export async function ensureAbilityPackageScripts(
 	const nextScripts = {
 		...(packageJson.scripts ?? {}),
 		"sync-abilities":
-			packageJson.scripts?.["sync-abilities"] ?? "tsx scripts/sync-abilities.ts",
+			packageJson.scripts?.["sync-abilities"] ?? "ttsx scripts/sync-abilities.ts",
 	};
 	const nextDependencies = {
 		...(packageJson.dependencies ?? {}),

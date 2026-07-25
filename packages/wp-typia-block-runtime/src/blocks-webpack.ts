@@ -34,8 +34,10 @@ export interface TypiaWebpackPluginLoaderOptions {
 }
 
 interface TypiaWebpackVersionMatrix {
-  '@typia/unplugin': string | null;
+  '@ttsc/unplugin': string | null;
   '@wordpress/scripts': string | null;
+  ttsc: string | null;
+  typescript: string | null;
   typia: string | null;
   webpack: string | null;
 }
@@ -104,6 +106,23 @@ function parseMajorVersion(version: string | null): number | null {
 
   const match = /^(\d+)/u.exec(version);
   return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function matchesMajorMinor(
+  version: string | null,
+  expectedMajor: number,
+  expectedMinor: number,
+): boolean {
+  if (!version) {
+    return false;
+  }
+
+  const match = /^(\d+)\.(\d+)/u.exec(version);
+  return (
+    match !== null &&
+    Number.parseInt(match[1], 10) === expectedMajor &&
+    Number.parseInt(match[2], 10) === expectedMinor
+  );
 }
 
 function readPackageVersion(
@@ -192,15 +211,25 @@ async function getTypiaWebpackVersionMatrix(
   const requireFromProject = createRequire(packageJsonPath);
 
   return {
-    '@typia/unplugin': resolveInstalledPackageVersion(
+    '@ttsc/unplugin': resolveInstalledPackageVersion(
       readFileSync,
       requireFromProject,
-      '@typia/unplugin',
+      '@ttsc/unplugin',
     ),
     '@wordpress/scripts': resolveInstalledPackageVersion(
       readFileSync,
       requireFromProject,
       '@wordpress/scripts',
+    ),
+    ttsc: resolveInstalledPackageVersion(
+      readFileSync,
+      requireFromProject,
+      'ttsc',
+    ),
+    typescript: resolveInstalledPackageVersion(
+      readFileSync,
+      requireFromProject,
+      'typescript',
     ),
     typia: resolveInstalledPackageVersion(
       readFileSync,
@@ -220,7 +249,9 @@ function formatInstalledMatrix(
 ): string {
   return [
     `typia=${versionMatrix.typia ?? 'missing'}`,
-    `@typia/unplugin=${versionMatrix['@typia/unplugin'] ?? 'missing'}`,
+    `ttsc=${versionMatrix.ttsc ?? 'missing'}`,
+    `typescript=${versionMatrix.typescript ?? 'missing'}`,
+    `@ttsc/unplugin=${versionMatrix['@ttsc/unplugin'] ?? 'missing'}`,
     `@wordpress/scripts=${versionMatrix['@wordpress/scripts'] ?? 'missing'}`,
     `webpack=${versionMatrix.webpack ?? 'missing'}`,
   ].join(', ');
@@ -233,8 +264,10 @@ export async function assertTypiaWebpackCompatibility({
 } = {}): Promise<TypiaWebpackVersionMatrix> {
   const versionMatrix = await getTypiaWebpackVersionMatrix(projectRoot);
   const isSupported =
-    parseMajorVersion(versionMatrix.typia) === 12 &&
-    parseMajorVersion(versionMatrix['@typia/unplugin']) === 12 &&
+    parseMajorVersion(versionMatrix.typia) === 13 &&
+    matchesMajorMinor(versionMatrix.ttsc, 0, 21) &&
+    parseMajorVersion(versionMatrix.typescript) === 7 &&
+    matchesMajorMinor(versionMatrix['@ttsc/unplugin'], 0, 21) &&
     parseMajorVersion(versionMatrix['@wordpress/scripts']) === 30 &&
     parseMajorVersion(versionMatrix.webpack) === 5;
 
@@ -246,7 +279,7 @@ export async function assertTypiaWebpackCompatibility({
     [
       'Unsupported Typia/Webpack toolchain for generated wp-typia projects.',
       `Installed versions: ${formatInstalledMatrix(versionMatrix)}.`,
-      'Supported matrix: typia 12.x, @typia/unplugin 12.x, @wordpress/scripts 30.x with webpack 5.x.',
+      'Supported matrix: typia 13.x, ttsc 0.21.x, TypeScript 7.x, @ttsc/unplugin 0.21.x, @wordpress/scripts 30.x with webpack 5.x.',
       'Generated project defaults were tested against this matrix.',
     ].join(' '),
   );

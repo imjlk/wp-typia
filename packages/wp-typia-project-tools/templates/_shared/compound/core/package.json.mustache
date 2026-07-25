@@ -7,22 +7,24 @@
   "license": "GPL-2.0-or-later",
   "main": "build/index.js",
   "scripts": {
-    "add-child": "tsx scripts/add-compound-child.ts",
-    "sync": "tsx scripts/sync-project.ts",
-    "sync-types": "tsx scripts/sync-types-to-block-json.ts",
+    "add-child": "ttsx scripts/add-compound-child.ts",
+    "sync": "ttsx scripts/sync-project.ts",
+    "sync-types": "ttsx scripts/sync-types-to-block-json.ts",
     "build": "bun run sync --check && wp-scripts build --experimental-modules",
     "start": "bun run sync && wp-scripts start --experimental-modules",
     "dev": "bun run start",
-    "typecheck": "bun run sync --check && tsc --noEmit",
+    "typecheck": "bun run sync --check && ttsc --noEmit",
+    "lint:ts": "ttsc --noEmit",
     "lint:js": "wp-scripts lint-js",
     "lint:css": "wp-scripts lint-style",
-    "lint": "bun run lint:js && bun run lint:css",
-    "format": "wp-scripts format"
+    "lint": "bun run lint:ts && bun run lint:js && bun run lint:css",
+    "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{cjs,css,js,json,md,mjs,scss,yaml,yml}\""
   },
 	"devDependencies": {
 		"@wp-typia/block-runtime": "{{blockRuntimePackageVersion}}",
 		"@wp-typia/block-types": "{{blockTypesPackageVersion}}",
-    "@typia/unplugin": "^12.0.1",
+    "@ttsc/lint": "^0.21.0",
+    "@ttsc/unplugin": "^0.21.0",
     "@wordpress/browserslist-config": "^6.42.0",
     "@wordpress/scripts": "^30.22.0",
     "@types/react": "^19.2.2",
@@ -31,9 +33,9 @@
     "@types/wordpress__blocks": "^12.5.18",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "prettier": "3.8.2",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
-    "typia": "^12.0.1"
+    "ttsc": "^0.21.0",
+    "typescript": "^7.0.2",
+    "typia": "^13.2.0"
   },
   "dependencies": {
     "@wordpress/block-editor": "~15.19.0",

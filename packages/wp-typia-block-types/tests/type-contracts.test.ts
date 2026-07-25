@@ -6,10 +6,10 @@ import { describe, expect, test } from "bun:test";
 const packageRoot = resolve(import.meta.dir, "..");
 const fixtureSourcePath = resolve(import.meta.dir, "fixtures/public-type-contracts.ts");
 const fixtureTsconfigPath = resolve(import.meta.dir, "tsconfig.type-tests.json");
-const tscBinary = resolve(packageRoot, "../../node_modules/.bin/tsc");
+const ttscBinary = resolve(packageRoot, "../../node_modules/.bin/ttsc");
 
 function runTypeFixture() {
-	return spawnSync(tscBinary, ["-p", fixtureTsconfigPath, "--noEmit"], {
+	return spawnSync(ttscBinary, ["-p", fixtureTsconfigPath, "--noEmit"], {
 		cwd: packageRoot,
 		encoding: "utf8",
 	});

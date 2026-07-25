@@ -10,7 +10,7 @@ import {
 } from "./migration-test-harness-manifest.js";
 import {
 	createProjectShell,
-	repoTsxPath,
+	repoTtsxPath,
 	writeFile,
 	writeJson,
 } from "./migration-test-harness-runtime.js";
@@ -73,7 +73,7 @@ export function createRenameCandidateProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function createNestedRenameProject(projectDir: string) {
@@ -198,7 +198,7 @@ export function createNestedRenameProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function createAmbiguousRenameProject(projectDir: string) {
@@ -262,7 +262,7 @@ export function createAmbiguousRenameProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function createTypeCoercionProject(projectDir: string) {
@@ -326,7 +326,7 @@ export function createTypeCoercionProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function createUnionProject(projectDir: string, { removeBranch = false }: { removeBranch?: boolean } = {}) {
@@ -428,7 +428,7 @@ export function createUnionProject(projectDir: string, { removeBranch = false }:
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }
 
 export function createFuzzFailureProject(projectDir: string) {
@@ -490,5 +490,5 @@ export function createFuzzFailureProject(projectDir: string) {
 
 	const localBinDir = path.join(projectDir, "node_modules", ".bin");
 	fs.mkdirSync(localBinDir, { recursive: true });
-	fs.symlinkSync(repoTsxPath, path.join(localBinDir, "tsx"));
+	fs.symlinkSync(repoTtsxPath, path.join(localBinDir, "ttsx"));
 }

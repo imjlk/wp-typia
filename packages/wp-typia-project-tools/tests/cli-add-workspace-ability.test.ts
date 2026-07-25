@@ -264,7 +264,7 @@ function demo_space_enqueue_workflow_abilities() {
 		expect(packageJson.dependencies?.["@wordpress/abilities"]).toBe("^0.10.0");
 		expect(packageJson.dependencies?.["@wordpress/core-abilities"]).toBe("^0.9.0");
 		expect(packageJson.scripts?.["sync-abilities"]).toBe(
-			"tsx scripts/sync-abilities.ts",
+			"ttsx scripts/sync-abilities.ts",
 		);
 		expect(syncProjectSource).toContain("const syncAbilitiesScriptPath");
 		expect(syncProjectSource).toContain(

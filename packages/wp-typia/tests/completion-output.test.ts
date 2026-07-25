@@ -574,7 +574,7 @@ describe('runtime completion output helpers', () => {
           {
             action: 'add',
             name: 'sync',
-            requiredValue: 'tsx scripts/sync-project.ts',
+            requiredValue: 'ttsx scripts/sync-project.ts',
           },
         ],
       },

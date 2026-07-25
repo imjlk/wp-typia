@@ -4,7 +4,7 @@ import path from "node:path";
 import {
 	syncBlockMetadata,
 } from "@wp-typia/block-runtime/metadata-core";
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
 import {

@@ -45,7 +45,7 @@ import {
   formatMigrationRiskSummary,
 } from './migration-risk.js'
 import {
-  getLocalTsxBinary,
+  getLocalTtsxBinary,
   readJson,
 } from './migration-utils.js'
 import { readWorkspaceInventory } from '../workspace/workspace-inventory.js'
@@ -81,7 +81,7 @@ export function verifyProjectMigrations(
     return { verifiedVersions: [] }
   }
 
-  const tsxBinary = getLocalTsxBinary(projectDir)
+  const ttsxBinary = getLocalTtsxBinary(projectDir)
   for (const [blockKey, entries] of Object.entries(blockEntries)) {
     const block = state.blocks.find((entry) => entry.key === blockKey)
     if (!block || entries.length === 0) {
@@ -111,7 +111,7 @@ export function verifyProjectMigrations(
     const filteredArgs = all
       ? ['--all']
       : ['--from-migration-version', selectedVersionsForBlock[0]]
-    execFileSync(tsxBinary, [verifyScriptPath, ...filteredArgs], {
+    execFileSync(ttsxBinary, [verifyScriptPath, ...filteredArgs], {
       cwd: projectDir,
       shell: process.platform === 'win32',
       stdio: 'inherit',
