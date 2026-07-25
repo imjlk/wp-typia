@@ -166,5 +166,9 @@
     "node": ">=20.0.0",
     "npm": ">=10.0.0",
     "bun": ">=1.3.11"
+  },
+  "patchedDependencies": {
+    "@ttsc/lint@0.21.0": "patches/@ttsc%2Flint@0.21.0.patch",
+    "typia@13.2.0": "patches/typia@13.2.0.patch"
   }
 }

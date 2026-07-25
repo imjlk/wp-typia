@@ -1,0 +1,75 @@
+diff --git a/native/cmd/ttsc-typia/build.go b/native/cmd/ttsc-typia/build.go
+index 9faf29aff364fdf4037d7fe39c5782600a023ec0..d37338b815e4436c557c223d6ec7a705856a93b7 100644
+--- a/native/cmd/ttsc-typia/build.go
++++ b/native/cmd/ttsc-typia/build.go
+@@ -31,6 +31,7 @@ func runBuild(args []string) int {
+   manifestPath := fs.String("manifest", "", "write emitted file list as JSON")
+   rewriteMode := fs.String("rewrite-mode", "typia", "native rewrite backend id")
+   pluginsJSON := fs.String("plugins-json", "", "ordered ttsc plugin payload")
++  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
+   if err := fs.Parse(args); err != nil {
+     return 2
+   }
+@@ -45,6 +46,13 @@ func runBuild(args []string) int {
+     fmt.Fprintf(stderr, "ttsc-typia build: unknown --rewrite-mode value %q\n", *rewriteMode)
+     return 2
+   }
++  var tsgoArgs []string
++  if *tsgoArgsRaw != "" {
++    if err := json.Unmarshal([]byte(*tsgoArgsRaw), &tsgoArgs); err != nil {
++      fmt.Fprintf(stderr, "ttsc-typia build: invalid --tsgo-args JSON: %v\n", err)
++      return 2
++    }
++  }
+   // Resolve the options before loading the program: they come from the payload
+   // alone, so an unreadable manifest is a usage error to report now rather than
+   // after a full compile has already run under the wrong configuration.
+@@ -87,6 +95,7 @@ func runBuild(args []string) int {
+     ForceEmit:   *emit,
+     ForceNoEmit: *noEmit,
+     OutDir:      *outDir,
++    TsgoArgs:    tsgoArgs,
+   }, true)
+   if code != 0 {
+     return code
+@@ -102,6 +111,7 @@ func runBuild(args []string) int {
+     prog, code = loadProgram(driver.LoadProgramOptions{
+       ForceEmit: true,
+       OutDir:    *outDir,
++      TsgoArgs:  tsgoArgs,
+     }, false)
+     if code != 0 {
+       return code
+diff --git a/native/cmd/ttsc-typia/transform.go b/native/cmd/ttsc-typia/transform.go
+index 94ae2c634da96fcf1478b333ec9992304797c54d..cdd04ff0c0dbf6207bfd80d1cfe3be494112887e 100644
+--- a/native/cmd/ttsc-typia/transform.go
++++ b/native/cmd/ttsc-typia/transform.go
+@@ -41,6 +41,7 @@ func runTransform(args []string) int {
+   rewriteMode := fs.String("rewrite-mode", "typia", "native rewrite backend id")
+   output := fs.String("output", defaultTransformOutput(), "single-file output kind: js or ts")
+   pluginsJSON := fs.String("plugins-json", "", "ordered ttsc plugin payload")
++  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
+   if err := fs.Parse(args); err != nil {
+     return 2
+   }
+@@ -52,6 +53,13 @@ func runTransform(args []string) int {
+     fmt.Fprintf(stderr, "ttsc-typia transform: unknown --output value %q\n", *output)
+     return 2
+   }
++  var tsgoArgs []string
++  if *tsgoArgsRaw != "" {
++    if err := json.Unmarshal([]byte(*tsgoArgsRaw), &tsgoArgs); err != nil {
++      fmt.Fprintf(stderr, "ttsc-typia transform: invalid --tsgo-args JSON: %v\n", err)
++      return 2
++    }
++  }
+   // Resolve the options before loading the program: they come from the payload
+   // alone, so an unreadable manifest is a usage error to report now rather than
+   // after a full transform has already run under the wrong configuration.
+@@ -71,5 +79,6 @@ func runTransform(args []string) int {
+   prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
+     ForceEmit: true,
++    TsgoArgs:  tsgoArgs,
+   })
+   if err != nil {
+     fmt.Fprintf(stderr, "ttsc-typia transform: %v\n", err)
