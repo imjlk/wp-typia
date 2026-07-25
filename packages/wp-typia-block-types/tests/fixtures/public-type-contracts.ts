@@ -549,6 +549,7 @@ void variationEntries;
 void variationRegistrationEntry;
 void variationRegistrationSource;
 void registrationResult;
+void _attributeLessRegistrationResult;
 void content;
 void maybeVariationTitle;
 void styleAttributes;

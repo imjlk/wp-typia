@@ -678,12 +678,12 @@ import { createTemplateValidatorToolkit } from "./validator-toolkit";
 
 const scaffoldValidators = createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
   assert: typia.createAssert<{{pascalCase}}Attributes>(),
-  clone: typia.misc.createClone<{{pascalCase}}Attributes>() as (
+  clone: typia.plain.createClone<{{pascalCase}}Attributes>() as (
     value: {{pascalCase}}Attributes,
   ) => {{pascalCase}}Attributes,
   is: typia.createIs<{{pascalCase}}Attributes>(),
   manifest: currentManifest,
-  prune: typia.misc.createPrune<{{pascalCase}}Attributes>(),
+  prune: typia.plain.createPrune<{{pascalCase}}Attributes>(),
   random: typia.createRandom<{{pascalCase}}Attributes>() as (
     ...args: unknown[]
   ) => {{pascalCase}}Attributes,

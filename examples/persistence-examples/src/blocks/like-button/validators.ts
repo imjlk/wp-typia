@@ -20,8 +20,8 @@ const validate = typia.createValidate< PersistenceLikeButtonAttributes >();
 const assert = typia.createAssert< PersistenceLikeButtonAttributes >();
 const is = typia.createIs< PersistenceLikeButtonAttributes >();
 const random = typia.createRandom< PersistenceLikeButtonAttributes >();
-const clone = typia.misc.createClone< PersistenceLikeButtonAttributes >();
-const prune = typia.misc.createPrune< PersistenceLikeButtonAttributes >();
+const clone = typia.plain.createClone< PersistenceLikeButtonAttributes >();
+const prune = typia.plain.createPrune< PersistenceLikeButtonAttributes >();
 
 export const validatePersistenceLikeButtonAttributes = (
 	attributes: unknown

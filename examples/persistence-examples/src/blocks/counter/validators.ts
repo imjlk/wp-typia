@@ -20,8 +20,8 @@ const validate = typia.createValidate< PersistenceCounterAttributes >();
 const assert = typia.createAssert< PersistenceCounterAttributes >();
 const is = typia.createIs< PersistenceCounterAttributes >();
 const random = typia.createRandom< PersistenceCounterAttributes >();
-const clone = typia.misc.createClone< PersistenceCounterAttributes >();
-const prune = typia.misc.createPrune< PersistenceCounterAttributes >();
+const clone = typia.plain.createClone< PersistenceCounterAttributes >();
+const prune = typia.plain.createPrune< PersistenceCounterAttributes >();
 
 export const validatePersistenceCounterAttributes = (
 	attributes: unknown

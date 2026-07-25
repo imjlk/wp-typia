@@ -965,12 +965,12 @@ import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
 const scaffoldValidators = createTemplateValidatorToolkit< ${ childTypeName } >( {
 \tassert: typia.createAssert< ${ childTypeName } >(),
-\tclone: typia.misc.createClone< ${ childTypeName } >() as (
+\tclone: typia.plain.createClone< ${ childTypeName } >() as (
 \t\tvalue: ${ childTypeName },
 \t) => ${ childTypeName },
 \tis: typia.createIs< ${ childTypeName } >(),
 \tmanifest: currentManifest,
-\tprune: typia.misc.createPrune< ${ childTypeName } >(),
+\tprune: typia.plain.createPrune< ${ childTypeName } >(),
 \trandom: typia.createRandom< ${ childTypeName } >() as (
 \t\t...args: unknown[]
 \t) => ${ childTypeName },

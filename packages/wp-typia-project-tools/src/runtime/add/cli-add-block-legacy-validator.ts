@@ -129,7 +129,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
 		[
 			`createTemplateValidatorToolkit< ${typeName} >( {`,
 			`\tassert: typia.createAssert< ${typeName} >(),`,
-			`\tclone: typia.misc.createClone< ${typeName} >() as (`,
+			`\tclone: typia.plain.createClone< ${typeName} >() as (`,
 			`\t\tvalue: ${typeName},`,
 			`\t) => ${typeName},`,
 			`\tis: typia.createIs< ${typeName} >(),`,
@@ -141,7 +141,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
 		[
 			"",
 			"\tmanifest: currentManifest,",
-			`\tprune: typia.misc.createPrune< ${typeName} >(),`,
+			`\tprune: typia.plain.createPrune< ${typeName} >(),`,
 			`\trandom: typia.createRandom< ${typeName} >() as (`,
 			"\t\t...args: unknown[]",
 			`\t) => ${typeName},`,

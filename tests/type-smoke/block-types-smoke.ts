@@ -435,8 +435,7 @@ const blockConfiguration = {
   },
   save: DemoSave,
   title: 'Demo Smoke Block',
-} satisfies BlockConfiguration<DemoRegistrationAttributes> &
-  import('@wordpress/blocks').BlockConfiguration<DemoRegistrationAttributes>;
+} satisfies BlockConfiguration<DemoRegistrationAttributes>;
 const registeredBlock: RegisterBlockTypeResult<DemoRegistrationAttributes> =
   registerScaffoldBlockType<DemoRegistrationAttributes>(
     'demo/smoke',

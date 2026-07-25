@@ -230,12 +230,12 @@ import { createTemplateValidatorToolkit } from './validator-toolkit';
 
 const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attributes >( {
 \tassert: typia.createAssert< {{pascalCase}}Attributes >(),
-\tclone: typia.misc.createClone< {{pascalCase}}Attributes >() as (
+\tclone: typia.plain.createClone< {{pascalCase}}Attributes >() as (
 \t\tvalue: {{pascalCase}}Attributes,
 \t) => {{pascalCase}}Attributes,
 \tis: typia.createIs< {{pascalCase}}Attributes >(),
 \tmanifest: currentManifest,
-\tprune: typia.misc.createPrune< {{pascalCase}}Attributes >(),
+\tprune: typia.plain.createPrune< {{pascalCase}}Attributes >(),
 \trandom: typia.createRandom< {{pascalCase}}Attributes >() as (
 \t\t...args: unknown[]
 \t) => {{pascalCase}}Attributes,

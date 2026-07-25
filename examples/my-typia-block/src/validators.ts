@@ -15,7 +15,7 @@ import { createTemplateValidatorToolkit } from './validator-toolkit';
 const scaffoldValidators =
 	createTemplateValidatorToolkit< MyTypiaBlockAttributes >( {
 		assert: typia.createAssert< MyTypiaBlockAttributes >(),
-		clone: typia.misc.createClone< MyTypiaBlockAttributes >() as (
+		clone: typia.plain.createClone< MyTypiaBlockAttributes >() as (
 			value: MyTypiaBlockAttributes
 		) => MyTypiaBlockAttributes,
 		finalize: ( normalized ) => ( {
@@ -27,7 +27,7 @@ const scaffoldValidators =
 		} ),
 		is: typia.createIs< MyTypiaBlockAttributes >(),
 		manifest: currentManifest,
-		prune: typia.misc.createPrune< MyTypiaBlockAttributes >(),
+		prune: typia.plain.createPrune< MyTypiaBlockAttributes >(),
 		random: typia.createRandom< MyTypiaBlockAttributes >() as (
 			...args: unknown[]
 		) => MyTypiaBlockAttributes,
