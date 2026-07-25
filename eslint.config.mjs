@@ -1,6 +1,4 @@
 import js from '@eslint/js';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
-import tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 
@@ -13,17 +11,6 @@ const repoJsFiles = [
   'packages/*/tests/**/*.{js,mjs,cjs}',
   'packages/*/scripts/**/*.{js,mjs,cjs}',
   'packages/*/bin/**/*.{js,mjs,cjs}',
-];
-
-const repoTsFiles = [
-  '*.ts',
-  'scripts/**/*.ts',
-  'tests/**/*.{ts,tsx}',
-  'packages/*/*.ts',
-  'packages/*/src/**/*.{ts,tsx}',
-  'packages/*/tests/**/*.{ts,tsx}',
-  'packages/*/scripts/**/*.ts',
-  'packages/*/bin/**/*.ts',
 ];
 
 const repoIgnores = [
@@ -71,35 +58,6 @@ export default [
         ...globals.node,
       },
       sourceType: 'commonjs',
-    },
-  },
-  {
-    files: repoTsFiles,
-    languageOptions: {
-      ecmaVersion: 'latest',
-      globals: {
-        ...globals.node,
-      },
-      parser: tsParser,
-      sourceType: 'module',
-    },
-    plugins: {
-      '@typescript-eslint': tsPlugin,
-    },
-    rules: {
-      ...tsPlugin.configs['eslint-recommended'].overrides[0].rules,
-      ...tsPlugin.configs.recommended.rules,
-      '@typescript-eslint/no-namespace': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
-      ],
-      '@typescript-eslint/triple-slash-reference': 'off',
     },
   },
   eslintConfigPrettier,

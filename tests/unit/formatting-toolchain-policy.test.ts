@@ -34,28 +34,40 @@ function createFormattingPolicyRepo() {
 
   writeJson(path.join(repoRoot, "package.json"), {
     devDependencies: {
+      "@ttsc/lint": policy.ttscLintVersion,
       "@eslint/js": policy.eslintJsVersion,
-      "@typescript-eslint/eslint-plugin": policy.typescriptEslintVersion,
-      "@typescript-eslint/parser": policy.typescriptEslintVersion,
       "eslint-config-prettier": policy.eslintConfigPrettierVersion,
       eslint: policy.eslintVersion,
       prettier: policy.prettierVersion,
+      ttsc: policy.ttscVersion,
     },
     scripts: {
       "ci:local":
-        "bun run formatting-policy:validate && bun run format:check && bun run lint:all",
+        "bun run formatting-policy:validate && bun run format:check && bun run lint:all && bun run typecheck",
       "format:write": policy.rootFormatWriteScript,
       "format:check": policy.rootFormatCheckScript,
       "lint:fix": policy.rootLintFixScript,
       "lint:repo": policy.rootLintScript,
       "formatting-policy:validate": policy.rootPolicyValidateScript,
+      typecheck: policy.rootTypecheckScript,
     },
   });
+
+  writeText(
+    path.join(repoRoot, "lint.config.ts"),
+    `export default ${JSON.stringify(policy.ttscLintConfig, null, 2)};\n`
+  );
+  writeText(
+    path.join(repoRoot, "eslint.config.mjs"),
+    "export default [];\n"
+  );
 
   for (const relativePath of policy.workspaceExamplePackagePaths) {
     writeJson(path.join(repoRoot, relativePath), {
       devDependencies: {
+        "@ttsc/lint": `^${policy.ttscLintVersion}`,
         prettier: policy.prettierVersion,
+        ttsc: `^${policy.ttscVersion}`,
       },
     });
   }
@@ -80,13 +92,13 @@ function createFormattingPolicyRepo() {
   for (const relativePath of policy.generatedPackageManifestPaths) {
     writeText(
       path.join(repoRoot, relativePath),
-      `{\n  "devDependencies": {\n    "prettier": "${policy.prettierVersion}"\n  }\n}\n`
+      `{\n  "devDependencies": {\n    "@ttsc/lint": "^${policy.ttscLintVersion}",\n    "prettier": "${policy.prettierVersion}",\n    "ttsc": "^${policy.ttscVersion}"\n  }\n}\n`
     );
   }
 
   writeText(
     path.join(repoRoot, ".github/workflows/ci.yml"),
-    `jobs:\n  lint:\n    steps:\n      - name: Validate formatting toolchain policy\n        run: bun run formatting-policy:validate\n      - name: Run formatting check\n        run: bun run format:check\n  node-20-baseline:\n    steps: []\n`
+    `jobs:\n  lint:\n    steps:\n      - name: Validate formatting toolchain policy\n        run: bun run formatting-policy:validate\n      - name: Run formatting check\n        run: bun run format:check\n      - name: Run type check\n        run: bun run typecheck\n  node-20-baseline:\n    steps: []\n`
   );
 
   return repoRoot;
@@ -117,12 +129,14 @@ describe("validateFormattingToolchainPolicy", () => {
     );
   });
 
-  test("fails when the root ESLint stack drifts from the documented baseline", () => {
+  test("fails when the root ESLint and ttsc stacks drift from the documented baseline", () => {
     const repoRoot = createFormattingPolicyRepo();
     const packageJsonPath = path.join(repoRoot, "package.json");
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
     packageJson.devDependencies.eslint = "9.0.0";
-    packageJson.devDependencies["@typescript-eslint/parser"] = "8.0.0";
+    packageJson.devDependencies["@typescript-eslint/parser"] = "8.58.2";
+    packageJson.devDependencies["typescript-eslint"] = "8.58.2";
+    packageJson.devDependencies.ttsc = "0.20.0";
     writeJson(packageJsonPath, packageJson);
 
     const result = validateFormattingToolchainPolicy(repoRoot);
@@ -132,7 +146,13 @@ describe("validateFormattingToolchainPolicy", () => {
       `package.json must declare devDependencies.eslint="${FORMATTING_TOOLCHAIN_POLICY.eslintVersion}", found "9.0.0".`
     );
     expect(result.errors).toContain(
-      `package.json must declare devDependencies["@typescript-eslint/parser"]="${FORMATTING_TOOLCHAIN_POLICY.typescriptEslintVersion}", found "8.0.0".`
+      'package.json must not declare devDependencies["@typescript-eslint/parser"]; TypeScript linting is owned by @ttsc/lint.'
+    );
+    expect(result.errors).toContain(
+      'package.json must not declare devDependencies["typescript-eslint"]; TypeScript linting is owned by @ttsc/lint.'
+    );
+    expect(result.errors).toContain(
+      `package.json must declare devDependencies.ttsc="${FORMATTING_TOOLCHAIN_POLICY.ttscVersion}", found "0.20.0".`
     );
   });
 
@@ -158,7 +178,13 @@ describe("validateFormattingToolchainPolicy", () => {
       'package.json must include "bun run format:check" in scripts["ci:local"].'
     );
     expect(result.errors).toContain(
+      'package.json must include "bun run typecheck" in scripts["ci:local"].'
+    );
+    expect(result.errors).toContain(
       '.github/workflows/ci.yml lint job must include "run: bun run format:check".'
+    );
+    expect(result.errors).toContain(
+      '.github/workflows/ci.yml lint job must include "run: bun run typecheck".'
     );
   });
 
@@ -178,6 +204,110 @@ describe("validateFormattingToolchainPolicy", () => {
     );
     expect(result.errors).toContain(
       `package.json must keep scripts["format:write"]="${FORMATTING_TOOLCHAIN_POLICY.rootFormatWriteScript}", found "prettier --write .".`
+    );
+  });
+
+  test("fails when the read-only ttsc gate drifts", () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const packageJsonPath = path.join(repoRoot, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    packageJson.scripts.typecheck = "typescript --noEmit";
+    writeJson(packageJsonPath, packageJson);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      `package.json must keep scripts.typecheck="${FORMATTING_TOOLCHAIN_POLICY.rootTypecheckScript}", found "typescript --noEmit".`
+    );
+  });
+
+  test("parses the ttsc lint config instead of accepting matching comments", () => {
+    const repoRoot = createFormattingPolicyRepo();
+    writeText(
+      path.join(repoRoot, "lint.config.ts"),
+      `// severity: 'error'; printWidth: 80; no-var: error
+export default {
+  format: {
+    severity: 'warning',
+  },
+};
+`
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith(
+          "lint.config.ts must export the documented @ttsc/lint configuration;"
+        )
+      )
+    ).toBe(true);
+  });
+
+  test("does not reject an explanatory TypeScript ESLint comment", () => {
+    const repoRoot = createFormattingPolicyRepo();
+    writeText(
+      path.join(repoRoot, "eslint.config.mjs"),
+      "// @typescript-eslint is intentionally not used here.\nexport default [];\n"
+    );
+
+    expect(validateFormattingToolchainPolicy(repoRoot)).toEqual({
+      errors: [],
+      valid: true,
+    });
+  });
+
+  test("accepts equivalent ttsc lint config property ordering", () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const policy = FORMATTING_TOOLCHAIN_POLICY.ttscLintConfig;
+    writeText(
+      path.join(repoRoot, "lint.config.ts"),
+      `export default ${JSON.stringify(
+        {
+          rules: policy.rules,
+          format: {
+            jsDoc: policy.format.jsDoc,
+            sortImports: policy.format.sortImports,
+            endOfLine: policy.format.endOfLine,
+            trailingComma: policy.format.trailingComma,
+            singleQuote: policy.format.singleQuote,
+            semi: policy.format.semi,
+            useTabs: policy.format.useTabs,
+            tabWidth: policy.format.tabWidth,
+            printWidth: policy.format.printWidth,
+            severity: policy.format.severity,
+          },
+          ignores: policy.ignores,
+        },
+        null,
+        2
+      )};\n`
+    );
+
+    expect(validateFormattingToolchainPolicy(repoRoot)).toEqual({
+      errors: [],
+      valid: true,
+    });
+  });
+
+  test("rejects an actual TypeScript ESLint import or TS file scope", () => {
+    const repoRoot = createFormattingPolicyRepo();
+    writeText(
+      path.join(repoRoot, "eslint.config.mjs"),
+      `import tseslint from "typescript-eslint";
+const typedFiles = ["**/*.{ts,tsx}"];
+export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint } }];
+`
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "eslint.config.mjs must keep TypeScript outside the ESLint scope; @ttsc/lint owns TS/TSX."
     );
   });
 

@@ -125,7 +125,7 @@ export function runWpScriptsLintJsCompat({
       : ['--ignore-path', path.join(wpScriptsDir, 'config', '.eslintignore')];
   const defaultExtArgs = hasArg(args, '--ext')
     ? []
-    : ['--ext', 'js,jsx,ts,tsx'];
+    : ['--ext', 'js,jsx'];
   const defaultFilesArgs = hasExplicitLintTargets(args) ? [] : ['.'];
 
   const result = spawnSync(
