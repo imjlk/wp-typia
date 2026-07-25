@@ -1,21 +1,27 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
-import { summarizeManifest, summarizeUnionBranches } from "./migration-manifest.js";
 import {
-	getSnapshotBlockJsonPath,
-	getSnapshotManifestPath,
-	getSnapshotSavePath,
-	readRuleMetadata,
-} from "./migration-project.js";
-import { getGeneratedDir, normalizeImportPath } from "./migration-render-support.js";
-import { readJson, renderPhpValue } from "./migration-utils.js";
+  summarizeManifest,
+  summarizeUnionBranches,
+} from './migration-manifest.js';
+import {
+  getSnapshotBlockJsonPath,
+  getSnapshotManifestPath,
+  getSnapshotSavePath,
+  readRuleMetadata,
+} from './migration-project.js';
+import {
+  getGeneratedDir,
+  normalizeImportPath,
+} from './migration-render-support.js';
+import { readJson, renderPhpValue } from './migration-utils.js';
 import type {
-	GeneratedMigrationEntry,
-	ManifestDocument,
-	MigrationEntry,
-	MigrationProjectState,
-} from "./migration-types.js";
+  GeneratedMigrationEntry,
+  ManifestDocument,
+  MigrationEntry,
+  MigrationProjectState,
+} from './migration-types.js';
 
 /**
  * Renders the generated migration registry module for a block target.
@@ -33,50 +39,54 @@ export function renderMigrationRegistryFile(
 	blockKey: string,
 	entries: GeneratedMigrationEntry[],
 ): string {
-	const block = state.blocks.find((entry) => entry.key === blockKey);
-	if (!block) {
-		throw new Error(`Unknown migration block target: ${blockKey}`);
-	}
-	const generatedDir = getGeneratedDir(block, state);
-	const currentManifestWrapperCandidates = [
-		block.manifestFile.replace(/typia\.manifest\.json$/u, "manifest-document.ts"),
-		path.join(path.dirname(block.typesFile), "manifest-document.ts"),
+  const block = state.blocks.find((entry) => entry.key === blockKey);
+  if (!block) {
+    throw new Error(`Unknown migration block target: ${blockKey}`);
+  }
+  const generatedDir = getGeneratedDir(block, state);
+  const currentManifestWrapperCandidates = [
+		block.manifestFile.replace(/typia\.manifest\.json$/u, 'manifest-document.ts'),
+		path.join(path.dirname(block.typesFile), 'manifest-document.ts'),
 	].filter(
 		(candidate, index, allCandidates) =>
 			candidate !== block.manifestFile && allCandidates.indexOf(candidate) === index,
 	);
-	const currentManifestWrapperFile =
+  const currentManifestWrapperFile =
 		currentManifestWrapperCandidates.find((candidate) =>
-			fs.existsSync(path.join(state.projectDir, candidate)),
-		) ?? null;
-	const currentManifestSourceFile = currentManifestWrapperFile ?? block.manifestFile;
-	const currentManifestImport = normalizeImportPath(
-		path.relative(
-			generatedDir,
-			path.join(state.projectDir, currentManifestSourceFile),
-		),
-		currentManifestWrapperFile !== null,
-	);
-	const imports = [
-		`import rawCurrentManifest from "${currentManifestImport}";`,
-		`import type { ManifestDocument, MigrationRiskSummary } from "${normalizeImportPath(path.relative(getGeneratedDir(block, state), path.join(state.projectDir, "src", "migrations", "helpers.ts")), true)}";`,
-		`import { parseManifestDocument } from "@wp-typia/block-runtime/editor";`,
-	];
-	const body: string[] = [];
+      fs.existsSync(path.join(state.projectDir, candidate)),
+    ) ?? null;
+  const currentManifestSourceFile = currentManifestWrapperFile ?? block.manifestFile;
+  const currentManifestImport = normalizeImportPath(
+    path.relative(
+      generatedDir,
+      path.join(state.projectDir, currentManifestSourceFile),
+    ),
+    currentManifestWrapperFile !== null,
+  );
+  const imports = [
+    `import rawCurrentManifest from "${currentManifestImport}";`,
+    `import type { ManifestDocument, MigrationRiskSummary } from "${normalizeImportPath(path.relative(getGeneratedDir(block, state), path.join(state.projectDir, 'src', 'migrations', 'helpers.ts')), true)}";`,
+    `import { parseManifestDocument } from "@wp-typia/block-runtime/editor";`,
+  ];
+  const body: string[] = [];
 
-	entries.forEach(({ entry, riskSummary }, index) => {
-		imports.push(`import manifest_${index} from "${entry.manifestImport}";`);
-		imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
-		body.push(`\t{`);
-		body.push(`\t\tfromMigrationVersion: "${entry.fromVersion}",`);
-		body.push(`\t\tmanifest: parseManifestDocument<ManifestDocument>(manifest_${index}),`);
-		body.push(`\t\triskSummary: ${JSON.stringify(riskSummary, null, "\t").replace(/\n/g, "\n\t\t")},`);
-		body.push(`\t\trule: rule_${index},`);
-		body.push(`\t},`);
-	});
+  entries.forEach(({ entry, riskSummary }, index) => {
+    imports.push(`import manifest_${index} from "${entry.manifestImport}";`);
+    imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
+    body.push(`\t{`);
+    body.push(`\t\tfromMigrationVersion: "${entry.fromVersion}",`);
+    body.push(
+      `\t\tmanifest: parseManifestDocument<ManifestDocument>(manifest_${index}),`,
+    );
+    body.push(
+      `\t\triskSummary: ${JSON.stringify(riskSummary, null, '\t').replace(/\n/g, '\n\t\t')},`,
+    );
+    body.push(`\t\trule: rule_${index},`);
+    body.push(`\t},`);
+  });
 
-	return `/* eslint-disable prettier/prettier, @typescript-eslint/method-signature-style */
-${imports.join("\n")}
+  return `/* eslint-disable prettier/prettier, @typescript-eslint/method-signature-style */
+${imports.join('\n')}
 
 interface MigrationRegistryEntry {
 \tfromMigrationVersion: string;
@@ -96,7 +106,7 @@ export const migrationRegistry: {
 \tcurrentMigrationVersion: "${state.config.currentMigrationVersion}",
 \tcurrentManifest: parseManifestDocument<ManifestDocument>(rawCurrentManifest),
 \tentries: [
-${body.join("\n")}
+${body.join('\n')}
 \t],
 };
 
@@ -120,62 +130,64 @@ export function renderGeneratedDeprecatedFile(
 	blockKey: string,
 	entries: MigrationEntry[],
 ): string {
-	const block = state.blocks.find((entry) => entry.key === blockKey);
-	if (!block) {
-		throw new Error(`Unknown migration block target: ${blockKey}`);
-	}
-	const currentTypeName =
-		typeof block.currentManifest.sourceType === "string" &&
+  const block = state.blocks.find((entry) => entry.key === blockKey);
+  if (!block) {
+    throw new Error(`Unknown migration block target: ${blockKey}`);
+  }
+  const currentTypeName =
+		typeof block.currentManifest.sourceType === 'string' &&
 		block.currentManifest.sourceType.length > 0
 			? block.currentManifest.sourceType
-			: "Record<string, unknown>";
-	const hasNamedCurrentType = currentTypeName !== "Record<string, unknown>";
-	const generatedDir = getGeneratedDir(block, state);
-	const typesImport = normalizeImportPath(
-		path.relative(generatedDir, path.join(state.projectDir, block.typesFile)),
-		true,
-	);
+			: 'Record<string, unknown>';
+  const hasNamedCurrentType = currentTypeName !== 'Record<string, unknown>';
+  const generatedDir = getGeneratedDir(block, state);
+  const typesImport = normalizeImportPath(
+    path.relative(generatedDir, path.join(state.projectDir, block.typesFile)),
+    true,
+  );
 
-	if (entries.length === 0) {
-		return `/* eslint-disable prettier/prettier */
+  if (entries.length === 0) {
+    return `/* eslint-disable prettier/prettier */
 import type { BlockDeprecationList } from "@wp-typia/block-types/blocks/registration";
-${hasNamedCurrentType ? `import type { ${currentTypeName} } from "${typesImport}";\n` : ""}
+${hasNamedCurrentType ? `import type { ${currentTypeName} } from "${typesImport}";\n` : ''}
 
 export const deprecated: BlockDeprecationList<${currentTypeName}> = [];
 `;
-	}
+  }
 
-	const imports = [
+  const imports = [
 		`import type { BlockConfiguration, BlockDeprecationList } from "@wp-typia/block-types/blocks/registration";`,
 		...(hasNamedCurrentType
 			? [`import type { ${currentTypeName} } from "${typesImport}";`]
 			: []),
 	];
-	const definitions: string[] = [];
-	const arrayEntries: string[] = [];
+  const definitions: string[] = [];
+  const arrayEntries: string[] = [];
 
-	entries.forEach((entry, index) => {
-		imports.push(`import block_${index} from "${entry.blockJsonImport}";`);
-		imports.push(`import save_${index} from "${entry.saveImport}";`);
-		imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
-		definitions.push(`const deprecated_${index}: BlockDeprecationList<${currentTypeName}>[number] = {`);
-		definitions.push(
-			`\tattributes: (block_${index}.attributes ?? {}) as BlockConfiguration["attributes"],`,
-		);
-		definitions.push(`\tsave: save_${index} as BlockConfiguration["save"],`);
-		definitions.push(`\tmigrate(attributes: Record<string, unknown>) {`);
-		definitions.push(`\t\treturn rule_${index}.migrate(attributes);`);
-		definitions.push(`\t},`);
-		definitions.push(`};`);
-		arrayEntries.push(`deprecated_${index}`);
-	});
+  entries.forEach((entry, index) => {
+    imports.push(`import block_${index} from "${entry.blockJsonImport}";`);
+    imports.push(`import save_${index} from "${entry.saveImport}";`);
+    imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
+    definitions.push(
+      `const deprecated_${index}: BlockDeprecationList<${currentTypeName}>[number] = {`,
+    );
+    definitions.push(
+      `\tattributes: (block_${index}.attributes ?? {}) as BlockConfiguration["attributes"],`,
+    );
+    definitions.push(`\tsave: save_${index} as BlockConfiguration["save"],`);
+    definitions.push(`\tmigrate(attributes: Record<string, unknown>) {`);
+    definitions.push(`\t\treturn rule_${index}.migrate(attributes);`);
+    definitions.push(`\t},`);
+    definitions.push(`};`);
+    arrayEntries.push(`deprecated_${index}`);
+  });
 
-	return `/* eslint-disable prettier/prettier */
-${imports.join("\n")}
+  return `/* eslint-disable prettier/prettier */
+${imports.join('\n')}
 
-${definitions.join("\n\n")}
+${definitions.join('\n\n')}
 
-export const deprecated: BlockDeprecationList<${currentTypeName}> = [${arrayEntries.join(", ")}];
+export const deprecated: BlockDeprecationList<${currentTypeName}> = [${arrayEntries.join(', ')}];
 `;
 }
 
@@ -183,26 +195,26 @@ export function renderGeneratedMigrationIndexFile(
 	state: MigrationProjectState,
 	entries: MigrationEntry[],
 ): string {
-	if (state.blocks.length === 0) {
-		return `export const migrationBlocks = [] as const;\nexport default migrationBlocks;\n`;
-	}
+  if (state.blocks.length === 0) {
+    return `export const migrationBlocks = [] as const;\nexport default migrationBlocks;\n`;
+  }
 
-	const generatedDir = state.paths.generatedDir;
-	const imports: string[] = [];
-	const definitions: string[] = [];
+  const generatedDir = state.paths.generatedDir;
+  const imports: string[] = [];
+  const definitions: string[] = [];
 
-	state.blocks.forEach((block, index) => {
+  state.blocks.forEach((block, index) => {
 		const scopedEntries = entries.filter((entry) => entry.block.key === block.key);
 		const registryImport =
-			block.layout === "legacy" ? "./registry" : `./${block.key}/registry`;
+			block.layout === 'legacy' ? './registry' : `./${block.key}/registry`;
 		const deprecatedImport =
-			block.layout === "legacy" ? "./deprecated" : `./${block.key}/deprecated`;
+			block.layout === 'legacy' ? './deprecated' : `./${block.key}/deprecated`;
 		const validatorsImport = normalizeImportPath(
 			path.relative(
 				generatedDir,
 				path.join(
 					state.projectDir,
-					block.typesFile.replace(/types\.ts$/u, "validators.ts"),
+					block.typesFile.replace(/types\.ts$/u, 'validators.ts'),
 				),
 			),
 			true,
@@ -220,11 +232,11 @@ export function renderGeneratedMigrationIndexFile(
 		definitions.push(`\t},`);
 	});
 
-	return `/* eslint-disable prettier/prettier */
-${imports.join("\n")}
+  return `/* eslint-disable prettier/prettier */
+${imports.join('\n')}
 
 export const migrationBlocks = [
-${definitions.join("\n")}
+${definitions.join('\n')}
 ] as const;
 
 export default migrationBlocks;
@@ -235,7 +247,7 @@ export function renderPhpMigrationRegistryFile(
 	state: MigrationProjectState,
 	entries: MigrationEntry[],
 ): string {
-	const blocks = state.blocks.map((block) => {
+  const blocks = state.blocks.map((block) => {
 		const snapshots = Object.fromEntries(
 			state.config.supportedMigrationVersions.map((version) => {
 				const manifestPath = getSnapshotManifestPath(state.projectDir, block, version);
@@ -271,8 +283,8 @@ export function renderPhpMigrationRegistryFile(
 					autoAppliedRenameCount: ruleMetadata.renameMap.length,
 					autoAppliedRenames: ruleMetadata.renameMap,
 					fromMigrationVersion: entry.fromVersion,
-					nestedPathRenames: ruleMetadata.renameMap.filter((item) => item.currentPath.includes(".")),
-					ruleFile: path.relative(state.projectDir, entry.rulePath).replace(/\\/g, "/"),
+					nestedPathRenames: ruleMetadata.renameMap.filter((item) => item.currentPath.includes('.')),
+					ruleFile: path.relative(state.projectDir, entry.rulePath).replace(/\\/g, '/'),
 					toMigrationVersion: entry.toVersion,
 					transformKeys: ruleMetadata.transforms,
 					unionBranches: snapshotManifest ? summarizeUnionBranches(snapshotManifest) : [],
@@ -292,7 +304,7 @@ export function renderPhpMigrationRegistryFile(
 		};
 	});
 
-	return `<?php
+  return `<?php
 declare(strict_types=1);
 
 if ( ! defined( 'ABSPATH' ) ) {

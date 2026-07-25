@@ -1,20 +1,20 @@
 export function resolveCurrentEditorPostId(): number {
-	const wpData = (
+  const wpData = (
 		window as typeof window & {
 			wp?: {
 				data?: {
 					select?: (
-						storeName: string
+						storeName: string,
 					) => { getCurrentPostId?: () => unknown } | undefined;
 				};
 			};
 		}
 	 ).wp?.data;
 
-	const editorStore = wpData?.select?.( 'core/editor' ) as
+  const editorStore = wpData?.select?.( 'core/editor' ) as
 		| { getCurrentPostId?: () => unknown }
 		| undefined;
-	const postId = editorStore?.getCurrentPostId?.();
+  const postId = editorStore?.getCurrentPostId?.();
 
-	return typeof postId === 'number' && postId > 0 ? postId : 0;
+  return typeof postId === 'number' && postId > 0 ? postId : 0;
 }

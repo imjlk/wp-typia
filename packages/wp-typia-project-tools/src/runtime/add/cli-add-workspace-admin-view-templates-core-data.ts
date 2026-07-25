@@ -1,6 +1,10 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { type AdminViewCoreDataSource } from './cli-add-workspace-admin-view-types.js';
-import { toCamelCase, toPascalCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCamelCase,
+  toPascalCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 /**
  * Builds TypeScript item and dataset types for a core-data-backed admin view.

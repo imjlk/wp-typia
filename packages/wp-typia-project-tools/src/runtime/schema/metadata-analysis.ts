@@ -4,4 +4,4 @@
  * the runtime implementation with block-runtime.
  * @module
  */
-export * from "@wp-typia/block-runtime/metadata-analysis";
+export * from '@wp-typia/block-runtime/metadata-analysis';

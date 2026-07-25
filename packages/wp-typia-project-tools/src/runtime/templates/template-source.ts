@@ -1,15 +1,15 @@
 import {
   OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
   isBuiltInTemplateId,
-} from './template-registry.js'
-import { resolveBuiltInTemplateSource } from './template-builtins.js'
+} from './template-registry.js';
+import { resolveBuiltInTemplateSource } from './template-builtins.js';
 import type {
   ResolvedTemplateSource,
   SeedSource,
-} from './template-source-contracts.js'
+} from './template-source-contracts.js';
 import {
   parseTemplateLocator,
-} from './template-source-locators.js'
+} from './template-source-locators.js';
 import {
   detectTemplateSourceFormat,
   getTemplateProjectTypeAsync,
@@ -18,16 +18,16 @@ import {
   normalizeCreateBlockSubset,
   normalizeWpTypiaTemplateSeed,
   renderCreateBlockExternalTemplate,
-} from './template-source-normalization.js'
+} from './template-source-normalization.js';
 import {
   isOfficialWorkspaceTemplateSeedAsync,
   resolveTemplateSeed,
-} from './template-source-seeds.js'
+} from './template-source-seeds.js';
 import {
   assertBuiltInTemplateVariantAllowed,
-} from '../cli/cli-validation.js'
-import type { ScaffoldTemplateVariables } from './scaffold.js'
-import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js'
+} from '../cli/cli-validation.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
+import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
 
 export type {
   GitHubTemplateLocator,
@@ -36,13 +36,13 @@ export type {
   ResolvedTemplateSource,
   TemplateSourceFormat,
   TemplateVariableContext,
-} from './template-source-contracts.js'
+} from './template-source-contracts.js';
 export {
   parseGitHubTemplateLocator,
   parseNpmTemplateLocator,
   parseTemplateLocator,
-} from './template-source-locators.js'
-export { resolveTemplateSeed } from './template-source-seeds.js'
+} from './template-source-locators.js';
+export { resolveTemplateSeed } from './template-source-seeds.js';
 
 export async function resolveTemplateSource(
   templateId: string,
@@ -51,11 +51,11 @@ export async function resolveTemplateSource(
   variant?: string,
 ): Promise<ResolvedTemplateSource> {
   if (isBuiltInTemplateId(templateId)) {
-    const variableGroups = getScaffoldTemplateVariableGroups(variables)
+    const variableGroups = getScaffoldTemplateVariableGroups(variables);
     assertBuiltInTemplateVariantAllowed({
       templateId,
       variant,
-    })
+    });
     return resolveBuiltInTemplateSource(templateId, {
       persistenceEnabled:
         variableGroups.compound.enabled &&
@@ -65,28 +65,28 @@ export async function resolveTemplateSource(
         variableGroups.persistence.policy === 'public'
           ? 'public'
           : 'authenticated',
-    })
+    });
   }
 
-  const locator = parseTemplateLocator(templateId)
-  const context = getTemplateVariableContext(variables)
-  const seed = await resolveTemplateSeed(locator, cwd)
+  const locator = parseTemplateLocator(templateId);
+  const context = getTemplateVariableContext(variables);
+  const seed = await resolveTemplateSeed(locator, cwd);
   const isOfficialWorkspaceTemplate =
     templateId === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE ||
-    (await isOfficialWorkspaceTemplateSeedAsync(seed))
-  let normalizedSeed: SeedSource | null = null
+    (await isOfficialWorkspaceTemplateSeedAsync(seed));
+  let normalizedSeed: SeedSource | null = null;
 
   try {
-    const format = await detectTemplateSourceFormat(seed.blockDir)
+    const format = await detectTemplateSourceFormat(seed.blockDir);
     if (format === 'wp-typia') {
       if (variant) {
         throw new Error(
           `--variant is only supported for official external template configs. Received variant "${variant}" for "${templateId}".`,
-        )
+        );
       }
-      normalizedSeed = await normalizeWpTypiaTemplateSeed(seed)
+      normalizedSeed = await normalizeWpTypiaTemplateSeed(seed);
       const supportsMigrationUi =
-        (await getTemplateProjectTypeAsync(seed.blockDir)) === 'workspace'
+        (await getTemplateProjectTypeAsync(seed.blockDir)) === 'workspace';
       return {
         id: templateId,
         defaultCategory: await getDefaultCategoryAsync(seed.blockDir),
@@ -97,7 +97,7 @@ export async function resolveTemplateSource(
         supportsMigrationUi,
         templateDir: normalizedSeed.blockDir,
         cleanup: normalizedSeed.cleanup,
-      }
+      };
     }
 
     normalizedSeed =
@@ -111,26 +111,26 @@ export async function resolveTemplateSource(
           ? (() => {
               throw new Error(
                 `--variant is only supported for official external template configs. Received variant "${variant}" for "${templateId}".`,
-              )
+              );
             })()
-          : seed
+          : seed;
 
     if (format === 'create-block-external') {
       const renderedFormat =
         normalizedSeed.formatHint ??
-        (await detectTemplateSourceFormat(normalizedSeed.blockDir))
+        (await detectTemplateSourceFormat(normalizedSeed.blockDir));
       if (renderedFormat === 'wp-typia') {
-        const normalized = await normalizeWpTypiaTemplateSeed(normalizedSeed)
+        const normalized = await normalizeWpTypiaTemplateSeed(normalizedSeed);
         try {
           const [projectType, defaultCategory] = await Promise.all([
             getTemplateProjectTypeAsync(normalizedSeed.blockDir),
             getDefaultCategoryAsync(normalizedSeed.blockDir),
-          ])
-          const supportsMigrationUi = projectType === 'workspace'
+          ]);
+          const supportsMigrationUi = projectType === 'workspace';
           return {
             cleanup: async () => {
-              await normalized.cleanup?.()
-              await seed.cleanup?.()
+              await normalized.cleanup?.();
+              await seed.cleanup?.();
             },
             defaultCategory,
             description:
@@ -148,22 +148,22 @@ export async function resolveTemplateSource(
             supportsMigrationUi,
             templateDir: normalized.blockDir,
             warnings: normalizedSeed.warnings ?? [],
-          }
+          };
         } catch (error) {
-          await normalized.cleanup?.()
-          throw error
+          await normalized.cleanup?.();
+          throw error;
         }
       }
 
       const normalized = await normalizeCreateBlockSubset(
         normalizedSeed,
         context,
-      )
+      );
       return {
         ...normalized,
         cleanup: async () => {
-          await normalized.cleanup?.()
-          await seed.cleanup?.()
+          await normalized.cleanup?.();
+          await seed.cleanup?.();
         },
         description:
           'A wp-typia scaffold normalized from an official create-block external template',
@@ -177,24 +177,24 @@ export async function resolveTemplateSource(
         isOfficialWorkspaceTemplate,
         selectedVariant: normalizedSeed.selectedVariant ?? null,
         warnings: normalizedSeed.warnings ?? [],
-      }
+      };
     }
 
     const normalized = await normalizeCreateBlockSubset(
       normalizedSeed,
       context,
-    )
+    );
     return {
       ...normalized,
       isOfficialWorkspaceTemplate,
-    }
+    };
   } catch (error) {
     if (normalizedSeed?.cleanup && normalizedSeed !== seed) {
-      await normalizedSeed.cleanup()
+      await normalizedSeed.cleanup();
     }
     if (seed.cleanup) {
-      await seed.cleanup()
+      await seed.cleanup();
     }
-    throw error
+    throw error;
   }
 }

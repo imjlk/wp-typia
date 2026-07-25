@@ -1,1 +1,1 @@
-export * from "../templates/built-in-block-code-templates/shared.js";
+export * from '../templates/built-in-block-code-templates/shared.js';

@@ -1,1 +1,1 @@
-export * from "./workspace/workspace-inventory-section-descriptors.js";
+export * from './workspace/workspace-inventory-section-descriptors.js';

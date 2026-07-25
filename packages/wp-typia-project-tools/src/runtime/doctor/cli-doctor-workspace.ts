@@ -1,51 +1,51 @@
 import {
 	getWorkspaceBindingDoctorChecks,
-} from "./cli-doctor-workspace-bindings.js";
+} from './cli-doctor-workspace-bindings.js';
 import {
 	getWorkspaceBlockDoctorChecks,
-} from "./cli-doctor-workspace-blocks.js";
+} from './cli-doctor-workspace-blocks.js';
 import {
 	getWorkspaceFeatureDoctorChecks,
-} from "./cli-doctor-workspace-features.js";
+} from './cli-doctor-workspace-features.js';
 import {
 	getWorkspaceWordPressVersionDoctorChecks,
-} from "./cli-doctor-wordpress-version.js";
+} from './cli-doctor-wordpress-version.js';
 import {
-	getMigrationWorkspaceHintCheck,
-	getWorkspacePackageMetadataCheck,
-	prepareWorkspacePackageDoctorSnapshot,
-} from "./cli-doctor-workspace-package.js";
+  getMigrationWorkspaceHintCheck,
+  getWorkspacePackageMetadataCheck,
+  prepareWorkspacePackageDoctorSnapshot,
+} from './cli-doctor-workspace-package.js';
 import {
-	createDoctorCheck,
-	createDoctorScopeCheck,
-} from "./cli-doctor-workspace-shared.js";
+  createDoctorCheck,
+  createDoctorScopeCheck,
+} from './cli-doctor-workspace-shared.js';
 import {
-	getStandaloneScaffoldDoctorChecks,
-	tryResolveStandaloneScaffoldProject,
-	type StandaloneScaffoldProject,
-} from "./cli-doctor-standalone.js";
+  getStandaloneScaffoldDoctorChecks,
+  tryResolveStandaloneScaffoldProject,
+  type StandaloneScaffoldProject,
+} from './cli-doctor-standalone.js';
 import {
-	readWorkspaceInventoryAsync,
-	type WorkspaceInventory,
-} from "../workspace/workspace-inventory.js";
+  readWorkspaceInventoryAsync,
+  type WorkspaceInventory,
+} from '../workspace/workspace-inventory.js';
 import {
-	getInvalidWorkspaceProjectReason,
-	parseWorkspacePackageJson,
-	tryResolveWorkspaceProject,
-	type WorkspacePackageJson,
-	type WorkspaceProject,
-} from "../workspace/workspace-project.js";
+  getInvalidWorkspaceProjectReason,
+  parseWorkspacePackageJson,
+  tryResolveWorkspaceProject,
+  type WorkspacePackageJson,
+  type WorkspaceProject,
+} from '../workspace/workspace-project.js';
 
-import type { DoctorCheck } from "./cli-doctor.js";
+import type { DoctorCheck } from './cli-doctor.js';
 
 /** Options used when collecting workspace-scoped doctor rows. */
 export interface WorkspaceDoctorChecksOptions {
 	/** Include opt-in WordPress feature floor and plugin header checks. */
-	wordpressVersionCheck?: boolean;
+  wordpressVersionCheck?: boolean;
 }
 
 function formatWorkspaceInventorySummary(inventory: WorkspaceInventory): string {
-	return [
+  return [
 		`${inventory.blocks.length} block(s)`,
 		`${inventory.variations.length} variation(s)`,
 		`${inventory.blockStyles.length} block style(s)`,
@@ -58,7 +58,7 @@ function formatWorkspaceInventorySummary(inventory: WorkspaceInventory): string 
 		`${inventory.aiFeatures.length} AI feature(s)`,
 		`${inventory.editorPlugins.length} editor plugin(s)`,
 		`${inventory.adminViews.length} admin view(s)`,
-	].join(", ");
+	].join(', ');
 }
 
 /**
@@ -85,162 +85,162 @@ export async function getWorkspaceDoctorChecks(
 	cwd: string,
 	options: WorkspaceDoctorChecksOptions = {},
 ): Promise<DoctorCheck[]> {
-	const checks: DoctorCheck[] = [];
-	let standaloneProject: StandaloneScaffoldProject | null = null;
-	let standaloneDiscoveryError: unknown = null;
-	try {
+  const checks: DoctorCheck[] = [];
+  let standaloneProject: StandaloneScaffoldProject | null = null;
+  let standaloneDiscoveryError: unknown = null;
+  try {
 		// The nearest standalone package boundary wins over unrelated ancestor
 		// workspace metadata. Official workspace manifests are rejected by the
 		// standalone detector and continue through workspace discovery below.
-		standaloneProject = tryResolveStandaloneScaffoldProject(cwd);
-	} catch (error) {
-		standaloneDiscoveryError = error;
-	}
-	if (standaloneProject) {
-		return getStandaloneScaffoldDoctorChecks(standaloneProject);
-	}
+    standaloneProject = tryResolveStandaloneScaffoldProject(cwd);
+  } catch (error) {
+    standaloneDiscoveryError = error;
+  }
+  if (standaloneProject) {
+    return getStandaloneScaffoldDoctorChecks(standaloneProject);
+  }
 
-	let workspace: WorkspaceProject | null = null;
-	let invalidWorkspaceReason: string | null = null;
-	try {
+  let workspace: WorkspaceProject | null = null;
+  let invalidWorkspaceReason: string | null = null;
+  try {
 		// Workspace discovery and package parsing intentionally stay synchronous
 		// because they share compatibility helpers with sync add/migration callers.
-		invalidWorkspaceReason = getInvalidWorkspaceProjectReason(cwd);
-		workspace = tryResolveWorkspaceProject(cwd);
-	} catch (error) {
-		checks.push(
-			createDoctorScopeCheck(
-				"fail",
-				"Scope: blocked before workspace checks. Environment checks ran, but workspace discovery could not continue. Fix the nearby workspace package metadata and rerun `wp-typia doctor`.",
-			),
-		);
-		checks.push(
-			createDoctorCheck(
-				"Workspace package metadata",
-				"fail",
-				error instanceof Error ? error.message : String(error),
-			),
-		);
-		return checks;
-	}
-	if (!workspace) {
-		if (invalidWorkspaceReason) {
-			checks.push(
-				createDoctorScopeCheck(
-					"fail",
-					"Scope: blocked before workspace checks. Environment checks ran, but workspace diagnostics could not continue because a nearby wp-typia workspace candidate is invalid. Fix the workspace package metadata and rerun `wp-typia doctor`.",
-				),
-			);
-			checks.push(
-				createDoctorCheck(
-					"Workspace package metadata",
-					"fail",
-					invalidWorkspaceReason,
-				),
-			);
-		} else {
-			if (standaloneDiscoveryError) {
-				checks.push(
-					createDoctorScopeCheck(
-						"fail",
-						"Scope: blocked before standalone scaffold checks. Environment checks ran, but standalone discovery could not continue. Fix the nearest package metadata and rerun `wp-typia doctor`.",
-					),
-				);
-				checks.push(
-					createDoctorCheck(
-						"Standalone package metadata",
-						"fail",
-						standaloneDiscoveryError instanceof Error
-							? standaloneDiscoveryError.message
-							: String(standaloneDiscoveryError),
-					),
-				);
-				return checks;
-			}
-			checks.push(
-				createDoctorScopeCheck(
-					"pass",
-					"Scope: environment-only. No official wp-typia workspace root was detected, so this run only covered environment readiness. Re-run `wp-typia doctor` from a workspace root if you expected package metadata, inventory, or generated artifact checks.",
-				),
-			);
-		}
-		return checks;
-	}
+    invalidWorkspaceReason = getInvalidWorkspaceProjectReason(cwd);
+    workspace = tryResolveWorkspaceProject(cwd);
+  } catch (error) {
+    checks.push(
+      createDoctorScopeCheck(
+        'fail',
+        'Scope: blocked before workspace checks. Environment checks ran, but workspace discovery could not continue. Fix the nearby workspace package metadata and rerun `wp-typia doctor`.',
+      ),
+    );
+    checks.push(
+      createDoctorCheck(
+        'Workspace package metadata',
+        'fail',
+        error instanceof Error ? error.message : String(error),
+      ),
+    );
+    return checks;
+  }
+  if (!workspace) {
+    if (invalidWorkspaceReason) {
+      checks.push(
+        createDoctorScopeCheck(
+          'fail',
+          'Scope: blocked before workspace checks. Environment checks ran, but workspace diagnostics could not continue because a nearby wp-typia workspace candidate is invalid. Fix the workspace package metadata and rerun `wp-typia doctor`.',
+        ),
+      );
+      checks.push(
+        createDoctorCheck(
+          'Workspace package metadata',
+          'fail',
+          invalidWorkspaceReason,
+        ),
+      );
+    } else {
+      if (standaloneDiscoveryError) {
+        checks.push(
+          createDoctorScopeCheck(
+            'fail',
+            'Scope: blocked before standalone scaffold checks. Environment checks ran, but standalone discovery could not continue. Fix the nearest package metadata and rerun `wp-typia doctor`.',
+          ),
+        );
+        checks.push(
+          createDoctorCheck(
+            'Standalone package metadata',
+            'fail',
+            standaloneDiscoveryError instanceof Error
+              ? standaloneDiscoveryError.message
+              : String(standaloneDiscoveryError),
+          ),
+        );
+        return checks;
+      }
+      checks.push(
+        createDoctorScopeCheck(
+          'pass',
+          'Scope: environment-only. No official wp-typia workspace root was detected, so this run only covered environment readiness. Re-run `wp-typia doctor` from a workspace root if you expected package metadata, inventory, or generated artifact checks.',
+        ),
+      );
+    }
+    return checks;
+  }
 
-	checks.push(
-		createDoctorScopeCheck(
-			"pass",
-			`Scope: full workspace diagnostics for ${workspace.workspace.namespace}. Environment readiness checks ran and workspace-scoped diagnostics are enabled for the package metadata, inventory, source-tree drift, and any configured migration hint rows below.`,
-		),
-	);
+  checks.push(
+    createDoctorScopeCheck(
+      'pass',
+      `Scope: full workspace diagnostics for ${workspace.workspace.namespace}. Environment readiness checks ran and workspace-scoped diagnostics are enabled for the package metadata, inventory, source-tree drift, and any configured migration hint rows below.`,
+    ),
+  );
 
-	let workspacePackageJson: WorkspacePackageJson;
-	try {
+  let workspacePackageJson: WorkspacePackageJson;
+  try {
 		// Keep package metadata parsing sync until workspace-project exposes an
 		// async companion; the surrounding doctor orchestration already awaits
 		// async inventory reads below.
-		workspacePackageJson = parseWorkspacePackageJson(workspace.projectDir);
-	} catch (error) {
-		checks.push(
-			createDoctorCheck(
-				"Workspace package metadata",
-				"fail",
-				error instanceof Error ? error.message : String(error),
-			),
-		);
-		return checks;
-	}
+    workspacePackageJson = parseWorkspacePackageJson(workspace.projectDir);
+  } catch (error) {
+    checks.push(
+      createDoctorCheck(
+        'Workspace package metadata',
+        'fail',
+        error instanceof Error ? error.message : String(error),
+      ),
+    );
+    return checks;
+  }
 
-	const packageDoctorSnapshot = await prepareWorkspacePackageDoctorSnapshot(
-		workspace,
-		workspacePackageJson,
-	);
+  const packageDoctorSnapshot = await prepareWorkspacePackageDoctorSnapshot(
+    workspace,
+    workspacePackageJson,
+  );
 
-	checks.push(
-		getWorkspacePackageMetadataCheck(
-			workspace,
-			workspacePackageJson,
-			packageDoctorSnapshot,
-		),
-	);
+  checks.push(
+    getWorkspacePackageMetadataCheck(
+      workspace,
+      workspacePackageJson,
+      packageDoctorSnapshot,
+    ),
+  );
 
-	try {
-		const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
-		checks.push(
-			createDoctorCheck(
-				"Workspace inventory",
-				"pass",
-				formatWorkspaceInventorySummary(inventory),
-			),
-		);
+  try {
+    const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
+    checks.push(
+      createDoctorCheck(
+        'Workspace inventory',
+        'pass',
+        formatWorkspaceInventorySummary(inventory),
+      ),
+    );
 		// The highest-impact remaining probes live in block, binding, and feature
 		// categories; keep them synchronous until broader path/content snapshots
 		// can preserve their current row ordering and diagnostics.
-		checks.push(...getWorkspaceBlockDoctorChecks(workspace, inventory));
-		checks.push(...getWorkspaceBindingDoctorChecks(workspace, inventory));
-		checks.push(...getWorkspaceFeatureDoctorChecks(workspace, inventory));
-		if (options.wordpressVersionCheck) {
-			checks.push(
-				...getWorkspaceWordPressVersionDoctorChecks(workspace, inventory),
-			);
-		}
+    checks.push(...getWorkspaceBlockDoctorChecks(workspace, inventory));
+    checks.push(...getWorkspaceBindingDoctorChecks(workspace, inventory));
+    checks.push(...getWorkspaceFeatureDoctorChecks(workspace, inventory));
+    if (options.wordpressVersionCheck) {
+      checks.push(
+        ...getWorkspaceWordPressVersionDoctorChecks(workspace, inventory),
+      );
+    }
 
-		const migrationWorkspaceCheck = getMigrationWorkspaceHintCheck(
-			workspacePackageJson,
-			packageDoctorSnapshot,
-		);
-		if (migrationWorkspaceCheck) {
-			checks.push(migrationWorkspaceCheck);
-		}
-	} catch (error) {
-		checks.push(
-			createDoctorCheck(
-				"Workspace inventory",
-				"fail",
-				error instanceof Error ? error.message : String(error),
-			),
-		);
-	}
+    const migrationWorkspaceCheck = getMigrationWorkspaceHintCheck(
+      workspacePackageJson,
+      packageDoctorSnapshot,
+    );
+    if (migrationWorkspaceCheck) {
+      checks.push(migrationWorkspaceCheck);
+    }
+  } catch (error) {
+    checks.push(
+      createDoctorCheck(
+        'Workspace inventory',
+        'fail',
+        error instanceof Error ? error.message : String(error),
+      ),
+    );
+  }
 
-	return checks;
+  return checks;
 }

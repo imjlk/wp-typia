@@ -3,9 +3,9 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-	ensureExampleShowcaseSynced,
-	findExampleShowcaseBuildArtifact,
-	getExampleShowcaseDir,
+  ensureExampleShowcaseSynced,
+  findExampleShowcaseBuildArtifact,
+  getExampleShowcaseDir,
 } from './helpers/example-showcase';
 
 ensureExampleShowcaseSynced();
@@ -77,7 +77,7 @@ describe('Type Sync Tests', () => {
 
 		expect(manifest.attributes.id.typia.constraints.format).toBe('uuid');
 		expect(manifest.attributes.version.typia.constraints.typeTag).toBe(
-			'uint32'
+			'uint32',
 		);
 		expect(manifest.attributes.content.typia.constraints.maxLength).toBe(1000);
 		expect(manifest.attributes.content.typia.constraints.minLength).toBe(0);
@@ -99,38 +99,38 @@ describe('Type Sync Tests', () => {
 			execSync('bun run build', { cwd: exampleDir, stdio: 'inherit' });
 
 			const buildManifestPath = findExampleShowcaseBuildArtifact(
-				'typia.manifest.json'
+				'typia.manifest.json',
 			);
 			const buildPhpValidatorPath = findExampleShowcaseBuildArtifact(
-				'typia-validator.php'
+				'typia-validator.php',
 			);
 			const buildSchemaPath = findExampleShowcaseBuildArtifact(
-				'typia.schema.json'
+				'typia.schema.json',
 			);
 			const buildOpenApiPath = findExampleShowcaseBuildArtifact(
-				'typia.openapi.json'
+				'typia.openapi.json',
 			);
 
 			const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 			const builtManifest = JSON.parse(
-				fs.readFileSync(buildManifestPath, 'utf8')
+				fs.readFileSync(buildManifestPath, 'utf8'),
 			);
 			const schema = JSON.parse(
-				fs.readFileSync(path.join(exampleDir, 'typia.schema.json'), 'utf8')
+				fs.readFileSync(path.join(exampleDir, 'typia.schema.json'), 'utf8'),
 			);
 			const builtSchema = JSON.parse(
-				fs.readFileSync(buildSchemaPath, 'utf8')
+				fs.readFileSync(buildSchemaPath, 'utf8'),
 			);
 			const openApi = JSON.parse(
-				fs.readFileSync(path.join(exampleDir, 'typia.openapi.json'), 'utf8')
+				fs.readFileSync(path.join(exampleDir, 'typia.openapi.json'), 'utf8'),
 			);
 			const builtOpenApi = JSON.parse(
-				fs.readFileSync(buildOpenApiPath, 'utf8')
+				fs.readFileSync(buildOpenApiPath, 'utf8'),
 			);
 			const phpValidatorSource = fs.readFileSync(phpValidatorPath, 'utf8');
 			const builtPhpValidatorSource = fs.readFileSync(
 				buildPhpValidatorPath,
-				'utf8'
+				'utf8',
 			);
 
 			expect(builtManifest).toEqual(manifest);
@@ -138,6 +138,6 @@ describe('Type Sync Tests', () => {
 			expect(builtOpenApi).toEqual(openApi);
 			expect(builtPhpValidatorSource).toEqual(phpValidatorSource);
 		},
-		{ timeout: 90_000 }
+		{ timeout: 90_000 },
 	);
 });

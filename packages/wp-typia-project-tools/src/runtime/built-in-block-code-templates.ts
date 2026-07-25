@@ -1,1 +1,1 @@
-export * from "./templates/built-in-block-code-templates.js";
+export * from './templates/built-in-block-code-templates.js';

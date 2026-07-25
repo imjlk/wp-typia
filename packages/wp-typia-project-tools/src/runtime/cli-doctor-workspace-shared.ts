@@ -1,1 +1,1 @@
-export * from "./doctor/cli-doctor-workspace-shared.js";
+export * from './doctor/cli-doctor-workspace-shared.js';

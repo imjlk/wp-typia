@@ -4,4 +4,4 @@
  * implementation is consolidated in block-runtime.
  * @module
  */
-export * from "@wp-typia/block-runtime/metadata-parser";
+export * from '@wp-typia/block-runtime/metadata-parser';

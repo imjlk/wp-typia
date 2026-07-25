@@ -200,7 +200,9 @@ const typedSupports = defineSupports({
     textAlign: ['left', 'center'],
   },
 });
-const typedSupportManifest = getDefinedSupportsCompatibilityManifest(typedSupports);
+const typedSupportManifest = getDefinedSupportsCompatibilityManifest(
+  typedSupports,
+);
 const derivedSupportAttrs: SupportAttributes<typeof typedSupports> = {
   backgroundColor: 'primary',
   fontSize: 'large',

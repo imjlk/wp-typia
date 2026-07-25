@@ -1,1 +1,1 @@
-export * from "./add/cli-add-kind-ids.js";
+export * from './add/cli-add-kind-ids.js';

@@ -1,34 +1,31 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
-	getWorkspaceBootstrapPath,
-	patchFile,
-} from "./cli-add-shared.js";
+  appendPhpSnippetBeforeClosingTag,
+  insertPhpSnippetBeforeWorkspaceAnchors,
+} from './cli-add-workspace-mutation.js';
+import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
 import {
-	appendPhpSnippetBeforeClosingTag,
-	insertPhpSnippetBeforeWorkspaceAnchors,
-} from "./cli-add-workspace-mutation.js";
-import { pathExists, readOptionalUtf8File } from "../shared/fs-async.js";
-import {
-	findPhpFunctionRange,
-	hasPhpFunctionDefinition,
-	replacePhpFunctionDefinition,
-} from "../shared/php-utils.js";
-import { readWorkspaceInventoryAsync } from "../workspace/workspace-inventory.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
+import { readWorkspaceInventoryAsync } from '../workspace/workspace-inventory.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const EDITOR_PLUGIN_EDITOR_SCRIPT = "build/editor-plugins/index.js";
-const EDITOR_PLUGIN_EDITOR_ASSET = "build/editor-plugins/index.asset.php";
-const EDITOR_PLUGIN_EDITOR_STYLE = "build/editor-plugins/style-index.css";
-const EDITOR_PLUGIN_EDITOR_STYLE_RTL = "build/editor-plugins/style-index-rtl.css";
+const EDITOR_PLUGIN_EDITOR_SCRIPT = 'build/editor-plugins/index.js';
+const EDITOR_PLUGIN_EDITOR_ASSET = 'build/editor-plugins/index.asset.php';
+const EDITOR_PLUGIN_EDITOR_STYLE = 'build/editor-plugins/style-index.css';
+const EDITOR_PLUGIN_EDITOR_STYLE_RTL = 'build/editor-plugins/style-index-rtl.css';
 
 function buildEditorPluginRegistrySource(editorPluginSlugs: string[]): string {
-	const importLines = editorPluginSlugs
+  const importLines = editorPluginSlugs
 		.map((editorPluginSlug) => `import './${editorPluginSlug}';`)
-		.join("\n");
+		.join('\n');
 
-	return `${importLines}${importLines ? "\n\n" : ""}// wp-typia add editor-plugin entries\n`;
+  return `${importLines}${importLines ? '\n\n' : ''}// wp-typia add editor-plugin entries\n`;
 }
 
 /**
@@ -40,11 +37,11 @@ function buildEditorPluginRegistrySource(editorPluginSlugs: string[]): string {
 export async function ensureEditorPluginBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
 
-	await patchFile(bootstrapPath, (source) => {
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
-		const workspaceBaseName = workspace.packageName.split("/").pop() ?? workspace.packageName;
+		const workspaceBaseName = workspace.packageName.split('/').pop() ?? workspace.packageName;
 		const enqueueFunctionName = `${workspace.workspace.phpPrefix}_enqueue_editor_plugins_editor`;
 		const enqueueHook = `add_action( 'enqueue_block_editor_assets', '${enqueueFunctionName}' );`;
 		const enqueueFunction = `
@@ -94,12 +91,12 @@ function ${enqueueFunctionName}() {
 				EDITOR_PLUGIN_EDITOR_ASSET,
 				EDITOR_PLUGIN_EDITOR_STYLE,
 				EDITOR_PLUGIN_EDITOR_STYLE_RTL,
-				"wp_style_add_data",
+				'wp_style_add_data',
 			];
 			const functionRange = findPhpFunctionRange(nextSource, enqueueFunctionName);
 			const functionSource = functionRange
 				? nextSource.slice(functionRange.start, functionRange.end)
-				: "";
+				: '';
 			const missingReferences = requiredReferences.filter(
 				(reference) => !functionSource.includes(reference),
 			);
@@ -135,9 +132,13 @@ function ${enqueueFunctionName}() {
 export async function ensureEditorPluginBuildScriptAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const buildScriptPath = path.join(workspace.projectDir, "scripts", "build-workspace.mjs");
+  const buildScriptPath = path.join(
+    workspace.projectDir,
+    'scripts',
+    'build-workspace.mjs',
+  );
 
-	await patchFile(buildScriptPath, (source) => {
+  await patchFile(buildScriptPath, (source) => {
 		if (/['"]src\/editor-plugins\/index\.(?:ts|js)['"]/u.test(source)) {
 			return source;
 		}
@@ -173,9 +174,12 @@ export async function ensureEditorPluginBuildScriptAnchors(
 export async function ensureEditorPluginWebpackAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const webpackConfigPath = path.join(workspace.projectDir, "webpack.config.js");
+  const webpackConfigPath = path.join(
+    workspace.projectDir,
+    'webpack.config.js',
+  );
 
-	await patchFile(webpackConfigPath, (source) => {
+  await patchFile(webpackConfigPath, (source) => {
 		if (/['"]editor-plugins\/index['"]/u.test(source)) {
 			return source;
 		}
@@ -183,27 +187,27 @@ export async function ensureEditorPluginWebpackAnchors(
 		const legacySharedEntriesBlockPattern =
 			/for\s*\(\s*const\s+relativePath\s+of\s+\[\s*['"]src\/bindings\/index\.ts['"]\s*,\s*['"]src\/bindings\/index\.js['"]\s*(?:,\s*)?\]\s*\)\s*\{[\s\S]*?entries\.push\(\s*\[\s*['"]bindings\/index['"]\s*,\s*entryPath\s*\]\s*\);\s*break;\s*\}/u;
 		const nextSharedEntriesBlock = [
-			"\tfor ( const [ entryName, candidates ] of [",
-			"\t\t[",
+			'\tfor ( const [ entryName, candidates ] of [',
+			'\t\t[',
 			"\t\t\t'bindings/index',",
 			"\t\t\t[ 'src/bindings/index.ts', 'src/bindings/index.js' ],",
-			"\t\t],",
-			"\t\t[",
+			'\t\t],',
+			'\t\t[',
 			"\t\t\t'editor-plugins/index',",
 			"\t\t\t[ 'src/editor-plugins/index.ts', 'src/editor-plugins/index.js' ],",
-			"\t\t],",
-			"\t] ) {",
-			"\t\tfor ( const relativePath of candidates ) {",
-			"\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );",
-			"\t\t\tif ( ! fs.existsSync( entryPath ) ) {",
-			"\t\t\t\tcontinue;",
-			"\t\t\t}",
-			"",
-			"\t\t\tentries.push( [ entryName, entryPath ] );",
-			"\t\t\tbreak;",
-			"\t\t}",
-			"\t}",
-		].join("\n");
+			'\t\t],',
+			'\t] ) {',
+			'\t\tfor ( const relativePath of candidates ) {',
+			'\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );',
+			'\t\t\tif ( ! fs.existsSync( entryPath ) ) {',
+			'\t\t\t\tcontinue;',
+			'\t\t\t}',
+			'',
+			'\t\t\tentries.push( [ entryName, entryPath ] );',
+			'\t\t\tbreak;',
+			'\t\t}',
+			'\t}',
+		].join('\n');
 		const nextSource = source.replace(
 			legacySharedEntriesBlockPattern,
 			nextSharedEntriesBlock,
@@ -226,27 +230,27 @@ export async function ensureEditorPluginWebpackAnchors(
  * @returns A promise for the registry path to read or write.
  */
 export async function resolveEditorPluginRegistryPath(projectDir: string): Promise<string> {
-	const editorPluginsDir = path.join(projectDir, "src", "editor-plugins");
-	for (const candidatePath of [
-		path.join(editorPluginsDir, "index.ts"),
-		path.join(editorPluginsDir, "index.js"),
-	]) {
-		if (await pathExists(candidatePath)) {
-			return candidatePath;
-		}
-	}
-	return path.join(editorPluginsDir, "index.ts");
+  const editorPluginsDir = path.join(projectDir, 'src', 'editor-plugins');
+  for (const candidatePath of [
+    path.join(editorPluginsDir, 'index.ts'),
+    path.join(editorPluginsDir, 'index.js'),
+  ]) {
+    if (await pathExists(candidatePath)) {
+      return candidatePath;
+    }
+  }
+  return path.join(editorPluginsDir, 'index.ts');
 }
 
 async function readEditorPluginRegistrySlugs(
 	registryPath: string,
 ): Promise<string[]> {
-	const source = await readOptionalUtf8File(registryPath);
-	if (source === null) {
-		return [];
-	}
+  const source = await readOptionalUtf8File(registryPath);
+  if (source === null) {
+    return [];
+  }
 
-	return Array.from(
+  return Array.from(
 		source.matchAll(
 			/^\s*import\s+['"]\.\/([^/'"]+)(?:\/index(?:\.[cm]?[jt]sx?)?)?['"];?\s*$/gmu,
 		),
@@ -264,20 +268,22 @@ export async function writeEditorPluginRegistry(
 	projectDir: string,
 	editorPluginSlug: string,
 ): Promise<void> {
-	const editorPluginsDir = path.join(projectDir, "src", "editor-plugins");
-	const registryPath = await resolveEditorPluginRegistryPath(projectDir);
-	await fsp.mkdir(editorPluginsDir, { recursive: true });
+  const editorPluginsDir = path.join(projectDir, 'src', 'editor-plugins');
+  const registryPath = await resolveEditorPluginRegistryPath(projectDir);
+  await fsp.mkdir(editorPluginsDir, { recursive: true });
 
-	const existingEditorPluginSlugs = (
+  const existingEditorPluginSlugs = (
 		await readWorkspaceInventoryAsync(projectDir)
 	).editorPlugins.map((entry) => entry.slug);
-	const existingRegistrySlugs = await readEditorPluginRegistrySlugs(registryPath);
-	const nextEditorPluginSlugs = Array.from(
+  const existingRegistrySlugs = await readEditorPluginRegistrySlugs(
+    registryPath,
+  );
+  const nextEditorPluginSlugs = Array.from(
 		new Set([...existingEditorPluginSlugs, ...existingRegistrySlugs, editorPluginSlug]),
 	).sort();
-	await fsp.writeFile(
-		registryPath,
-		buildEditorPluginRegistrySource(nextEditorPluginSlugs),
-		"utf8",
-	);
+  await fsp.writeFile(
+    registryPath,
+    buildEditorPluginRegistrySource(nextEditorPluginSlugs),
+    'utf8',
+  );
 }

@@ -1,43 +1,43 @@
-import path from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import path from 'node:path';
+import { readFile, writeFile } from 'node:fs/promises';
 
-import { escapeRegex } from "../shared/php-utils.js";
+import { escapeRegex } from '../shared/php-utils.js';
 import {
-	BLOCK_INVENTORY_SECTION,
-	INVENTORY_SECTIONS,
-} from "./workspace-inventory-section-descriptors.js";
-import { WORKSPACE_COMPATIBILITY_CONFIG_FIELD } from "./workspace-inventory-templates.js";
-import type { WorkspaceInventoryUpdateOptions } from "./workspace-inventory-types.js";
+  BLOCK_INVENTORY_SECTION,
+  INVENTORY_SECTIONS,
+} from './workspace-inventory-section-descriptors.js';
+import { WORKSPACE_COMPATIBILITY_CONFIG_FIELD } from './workspace-inventory-templates.js';
+import type { WorkspaceInventoryUpdateOptions } from './workspace-inventory-types.js';
 
 function ensureWorkspaceInventorySections(source: string): string {
-	let nextSource = source.trimEnd();
+  let nextSource = source.trimEnd();
 
-	for (const section of INVENTORY_SECTIONS) {
-		if (
+  for (const section of INVENTORY_SECTIONS) {
+    if (
 			section.interface &&
 			!hasExportedTypeDeclaration(nextSource, section.interface.name)
 		) {
-			nextSource += section.interface.section;
-		}
-		if (section.value && !hasExportedConst(nextSource, section.value.name)) {
-			nextSource += section.value.section;
-		}
-	}
+      nextSource += section.interface.section;
+    }
+    if (section.value && !hasExportedConst(nextSource, section.value.name)) {
+      nextSource += section.value.section;
+    }
+  }
 
-	return `${nextSource}\n`;
+  return `${nextSource}\n`;
 }
 
 function hasExportedTypeDeclaration(source: string, interfaceName: string): boolean {
-	return new RegExp(
+  return new RegExp(
 		`export\\s+(?:interface|type)\\s+${escapeRegex(interfaceName)}\\b`,
-		"u",
+		'u',
 	).test(source);
 }
 
 function hasExportedConst(source: string, constName: string): boolean {
-	return new RegExp(
+  return new RegExp(
 		`export\\s+const\\s+${escapeRegex(constName)}\\b`,
-		"u",
+		'u',
 	).test(source);
 }
 
@@ -46,35 +46,35 @@ function appendEntriesAtMarker(
 	marker: string,
 	entries: string[],
 ): string {
-	if (entries.length === 0) {
-		return source;
-	}
-	if (!source.includes(marker)) {
-		throw new Error(
-			`Workspace inventory marker "${marker}" is missing in scripts/block-config.ts.`,
-		);
-	}
+  if (entries.length === 0) {
+    return source;
+  }
+  if (!source.includes(marker)) {
+    throw new Error(
+      `Workspace inventory marker "${marker}" is missing in scripts/block-config.ts.`,
+    );
+  }
 
-	const replacement = `${entries.join("\n")}\n${marker}`;
-	return source.replace(marker, () => replacement);
+  const replacement = `${entries.join('\n')}\n${marker}`;
+  return source.replace(marker, () => replacement);
 }
 
 function appendInventorySectionEntries(
 	source: string,
 	options: WorkspaceInventoryUpdateOptions,
 ): string {
-	let nextSource = source;
-	for (const section of [BLOCK_INVENTORY_SECTION, ...INVENTORY_SECTIONS]) {
-		if (!section.append) {
-			continue;
-		}
-		nextSource = appendEntriesAtMarker(
-			nextSource,
-			section.append.marker,
-			options[section.append.optionKey] ?? [],
-		);
-	}
-	return nextSource;
+  let nextSource = source;
+  for (const section of [BLOCK_INVENTORY_SECTION, ...INVENTORY_SECTIONS]) {
+    if (!section.append) {
+      continue;
+    }
+    nextSource = appendEntriesAtMarker(
+      nextSource,
+      section.append.marker,
+      options[section.append.optionKey] ?? [],
+    );
+  }
+  return nextSource;
 }
 
 function ensureInterfaceField(
@@ -83,26 +83,26 @@ function ensureInterfaceField(
 	fieldName: string,
 	fieldSource: string,
 ): string {
-	const interfacePattern = new RegExp(
+  const interfacePattern = new RegExp(
 		`(export\\s+interface\\s+${escapeRegex(
 			interfaceName,
 		)}\\s*\\{\\r?\\n)([\\s\\S]*?)(\\r?\\n\\})`,
-		"u",
+		'u',
 	);
 
-	return source.replace(
+  return source.replace(
 		interfacePattern,
 		(match, start: string, body: string, end: string) => {
 			if (
-				new RegExp(`^[ \t]*${escapeRegex(fieldName)}\\??:`, "mu").test(body)
+				new RegExp(`^[ \t]*${escapeRegex(fieldName)}\\??:`, 'mu').test(body)
 			) {
 				return match;
 			}
 
-			const lineEnding = start.endsWith("\r\n") ? "\r\n" : "\n";
+			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
 			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, "")
-				.split("\n")
+				.replace(/\r?\n$/u, '')
+				.split('\n')
 				.join(lineEnding)}${lineEnding}`;
 			const memberPattern = /^[ \t]*([A-Za-z_$][\w$]*)\??:/gmu;
 
@@ -121,7 +121,7 @@ function ensureInterfaceField(
 			}
 
 			return `${start}${body}${
-				body.length > 0 && !body.endsWith(lineEnding) ? lineEnding : ""
+				body.length > 0 && !body.endsWith(lineEnding) ? lineEnding : ''
 			}${formattedFieldSource}${end}`;
 		},
 	);
@@ -133,24 +133,24 @@ function upsertInterfaceField(
 	fieldName: string,
 	fieldSource: string,
 ): string {
-	const interfacePattern = new RegExp(
+  const interfacePattern = new RegExp(
 		`(export\\s+interface\\s+${escapeRegex(
 			interfaceName,
 		)}\\s*\\{\\r?\\n)([\\s\\S]*?)(\\r?\\n\\})`,
-		"u",
+		'u',
 	);
 
-	return source.replace(
+  return source.replace(
 		interfacePattern,
 		(match, start: string, body: string, end: string) => {
-			const lineEnding = start.endsWith("\r\n") ? "\r\n" : "\n";
+			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
 			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, "")
-				.split("\n")
+				.replace(/\r?\n$/u, '')
+				.split('\n')
 				.join(lineEnding)}${lineEnding}`;
 			const existingFieldPattern = new RegExp(
 				`(^[ \\t]*${escapeRegex(fieldName)}\\??:\\s*[^;\\r\\n]+;?\\r?\\n?)`,
-				"mu",
+				'mu',
 			);
 			const existingFieldMatch = existingFieldPattern.exec(body);
 
@@ -181,7 +181,7 @@ function upsertInterfaceField(
 			}
 
 			return `${start}${body}${
-				body.length > 0 && !body.endsWith(lineEnding) ? lineEnding : ""
+				body.length > 0 && !body.endsWith(lineEnding) ? lineEnding : ''
 			}${formattedFieldSource}${end}`;
 		},
 	);
@@ -194,21 +194,21 @@ function normalizeInterfaceFieldBlock(
 	fieldSource: string,
 	requiredFragments: string[],
 ): string {
-	const interfacePattern = new RegExp(
+  const interfacePattern = new RegExp(
 		`(export\\s+interface\\s+${escapeRegex(
 			interfaceName,
 		)}\\s*\\{\\r?\\n)([\\s\\S]*?)(\\r?\\n\\})`,
-		"u",
+		'u',
 	);
 
-	return source.replace(
+  return source.replace(
 		interfacePattern,
 		(match, start: string, body: string, end: string) => {
 			const fieldPattern = new RegExp(
 				`(^([ \\t]*)${escapeRegex(
 					fieldName,
 				)}\\??:\\s*\\{[ \\t]*\\r?\\n)([\\s\\S]*?)(^\\2\\};\\r?\\n?)`,
-				"mu",
+				'mu',
 			);
 			const fieldMatch = fieldPattern.exec(body);
 			if (!fieldMatch) {
@@ -224,10 +224,10 @@ function normalizeInterfaceFieldBlock(
 				return match;
 			}
 
-			const lineEnding = start.endsWith("\r\n") ? "\r\n" : "\n";
+			const lineEnding = start.endsWith('\r\n') ? '\r\n' : '\n';
 			const formattedFieldSource = `${fieldSource
-				.replace(/\r?\n$/u, "")
-				.split("\n")
+				.replace(/\r?\n$/u, '')
+				.split('\n')
 				.join(lineEnding)}${lineEnding}`;
 
 			return `${start}${body.slice(
@@ -255,103 +255,103 @@ export function updateWorkspaceInventorySource(
 	source: string,
 	options: WorkspaceInventoryUpdateOptions = {},
 ): string {
-	let nextSource = ensureWorkspaceInventorySections(source);
-	if (options.transformSource) {
-		nextSource = options.transformSource(nextSource);
-	}
-	nextSource = appendInventorySectionEntries(nextSource, options);
-	for (const [fieldName, fieldSource] of [
-		["contentFile", "\tcontentFile?: string;"],
-		["file", "\tfile?: string;"],
-		["scope", "\tscope?: 'full' | 'section';"],
-		["sectionRole", "\tsectionRole?: string;"],
-		["tags", "\ttags?: string[];"],
-		["thumbnailUrl", "\tthumbnailUrl?: string;"],
-		["title", "\ttitle?: string;"],
-	] as const) {
-		nextSource = upsertInterfaceField(
-			nextSource,
-			"WorkspacePatternConfig",
-			fieldName,
-			fieldSource,
-		);
-	}
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceBindingSourceConfig",
-		"attribute",
-		"\tattribute?: string;",
-	);
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceBindingSourceConfig",
-		"block",
-		"\tblock?: string;",
-	);
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceBindingSourceConfig",
-		"metaPath",
-		"\tmetaPath?: string;",
-	);
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceBindingSourceConfig",
-		"postMeta",
-		"\tpostMeta?: string;",
-	);
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceAbilityConfig",
-		"compatibility",
-		WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
-	);
-	nextSource = normalizeInterfaceFieldBlock(
-		nextSource,
-		"WorkspaceAbilityConfig",
-		"compatibility",
-		WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
-		["optionalFeatureIds: string[];", "requiredFeatureIds: string[];"],
-	);
-	nextSource = ensureInterfaceField(
-		nextSource,
-		"WorkspaceAiFeatureConfig",
-		"compatibility",
-		WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
-	);
-	nextSource = normalizeInterfaceFieldBlock(
-		nextSource,
-		"WorkspaceAiFeatureConfig",
-		"compatibility",
-		WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
-		["optionalFeatureIds: string[];", "requiredFeatureIds: string[];"],
-	);
-	for (const [fieldName, fieldSource] of [
-		["auth", "\tauth?: 'authenticated' | 'public' | 'public-write-protected';"],
-		["bodyTypeName", "\tbodyTypeName?: string;"],
-		["controllerClass", "\tcontrollerClass?: string;"],
-		["controllerExtends", "\tcontrollerExtends?: string;"],
-		["dataFile", "\tdataFile?: string;"],
-		["method", "\tmethod?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';"],
-		["mode", "\tmode?: 'generated' | 'manual';"],
-		["pathPattern", "\tpathPattern?: string;"],
-		["permissionCallback", "\tpermissionCallback?: string;"],
-		["phpFile", "\tphpFile?: string;"],
-		["queryTypeName", "\tqueryTypeName?: string;"],
-		["responseTypeName", "\tresponseTypeName?: string;"],
-		["routePattern", "\troutePattern?: string;"],
-		["secretFieldName", "\tsecretFieldName?: string;"],
-		["secretPreserveOnEmpty", "\tsecretPreserveOnEmpty?: boolean;"],
-		["secretStateFieldName", "\tsecretStateFieldName?: string;"],
-	] as const) {
-		nextSource = upsertInterfaceField(
-			nextSource,
-			"WorkspaceRestResourceConfig",
-			fieldName,
-			fieldSource,
-		);
-	}
-	return nextSource;
+  let nextSource = ensureWorkspaceInventorySections(source);
+  if (options.transformSource) {
+    nextSource = options.transformSource(nextSource);
+  }
+  nextSource = appendInventorySectionEntries(nextSource, options);
+  for (const [fieldName, fieldSource] of [
+    ['contentFile', '\tcontentFile?: string;'],
+    ['file', '\tfile?: string;'],
+    ['scope', "\tscope?: 'full' | 'section';"],
+    ['sectionRole', '\tsectionRole?: string;'],
+    ['tags', '\ttags?: string[];'],
+    ['thumbnailUrl', '\tthumbnailUrl?: string;'],
+    ['title', '\ttitle?: string;'],
+  ] as const) {
+    nextSource = upsertInterfaceField(
+      nextSource,
+      'WorkspacePatternConfig',
+      fieldName,
+      fieldSource,
+    );
+  }
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceBindingSourceConfig',
+    'attribute',
+    '\tattribute?: string;',
+  );
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceBindingSourceConfig',
+    'block',
+    '\tblock?: string;',
+  );
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceBindingSourceConfig',
+    'metaPath',
+    '\tmetaPath?: string;',
+  );
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceBindingSourceConfig',
+    'postMeta',
+    '\tpostMeta?: string;',
+  );
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceAbilityConfig',
+    'compatibility',
+    WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
+  );
+  nextSource = normalizeInterfaceFieldBlock(
+    nextSource,
+    'WorkspaceAbilityConfig',
+    'compatibility',
+    WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
+    ['optionalFeatureIds: string[];', 'requiredFeatureIds: string[];'],
+  );
+  nextSource = ensureInterfaceField(
+    nextSource,
+    'WorkspaceAiFeatureConfig',
+    'compatibility',
+    WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
+  );
+  nextSource = normalizeInterfaceFieldBlock(
+    nextSource,
+    'WorkspaceAiFeatureConfig',
+    'compatibility',
+    WORKSPACE_COMPATIBILITY_CONFIG_FIELD,
+    ['optionalFeatureIds: string[];', 'requiredFeatureIds: string[];'],
+  );
+  for (const [fieldName, fieldSource] of [
+    ['auth', "\tauth?: 'authenticated' | 'public' | 'public-write-protected';"],
+    ['bodyTypeName', '\tbodyTypeName?: string;'],
+    ['controllerClass', '\tcontrollerClass?: string;'],
+    ['controllerExtends', '\tcontrollerExtends?: string;'],
+    ['dataFile', '\tdataFile?: string;'],
+    ['method', "\tmethod?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';"],
+    ['mode', "\tmode?: 'generated' | 'manual';"],
+    ['pathPattern', '\tpathPattern?: string;'],
+    ['permissionCallback', '\tpermissionCallback?: string;'],
+    ['phpFile', '\tphpFile?: string;'],
+    ['queryTypeName', '\tqueryTypeName?: string;'],
+    ['responseTypeName', '\tresponseTypeName?: string;'],
+    ['routePattern', '\troutePattern?: string;'],
+    ['secretFieldName', '\tsecretFieldName?: string;'],
+    ['secretPreserveOnEmpty', '\tsecretPreserveOnEmpty?: boolean;'],
+    ['secretStateFieldName', '\tsecretStateFieldName?: string;'],
+  ] as const) {
+    nextSource = upsertInterfaceField(
+      nextSource,
+      'WorkspaceRestResourceConfig',
+      fieldName,
+      fieldSource,
+    );
+  }
+  return nextSource;
 }
 
 /**
@@ -366,10 +366,10 @@ export async function appendWorkspaceInventoryEntries(
 	projectDir: string,
 	options: Parameters<typeof updateWorkspaceInventorySource>[1],
 ): Promise<void> {
-	const blockConfigPath = path.join(projectDir, "scripts", "block-config.ts");
-	const source = await readFile(blockConfigPath, "utf8");
-	const nextSource = updateWorkspaceInventorySource(source, options);
-	if (nextSource !== source) {
-		await writeFile(blockConfigPath, nextSource, "utf8");
-	}
+  const blockConfigPath = path.join(projectDir, 'scripts', 'block-config.ts');
+  const source = await readFile(blockConfigPath, 'utf8');
+  const nextSource = updateWorkspaceInventorySource(source, options);
+  if (nextSource !== source) {
+    await writeFile(blockConfigPath, nextSource, 'utf8');
+  }
 }

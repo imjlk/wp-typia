@@ -1,1 +1,1 @@
-export * from "./migration/migration-maintenance-fixtures.js";
+export * from './migration/migration-maintenance-fixtures.js';

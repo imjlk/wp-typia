@@ -1,21 +1,21 @@
-import ts from "@typescript/typescript6";
+import ts from '@typescript/typescript6';
 
-import { parseInventorySection } from "./workspace-inventory-parser-entries.js";
+import { parseInventorySection } from './workspace-inventory-parser-entries.js';
 import {
-	BLOCK_INVENTORY_SECTION,
-	INVENTORY_SECTIONS,
-} from "./workspace-inventory-section-descriptors.js";
+  BLOCK_INVENTORY_SECTION,
+  INVENTORY_SECTIONS,
+} from './workspace-inventory-section-descriptors.js';
 import type {
-	WorkspaceBlockInventoryEntry,
-	WorkspaceInventory,
-	WorkspaceInventoryParseResult,
-} from "./workspace-inventory-types.js";
+  WorkspaceBlockInventoryEntry,
+  WorkspaceInventory,
+  WorkspaceInventoryParseResult,
+} from './workspace-inventory-types.js';
 
 export {
-	BLOCK_INVENTORY_SECTION,
-	INVENTORY_SECTIONS,
-} from "./workspace-inventory-section-descriptors.js";
-export type { InventorySectionDescriptor } from "./workspace-inventory-parser-validation.js";
+  BLOCK_INVENTORY_SECTION,
+  INVENTORY_SECTIONS,
+} from './workspace-inventory-section-descriptors.js';
+export type { InventorySectionDescriptor } from './workspace-inventory-parser-validation.js';
 
 /**
  * Parse workspace inventory entries from the source of `scripts/block-config.ts`.
@@ -26,15 +26,15 @@ export type { InventorySectionDescriptor } from "./workspace-inventory-parser-va
  */
 export function parseWorkspaceInventorySource(
 	source: string,
-): Omit<WorkspaceInventory, "blockConfigPath"> {
-	const sourceFile = ts.createSourceFile(
-		"block-config.ts",
-		source,
-		ts.ScriptTarget.Latest,
-		true,
-		ts.ScriptKind.TS,
-	);
-	const parsedInventory: WorkspaceInventoryParseResult = {
+): Omit<WorkspaceInventory, 'blockConfigPath'> {
+  const sourceFile = ts.createSourceFile(
+    'block-config.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const parsedInventory: WorkspaceInventoryParseResult = {
 		abilities: [],
 		adminViews: [],
 		aiFeatures: [],
@@ -66,18 +66,18 @@ export function parseWorkspaceInventorySource(
 		variations: [],
 	};
 
-	const mutableInventory = parsedInventory as Record<string, unknown>;
-	for (const section of INVENTORY_SECTIONS) {
-		if (!section.parse) {
-			continue;
-		}
+  const mutableInventory = parsedInventory as Record<string, unknown>;
+  for (const section of INVENTORY_SECTIONS) {
+    if (!section.parse) {
+      continue;
+    }
 
-		const parsedSection = parseInventorySection(sourceFile, section);
-		mutableInventory[section.parse.entriesKey] = parsedSection.entries;
-		if (section.parse.hasSectionKey) {
-			mutableInventory[section.parse.hasSectionKey] = parsedSection.found;
-		}
-	}
+    const parsedSection = parseInventorySection(sourceFile, section);
+    mutableInventory[section.parse.entriesKey] = parsedSection.entries;
+    if (section.parse.hasSectionKey) {
+      mutableInventory[section.parse.hasSectionKey] = parsedSection.found;
+    }
+  }
 
-	return parsedInventory;
+  return parsedInventory;
 }

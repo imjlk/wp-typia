@@ -1,1 +1,1 @@
-export * from "./templates/local-dev-presets.js";
+export * from './templates/local-dev-presets.js';

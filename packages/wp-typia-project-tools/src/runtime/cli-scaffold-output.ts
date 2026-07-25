@@ -1,1 +1,1 @@
-export * from "./templates/cli-scaffold-output.js";
+export * from './templates/cli-scaffold-output.js';

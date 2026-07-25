@@ -1,111 +1,111 @@
 import type {
-	JsonValue,
-	ManifestAttribute,
-	ManifestConstraints,
-	ManifestDocument,
-} from "../migration/migration-types.js";
+  JsonValue,
+  ManifestAttribute,
+  ManifestConstraints,
+  ManifestDocument,
+} from '../migration/migration-types.js';
 
 /**
  * Default placeholder copy used for generated compound child body fields.
  */
 export const DEFAULT_COMPOUND_CHILD_BODY_PLACEHOLDER =
-	"Add supporting details for this internal item.";
+	'Add supporting details for this internal item.';
 
-const EXAMPLE_UUID = "00000000-0000-4000-8000-000000000000";
+const EXAMPLE_UUID = '00000000-0000-4000-8000-000000000000';
 const STRING_EXAMPLES_BY_FORMAT: Readonly<Record<string, string>> = {
-	date: "2026-01-01",
-	"date-time": "2026-01-01T00:00:00.000Z",
-	email: "example@example.com",
-	hostname: "example.com",
-	ipv4: "192.0.2.1",
-	ipv6: "2001:db8::1",
-	time: "00:00:00Z",
-	uri: "https://example.com/",
-	uuid: EXAMPLE_UUID,
+  date: '2026-01-01',
+  'date-time': '2026-01-01T00:00:00.000Z',
+  email: 'example@example.com',
+  hostname: 'example.com',
+  ipv4: '192.0.2.1',
+  ipv6: '2001:db8::1',
+  time: '00:00:00Z',
+  uri: 'https://example.com/',
+  uuid: EXAMPLE_UUID,
 };
 
-type StarterManifestSourceType = NonNullable<ManifestAttribute["wp"]["type"]>;
-type WordPressAttributeSource = NonNullable<ManifestAttribute["wp"]["source"]>;
+type StarterManifestSourceType = NonNullable<ManifestAttribute['wp']['type']>;
+type WordPressAttributeSource = NonNullable<ManifestAttribute['wp']['source']>;
 
 interface StarterManifestAttributeDefinition {
-	constraints?: Partial<ManifestConstraints>;
-	defaultValue?: JsonValue;
-	enumValues?: Array<string | number | boolean> | null;
-	kind: ManifestAttribute["ts"]["kind"];
-	required: boolean;
-	selector?: string | null;
-	source?: WordPressAttributeSource | null;
-	sourceType: StarterManifestSourceType;
+  constraints?: Partial<ManifestConstraints>;
+  defaultValue?: JsonValue;
+  enumValues?: Array<string | number | boolean> | null;
+  kind: ManifestAttribute['ts']['kind'];
+  required: boolean;
+  selector?: string | null;
+  source?: WordPressAttributeSource | null;
+  sourceType: StarterManifestSourceType;
 }
 
 interface BlockJsonAttributeDefinition {
-	defaultValue?: JsonValue;
-	enumValues?: Array<string | number | boolean> | null;
-	selector?: string;
-	source?: WordPressAttributeSource;
-	type: StarterManifestSourceType;
+  defaultValue?: JsonValue;
+  enumValues?: Array<string | number | boolean> | null;
+  selector?: string;
+  source?: WordPressAttributeSource;
+  type: StarterManifestSourceType;
 }
 
 export interface AttributeDescription {
-	lines: string[];
+  lines: string[];
 }
 
 /**
  * Emitted attribute metadata shared between block.json, manifest, and type emitters.
  */
 export interface EmittedAttributeDefinition {
-	blockJson: BlockJsonAttributeDefinition;
-	description?: AttributeDescription;
-	manifest: StarterManifestAttributeDefinition;
-	name: string;
-	optional: boolean;
-	typeExpression: string;
+  blockJson: BlockJsonAttributeDefinition;
+  description?: AttributeDescription;
+  manifest: StarterManifestAttributeDefinition;
+  name: string;
+  optional: boolean;
+  typeExpression: string;
 }
 
 function createNumberExampleValue(
 	attributeName: string,
 	constraints: Partial<ManifestConstraints> | undefined,
 ): number {
-	const minimum = constraints?.minimum ?? Number.NEGATIVE_INFINITY;
-	const exclusiveMinimum =
+  const minimum = constraints?.minimum ?? Number.NEGATIVE_INFINITY;
+  const exclusiveMinimum =
 		constraints?.exclusiveMinimum ?? Number.NEGATIVE_INFINITY;
-	const maximum = constraints?.maximum ?? Number.POSITIVE_INFINITY;
-	const exclusiveMaximum =
+  const maximum = constraints?.maximum ?? Number.POSITIVE_INFINITY;
+  const exclusiveMaximum =
 		constraints?.exclusiveMaximum ?? Number.POSITIVE_INFINITY;
-	const lowerBound = Math.max(minimum, exclusiveMinimum);
-	const upperBound = Math.min(maximum, exclusiveMaximum);
-	const lowerIsExclusive = exclusiveMinimum >= minimum;
-	const upperIsExclusive = exclusiveMaximum <= maximum;
+  const lowerBound = Math.max(minimum, exclusiveMinimum);
+  const upperBound = Math.min(maximum, exclusiveMaximum);
+  const lowerIsExclusive = exclusiveMinimum >= minimum;
+  const upperIsExclusive = exclusiveMaximum <= maximum;
 
-	if (
+  if (
 		lowerBound > upperBound ||
 		(lowerBound === upperBound && (lowerIsExclusive || upperIsExclusive))
 	) {
-		throw new Error(
-			`Built-in block attribute "${attributeName}" has incompatible numeric bounds.`,
-		);
-	}
+    throw new Error(
+      `Built-in block attribute "${attributeName}" has incompatible numeric bounds.`,
+    );
+  }
 
-	let candidate = 0;
-	if (
+  let candidate = 0;
+  if (
 		candidate < lowerBound ||
 		(candidate === lowerBound && lowerIsExclusive) ||
 		candidate > upperBound ||
 		(candidate === upperBound && upperIsExclusive)
 	) {
-		if (Number.isFinite(lowerBound) && Number.isFinite(upperBound)) {
-			candidate =
+    if (Number.isFinite(lowerBound) && Number.isFinite(upperBound)) {
+      candidate =
 				lowerBound === upperBound
-					? lowerBound
-					: lowerBound / 2 + upperBound / 2;
-		} else if (Number.isFinite(lowerBound)) {
-			candidate = lowerIsExclusive ? lowerBound + 1 : lowerBound;
-		} else if (Number.isFinite(upperBound)) {
-			candidate = upperIsExclusive ? upperBound - 1 : upperBound;
-		}
-	}
+          ? lowerBound
+          : lowerBound / 2 + upperBound / 2;
+    } else if (Number.isFinite(lowerBound)) {
+      candidate = lowerIsExclusive ? lowerBound + 1 : lowerBound;
+    } else if (Number.isFinite(upperBound)) {
+      candidate = upperIsExclusive ? upperBound - 1 : upperBound;
+    }
+  }
 
-	return candidate;
+  return candidate;
 }
 
 /**
@@ -115,58 +115,56 @@ function createNumberExampleValue(
 function createBlockJsonExampleValue(
 	attribute: EmittedAttributeDefinition,
 ): JsonValue {
-	const { constraints, defaultValue, enumValues } = attribute.manifest;
-	if (defaultValue !== undefined) {
-		return defaultValue;
-	}
-	if (enumValues && enumValues.length > 0) {
-		return enumValues[0];
-	}
-	if (attribute.manifest.kind === "boolean") {
-		return true;
-	}
-	if (attribute.manifest.kind === "number") {
-		return createNumberExampleValue(attribute.name, constraints);
-	}
-	if (attribute.manifest.kind === "array") {
-		return [];
-	}
-	if (attribute.manifest.kind === "object") {
-		return {};
-	}
-	if (attribute.manifest.kind === "union") {
-		return null;
-	}
+  const { constraints, defaultValue, enumValues } = attribute.manifest;
+  if (defaultValue !== undefined) {
+    return defaultValue;
+  }
+  if (enumValues && enumValues.length > 0) {
+    return enumValues[0];
+  }
+  if (attribute.manifest.kind === 'boolean') {
+    return true;
+  }
+  if (attribute.manifest.kind === 'number') {
+    return createNumberExampleValue(attribute.name, constraints);
+  }
+  if (attribute.manifest.kind === 'array') {
+    return [];
+  }
+  if (attribute.manifest.kind === 'object') {
+    return {};
+  }
+  if (attribute.manifest.kind === 'union') {
+    return null;
+  }
 
-	const format = constraints?.format;
-	const formattedExample = format
-		? STRING_EXAMPLES_BY_FORMAT[format]
-		: undefined;
-	if (formattedExample) {
-		return formattedExample;
-	}
+  const format = constraints?.format;
+  const formattedExample = format
+    ? STRING_EXAMPLES_BY_FORMAT[format]
+    : undefined;
+  if (formattedExample) {
+    return formattedExample;
+  }
 
-	const example = `Example ${attribute.name}`;
-	const minLength = constraints?.minLength ?? 0;
-	return example.length >= minLength
-		? example
-		: example.padEnd(minLength, "_");
+  const example = `Example ${attribute.name}`;
+  const minLength = constraints?.minLength ?? 0;
+  return example.length >= minLength ? example : example.padEnd(minLength, '_');
 }
 
 interface BuiltInAttributeSpec {
-	blockJsonDefaultValue?: JsonValue;
-	constraints?: Partial<ManifestConstraints>;
-	defaultValue?: JsonValue;
-	description?: AttributeDescription;
-	enumValues?: Array<string | number | boolean> | null;
-	kind: ManifestAttribute["ts"]["kind"];
-	manifestDefaultValue?: JsonValue;
-	name: string;
-	optional: boolean;
-	selector?: string | null;
-	source?: WordPressAttributeSource | null;
-	sourceType: StarterManifestSourceType;
-	typeExpression: string;
+  blockJsonDefaultValue?: JsonValue;
+  constraints?: Partial<ManifestConstraints>;
+  defaultValue?: JsonValue;
+  description?: AttributeDescription;
+  enumValues?: Array<string | number | boolean> | null;
+  kind: ManifestAttribute['ts']['kind'];
+  manifestDefaultValue?: JsonValue;
+  name: string;
+  optional: boolean;
+  selector?: string | null;
+  source?: WordPressAttributeSource | null;
+  sourceType: StarterManifestSourceType;
+  typeExpression: string;
 }
 
 type BuiltInAttributeValueResolver<TContext, TValue> =
@@ -174,56 +172,56 @@ type BuiltInAttributeValueResolver<TContext, TValue> =
 	| ((context: TContext) => TValue);
 
 export interface BuiltInAttributeTemplateSpec<TContext> {
-	attributeType: "boolean" | "number" | "string";
-	blockJsonDefaultValue?: BuiltInAttributeValueResolver<
+  attributeType: 'boolean' | 'number' | 'string';
+  blockJsonDefaultValue?: BuiltInAttributeValueResolver<
 		TContext,
 		JsonValue | undefined
 	>;
-	constraints?: BuiltInAttributeValueResolver<
+  constraints?: BuiltInAttributeValueResolver<
 		TContext,
 		Partial<ManifestConstraints> | undefined
 	>;
-	defaultValue?: BuiltInAttributeValueResolver<TContext, JsonValue | undefined>;
-	description?: BuiltInAttributeValueResolver<
+  defaultValue?: BuiltInAttributeValueResolver<TContext, JsonValue | undefined>;
+  description?: BuiltInAttributeValueResolver<
 		TContext,
 		AttributeDescription | undefined
 	>;
-	enumValues?: BuiltInAttributeValueResolver<
+  enumValues?: BuiltInAttributeValueResolver<
 		TContext,
 		Array<string | number | boolean> | null | undefined
 	>;
-	manifestDefaultValue?: BuiltInAttributeValueResolver<
+  manifestDefaultValue?: BuiltInAttributeValueResolver<
 		TContext,
 		JsonValue | undefined
 	>;
-	name: string;
-	optional: boolean;
-	selector?: BuiltInAttributeValueResolver<TContext, string | null | undefined>;
-	source?: BuiltInAttributeValueResolver<
+  name: string;
+  optional: boolean;
+  selector?: BuiltInAttributeValueResolver<TContext, string | null | undefined>;
+  source?: BuiltInAttributeValueResolver<
 		TContext,
 		WordPressAttributeSource | null | undefined
 	>;
-	typeExpression: BuiltInAttributeValueResolver<TContext, string>;
+  typeExpression: BuiltInAttributeValueResolver<TContext, string>;
 }
 
 function createConstraints(
 	overrides: Partial<ManifestConstraints> = {},
 ): ManifestConstraints {
-	return {
-		exclusiveMaximum: null,
-		exclusiveMinimum: null,
-		format: null,
-		maxLength: null,
-		maxItems: null,
-		maximum: null,
-		minLength: null,
-		minItems: null,
-		minimum: null,
-		multipleOf: null,
-		pattern: null,
-		typeTag: null,
-		...overrides,
-	};
+  return {
+    exclusiveMaximum: null,
+    exclusiveMinimum: null,
+    format: null,
+    maxLength: null,
+    maxItems: null,
+    maximum: null,
+    minLength: null,
+    minItems: null,
+    minimum: null,
+    multipleOf: null,
+    pattern: null,
+    typeTag: null,
+    ...overrides,
+  };
 }
 
 function createManifestAttribute({
@@ -236,30 +234,30 @@ function createManifestAttribute({
 	source = null,
 	sourceType,
 }: StarterManifestAttributeDefinition): ManifestAttribute {
-	const hasDefault = defaultValue !== undefined;
+  const hasDefault = defaultValue !== undefined;
 
-	return {
-		typia: {
-			constraints: createConstraints(constraints),
-			defaultValue: hasDefault ? defaultValue : null,
-			hasDefault,
-		},
-		ts: {
-			items: null,
-			kind,
-			properties: null,
-			required,
-			union: null,
-		},
-		wp: {
-			defaultValue: hasDefault ? defaultValue : null,
-			enum: enumValues,
-			hasDefault,
-			...(selector ? { selector } : {}),
-			...(source ? { source } : {}),
-			type: sourceType,
-		},
-	};
+  return {
+    typia: {
+      constraints: createConstraints(constraints),
+      defaultValue: hasDefault ? defaultValue : null,
+      hasDefault,
+    },
+    ts: {
+      items: null,
+      kind,
+      properties: null,
+      required,
+      union: null,
+    },
+    wp: {
+      defaultValue: hasDefault ? defaultValue : null,
+      enum: enumValues,
+      hasDefault,
+      ...(selector ? { selector } : {}),
+      ...(source ? { source } : {}),
+      type: sourceType,
+    },
+  };
 }
 
 function createBlockJsonAttribute({
@@ -269,30 +267,30 @@ function createBlockJsonAttribute({
 	source,
 	type,
 }: BlockJsonAttributeDefinition): Record<string, unknown> {
-	const attribute: Record<string, unknown> = {
-		type,
-	};
+  const attribute: Record<string, unknown> = {
+    type,
+  };
 
-	if (defaultValue !== undefined) {
-		attribute.default = defaultValue;
-	}
-	if (enumValues !== null && enumValues.length > 0) {
-		attribute.enum = enumValues;
-	}
-	if (source) {
-		attribute.source = source;
-	}
-	if (selector) {
-		attribute.selector = selector;
-	}
+  if (defaultValue !== undefined) {
+    attribute.default = defaultValue;
+  }
+  if (enumValues !== null && enumValues.length > 0) {
+    attribute.enum = enumValues;
+  }
+  if (source) {
+    attribute.source = source;
+  }
+  if (selector) {
+    attribute.selector = selector;
+  }
 
-	return attribute;
+  return attribute;
 }
 
 export function describe(...lines: string[]): AttributeDescription {
-	return {
-		lines,
-	};
+  return {
+    lines,
+  };
 }
 
 function defineAttribute({
@@ -310,75 +308,75 @@ function defineAttribute({
 	sourceType,
 	typeExpression,
 }: BuiltInAttributeSpec): EmittedAttributeDefinition {
-	const resolvedBlockJsonDefaultValue =
+  const resolvedBlockJsonDefaultValue =
 		blockJsonDefaultValue !== undefined ? blockJsonDefaultValue : defaultValue;
-	const resolvedManifestDefaultValue =
+  const resolvedManifestDefaultValue =
 		manifestDefaultValue !== undefined ? manifestDefaultValue : defaultValue;
 
-	return {
-		blockJson: {
-			defaultValue: resolvedBlockJsonDefaultValue,
-			enumValues,
-			...(selector ? { selector } : {}),
-			...(source ? { source } : {}),
-			type: sourceType,
-		},
-		description,
-		manifest: {
-			constraints,
-			defaultValue: resolvedManifestDefaultValue,
-			enumValues,
-			kind,
-			required: !optional,
-			selector,
-			source,
-			sourceType,
-		},
-		name,
-		optional,
-		typeExpression,
-	};
+  return {
+    blockJson: {
+      defaultValue: resolvedBlockJsonDefaultValue,
+      enumValues,
+      ...(selector ? { selector } : {}),
+      ...(source ? { source } : {}),
+      type: sourceType,
+    },
+    description,
+    manifest: {
+      constraints,
+      defaultValue: resolvedManifestDefaultValue,
+      enumValues,
+      kind,
+      required: !optional,
+      selector,
+      source,
+      sourceType,
+    },
+    name,
+    optional,
+    typeExpression,
+  };
 }
 
 function defineStringAttribute(
-	spec: Omit<BuiltInAttributeSpec, "kind" | "sourceType">,
+	spec: Omit<BuiltInAttributeSpec, 'kind' | 'sourceType'>,
 ): EmittedAttributeDefinition {
-	return defineAttribute({
-		...spec,
-		kind: "string",
-		sourceType: "string",
-	});
+  return defineAttribute({
+    ...spec,
+    kind: 'string',
+    sourceType: 'string',
+  });
 }
 
 function defineBooleanAttribute(
-	spec: Omit<BuiltInAttributeSpec, "kind" | "sourceType">,
+	spec: Omit<BuiltInAttributeSpec, 'kind' | 'sourceType'>,
 ): EmittedAttributeDefinition {
-	return defineAttribute({
-		...spec,
-		kind: "boolean",
-		sourceType: "boolean",
-	});
+  return defineAttribute({
+    ...spec,
+    kind: 'boolean',
+    sourceType: 'boolean',
+  });
 }
 
 function defineNumberAttribute(
-	spec: Omit<BuiltInAttributeSpec, "kind" | "sourceType">,
+	spec: Omit<BuiltInAttributeSpec, 'kind' | 'sourceType'>,
 ): EmittedAttributeDefinition {
-	return defineAttribute({
-		...spec,
-		kind: "number",
-		sourceType: "number",
-	});
+  return defineAttribute({
+    ...spec,
+    kind: 'number',
+    sourceType: 'number',
+  });
 }
 
 function resolveBuiltInAttributeValue<TContext, TValue>(
 	value: BuiltInAttributeValueResolver<TContext, TValue> | undefined,
 	context: TContext,
 ): TValue | undefined {
-	if (typeof value === "function") {
-		return (value as (context: TContext) => TValue)(context);
-	}
+  if (typeof value === 'function') {
+    return (value as (context: TContext) => TValue)(context);
+  }
 
-	return value;
+  return value;
 }
 
 function appendWordPressExtractionTags(
@@ -386,23 +384,23 @@ function appendWordPressExtractionTags(
 	source: WordPressAttributeSource | null | undefined,
 	selector: string | null | undefined,
 ): string {
-	return [
+  return [
 		typeExpression,
 		...(source ? [`tags.Source<${JSON.stringify(source)}>`] : []),
 		...(selector ? [`tags.Selector<${JSON.stringify(selector)}>`] : []),
-	].join(" & ");
+	].join(' & ');
 }
 
 export function buildAttributesFromSpecs<TContext>(
 	specs: readonly BuiltInAttributeTemplateSpec<TContext>[],
 	context: TContext,
 ): EmittedAttributeDefinition[] {
-	return specs.map((spec) => {
+  return specs.map((spec) => {
 		const selector = resolveBuiltInAttributeValue(spec.selector, context);
 		const source = resolveBuiltInAttributeValue(spec.source, context);
 		const typeExpression =
-			resolveBuiltInAttributeValue(spec.typeExpression, context) ?? "unknown";
-		const resolvedSpec: Omit<BuiltInAttributeSpec, "kind" | "sourceType"> = {
+			resolveBuiltInAttributeValue(spec.typeExpression, context) ?? 'unknown';
+		const resolvedSpec: Omit<BuiltInAttributeSpec, 'kind' | 'sourceType'> = {
 			blockJsonDefaultValue: resolveBuiltInAttributeValue(
 				spec.blockJsonDefaultValue,
 				context,
@@ -426,11 +424,11 @@ export function buildAttributesFromSpecs<TContext>(
 			),
 		};
 
-		if (spec.attributeType === "boolean") {
+		if (spec.attributeType === 'boolean') {
 			return defineBooleanAttribute(resolvedSpec);
 		}
 
-		if (spec.attributeType === "number") {
+		if (spec.attributeType === 'number') {
 			return defineNumberAttribute(resolvedSpec);
 		}
 
@@ -449,16 +447,16 @@ export function buildManifestDocument(
 	sourceType: string,
 	attributes: readonly EmittedAttributeDefinition[],
 ): ManifestDocument {
-	return {
-		attributes: Object.fromEntries(
-			attributes.map((attribute) => [
-				attribute.name,
-				createManifestAttribute(attribute.manifest),
-			]),
-		),
-		manifestVersion: 2,
-		sourceType,
-	};
+  return {
+    attributes: Object.fromEntries(
+      attributes.map((attribute) => [
+        attribute.name,
+        createManifestAttribute(attribute.manifest),
+      ]),
+    ),
+    manifestVersion: 2,
+    sourceType,
+  };
 }
 
 /**
@@ -470,12 +468,12 @@ export function buildManifestDocument(
 export function buildBlockJsonAttributes(
 	attributes: readonly EmittedAttributeDefinition[],
 ): Record<string, Record<string, unknown>> {
-	return Object.fromEntries(
-		attributes.map((attribute) => [
-			attribute.name,
-			createBlockJsonAttribute(attribute.blockJson),
-		]),
-	);
+  return Object.fromEntries(
+    attributes.map((attribute) => [
+      attribute.name,
+      createBlockJsonAttribute(attribute.blockJson),
+    ]),
+  );
 }
 
 /**
@@ -485,10 +483,10 @@ export function buildBlockJsonAttributes(
 export function buildBlockJsonExampleAttributes(
 	attributes: readonly EmittedAttributeDefinition[],
 ): Record<string, JsonValue> {
-	return Object.fromEntries(
-		attributes.map((attribute) => [
-			attribute.name,
-			createBlockJsonExampleValue(attribute),
-		]),
-	);
+  return Object.fromEntries(
+    attributes.map((attribute) => [
+      attribute.name,
+      createBlockJsonExampleValue(attribute),
+    ]),
+  );
 }

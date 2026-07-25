@@ -1,32 +1,32 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-import { createMigrationDiff } from './migration-diff.js'
+import { createMigrationDiff } from './migration-diff.js';
 import {
   ensureEdgeFixtureFile,
-} from './migration-fixtures.js'
+} from './migration-fixtures.js';
 import {
   collectFixtureTargets,
   formatScaffoldCommand,
   getSelectedEntriesByBlock,
   isLegacySingleBlockProject,
   resolveLegacyVersions,
-} from './migration-planning.js'
+} from './migration-planning.js';
 import {
   assertRuleHasNoTodos,
   getGeneratedDirForBlock,
   loadMigrationProject,
-} from './migration-project.js'
+} from './migration-project.js';
 import {
   getLocalTtsxBinary,
   isInteractiveTerminal,
   resolveTargetMigrationVersion,
-} from './migration-utils.js'
+} from './migration-utils.js';
 import type {
   FixturesOptions,
   FuzzOptions,
-} from './migration-command-surface.js'
+} from './migration-command-surface.js';
 
 /**
  * Generate or refresh migration fixtures for one or more legacy edges.
@@ -47,30 +47,35 @@ export function fixturesProjectMigrations(
     toMigrationVersion = 'current',
   }: FixturesOptions = {},
 ) {
-  const state = loadMigrationProject(projectDir)
+  const state = loadMigrationProject(projectDir);
   const targetMigrationVersion = resolveTargetMigrationVersion(
     state.config.currentMigrationVersion,
     toMigrationVersion,
-  )
-  const targetVersions = resolveLegacyVersions(state, { all, fromMigrationVersion })
+  );
+  const targetVersions = resolveLegacyVersions(state, {
+    all,
+    fromMigrationVersion,
+  });
 
   if (targetVersions.length === 0) {
-    renderLine('No legacy migration versions configured for fixture generation.')
-    return { generatedVersions: [], skippedVersions: [] }
+    renderLine(
+      'No legacy migration versions configured for fixture generation.',
+    );
+    return { generatedVersions: [], skippedVersions: [] };
   }
 
-  const generatedVersions: string[] = []
-  const skippedVersions: string[] = []
+  const generatedVersions: string[] = [];
+  const skippedVersions: string[] = [];
   const fixtureTargets = collectFixtureTargets(
     state,
     targetVersions,
     targetMigrationVersion,
-  )
+  );
 
   if (force) {
     const overwriteTargets = fixtureTargets.filter(({ fixturePath }) =>
       fs.existsSync(fixturePath),
-    )
+    );
     if (isInteractive && overwriteTargets.length > 0) {
       const confirmed =
         confirmOverwrite?.(
@@ -78,23 +83,30 @@ export function fixturesProjectMigrations(
         ) ??
         promptForConfirmation(
           `About to overwrite ${overwriteTargets.length} existing migration fixture file(s). Continue?`,
-        )
+        );
 
       if (!confirmed) {
         renderLine(
           `Cancelled fixture refresh. Kept ${overwriteTargets.length} existing fixture file(s).`,
-        )
+        );
         return {
           generatedVersions,
-          skippedVersions: overwriteTargets.map(({ scopedLabel }) => scopedLabel),
-        }
+          skippedVersions: overwriteTargets.map(
+            ({ scopedLabel }) => scopedLabel,
+          ),
+        };
       }
     }
   }
 
   for (const { block, fixturePath, scopedLabel, version } of fixtureTargets) {
-    const existed = fs.existsSync(fixturePath)
-    const diff = createMigrationDiff(state, block, version, targetMigrationVersion)
+    const existed = fs.existsSync(fixturePath);
+    const diff = createMigrationDiff(
+      state,
+      block,
+      version,
+      targetMigrationVersion,
+    );
     const result = ensureEdgeFixtureFile(
       projectDir,
       block,
@@ -102,24 +114,24 @@ export function fixturesProjectMigrations(
       targetMigrationVersion,
       diff,
       { force },
-    )
+    );
     if (result.written) {
-      generatedVersions.push(scopedLabel)
+      generatedVersions.push(scopedLabel);
       renderLine(
         `${existed ? 'Refreshed' : 'Generated'} fixture ${path.relative(projectDir, fixturePath)}`,
-      )
+      );
     } else {
-      skippedVersions.push(scopedLabel)
+      skippedVersions.push(scopedLabel);
       renderLine(
         `Preserved existing fixture ${path.relative(projectDir, fixturePath)} (use --force to refresh)`,
-      )
+      );
     }
   }
 
   return {
     generatedVersions,
     skippedVersions,
-  }
+  };
 }
 
 /**
@@ -139,20 +151,23 @@ export function fuzzProjectMigrations(
     seed,
   }: FuzzOptions = {},
 ) {
-  const state = loadMigrationProject(projectDir)
-  const targetVersions = resolveLegacyVersions(state, { all, fromMigrationVersion })
-  const blockEntries = getSelectedEntriesByBlock(state, targetVersions, 'fuzz')
-  const legacySingleBlock = isLegacySingleBlockProject(state)
+  const state = loadMigrationProject(projectDir);
+  const targetVersions = resolveLegacyVersions(state, {
+    all,
+    fromMigrationVersion,
+  });
+  const blockEntries = getSelectedEntriesByBlock(state, targetVersions, 'fuzz');
+  const legacySingleBlock = isLegacySingleBlockProject(state);
   if (targetVersions.length === 0) {
-    renderLine('No legacy migration versions configured for fuzzing.')
-    return { fuzzedVersions: [], seed }
+    renderLine('No legacy migration versions configured for fuzzing.');
+    return { fuzzedVersions: [], seed };
   }
 
-  const ttsxBinary = getLocalTtsxBinary(projectDir)
+  const ttsxBinary = getLocalTtsxBinary(projectDir);
   for (const [blockKey, entries] of Object.entries(blockEntries)) {
-    const block = state.blocks.find((entry) => entry.key === blockKey)
+    const block = state.blocks.find((entry) => entry.key === blockKey);
     if (!block || entries.length === 0) {
-      continue
+      continue;
     }
     for (const entry of entries) {
       assertRuleHasNoTodos(
@@ -160,62 +175,64 @@ export function fuzzProjectMigrations(
         block,
         entry.fromVersion,
         state.config.currentMigrationVersion,
-      )
+      );
     }
     const fuzzScriptPath = path.join(
       getGeneratedDirForBlock(state.paths, block),
       'fuzz.ts',
-    )
+    );
     if (!fs.existsSync(fuzzScriptPath)) {
-      const selectedVersionsForBlock = entries.map((entry) => entry.fromVersion)
+      const selectedVersionsForBlock = entries.map(
+        (entry) => entry.fromVersion,
+      );
       throw new Error(
         `Generated fuzz script is missing for ${block.blockName} (${selectedVersionsForBlock.join(', ')}). ` +
           `Run \`${formatScaffoldCommand(selectedVersionsForBlock)}\` first, then \`wp-typia migrate doctor --all\` if the workspace should already be scaffolded.`,
-      )
+      );
     }
-    const selectedVersionsForBlock = entries.map((entry) => entry.fromVersion)
+    const selectedVersionsForBlock = entries.map((entry) => entry.fromVersion);
     const args = [
       fuzzScriptPath,
       ...(all ? ['--all'] : ['--from-migration-version', selectedVersionsForBlock[0]]),
       '--iterations',
       String(iterations),
       ...(seed === undefined ? [] : ['--seed', String(seed)]),
-    ]
+    ];
     execFileSync(ttsxBinary, args, {
       cwd: projectDir,
       shell: process.platform === 'win32',
       stdio: 'inherit',
-    })
+    });
     renderLine(
       legacySingleBlock
         ? `Fuzzed migrations for ${selectedVersionsForBlock.join(', ')}`
         : `Fuzzed ${block.blockName} migrations for ${selectedVersionsForBlock.join(', ')}`,
-    )
+    );
   }
 
-  return { fuzzedVersions: targetVersions, seed }
+  return { fuzzedVersions: targetVersions, seed };
 }
 
 function promptForConfirmation(message: string): boolean {
-  process.stdout.write(`${message} [y/N]: `)
+  process.stdout.write(`${message} [y/N]: `);
 
-  const buffer = Buffer.alloc(1)
-  let answer = ''
+  const buffer = Buffer.alloc(1);
+  let answer = '';
 
   while (true) {
-    const bytesRead = fs.readSync(process.stdin.fd, buffer, 0, 1, null)
+    const bytesRead = fs.readSync(process.stdin.fd, buffer, 0, 1, null);
     if (bytesRead === 0) {
-      break
+      break;
     }
 
-    const char = buffer.toString('utf8', 0, bytesRead)
+    const char = buffer.toString('utf8', 0, bytesRead);
     if (char === '\n' || char === '\r') {
-      break
+      break;
     }
 
-    answer += char
+    answer += char;
   }
 
-  const normalized = answer.trim().toLowerCase()
-  return normalized === 'y' || normalized === 'yes'
+  const normalized = answer.trim().toLowerCase();
+  return normalized === 'y' || normalized === 'yes';
 }

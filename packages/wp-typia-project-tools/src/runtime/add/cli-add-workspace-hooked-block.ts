@@ -1,19 +1,19 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
-import type { HookedBlockPositionId } from "./hooked-blocks.js";
-import { executeWorkspaceMutationPlan } from "./cli-add-workspace-mutation.js";
+import type { HookedBlockPositionId } from './hooked-blocks.js';
+import { executeWorkspaceMutationPlan } from './cli-add-workspace-mutation.js';
 import {
-	assertValidHookAnchor,
-	assertValidHookedBlockPosition,
-	getMutableBlockHooks,
-	normalizeBlockSlug,
-	readWorkspaceBlockJson,
-	resolveWorkspaceBlock,
-	type RunAddHookedBlockCommandOptions,
-} from "./cli-add-shared.js";
-import { readWorkspaceInventoryAsync } from "../workspace/workspace-inventory.js";
-import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
+  assertValidHookAnchor,
+  assertValidHookedBlockPosition,
+  getMutableBlockHooks,
+  normalizeBlockSlug,
+  readWorkspaceBlockJson,
+  resolveWorkspaceBlock,
+  type RunAddHookedBlockCommandOptions,
+} from './cli-add-shared.js';
+import { readWorkspaceInventoryAsync } from '../workspace/workspace-inventory.js';
+import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 
 /**
  * Add one `blockHooks` entry to an existing official workspace block.
@@ -36,45 +36,51 @@ export async function runAddHookedBlockCommand({
 	cwd = process.cwd(),
 	position,
 }: RunAddHookedBlockCommandOptions): Promise<{
-	anchorBlockName: string;
-	blockSlug: string;
-	position: HookedBlockPositionId;
-	projectDir: string;
+  anchorBlockName: string;
+  blockSlug: string;
+  position: HookedBlockPositionId;
+  projectDir: string;
 }> {
-	const workspace = resolveWorkspaceProject(cwd);
-	const blockSlug = normalizeBlockSlug(blockName);
-	const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
-	resolveWorkspaceBlock(inventory, blockSlug);
+  const workspace = resolveWorkspaceProject(cwd);
+  const blockSlug = normalizeBlockSlug(blockName);
+  const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
+  resolveWorkspaceBlock(inventory, blockSlug);
 
-	const resolvedAnchorBlockName = assertValidHookAnchor(anchorBlockName);
-	const resolvedPosition = assertValidHookedBlockPosition(position);
-	const selfHookAnchor = `${workspace.workspace.namespace}/${blockSlug}`;
-	if (resolvedAnchorBlockName === selfHookAnchor) {
-		throw new Error(
-			"`wp-typia add hooked-block` cannot hook a block relative to its own block name.",
-		);
-	}
-	const { blockJson, blockJsonPath } = await readWorkspaceBlockJson(
-		workspace.projectDir,
-		blockSlug,
-	);
-	const blockJsonRelativePath = path.relative(workspace.projectDir, blockJsonPath);
-	const blockHooks = getMutableBlockHooks(blockJson, blockJsonRelativePath);
+  const resolvedAnchorBlockName = assertValidHookAnchor(anchorBlockName);
+  const resolvedPosition = assertValidHookedBlockPosition(position);
+  const selfHookAnchor = `${workspace.workspace.namespace}/${blockSlug}`;
+  if (resolvedAnchorBlockName === selfHookAnchor) {
+    throw new Error(
+      '`wp-typia add hooked-block` cannot hook a block relative to its own block name.',
+    );
+  }
+  const { blockJson, blockJsonPath } = await readWorkspaceBlockJson(
+    workspace.projectDir,
+    blockSlug,
+  );
+  const blockJsonRelativePath = path.relative(
+    workspace.projectDir,
+    blockJsonPath,
+  );
+  const blockHooks = getMutableBlockHooks(blockJson, blockJsonRelativePath);
 
-	if (Object.prototype.hasOwnProperty.call(blockHooks, resolvedAnchorBlockName)) {
-		throw new Error(
-			`${blockJsonRelativePath} already defines a blockHooks entry for "${resolvedAnchorBlockName}".`,
-		);
-	}
+  if (Object.prototype.hasOwnProperty.call(
+    blockHooks,
+    resolvedAnchorBlockName,
+  )) {
+    throw new Error(
+      `${blockJsonRelativePath} already defines a blockHooks entry for "${resolvedAnchorBlockName}".`,
+    );
+  }
 
-	return executeWorkspaceMutationPlan({
+  return executeWorkspaceMutationPlan({
 		filePaths: [blockJsonPath],
 		run: async () => {
 			blockHooks[resolvedAnchorBlockName] = resolvedPosition;
 			await fsp.writeFile(
 				blockJsonPath,
-				JSON.stringify(blockJson, null, "\t"),
-				"utf8",
+				JSON.stringify(blockJson, null, '\t'),
+				'utf8',
 			);
 
 			return {

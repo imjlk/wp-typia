@@ -1,126 +1,126 @@
 import http, {
-	type IncomingMessage,
-	type Server as NodeHttpServer,
-	type ServerResponse,
+  type IncomingMessage,
+  type Server as NodeHttpServer,
+  type ServerResponse,
 } from 'node:http';
 import { once } from 'node:events';
 
 import { describe, expect, test } from 'bun:test';
 
 import {
-	defineEndpointManifest,
-	type EndpointManifestEndpointDefinition,
+  defineEndpointManifest,
+  type EndpointManifestEndpointDefinition,
 } from '../../packages/wp-typia-block-runtime/src/metadata-core';
 import type { ValidationResult } from '@wp-typia/api-client';
 import {
-	runRestAdapterConformanceSuite,
-	type RestAdapterConformanceServer,
-	type RestAdapterRouteLike,
+  runRestAdapterConformanceSuite,
+  type RestAdapterConformanceServer,
+  type RestAdapterRouteLike,
 } from '../helpers/rest-adapter-conformance';
 
 const readEndpoint = {
-	authMode: 'public-read',
-	method: 'GET',
-	operationId: 'readExample',
-	path: '/example/v1/item',
-	queryContract: 'read-query',
-	responseContract: 'example-response',
-	tags: [ 'Example' ],
+  authMode: 'public-read',
+  method: 'GET',
+  operationId: 'readExample',
+  path: '/example/v1/item',
+  queryContract: 'read-query',
+  responseContract: 'example-response',
+  tags: ['Example'],
 } as const satisfies EndpointManifestEndpointDefinition;
 
 const writeEndpoint = {
-	authMode: 'public-signed-token',
-	bodyContract: 'write-request',
-	method: 'POST',
-	operationId: 'writeExample',
-	path: '/example/v1/item',
-	responseContract: 'example-response',
-	tags: [ 'Example' ],
+  authMode: 'public-signed-token',
+  bodyContract: 'write-request',
+  method: 'POST',
+  operationId: 'writeExample',
+  path: '/example/v1/item',
+  responseContract: 'example-response',
+  tags: ['Example'],
 } as const satisfies EndpointManifestEndpointDefinition;
 
-const exampleManifest = defineEndpointManifest( {
-	contracts: {
-		'example-response': {
-			sourceTypeName: 'ExampleResponse',
-		},
-		'read-query': {
-			sourceTypeName: 'ExampleQuery',
-		},
-		'write-request': {
-			sourceTypeName: 'ExampleWriteRequest',
-		},
-	},
-	endpoints: [ readEndpoint, writeEndpoint ],
-} );
+const exampleManifest = defineEndpointManifest({
+  contracts: {
+    'example-response': {
+      sourceTypeName: 'ExampleResponse',
+    },
+    'read-query': {
+      sourceTypeName: 'ExampleQuery',
+    },
+    'write-request': {
+      sourceTypeName: 'ExampleWriteRequest',
+    },
+  },
+  endpoints: [readEndpoint, writeEndpoint],
+});
 
 function success< T >( data: T ): ValidationResult< T > {
-	return {
-		data,
-		errors: [],
-		isValid: true,
-	};
+  return {
+    data,
+    errors: [],
+    isValid: true,
+  };
 }
 
 function failure< T >(
 	expected: string,
-	path = '(root)'
+	path = '(root)',
 ): ValidationResult< T > {
-	return {
-		data: undefined,
-		errors: [ { expected, path, value: undefined } ],
-		isValid: false,
-	};
+  return {
+    data: undefined,
+    errors: [{ expected, path, value: undefined }],
+    isValid: false,
+  };
 }
 
 function validateExampleResponse(
-	input: unknown
+	input: unknown,
 ): ValidationResult< { count: number } > {
-	if (
+  if (
 		input !== null &&
 		typeof input === 'object' &&
 		typeof ( input as { count?: unknown } ).count === 'number'
 	) {
-		return success( input as { count: number } );
-	}
+    return success( input as { count: number } );
+  }
 
-	return failure( '{ count: number }', '$.count' );
+  return failure( '{ count: number }', '$.count' );
 }
 
 function toRouteTable(
-	endpoints: readonly EndpointManifestEndpointDefinition[]
+	endpoints: readonly EndpointManifestEndpointDefinition[],
 ): RestAdapterRouteLike[] {
-	return endpoints.map( ( endpoint ) => ( {
-		authMode: endpoint.authMode,
-		method: endpoint.method,
-		operationId: endpoint.operationId,
-		path: endpoint.path,
-	} ) );
+  return endpoints.map(( endpoint ) => ({
+    authMode: endpoint.authMode,
+    method: endpoint.method,
+    operationId: endpoint.operationId,
+    path: endpoint.path,
+  }));
 }
 
 function readRequestBody( request: IncomingMessage ): Promise< string > {
-	return new Promise( ( resolve, reject ) => {
-		let body = '';
+  return new Promise(( resolve, reject ) => {
+    let body = '';
 
-		request.setEncoding( 'utf8' );
-		request.on( 'data', ( chunk ) => {
-			body += chunk;
-		} );
-		request.on( 'end', () => resolve( body ) );
-		request.on( 'error', reject );
-	} );
+    request.setEncoding('utf8');
+    request.on('data', ( chunk ) => {
+      body += chunk;
+    });
+    request.on('end', () => resolve(body));
+    request.on('error', reject);
+  });
 }
 
 async function startMockAdapterServer( {
 	handleRequest,
 	routeTable,
 }: {
-	handleRequest: (
+  handleRequest: (
 		request: IncomingMessage,
-		response: ServerResponse
+		response: ServerResponse,
 	) => Promise< void > | void;
-	routeTable: readonly RestAdapterRouteLike[];
+  routeTable: readonly RestAdapterRouteLike[];
 } ): Promise< RestAdapterConformanceServer > {
-	const server = http.createServer( ( request, response ) => {
+  const server = http.createServer( ( request, response ) => {
 		void Promise.resolve( handleRequest( request, response ) ).catch( ( error ) => {
 			response.writeHead( 500, {
 				'content-type': 'application/json; charset=utf-8',
@@ -129,43 +129,43 @@ async function startMockAdapterServer( {
 				JSON.stringify( {
 					message:
 						error instanceof Error ? error.message : 'Unexpected mock adapter error.',
-				} )
+				} ),
 			);
 		} );
 	} );
 
-	try {
-		server.listen( 0, '127.0.0.1' );
-		await once( server, 'listening' );
-	} catch ( error ) {
-		await closeServer( server ).catch( () => undefined );
-		throw error;
-	}
+  try {
+    server.listen( 0, '127.0.0.1' );
+    await once( server, 'listening' );
+  } catch ( error ) {
+    await closeServer( server ).catch( () => undefined );
+    throw error;
+  }
 
-	const address = server.address();
-	if ( address == null || typeof address === 'string' ) {
-		await closeServer( server );
-		throw new Error( 'Mock adapter server did not expose a numeric port.' );
-	}
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    await closeServer( server );
+    throw new Error( 'Mock adapter server did not expose a numeric port.' );
+  }
 
-	return {
-		close: () => closeServer( server ),
-		routeTable,
-		url: `http://127.0.0.1:${ address.port }`,
-	};
+  return {
+    close: () => closeServer(server),
+    routeTable,
+    url: `http://127.0.0.1:${ address.port }`,
+  };
 }
 
 function closeServer( server: NodeHttpServer ): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		server.close( ( error ) => {
-			if ( error ) {
-				reject( error );
-				return;
-			}
+  return new Promise(( resolve, reject ) => {
+    server.close(( error ) => {
+      if ( error ) {
+        reject(error);
+        return;
+      }
 
-			resolve();
-		} );
-	} );
+      resolve();
+    });
+  });
 }
 
 describe( 'rest adapter conformance harness', () => {
@@ -194,7 +194,7 @@ describe( 'rest adapter conformance harness', () => {
 							},
 						],
 					} ),
-			} )
+			} ),
 		).rejects.toThrow( /route table does not match the endpoint manifest/i );
 	} );
 
@@ -232,7 +232,7 @@ describe( 'rest adapter conformance harness', () => {
 						},
 						routeTable: toRouteTable( exampleManifest.endpoints ),
 					} ),
-			} )
+			} ),
 		).rejects.toThrow( /writeExample/u );
 	} );
 
@@ -273,7 +273,7 @@ describe( 'rest adapter conformance harness', () => {
 						},
 						routeTable: toRouteTable( [ readEndpoint ] ),
 					} ),
-			} )
+			} ),
 		).rejects.toThrow( /did not satisfy the shared contract/i );
 	} );
 
@@ -313,7 +313,7 @@ describe( 'rest adapter conformance harness', () => {
 						handleRequest: ( request, response ) => {
 							const url = new URL(
 								request.url ?? '/',
-								'http://127.0.0.1'
+								'http://127.0.0.1',
 							);
 							const postId = url.searchParams.get( 'postId' );
 
@@ -324,7 +324,7 @@ describe( 'rest adapter conformance harness', () => {
 								response.end(
 									JSON.stringify( {
 										message: 'Bad read request.',
-									} )
+									} ),
 								);
 								return;
 							}
@@ -336,7 +336,7 @@ describe( 'rest adapter conformance harness', () => {
 						},
 						routeTable: toRouteTable( [ readEndpoint ] ),
 					} ),
-			} )
+			} ),
 		).resolves.toBeUndefined();
 	} );
 
@@ -379,14 +379,14 @@ describe( 'rest adapter conformance harness', () => {
 							response.end(
 								JSON.stringify( {
 									message: 'Bad read request.',
-								} )
+								} ),
 							);
 						},
 						routeTable: toRouteTable( [ readEndpoint ] ),
 					} ),
-			} )
+			} ),
 		).rejects.toThrow(
-			/at least one successful scenario step or explicit coverage mapping/i
+			/at least one successful scenario step or explicit coverage mapping/i,
 		);
 	} );
 
@@ -428,7 +428,7 @@ describe( 'rest adapter conformance harness', () => {
 						handleRequest: ( request, response ) => {
 							const url = new URL(
 								request.url ?? '/',
-								'http://127.0.0.1'
+								'http://127.0.0.1',
 							);
 
 							response.writeHead( 200, {
@@ -437,12 +437,12 @@ describe( 'rest adapter conformance harness', () => {
 							response.end(
 								JSON.stringify( {
 									count: url.searchParams.getAll( 'tag' ).length,
-								} )
+								} ),
 							);
 						},
 						routeTable: toRouteTable( [ readEndpoint ] ),
 					} ),
-			} )
+			} ),
 		).resolves.toBeUndefined();
 	} );
 
@@ -497,7 +497,7 @@ describe( 'rest adapter conformance harness', () => {
 						handleRequest: async ( request, response ) => {
 							const url = new URL(
 								request.url ?? '/',
-								'http://127.0.0.1'
+								'http://127.0.0.1',
 							);
 							const body = await readRequestBody( request );
 
@@ -509,12 +509,12 @@ describe( 'rest adapter conformance harness', () => {
 									count:
 										url.searchParams.getAll( 'tag' ).length +
 										( body.includes( '"delta":1' ) ? 0 : 100 ),
-								} )
+								} ),
 							);
 						},
 						routeTable: toRouteTable( [ mixedEndpoint ] ),
 					} ),
-			} )
+			} ),
 		).resolves.toBeUndefined();
 	} );
 } );

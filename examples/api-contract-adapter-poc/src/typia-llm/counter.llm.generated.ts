@@ -1,9 +1,9 @@
-import typia from "typia";
+import typia from 'typia';
 import type {
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterQuery,
-	PersistenceCounterResponse,
-} from "../../../persistence-examples/src/blocks/counter/api-types";
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterQuery,
+  PersistenceCounterResponse,
+} from '../../../persistence-examples/src/blocks/counter/api-types';
 
 export interface CounterRestToolController {
 	/**
@@ -13,7 +13,7 @@ export interface CounterRestToolController {
 	 * Auth intent: public
 	 * @tag Counter
 	 */
-	getPersistenceCounterState(input: PersistenceCounterQuery): PersistenceCounterResponse;
+  getPersistenceCounterState(input: PersistenceCounterQuery): PersistenceCounterResponse;
 
 	/**
 	 * Increment the current counter state.
@@ -23,7 +23,7 @@ export interface CounterRestToolController {
 	 * WordPress auth: public-signed-token (field: publicWriteToken)
 	 * @tag Counter
 	 */
-	incrementPersistenceCounterState(input: PersistenceCounterIncrementRequest): PersistenceCounterResponse;
+  incrementPersistenceCounterState(input: PersistenceCounterIncrementRequest): PersistenceCounterResponse;
 }
 
 export const counterLlmApplication =

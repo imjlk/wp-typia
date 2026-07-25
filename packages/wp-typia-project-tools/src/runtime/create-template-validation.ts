@@ -1,1 +1,1 @@
-export * from "./templates/create-template-validation.js";
+export * from './templates/create-template-validation.js';

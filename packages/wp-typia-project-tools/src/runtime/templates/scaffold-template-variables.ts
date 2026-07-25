@@ -22,20 +22,14 @@ import {
   DEFAULT_COMPOUND_INNER_BLOCKS_PRESET_ID,
   getCompoundInnerBlocksPresetDefinition,
 } from '../add/compound-inner-blocks.js';
-import {
-  getTemplateById,
-  isBuiltInTemplateId,
-} from './template-registry.js';
-import {
-  toPascalCase,
-  toSnakeCase,
-} from '../shared/string-case.js';
-import { attachScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
+import { getTemplateById, isBuiltInTemplateId } from './template-registry.js';
+import { toPascalCase, toSnakeCase } from '../shared/string-case.js';
+import { attachScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
 import {
   createScaffoldCompatibilityBaseline,
   resolveScaffoldCompatibilityPolicy,
   type ScaffoldWordPressTargetVersion,
-} from "./scaffold-compatibility.js";
+} from './scaffold-compatibility.js';
 
 /**
  * Optional overrides for scaffold template variable generation.
@@ -80,7 +74,9 @@ export function getTemplateVariables(
     restPackageVersion,
     wpTypiaPackageVersion,
   } = getPackageVersions();
-  const template = isBuiltInTemplateId(templateId) ? getTemplateById(templateId) : null;
+  const template = isBuiltInTemplateId(templateId)
+    ? getTemplateById(templateId)
+    : null;
   const metadataDefaults = isBuiltInTemplateId(templateId)
     ? getBuiltInTemplateMetadataDefaults(templateId)
     : null;
@@ -101,7 +97,10 @@ export function getTemplateVariables(
   const phpPrefixUpper = phpPrefix.toUpperCase();
   const compoundChildTitle = `${title} Item`;
   const cssClassName = buildBlockCssClassName(namespace, slug);
-  const compoundChildCssClassName = buildBlockCssClassName(namespace, `${slug}-item`);
+  const compoundChildCssClassName = buildBlockCssClassName(
+    namespace,
+    `${slug}-item`,
+  );
   const compoundInnerBlocksPreset =
     answers.compoundInnerBlocksPreset ?? DEFAULT_COMPOUND_INNER_BLOCKS_PRESET_ID;
   const compoundInnerBlocksPresetDefinition =
@@ -114,11 +113,11 @@ export function getTemplateVariables(
         : false;
   const dataStorageMode =
     templateId === 'persistence' || compoundPersistenceEnabled
-      ? answers.dataStorageMode ?? 'custom-table'
+      ? (answers.dataStorageMode ?? 'custom-table')
       : 'custom-table';
   const persistencePolicy =
     templateId === 'persistence' || compoundPersistenceEnabled
-      ? answers.persistencePolicy ?? 'authenticated'
+      ? (answers.persistencePolicy ?? 'authenticated')
       : 'authenticated';
   const compatibility = resolveScaffoldCompatibilityPolicy([], {
     baseline: createScaffoldCompatibilityBaseline(options.wpVersion),
@@ -182,7 +181,7 @@ export function getTemplateVariables(
     bootstrapCredentialDeclarations:
       persistencePolicy === 'public'
         ? "publicWriteExpiresAt?: number & tags.Type< 'uint32' >;\n\tpublicWriteToken?: string & tags.MinLength< 1 > & tags.MaxLength< 512 >;"
-        : "restNonce?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;",
+        : 'restNonce?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
     persistencePolicyDescriptionJson: JSON.stringify(
       persistencePolicy === 'authenticated'
         ? 'Writes require a logged-in user and a valid REST nonce.'
@@ -198,8 +197,8 @@ export function getTemplateVariables(
     testedUpTo: compatibility.pluginHeader.testedUpTo,
     publicWriteRequestIdDeclaration:
       persistencePolicy === 'public'
-        ? "publicWriteRequestId: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;"
-        : "publicWriteRequestId?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;",
+        ? 'publicWriteRequestId: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;'
+        : 'publicWriteRequestId?: string & tags.MinLength< 1 > & tags.MaxLength< 128 >;',
     restWriteAuthIntent:
       persistencePolicy === 'public'
         ? 'public-write-protected'

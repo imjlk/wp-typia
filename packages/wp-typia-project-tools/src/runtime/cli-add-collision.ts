@@ -1,1 +1,1 @@
-export * from "./add/cli-add-collision.js";
+export * from './add/cli-add-collision.js';

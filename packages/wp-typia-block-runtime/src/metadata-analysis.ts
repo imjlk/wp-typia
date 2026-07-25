@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { createHash } from 'node:crypto';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import ts from "@typescript/typescript6";
+import ts from '@typescript/typescript6';
 
 /**
  * Hold shared compiler state for metadata parsing and symbol resolution.
@@ -10,83 +10,83 @@ import ts from "@typescript/typescript6";
  * @category Types
  */
 export interface AnalysisContext {
-	allowedExternalPackages: Set<string>;
-	checker: ts.TypeChecker;
-	packageNameCache: Map<string, string | null>;
-	projectRoot: string;
-	program: ts.Program;
-	recursionGuard: Set<string>;
+  allowedExternalPackages: Set<string>;
+  checker: ts.TypeChecker;
+  packageNameCache: Map<string, string | null>;
+  projectRoot: string;
+  program: ts.Program;
+  recursionGuard: Set<string>;
 }
 
 interface AnalysisProgramInputs {
-	compilerOptions: ts.CompilerOptions;
-	configPath: string | null;
-	rootNames: string[];
-	structureKey: string;
-	typiaTagsAugmentationPath: string | null;
+  compilerOptions: ts.CompilerOptions;
+  configPath: string | null;
+  rootNames: string[];
+  structureKey: string;
+  typiaTagsAugmentationPath: string | null;
 }
 
 interface AnalysisProgramCacheEntry {
-	checker: ts.TypeChecker;
-	dependencyFingerprint: string;
-	dependencyPaths: string[];
-	program: ts.Program;
+  checker: ts.TypeChecker;
+  dependencyFingerprint: string;
+  dependencyPaths: string[];
+  program: ts.Program;
 }
 
 class LruCache<Key, Value> {
-	private readonly entries = new Map<Key, Value>();
+  private readonly entries = new Map<Key, Value>();
 
-	constructor(private readonly maxEntries: number) {}
+  constructor(private readonly maxEntries: number) {}
 
-	get(key: Key): Value | undefined {
-		const value = this.entries.get(key);
-		if (value === undefined) {
-			return undefined;
-		}
+  get(key: Key): Value | undefined {
+    const value = this.entries.get(key);
+    if (value === undefined) {
+      return undefined;
+    }
 
-		this.entries.delete(key);
-		this.entries.set(key, value);
-		return value;
-	}
+    this.entries.delete(key);
+    this.entries.set(key, value);
+    return value;
+  }
 
-	set(key: Key, value: Value): void {
-		if (this.entries.has(key)) {
-			this.entries.delete(key);
-		}
+  set(key: Key, value: Value): void {
+    if (this.entries.has(key)) {
+      this.entries.delete(key);
+    }
 
-		this.entries.set(key, value);
-		if (this.entries.size <= this.maxEntries) {
-			return;
-		}
+    this.entries.set(key, value);
+    if (this.entries.size <= this.maxEntries) {
+      return;
+    }
 
-		const oldestKey = this.entries.keys().next().value;
-		if (oldestKey !== undefined) {
-			this.entries.delete(oldestKey);
-		}
-	}
+    const oldestKey = this.entries.keys().next().value;
+    if (oldestKey !== undefined) {
+      this.entries.delete(oldestKey);
+    }
+  }
 }
 
-const DEFAULT_ALLOWED_EXTERNAL_PACKAGES = ["@wp-typia/block-types"] as const;
+const DEFAULT_ALLOWED_EXTERNAL_PACKAGES = ['@wp-typia/block-types'] as const;
 const ANALYSIS_PROGRAM_CACHE_MAX_ENTRIES = 20;
 const TYPESCRIPT_LIB_DIRECTORY = path.dirname(ts.getDefaultLibFilePath({}));
 const RUNTIME_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SYNC_BLOCK_METADATA_FAILURE_CODE = Symbol(
-	"sync-block-metadata-failure-code",
+  'sync-block-metadata-failure-code',
 );
 
 const analysisProgramCache = new LruCache<string, AnalysisProgramCacheEntry>(
-	ANALYSIS_PROGRAM_CACHE_MAX_ENTRIES,
+  ANALYSIS_PROGRAM_CACHE_MAX_ENTRIES,
 );
 
 type TaggedMetadataAnalysisError = Error & {
-	[SYNC_BLOCK_METADATA_FAILURE_CODE]?: "typescript-diagnostic";
+  [SYNC_BLOCK_METADATA_FAILURE_CODE]?: 'typescript-diagnostic';
 };
 
 function tagMetadataDiagnosticError(error: Error): Error {
-	(
+  (
 		error as TaggedMetadataAnalysisError
-	)[SYNC_BLOCK_METADATA_FAILURE_CODE] = "typescript-diagnostic";
-	return error;
+	)[SYNC_BLOCK_METADATA_FAILURE_CODE] = 'typescript-diagnostic';
+  return error;
 }
 
 /**
@@ -98,39 +98,39 @@ function tagMetadataDiagnosticError(error: Error): Error {
  */
 export function getTaggedSyncBlockMetadataFailureCode(
 	error: Error,
-): "typescript-diagnostic" | undefined {
-	return (error as TaggedMetadataAnalysisError)[SYNC_BLOCK_METADATA_FAILURE_CODE];
+): 'typescript-diagnostic' | undefined {
+  return (error as TaggedMetadataAnalysisError)[SYNC_BLOCK_METADATA_FAILURE_CODE];
 }
 
 function isProjectLocalSourceFile(
 	filePath: string,
 	projectRoot: string,
 ): boolean {
-	if (filePath.startsWith(TYPESCRIPT_LIB_DIRECTORY)) {
-		return false;
-	}
-	if (filePath.includes(`${path.sep}node_modules${path.sep}`)) {
-		return false;
-	}
+  if (filePath.startsWith(TYPESCRIPT_LIB_DIRECTORY)) {
+    return false;
+  }
+  if (filePath.includes(`${path.sep}node_modules${path.sep}`)) {
+    return false;
+  }
 
-	return !path.relative(projectRoot, filePath).startsWith("..");
+  return !path.relative(projectRoot, filePath).startsWith('..');
 }
 
 function collectSourceFileModuleSpecifiers(sourceFile: ts.SourceFile): string[] {
-	const moduleSpecifiers: string[] = [];
+  const moduleSpecifiers: string[] = [];
 
-	for (const statement of sourceFile.statements) {
-		if (
+  for (const statement of sourceFile.statements) {
+    if (
 			(ts.isImportDeclaration(statement) ||
 				ts.isExportDeclaration(statement)) &&
 			statement.moduleSpecifier &&
 			ts.isStringLiteralLike(statement.moduleSpecifier)
 		) {
-			moduleSpecifiers.push(statement.moduleSpecifier.text);
-		}
-	}
+      moduleSpecifiers.push(statement.moduleSpecifier.text);
+    }
+  }
 
-	ts.forEachChild(sourceFile, (node) => {
+  ts.forEachChild(sourceFile, (node) => {
 		if (
 			ts.isImportTypeNode(node) &&
 			ts.isLiteralTypeNode(node.argument) &&
@@ -140,7 +140,7 @@ function collectSourceFileModuleSpecifiers(sourceFile: ts.SourceFile): string[] 
 		}
 	});
 
-	return moduleSpecifiers;
+  return moduleSpecifiers;
 }
 
 function collectReferencedLocalSourceFiles(
@@ -149,65 +149,67 @@ function collectReferencedLocalSourceFiles(
 	compilerOptions: ts.CompilerOptions,
 	projectRoot: string,
 ): Set<string> {
-	const visited = new Set<string>();
-	const queue = [entryFilePath];
+  const visited = new Set<string>();
+  const queue = [entryFilePath];
 
-	while (queue.length > 0) {
-		const filePath = queue.pop();
-		if (
+  while (queue.length > 0) {
+    const filePath = queue.pop();
+    if (
 			filePath === undefined ||
 			visited.has(filePath) ||
 			!isProjectLocalSourceFile(filePath, projectRoot)
 		) {
-			continue;
-		}
+      continue;
+    }
 
-		visited.add(filePath);
-		const sourceFile = program.getSourceFile(filePath);
-		if (sourceFile === undefined) {
-			continue;
-		}
+    visited.add(filePath);
+    const sourceFile = program.getSourceFile(filePath);
+    if (sourceFile === undefined) {
+      continue;
+    }
 
-		for (const moduleSpecifier of collectSourceFileModuleSpecifiers(sourceFile)) {
-			const resolved = ts.resolveModuleName(
-				moduleSpecifier,
-				filePath,
-				compilerOptions,
-				ts.sys,
-			).resolvedModule;
-			const resolvedFileName = resolved?.resolvedFileName;
-			if (
+    for (const moduleSpecifier of collectSourceFileModuleSpecifiers(
+      sourceFile,
+    )) {
+      const resolved = ts.resolveModuleName(
+        moduleSpecifier,
+        filePath,
+        compilerOptions,
+        ts.sys,
+      ).resolvedModule;
+      const resolvedFileName = resolved?.resolvedFileName;
+      if (
 				resolvedFileName &&
 				isProjectLocalSourceFile(resolvedFileName, projectRoot)
 			) {
-				queue.push(resolvedFileName);
-			}
-		}
-	}
+        queue.push(resolvedFileName);
+      }
+    }
+  }
 
-	return visited;
+  return visited;
 }
 
 function stableSerializeAnalysisValue(value: unknown): string {
-	if (value === undefined) {
-		return '"__undefined__"';
-	}
+  if (value === undefined) {
+    return '"__undefined__"';
+  }
 
-	if (value === null || typeof value !== "object") {
-		return JSON.stringify(value);
-	}
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
 
-	if (Array.isArray(value)) {
-		return `[${value.map((entry) => stableSerializeAnalysisValue(entry)).join(",")}]`;
-	}
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableSerializeAnalysisValue(entry)).join(',')}]`;
+  }
 
-	return `{${Object.entries(value as Record<string, unknown>)
+  return `{${Object.entries(value as Record<string, unknown>)
 		.sort(([left], [right]) => left.localeCompare(right))
 		.map(
 			([key, entry]) =>
 				`${JSON.stringify(key)}:${stableSerializeAnalysisValue(entry)}`,
 		)
-		.join(",")}}`;
+		.join(',')}}`;
 }
 
 function buildAnalysisProgramStructureKey(
@@ -225,154 +227,154 @@ function buildAnalysisProgramStructureKey(
 		typiaTagsAugmentationPath: string | null;
 	},
 ): string {
-	return stableSerializeAnalysisValue({
-		compilerOptions,
-		configPath,
-		projectRoot,
-		rootNames: [...rootNames].sort(),
-		typiaTagsAugmentationPath,
-		typesFilePath,
-	});
+  return stableSerializeAnalysisValue({
+    compilerOptions,
+    configPath,
+    projectRoot,
+    rootNames: [...rootNames].sort(),
+    typiaTagsAugmentationPath,
+    typesFilePath,
+  });
 }
 
 function createAnalysisProgramContentFingerprint(
 	filePaths: string[],
-	onMissingFile: "hash-missing" | "return-null" | "throw" = "throw",
+	onMissingFile: 'hash-missing' | 'return-null' | 'throw' = 'throw',
 ): string | null {
-	const hash = createHash("sha1");
-	const fingerprintPaths = [...new Set(filePaths)].sort();
+  const hash = createHash('sha1');
+  const fingerprintPaths = [...new Set(filePaths)].sort();
 
-	for (const filePath of fingerprintPaths) {
-		const fileContents = ts.sys.readFile(filePath);
-		if (fileContents === undefined) {
-			if (onMissingFile === "return-null") {
-				return null;
-			}
-			if (onMissingFile === "hash-missing") {
-				hash.update(filePath);
-				hash.update("\0");
-				hash.update("__missing__");
-				hash.update("\0");
-				continue;
-			}
+  for (const filePath of fingerprintPaths) {
+    const fileContents = ts.sys.readFile(filePath);
+    if (fileContents === undefined) {
+      if (onMissingFile === 'return-null') {
+        return null;
+      }
+      if (onMissingFile === 'hash-missing') {
+        hash.update(filePath);
+        hash.update('\0');
+        hash.update('__missing__');
+        hash.update('\0');
+        continue;
+      }
 
-			throw new Error(
-				`Unable to read metadata analysis dependency: ${filePath}`,
-			);
-		}
+      throw new Error(
+        `Unable to read metadata analysis dependency: ${filePath}`,
+      );
+    }
 
-		hash.update(filePath);
-		hash.update("\0");
-		hash.update(fileContents);
-		hash.update("\0");
-	}
+    hash.update(filePath);
+    hash.update('\0');
+    hash.update(fileContents);
+    hash.update('\0');
+  }
 
-	return hash.digest("hex");
+  return hash.digest('hex');
 }
 
 function getAnalysisProgramDependencyPaths(
 	program: ts.Program,
 	configPath: string | null,
 ): string[] {
-	const sourceFilePaths = program
+  const sourceFilePaths = program
 		.getSourceFiles()
 		.map((sourceFile) => sourceFile.fileName)
 		.filter((filePath) => !filePath.startsWith(TYPESCRIPT_LIB_DIRECTORY));
-	const dependencyPaths = new Set(sourceFilePaths);
+  const dependencyPaths = new Set(sourceFilePaths);
 
-	for (const filePath of sourceFilePaths) {
-		let currentDir = path.dirname(filePath);
-		while (true) {
-			dependencyPaths.add(path.join(currentDir, "package.json"));
+  for (const filePath of sourceFilePaths) {
+    let currentDir = path.dirname(filePath);
+    while (true) {
+      dependencyPaths.add(path.join(currentDir, 'package.json'));
 
-			const parentDir = path.dirname(currentDir);
-			if (parentDir === currentDir) {
-				break;
-			}
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) {
+        break;
+      }
 
-			currentDir = parentDir;
-		}
-	}
+      currentDir = parentDir;
+    }
+  }
 
-	if (configPath) {
-		dependencyPaths.add(configPath);
-	}
+  if (configPath) {
+    dependencyPaths.add(configPath);
+  }
 
-	return [...dependencyPaths].sort();
+  return [...dependencyPaths].sort();
 }
 
 function resolveAnalysisProgramInputs(
 	projectRoot: string,
 	typesFilePath: string,
 ): AnalysisProgramInputs {
-	const configPath = ts.findConfigFile(
-		projectRoot,
-		ts.sys.fileExists,
-		"tsconfig.json",
-	);
-	const compilerOptions: ts.CompilerOptions = {
-		allowJs: false,
-		esModuleInterop: true,
-		module: ts.ModuleKind.NodeNext,
-		moduleResolution: ts.ModuleResolutionKind.NodeNext,
-		resolveJsonModule: true,
-		skipLibCheck: true,
-		target: ts.ScriptTarget.ES2022,
-	};
+  const configPath = ts.findConfigFile(
+    projectRoot,
+    ts.sys.fileExists,
+    'tsconfig.json',
+  );
+  const compilerOptions: ts.CompilerOptions = {
+    allowJs: false,
+    esModuleInterop: true,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    resolveJsonModule: true,
+    skipLibCheck: true,
+    target: ts.ScriptTarget.ES2022,
+  };
 
-	let rootNames = [typesFilePath];
-	const typiaTagsAugmentationPath = resolveTypiaTagsAugmentationPath();
+  let rootNames = [typesFilePath];
+  const typiaTagsAugmentationPath = resolveTypiaTagsAugmentationPath();
 
-	if (configPath !== undefined) {
-		const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-		if (configFile.error) {
-			throw formatDiagnosticError(configFile.error);
-		}
+  if (configPath !== undefined) {
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (configFile.error) {
+      throw formatDiagnosticError(configFile.error);
+    }
 
-		const parsed = ts.parseJsonConfigFileContent(
-			configFile.config,
-			ts.sys,
-			path.dirname(configPath),
-			compilerOptions,
-			configPath,
-		);
+    const parsed = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      path.dirname(configPath),
+      compilerOptions,
+      configPath,
+    );
 
-		if (parsed.errors.length > 0) {
-			throw formatDiagnosticError(parsed.errors[0]);
-		}
+    if (parsed.errors.length > 0) {
+      throw formatDiagnosticError(parsed.errors[0]);
+    }
 
-		rootNames = parsed.fileNames.includes(typesFilePath)
-			? parsed.fileNames
-			: [...parsed.fileNames, typesFilePath];
-		if (
+    rootNames = parsed.fileNames.includes(typesFilePath)
+      ? parsed.fileNames
+      : [...parsed.fileNames, typesFilePath];
+    if (
 			typiaTagsAugmentationPath &&
 			!rootNames.includes(typiaTagsAugmentationPath)
 		) {
-			rootNames = [...rootNames, typiaTagsAugmentationPath];
-		}
-		Object.assign(compilerOptions, parsed.options);
-	} else if (typiaTagsAugmentationPath) {
-		rootNames = [...rootNames, typiaTagsAugmentationPath];
-	}
+      rootNames = [...rootNames, typiaTagsAugmentationPath];
+    }
+    Object.assign(compilerOptions, parsed.options);
+  } else if (typiaTagsAugmentationPath) {
+    rootNames = [...rootNames, typiaTagsAugmentationPath];
+  }
 
-	const structureKey = buildAnalysisProgramStructureKey(
-		projectRoot,
-		typesFilePath,
-		{
-			compilerOptions,
-			configPath: configPath ?? null,
-			rootNames,
-			typiaTagsAugmentationPath,
-		},
-	);
+  const structureKey = buildAnalysisProgramStructureKey(
+    projectRoot,
+    typesFilePath,
+    {
+      compilerOptions,
+      configPath: configPath ?? null,
+      rootNames,
+      typiaTagsAugmentationPath,
+    },
+  );
 
-	return {
-		compilerOptions,
-		configPath: configPath ?? null,
-		rootNames,
-		structureKey,
-		typiaTagsAugmentationPath,
-	};
+  return {
+    compilerOptions,
+    configPath: configPath ?? null,
+    rootNames,
+    structureKey,
+    typiaTagsAugmentationPath,
+  };
 }
 
 /**
@@ -387,97 +389,100 @@ export function createAnalysisContext(
 	projectRoot: string,
 	typesFilePath: string,
 ): AnalysisContext {
-	const analysisInputs = resolveAnalysisProgramInputs(projectRoot, typesFilePath);
-	const cachedAnalysis = analysisProgramCache.get(analysisInputs.structureKey);
-	if (cachedAnalysis) {
-		const currentDependencyFingerprint = createAnalysisProgramContentFingerprint(
-			cachedAnalysis.dependencyPaths,
-			"hash-missing",
-		);
-		if (
+  const analysisInputs = resolveAnalysisProgramInputs(
+    projectRoot,
+    typesFilePath,
+  );
+  const cachedAnalysis = analysisProgramCache.get(analysisInputs.structureKey);
+  if (cachedAnalysis) {
+    const currentDependencyFingerprint = createAnalysisProgramContentFingerprint(
+      cachedAnalysis.dependencyPaths,
+      'hash-missing',
+    );
+    if (
 			currentDependencyFingerprint !== null &&
 			currentDependencyFingerprint === cachedAnalysis.dependencyFingerprint
 		) {
-			return {
-				allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
-				checker: cachedAnalysis.checker,
-				packageNameCache: new Map(),
-				projectRoot,
-				program: cachedAnalysis.program,
-				recursionGuard: new Set<string>(),
-			};
-		}
-	}
+      return {
+        allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
+        checker: cachedAnalysis.checker,
+        packageNameCache: new Map(),
+        projectRoot,
+        program: cachedAnalysis.program,
+        recursionGuard: new Set<string>(),
+      };
+    }
+  }
 
-	const program = ts.createProgram({
-		oldProgram: cachedAnalysis?.program,
-		options: analysisInputs.compilerOptions,
-		rootNames: analysisInputs.rootNames,
-	});
-	const diagnostics = ts.getPreEmitDiagnostics(program);
-	const localSourceFiles = collectReferencedLocalSourceFiles(
-		program,
-		typesFilePath,
-		analysisInputs.compilerOptions,
-		projectRoot,
-	);
-	const blockingDiagnostic = diagnostics.find(
+  const program = ts.createProgram({
+    oldProgram: cachedAnalysis?.program,
+    options: analysisInputs.compilerOptions,
+    rootNames: analysisInputs.rootNames,
+  });
+  const diagnostics = ts.getPreEmitDiagnostics(program);
+  const localSourceFiles = collectReferencedLocalSourceFiles(
+    program,
+    typesFilePath,
+    analysisInputs.compilerOptions,
+    projectRoot,
+  );
+  const blockingDiagnostic = diagnostics.find(
 		(diagnostic) =>
 			diagnostic.category === ts.DiagnosticCategory.Error &&
 			diagnostic.file !== undefined &&
 			localSourceFiles.has(diagnostic.file.fileName),
 	);
-	if (blockingDiagnostic) {
-		throw formatDiagnosticError(blockingDiagnostic);
-	}
+  if (blockingDiagnostic) {
+    throw formatDiagnosticError(blockingDiagnostic);
+  }
 
-	const checker = program.getTypeChecker();
-	const dependencyPaths = getAnalysisProgramDependencyPaths(
-		program,
-		analysisInputs.configPath,
-	);
-	const dependencyFingerprint = createAnalysisProgramContentFingerprint(
-		dependencyPaths,
-		"hash-missing",
-	);
-	if (dependencyFingerprint === null) {
-		throw new Error("Unable to fingerprint metadata analysis dependencies.");
-	}
+  const checker = program.getTypeChecker();
+  const dependencyPaths = getAnalysisProgramDependencyPaths(
+    program,
+    analysisInputs.configPath,
+  );
+  const dependencyFingerprint = createAnalysisProgramContentFingerprint(
+    dependencyPaths,
+    'hash-missing',
+  );
+  if (dependencyFingerprint === null) {
+    throw new Error('Unable to fingerprint metadata analysis dependencies.');
+  }
 
-	analysisProgramCache.set(analysisInputs.structureKey, {
-		checker,
-		dependencyFingerprint,
-		dependencyPaths,
-		program,
-	});
+  analysisProgramCache.set(analysisInputs.structureKey, {
+    checker,
+    dependencyFingerprint,
+    dependencyPaths,
+    program,
+  });
 
-	return {
-		allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
-		checker,
-		packageNameCache: new Map(),
-		projectRoot,
-		program,
-		recursionGuard: new Set<string>(),
-	};
+  return {
+    allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
+    checker,
+    packageNameCache: new Map(),
+    projectRoot,
+    program,
+    recursionGuard: new Set<string>(),
+  };
 }
 
 function resolveTypiaTagsAugmentationPath(): string | null {
-	const candidates = [
-		path.join(RUNTIME_DIRECTORY, "typia-tags.d.ts"),
-		path.join(RUNTIME_DIRECTORY, "typia-tags.ts"),
-	];
+  const candidates = [
+    path.join(RUNTIME_DIRECTORY, 'typia-tags.d.ts'),
+    path.join(RUNTIME_DIRECTORY, 'typia-tags.ts'),
+  ];
 
-	for (const candidate of candidates) {
-		if (ts.sys.fileExists(candidate)) {
-			return candidate;
-		}
-	}
+  for (const candidate of candidates) {
+    if (ts.sys.fileExists(candidate)) {
+      return candidate;
+    }
+  }
 
-	return null;
+  return null;
 }
 
 function formatDiagnosticError(diagnostic: ts.Diagnostic): Error {
-	return tagMetadataDiagnosticError(
-		new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")),
-	);
+  return tagMetadataDiagnosticError(
+    new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
+  );
 }

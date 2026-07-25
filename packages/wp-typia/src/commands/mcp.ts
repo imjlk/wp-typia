@@ -72,7 +72,9 @@ function throwUnknownMcpSubcommand(subcommand: string): never {
   throw createCliCommandError({
     code: CLI_DIAGNOSTIC_CODES.INVALID_COMMAND,
     command: 'mcp',
-    detailLines: [`Unknown mcp subcommand "${subcommand}". Expected list or sync.`],
+    detailLines: [
+      `Unknown mcp subcommand "${subcommand}". Expected list or sync.`,
+    ],
   });
 }
 

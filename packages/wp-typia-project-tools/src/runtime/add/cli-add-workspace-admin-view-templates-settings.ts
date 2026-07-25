@@ -1,7 +1,11 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { type AdminViewManualSettingsRestResource } from './cli-add-workspace-admin-view-types.js';
 import { getAdminViewRelativeModuleSpecifier } from './cli-add-workspace-admin-view-templates-shared.js';
-import { toCamelCase, toPascalCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCamelCase,
+  toPascalCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 /**
  * Builds TypeScript request, response, and form-state types for REST settings.
@@ -137,8 +141,8 @@ export function buildRestSettingsAdminViewDataSource(
   const saveName = `save${pascalName}Settings`;
   const secretPreserveOnEmpty = restResource.secretPreserveOnEmpty !== false;
   const initialFieldLines = [
-    '\tpayload: \'\',',
-    '\tcomment: \'\',',
+    "\tpayload: '',",
+    "\tcomment: '',",
     ...(restResource.secretFieldName && !secretPreserveOnEmpty
       ? [`\t${quoteTsString(restResource.secretFieldName)}: '',`]
       : []),

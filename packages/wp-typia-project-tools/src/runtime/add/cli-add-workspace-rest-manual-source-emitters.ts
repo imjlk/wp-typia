@@ -1,14 +1,14 @@
 import {
-	quoteTsString,
-	type ManualRestContractAuthId,
-	type ManualRestContractHttpMethodId,
-} from "./cli-add-shared.js";
+  quoteTsString,
+  type ManualRestContractAuthId,
+  type ManualRestContractHttpMethodId,
+} from './cli-add-shared.js';
 import {
-	formatResolveRestNonceSource,
-	indentMultiline,
-} from "./cli-add-workspace-rest-source-utils.js";
-import { buildManualRestContractEndpointManifest } from "./rest-resource-artifacts.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
+  formatResolveRestNonceSource,
+  indentMultiline,
+} from './cli-add-workspace-rest-source-utils.js';
+import { buildManualRestContractEndpointManifest } from './rest-resource-artifacts.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 
 /**
  * Build the `REST_RESOURCES` config entry appended for a manual REST contract.
@@ -25,38 +25,38 @@ import { toPascalCase, toTitleCase } from "../shared/string-case.js";
  * @returns A TypeScript object literal string for `scripts/block-config.ts`.
  */
 export function buildManualRestContractConfigEntry(options: {
-	auth: ManualRestContractAuthId;
-	bodyTypeName?: string;
-	controllerClass?: string;
-	controllerExtends?: string;
-	method: ManualRestContractHttpMethodId;
-	namespace: string;
-	pathPattern: string;
-	permissionCallback?: string;
-	queryTypeName: string;
-	responseTypeName: string;
-	restResourceSlug: string;
-	secretFieldName?: string;
-	secretPreserveOnEmpty?: boolean;
-	secretStateFieldName?: string;
+  auth: ManualRestContractAuthId;
+  bodyTypeName?: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  method: ManualRestContractHttpMethodId;
+  namespace: string;
+  pathPattern: string;
+  permissionCallback?: string;
+  queryTypeName: string;
+  responseTypeName: string;
+  restResourceSlug: string;
+  secretFieldName?: string;
+  secretPreserveOnEmpty?: boolean;
+  secretStateFieldName?: string;
 }): string {
-	const pascalCase = toPascalCase(options.restResourceSlug);
-	const title = toTitleCase(options.restResourceSlug);
-	const manifest = buildManualRestContractEndpointManifest({
-		auth: options.auth,
-		...(options.bodyTypeName ? { bodyTypeName: options.bodyTypeName } : {}),
-		method: options.method,
-		namespace: options.namespace,
-		pascalCase,
-		pathPattern: options.pathPattern,
-		queryTypeName: options.queryTypeName,
-		responseTypeName: options.responseTypeName,
-		slugKebabCase: options.restResourceSlug,
-		title,
-	});
+  const pascalCase = toPascalCase(options.restResourceSlug);
+  const title = toTitleCase(options.restResourceSlug);
+  const manifest = buildManualRestContractEndpointManifest({
+    auth: options.auth,
+    ...(options.bodyTypeName ? { bodyTypeName: options.bodyTypeName } : {}),
+    method: options.method,
+    namespace: options.namespace,
+    pascalCase,
+    pathPattern: options.pathPattern,
+    queryTypeName: options.queryTypeName,
+    responseTypeName: options.responseTypeName,
+    slugKebabCase: options.restResourceSlug,
+    title,
+  });
 
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tapiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
 		`\t\tauth: ${quoteTsString(options.auth)},`,
 		...(options.bodyTypeName
@@ -70,7 +70,7 @@ export function buildManualRestContractConfigEntry(options: {
 			? [`\t\tcontrollerExtends: ${quoteTsString(options.controllerExtends)},`]
 			: []),
 		`\t\tmethod: ${quoteTsString(options.method)},`,
-		"\t\tmethods: [],",
+		'\t\tmethods: [],',
 		"\t\tmode: 'manual',",
 		`\t\tnamespace: ${quoteTsString(options.namespace)},`,
 		`\t\topenApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
@@ -79,9 +79,9 @@ export function buildManualRestContractConfigEntry(options: {
 			? [`\t\tpermissionCallback: ${quoteTsString(options.permissionCallback)},`]
 			: []),
 		`\t\tqueryTypeName: ${quoteTsString(options.queryTypeName)},`,
-		"\t\trestManifest: defineEndpointManifest(",
-		indentMultiline(JSON.stringify(manifest, null, "\t"), "\t\t\t"),
-		"\t\t),",
+		'\t\trestManifest: defineEndpointManifest(',
+		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
+		'\t\t),',
 		`\t\tresponseTypeName: ${quoteTsString(options.responseTypeName)},`,
 		...(options.secretFieldName
 			? [`\t\tsecretFieldName: ${quoteTsString(options.secretFieldName)},`]
@@ -95,8 +95,8 @@ export function buildManualRestContractConfigEntry(options: {
 		`\t\tslug: ${quoteTsString(options.restResourceSlug)},`,
 		`\t\ttypesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
 		`\t\tvalidatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -114,73 +114,75 @@ export function buildManualRestContractConfigEntry(options: {
  * @returns TypeScript source for `api-types.ts`.
  */
 export function buildManualRestContractTypesSource(options: {
-	bodyTypeName?: string;
-	pathParameterNames?: string[];
-	queryTypeName: string;
-	responseTypeName: string;
-	restResourceSlug: string;
-	secretFieldName?: string;
-	secretPreserveOnEmpty?: boolean;
-	secretStateFieldName?: string;
+  bodyTypeName?: string;
+  pathParameterNames?: string[];
+  queryTypeName: string;
+  responseTypeName: string;
+  restResourceSlug: string;
+  secretFieldName?: string;
+  secretPreserveOnEmpty?: boolean;
+  secretStateFieldName?: string;
 }): string {
-	const title = toTitleCase(options.restResourceSlug);
-	const pathParameterNames = Array.from(new Set(options.pathParameterNames ?? []));
-	const queryFields =
+  const title = toTitleCase(options.restResourceSlug);
+  const pathParameterNames = Array.from(
+    new Set(options.pathParameterNames ?? []),
+  );
+  const queryFields =
 		pathParameterNames.length > 0
 			? pathParameterNames.map(
 					(parameterName) =>
 						`\t${parameterName}: string & tags.MinLength< 1 >;`,
 				)
-			: ["\tid?: string & tags.MinLength< 1 >;"];
-	const lines = [
-		"import type { tags } from '@wp-typia/block-runtime/typia-tags';",
-		"",
-		`export interface ${options.queryTypeName} {`,
-		...queryFields,
-		...(pathParameterNames.includes("preview") ? [] : ["\tpreview?: boolean;"]),
-		"}",
-	];
+			: ['\tid?: string & tags.MinLength< 1 >;'];
+  const lines = [
+    "import type { tags } from '@wp-typia/block-runtime/typia-tags';",
+    '',
+    `export interface ${options.queryTypeName} {`,
+    ...queryFields,
+    ...(pathParameterNames.includes('preview') ? [] : ['\tpreview?: boolean;']),
+    '}',
+  ];
 
-	if (options.bodyTypeName) {
-		const secretPreserveOnEmpty = options.secretPreserveOnEmpty ?? true;
-		const secretLines =
+  if (options.bodyTypeName) {
+    const secretPreserveOnEmpty = options.secretPreserveOnEmpty ?? true;
+    const secretLines =
 			options.secretFieldName && options.secretStateFieldName
-				? [
-						`\t${options.secretFieldName}?: string${secretPreserveOnEmpty ? " & tags.MinLength< 1 >" : ""} & tags.MaxLength< 4096 > & tags.Secret< ${quoteTsString(options.secretStateFieldName)} >${secretPreserveOnEmpty ? " & tags.PreserveOnEmpty< true >" : ""};`,
-						secretPreserveOnEmpty
-							? `\t// ${options.secretFieldName} is write-only: omit or submit an empty value to preserve the stored secret, and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`
-							: `\t// ${options.secretFieldName} is write-only: persist it server-side and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`,
-					]
-				: [];
-		lines.push(
-			"",
-			`export interface ${options.bodyTypeName} {`,
-			...secretLines,
-			"\tpayload: string & tags.MinLength< 1 >;",
-			"\tcomment?: string & tags.MaxLength< 500 >;",
-			"}",
-		);
-	}
+        ? [
+            `\t${options.secretFieldName}?: string${secretPreserveOnEmpty ? ' & tags.MinLength< 1 >' : ''} & tags.MaxLength< 4096 > & tags.Secret< ${quoteTsString(options.secretStateFieldName)} >${secretPreserveOnEmpty ? ' & tags.PreserveOnEmpty< true >' : ''};`,
+            secretPreserveOnEmpty
+              ? `\t// ${options.secretFieldName} is write-only: omit or submit an empty value to preserve the stored secret, and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`
+              : `\t// ${options.secretFieldName} is write-only: persist it server-side and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`,
+          ]
+        : [];
+    lines.push(
+      '',
+      `export interface ${options.bodyTypeName} {`,
+      ...secretLines,
+      '\tpayload: string & tags.MinLength< 1 >;',
+      '\tcomment?: string & tags.MaxLength< 500 >;',
+      '}',
+    );
+  }
 
-	lines.push(
-		"",
+  lines.push(
+		'',
 		`export interface ${options.responseTypeName} {`,
 		...(options.secretStateFieldName
 			? [
 					`\t${options.secretStateFieldName}: boolean;`,
-					`\t// Raw secret fields such as ${options.secretFieldName ?? "the request secret"} must never be returned in this response.`,
+					`\t// Raw secret fields such as ${options.secretFieldName ?? 'the request secret'} must never be returned in this response.`,
 				]
 			: []),
-		"\tid: string & tags.MinLength< 1 >;",
+		'\tid: string & tags.MinLength< 1 >;',
 		"\tstatus: 'ok' | 'error';",
-		"\tmessage?: string;",
-		"\tupdatedAt?: string;",
-		"}",
-		"",
+		'\tmessage?: string;',
+		'\tupdatedAt?: string;',
+		'}',
+		'',
 		`// ${title} is a manual REST contract: edit these types to match the external route owner.`,
 	);
 
-	return `${lines.join("\n")}\n`;
+  return `${lines.join('\n')}\n`;
 }
 
 /**
@@ -193,23 +195,23 @@ export function buildManualRestContractTypesSource(options: {
  * @returns TypeScript source for `api-validators.ts`.
  */
 export function buildManualRestContractValidatorsSource(options: {
-	bodyTypeName?: string;
-	queryTypeName: string;
-	responseTypeName: string;
+  bodyTypeName?: string;
+  queryTypeName: string;
+  responseTypeName: string;
 }): string {
-	const importedTypes = [
+  const importedTypes = [
 		options.queryTypeName,
 		...(options.bodyTypeName ? [options.bodyTypeName] : []),
 		options.responseTypeName,
 	].sort();
-	const validatorDeclarations = [
+  const validatorDeclarations = [
 		`const validateQuery = typia.createValidate< ${options.queryTypeName} >();`,
 		...(options.bodyTypeName
 			? [`const validateRequest = typia.createValidate< ${options.bodyTypeName} >();`]
 			: []),
 		`const validateResponse = typia.createValidate< ${options.responseTypeName} >();`,
 	];
-	const validatorEntries = [
+  const validatorEntries = [
 		`\tquery: ( input: unknown ) => toValidationResult< ${options.queryTypeName} >( validateQuery( input ) ),`,
 		...(options.bodyTypeName
 			? [
@@ -219,17 +221,17 @@ export function buildManualRestContractValidatorsSource(options: {
 		`\tresponse: ( input: unknown ) => toValidationResult< ${options.responseTypeName} >( validateResponse( input ) ),`,
 	];
 
-	return `import typia from 'typia';
+  return `import typia from 'typia';
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
-\t${importedTypes.join(",\n\t")},
+\t${importedTypes.join(',\n\t')},
 } from './api-types';
 
-${validatorDeclarations.join("\n")}
+${validatorDeclarations.join('\n')}
 
 export const apiValidators = {
-${validatorEntries.join("\n")}
+${validatorEntries.join('\n')}
 };
 `;
 }
@@ -241,40 +243,40 @@ ${validatorEntries.join("\n")}
  * @returns TypeScript source that re-exports the generated endpoint client.
  */
 export function buildManualRestContractApiSource(options: {
-	bodyTypeName?: string;
-	queryTypeName: string;
-	restResourceSlug: string;
+  bodyTypeName?: string;
+  queryTypeName: string;
+  restResourceSlug: string;
 }): string {
-	const pascalCase = toPascalCase(options.restResourceSlug);
-	const operationId = `call${pascalCase}ManualRestContract`;
-	const requestTypeName = options.bodyTypeName
-		? `${pascalCase}ManualRestContractRequest`
-		: options.queryTypeName;
-	const requestTypeSource = options.bodyTypeName
+  const pascalCase = toPascalCase(options.restResourceSlug);
+  const operationId = `call${pascalCase}ManualRestContract`;
+  const requestTypeName = options.bodyTypeName
+    ? `${pascalCase}ManualRestContractRequest`
+    : options.queryTypeName;
+  const requestTypeSource = options.bodyTypeName
 		? `export interface ${requestTypeName} {
 \tbody: ${options.bodyTypeName};
 \tquery: ${options.queryTypeName};
 }
 
 `
-		: "";
-	const typeImports = options.bodyTypeName
-		? [options.bodyTypeName, options.queryTypeName]
-		: [options.queryTypeName];
+		: '';
+  const typeImports = options.bodyTypeName
+    ? [options.bodyTypeName, options.queryTypeName]
+    : [options.queryTypeName];
 
-	return `import {
+  return `import {
 \tcallEndpoint,
 \tresolveRestRouteUrl,
 } from '@wp-typia/rest';
 
 import type {
-\t${typeImports.sort().join(",\n\t")},
+\t${typeImports.sort().join(',\n\t')},
 } from './api-types';
 import { ${operationId}Endpoint } from './api-client';
 
 export * from './api-client';
 
-${requestTypeSource}${formatResolveRestNonceSource("compact")}
+${requestTypeSource}${formatResolveRestNonceSource('compact')}
 
 function resolveEndpointRouteOptions(request: ${requestTypeName}) {
 \tconst requestOptions = ${operationId}Endpoint.buildRequestOptions?.(request) ?? {};

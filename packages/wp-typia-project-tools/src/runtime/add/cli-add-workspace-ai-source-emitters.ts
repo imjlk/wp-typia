@@ -1,20 +1,20 @@
-import { quoteTsString } from "./cli-add-shared.js";
-import { buildAiFeatureEndpointManifest } from "./ai-feature-artifacts.js";
+import { quoteTsString } from './cli-add-shared.js';
+import { buildAiFeatureEndpointManifest } from './ai-feature-artifacts.js';
 import {
-	OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-	createScaffoldCompatibilityConfig,
-	renderScaffoldCompatibilityConfig,
-	resolveScaffoldCompatibilityPolicy,
-} from "../templates/scaffold-compatibility.js";
+  OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
+  createScaffoldCompatibilityConfig,
+  renderScaffoldCompatibilityConfig,
+  resolveScaffoldCompatibilityPolicy,
+} from '../templates/scaffold-compatibility.js';
 import {
-	formatResolveRestNonceSource,
-	indentMultiline,
-} from "./cli-add-workspace-rest-source-utils.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
+  formatResolveRestNonceSource,
+  indentMultiline,
+} from './cli-add-workspace-rest-source-utils.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 
 export {
 	buildAiFeatureSyncScriptSource,
-} from "./cli-add-workspace-ai-sync-script-source.js";
+} from './cli-add-workspace-ai-sync-script-source.js';
 
 /**
  * Build the workspace inventory entry written into `scripts/block-config.ts` for one AI feature.
@@ -23,20 +23,20 @@ export function buildAiFeatureConfigEntry(
 	aiFeatureSlug: string,
 	namespace: string,
 ): string {
-	const pascalCase = toPascalCase(aiFeatureSlug);
-	const title = toTitleCase(aiFeatureSlug);
-	const compatibilityPolicy = resolveScaffoldCompatibilityPolicy(
-		OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-	);
-	const manifest = buildAiFeatureEndpointManifest({
-		namespace,
-		pascalCase,
-		slugKebabCase: aiFeatureSlug,
-		title,
-	});
+  const pascalCase = toPascalCase(aiFeatureSlug);
+  const title = toTitleCase(aiFeatureSlug);
+  const compatibilityPolicy = resolveScaffoldCompatibilityPolicy(
+    OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
+  );
+  const manifest = buildAiFeatureEndpointManifest({
+    namespace,
+    pascalCase,
+    slugKebabCase: aiFeatureSlug,
+    title,
+  });
 
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\taiSchemaFile: ${quoteTsString(
 			`src/ai-features/${aiFeatureSlug}/ai-schemas/feature-result.ai.schema.json`,
 		)},`,
@@ -53,9 +53,9 @@ export function buildAiFeatureConfigEntry(
 			`src/ai-features/${aiFeatureSlug}/api.openapi.json`,
 		)},`,
 		`\t\tphpFile: ${quoteTsString(`inc/ai-features/${aiFeatureSlug}.php`)},`,
-		"\t\trestManifest: defineEndpointManifest(",
-		indentMultiline(JSON.stringify(manifest, null, "\t"), "\t\t\t"),
-		"\t\t),",
+		'\t\trestManifest: defineEndpointManifest(',
+		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
+		'\t\t),',
 		`\t\tslug: ${quoteTsString(aiFeatureSlug)},`,
 		`\t\ttypesFile: ${quoteTsString(
 			`src/ai-features/${aiFeatureSlug}/api-types.ts`,
@@ -63,17 +63,17 @@ export function buildAiFeatureConfigEntry(
 		`\t\tvalidatorsFile: ${quoteTsString(
 			`src/ai-features/${aiFeatureSlug}/api-validators.ts`,
 		)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
  * Generate TypeScript request, response, and telemetry contracts for an AI feature scaffold.
  */
 export function buildAiFeatureTypesSource(aiFeatureSlug: string): string {
-	const pascalCase = toPascalCase(aiFeatureSlug);
+  const pascalCase = toPascalCase(aiFeatureSlug);
 
-	return `import { tags } from 'typia';
+  return `import { tags } from 'typia';
 
 export interface ${pascalCase}AiFeatureRequest {
 \tbrief: string & tags.MinLength< 1 > & tags.MaxLength< 4000 >;
@@ -155,9 +155,9 @@ export interface ${pascalCase}AiFeatureSupportMetadata {
 export function buildAiFeatureValidatorsSource(
 	aiFeatureSlug: string,
 ): string {
-	const pascalCase = toPascalCase(aiFeatureSlug);
+  const pascalCase = toPascalCase(aiFeatureSlug);
 
-	return `import typia from 'typia';
+  return `import typia from 'typia';
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
@@ -191,15 +191,15 @@ export const apiValidators = {
  * Generate the typed client wrapper that calls the scaffolded AI feature endpoint.
  */
 export function buildAiFeatureApiSource(aiFeatureSlug: string): string {
-	const pascalCase = toPascalCase(aiFeatureSlug);
-	const compatibility = createScaffoldCompatibilityConfig(
-		resolveScaffoldCompatibilityPolicy(
-			OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-		),
-	);
-	const title = toTitleCase(aiFeatureSlug);
+  const pascalCase = toPascalCase(aiFeatureSlug);
+  const compatibility = createScaffoldCompatibilityConfig(
+    resolveScaffoldCompatibilityPolicy(
+      OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
+    ),
+  );
+  const title = toTitleCase(aiFeatureSlug);
 
-	return `import {
+  return `import {
 \tcallEndpoint,
 \tresolveRestRouteUrl,
 } from '@wp-typia/rest';
@@ -212,7 +212,7 @@ import {
 \trun${pascalCase}AiFeatureEndpoint,
 } from './api-client';
 
-${formatResolveRestNonceSource("spaced")}
+${formatResolveRestNonceSource('spaced')}
 
 function isPlainObject( value: unknown ): value is Record< string, unknown > {
 \treturn (
@@ -238,7 +238,7 @@ export const aiFeatureRunEndpoint = {
 };
 
 export const aiFeatureSupportMetadata = {
-\tcompatibility: ${JSON.stringify(compatibility, null, "\t")},
+\tcompatibility: ${JSON.stringify(compatibility, null, '\t')},
 \tfeatureLabel: ${quoteTsString(title)},
 \tfeatureSlug: ${quoteTsString(aiFeatureSlug)},
 \tsupportProbe: {
@@ -304,9 +304,9 @@ export function runAiFeature( request: ${pascalCase}AiFeatureRequest ) {
  * Generate React endpoint-mutation hooks for the scaffolded AI feature client wrapper.
  */
 export function buildAiFeatureDataSource(aiFeatureSlug: string): string {
-	const pascalCase = toPascalCase(aiFeatureSlug);
+  const pascalCase = toPascalCase(aiFeatureSlug);
 
-	return `import {
+  return `import {
 \tuseEndpointMutation,
 \ttype UseEndpointMutationOptions,
 } from '@wp-typia/rest/react';

@@ -1,1 +1,1 @@
-export * from "./shared/object-utils.js";
+export * from './shared/object-utils.js';

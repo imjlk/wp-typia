@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-ai-scaffold.js";
+export * from './add/cli-add-workspace-ai-scaffold.js';

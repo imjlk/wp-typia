@@ -1,1 +1,1 @@
-export * from "./schema/ai-artifacts.js";
+export * from './schema/ai-artifacts.js';

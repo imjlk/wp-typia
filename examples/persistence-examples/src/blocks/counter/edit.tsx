@@ -1,19 +1,19 @@
 import { __ } from '@wordpress/i18n';
 import {
-	InspectorControls,
-	RichText,
-	useBlockProps,
+  InspectorControls,
+  RichText,
+  useBlockProps,
 } from '@wordpress/block-editor';
 import {
-	Notice,
-	PanelBody,
-	TextControl,
-	ToggleControl,
+  Notice,
+  PanelBody,
+  TextControl,
+  ToggleControl,
 } from '@wordpress/components';
 import currentManifest from './typia.manifest.json';
 import {
-	createEditorModel,
-	parseManifestDocument,
+  createEditorModel,
+  parseManifestDocument,
 } from '@wp-typia/block-runtime/editor';
 import { useTypiaValidation } from '../../shared/hooks';
 import type { PersistenceCounterAttributes } from './types';
@@ -23,11 +23,11 @@ export default function Edit( {
 	attributes,
 	setAttributes,
 }: {
-	attributes: PersistenceCounterAttributes;
-	setAttributes: ( attrs: Partial< PersistenceCounterAttributes > ) => void;
+  attributes: PersistenceCounterAttributes;
+  setAttributes: ( attrs: Partial< PersistenceCounterAttributes > ) => void;
 } ) {
-	const editorManifest = parseManifestDocument( currentManifest );
-	const editorFieldMap = new Map(
+  const editorManifest = parseManifestDocument( currentManifest );
+  const editorFieldMap = new Map(
 		createEditorModel( editorManifest, {
 			manual: [ 'content', 'resourceKey' ],
 			labels: {
@@ -35,33 +35,33 @@ export default function Edit( {
 				resourceKey: __( 'Resource Key', 'persistence-examples' ),
 				showCount: __( 'Show Count', 'persistence-examples' ),
 			},
-		} ).map( ( field ) => [ field.path, field ] )
+		} ).map( ( field ) => [ field.path, field ] ),
 	);
-	const showCountField = editorFieldMap.get( 'showCount' );
-	const buttonLabelField = editorFieldMap.get( 'buttonLabel' );
-	const { errorMessages, isValid } = useTypiaValidation(
-		attributes,
-		validators.validate
-	);
-	const updateAttribute = createAttributeUpdater( attributes, setAttributes );
-	const showCount =
+  const showCountField = editorFieldMap.get( 'showCount' );
+  const buttonLabelField = editorFieldMap.get( 'buttonLabel' );
+  const { errorMessages, isValid } = useTypiaValidation(
+    attributes,
+    validators.validate,
+  );
+  const updateAttribute = createAttributeUpdater( attributes, setAttributes );
+  const showCount =
 		attributes.showCount ??
 		( typeof showCountField?.defaultValue === 'boolean'
-			? showCountField.defaultValue
-			: true );
-	const buttonLabel =
+      ? showCountField.defaultValue
+      : true );
+  const buttonLabel =
 		attributes.buttonLabel ??
 		( typeof buttonLabelField?.defaultValue === 'string'
-			? buttonLabelField.defaultValue
-			: 'Persist Count' );
+      ? buttonLabelField.defaultValue
+      : 'Persist Count' );
 
-	return (
+  return (
 		<>
 			<InspectorControls>
 				<PanelBody
 					title={ __(
 						'Persistence Counter Settings',
-						'persistence-examples'
+						'persistence-examples',
 					) }
 				>
 					<ToggleControl
@@ -92,19 +92,19 @@ export default function Edit( {
 						}
 						help={ __(
 							'Stable key used by the public counter endpoint.',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					/>
 					<Notice status="info" isDismissible={ false }>
 						{ __(
 							'Policy: public signed write token',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					</Notice>
 					<Notice status="info" isDismissible={ false }>
 						{ __(
 							'Storage: custom-table aggregate counter',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					</Notice>
 				</PanelBody>
@@ -119,7 +119,7 @@ export default function Edit( {
 					}
 					placeholder={ __(
 						'Persistence counter example',
-						'persistence-examples'
+						'persistence-examples',
 					) }
 				/>
 				<p>

@@ -1,48 +1,49 @@
 import {
-	rollbackWorkspaceMutation,
-	snapshotWorkspaceFiles,
-	type WorkspaceMutationSnapshot,
-} from "./cli-add-shared.js";
+  rollbackWorkspaceMutation,
+  snapshotWorkspaceFiles,
+  type WorkspaceMutationSnapshot,
+} from './cli-add-shared.js';
 
 /**
  * Paths captured before a workspace mutation so its filesystem changes can be rolled back.
  */
 export interface WorkspaceMutationSnapshotPlan {
 	/** Files to capture before the mutation starts. Missing files are restored as absent. */
-	filePaths: string[];
+  filePaths: string[];
 	/** Snapshot directories created by the mutation, usually migration fixtures. */
-	snapshotDirs?: string[];
+  snapshotDirs?: string[];
 	/** Created files or directories to remove if the mutation fails. */
-	targetPaths?: string[];
+  targetPaths?: string[];
 }
 
 /**
  * A workspace mutation snapshot plan paired with the operation to execute.
  */
-export interface WorkspaceMutationPlan<TResult>
-	extends WorkspaceMutationSnapshotPlan {
+export interface WorkspaceMutationPlan<
+  TResult,
+> extends WorkspaceMutationSnapshotPlan {
 	/** Mutating work to execute after the snapshot is captured. */
-	run: () => Promise<TResult>;
+  run: () => Promise<TResult>;
 }
 
 const DEFAULT_PHP_SNIPPET_INSERTION_ANCHORS = [
-	/add_action\(\s*["']init["']\s*,\s*["'][^"']+_load_textdomain["']\s*\);\s*\n/u,
-	/\?>\s*$/u,
+  /add_action\(\s*["']init["']\s*,\s*["'][^"']+_load_textdomain["']\s*\);\s*\n/u,
+  /\?>\s*$/u,
 ] as const;
 
 /**
  * Error thrown when the mutation and its rollback both fail.
  */
 export class WorkspaceMutationRollbackError extends Error {
-	readonly mutationError: unknown;
-	readonly rollbackError: unknown;
+  readonly mutationError: unknown;
+  readonly rollbackError: unknown;
 
-	constructor(mutationError: unknown, rollbackError: unknown) {
-		super("Workspace mutation failed and rollback also failed.");
-		this.name = "WorkspaceMutationRollbackError";
-		this.mutationError = mutationError;
-		this.rollbackError = rollbackError;
-	}
+  constructor(mutationError: unknown, rollbackError: unknown) {
+    super('Workspace mutation failed and rollback also failed.');
+    this.name = 'WorkspaceMutationRollbackError';
+    this.mutationError = mutationError;
+    this.rollbackError = rollbackError;
+  }
 }
 
 /**
@@ -53,11 +54,11 @@ export async function createWorkspaceMutationSnapshot({
 	snapshotDirs = [],
 	targetPaths = [],
 }: WorkspaceMutationSnapshotPlan): Promise<WorkspaceMutationSnapshot> {
-	return {
-		fileSources: await snapshotWorkspaceFiles(filePaths),
-		snapshotDirs: [...snapshotDirs],
-		targetPaths: [...targetPaths],
-	};
+  return {
+    fileSources: await snapshotWorkspaceFiles(filePaths),
+    snapshotDirs: [...snapshotDirs],
+    targetPaths: [...targetPaths],
+  };
 }
 
 /**
@@ -66,18 +67,18 @@ export async function createWorkspaceMutationSnapshot({
 export async function executeWorkspaceMutationPlan<TResult>(
 	plan: WorkspaceMutationPlan<TResult>,
 ): Promise<TResult> {
-	const mutationSnapshot = await createWorkspaceMutationSnapshot(plan);
+  const mutationSnapshot = await createWorkspaceMutationSnapshot(plan);
 
-	try {
-		return await plan.run();
-	} catch (error) {
-		try {
-			await rollbackWorkspaceMutation(mutationSnapshot);
-		} catch (rollbackError) {
-			throw new WorkspaceMutationRollbackError(error, rollbackError);
-		}
-		throw error;
-	}
+  try {
+    return await plan.run();
+  } catch (error) {
+    try {
+      await rollbackWorkspaceMutation(mutationSnapshot);
+    } catch (rollbackError) {
+      throw new WorkspaceMutationRollbackError(error, rollbackError);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -87,14 +88,14 @@ export function insertPhpSnippetBeforeWorkspaceAnchors(
 	source: string,
 	snippet: string,
 ): string {
-	for (const anchor of DEFAULT_PHP_SNIPPET_INSERTION_ANCHORS) {
-		const candidate = source.replace(anchor, (match) => `${snippet}\n${match}`);
-		if (candidate !== source) {
-			return candidate;
-		}
-	}
+  for (const anchor of DEFAULT_PHP_SNIPPET_INSERTION_ANCHORS) {
+    const candidate = source.replace(anchor, (match) => `${snippet}\n${match}`);
+    if (candidate !== source) {
+      return candidate;
+    }
+  }
 
-	return `${source.trimEnd()}\n${snippet}\n`;
+  return `${source.trimEnd()}\n${snippet}\n`;
 }
 
 /**
@@ -104,10 +105,10 @@ export function appendPhpSnippetBeforeClosingTag(
 	source: string,
 	snippet: string,
 ): string {
-	const closingTagPattern = /\?>\s*$/u;
-	if (closingTagPattern.test(source)) {
-		return source.replace(closingTagPattern, `${snippet}\n?>`);
-	}
+  const closingTagPattern = /\?>\s*$/u;
+  if (closingTagPattern.test(source)) {
+    return source.replace(closingTagPattern, `${snippet}\n?>`);
+  }
 
-	return `${source.trimEnd()}\n${snippet}\n`;
+  return `${source.trimEnd()}\n${snippet}\n`;
 }

@@ -12,7 +12,7 @@ import type {
   DataViewsRecord,
   DataViewsView,
   QueryAdapter,
-} from "./types.js";
+} from './types.js';
 
 export function createDataViewsQueryAdapter<
   TItem extends object = DataViewsRecord,
@@ -42,9 +42,14 @@ export function toDataViewsQueryArgs<
     view,
   };
 
-  assignDataViewsQueryParam(query, options.pageParam, "page", view.page);
-  assignDataViewsQueryParam(query, options.perPageParam, "per_page", view.perPage);
-  assignDataViewsQueryParam(query, options.searchParam, "search", view.search);
+  assignDataViewsQueryParam(query, options.pageParam, 'page', view.page);
+  assignDataViewsQueryParam(
+    query,
+    options.perPageParam,
+    'per_page',
+    view.perPage,
+  );
+  assignDataViewsQueryParam(query, options.searchParam, 'search', view.search);
   mergeDataViewsSortQuery(query, view, options, mapContext);
   mergeDataViewsFilterQueries(query, view, options, mapContext);
 
@@ -74,12 +79,15 @@ function mergeDataViewsSortQuery<TItem extends object, TQuery extends object>(
     return;
   }
 
-  if (typeof options.mapSort === "function") {
+  if (typeof options.mapSort === 'function') {
     mergeDataViewsQueryResult(query, options.mapSort(view.sort, context));
     return;
   }
 
-  const orderBy = getDataViewsQuerySortMapValue(options.mapSort, view.sort.field);
+  const orderBy = getDataViewsQuerySortMapValue(
+    options.mapSort,
+    view.sort.field,
+  );
 
   if (orderBy === undefined) {
     return;
@@ -89,8 +97,13 @@ function mergeDataViewsSortQuery<TItem extends object, TQuery extends object>(
     return;
   }
 
-  assignDataViewsQueryParam(query, options.orderByParam, "orderby", orderBy);
-  assignDataViewsQueryParam(query, options.orderParam, "order", view.sort.direction);
+  assignDataViewsQueryParam(query, options.orderByParam, 'orderby', orderBy);
+  assignDataViewsQueryParam(
+    query,
+    options.orderParam,
+    'order',
+    view.sort.direction,
+  );
 }
 
 function getDataViewsQuerySortMapValue<TItem extends object>(

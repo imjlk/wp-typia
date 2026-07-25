@@ -5,9 +5,9 @@ import path from 'node:path';
 import type { EndpointManifestEndpointDefinition } from '../../packages/wp-typia-block-runtime/src/metadata-core';
 import counterOpenApiDocument from '../../examples/persistence-examples/src/blocks/counter/api.openapi.json';
 import {
-	counterEndpointManifest,
-	getCounterAdapterRouteTable,
-	startCounterAdapterServer,
+  counterEndpointManifest,
+  getCounterAdapterRouteTable,
+  startCounterAdapterServer,
 } from '../../examples/api-contract-adapter-poc/src/counter-adapter';
 import {
 	counterOperationResponseValidators,
@@ -15,25 +15,25 @@ import {
 import { runRestAdapterConformanceSuite } from '../helpers/rest-adapter-conformance';
 
 function toRouteSignature(
-	route: Pick< EndpointManifestEndpointDefinition, 'method' | 'path' >
+	route: Pick< EndpointManifestEndpointDefinition, 'method' | 'path' >,
 ): string {
-	return `${route.method} ${route.path}`;
+  return `${route.method} ${route.path}`;
 }
 
 function getOpenApiRouteSignatures(document: {
-	paths: Record<string, Record<string, unknown>>;
+  paths: Record<string, Record<string, unknown>>;
 }): string[] {
-	const httpMethods = new Set([
-		'delete',
-		'get',
-		'head',
-		'options',
-		'patch',
-		'post',
-		'put',
-	]);
+  const httpMethods = new Set([
+    'delete',
+    'get',
+    'head',
+    'options',
+    'patch',
+    'post',
+    'put',
+  ]);
 
-	return Object.entries(document.paths).flatMap(([path, item]) => {
+  return Object.entries(document.paths).flatMap(([path, item]) => {
 		return Object.keys(item)
 			.filter((method) => httpMethods.has(method))
 			.map((method) => `${method.toUpperCase()} ${path}`);
@@ -84,13 +84,13 @@ describe('REST contract adapter PoC', () => {
 						{
 							assertBody: ( payload ) => {
 								expect(
-									( payload as { canWrite?: unknown } ).canWrite
+									( payload as { canWrite?: unknown } ).canWrite,
 								).toBe( true );
 								expect(
-									typeof ( payload as { publicWriteExpiresAt?: unknown } ).publicWriteExpiresAt
+									typeof ( payload as { publicWriteExpiresAt?: unknown } ).publicWriteExpiresAt,
 								).toBe( 'number' );
 								expect(
-									( payload as { publicWriteToken?: unknown } ).publicWriteToken
+									( payload as { publicWriteToken?: unknown } ).publicWriteToken,
 								).toBe( 'adapter-proof-token' );
 							},
 							description: 'reads the fresh counter bootstrap state',
@@ -125,7 +125,7 @@ describe('REST contract adapter PoC', () => {
 						{
 							assertBody: ( payload ) => {
 								expect(
-									( payload as { count?: unknown } ).count
+									( payload as { count?: unknown } ).count,
 								).toBe( 3 );
 							},
 							description: 'increments the counter state',
@@ -144,7 +144,7 @@ describe('REST contract adapter PoC', () => {
 						{
 							assertBody: ( payload ) => {
 								expect(
-									( payload as { count?: unknown } ).count
+									( payload as { count?: unknown } ).count,
 								).toBe( 3 );
 							},
 							description: 'reads the updated counter state',
@@ -223,7 +223,7 @@ describe('REST contract adapter PoC', () => {
 
 		try {
 			const response = await fetch(
-				`${ server.url }/persistence-examples/v1/counter/bootstrap?postId=7&resourceKey=demo`
+				`${ server.url }/persistence-examples/v1/counter/bootstrap?postId=7&resourceKey=demo`,
 			);
 
 			expect(response.status).toBe(200);

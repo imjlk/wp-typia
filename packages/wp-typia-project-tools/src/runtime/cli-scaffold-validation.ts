@@ -1,1 +1,1 @@
-export * from "./templates/cli-scaffold-validation.js";
+export * from './templates/cli-scaffold-validation.js';

@@ -1,13 +1,13 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { getWorkspaceBootstrapPath, patchFile } from "./cli-add-shared.js";
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
-	appendPhpSnippetBeforeClosingTag,
-	insertPhpSnippetBeforeWorkspaceAnchors,
-} from "./cli-add-workspace-mutation.js";
-import { hasPhpFunctionDefinition } from "../shared/php-utils.js";
-import { toTitleCase } from "../shared/string-case.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  appendPhpSnippetBeforeClosingTag,
+  insertPhpSnippetBeforeWorkspaceAnchors,
+} from './cli-add-workspace-mutation.js';
+import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import { toTitleCase } from '../shared/string-case.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 const FLAT_PATTERN_GLOB = "glob( __DIR__ . '/src/patterns/*.php' ) ?: array()";
 const NESTED_PATTERN_GLOB =
@@ -18,47 +18,47 @@ const LEGACY_FLAT_PATTERN_FOREACH_PATTERN =
 	/^[ \t]*foreach\s*\(\s*glob\( __DIR__ \. '\/src\/patterns\/\*\.php' \) \?: array\(\)\s+as\s+\$pattern_module\s*\)\s*\{\r?\n[ \t]*require\s+\$pattern_module;\r?\n[ \t]*\}/mu;
 
 function buildNestedPatternModulesAssignment(): string {
-	return [
-		"\t$pattern_modules = array_merge(",
+  return [
+		'\t$pattern_modules = array_merge(',
 		`\t\t${FLAT_PATTERN_GLOB},`,
 		`\t\t${NESTED_PATTERN_GLOB}`,
-		"\t);",
-	].join("\n");
+		'\t);',
+	].join('\n');
 }
 
 function ensureNestedPatternLoaderSource(
 	source: string,
 	bootstrapPath: string,
 ): string {
-	if (source.includes(NESTED_PATTERN_GLOB)) {
-		return source;
-	}
-	if (LEGACY_FLAT_PATTERN_FOREACH_PATTERN.test(source)) {
-		return source.replace(
+  if (source.includes(NESTED_PATTERN_GLOB)) {
+    return source;
+  }
+  if (LEGACY_FLAT_PATTERN_FOREACH_PATTERN.test(source)) {
+    return source.replace(
 			LEGACY_FLAT_PATTERN_FOREACH_PATTERN,
 			[
 				buildNestedPatternModulesAssignment(),
-				"\tforeach ( $pattern_modules as $pattern_module ) {",
-				"\t\trequire $pattern_module;",
-				"\t}",
-			].join("\n"),
+				'\tforeach ( $pattern_modules as $pattern_module ) {',
+				'\t\trequire $pattern_module;',
+				'\t}',
+			].join('\n'),
 		);
-	}
-	if (LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN.test(source)) {
-		return source.replace(
-			LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN,
-			buildNestedPatternModulesAssignment(),
-		);
-	}
-	if (source.includes("array_merge(") && source.includes(FLAT_PATTERN_GLOB)) {
-		return source.replace(
-			FLAT_PATTERN_GLOB,
-			`${FLAT_PATTERN_GLOB},\n\t\t${NESTED_PATTERN_GLOB}`,
-		);
-	}
-	throw new Error(
-		`Unable to repair ${path.basename(bootstrapPath)} pattern loader for nested src/patterns directories.`,
-	);
+  }
+  if (LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN.test(source)) {
+    return source.replace(
+      LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN,
+      buildNestedPatternModulesAssignment(),
+    );
+  }
+  if (source.includes('array_merge(') && source.includes(FLAT_PATTERN_GLOB)) {
+    return source.replace(
+      FLAT_PATTERN_GLOB,
+      `${FLAT_PATTERN_GLOB},\n\t\t${NESTED_PATTERN_GLOB}`,
+    );
+  }
+  throw new Error(
+    `Unable to repair ${path.basename(bootstrapPath)} pattern loader for nested src/patterns directories.`,
+  );
 }
 
 /**
@@ -72,10 +72,10 @@ function ensureNestedPatternLoaderSource(
 export async function ensurePatternBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const workspaceBaseName =
-		workspace.packageName.split("/").pop() ?? workspace.packageName;
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
-	await patchFile(bootstrapPath, (source) => {
+  const workspaceBaseName =
+		workspace.packageName.split('/').pop() ?? workspace.packageName;
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
 		const patternCategoryFunctionName = `${workspace.workspace.phpPrefix}_register_pattern_category`;
 		const patternRegistrationFunctionName = `${workspace.workspace.phpPrefix}_register_patterns`;

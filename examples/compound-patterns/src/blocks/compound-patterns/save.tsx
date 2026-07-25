@@ -5,14 +5,14 @@ import type { CompoundPatternsAttributes } from './types';
 export default function Save( {
 	attributes,
 }: {
-	attributes: CompoundPatternsAttributes;
+  attributes: CompoundPatternsAttributes;
 } ) {
-	return (
+  return (
 		<div
 			{ ...useBlockProps.save( {
 				className: 'wp-block-compound-patterns',
 				'data-show-dividers':
-					attributes.showDividers ?? true ? 'true' : 'false',
+					(attributes.showDividers ?? true) ? 'true' : 'false',
 			} ) }
 		>
 			<RichText.Content

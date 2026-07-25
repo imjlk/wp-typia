@@ -1,1 +1,1 @@
-export * from "./cli/cli-init-templates.js";
+export * from './cli/cli-init-templates.js';

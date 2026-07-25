@@ -1,94 +1,97 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
-import { createReadlinePrompt } from "../cli/cli-prompt.js";
+import { createReadlinePrompt } from '../cli/cli-prompt.js';
 import {
-	CommandRenderOptions,
-	DiffLikeOptions,
-	formatMigrationHelpText,
-	parseMigrationArgs,
-	parseNonNegativeInteger,
-	parsePositiveInteger,
-	WizardOptions,
-} from "./migration-command-surface.js";
-import { formatRunScript } from "../shared/package-managers.js";
+  CommandRenderOptions,
+  DiffLikeOptions,
+  formatMigrationHelpText,
+  parseMigrationArgs,
+  parseNonNegativeInteger,
+  parsePositiveInteger,
+  WizardOptions,
+} from './migration-command-surface.js';
+import { formatRunScript } from '../shared/package-managers.js';
 import {
 	SNAPSHOT_DIR,
-} from "./migration-constants.js";
-import { createMigrationDiff } from "./migration-diff.js";
-import { ensureEdgeFixtureFile } from "./migration-fixtures.js";
+} from './migration-constants.js';
+import { createMigrationDiff } from './migration-diff.js';
+import { ensureEdgeFixtureFile } from './migration-fixtures.js';
 import {
 	regenerateGeneratedArtifacts,
-} from "./migration-generated-artifacts.js";
+} from './migration-generated-artifacts.js';
 import {
-	assertDistinctMigrationEdge,
-	createMigrationPlanNextSteps,
-	createMissingProjectSnapshotMessage,
-	formatEdgeCommand,
-	hasSnapshotForVersion,
-	listPreviewableLegacyVersions,
-	resolveLegacyVersions,
-} from "./migration-planning.js";
+  assertDistinctMigrationEdge,
+  createMigrationPlanNextSteps,
+  createMissingProjectSnapshotMessage,
+  formatEdgeCommand,
+  hasSnapshotForVersion,
+  listPreviewableLegacyVersions,
+  resolveLegacyVersions,
+} from './migration-planning.js';
 import {
-	assertNoLegacySemverMigrationWorkspace,
-	discoverMigrationInitLayout,
-	ensureAdvancedMigrationProject,
-	ensureMigrationDirectories,
-	getProjectPaths,
-	getRuleFilePath,
-	getSnapshotBlockJsonPath,
-	getSnapshotManifestPath,
-	getSnapshotRoot,
-	getSnapshotSavePath,
-	loadMigrationProject,
-	writeInitialMigrationScaffold,
-	writeMigrationConfig,
-} from "./migration-project.js";
+  assertNoLegacySemverMigrationWorkspace,
+  discoverMigrationInitLayout,
+  ensureAdvancedMigrationProject,
+  ensureMigrationDirectories,
+  getProjectPaths,
+  getRuleFilePath,
+  getSnapshotBlockJsonPath,
+  getSnapshotManifestPath,
+  getSnapshotRoot,
+  getSnapshotSavePath,
+  loadMigrationProject,
+  writeInitialMigrationScaffold,
+  writeMigrationConfig,
+} from './migration-project.js';
 import {
-	formatDiffReport,
-	renderMigrationRuleFile,
-} from "./migration-render.js";
-import { createMigrationRiskSummary, formatMigrationRiskSummary } from "./migration-risk.js";
+  formatDiffReport,
+  renderMigrationRuleFile,
+} from './migration-render.js';
 import {
-	assertMigrationVersionLabel,
-	compareMigrationVersionLabels,
-	copyFile,
-	detectPackageManagerId,
-	isInteractiveTerminal,
-	readJson,
-	resolveTargetMigrationVersion,
-	runProjectScriptIfPresent,
-	sanitizeSaveSnapshotSource,
-	sanitizeSnapshotBlockJson,
-} from "./migration-utils.js";
+  createMigrationRiskSummary,
+  formatMigrationRiskSummary,
+} from './migration-risk.js';
 import {
-	doctorProjectMigrations,
-	fixturesProjectMigrations,
-	fuzzProjectMigrations,
-	verifyProjectMigrations,
-} from "./migration-maintenance.js";
+  assertMigrationVersionLabel,
+  compareMigrationVersionLabels,
+  copyFile,
+  detectPackageManagerId,
+  isInteractiveTerminal,
+  readJson,
+  resolveTargetMigrationVersion,
+  runProjectScriptIfPresent,
+  sanitizeSaveSnapshotSource,
+  sanitizeSnapshotBlockJson,
+} from './migration-utils.js';
+import {
+  doctorProjectMigrations,
+  fixturesProjectMigrations,
+  fuzzProjectMigrations,
+  verifyProjectMigrations,
+} from './migration-maintenance.js';
 import type {
-	MigrationBlockConfig,
-	JsonObject,
-	ParsedMigrationArgs,
-	RenderLine,
-} from "./migration-types.js";
+  MigrationBlockConfig,
+  JsonObject,
+  ParsedMigrationArgs,
+  RenderLine,
+} from './migration-types.js';
 
 type MigrationPlanBlockSummary = {
-	blockName: string;
-	diff: ReturnType<typeof createMigrationDiff>;
-	riskSummary: ReturnType<typeof createMigrationRiskSummary>;
+  blockName: string;
+  diff: ReturnType<typeof createMigrationDiff>;
+  riskSummary: ReturnType<typeof createMigrationRiskSummary>;
 };
 
 type MigrationPlanSummary = {
-	availableLegacyVersions: string[];
-	currentMigrationVersion: string;
-	fromMigrationVersion: string;
-	includedBlocks: string[];
-	nextSteps: string[];
-	skippedBlocks: string[];
-	summaries: MigrationPlanBlockSummary[];
-	targetMigrationVersion: string;
+  availableLegacyVersions: string[];
+  currentMigrationVersion: string;
+  fromMigrationVersion: string;
+  includedBlocks: string[];
+  nextSteps: string[];
+  skippedBlocks: string[];
+  summaries: MigrationPlanBlockSummary[];
+  targetMigrationVersion: string;
 };
 export { formatMigrationHelpText, parseMigrationArgs };
 
@@ -111,80 +114,94 @@ export function runMigrationCommand(
 	cwd: string,
 	{ prompt, renderLine = console.log as RenderLine }: CommandRenderOptions = {},
 ) {
-	switch (command.command) {
-		case "init":
-			if (!command.flags.currentMigrationVersion) {
-				throw new Error("`migrate init` requires --current-migration-version <label>.");
-			}
-			return initProjectMigrations(cwd, command.flags.currentMigrationVersion, { renderLine });
-		case "snapshot":
-			if (!command.flags.migrationVersion) {
-				throw new Error("`migrate snapshot` requires --migration-version <label>.");
-			}
-			return snapshotProjectVersion(cwd, command.flags.migrationVersion, { renderLine });
-		case "plan":
-			if (!command.flags.fromMigrationVersion) {
-				throw new Error("`migrate plan` requires --from-migration-version <label>.");
-			}
-			return planProjectMigrations(cwd, {
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-				toMigrationVersion: command.flags.toMigrationVersion ?? "current",
-			});
-		case "wizard":
-			return wizardProjectMigrations(cwd, {
-				prompt,
-				renderLine,
-			});
-		case "diff":
-			if (!command.flags.fromMigrationVersion) {
-				throw new Error("`migrate diff` requires --from-migration-version <label>.");
-			}
-			return diffProjectMigrations(cwd, {
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-				toMigrationVersion: command.flags.toMigrationVersion ?? "current",
-			});
-		case "scaffold":
-			if (!command.flags.fromMigrationVersion) {
-				throw new Error("`migrate scaffold` requires --from-migration-version <label>.");
-			}
-			return scaffoldProjectMigrations(cwd, {
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-				toMigrationVersion: command.flags.toMigrationVersion ?? "current",
-			});
-		case "verify":
-			return verifyProjectMigrations(cwd, {
-				all: command.flags.all,
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-			});
-		case "doctor":
-			return doctorProjectMigrations(cwd, {
-				all: command.flags.all,
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-			});
-		case "fixtures":
-			return fixturesProjectMigrations(cwd, {
-				all: command.flags.all,
-				force: command.flags.force,
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				renderLine,
-				toMigrationVersion: command.flags.toMigrationVersion ?? "current",
-			});
-		case "fuzz":
-			return fuzzProjectMigrations(cwd, {
-				all: command.flags.all,
-				fromMigrationVersion: command.flags.fromMigrationVersion,
-				iterations: parsePositiveInteger(command.flags.iterations, "iterations") ?? 25,
-				renderLine,
-				seed: parseNonNegativeInteger(command.flags.seed, "seed"),
-			});
-		default:
-			throw new Error(formatMigrationHelpText());
-	}
+  switch (command.command) {
+    case 'init':
+      if (!command.flags.currentMigrationVersion) {
+        throw new Error(
+          '`migrate init` requires --current-migration-version <label>.',
+        );
+      }
+      return initProjectMigrations(cwd, command.flags.currentMigrationVersion, {
+        renderLine,
+      });
+    case 'snapshot':
+      if (!command.flags.migrationVersion) {
+        throw new Error(
+          '`migrate snapshot` requires --migration-version <label>.',
+        );
+      }
+      return snapshotProjectVersion(cwd, command.flags.migrationVersion, {
+        renderLine,
+      });
+    case 'plan':
+      if (!command.flags.fromMigrationVersion) {
+        throw new Error(
+          '`migrate plan` requires --from-migration-version <label>.',
+        );
+      }
+      return planProjectMigrations(cwd, {
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+        toMigrationVersion: command.flags.toMigrationVersion ?? 'current',
+      });
+    case 'wizard':
+      return wizardProjectMigrations(cwd, {
+        prompt,
+        renderLine,
+      });
+    case 'diff':
+      if (!command.flags.fromMigrationVersion) {
+        throw new Error(
+          '`migrate diff` requires --from-migration-version <label>.',
+        );
+      }
+      return diffProjectMigrations(cwd, {
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+        toMigrationVersion: command.flags.toMigrationVersion ?? 'current',
+      });
+    case 'scaffold':
+      if (!command.flags.fromMigrationVersion) {
+        throw new Error(
+          '`migrate scaffold` requires --from-migration-version <label>.',
+        );
+      }
+      return scaffoldProjectMigrations(cwd, {
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+        toMigrationVersion: command.flags.toMigrationVersion ?? 'current',
+      });
+    case 'verify':
+      return verifyProjectMigrations(cwd, {
+        all: command.flags.all,
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+      });
+    case 'doctor':
+      return doctorProjectMigrations(cwd, {
+        all: command.flags.all,
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+      });
+    case 'fixtures':
+      return fixturesProjectMigrations(cwd, {
+        all: command.flags.all,
+        force: command.flags.force,
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        renderLine,
+        toMigrationVersion: command.flags.toMigrationVersion ?? 'current',
+      });
+    case 'fuzz':
+      return fuzzProjectMigrations(cwd, {
+        all: command.flags.all,
+        fromMigrationVersion: command.flags.fromMigrationVersion,
+        iterations: parsePositiveInteger(command.flags.iterations, 'iterations') ?? 25,
+        renderLine,
+        seed: parseNonNegativeInteger(command.flags.seed, 'seed'),
+      });
+    default:
+      throw new Error(formatMigrationHelpText());
+  }
 }
 
 /**
@@ -196,79 +213,107 @@ export function runMigrationCommand(
  */
 export function planProjectMigrations(
 	projectDir: string,
-	{ fromMigrationVersion, renderLine = console.log as RenderLine, toMigrationVersion = "current" }: DiffLikeOptions = {},
+	{ fromMigrationVersion, renderLine = console.log as RenderLine, toMigrationVersion = 'current' }: DiffLikeOptions = {},
 ): MigrationPlanSummary {
-	if (!fromMigrationVersion) {
-		throw new Error("`migrate plan` requires --from-migration-version <label>.");
-	}
+  if (!fromMigrationVersion) {
+    throw new Error(
+      '`migrate plan` requires --from-migration-version <label>.',
+    );
+  }
 
-	const state = loadMigrationProject(projectDir, { allowSyncTypes: false });
-	const availableLegacyVersions = listPreviewableLegacyVersions(state).sort(compareMigrationVersionLabels).reverse();
-	const targetMigrationVersion = resolveTargetMigrationVersion(state.config.currentMigrationVersion, toMigrationVersion);
-	assertDistinctMigrationEdge("plan", fromMigrationVersion, targetMigrationVersion);
-	resolveLegacyVersions(state, {
-		fromMigrationVersion,
-		availableVersions: availableLegacyVersions,
-	});
+  const state = loadMigrationProject(projectDir, { allowSyncTypes: false });
+  const availableLegacyVersions = listPreviewableLegacyVersions(state).sort(compareMigrationVersionLabels).reverse();
+  const targetMigrationVersion = resolveTargetMigrationVersion(
+    state.config.currentMigrationVersion,
+    toMigrationVersion,
+  );
+  assertDistinctMigrationEdge(
+    'plan',
+    fromMigrationVersion,
+    targetMigrationVersion,
+  );
+  resolveLegacyVersions(state, {
+    fromMigrationVersion,
+    availableVersions: availableLegacyVersions,
+  });
 
-	const includedBlocks = state.blocks.filter((block) => hasSnapshotForVersion(state, block, fromMigrationVersion));
-	if (includedBlocks.length === 0) {
-		throw new Error(createMissingProjectSnapshotMessage(state, fromMigrationVersion));
-	}
-	const skippedBlocks = state.blocks
+  const includedBlocks = state.blocks.filter((block) =>
+    hasSnapshotForVersion(state, block, fromMigrationVersion),
+  );
+  if (includedBlocks.length === 0) {
+    throw new Error(
+      createMissingProjectSnapshotMessage(state, fromMigrationVersion),
+    );
+  }
+  const skippedBlocks = state.blocks
 		.filter((block) => !hasSnapshotForVersion(state, block, fromMigrationVersion))
 		.map((block) => block.blockName);
-	const summaries = includedBlocks.map((block) => {
-		const diff = createMigrationDiff(state, block, fromMigrationVersion, targetMigrationVersion);
-		return {
-			blockName: block.blockName,
-			diff,
-			riskSummary: createMigrationRiskSummary(diff),
-		};
-	});
-	const nextSteps = createMigrationPlanNextSteps(
-		fromMigrationVersion,
-		targetMigrationVersion,
-		state.config.currentMigrationVersion,
-	);
+  const summaries = includedBlocks.map((block) => {
+    const diff = createMigrationDiff(
+      state,
+      block,
+      fromMigrationVersion,
+      targetMigrationVersion,
+    );
+    return {
+      blockName: block.blockName,
+      diff,
+      riskSummary: createMigrationRiskSummary(diff),
+    };
+  });
+  const nextSteps = createMigrationPlanNextSteps(
+    fromMigrationVersion,
+    targetMigrationVersion,
+    state.config.currentMigrationVersion,
+  );
 
-	renderLine(`Current migration version: ${state.config.currentMigrationVersion}`);
-	renderLine(
-		`Available legacy migration versions: ${availableLegacyVersions.length > 0 ? availableLegacyVersions.join(", ") : "None configured"}`,
-	);
-	renderLine(`Selected migration edge: ${fromMigrationVersion} -> ${targetMigrationVersion}`);
-	renderLine(`Included block targets: ${includedBlocks.map((block) => block.blockName).join(", ")}`);
-	renderLine(`Skipped block targets: ${skippedBlocks.length > 0 ? skippedBlocks.join(", ") : "None"}`);
+  renderLine(
+    `Current migration version: ${state.config.currentMigrationVersion}`,
+  );
+  renderLine(
+    `Available legacy migration versions: ${availableLegacyVersions.length > 0 ? availableLegacyVersions.join(', ') : 'None configured'}`,
+  );
+  renderLine(
+    `Selected migration edge: ${fromMigrationVersion} -> ${targetMigrationVersion}`,
+  );
+  renderLine(
+    `Included block targets: ${includedBlocks.map((block) => block.blockName).join(', ')}`,
+  );
+  renderLine(
+    `Skipped block targets: ${skippedBlocks.length > 0 ? skippedBlocks.join(', ') : 'None'}`,
+  );
 
-	for (const summary of summaries) {
-		renderLine(`Block: ${summary.blockName}`);
-		renderLine(formatDiffReport(summary.diff, { includeRiskSummary: false }));
-		renderLine(`Risk summary: ${formatMigrationRiskSummary(summary.riskSummary)}`);
-	}
+  for (const summary of summaries) {
+    renderLine(`Block: ${summary.blockName}`);
+    renderLine(formatDiffReport(summary.diff, { includeRiskSummary: false }));
+    renderLine(
+      `Risk summary: ${formatMigrationRiskSummary(summary.riskSummary)}`,
+    );
+  }
 
-	renderLine("Next steps:");
-	for (const command of nextSteps) {
-		renderLine(`  ${command}`);
-	}
-	renderLine(
+  renderLine('Next steps:');
+  for (const command of nextSteps) {
+    renderLine(`  ${command}`);
+  }
+  renderLine(
 		`Optional after editing rules: ${formatEdgeCommand(
-			"fixtures",
+			'fixtures',
 			fromMigrationVersion,
 			targetMigrationVersion,
 			state.config.currentMigrationVersion,
 		)} --force`,
 	);
 
-	return {
-		availableLegacyVersions,
-		currentMigrationVersion: state.config.currentMigrationVersion,
-		fromMigrationVersion,
-		includedBlocks: includedBlocks.map((block) => block.blockName),
-		nextSteps,
-		skippedBlocks,
-		summaries,
-		targetMigrationVersion,
-	};
+  return {
+    availableLegacyVersions,
+    currentMigrationVersion: state.config.currentMigrationVersion,
+    fromMigrationVersion,
+    includedBlocks: includedBlocks.map((block) => block.blockName),
+    nextSteps,
+    skippedBlocks,
+    summaries,
+    targetMigrationVersion,
+  };
 }
 
 /**
@@ -286,27 +331,27 @@ export async function wizardProjectMigrations(
 		renderLine = console.log as RenderLine,
 	}: WizardOptions = {},
 ) {
-	if (!isInteractive) {
-		throw new Error(
-			"`migrate wizard` requires an interactive terminal. " +
-				"Use `wp-typia migrate plan --from-migration-version <label>` for a read-only preview or run the direct migration commands with explicit flags.",
+  if (!isInteractive) {
+    throw new Error(
+			'`migrate wizard` requires an interactive terminal. ' +
+				'Use `wp-typia migrate plan --from-migration-version <label>` for a read-only preview or run the direct migration commands with explicit flags.',
 		);
-	}
+  }
 
-	const state = loadMigrationProject(projectDir, { allowSyncTypes: false });
-	const availableLegacyVersions = listPreviewableLegacyVersions(state).sort(compareMigrationVersionLabels).reverse();
-	if (availableLegacyVersions.length === 0) {
-		throw new Error(
-			"No legacy migration versions are configured yet. " +
-				"Capture an older schema release with `wp-typia migrate snapshot --migration-version <label>` first, then rerun `wp-typia migrate wizard`.",
+  const state = loadMigrationProject(projectDir, { allowSyncTypes: false });
+  const availableLegacyVersions = listPreviewableLegacyVersions(state).sort(compareMigrationVersionLabels).reverse();
+  if (availableLegacyVersions.length === 0) {
+    throw new Error(
+			'No legacy migration versions are configured yet. ' +
+				'Capture an older schema release with `wp-typia migrate snapshot --migration-version <label>` first, then rerun `wp-typia migrate wizard`.',
 		);
-	}
+  }
 
-	const activePrompt = prompt ?? createReadlinePrompt();
-	const createdPrompt = !prompt;
-	try {
-		const selectedVersion = await activePrompt.select(
-			"Choose a legacy version to preview",
+  const activePrompt = prompt ?? createReadlinePrompt();
+  const createdPrompt = !prompt;
+  try {
+    const selectedVersion = await activePrompt.select(
+			'Choose a legacy version to preview',
 			[
 				...availableLegacyVersions.map((version) => ({
 					hint: `Preview ${version} -> ${state.config.currentMigrationVersion}`,
@@ -314,28 +359,28 @@ export async function wizardProjectMigrations(
 					value: version,
 				})),
 				{
-					hint: "Exit without previewing a migration edge",
-					label: "Cancel",
-					value: "cancel",
+					hint: 'Exit without previewing a migration edge',
+					label: 'Cancel',
+					value: 'cancel',
 				},
 			],
 			1,
 		);
 
-		if (selectedVersion === "cancel") {
-			renderLine("Cancelled migration planning.");
-			return { cancelled: true as const };
-		}
+    if (selectedVersion === 'cancel') {
+      renderLine('Cancelled migration planning.');
+      return { cancelled: true as const };
+    }
 
-		return planProjectMigrations(projectDir, {
-			fromMigrationVersion: selectedVersion,
-			renderLine,
-		});
-	} finally {
-		if (createdPrompt) {
-			activePrompt.close();
-		}
-	}
+    return planProjectMigrations(projectDir, {
+      fromMigrationVersion: selectedVersion,
+      renderLine,
+    });
+  } finally {
+    if (createdPrompt) {
+      activePrompt.close();
+    }
+  }
 }
 
 /**
@@ -352,43 +397,57 @@ export function initProjectMigrations(
 	currentMigrationVersion: string,
 	{ renderLine = console.log as RenderLine }: CommandRenderOptions = {},
 ) {
-	assertMigrationVersionLabel(currentMigrationVersion, "current migration version");
-	assertNoLegacySemverMigrationWorkspace(projectDir);
-	const discoveredLayout = discoverMigrationInitLayout(projectDir);
-	const configuredBlocks = discoveredLayout.mode === "multi" ? discoveredLayout.blocks : undefined;
-	ensureAdvancedMigrationProject(projectDir, configuredBlocks);
-	ensureMigrationDirectories(projectDir, configuredBlocks);
-	writeMigrationConfig(projectDir, {
+  assertMigrationVersionLabel(
+    currentMigrationVersion,
+    'current migration version',
+  );
+  assertNoLegacySemverMigrationWorkspace(projectDir);
+  const discoveredLayout = discoverMigrationInitLayout(projectDir);
+  const configuredBlocks = discoveredLayout.mode === 'multi'
+    ? discoveredLayout.blocks
+    : undefined;
+  ensureAdvancedMigrationProject(projectDir, configuredBlocks);
+  ensureMigrationDirectories(projectDir, configuredBlocks);
+  writeMigrationConfig(projectDir, {
 		blockName:
-			discoveredLayout.mode === "single"
+			discoveredLayout.mode === 'single'
 				? discoveredLayout.block.blockName
 				: undefined,
 		blocks: configuredBlocks,
 		currentMigrationVersion,
-		snapshotDir: SNAPSHOT_DIR.replace(/\\/g, "/"),
+		snapshotDir: SNAPSHOT_DIR.replace(/\\/g, '/'),
 		supportedMigrationVersions: [currentMigrationVersion],
 	});
 
-	writeInitialMigrationScaffold(projectDir, currentMigrationVersion, configuredBlocks);
-	snapshotProjectVersion(projectDir, currentMigrationVersion, { renderLine, skipConfigUpdate: true });
-	regenerateGeneratedArtifacts(projectDir);
+  writeInitialMigrationScaffold(
+    projectDir,
+    currentMigrationVersion,
+    configuredBlocks,
+  );
+  snapshotProjectVersion(projectDir, currentMigrationVersion, {
+    renderLine,
+    skipConfigUpdate: true,
+  });
+  regenerateGeneratedArtifacts(projectDir);
 
-	if (discoveredLayout.mode === "multi") {
-		renderLine(
-			`Detected multi-block migration retrofit (${discoveredLayout.blocks.length} targets): ${discoveredLayout.blocks.map((block) => block.blockName).join(", ")}`,
-		);
-	} else {
-		renderLine(`Detected single-block migration retrofit: ${discoveredLayout.block.blockName}`);
-	}
-	renderLine("Wrote src/migrations/config.ts");
-	renderLine(
+  if (discoveredLayout.mode === 'multi') {
+    renderLine(
+      `Detected multi-block migration retrofit (${discoveredLayout.blocks.length} targets): ${discoveredLayout.blocks.map((block) => block.blockName).join(', ')}`,
+    );
+  } else {
+    renderLine(
+      `Detected single-block migration retrofit: ${discoveredLayout.block.blockName}`,
+    );
+  }
+  renderLine('Wrote src/migrations/config.ts');
+  renderLine(
 		`Initialized migrations for ${
-			discoveredLayout.mode === "multi"
-				? discoveredLayout.blocks.map((block) => block.blockName).join(", ")
+			discoveredLayout.mode === 'multi'
+				? discoveredLayout.blocks.map((block) => block.blockName).join(', ')
 				: discoveredLayout.block.blockName
 		} at migration version ${currentMigrationVersion}`,
 	);
-	return loadMigrationProject(projectDir);
+  return loadMigrationProject(projectDir);
 }
 
 /**
@@ -409,62 +468,69 @@ export function snapshotProjectVersion(
 		skipSyncTypes = false,
 	}: CommandRenderOptions & { skipConfigUpdate?: boolean; skipSyncTypes?: boolean } = {},
 ) {
-	ensureAdvancedMigrationProject(projectDir);
-	assertMigrationVersionLabel(migrationVersion, "migration version");
-	if (!skipSyncTypes) {
-		try {
-			runProjectScriptIfPresent(projectDir, "sync-types");
-		} catch (error) {
-			const syncTypesCommand = formatRunScript(detectPackageManagerId(projectDir), "sync-types");
-			const reason = error instanceof Error ? error.message : String(error);
-			throw new Error(
+  ensureAdvancedMigrationProject(projectDir);
+  assertMigrationVersionLabel(migrationVersion, 'migration version');
+  if (!skipSyncTypes) {
+    try {
+      runProjectScriptIfPresent(projectDir, 'sync-types');
+    } catch (error) {
+      const syncTypesCommand = formatRunScript(
+        detectPackageManagerId(projectDir),
+        'sync-types',
+      );
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
 				`Could not capture migration snapshot ${migrationVersion} because \`${syncTypesCommand}\` failed first. ` +
 					`Install project dependencies if needed, rerun \`${syncTypesCommand}\` in the project root to inspect the underlying error, ` +
 					`then retry \`wp-typia migrate snapshot --migration-version ${migrationVersion}\`.\n` +
 					`Original error: ${reason}`,
 			);
-		}
-	}
+    }
+  }
 
-	const state = loadMigrationProject(projectDir, { allowMissingConfig: skipConfigUpdate });
-	for (const block of state.blocks) {
-		const snapshotRoot = getSnapshotRoot(projectDir, block, migrationVersion);
-		fs.mkdirSync(snapshotRoot, { recursive: true });
+  const state = loadMigrationProject(projectDir, {
+    allowMissingConfig: skipConfigUpdate,
+  });
+  for (const block of state.blocks) {
+    const snapshotRoot = getSnapshotRoot(projectDir, block, migrationVersion);
+    fs.mkdirSync(snapshotRoot, { recursive: true });
 
-		fs.writeFileSync(
+    fs.writeFileSync(
 			getSnapshotBlockJsonPath(projectDir, block, migrationVersion),
 			`${JSON.stringify(
 				sanitizeSnapshotBlockJson(readJson<JsonObject>(path.join(projectDir, block.blockJsonFile))),
 				null,
-				"\t",
+				'\t',
 			)}\n`,
-			"utf8",
+			'utf8',
 		);
-		copyFile(
-			path.join(projectDir, block.manifestFile),
-			getSnapshotManifestPath(projectDir, block, migrationVersion),
-		);
-		fs.writeFileSync(
-			getSnapshotSavePath(projectDir, block, migrationVersion),
-			sanitizeSaveSnapshotSource(fs.readFileSync(path.join(projectDir, block.saveFile), "utf8")),
-			"utf8",
-		);
-	}
+    copyFile(
+      path.join(projectDir, block.manifestFile),
+      getSnapshotManifestPath(projectDir, block, migrationVersion),
+    );
+    fs.writeFileSync(
+      getSnapshotSavePath(projectDir, block, migrationVersion),
+      sanitizeSaveSnapshotSource(
+        fs.readFileSync(path.join(projectDir, block.saveFile), 'utf8'),
+      ),
+      'utf8',
+    );
+  }
 
-	if (!skipConfigUpdate) {
-		const nextSupported = [
+  if (!skipConfigUpdate) {
+    const nextSupported = [
 			...new Set([...state.config.supportedMigrationVersions, migrationVersion]),
 		].sort(compareMigrationVersionLabels);
-		writeMigrationConfig(projectDir, {
-			...state.config,
-			currentMigrationVersion: migrationVersion,
-			supportedMigrationVersions: nextSupported,
-		});
-	}
+    writeMigrationConfig(projectDir, {
+      ...state.config,
+      currentMigrationVersion: migrationVersion,
+      supportedMigrationVersions: nextSupported,
+    });
+  }
 
-	regenerateGeneratedArtifacts(projectDir);
-	renderLine(`Snapshot stored for migration version ${migrationVersion}`);
-	return loadMigrationProject(projectDir);
+  regenerateGeneratedArtifacts(projectDir);
+  renderLine(`Snapshot stored for migration version ${migrationVersion}`);
+  return loadMigrationProject(projectDir);
 }
 
 /**
@@ -479,36 +545,44 @@ export function diffProjectMigrations(
 	projectDir: string,
 	{
 		fromMigrationVersion,
-		toMigrationVersion = "current",
+		toMigrationVersion = 'current',
 		renderLine = console.log as RenderLine,
 	}: DiffLikeOptions = {},
 ) {
-	if (!fromMigrationVersion) {
-		throw new Error("`migrate diff` requires --from-migration-version <label>.");
-	}
-	const state = loadMigrationProject(projectDir);
-	const targetMigrationVersion = resolveTargetMigrationVersion(
-		state.config.currentMigrationVersion,
-		toMigrationVersion,
-	);
-	assertDistinctMigrationEdge("diff", fromMigrationVersion, targetMigrationVersion);
-	const diffs = state.blocks
+  if (!fromMigrationVersion) {
+    throw new Error(
+      '`migrate diff` requires --from-migration-version <label>.',
+    );
+  }
+  const state = loadMigrationProject(projectDir);
+  const targetMigrationVersion = resolveTargetMigrationVersion(
+    state.config.currentMigrationVersion,
+    toMigrationVersion,
+  );
+  assertDistinctMigrationEdge(
+    'diff',
+    fromMigrationVersion,
+    targetMigrationVersion,
+  );
+  const diffs = state.blocks
 		.filter((block) => hasSnapshotForVersion(state, block, fromMigrationVersion))
 		.map((block) => ({
 			block,
 			diff: createMigrationDiff(state, block, fromMigrationVersion, targetMigrationVersion),
 		}));
 
-	if (diffs.length === 0) {
-		throw new Error(createMissingProjectSnapshotMessage(state, fromMigrationVersion));
-	}
+  if (diffs.length === 0) {
+    throw new Error(
+      createMissingProjectSnapshotMessage(state, fromMigrationVersion),
+    );
+  }
 
-	for (const { block, diff } of diffs) {
-		renderLine(`Block: ${block.blockName}`);
-		renderLine(formatDiffReport(diff));
-	}
+  for (const { block, diff } of diffs) {
+    renderLine(`Block: ${block.blockName}`);
+    renderLine(formatDiffReport(diff));
+  }
 
-	return diffs.length === 1 ? diffs[0].diff : diffs;
+  return diffs.length === 1 ? diffs[0].diff : diffs;
 }
 
 /**
@@ -523,75 +597,101 @@ export function scaffoldProjectMigrations(
 	projectDir: string,
 	{
 		fromMigrationVersion,
-		toMigrationVersion = "current",
+		toMigrationVersion = 'current',
 		renderLine = console.log as RenderLine,
 	}: DiffLikeOptions = {},
 ) {
-	if (!fromMigrationVersion) {
-		throw new Error("`migrate scaffold` requires --from-migration-version <label>.");
-	}
+  if (!fromMigrationVersion) {
+    throw new Error(
+      '`migrate scaffold` requires --from-migration-version <label>.',
+    );
+  }
 
-	ensureMigrationDirectories(projectDir);
-	const state = loadMigrationProject(projectDir);
-	const targetMigrationVersion = resolveTargetMigrationVersion(
-		state.config.currentMigrationVersion,
-		toMigrationVersion,
-	);
-	assertDistinctMigrationEdge("scaffold", fromMigrationVersion, targetMigrationVersion);
-	const paths = getProjectPaths(projectDir);
-	const scaffolded: Array<{ blockName: string; diff: ReturnType<typeof createMigrationDiff>; rulePath: string }> =
+  ensureMigrationDirectories(projectDir);
+  const state = loadMigrationProject(projectDir);
+  const targetMigrationVersion = resolveTargetMigrationVersion(
+    state.config.currentMigrationVersion,
+    toMigrationVersion,
+  );
+  assertDistinctMigrationEdge(
+    'scaffold',
+    fromMigrationVersion,
+    targetMigrationVersion,
+  );
+  const paths = getProjectPaths(projectDir);
+  const scaffolded: Array<{ blockName: string; diff: ReturnType<typeof createMigrationDiff>; rulePath: string }> =
 		[];
-	let eligibleBlocks = 0;
+  let eligibleBlocks = 0;
 
-	for (const block of state.blocks) {
-		if (!hasSnapshotForVersion(state, block, fromMigrationVersion)) {
-			renderLine(`Skipped ${block.blockName}: no snapshot for ${fromMigrationVersion}`);
-			continue;
-		}
-		eligibleBlocks += 1;
-		const diff = createMigrationDiff(state, block, fromMigrationVersion, targetMigrationVersion);
-		const rulePath = getRuleFilePath(paths, block, fromMigrationVersion, targetMigrationVersion);
+  for (const block of state.blocks) {
+    if (!hasSnapshotForVersion(state, block, fromMigrationVersion)) {
+      renderLine(
+        `Skipped ${block.blockName}: no snapshot for ${fromMigrationVersion}`,
+      );
+      continue;
+    }
+    eligibleBlocks += 1;
+    const diff = createMigrationDiff(
+      state,
+      block,
+      fromMigrationVersion,
+      targetMigrationVersion,
+    );
+    const rulePath = getRuleFilePath(
+      paths,
+      block,
+      fromMigrationVersion,
+      targetMigrationVersion,
+    );
 
-		if (!fs.existsSync(rulePath)) {
-			fs.mkdirSync(path.dirname(rulePath), { recursive: true });
-			fs.writeFileSync(
-				rulePath,
-				renderMigrationRuleFile({
-					block,
-					currentAttributes: block.currentManifest.attributes ?? {},
-					currentTypeName: block.currentManifest.sourceType,
-					diff,
-					fromVersion: fromMigrationVersion,
-					projectDir,
-					rulePath,
-					targetVersion: targetMigrationVersion,
-				}),
-				"utf8",
-			);
-		}
+    if (!fs.existsSync(rulePath)) {
+      fs.mkdirSync(path.dirname(rulePath), { recursive: true });
+      fs.writeFileSync(
+        rulePath,
+        renderMigrationRuleFile({
+          block,
+          currentAttributes: block.currentManifest.attributes ?? {},
+          currentTypeName: block.currentManifest.sourceType,
+          diff,
+          fromVersion: fromMigrationVersion,
+          projectDir,
+          rulePath,
+          targetVersion: targetMigrationVersion,
+        }),
+        'utf8',
+      );
+    }
 
-		ensureEdgeFixtureFile(projectDir, block, fromMigrationVersion, targetMigrationVersion, diff);
-		scaffolded.push({ blockName: block.blockName, diff, rulePath });
-	}
-	regenerateGeneratedArtifacts(projectDir);
+    ensureEdgeFixtureFile(
+      projectDir,
+      block,
+      fromMigrationVersion,
+      targetMigrationVersion,
+      diff,
+    );
+    scaffolded.push({ blockName: block.blockName, diff, rulePath });
+  }
+  regenerateGeneratedArtifacts(projectDir);
 
-	for (const entry of scaffolded) {
-		renderLine(`Block: ${entry.blockName}`);
-		renderLine(formatDiffReport(entry.diff));
-		renderLine(`Scaffolded ${path.relative(projectDir, entry.rulePath)}`);
-	}
+  for (const entry of scaffolded) {
+    renderLine(`Block: ${entry.blockName}`);
+    renderLine(formatDiffReport(entry.diff));
+    renderLine(`Scaffolded ${path.relative(projectDir, entry.rulePath)}`);
+  }
 
-	if (eligibleBlocks === 0) {
-		throw new Error(createMissingProjectSnapshotMessage(state, fromMigrationVersion));
-	}
+  if (eligibleBlocks === 0) {
+    throw new Error(
+      createMissingProjectSnapshotMessage(state, fromMigrationVersion),
+    );
+  }
 
-	return scaffolded.length === 1 ? scaffolded[0] : { scaffolded };
+  return scaffolded.length === 1 ? scaffolded[0] : { scaffolded };
 }
 export {
-	doctorProjectMigrations,
-	fixturesProjectMigrations,
-	fuzzProjectMigrations,
-	verifyProjectMigrations,
+  doctorProjectMigrations,
+  fixturesProjectMigrations,
+  fuzzProjectMigrations,
+  verifyProjectMigrations,
 };
 
 /**
@@ -612,24 +712,27 @@ export function seedProjectMigrations(
 	blocks: MigrationBlockConfig[],
 	{ renderLine = console.log as RenderLine }: CommandRenderOptions = {},
 ) {
-	ensureAdvancedMigrationProject(projectDir, blocks);
-	assertMigrationVersionLabel(currentMigrationVersion, "current migration version");
-	ensureMigrationDirectories(projectDir, blocks);
-	writeMigrationConfig(projectDir, {
-		blocks,
-		currentMigrationVersion,
-		snapshotDir: SNAPSHOT_DIR.replace(/\\/g, "/"),
-		supportedMigrationVersions: [currentMigrationVersion],
-	});
-	writeInitialMigrationScaffold(projectDir, currentMigrationVersion, blocks);
-	snapshotProjectVersion(projectDir, currentMigrationVersion, {
-		renderLine,
-		skipConfigUpdate: true,
-		skipSyncTypes: true,
-	});
-	regenerateGeneratedArtifacts(projectDir);
-	renderLine(
-		`Initialized migrations for ${blocks.map((block) => block.blockName).join(", ")} at migration version ${currentMigrationVersion}`,
-	);
-	return loadMigrationProject(projectDir);
+  ensureAdvancedMigrationProject(projectDir, blocks);
+  assertMigrationVersionLabel(
+    currentMigrationVersion,
+    'current migration version',
+  );
+  ensureMigrationDirectories(projectDir, blocks);
+  writeMigrationConfig(projectDir, {
+    blocks,
+    currentMigrationVersion,
+    snapshotDir: SNAPSHOT_DIR.replace(/\\/g, '/'),
+    supportedMigrationVersions: [currentMigrationVersion],
+  });
+  writeInitialMigrationScaffold(projectDir, currentMigrationVersion, blocks);
+  snapshotProjectVersion(projectDir, currentMigrationVersion, {
+    renderLine,
+    skipConfigUpdate: true,
+    skipSyncTypes: true,
+  });
+  regenerateGeneratedArtifacts(projectDir);
+  renderLine(
+    `Initialized migrations for ${blocks.map((block) => block.blockName).join(', ')} at migration version ${currentMigrationVersion}`,
+  );
+  return loadMigrationProject(projectDir);
 }

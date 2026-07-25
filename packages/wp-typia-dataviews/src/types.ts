@@ -8,12 +8,12 @@
  * Gutenberg's internal TypeScript declarations as their public contract.
  */
 export const DATAVIEWS_LAYOUT_TYPES = [
-  "table",
-  "grid",
-  "list",
-  "activity",
-  "pickerTable",
-  "pickerGrid",
+  'table',
+  'grid',
+  'list',
+  'activity',
+  'pickerTable',
+  'pickerGrid',
 ] as const;
 
 export type DataViewsLayoutType = (typeof DATAVIEWS_LAYOUT_TYPES)[number];
@@ -27,47 +27,47 @@ export type DataViewsLayoutType = (typeof DATAVIEWS_LAYOUT_TYPES)[number];
  * of leaking upstream component types into this package.
  */
 export const DATAVIEWS_FIELD_TYPES = [
-  "text",
-  "integer",
-  "number",
-  "date",
-  "datetime",
-  "boolean",
-  "email",
-  "url",
-  "media",
-  "array",
-  "object",
+  'text',
+  'integer',
+  'number',
+  'date',
+  'datetime',
+  'boolean',
+  'email',
+  'url',
+  'media',
+  'array',
+  'object',
 ] as const;
 
 export type DataViewsFieldType = (typeof DATAVIEWS_FIELD_TYPES)[number];
 
-export const DATAVIEWS_SORT_DIRECTIONS = ["asc", "desc"] as const;
+export const DATAVIEWS_SORT_DIRECTIONS = ['asc', 'desc'] as const;
 
 export type DataViewsSortDirection = (typeof DATAVIEWS_SORT_DIRECTIONS)[number];
 
 export const DATAVIEWS_FILTER_OPERATORS = [
-  "is",
-  "isNot",
-  "isAny",
-  "isNone",
-  "isAll",
-  "contains",
-  "notContains",
-  "startsWith",
-  "lessThan",
-  "lessThanOrEqual",
-  "greaterThan",
-  "greaterThanOrEqual",
-  "between",
-  "on",
-  "notOn",
-  "before",
-  "beforeInc",
-  "after",
-  "afterInc",
-  "inThePast",
-  "over",
+  'is',
+  'isNot',
+  'isAny',
+  'isNone',
+  'isAll',
+  'contains',
+  'notContains',
+  'startsWith',
+  'lessThan',
+  'lessThanOrEqual',
+  'greaterThan',
+  'greaterThanOrEqual',
+  'between',
+  'on',
+  'notOn',
+  'before',
+  'beforeInc',
+  'after',
+  'afterInc',
+  'inThePast',
+  'over',
 ] as const;
 
 export type DataViewsFilterOperator = (typeof DATAVIEWS_FILTER_OPERATORS)[number];
@@ -250,7 +250,9 @@ export interface DataViewsView<TItem extends object = DataViewsRecord> {
   readonly type: DataViewsLayoutType;
 }
 
-export interface DataViewsActionContext<TItem extends object = DataViewsRecord> {
+export interface DataViewsActionContext<
+  TItem extends object = DataViewsRecord,
+> {
   readonly view: DataViewsView<TItem>;
 }
 
@@ -259,7 +261,7 @@ export interface DataViewsAction<TItem extends object = DataViewsRecord> {
     items: readonly TItem[],
     context: DataViewsActionContext<TItem>,
   ) => Promise<void> | void;
-  readonly context?: "item" | "bulk" | "both";
+  readonly context?: 'item' | 'bulk' | 'both';
   readonly disabled?: boolean | ((item: TItem) => boolean);
   readonly hideModalHeader?: boolean;
   readonly icon?: unknown;
@@ -268,7 +270,7 @@ export interface DataViewsAction<TItem extends object = DataViewsRecord> {
   readonly isPrimary?: boolean;
   readonly label: string;
   readonly modalHeader?: string;
-  readonly modalSize?: "small" | "medium" | "large" | "fill";
+  readonly modalSize?: 'small' | 'medium' | 'large' | 'fill';
   readonly supportsBulk?: boolean;
 }
 
@@ -297,15 +299,15 @@ export interface DataViewsConfig<TItem extends object = DataViewsRecord> {
   readonly view: DataViewsView<TItem>;
 }
 
-export type DataFormFieldLayoutType = "regular" | "panel" | "card";
+export type DataFormFieldLayoutType = 'regular' | 'panel' | 'card';
 
-export type DataFormFieldLabelPosition = "none" | "side" | "top";
+export type DataFormFieldLabelPosition = 'none' | 'side' | 'top';
 
 export interface DataFormFieldSummaryItem<
   TItem extends object = DataViewsRecord,
 > {
   readonly id: DataViewsFieldId<TItem>;
-  readonly visibility?: "always" | "when-collapsed";
+  readonly visibility?: 'always' | 'when-collapsed';
 }
 
 export type DataFormFieldSummary<TItem extends object = DataViewsRecord> =
@@ -319,21 +321,25 @@ export type DataFormPanelFieldSummary<TItem extends object = DataViewsRecord> =
 
 export interface DataFormRegularFieldLayout {
   readonly labelPosition?: DataFormFieldLabelPosition;
-  readonly type: "regular";
+  readonly type: 'regular';
 }
 
-export interface DataFormPanelFieldLayout<TItem extends object = DataViewsRecord> {
-  readonly editVisibility?: "always" | "on-hover";
+export interface DataFormPanelFieldLayout<
+  TItem extends object = DataViewsRecord,
+> {
+  readonly editVisibility?: 'always' | 'on-hover';
   readonly labelPosition?: DataFormFieldLabelPosition;
-  readonly openAs?: "dropdown" | "modal";
+  readonly openAs?: 'dropdown' | 'modal';
   readonly summary?: DataFormPanelFieldSummary<TItem>;
-  readonly type: "panel";
+  readonly type: 'panel';
 }
 
-export interface DataFormCardFieldLayout<TItem extends object = DataViewsRecord> {
+export interface DataFormCardFieldLayout<
+  TItem extends object = DataViewsRecord,
+> {
   readonly isOpened?: boolean;
   readonly summary?: DataFormFieldSummary<TItem>;
-  readonly type: "card";
+  readonly type: 'card';
   readonly withHeader?: boolean;
 }
 
@@ -382,7 +388,7 @@ export type DataViewsQueryParamName<TQuery extends object = DataViewsQueryArgs> 
   string
 >;
 
-type DataViewsQueryDefaultParamName = "page" | "per_page" | "search";
+type DataViewsQueryDefaultParamName = 'page' | 'per_page' | 'search';
 
 type DataViewsQueryParamOption<TQuery extends object> =
   | DataViewsQueryParamName<TQuery>
@@ -397,13 +403,13 @@ type DataViewsQueryDefaultParamOption<
   : { readonly [TKey in TOptionName]: DataViewsQueryParamOption<TQuery> };
 
 type DataViewsQueryDefaultParamOptions<TQuery extends object> =
-  DataViewsQueryDefaultParamOption<TQuery, "page", "pageParam"> &
-    DataViewsQueryDefaultParamOption<TQuery, "per_page", "perPageParam"> &
-    DataViewsQueryDefaultParamOption<TQuery, "search", "searchParam">;
+  DataViewsQueryDefaultParamOption<TQuery, 'page', 'pageParam'> &
+    DataViewsQueryDefaultParamOption<TQuery, 'per_page', 'perPageParam'> &
+    DataViewsQueryDefaultParamOption<TQuery, 'search', 'searchParam'>;
 
 type DataViewsQueryDefaultSortParamOptions<TQuery extends object> =
-  DataViewsQueryDefaultParamOption<TQuery, "orderby", "orderByParam"> &
-    DataViewsQueryDefaultParamOption<TQuery, "order", "orderParam">;
+  DataViewsQueryDefaultParamOption<TQuery, 'orderby', 'orderByParam'> &
+    DataViewsQueryDefaultParamOption<TQuery, 'order', 'orderParam'>;
 
 type DataViewsQueryMissingDefaultParamNames<TQuery extends object> = Exclude<
   DataViewsQueryDefaultParamName,
@@ -505,32 +511,32 @@ export type DefinedDataViewsQueryAdapterArguments<
 
 export type DataViewsCompatibleFieldType<TValue> =
   NonNullable<TValue> extends boolean
-    ? "boolean"
+    ? 'boolean'
     : NonNullable<TValue> extends number
-      ? "integer" | "number"
+      ? 'integer' | 'number'
       : NonNullable<TValue> extends string
-        ? "date" | "datetime" | "email" | "text" | "url"
+        ? 'date' | 'datetime' | 'email' | 'text' | 'url'
         : NonNullable<TValue> extends readonly unknown[]
-          ? "array"
+          ? 'array'
           : NonNullable<TValue> extends object
-            ? "media" | "object"
+            ? 'media' | 'object'
             : DataViewsFieldType;
 
 export type DataViewsFieldSchemaType =
-  | "array"
-  | "boolean"
-  | "integer"
-  | "number"
-  | "object"
-  | "string";
+  | 'array'
+  | 'boolean'
+  | 'integer'
+  | 'number'
+  | 'object'
+  | 'string';
 
 export type DataViewsFieldSchemaFormat =
-  | "date"
-  | "date-time"
-  | "datetime"
-  | "email"
-  | "uri"
-  | "url"
+  | 'date'
+  | 'date-time'
+  | 'datetime'
+  | 'email'
+  | 'uri'
+  | 'url'
   | (string & {});
 
 export interface DataViewsFieldSchemaMetadata<TValue = DataViewsScalar> {
@@ -557,7 +563,7 @@ export interface DataViewsFieldSchemaMetadata<TValue = DataViewsScalar> {
 export interface DefineDataViewsFieldDefinition<
   TItem extends object,
   TKey extends DataViewsFieldId<TItem>,
-> extends Omit<DataViewsField<TItem, TItem[TKey]>, "elements" | "id" | "label" | "type"> {
+> extends Omit<DataViewsField<TItem, TItem[TKey]>, 'elements' | 'id' | 'label' | 'type'> {
   readonly elements?: readonly DataViewsFieldElement<DataViewsFieldElementValue<TItem[TKey]>>[];
   readonly label?: string;
   readonly schema?: DataViewsFieldSchemaMetadata<TItem[TKey]>;

@@ -2,49 +2,46 @@ import {
   createWordPressBlockApiCompatibilityManifest,
   type WordPressBlockApiCompatibilityFeature,
   type WordPressBlockApiCompatibilityManifest,
-} from "./compatibility.js";
+} from './compatibility.js';
 import {
   BLOCK_SUPPORT_FEATURES,
   SPACING_SUPPORT_KEYS,
   type BlockSupportFeature,
   type TypographySupportKey,
-} from "./supports-features.js";
+} from './supports-features.js';
 import {
   DEFINE_SUPPORTS_INLINE_OPTION_KEYS,
   resolveDefineSupportsSettings,
-} from "./supports-settings.js";
-import type { BlockSupportsInput, DefineSupportsOptions } from "./supports.js";
-import {
-  isNonArrayObject,
-  isObjectRecord,
-} from "./shared/object-utils.js";
+} from './supports-settings.js';
+import type { BlockSupportsInput, DefineSupportsOptions } from './supports.js';
+import { isNonArrayObject, isObjectRecord } from './shared/object-utils.js';
 
 const KNOWN_BLOCK_SUPPORT_FEATURES = new Set<string>(BLOCK_SUPPORT_FEATURES);
 const COLOR_COMPATIBILITY_SUPPORT_KEYS = [
-  "button",
-  "enableContrastChecker",
-  "heading",
+  'button',
+  'enableContrastChecker',
+  'heading',
 ] as const;
 const TYPOGRAPHY_COMPATIBILITY_SUPPORT_KEYS = [
-  "fontSize",
-  "letterSpacing",
-  "lineHeight",
-  "textAlign",
-  "textDecoration",
-  "textTransform",
+  'fontSize',
+  'letterSpacing',
+  'lineHeight',
+  'textAlign',
+  'textDecoration',
+  'textTransform',
 ] as const satisfies readonly TypographySupportKey[];
 const TOP_LEVEL_COMPATIBILITY_SUPPORT_KEYS = [
-  "allowedBlocks",
-  "background",
-  "contentRole",
-  "dimensions",
-  "interactivity",
-  "listView",
-  "position",
-  "renaming",
-  "shadow",
-  "splitting",
-  "visibility",
+  'allowedBlocks',
+  'background',
+  'contentRole',
+  'dimensions',
+  'interactivity',
+  'listView',
+  'position',
+  'renaming',
+  'shadow',
+  'splitting',
+  'visibility',
 ] as const satisfies readonly BlockSupportFeature[];
 
 function isEnabledSupportValue(value: unknown): boolean {
@@ -58,7 +55,7 @@ function isEnabledTopLevelSupportValue(value: unknown): boolean {
 
   return Object.entries(value).some(
     ([key, nestedValue]) =>
-      !key.startsWith("__experimental") &&
+      !key.startsWith('__experimental') &&
       isEnabledSupportValue(nestedValue),
   );
 }
@@ -80,7 +77,7 @@ function addCompatibilityFeature(
 
   seen.add(id);
   features.push({
-    area: "blockSupports",
+    area: 'blockSupports',
     feature,
   });
 }
@@ -120,8 +117,8 @@ export function collectBlockSupportsCompatibilityFeatures(
     }
   }
 
-  if (hasEnabledNestedSupport(supports.filter, "duotone")) {
-    addCompatibilityFeature(features, seen, "filter.duotone");
+  if (hasEnabledNestedSupport(supports.filter, 'duotone')) {
+    addCompatibilityFeature(features, seen, 'filter.duotone');
   }
 
   for (const key of Object.keys(supports)) {

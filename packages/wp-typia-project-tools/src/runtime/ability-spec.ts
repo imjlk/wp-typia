@@ -1,1 +1,1 @@
-export * from "./add/ability-spec.js";
+export * from './add/ability-spec.js';

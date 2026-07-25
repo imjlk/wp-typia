@@ -39,7 +39,7 @@ export function normalizeSyncRestOpenApiOptions(
         'syncRestOpenApi() accepts either { manifest, ... } or { contracts, endpoints, ... }, but not both.',
       );
     }
-    if (options.manifest == null) {
+    if (options.manifest === null || options.manifest === undefined) {
       throw new Error(
         'syncRestOpenApi() requires a manifest object when using { manifest, ... }.',
       );
@@ -86,7 +86,9 @@ export function normalizeSyncEndpointClientOptions(
   const validatorsFile = path.resolve(projectRoot, inferredValidatorsFile);
 
   if (!fs.existsSync(typesFile)) {
-    throw new Error(`Unable to generate an endpoint client because the types file does not exist: ${typesFile}`);
+    throw new Error(
+      `Unable to generate an endpoint client because the types file does not exist: ${typesFile}`,
+    );
   }
   if (!fs.existsSync(validatorsFile)) {
     throw new Error(
@@ -141,7 +143,10 @@ export function toValidatorAccessExpression(
 }
 
 export function toModuleImportPath(fromFile: string, targetFile: string): string {
-  let relativePath = path.relative(path.dirname(fromFile), targetFile).replace(/\\/g, '/');
+  let relativePath = path.relative(path.dirname(fromFile), targetFile).replace(
+    /\\/g,
+    '/',
+  );
   if (!relativePath.startsWith('.')) {
     relativePath = `./${relativePath}`;
   }
@@ -232,7 +237,10 @@ export function reserveUniqueClientTypeIdentifier(
         : suffix === 1
           ? `${preferred}Alias`
           : `${preferred}Alias${suffix}`;
-    if (!occupied.has(candidate) && !RESERVED_CLIENT_IDENTIFIERS.has(candidate)) {
+    if (
+      !occupied.has(candidate) &&
+      !RESERVED_CLIENT_IDENTIFIERS.has(candidate)
+    ) {
       assertValidClientIdentifier(candidate, 'type alias');
       occupied.add(candidate);
       return candidate;

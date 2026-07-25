@@ -2,28 +2,28 @@
  * Derived from Gutenberg aspect ratio presets and dimensions controls.
  */
 export type AspectRatio =
-	| "auto"
-	| "1"
-	| "1/1"
-	| "4/3"
-	| "3/4"
-	| "3/2"
-	| "2/3"
-	| "16/9"
-	| "9/16"
-	| "21/9";
+	| 'auto'
+	| '1'
+	| '1/1'
+	| '4/3'
+	| '3/4'
+	| '3/2'
+	| '2/3'
+	| '16/9'
+	| '9/16'
+	| '21/9';
 
 export const ASPECT_RATIOS = [
-	"auto",
-	"1",
-	"1/1",
-	"4/3",
-	"3/4",
-	"3/2",
-	"2/3",
-	"16/9",
-	"9/16",
-	"21/9",
+  'auto',
+  '1',
+  '1/1',
+  '4/3',
+  '3/4',
+  '3/2',
+  '2/3',
+  '16/9',
+  '9/16',
+  '21/9',
 ] as const satisfies readonly AspectRatio[];
 
 /**
@@ -47,11 +47,11 @@ export type MinHeightValue =
 /**
  * Pipeline-compatible min-height keyword subset for use in `types.ts`.
  */
-export type MinHeightKeyword = "auto" | "inherit" | "initial" | "unset";
+export type MinHeightKeyword = 'auto' | 'inherit' | 'initial' | 'unset';
 
 export const MIN_HEIGHT_KEYWORDS = [
-	"auto",
-	"inherit",
-	"initial",
-	"unset",
+  'auto',
+  'inherit',
+  'initial',
+  'unset',
 ] as const satisfies readonly MinHeightKeyword[];

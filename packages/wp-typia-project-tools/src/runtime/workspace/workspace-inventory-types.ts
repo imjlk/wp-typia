@@ -1,52 +1,52 @@
-import type { ScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
+import type { ScaffoldCompatibilityConfig } from '../templates/scaffold-compatibility.js';
 
 export interface WorkspaceBlockInventoryEntry {
-	apiTypesFile?: string;
-	attributeTypeName?: string;
-	openApiFile?: string;
-	slug: string;
-	typesFile: string;
+  apiTypesFile?: string;
+  attributeTypeName?: string;
+  openApiFile?: string;
+  slug: string;
+  typesFile: string;
 }
 
 export interface WorkspaceVariationInventoryEntry {
-	block: string;
-	file: string;
-	slug: string;
+  block: string;
+  file: string;
+  slug: string;
 }
 
 export interface WorkspaceBlockStyleInventoryEntry {
-	block: string;
-	file: string;
-	slug: string;
+  block: string;
+  file: string;
+  slug: string;
 }
 
 export interface WorkspaceBlockTransformInventoryEntry {
-	block: string;
-	file: string;
-	from: string;
-	slug: string;
-	to: string;
+  block: string;
+  file: string;
+  from: string;
+  slug: string;
+  to: string;
 }
 
 export interface WorkspacePatternInventoryEntry {
-	contentFile?: string;
-	file?: string;
-	scope?: string;
-	sectionRole?: string;
-	slug: string;
-	tags?: string[];
-	thumbnailUrl?: string;
-	title?: string;
+  contentFile?: string;
+  file?: string;
+  scope?: string;
+  sectionRole?: string;
+  slug: string;
+  tags?: string[];
+  thumbnailUrl?: string;
+  title?: string;
 }
 
 export interface WorkspaceBindingSourceInventoryEntry {
-	attribute?: string;
-	block?: string;
-	editorFile: string;
-	metaPath?: string;
-	postMeta?: string;
-	serverFile: string;
-	slug: string;
+  attribute?: string;
+  block?: string;
+  editorFile: string;
+  metaPath?: string;
+  postMeta?: string;
+  serverFile: string;
+  slug: string;
 }
 
 /**
@@ -57,10 +57,10 @@ export interface WorkspaceBindingSourceInventoryEntry {
  * names from the workspace inventory.
  */
 export interface WorkspaceContractInventoryEntry {
-	schemaFile: string;
-	slug: string;
-	sourceTypeName: string;
-	typesFile: string;
+  schemaFile: string;
+  slug: string;
+  sourceTypeName: string;
+  typesFile: string;
 }
 
 /**
@@ -71,30 +71,30 @@ export interface WorkspaceContractInventoryEntry {
  * PHP route artifacts without guessing their locations.
  */
 export interface WorkspaceRestResourceInventoryEntry {
-	apiFile: string;
-	auth?: string;
-	bodyTypeName?: string;
-	clientFile: string;
-	controllerClass?: string;
-	controllerExtends?: string;
-	dataFile?: string;
-	method?: string;
-	methods: string[];
-	mode?: "generated" | "manual";
-	namespace: string;
-	openApiFile: string;
-	pathPattern?: string;
-	permissionCallback?: string;
-	phpFile?: string;
-	queryTypeName?: string;
-	responseTypeName?: string;
-	routePattern?: string;
-	secretFieldName?: string;
-	secretPreserveOnEmpty?: boolean;
-	secretStateFieldName?: string;
-	slug: string;
-	typesFile: string;
-	validatorsFile: string;
+  apiFile: string;
+  auth?: string;
+  bodyTypeName?: string;
+  clientFile: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  dataFile?: string;
+  method?: string;
+  methods: string[];
+  mode?: 'generated' | 'manual';
+  namespace: string;
+  openApiFile: string;
+  pathPattern?: string;
+  permissionCallback?: string;
+  phpFile?: string;
+  queryTypeName?: string;
+  responseTypeName?: string;
+  routePattern?: string;
+  secretFieldName?: string;
+  secretPreserveOnEmpty?: boolean;
+  secretStateFieldName?: string;
+  slug: string;
+  typesFile: string;
+  validatorsFile: string;
 }
 
 /**
@@ -105,14 +105,14 @@ export interface WorkspaceRestResourceInventoryEntry {
  * the declared post type scope.
  */
 export interface WorkspacePostMetaInventoryEntry {
-	metaKey: string;
-	phpFile: string;
-	postType: string;
-	schemaFile: string;
-	showInRest: boolean;
-	slug: string;
-	sourceTypeName: string;
-	typesFile: string;
+  metaKey: string;
+  phpFile: string;
+  postType: string;
+  schemaFile: string;
+  showInRest: boolean;
+  slug: string;
+  sourceTypeName: string;
+  typesFile: string;
 }
 
 /**
@@ -123,17 +123,17 @@ export interface WorkspacePostMetaInventoryEntry {
  * artifacts without guessing their locations.
  */
 export interface WorkspaceAbilityInventoryEntry {
-	clientFile: string;
-	compatibility?: ScaffoldCompatibilityConfig;
-	configFile: string;
-	dataFile: string;
-	inputSchemaFile: string;
-	inputTypeName: string;
-	outputSchemaFile: string;
-	outputTypeName: string;
-	phpFile: string;
-	slug: string;
-	typesFile: string;
+  clientFile: string;
+  compatibility?: ScaffoldCompatibilityConfig;
+  configFile: string;
+  dataFile: string;
+  inputSchemaFile: string;
+  inputTypeName: string;
+  outputSchemaFile: string;
+  outputTypeName: string;
+  phpFile: string;
+  slug: string;
+  typesFile: string;
 }
 
 /**
@@ -144,17 +144,17 @@ export interface WorkspaceAbilityInventoryEntry {
  * artifacts without guessing their locations.
  */
 export interface WorkspaceAiFeatureInventoryEntry {
-	aiSchemaFile: string;
-	apiFile: string;
-	clientFile: string;
-	compatibility?: ScaffoldCompatibilityConfig;
-	dataFile: string;
-	namespace: string;
-	openApiFile: string;
-	phpFile: string;
-	slug: string;
-	typesFile: string;
-	validatorsFile: string;
+  aiSchemaFile: string;
+  apiFile: string;
+  clientFile: string;
+  compatibility?: ScaffoldCompatibilityConfig;
+  dataFile: string;
+  namespace: string;
+  openApiFile: string;
+  phpFile: string;
+  slug: string;
+  typesFile: string;
+  validatorsFile: string;
 }
 
 /**
@@ -167,10 +167,10 @@ export interface WorkspaceAiFeatureInventoryEntry {
  * `core-data:postType/post`.
  */
 export interface WorkspaceAdminViewInventoryEntry {
-	file: string;
-	phpFile: string;
-	slug: string;
-	source?: string;
+  file: string;
+  phpFile: string;
+  slug: string;
+  source?: string;
 }
 
 /**
@@ -181,50 +181,50 @@ export interface WorkspaceAdminViewInventoryEntry {
  * @property slot Canonical editor shell slot for the plugin scaffold.
  */
 export interface WorkspaceEditorPluginInventoryEntry {
-	file: string;
-	slug: string;
-	slot: string;
+  file: string;
+  slug: string;
+  slot: string;
 }
 
 export interface WorkspaceInventory {
-	adminViews: WorkspaceAdminViewInventoryEntry[];
-	bindingSources: WorkspaceBindingSourceInventoryEntry[];
-	blockConfigPath: string;
-	blocks: WorkspaceBlockInventoryEntry[];
-	blockStyles: WorkspaceBlockStyleInventoryEntry[];
-	blockTransforms: WorkspaceBlockTransformInventoryEntry[];
-	contracts: WorkspaceContractInventoryEntry[];
-	abilities: WorkspaceAbilityInventoryEntry[];
-	aiFeatures: WorkspaceAiFeatureInventoryEntry[];
-	hasAbilitiesSection: boolean;
-	hasAdminViewsSection: boolean;
-	hasBindingSourcesSection: boolean;
-	hasAiFeaturesSection: boolean;
-	hasBlockStylesSection: boolean;
-	hasBlockTransformsSection: boolean;
-	hasContractsSection: boolean;
-	hasEditorPluginsSection: boolean;
-	hasPatternsSection: boolean;
-	hasPostMetaSection: boolean;
-	hasRestResourcesSection: boolean;
-	hasVariationsSection: boolean;
-	editorPlugins: WorkspaceEditorPluginInventoryEntry[];
-	patterns: WorkspacePatternInventoryEntry[];
-	postMeta: WorkspacePostMetaInventoryEntry[];
-	restResources: WorkspaceRestResourceInventoryEntry[];
-	source: string;
-	variations: WorkspaceVariationInventoryEntry[];
+  adminViews: WorkspaceAdminViewInventoryEntry[];
+  bindingSources: WorkspaceBindingSourceInventoryEntry[];
+  blockConfigPath: string;
+  blocks: WorkspaceBlockInventoryEntry[];
+  blockStyles: WorkspaceBlockStyleInventoryEntry[];
+  blockTransforms: WorkspaceBlockTransformInventoryEntry[];
+  contracts: WorkspaceContractInventoryEntry[];
+  abilities: WorkspaceAbilityInventoryEntry[];
+  aiFeatures: WorkspaceAiFeatureInventoryEntry[];
+  hasAbilitiesSection: boolean;
+  hasAdminViewsSection: boolean;
+  hasBindingSourcesSection: boolean;
+  hasAiFeaturesSection: boolean;
+  hasBlockStylesSection: boolean;
+  hasBlockTransformsSection: boolean;
+  hasContractsSection: boolean;
+  hasEditorPluginsSection: boolean;
+  hasPatternsSection: boolean;
+  hasPostMetaSection: boolean;
+  hasRestResourcesSection: boolean;
+  hasVariationsSection: boolean;
+  editorPlugins: WorkspaceEditorPluginInventoryEntry[];
+  patterns: WorkspacePatternInventoryEntry[];
+  postMeta: WorkspacePostMetaInventoryEntry[];
+  restResources: WorkspaceRestResourceInventoryEntry[];
+  source: string;
+  variations: WorkspaceVariationInventoryEntry[];
 }
 
 export type WorkspaceBlockSelectOption = {
-	description: string;
-	name: string;
-	value: string;
+  description: string;
+  name: string;
+  value: string;
 };
 
 export type WorkspaceInventoryParseResult = Omit<
 	WorkspaceInventory,
-	"blockConfigPath"
+	'blockConfigPath'
 >;
 
 export type WorkspaceInventoryEntriesKey = {
@@ -240,23 +240,23 @@ export type WorkspaceInventorySectionFlagKey = {
 }[keyof WorkspaceInventoryParseResult];
 
 export type WorkspaceInventoryUpdateOptions = {
-	abilityEntries?: string[];
-	adminViewEntries?: string[];
-	aiFeatureEntries?: string[];
-	blockEntries?: string[];
-	blockStyleEntries?: string[];
-	blockTransformEntries?: string[];
-	bindingSourceEntries?: string[];
-	contractEntries?: string[];
-	editorPluginEntries?: string[];
-	patternEntries?: string[];
-	postMetaEntries?: string[];
-	restResourceEntries?: string[];
-	transformSource?: (source: string) => string;
-	variationEntries?: string[];
+  abilityEntries?: string[];
+  adminViewEntries?: string[];
+  aiFeatureEntries?: string[];
+  blockEntries?: string[];
+  blockStyleEntries?: string[];
+  blockTransformEntries?: string[];
+  bindingSourceEntries?: string[];
+  contractEntries?: string[];
+  editorPluginEntries?: string[];
+  patternEntries?: string[];
+  postMetaEntries?: string[];
+  restResourceEntries?: string[];
+  transformSource?: (source: string) => string;
+  variationEntries?: string[];
 };
 
 export type WorkspaceInventoryAppendOptionKey = Exclude<
 	keyof WorkspaceInventoryUpdateOptions,
-	"transformSource"
+	'transformSource'
 >;

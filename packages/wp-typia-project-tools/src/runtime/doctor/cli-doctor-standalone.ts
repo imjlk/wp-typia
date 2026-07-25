@@ -271,9 +271,7 @@ function getDeclaredDependency(
 
 function getSafePackageBaseName(packageName: string): string | null {
   const match =
-    /^(?:@[a-z0-9][a-z0-9._-]*\/)?([a-z0-9][a-z0-9._-]*)$/iu.exec(
-      packageName,
-    );
+    /^(?:@[a-z0-9][a-z0-9._-]*\/)?([a-z0-9][a-z0-9._-]*)$/iu.exec(packageName);
   return match?.[1] ?? null;
 }
 
@@ -667,10 +665,14 @@ function findSyncOptionsObject(
     ) ||
     hasShadowedBinding(main, new Set(['parseCliOptions'])) ||
     !hasCanonicalRuntimeImports(sourceFile, SYNC_TYPES_RUNTIME_IMPORTS) ||
-    !hasCanonicalCheckParser(sourceFile, [
-      { flagName: '--strict', propertyName: 'strict' },
-      { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
-    ], true) ||
+    !hasCanonicalCheckParser(
+      sourceFile,
+      [
+        { flagName: '--strict', propertyName: 'strict' },
+        { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
+      ],
+      true,
+    ) ||
     !hasTopLevelMainInvocation(
       sourceFile,
       new Set(['@wp-typia/block-runtime/metadata-core']),
@@ -841,10 +843,7 @@ function parseStandaloneSyncConfig(
   ] as const;
   const nonLiteralOptionalPath = optionalArtifactPathNames.find(
     (propertyName) => {
-      const property = getObjectPropertyAssignment(
-        optionsObject,
-        propertyName,
-      );
+      const property = getObjectPropertyAssignment(optionsObject, propertyName);
       return property && !ts.isStringLiteralLike(property.initializer);
     },
   );
@@ -861,10 +860,7 @@ function parseStandaloneSyncConfig(
     jsonSchemaFile: getObjectPropertyString(optionsObject, 'jsonSchemaFile'),
     manifestFile: getObjectPropertyString(optionsObject, 'manifestFile'),
     openApiFile: getObjectPropertyString(optionsObject, 'openApiFile'),
-    phpValidatorFile: getObjectPropertyString(
-      optionsObject,
-      'phpValidatorFile',
-    ),
+    phpValidatorFile: getObjectPropertyString(optionsObject, 'phpValidatorFile'),
   };
   const configuredPaths = [
     blockJsonFile,
@@ -1270,11 +1266,7 @@ function hasCanonicalRunnerErrorGuard(
       (hasHelperCondition &&
         hasCanonicalFileNotFoundErrorHelpers(sourceFile))) &&
     ts.isThrowStatement(finalStatement) &&
-    isResultPropertyAccess(
-      finalStatement.expression,
-      resultBinding,
-      'error',
-    )
+    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error')
   );
 }
 
@@ -1306,9 +1298,7 @@ function hasCanonicalRunnerStatusGuard(
   if (!ts.isThrowStatement(finalStatement) || !finalStatement.expression) {
     return false;
   }
-  const errorConstruction = getSafeErrorConstruction(
-    finalStatement.expression,
-  );
+  const errorConstruction = getSafeErrorConstruction(finalStatement.expression);
   if (errorConstruction === null) return false;
   const message = errorConstruction.arguments![0];
   return (
@@ -2387,8 +2377,7 @@ function getCanonicalSyncProjectDelegationIndex(
   );
   const scriptPathDeclaration = getDirectVariableBinding(
     statements,
-    (initializer) =>
-      isSyncScriptPathExpression(initializer, expectedScriptPath),
+    (initializer) => isSyncScriptPathExpression(initializer, expectedScriptPath),
   );
   if (!optionsDeclaration || !scriptPathDeclaration) {
     return null;
@@ -2804,9 +2793,7 @@ function shellCommandChangesDirectory(segment: ShellCommandSegment): boolean {
     // dynamic eval body is intentionally treated as an unknown shell context.
     return (
       evaluatedWords.length > 0 &&
-      !evaluatedWords.every((word) =>
-        /^[A-Za-z_][A-Za-z0-9_]*=.*$/u.test(word),
-      )
+      !evaluatedWords.every((word) => /^[A-Za-z_][A-Za-z0-9_]*=.*$/u.test(word))
     );
   }
   return SHELL_DIRECTORY_CHANGE_COMMANDS.has(commandWord);
@@ -3424,10 +3411,12 @@ function getBootstrapCheck(
 ): DoctorCheck {
   const { requiresRest } = parsedRestConfig;
   const expectedRestRegistrations =
-    parsedRestConfig.manifest?.endpoints.map(({ method, path: endpointPath }) => ({
-      method,
-      path: endpointPath,
-    })) ?? [];
+    parsedRestConfig.manifest?.endpoints.map(
+      ({ method, path: endpointPath }) => ({
+        method,
+        path: endpointPath,
+      }),
+    ) ?? [];
   const packageBaseName = getSafePackageBaseName(project.packageName);
   if (!packageBaseName) {
     return createDoctorCheck(
@@ -3913,10 +3902,7 @@ async function getGeneratedArtifactsCheck(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const normalizedMessage = sanitizeProjectPaths(
-      message,
-      project.projectDir,
-    );
+    const normalizedMessage = sanitizeProjectPaths(message, project.projectDir);
     return createDoctorCheck(
       'Standalone generated artifacts',
       'fail',

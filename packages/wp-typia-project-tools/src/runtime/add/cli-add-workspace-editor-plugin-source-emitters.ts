@@ -1,5 +1,5 @@
-import { quoteTsString } from "./cli-add-shared.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
+import { quoteTsString } from './cli-add-shared.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 
 /**
  * Render one `scripts/block-config.ts` editor-plugin inventory entry.
@@ -12,13 +12,13 @@ export function buildEditorPluginConfigEntry(
 	editorPluginSlug: string,
 	slot: string,
 ): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tfile: ${quoteTsString(`src/editor-plugins/${editorPluginSlug}/index.tsx`)},`,
 		`\t\tslug: ${quoteTsString(editorPluginSlug)},`,
 		`\t\tslot: ${quoteTsString(slot)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -28,9 +28,9 @@ export function buildEditorPluginConfigEntry(
  * @returns TypeScript source for the plugin model type.
  */
 export function buildEditorPluginTypesSource(editorPluginSlug: string): string {
-	const typeName = `${toPascalCase(editorPluginSlug)}EditorPluginModel`;
+  const typeName = `${toPascalCase(editorPluginSlug)}EditorPluginModel`;
 
-	return `export interface ${typeName} {
+  return `export interface ${typeName} {
 \tprimaryActionLabel: string;
 \tsummary: string;
 }
@@ -48,12 +48,12 @@ export function buildEditorPluginDataSource(
 	editorPluginSlug: string,
 	slot: string,
 ): string {
-	const typeName = `${toPascalCase(editorPluginSlug)}EditorPluginModel`;
-	const pluginTitle = toTitleCase(editorPluginSlug);
-	const modelFactoryName = `get${toPascalCase(editorPluginSlug)}EditorPluginModel`;
-	const enabledFactoryName = `is${toPascalCase(editorPluginSlug)}Enabled`;
+  const typeName = `${toPascalCase(editorPluginSlug)}EditorPluginModel`;
+  const pluginTitle = toTitleCase(editorPluginSlug);
+  const modelFactoryName = `get${toPascalCase(editorPluginSlug)}EditorPluginModel`;
+  const enabledFactoryName = `is${toPascalCase(editorPluginSlug)}Enabled`;
 
-	return `import type { ${typeName} } from './types';
+  return `import type { ${typeName} } from './types';
 
 export const EDITOR_PLUGIN_SLOT = ${quoteTsString(slot)} as const;
 export const REQUIRED_CAPABILITY = 'edit_posts' as const;
@@ -86,13 +86,13 @@ export function buildEditorPluginSurfaceSource(
 	slot: string,
 	textDomain: string,
 ): string {
-	const pascalName = toPascalCase(editorPluginSlug);
-	const modelFactoryName = `get${pascalName}EditorPluginModel`;
-	const enabledFactoryName = `is${pascalName}Enabled`;
-	const componentName = `${pascalName}Surface`;
+  const pascalName = toPascalCase(editorPluginSlug);
+  const modelFactoryName = `get${pascalName}EditorPluginModel`;
+  const enabledFactoryName = `is${pascalName}Enabled`;
+  const componentName = `${pascalName}Surface`;
 
-	if (slot === "document-setting-panel") {
-		return `import { Button } from '@wordpress/components';
+  if (slot === 'document-setting-panel') {
+    return `import { Button } from '@wordpress/components';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { __ } from '@wordpress/i18n';
 
@@ -131,9 +131,9 @@ export function ${componentName}( {
 \t);
 }
 `;
-	}
+  }
 
-	return `import { Button, PanelBody } from '@wordpress/components';
+  return `import { Button, PanelBody } from '@wordpress/components';
 import { PluginSidebar, PluginSidebarMoreMenuItem } from '@wordpress/editor';
 import { __ } from '@wordpress/i18n';
 
@@ -192,13 +192,13 @@ export function buildEditorPluginEntrySource(
 	namespace: string,
 	textDomain: string,
 ): string {
-	const pascalName = toPascalCase(editorPluginSlug);
-	const componentName = `${pascalName}Surface`;
-	const pluginName = `${namespace}-${editorPluginSlug}`;
-	const surfaceName = `${pluginName}-surface`;
-	const pluginTitle = toTitleCase(editorPluginSlug);
+  const pascalName = toPascalCase(editorPluginSlug);
+  const componentName = `${pascalName}Surface`;
+  const pluginName = `${namespace}-${editorPluginSlug}`;
+  const surfaceName = `${pluginName}-surface`;
+  const pluginTitle = toTitleCase(editorPluginSlug);
 
-	return `import { registerPlugin } from '@wordpress/plugins';
+  return `import { registerPlugin } from '@wordpress/plugins';
 import { __ } from '@wordpress/i18n';
 
 import { REQUIRED_CAPABILITY } from './data';
@@ -228,7 +228,7 @@ export { REQUIRED_CAPABILITY };
  * @returns SCSS source for the generated editor plugin shell.
  */
 export function buildEditorPluginStyleSource(): string {
-	return `.wp-typia-editor-plugin-shell {
+  return `.wp-typia-editor-plugin-shell {
 \tpadding: 16px;
 }
 

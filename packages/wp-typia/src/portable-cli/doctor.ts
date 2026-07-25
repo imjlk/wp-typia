@@ -45,7 +45,9 @@ export async function dispatchPortableCliDoctor({
   printLine,
   structuredNotices,
 }: PortableCliDispatchContext): Promise<void> {
-  const exitPolicy = mergedFlags['workspace-only'] ? 'workspace-only' : 'strict';
+  const exitPolicy = mergedFlags['workspace-only']
+    ? 'workspace-only'
+    : 'strict';
   const wordpressVersionCheck = Boolean(mergedFlags['wp-version-check']);
   if (mergedFlags.format === 'json') {
     await renderPortableCliDoctorJson(

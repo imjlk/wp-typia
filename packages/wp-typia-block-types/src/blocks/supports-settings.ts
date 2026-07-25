@@ -1,18 +1,18 @@
-import type { WordPressCompatibilitySettings } from "./compatibility.js";
+import type { WordPressCompatibilitySettings } from './compatibility.js';
 import type {
   BlockSupportsInput,
   DefineSupportsInlineOptions,
   DefineSupportsOptions,
   StripDefineSupportsOptions,
-} from "./supports.js";
+} from './supports.js';
 
 export const DEFINE_SUPPORTS_INLINE_OPTION_KEYS = new Set<string>([
-  "allowUnknownFutureKeys",
-  "logger",
-  "minVersion",
-  "minWordPress",
-  "onDiagnostic",
-  "strict",
+  'allowUnknownFutureKeys',
+  'logger',
+  'minVersion',
+  'minWordPress',
+  'onDiagnostic',
+  'strict',
 ]);
 
 export function splitDefineSupportsInput<TSupports extends BlockSupportsInput>(

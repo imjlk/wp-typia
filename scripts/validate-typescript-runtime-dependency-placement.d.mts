@@ -1,26 +1,26 @@
 export interface TypeScriptRuntimeDependencyPlacementPackageResult {
-	packageDir: string;
-	packageName: string;
-	packedPlacement: "dependencies" | "devDependencies" | "missing";
-	sourcePlacement: "dependencies" | "devDependencies" | "missing";
-	typeScriptImportFiles: string[];
-	typescriptPlacement: "dependency" | "non-runtime";
+  packageDir: string;
+  packageName: string;
+  packedPlacement: 'dependencies' | 'devDependencies' | 'missing';
+  sourcePlacement: 'dependencies' | 'devDependencies' | 'missing';
+  typeScriptImportFiles: string[];
+  typescriptPlacement: 'dependency' | 'non-runtime';
 }
 
 export interface TypeScriptRuntimeDependencyPlacementValidationResult {
-	errors: string[];
-	packages: TypeScriptRuntimeDependencyPlacementPackageResult[];
-	valid: boolean;
+  errors: string[];
+  packages: TypeScriptRuntimeDependencyPlacementPackageResult[];
+  valid: boolean;
 }
 
 export interface RunCliOptions {
-	cwd?: string;
-	stderr?: {
-		write(chunk: string): unknown;
-	};
-	stdout?: {
-		write(chunk: string): unknown;
-	};
+  cwd?: string;
+  stderr?: {
+    write(chunk: string): unknown;
+  };
+  stdout?: {
+    write(chunk: string): unknown;
+  };
 }
 
 export declare function validateTypeScriptRuntimeDependencyPlacement(

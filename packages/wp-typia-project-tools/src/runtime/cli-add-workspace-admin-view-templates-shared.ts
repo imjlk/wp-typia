@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-admin-view-templates-shared.js";
+export * from './add/cli-add-workspace-admin-view-templates-shared.js';

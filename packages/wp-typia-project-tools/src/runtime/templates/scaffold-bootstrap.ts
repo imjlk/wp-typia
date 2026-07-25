@@ -1,29 +1,34 @@
-import fs from "node:fs";
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
-import { formatPackageExecCommand } from "../shared/package-managers.js";
-import type { PackageManagerId } from "../shared/package-managers.js";
+import { formatPackageExecCommand } from '../shared/package-managers.js';
+import type { PackageManagerId } from '../shared/package-managers.js';
 import {
-	ensureMigrationDirectories,
-	writeInitialMigrationScaffold,
-	writeMigrationConfig,
-} from "../migration/migration-project.js";
-import { syncPersistenceRestArtifacts } from "../add/persistence-rest-artifacts.js";
-import type { ScaffoldTemplateVariables } from "./scaffold.js";
-import { getPackageVersions } from "../shared/package-versions.js";
-import { getStarterManifestFiles, stringifyStarterManifest } from "./starter-manifests.js";
+  ensureMigrationDirectories,
+  writeInitialMigrationScaffold,
+  writeMigrationConfig,
+} from '../migration/migration-project.js';
+import { syncPersistenceRestArtifacts } from '../add/persistence-rest-artifacts.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
+import { getPackageVersions } from '../shared/package-versions.js';
 import {
-	OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
-	PROJECT_TOOLS_PACKAGE_ROOT,
-} from "./template-registry.js";
-import type { BuiltInTemplateId } from "./template-registry.js";
-import { getScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
-import type { GeneratedPackageJson } from "../shared/package-json-types.js";
-import { pathExists } from "../shared/fs-async.js";
-import { readJsonFile, readJsonFileSync } from "../shared/json-utils.js";
+  getStarterManifestFiles,
+  stringifyStarterManifest,
+} from './starter-manifests.js';
+import {
+  OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
+  PROJECT_TOOLS_PACKAGE_ROOT,
+} from './template-registry.js';
+import type { BuiltInTemplateId } from './template-registry.js';
+import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
+import type { GeneratedPackageJson } from '../shared/package-json-types.js';
+import { pathExists } from '../shared/fs-async.js';
+import { readJsonFile, readJsonFileSync } from '../shared/json-utils.js';
 
-const EPHEMERAL_NODE_MODULES_LINK_TYPE = process.platform === "win32" ? "junction" : "dir";
+const EPHEMERAL_NODE_MODULES_LINK_TYPE = process.platform === 'win32'
+  ? 'junction'
+  : 'dir';
 
 /**
  * Ensures the scaffold target directory exists and is empty unless explicitly allowed.
@@ -36,27 +41,27 @@ export async function ensureScaffoldDirectory(
 	targetDir: string,
 	allowExisting = false,
 ): Promise<void> {
-	await fsp.mkdir(targetDir, { recursive: true });
+  await fsp.mkdir(targetDir, { recursive: true });
 
-	if (allowExisting) {
-		return;
-	}
+  if (allowExisting) {
+    return;
+  }
 
-	const entries = await fsp.readdir(targetDir);
-	if (entries.length > 0) {
-		throw new Error(formatNonEmptyTargetDirectoryError(targetDir));
-	}
+  const entries = await fsp.readdir(targetDir);
+  if (entries.length > 0) {
+    throw new Error(formatNonEmptyTargetDirectoryError(targetDir));
+  }
 }
 
 function readGeneratedPackageJson(projectDir: string): GeneratedPackageJson | null {
-	const packageJsonPath = path.join(projectDir, "package.json");
-	if (!fs.existsSync(packageJsonPath)) {
-		return null;
-	}
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) {
+    return null;
+  }
 
-	return readJsonFileSync<GeneratedPackageJson>(packageJsonPath, {
-		context: "generated package manifest",
-	});
+  return readJsonFileSync<GeneratedPackageJson>(packageJsonPath, {
+    context: 'generated package manifest',
+  });
 }
 
 /**
@@ -67,7 +72,7 @@ function readGeneratedPackageJson(projectDir: string): GeneratedPackageJson | nu
  * @returns A human-readable error string with next-step guidance.
  */
 export function formatNonEmptyTargetDirectoryError(targetDir: string): string {
-	return `Target directory is not empty: ${targetDir}. Choose a new project directory, or empty this directory before rerunning the scaffold.`;
+  return `Target directory is not empty: ${targetDir}. Choose a new project directory, or empty this directory before rerunning the scaffold.`;
 }
 
 /**
@@ -83,13 +88,17 @@ export async function writeStarterManifestFiles(
 	templateId: string,
 	variables: ScaffoldTemplateVariables,
 ): Promise<void> {
-	const manifests = getStarterManifestFiles(templateId, variables);
+  const manifests = getStarterManifestFiles(templateId, variables);
 
-	for (const { document, relativePath } of manifests) {
-		const destinationPath = path.join(targetDir, relativePath);
-		await fsp.mkdir(path.dirname(destinationPath), { recursive: true });
-		await fsp.writeFile(destinationPath, stringifyStarterManifest(document), "utf8");
-	}
+  for (const { document, relativePath } of manifests) {
+    const destinationPath = path.join(targetDir, relativePath);
+    await fsp.mkdir(path.dirname(destinationPath), { recursive: true });
+    await fsp.writeFile(
+      destinationPath,
+      stringifyStarterManifest(document),
+      'utf8',
+    );
+  }
 }
 
 /**
@@ -106,22 +115,22 @@ export async function seedBuiltInPersistenceArtifacts(
 	templateId: BuiltInTemplateId,
 	variables: ScaffoldTemplateVariables,
 ): Promise<void> {
-	const compoundGroup = getScaffoldTemplateVariableGroups(variables).compound;
-	const needsPersistenceArtifacts =
-		templateId === "persistence" ||
-		(templateId === "compound" &&
+  const compoundGroup = getScaffoldTemplateVariableGroups(variables).compound;
+  const needsPersistenceArtifacts =
+		templateId === 'persistence' ||
+		(templateId === 'compound' &&
 			compoundGroup.enabled &&
 			compoundGroup.persistenceEnabled);
 
-	if (!needsPersistenceArtifacts) {
-		return;
-	}
+  if (!needsPersistenceArtifacts) {
+    return;
+  }
 
-	await withEphemeralScaffoldNodeModules(targetDir, async () => {
-		if (templateId === "persistence") {
+  await withEphemeralScaffoldNodeModules(targetDir, async () => {
+		if (templateId === 'persistence') {
 			await syncPersistenceRestArtifacts({
-				apiTypesFile: path.join("src", "api-types.ts"),
-				outputDir: "src",
+				apiTypesFile: path.join('src', 'api-types.ts'),
+				outputDir: 'src',
 				projectDir: targetDir,
 				variables,
 			});
@@ -129,8 +138,8 @@ export async function seedBuiltInPersistenceArtifacts(
 		}
 
 		await syncPersistenceRestArtifacts({
-			apiTypesFile: path.join("src", "blocks", variables.slugKebabCase, "api-types.ts"),
-			outputDir: path.join("src", "blocks", variables.slugKebabCase),
+			apiTypesFile: path.join('src', 'blocks', variables.slugKebabCase, 'api-types.ts'),
+			outputDir: path.join('src', 'blocks', variables.slugKebabCase),
 			projectDir: targetDir,
 			variables,
 		});
@@ -144,7 +153,9 @@ export async function seedBuiltInPersistenceArtifacts(
  * @returns `true` when the project metadata identifies a workspace scaffold.
  */
 export function isWorkspaceProject(projectDir: string): boolean {
-	return readGeneratedPackageJson(projectDir)?.wpTypia?.projectType === "workspace";
+  return readGeneratedPackageJson(
+    projectDir,
+  )?.wpTypia?.projectType === 'workspace';
 }
 
 /**
@@ -154,9 +165,9 @@ export function isWorkspaceProject(projectDir: string): boolean {
  * @returns `true` when the project metadata identifies the official workspace template.
  */
 export function isOfficialWorkspaceProject(projectDir: string): boolean {
-	const packageJson = readGeneratedPackageJson(projectDir);
-	return (
-		packageJson?.wpTypia?.projectType === "workspace" &&
+  const packageJson = readGeneratedPackageJson(projectDir);
+  return (
+		packageJson?.wpTypia?.projectType === 'workspace' &&
 		packageJson.wpTypia?.templatePackage === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE
 	);
 }
@@ -172,40 +183,51 @@ export async function applyWorkspaceMigrationCapability(
 	projectDir: string,
 	packageManager: PackageManagerId,
 ): Promise<void> {
-	const packageJsonPath = path.join(projectDir, "package.json");
-	const packageJson = await readJsonFile<GeneratedPackageJson>(packageJsonPath, {
-		context: "workspace package manifest",
-	});
-	const wpTypiaPackageVersion = getPackageVersions().wpTypiaPackageVersion;
-	const canonicalCliSpecifier =
-		wpTypiaPackageVersion === "^0.0.0"
-			? "wp-typia"
-			: `wp-typia@${wpTypiaPackageVersion.replace(/^[~^]/u, "")}`;
-	const migrationCli = (args: string) =>
-		formatPackageExecCommand(packageManager, canonicalCliSpecifier, `migrate ${args}`);
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  const packageJson = await readJsonFile<GeneratedPackageJson>(
+    packageJsonPath,
+    {
+      context: 'workspace package manifest',
+    },
+  );
+  const wpTypiaPackageVersion = getPackageVersions().wpTypiaPackageVersion;
+  const canonicalCliSpecifier =
+		wpTypiaPackageVersion === '^0.0.0'
+      ? 'wp-typia'
+      : `wp-typia@${wpTypiaPackageVersion.replace(/^[~^]/u, '')}`;
+  const migrationCli = (args: string) =>
+		formatPackageExecCommand(
+      packageManager,
+      canonicalCliSpecifier,
+      `migrate ${args}`,
+    );
 
-	packageJson.scripts = {
-		...(packageJson.scripts ?? {}),
-		"migration:init": migrationCli("init --current-migration-version v1"),
-		"migration:snapshot": migrationCli("snapshot"),
-		"migration:diff": migrationCli("diff"),
-		"migration:scaffold": migrationCli("scaffold"),
-		"migration:doctor": migrationCli("doctor --all"),
-		"migration:fixtures": migrationCli("fixtures --all"),
-		"migration:verify": migrationCli("verify --all"),
-		"migration:fuzz": migrationCli("fuzz --all"),
-	};
+  packageJson.scripts = {
+    ...(packageJson.scripts ?? {}),
+    'migration:init': migrationCli('init --current-migration-version v1'),
+    'migration:snapshot': migrationCli('snapshot'),
+    'migration:diff': migrationCli('diff'),
+    'migration:scaffold': migrationCli('scaffold'),
+    'migration:doctor': migrationCli('doctor --all'),
+    'migration:fixtures': migrationCli('fixtures --all'),
+    'migration:verify': migrationCli('verify --all'),
+    'migration:fuzz': migrationCli('fuzz --all'),
+  };
 
-	await fsp.writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, "\t")}\n`, "utf8");
+  await fsp.writeFile(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, '\t')}\n`,
+    'utf8',
+  );
 
-	writeMigrationConfig(projectDir, {
-		blocks: [],
-		currentMigrationVersion: "v1",
-		snapshotDir: "src/migrations/versions",
-		supportedMigrationVersions: ["v1"],
-	});
-	ensureMigrationDirectories(projectDir, []);
-	writeInitialMigrationScaffold(projectDir, "v1", []);
+  writeMigrationConfig(projectDir, {
+    blocks: [],
+    currentMigrationVersion: 'v1',
+    snapshotDir: 'src/migrations/versions',
+    supportedMigrationVersions: ['v1'],
+  });
+  ensureMigrationDirectories(projectDir, []);
+  writeInitialMigrationScaffold(projectDir, 'v1', []);
 }
 
 /**
@@ -220,19 +242,19 @@ export async function applyWorkspaceMigrationCapability(
  * @returns The first matching path, or `null` when no candidate contains `typia`.
  */
 async function resolveScaffoldGeneratorNodeModulesPath(): Promise<string | null> {
-	const candidates = [
-		path.join(PROJECT_TOOLS_PACKAGE_ROOT, "node_modules"),
-		path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, "..", ".."),
-		path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, "..", "..", "node_modules"),
-	];
+  const candidates = [
+    path.join(PROJECT_TOOLS_PACKAGE_ROOT, 'node_modules'),
+    path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, '..', '..'),
+    path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, '..', '..', 'node_modules'),
+  ];
 
-	for (const candidate of candidates) {
-		if (await pathExists(path.join(candidate, "typia", "package.json"))) {
-			return candidate;
-		}
-	}
+  for (const candidate of candidates) {
+    if (await pathExists(path.join(candidate, 'typia', 'package.json'))) {
+      return candidate;
+    }
+  }
 
-	return null;
+  return null;
 }
 
 /**
@@ -252,24 +274,28 @@ async function withEphemeralScaffoldNodeModules(
 	targetDir: string,
 	callback: () => Promise<void>,
 ): Promise<void> {
-	const targetNodeModulesPath = path.join(targetDir, "node_modules");
-	if (await pathExists(targetNodeModulesPath)) {
-		await callback();
-		return;
-	}
+  const targetNodeModulesPath = path.join(targetDir, 'node_modules');
+  if (await pathExists(targetNodeModulesPath)) {
+    await callback();
+    return;
+  }
 
-	const sourceNodeModulesPath = await resolveScaffoldGeneratorNodeModulesPath();
-	if (!sourceNodeModulesPath) {
-		throw new Error(
-			"Unable to resolve a node_modules directory with typia for scaffold-time REST artifact generation.",
-		);
-	}
+  const sourceNodeModulesPath = await resolveScaffoldGeneratorNodeModulesPath();
+  if (!sourceNodeModulesPath) {
+    throw new Error(
+      'Unable to resolve a node_modules directory with typia for scaffold-time REST artifact generation.',
+    );
+  }
 
-	await fsp.symlink(sourceNodeModulesPath, targetNodeModulesPath, EPHEMERAL_NODE_MODULES_LINK_TYPE);
+  await fsp.symlink(
+    sourceNodeModulesPath,
+    targetNodeModulesPath,
+    EPHEMERAL_NODE_MODULES_LINK_TYPE,
+  );
 
-	try {
-		await callback();
-	} finally {
-		await fsp.rm(targetNodeModulesPath, { force: true, recursive: true });
-	}
+  try {
+    await callback();
+  } finally {
+    await fsp.rm(targetNodeModulesPath, { force: true, recursive: true });
+  }
 }

@@ -2376,7 +2376,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         name: 'sync-types-parser-eval',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-types-to-block-json.ts'),
-        statement: "    eval( 'process.chdir(\"..\")' );",
+        statement: '    eval( \'process.chdir("..")\' );',
       },
       {
         guard: "\t\tif ( argument === '--check' ) {",

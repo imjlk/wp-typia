@@ -284,10 +284,13 @@ export async function executeAddCommand({
       contextAllowsInteractivePrompts(resolvedFlags)
     ) {
       const namePrompt = await getOrCreatePrompt();
-      resolvedName = await namePrompt.text(getAddNameLabel(resolvedKind), '', (value) =>
-        value.trim().length > 0
-          ? true
-          : `${getAddNameLabel(resolvedKind)} is required.`,
+      resolvedName = await namePrompt.text(
+        getAddNameLabel(resolvedKind),
+        '',
+        (value) =>
+          value.trim().length > 0
+            ? true
+            : `${getAddNameLabel(resolvedKind)} is required.`,
       );
     }
     if (

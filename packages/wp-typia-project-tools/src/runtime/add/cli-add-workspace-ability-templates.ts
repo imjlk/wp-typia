@@ -1,21 +1,21 @@
-import type { ScaffoldCompatibilityPolicy } from "../templates/scaffold-compatibility.js";
-import { renderScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
-import { quoteTsString } from "./cli-add-shared.js";
+import type { ScaffoldCompatibilityPolicy } from '../templates/scaffold-compatibility.js';
+import { renderScaffoldCompatibilityConfig } from '../templates/scaffold-compatibility.js';
+import { quoteTsString } from './cli-add-shared.js';
 import {
-	ABILITY_REGISTRY_END_MARKER,
-	ABILITY_REGISTRY_START_MARKER,
-} from "./cli-add-workspace-ability-types.js";
-import { quotePhpString } from "../shared/php-utils.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  ABILITY_REGISTRY_END_MARKER,
+  ABILITY_REGISTRY_START_MARKER,
+} from './cli-add-workspace-ability-types.js';
+import { quotePhpString } from '../shared/php-utils.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 function toAbilityCategorySlug(workspaceNamespace: string): string {
-	const normalizedNamespace = workspaceNamespace
-		.replace(/[^a-z0-9-]+/gu, "-")
-		.replace(/-{2,}/gu, "-")
-		.replace(/^-|-$/gu, "");
+  const normalizedNamespace = workspaceNamespace
+		.replace(/[^a-z0-9-]+/gu, '-')
+		.replace(/-{2,}/gu, '-')
+		.replace(/^-|-$/gu, '');
 
-	return `${normalizedNamespace || "workspace"}-workflows`;
+  return `${normalizedNamespace || 'workspace'}-workflows`;
 }
 
 /**
@@ -25,10 +25,10 @@ export function buildAbilityConfigEntry(
 	abilitySlug: string,
 	compatibilityPolicy: ScaffoldCompatibilityPolicy,
 ): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tclientFile: ${quoteTsString(`src/abilities/${abilitySlug}/client.ts`)},`,
 		`\t\tcompatibility: ${renderScaffoldCompatibilityConfig(
 			compatibilityPolicy,
@@ -42,8 +42,8 @@ export function buildAbilityConfigEntry(
 		`\t\tphpFile: ${quoteTsString(`inc/abilities/${abilitySlug}.php`)},`,
 		`\t\tslug: ${quoteTsString(abilitySlug)},`,
 		`\t\ttypesFile: ${quoteTsString(`src/abilities/${abilitySlug}/types.ts`)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -53,9 +53,9 @@ export function buildAbilityConfigSource(
 	abilitySlug: string,
 	workspaceNamespace: string,
 ): string {
-	const abilityTitle = toTitleCase(abilitySlug);
+  const abilityTitle = toTitleCase(abilitySlug);
 
-	return `${JSON.stringify(
+  return `${JSON.stringify(
 		{
 			abilityId: `${workspaceNamespace}/${abilitySlug}`,
 			category: {
@@ -86,9 +86,9 @@ export function buildAbilityConfigSource(
  * Build the starter TypeScript input and output contracts for an ability.
  */
 export function buildAbilityTypesSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return `export interface ${pascalCase}AbilityInput {
+  return `export interface ${pascalCase}AbilityInput {
 \tcontextId: number;
 \tnote?: string;
 }
@@ -106,14 +106,14 @@ export interface ${pascalCase}AbilityOutput {
  * Build the typed client helper module that wraps the WordPress Abilities API.
  */
 export function buildAbilityDataSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
-	const abilityConstBase = abilitySlug
+  const pascalCase = toPascalCase(abilitySlug);
+  const abilityConstBase = abilitySlug
 		.toUpperCase()
-		.replace(/[^A-Z0-9]+/gu, "_")
-		.replace(/_{2,}/gu, "_")
-		.replace(/^_|_$/gu, "");
+		.replace(/[^A-Z0-9]+/gu, '_')
+		.replace(/_{2,}/gu, '_')
+		.replace(/^_|_$/gu, '');
 
-	return `import {
+  return `import {
 \texecuteAbility,
 \tgetAbilities,
 \tgetAbility as getRegisteredAbility,
@@ -211,9 +211,9 @@ export async function run${pascalCase}Ability(
  * Build the re-export shim for the generated ability client helpers.
  */
 export function buildAbilityClientSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return `/**
+  return `/**
  * Re-export the typed ${pascalCase} ability client helpers.
  *
  * The helper methods load the WordPress core abilities integration and wait for
@@ -227,7 +227,7 @@ export * from './data';
  * Build the schema sync script that keeps generated ability JSON artifacts current.
  */
 export function buildAbilitySyncScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import { syncTypeSchemas } from '@wp-typia/block-runtime/metadata-core';
 
 import {
@@ -344,17 +344,17 @@ export function buildAbilityPhpSource(
 	abilitySlug: string,
 	workspace: WorkspaceProject,
 ): string {
-	const abilityTitle = toTitleCase(abilitySlug);
-	const abilityPhpId = abilitySlug.replace(/-/g, "_");
-	const categoryRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability_category`;
-	const abilityRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability`;
-	const configLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_config`;
-	const schemaLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_schema`;
-	const permissionFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_can_execute_ability`;
-	const executeFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_execute_ability`;
-	const metaFactoryFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_build_ability_meta`;
+  const abilityTitle = toTitleCase(abilitySlug);
+  const abilityPhpId = abilitySlug.replace(/-/g, '_');
+  const categoryRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability_category`;
+  const abilityRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability`;
+  const configLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_config`;
+  const schemaLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_schema`;
+  const permissionFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_can_execute_ability`;
+  const executeFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_execute_ability`;
+  const metaFactoryFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_build_ability_meta`;
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }
@@ -524,16 +524,16 @@ add_action( 'wp_abilities_api_init', '${abilityRegisterFunctionName}' );
  * Build the generated abilities index section managed by `wp-typia add ability`.
  */
 export function buildAbilityRegistrySource(abilitySlugs: string[]): string {
-	const exportLines = abilitySlugs
+  const exportLines = abilitySlugs
 		.map((abilitySlug) => `export * from './${abilitySlug}/client';`)
-		.join("\n");
+		.join('\n');
 
-	return [
+  return [
 		ABILITY_REGISTRY_START_MARKER,
 		exportLines,
 		ABILITY_REGISTRY_END_MARKER,
 	]
 		.filter((line) => line.length > 0)
-		.join("\n")
-		.concat("\n");
+		.join('\n')
+		.concat('\n');
 }

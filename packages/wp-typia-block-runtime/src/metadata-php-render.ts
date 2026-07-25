@@ -1,24 +1,21 @@
-import type {
-	ManifestAttribute,
-	ManifestDocument,
-} from "./metadata-model.js";
+import type { ManifestAttribute, ManifestDocument } from './metadata-model.js';
 
 const SUPPORTED_PHP_FORMATS = new Set([
-	"uuid",
-	"email",
-	"url",
-	"uri",
-	"ipv4",
-	"ipv6",
-	"date-time",
+  'uuid',
+  'email',
+  'url',
+  'uri',
+  'ipv4',
+  'ipv6',
+  'date-time',
 ]);
 
 const SUPPORTED_PHP_TYPE_TAGS = new Set([
-	"uint32",
-	"int32",
-	"uint64",
-	"float",
-	"double",
+  'uint32',
+  'int32',
+  'uint64',
+  'float',
+  'double',
 ]);
 
 /**
@@ -31,18 +28,18 @@ const SUPPORTED_PHP_TYPE_TAGS = new Set([
  * @category Schema
  */
 export function renderPhpValidator(manifest: ManifestDocument): {
-	source: string;
-	warnings: string[];
+  source: string;
+  warnings: string[];
 } {
-	const warnings: string[] = [];
+  const warnings: string[] = [];
 
-	for (const [key, attribute] of Object.entries(manifest.attributes)) {
-		collectPhpGenerationWarnings(attribute, key, warnings);
-	}
+  for (const [key, attribute] of Object.entries(manifest.attributes)) {
+    collectPhpGenerationWarnings(attribute, key, warnings);
+  }
 
-	const phpManifest = renderPhpValue(manifest, 2);
+  const phpManifest = renderPhpValue(manifest, 2);
 
-	return {
+  return {
 		source: `<?php
 declare(strict_types=1);
 
@@ -519,35 +516,35 @@ export function collectPhpGenerationWarnings(
 	pathLabel: string,
 	warnings: string[],
 ): void {
-	const { format, typeTag } = attribute.typia.constraints;
-	if (format !== null && !SUPPORTED_PHP_FORMATS.has(format)) {
-		warnings.push(`${pathLabel}: unsupported PHP validator format "${format}"`);
-	}
-	if (typeTag !== null && !SUPPORTED_PHP_TYPE_TAGS.has(typeTag)) {
-		warnings.push(
-			`${pathLabel}: unsupported PHP validator type tag "${typeTag}"`,
-		);
-	}
+  const { format, typeTag } = attribute.typia.constraints;
+  if (format !== null && !SUPPORTED_PHP_FORMATS.has(format)) {
+    warnings.push(`${pathLabel}: unsupported PHP validator format "${format}"`);
+  }
+  if (typeTag !== null && !SUPPORTED_PHP_TYPE_TAGS.has(typeTag)) {
+    warnings.push(
+      `${pathLabel}: unsupported PHP validator type tag "${typeTag}"`,
+    );
+  }
 
-	if (attribute.ts.items) {
-		collectPhpGenerationWarnings(
-			attribute.ts.items,
-			`${pathLabel}[]`,
-			warnings,
-		);
-	}
-	for (const [key, property] of Object.entries(attribute.ts.properties ?? {})) {
-		collectPhpGenerationWarnings(property, `${pathLabel}.${key}`, warnings);
-	}
-	for (const [branchKey, branch] of Object.entries(
-		attribute.ts.union?.branches ?? {},
-	)) {
-		collectPhpGenerationWarnings(
-			branch,
-			`${pathLabel}<${branchKey}>`,
-			warnings,
-		);
-	}
+  if (attribute.ts.items) {
+    collectPhpGenerationWarnings(
+      attribute.ts.items,
+      `${pathLabel}[]`,
+      warnings,
+    );
+  }
+  for (const [key, property] of Object.entries(attribute.ts.properties ?? {})) {
+    collectPhpGenerationWarnings(property, `${pathLabel}.${key}`, warnings);
+  }
+  for (const [branchKey, branch] of Object.entries(
+    attribute.ts.union?.branches ?? {},
+  )) {
+    collectPhpGenerationWarnings(
+      branch,
+      `${pathLabel}<${branchKey}>`,
+      warnings,
+    );
+  }
 }
 
 /**
@@ -559,40 +556,40 @@ export function collectPhpGenerationWarnings(
  * @category Schema
  */
 export function renderPhpValue(value: unknown, indentLevel: number): string {
-	const indent = "\t".repeat(indentLevel);
-	const nestedIndent = "\t".repeat(indentLevel + 1);
+  const indent = '\t'.repeat(indentLevel);
+  const nestedIndent = '\t'.repeat(indentLevel + 1);
 
-	if (value === null) {
-		return "null";
-	}
-	if (typeof value === "string") {
-		return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
-	}
-	if (typeof value === "number" || typeof value === "boolean") {
-		return String(value);
-	}
-	if (Array.isArray(value)) {
-		if (value.length === 0) {
-			return "[]";
-		}
-		const items = value.map(
-			(item) => `${nestedIndent}${renderPhpValue(item, indentLevel + 1)}`,
-		);
-		return `[\n${items.join(",\n")}\n${indent}]`;
-	}
-	if (typeof value === "object") {
-		const entries = Object.entries(value as Record<string, unknown>);
-		if (entries.length === 0) {
-			return "[]";
-		}
-		const items = entries.map(
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '[]';
+    }
+    const items = value.map(
+      (item) => `${nestedIndent}${renderPhpValue(item, indentLevel + 1)}`,
+    );
+    return `[\n${items.join(',\n')}\n${indent}]`;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) {
+      return '[]';
+    }
+    const items = entries.map(
 			([key, item]) =>
-				`${nestedIndent}'${key.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}' => ${renderPhpValue(item, indentLevel + 1)}`,
+				`${nestedIndent}'${key.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}' => ${renderPhpValue(item, indentLevel + 1)}`,
 		);
-		return `[\n${items.join(",\n")}\n${indent}]`;
-	}
+    return `[\n${items.join(',\n')}\n${indent}]`;
+  }
 
-	throw new Error(
-		`Unable to encode PHP value for manifest node: ${String(value)}`,
-	);
+  throw new Error(
+    `Unable to encode PHP value for manifest node: ${String(value)}`,
+  );
 }

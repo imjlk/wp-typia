@@ -810,7 +810,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
     'export function buildAiFeatureSyncScriptSource(',
   );
   expect(aiSyncScriptSource).toContain(
-    "projectWordPressAiSchema",
+    'projectWordPressAiSchema',
   );
   expect(aiSyncScriptSource).not.toContain('function buildAiFeatureApiSource(');
 	expect(aiAnchorsSource).toContain(
@@ -830,7 +830,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 		'function buildAiFeatureNoResourcesGuard(',
 	);
 	expect(aiSyncRestAnchorsSource).toContain(
-		"feature.restManifest.contracts !== null",
+		'feature.restManifest.contracts !== null',
 	);
 	expect(aiSyncRestAnchorsSource).not.toContain(
 		'async function ensureAiFeatureBootstrapAnchors(',

@@ -1,33 +1,33 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { patchFile } from "./cli-add-shared.js";
+import { patchFile } from './cli-add-shared.js';
 import {
-	findExecutablePatternMatch,
-	hasExecutablePattern,
-	hasUncommentedPattern,
-	maskTypeScriptCommentsAndLiterals,
-	type SourceRange,
-} from "../shared/ts-source-masking.js";
+  findExecutablePatternMatch,
+  hasExecutablePattern,
+  hasUncommentedPattern,
+  maskTypeScriptCommentsAndLiterals,
+  type SourceRange,
+} from '../shared/ts-source-masking.js';
 
 const SCAFFOLD_REGISTRATION_SETTINGS_CALL_PATTERN =
 	/registerScaffoldBlockType\s*\(\s*registration\s*\.\s*name\s*,\s*registration\s*\.\s*settings\s*\)\s*;?/u;
 
 function isIdentifierBoundary(source: string, index: number): boolean {
-	if (index < 0 || index >= source.length) {
-		return true;
-	}
+  if (index < 0 || index >= source.length) {
+    return true;
+  }
 
-	return !/[A-Za-z0-9_$]/u.test(source[index] ?? "");
+  return !/[A-Za-z0-9_$]/u.test(source[index] ?? '');
 }
 
 function skipWhitespace(source: string, index: number): number {
-	let cursor = index;
+  let cursor = index;
 
-	while (cursor < source.length && /\s/u.test(source[cursor] ?? "")) {
-		cursor += 1;
-	}
+  while (cursor < source.length && /\s/u.test(source[cursor] ?? '')) {
+    cursor += 1;
+  }
 
-	return cursor;
+  return cursor;
 }
 
 function findMatchingDelimiterEnd(
@@ -36,26 +36,26 @@ function findMatchingDelimiterEnd(
 	openDelimiter: string,
 	closeDelimiter: string,
 ): number | undefined {
-	let depth = 0;
+  let depth = 0;
 
-	for (let index = openIndex; index < source.length; index += 1) {
-		const char = source[index];
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index];
 
-		if (char === openDelimiter) {
-			depth += 1;
-			continue;
-		}
+    if (char === openDelimiter) {
+      depth += 1;
+      continue;
+    }
 
-		if (char === closeDelimiter) {
-			depth -= 1;
+    if (char === closeDelimiter) {
+      depth -= 1;
 
-			if (depth === 0) {
-				return index + 1;
-			}
-		}
-	}
+      if (depth === 0) {
+        return index + 1;
+      }
+    }
+  }
 
-	return undefined;
+  return undefined;
 }
 
 /**
@@ -71,64 +71,69 @@ export function findExecutableCallRange(
 	source: string,
 	callName: string,
 ): SourceRange | undefined {
-	const maskedSource = maskTypeScriptCommentsAndLiterals(source);
-	let searchIndex = 0;
+  const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+  let searchIndex = 0;
 
-	while (searchIndex < maskedSource.length) {
-		const callNameIndex = maskedSource.indexOf(callName, searchIndex);
+  while (searchIndex < maskedSource.length) {
+    const callNameIndex = maskedSource.indexOf(callName, searchIndex);
 
-		if (callNameIndex === -1) {
-			return undefined;
-		}
+    if (callNameIndex === -1) {
+      return undefined;
+    }
 
-		const callNameEnd = callNameIndex + callName.length;
-		if (
+    const callNameEnd = callNameIndex + callName.length;
+    if (
 			!isIdentifierBoundary(maskedSource, callNameIndex - 1) ||
 			!isIdentifierBoundary(maskedSource, callNameEnd)
 		) {
-			searchIndex = callNameEnd;
-			continue;
-		}
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		let cursor = skipWhitespace(maskedSource, callNameEnd);
-		if (maskedSource[cursor] === "<") {
-			const genericEnd = findMatchingDelimiterEnd(maskedSource, cursor, "<", ">");
-			if (genericEnd === undefined) {
-				searchIndex = callNameEnd;
-				continue;
-			}
-			cursor = skipWhitespace(maskedSource, genericEnd);
-		}
+    let cursor = skipWhitespace(maskedSource, callNameEnd);
+    if (maskedSource[cursor] === '<') {
+      const genericEnd = findMatchingDelimiterEnd(
+        maskedSource,
+        cursor,
+        '<',
+        '>',
+      );
+      if (genericEnd === undefined) {
+        searchIndex = callNameEnd;
+        continue;
+      }
+      cursor = skipWhitespace(maskedSource, genericEnd);
+    }
 
-		if (maskedSource[cursor] !== "(") {
-			searchIndex = callNameEnd;
-			continue;
-		}
+    if (maskedSource[cursor] !== '(') {
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		const callEnd = findMatchingDelimiterEnd(maskedSource, cursor, "(", ")");
-		if (callEnd === undefined) {
-			searchIndex = callNameEnd;
-			continue;
-		}
+    const callEnd = findMatchingDelimiterEnd(maskedSource, cursor, '(', ')');
+    if (callEnd === undefined) {
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		let end = skipWhitespace(maskedSource, callEnd);
-		if (maskedSource[end] === ";") {
-			end += 1;
-		}
+    let end = skipWhitespace(maskedSource, callEnd);
+    if (maskedSource[end] === ';') {
+      end += 1;
+    }
 
-		return {
-			end,
-			start: callNameIndex,
-		};
-	}
+    return {
+      end,
+      start: callNameIndex,
+    };
+  }
 
-	return undefined;
+  return undefined;
 }
 
 function findBlockRegistrationCallRange(source: string): SourceRange | undefined {
-	return (
-		findExecutableCallRange(source, "registerScaffoldBlockType") ??
-		findExecutableCallRange(source, "registerBlockType")
+  return (
+		findExecutableCallRange(source, 'registerScaffoldBlockType') ??
+		findExecutableCallRange(source, 'registerBlockType')
 	);
 }
 
@@ -151,13 +156,13 @@ export async function ensureWorkspaceEntrypointCall({
 	importLine,
 	importPattern,
 }: {
-	blockIndexPath: string;
-	callLine: string;
-	callPattern: RegExp;
-	importLine: string;
-	importPattern: RegExp;
+  blockIndexPath: string;
+  callLine: string;
+  callPattern: RegExp;
+  importLine: string;
+  importPattern: RegExp;
 }): Promise<void> {
-	await patchFile(blockIndexPath, (source) => {
+  await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
@@ -172,7 +177,7 @@ export async function ensureWorkspaceEntrypointCall({
 					nextSource.slice(0, callRange.end),
 					`\n${callLine}\n`,
 					nextSource.slice(callRange.end),
-				].join("");
+				].join('');
 			} else {
 				nextSource = `${nextSource.trimEnd()}\n\n${callLine}\n`;
 			}
@@ -208,13 +213,13 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 	importLine,
 	importPattern,
 }: {
-	blockIndexPath: string;
-	callLine: string;
-	callPattern: RegExp;
-	importLine: string;
-	importPattern: RegExp;
+  blockIndexPath: string;
+  callLine: string;
+  callPattern: RegExp;
+  importLine: string;
+  importPattern: RegExp;
 }): Promise<void> {
-	await patchFile(blockIndexPath, (source) => {
+  await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
@@ -238,7 +243,7 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 				nextSource.slice(0, callRange.start),
 				`${callLine}\n`,
 				nextSource.slice(callRange.start),
-			].join("");
+			].join('');
 		}
 
 		return nextSource;

@@ -1,49 +1,49 @@
-import fs from 'node:fs'
-import { promises as fsp } from 'node:fs'
-import path from 'node:path'
+import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
 import {
   assertExternalTemplateFileSize,
   getExternalTemplatePackageJsonMaxBytes,
-} from './external-template-guards.js'
+} from './external-template-guards.js';
 import {
   getBuiltInTemplateLayerDirs,
   isOmittableBuiltInTemplateLayerDir,
-} from './template-builtins.js'
-import { copyRawDirectory } from './template-render.js'
-import { createManagedTempRoot } from '../shared/temp-roots.js'
-import { pathExists } from '../shared/fs-async.js'
+} from './template-builtins.js';
+import { copyRawDirectory } from './template-render.js';
+import { createManagedTempRoot } from '../shared/temp-roots.js';
+import { pathExists } from '../shared/fs-async.js';
 import {
   readJsonFile,
   readJsonFileSync,
   safeJsonParse,
-} from '../shared/json-utils.js'
+} from '../shared/json-utils.js';
 import type {
   ResolvedTemplateSource,
   SeedSource,
   TemplateVariableContext,
-} from './template-source-contracts.js'
+} from './template-source-contracts.js';
 
 async function cleanupSeedRootPair(
   cleanup: () => Promise<void>,
   seedCleanup?: (() => Promise<void>) | undefined,
 ): Promise<void> {
-  let cleanupError: unknown
+  let cleanupError: unknown;
 
   try {
-    await cleanup()
+    await cleanup();
   } catch (error) {
-    cleanupError = error
+    cleanupError = error;
   }
 
   try {
-    await seedCleanup?.()
+    await seedCleanup?.();
   } catch (error) {
-    cleanupError ??= error
+    cleanupError ??= error;
   }
 
   if (cleanupError !== undefined) {
-    throw cleanupError
+    throw cleanupError;
   }
 }
 
@@ -53,13 +53,13 @@ function getDefaultCategoryFromBlockJson(
   return typeof blockJson.category === 'string' &&
     blockJson.category.trim().length > 0
     ? blockJson.category.trim()
-    : 'widgets'
+    : 'widgets';
 }
 
 function readRemoteBlockJson(blockDir: string): Record<string, unknown> {
   const sourceRoot = fs.existsSync(path.join(blockDir, 'src'))
     ? path.join(blockDir, 'src')
-    : blockDir
+    : blockDir;
   for (const candidate of [
     path.join(blockDir, 'block.json'),
     path.join(sourceRoot, 'block.json'),
@@ -67,17 +67,17 @@ function readRemoteBlockJson(blockDir: string): Record<string, unknown> {
     if (fs.existsSync(candidate)) {
       return readJsonFileSync<Record<string, unknown>>(candidate, {
         context: 'remote block metadata',
-      })
+      });
     }
   }
 
-  throw new Error(`Unable to locate block.json in ${blockDir}`)
+  throw new Error(`Unable to locate block.json in ${blockDir}`);
 }
 
 async function readRemoteBlockJsonAsync(
   blockDir: string,
 ): Promise<Record<string, unknown>> {
-  const sourceRoot = await getSeedSourceRoot(blockDir)
+  const sourceRoot = await getSeedSourceRoot(blockDir);
   for (const candidate of [
     path.join(blockDir, 'block.json'),
     path.join(sourceRoot, 'block.json'),
@@ -85,11 +85,11 @@ async function readRemoteBlockJsonAsync(
     if (await pathExists(candidate)) {
       return readJsonFile<Record<string, unknown>>(candidate, {
         context: 'remote block metadata',
-      })
+      });
     }
   }
 
-  throw new Error(`Unable to locate block.json in ${blockDir}`)
+  throw new Error(`Unable to locate block.json in ${blockDir}`);
 }
 
 /**
@@ -105,10 +105,10 @@ async function readRemoteBlockJsonAsync(
  */
 export function getDefaultCategory(sourceDir: string): string {
   try {
-    const blockJson = readRemoteBlockJson(sourceDir)
-    return getDefaultCategoryFromBlockJson(blockJson)
+    const blockJson = readRemoteBlockJson(sourceDir);
+    return getDefaultCategoryFromBlockJson(blockJson);
   } catch {
-    return 'widgets'
+    return 'widgets';
   }
 }
 
@@ -120,10 +120,10 @@ export function getDefaultCategory(sourceDir: string): string {
  */
 export async function getDefaultCategoryAsync(sourceDir: string): Promise<string> {
   try {
-    const blockJson = await readRemoteBlockJsonAsync(sourceDir)
-    return getDefaultCategoryFromBlockJson(blockJson)
+    const blockJson = await readRemoteBlockJsonAsync(sourceDir);
+    return getDefaultCategoryFromBlockJson(blockJson);
   } catch {
-    return 'widgets'
+    return 'widgets';
   }
 }
 
@@ -138,14 +138,14 @@ function readTemplatePackageJson(
     path.join(sourceDir, 'package.json'),
   ]) {
     if (!fs.existsSync(candidate)) {
-      continue
+      continue;
     }
 
     try {
       assertExternalTemplateFileSize(candidate, {
         label: `Template metadata file "${candidate}"`,
         maxBytes: getExternalTemplatePackageJsonMaxBytes(),
-      })
+      });
       return {
         packageJson: safeJsonParse<{
           wpTypia?: { projectType?: unknown }
@@ -154,17 +154,17 @@ function readTemplatePackageJson(
           filePath: candidate,
         }),
         sourcePath: candidate,
-      }
+      };
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Unknown parse failure'
+        error instanceof Error ? error.message : 'Unknown parse failure';
       throw new Error(
         `Failed to parse template metadata file "${candidate}": ${message}`,
-      )
+      );
     }
   }
 
-  return null
+  return null;
 }
 
 async function readTemplatePackageJsonAsync(
@@ -178,14 +178,14 @@ async function readTemplatePackageJsonAsync(
     path.join(sourceDir, 'package.json'),
   ]) {
     if (!(await pathExists(candidate))) {
-      continue
+      continue;
     }
 
     try {
       assertExternalTemplateFileSize(candidate, {
         label: `Template metadata file "${candidate}"`,
         maxBytes: getExternalTemplatePackageJsonMaxBytes(),
-      })
+      });
       return {
         packageJson: safeJsonParse<{
           wpTypia?: { projectType?: unknown }
@@ -194,17 +194,17 @@ async function readTemplatePackageJsonAsync(
           filePath: candidate,
         }),
         sourcePath: candidate,
-      }
+      };
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Unknown parse failure'
+        error instanceof Error ? error.message : 'Unknown parse failure';
       throw new Error(
         `Failed to parse template metadata file "${candidate}": ${message}`,
-      )
+      );
     }
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -217,22 +217,22 @@ async function readTemplatePackageJsonAsync(
  * versioned target.
  */
 export function getTemplateProjectType(sourceDir: string): string | null {
-  const packageJsonEntry = readTemplatePackageJson(sourceDir)
+  const packageJsonEntry = readTemplatePackageJson(sourceDir);
   if (!packageJsonEntry) {
-    return null
+    return null;
   }
 
-  const projectType = packageJsonEntry.packageJson.wpTypia?.projectType
+  const projectType = packageJsonEntry.packageJson.wpTypia?.projectType;
   if (projectType === undefined) {
-    return null
+    return null;
   }
   if (typeof projectType !== 'string' || projectType.trim().length === 0) {
     throw new Error(
       `Template metadata file "${packageJsonEntry.sourcePath}" defines wpTypia.projectType, but it must be a non-empty string.`,
-    )
+    );
   }
 
-  return projectType
+  return projectType;
 }
 
 /**
@@ -244,22 +244,22 @@ export function getTemplateProjectType(sourceDir: string): string | null {
 export async function getTemplateProjectTypeAsync(
   sourceDir: string,
 ): Promise<string | null> {
-  const packageJsonEntry = await readTemplatePackageJsonAsync(sourceDir)
+  const packageJsonEntry = await readTemplatePackageJsonAsync(sourceDir);
   if (!packageJsonEntry) {
-    return null
+    return null;
   }
 
-  const projectType = packageJsonEntry.packageJson.wpTypia?.projectType
+  const projectType = packageJsonEntry.packageJson.wpTypia?.projectType;
   if (projectType === undefined) {
-    return null
+    return null;
   }
   if (typeof projectType !== 'string' || projectType.trim().length === 0) {
     throw new Error(
       `Template metadata file "${packageJsonEntry.sourcePath}" defines wpTypia.projectType, but it must be a non-empty string.`,
-    )
+    );
   }
 
-  return projectType
+  return projectType;
 }
 
 /**
@@ -273,31 +273,31 @@ export async function normalizeWpTypiaTemplateSeed(
 ): Promise<SeedSource> {
   const { path: tempRoot, cleanup } = await createManagedTempRoot(
     'wp-typia-template-source-',
-  )
-  const normalizedDir = path.join(tempRoot, 'template')
+  );
+  const normalizedDir = path.join(tempRoot, 'template');
   try {
     await copyRawDirectory(seed.blockDir, normalizedDir, {
       filter: async (sourcePath, _targetPath, entry) => {
         const mustacheVariantPath = path.join(
           path.dirname(sourcePath),
           `${entry.name}.mustache`,
-        )
+        );
         return !(
           entry.isFile() &&
           (entry.name === 'package.json' || entry.name === 'README.md') &&
           (await pathExists(mustacheVariantPath))
-        )
+        );
       },
-    })
+    });
     if (seed.assetsDir && (await pathExists(seed.assetsDir))) {
       await fsp.cp(seed.assetsDir, path.join(normalizedDir, 'assets'), {
         recursive: true,
         force: true,
-      })
+      });
     }
   } catch (error) {
-    await Promise.allSettled([cleanup(), seed.cleanup?.()])
-    throw error
+    await Promise.allSettled([cleanup(), seed.cleanup?.()]);
+    throw error;
   }
 
   return {
@@ -306,30 +306,30 @@ export async function normalizeWpTypiaTemplateSeed(
     rootDir: normalizedDir,
     selectedVariant: seed.selectedVariant,
     warnings: seed.warnings,
-  }
+  };
 }
 
 function renderTypeScriptLiteral(value: unknown): string {
   if (typeof value === 'string') {
-    return JSON.stringify(value)
+    return JSON.stringify(value);
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
+    return String(value);
   }
 
-  return 'undefined'
+  return 'undefined';
 }
 
 function renderTagsForAttribute(attribute: Record<string, unknown>): string[] {
-  const tags: string[] = []
+  const tags: string[] = [];
   if (
     typeof attribute.default === 'string' ||
     typeof attribute.default === 'number' ||
     typeof attribute.default === 'boolean'
   ) {
-    tags.push(`tags.Default<${renderTypeScriptLiteral(attribute.default)}>`)
+    tags.push(`tags.Default<${renderTypeScriptLiteral(attribute.default)}>`);
   }
-  return tags
+  return tags;
 }
 
 function renderAttributeBaseType(
@@ -339,28 +339,28 @@ function renderAttributeBaseType(
   if (Array.isArray(attribute.enum) && attribute.enum.length > 0) {
     return attribute.enum
       .map((item) => renderTypeScriptLiteral(item))
-      .join(' | ')
+      .join(' | ');
   }
 
   switch (attribute.type) {
     case 'string':
-      return 'string'
+      return 'string';
     case 'number':
-      return 'number'
+      return 'number';
     case 'boolean':
-      return 'boolean'
+      return 'boolean';
     case 'array':
-      return 'unknown[]'
+      return 'unknown[]';
     case 'object':
-      return 'Record<string, unknown>'
+      return 'Record<string, unknown>';
     default:
       if (
         typeof attributeName === 'string' &&
         attributeName.toLowerCase().includes('class')
       ) {
-        return 'string'
+        return 'string';
       }
-      return 'unknown'
+      return 'unknown';
   }
 }
 
@@ -371,26 +371,26 @@ function buildRemoteTypesSource(
   const attributes = (blockJson.attributes ?? {}) as Record<
     string,
     Record<string, unknown>
-  >
+  >;
   const lines = [
     'import { tags } from "typia";',
     '',
     `export interface ${context.pascalCase}Attributes {`,
-  ]
+  ];
 
   for (const [name, attribute] of Object.entries(attributes)) {
-    const baseType = renderAttributeBaseType(name, attribute)
-    const tagList = renderTagsForAttribute(attribute)
+    const baseType = renderAttributeBaseType(name, attribute);
+    const tagList = renderTagsForAttribute(attribute);
     const baseTypeWithGrouping =
       tagList.length > 0 && baseType.includes(' | ')
         ? `(${baseType})`
-        : baseType
-    const renderedType = [baseTypeWithGrouping, ...tagList].join(' & ')
-    lines.push(`  ${JSON.stringify(name)}?: ${renderedType};`)
+        : baseType;
+    const renderedType = [baseTypeWithGrouping, ...tagList].join(' & ');
+    lines.push(`  ${JSON.stringify(name)}?: ${renderedType};`);
   }
 
-  lines.push('}', '')
-  return lines.join('\n')
+  lines.push('}', '');
+  return lines.join('\n');
 }
 
 function buildRemoteBlockJsonTemplate(
@@ -402,97 +402,97 @@ function buildRemoteBlockJsonTemplate(
     name: '{{namespace}}/{{slug}}',
     textdomain: '{{textDomain}}',
     title: '{{title}}',
-  }
+  };
 
   if (!Array.isArray(merged.keywords) || merged.keywords.length === 0) {
-    merged.keywords = ['{{keyword}}', 'typia', 'block']
+    merged.keywords = ['{{keyword}}', 'typia', 'block'];
   }
 
-  return `${JSON.stringify(merged, null, '\t')}\n`
+  return `${JSON.stringify(merged, null, '\t')}\n`;
 }
 
 async function rewriteBlockJsonImports(directory: string): Promise<void> {
-  const textExtensions = new Set(['.js', '.jsx', '.ts', '.tsx'])
-  const targetBlockJsonPath = path.join(directory, 'block.json')
+  const textExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
+  const targetBlockJsonPath = path.join(directory, 'block.json');
 
   async function visit(currentPath: string): Promise<void> {
-    const stats = await fsp.stat(currentPath)
+    const stats = await fsp.stat(currentPath);
     if (stats.isDirectory()) {
-      const entries = await fsp.readdir(currentPath)
+      const entries = await fsp.readdir(currentPath);
       for (const entry of entries) {
-        await visit(path.join(currentPath, entry))
+        await visit(path.join(currentPath, entry));
       }
-      return
+      return;
     }
 
     if (!textExtensions.has(path.extname(currentPath))) {
-      return
+      return;
     }
 
-    const content = await fsp.readFile(currentPath, 'utf8')
+    const content = await fsp.readFile(currentPath, 'utf8');
     const relativeSpecifier = path
       .relative(path.dirname(currentPath), targetBlockJsonPath)
-      .replace(/\\/g, '/')
+      .replace(/\\/g, '/');
     const normalizedSpecifier = relativeSpecifier.startsWith('.')
       ? relativeSpecifier
-      : `./${relativeSpecifier}`
+      : `./${relativeSpecifier}`;
     const next = content.replace(
       /(['"])\.{1,2}\/[^'"]*block\.json\1/g,
       `$1${normalizedSpecifier}$1`,
-    )
+    );
     if (next !== content) {
-      await fsp.writeFile(currentPath, next, 'utf8')
+      await fsp.writeFile(currentPath, next, 'utf8');
     }
   }
 
-  await visit(directory)
+  await visit(directory);
 }
 
 async function patchRemotePackageJson(
   templateDir: string,
   needsInteractivity: boolean,
 ): Promise<void> {
-  const packageJsonPath = path.join(templateDir, 'package.json.mustache')
+  const packageJsonPath = path.join(templateDir, 'package.json.mustache');
   const packageJson = await readJsonFile<{
     dependencies?: Record<string, string>
     devDependencies?: Record<string, string>
   }>(packageJsonPath, {
     context: 'remote package template manifest',
-  })
-  const existingDependencies = { ...(packageJson.dependencies ?? {}) }
-  const existingDevDependencies = { ...(packageJson.devDependencies ?? {}) }
+  });
+  const existingDependencies = { ...(packageJson.dependencies ?? {}) };
+  const existingDevDependencies = { ...(packageJson.devDependencies ?? {}) };
 
-  delete existingDependencies['@wp-typia/project-tools']
-  delete existingDevDependencies['@wp-typia/project-tools']
+  delete existingDependencies['@wp-typia/project-tools'];
+  delete existingDevDependencies['@wp-typia/project-tools'];
 
   packageJson.devDependencies = {
     '@wp-typia/block-runtime': '{{blockRuntimePackageVersion}}',
     '@wp-typia/block-types': '{{blockTypesPackageVersion}}',
     ...existingDevDependencies,
-  }
+  };
 
   if (needsInteractivity) {
     packageJson.dependencies = {
       ...existingDependencies,
       '@wordpress/interactivity': '^6.29.0',
-    }
+    };
   } else if (Object.keys(existingDependencies).length > 0) {
-    packageJson.dependencies = existingDependencies
+    packageJson.dependencies = existingDependencies;
   } else {
-    delete packageJson.dependencies
+    delete packageJson.dependencies;
   }
 
   await fsp.writeFile(
     packageJsonPath,
     `${JSON.stringify(packageJson, null, 2)}\n`,
     'utf8',
-  )
+  );
 }
 
 async function getSeedSourceRoot(blockDir: string): Promise<string> {
   return (await pathExists(path.join(blockDir, 'src')))
     ? path.join(blockDir, 'src')
-    : blockDir
+    : blockDir;
 }
 
 async function findSeedRenderPhp(seed: SeedSource): Promise<string | null> {
@@ -501,10 +501,10 @@ async function findSeedRenderPhp(seed: SeedSource): Promise<string | null> {
     path.join(seed.rootDir, 'render.php'),
   ]) {
     if (await pathExists(candidate)) {
-      return candidate
+      return candidate;
     }
   }
-  return null
+  return null;
 }
 
 async function removeSeedEntryConflicts(templateDir: string): Promise<void> {
@@ -540,7 +540,7 @@ async function removeSeedEntryConflicts(templateDir: string): Promise<void> {
     'view.ts',
     'view.tsx',
   ]) {
-    await fsp.rm(path.join(templateDir, 'src', filename), { force: true })
+    await fsp.rm(path.join(templateDir, 'src', filename), { force: true });
   }
 }
 
@@ -557,54 +557,57 @@ export async function normalizeCreateBlockSubset(
 ): Promise<ResolvedTemplateSource> {
   const { path: tempRoot, cleanup } = await createManagedTempRoot(
     'wp-typia-remote-template-',
-  )
+  );
   try {
-    const templateDir = path.join(tempRoot, 'template')
-    const blockJson = await readRemoteBlockJsonAsync(seed.blockDir)
-    const sourceRoot = await getSeedSourceRoot(seed.blockDir)
+    const templateDir = path.join(tempRoot, 'template');
+    const blockJson = await readRemoteBlockJsonAsync(seed.blockDir);
+    const sourceRoot = await getSeedSourceRoot(seed.blockDir);
 
-    await fsp.mkdir(templateDir, { recursive: true })
+    await fsp.mkdir(templateDir, { recursive: true });
     for (const layerDir of getBuiltInTemplateLayerDirs('basic')) {
       if (!(await pathExists(layerDir))) {
         if (isOmittableBuiltInTemplateLayerDir('basic', layerDir)) {
-          continue
+          continue;
         }
-        throw new Error(`Built-in template layer is missing: ${layerDir}`)
+        throw new Error(`Built-in template layer is missing: ${layerDir}`);
       }
       await fsp.cp(layerDir, templateDir, {
         recursive: true,
         force: true,
-      })
+      });
     }
-    await removeSeedEntryConflicts(templateDir)
+    await removeSeedEntryConflicts(templateDir);
     await fsp.cp(sourceRoot, path.join(templateDir, 'src'), {
       recursive: true,
       force: true,
-    })
+    });
 
-    const remoteRenderPath = await findSeedRenderPhp(seed)
+    const remoteRenderPath = await findSeedRenderPhp(seed);
     if (remoteRenderPath) {
-      await fsp.copyFile(remoteRenderPath, path.join(templateDir, 'render.php'))
+      await fsp.copyFile(
+        remoteRenderPath,
+        path.join(templateDir, 'render.php'),
+      );
     }
 
     if (seed.assetsDir && (await pathExists(seed.assetsDir))) {
       await fsp.cp(seed.assetsDir, path.join(templateDir, 'assets'), {
         recursive: true,
         force: true,
-      })
+      });
     }
 
     await fsp.writeFile(
       path.join(templateDir, 'src', 'types.ts'),
       buildRemoteTypesSource(blockJson, context),
       'utf8',
-    )
+    );
     await fsp.writeFile(
       path.join(templateDir, 'src', 'block.json'),
       buildRemoteBlockJsonTemplate(blockJson),
       'utf8',
-    )
-    await rewriteBlockJsonImports(path.join(templateDir, 'src'))
+    );
+    await rewriteBlockJsonImports(path.join(templateDir, 'src'));
 
     const needsInteractivity =
       typeof blockJson.viewScriptModule === 'string' ||
@@ -622,9 +625,9 @@ export async function normalizeCreateBlockSubset(
             pathExists(path.join(templateDir, 'src', filename)),
           ),
         )
-      ).some(Boolean)
+      ).some(Boolean);
 
-    await patchRemotePackageJson(templateDir, needsInteractivity)
+    await patchRemotePackageJson(templateDir, needsInteractivity);
 
     return {
       id: 'remote:create-block-subset',
@@ -641,9 +644,9 @@ export async function normalizeCreateBlockSubset(
       templateDir,
       warnings: seed.warnings ?? [],
       cleanup: async () => cleanupSeedRootPair(cleanup, seed.cleanup),
-    }
+    };
   } catch (error) {
-    await Promise.allSettled([cleanup(), seed.cleanup?.()])
-    throw error
+    await Promise.allSettled([cleanup(), seed.cleanup?.()]);
+    throw error;
   }
 }

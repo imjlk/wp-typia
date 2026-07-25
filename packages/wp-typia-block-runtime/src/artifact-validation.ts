@@ -31,7 +31,9 @@ export function isNullableBoolean(value: unknown): value is boolean | null | und
 export function isNullableFiniteNumber(
   value: unknown,
 ): value is number | null | undefined {
-  return value === undefined || value === null || (typeof value === 'number' && Number.isFinite(value));
+  return value === undefined || value === null || (typeof value === 'number' && Number.isFinite(
+    value,
+  ));
 }
 
 export function isNullableJsonValue(value: unknown): boolean {
@@ -47,6 +49,7 @@ export function isRecordOf<TValue>(
   predicate: (entry: unknown) => entry is TValue,
 ): value is Record<string, TValue> {
   return (
-    isPlainObject(value) && Object.values(value).every((entry) => predicate(entry))
+    isPlainObject(value) &&
+    Object.values(value).every((entry) => predicate(entry))
   );
 }

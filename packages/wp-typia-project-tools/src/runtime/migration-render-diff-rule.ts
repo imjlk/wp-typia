@@ -1,1 +1,1 @@
-export * from "./migration/migration-render-diff-rule.js";
+export * from './migration/migration-render-diff-rule.js';

@@ -1,26 +1,26 @@
-import type { BlockAttributes } from "./shared/block-attributes.js";
+import type { BlockAttributes } from './shared/block-attributes.js';
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityFeature,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
-} from "./compatibility.js";
-import { type DiagnosticLogger } from "./shared/diagnostics.js";
-import { isObjectRecord } from "./shared/object-utils.js";
+} from './compatibility.js';
+import { type DiagnosticLogger } from './shared/diagnostics.js';
+import { isObjectRecord } from './shared/object-utils.js';
 import {
   createBindingSourceDiagnostics,
   handleBindingSourceDiagnostics,
-} from "./bindings-diagnostics.js";
+} from './bindings-diagnostics.js';
 import {
   collectBindingSourceCompatibilityFeatures,
   createBindingCompatibilityManifest,
   createBindingSourceCompatibilityManifest,
-} from "./bindings-manifest.js";
+} from './bindings-manifest.js';
 import {
   resolveDefineBindingSourceSettings,
   splitDefineBindingSourceInput,
-} from "./bindings-settings.js";
+} from './bindings-settings.js';
 
 export {
   collectBindingSourceCompatibilityFeatures,
@@ -32,12 +32,12 @@ export type BindingSourceName = `${string}/${string}`;
 export type BindingSourceArgs = Readonly<Record<string, unknown>>;
 
 export type BindingFieldType =
-  | "array"
-  | "boolean"
-  | "integer"
-  | "number"
-  | "object"
-  | "string";
+  | 'array'
+  | 'boolean'
+  | 'integer'
+  | 'number'
+  | 'object'
+  | 'string';
 
 export interface BindingSourceField<
   TArgs extends BindingSourceArgs = BindingSourceArgs,
@@ -50,12 +50,13 @@ export interface BindingSourceField<
 
 export type BlockBindingAttributeName<
   TAttributes extends BlockAttributes = BlockAttributes,
-> = Extract<Exclude<keyof TAttributes, "metadata">, string>;
+> = Extract<Exclude<keyof TAttributes, 'metadata'>, string>;
 
 export interface BindingSourceBindableAttributes<
   TAttributes extends BlockAttributes = BlockAttributes,
   TBlockName extends string = string,
-  TAttributesList extends readonly BlockBindingAttributeName<TAttributes>[] = readonly BlockBindingAttributeName<TAttributes>[],
+  TAttributesList extends readonly BlockBindingAttributeName<TAttributes>[] =
+    readonly BlockBindingAttributeName<TAttributes>[],
 > {
   readonly attributes: TAttributesList;
   readonly blockName: TBlockName;
@@ -119,7 +120,7 @@ export type StripDefineBindingSourceOptions<TSource> = Omit<
 >;
 
 export const DEFINED_BLOCK_BINDING_SOURCE_METADATA: unique symbol = Symbol.for(
-  "@wp-typia/block-types/defined-binding-source",
+  '@wp-typia/block-types/defined-binding-source',
 ) as never;
 
 export type DefinedBlockBindingSourceMetadataKey =
@@ -190,14 +191,14 @@ export type TypedBlockMetadataBindings<
 > = BlockMetadataBindings<TBindings>;
 
 export type BindingSourceDiagnosticCode =
-  | "duplicate-bindable-attribute"
-  | "duplicate-field-name"
-  | "fields-list-requires-editor"
-  | "invalid-bindable-attribute"
-  | "invalid-block-name"
-  | "invalid-field-name"
-  | "invalid-source-name"
-  | "missing-php-callback";
+  | 'duplicate-bindable-attribute'
+  | 'duplicate-field-name'
+  | 'fields-list-requires-editor'
+  | 'invalid-bindable-attribute'
+  | 'invalid-block-name'
+  | 'invalid-field-name'
+  | 'invalid-source-name'
+  | 'missing-php-callback';
 
 export interface BindingSourceAuthoringDiagnostic {
   readonly attribute?: string | undefined;
@@ -205,7 +206,7 @@ export interface BindingSourceAuthoringDiagnostic {
   readonly code: BindingSourceDiagnosticCode;
   readonly fieldName?: string | undefined;
   readonly message: string;
-  readonly severity: "error" | "warning";
+  readonly severity: 'error' | 'warning';
   readonly sourceName: string;
 }
 
@@ -245,7 +246,7 @@ export function defineBindingSource<
   source: TSource,
   options: DefineBindingSourceOptions = {},
 ): DefinedBindingSource<
-  Extract<TSource["name"], string>,
+  Extract<TSource['name'], string>,
   TSource extends { readonly args: infer TArgs extends BindingSourceArgs }
     ? TArgs
     : BindingSourceArgs,
@@ -299,7 +300,7 @@ export function defineBindingSource<
   );
 
   return normalizedSource as DefinedBindingSource<
-    Extract<TSource["name"], string>,
+    Extract<TSource['name'], string>,
     TSource extends { readonly args: infer TArgs extends BindingSourceArgs }
       ? TArgs
       : BindingSourceArgs,

@@ -1,28 +1,28 @@
 import { __ } from '@wordpress/i18n';
 import {
-	InspectorControls,
-	RichText,
-	useBlockProps,
+  InspectorControls,
+  RichText,
+  useBlockProps,
 } from '@wordpress/block-editor';
 import {
-	Button,
-	Notice,
-	PanelBody,
-	TextControl,
-	ToggleControl,
+  Button,
+  Notice,
+  PanelBody,
+  TextControl,
+  ToggleControl,
 } from '@wordpress/components';
 import currentManifest from './typia.manifest.json';
 import {
-	createEditorModel,
-	parseManifestDocument,
+  createEditorModel,
+  parseManifestDocument,
 } from '@wp-typia/block-runtime/editor';
 import { useTypiaValidation } from '../../shared/hooks';
 import { resolveCurrentEditorPostId } from '../../shared/editor';
 import type { PersistenceLikeButtonAttributes } from './types';
 import {
-	usePersistenceLikeBootstrapQuery,
-	usePersistenceLikeStatusQuery,
-	useToggleLikeMutation,
+  usePersistenceLikeBootstrapQuery,
+  usePersistenceLikeStatusQuery,
+  useToggleLikeMutation,
 } from './data';
 import { createAttributeUpdater, validators } from './validators';
 
@@ -30,13 +30,13 @@ export default function Edit( {
 	attributes,
 	setAttributes,
 }: {
-	attributes: PersistenceLikeButtonAttributes;
-	setAttributes: (
-		attrs: Partial< PersistenceLikeButtonAttributes >
+  attributes: PersistenceLikeButtonAttributes;
+  setAttributes: (
+		attrs: Partial< PersistenceLikeButtonAttributes >,
 	) => void;
 } ) {
-	const editorManifest = parseManifestDocument( currentManifest );
-	const editorFieldMap = new Map(
+  const editorManifest = parseManifestDocument( currentManifest );
+  const editorFieldMap = new Map(
 		createEditorModel( editorManifest, {
 			manual: [ 'content', 'resourceKey' ],
 			labels: {
@@ -45,97 +45,97 @@ export default function Edit( {
 				showCount: __( 'Show Count', 'persistence-examples' ),
 				unlikeLabel: __( 'Unlike Label', 'persistence-examples' ),
 			},
-		} ).map( ( field ) => [ field.path, field ] )
+		} ).map( ( field ) => [ field.path, field ] ),
 	);
-	const showCountField = editorFieldMap.get( 'showCount' );
-	const likeLabelField = editorFieldMap.get( 'likeLabel' );
-	const unlikeLabelField = editorFieldMap.get( 'unlikeLabel' );
-	const { errorMessages, isValid } = useTypiaValidation(
-		attributes,
-		validators.validate
-	);
-	const updateAttribute = createAttributeUpdater( attributes, setAttributes );
-	const showCount =
+  const showCountField = editorFieldMap.get( 'showCount' );
+  const likeLabelField = editorFieldMap.get( 'likeLabel' );
+  const unlikeLabelField = editorFieldMap.get( 'unlikeLabel' );
+  const { errorMessages, isValid } = useTypiaValidation(
+    attributes,
+    validators.validate,
+  );
+  const updateAttribute = createAttributeUpdater( attributes, setAttributes );
+  const showCount =
 		attributes.showCount ??
 		( typeof showCountField?.defaultValue === 'boolean'
-			? showCountField.defaultValue
-			: true );
-	const likeLabel =
+      ? showCountField.defaultValue
+      : true );
+  const likeLabel =
 		attributes.likeLabel ??
 		( typeof likeLabelField?.defaultValue === 'string'
-			? likeLabelField.defaultValue
-			: 'Like this' );
-	const unlikeLabel =
+      ? likeLabelField.defaultValue
+      : 'Like this' );
+  const unlikeLabel =
 		attributes.unlikeLabel ??
 		( typeof unlikeLabelField?.defaultValue === 'string'
-			? unlikeLabelField.defaultValue
-			: 'Unlike' );
-	const currentPostId = resolveCurrentEditorPostId();
-	const liveQueryEnabled =
+      ? unlikeLabelField.defaultValue
+      : 'Unlike' );
+  const currentPostId = resolveCurrentEditorPostId();
+  const liveQueryEnabled =
 		currentPostId > 0 &&
 		typeof attributes.resourceKey === 'string' &&
 		attributes.resourceKey.length > 0;
-	const liveStatusQuery = usePersistenceLikeStatusQuery(
-		{
-			postId: currentPostId,
-			resourceKey: attributes.resourceKey ?? '',
-		},
-		{
-			enabled: liveQueryEnabled,
-			staleTime: 5_000,
-		}
-	);
-	const liveBootstrapQuery = usePersistenceLikeBootstrapQuery(
-		{
-			postId: currentPostId,
-			resourceKey: attributes.resourceKey ?? '',
-		},
-		{
-			enabled: liveQueryEnabled,
-			staleTime: 5_000,
-		}
-	);
-	const liveToggleMutation = useToggleLikeMutation();
-	const liveToggleValidationMessages =
+  const liveStatusQuery = usePersistenceLikeStatusQuery(
+    {
+      postId: currentPostId,
+      resourceKey: attributes.resourceKey ?? '',
+    },
+    {
+      enabled: liveQueryEnabled,
+      staleTime: 5_000,
+    },
+  );
+  const liveBootstrapQuery = usePersistenceLikeBootstrapQuery(
+    {
+      postId: currentPostId,
+      resourceKey: attributes.resourceKey ?? '',
+    },
+    {
+      enabled: liveQueryEnabled,
+      staleTime: 5_000,
+    },
+  );
+  const liveToggleMutation = useToggleLikeMutation();
+  const liveToggleValidationMessages =
 		liveToggleMutation.validation?.isValid === false
-			? liveToggleMutation.validation.errors.map(
-					( error ) => `${ error.path }: ${ error.expected }`
-			  )
-			: [];
-	const liveQueryValidationMessages =
+      ? liveToggleMutation.validation.errors.map(
+          ( error ) => `${ error.path }: ${ error.expected }`,
+        )
+      : [];
+  const liveQueryValidationMessages =
 		liveStatusQuery.validation?.isValid === false
-			? liveStatusQuery.validation.errors.map(
-					( error ) => `${ error.path }: ${ error.expected }`
-			  )
-			: [];
-	let liveErrorMessage: string | null = null;
-	if ( liveToggleMutation.error instanceof Error ) {
-		liveErrorMessage = liveToggleMutation.error.message;
-	} else if ( liveStatusQuery.error instanceof Error ) {
-		liveErrorMessage = liveStatusQuery.error.message;
-	} else if ( liveBootstrapQuery.error instanceof Error ) {
-		liveErrorMessage = liveBootstrapQuery.error.message;
-	}
-	const liveStatus = liveStatusQuery.data;
-	const liveBootstrap = liveBootstrapQuery.data;
-	let liveButtonLabel = likeLabel;
-	if ( liveBootstrap?.likedByCurrentUser === true ) {
-		liveButtonLabel = unlikeLabel;
-	}
-	let liveLikeStateLabel = __( 'Unknown', 'persistence-examples' ) as string;
-	if ( liveBootstrap?.likedByCurrentUser === true ) {
-		liveLikeStateLabel = __( 'Yes', 'persistence-examples' ) as string;
-	} else if ( liveBootstrap?.likedByCurrentUser === false ) {
-		liveLikeStateLabel = __( 'No', 'persistence-examples' ) as string;
-	}
+      ? liveStatusQuery.validation.errors.map(
+          ( error ) => `${ error.path }: ${ error.expected }`,
+        )
+      : [];
+  let liveErrorMessage: string | null = null;
+  if ( liveToggleMutation.error instanceof Error ) {
+    liveErrorMessage = liveToggleMutation.error.message;
+  } else if ( liveStatusQuery.error instanceof Error ) {
+    liveErrorMessage = liveStatusQuery.error.message;
+  } else if ( liveBootstrapQuery.error instanceof Error ) {
+    liveErrorMessage = liveBootstrapQuery.error.message;
+  }
+  const liveStatus = liveStatusQuery.data;
+  const liveBootstrap = liveBootstrapQuery.data;
+  let liveButtonLabel = likeLabel;
+  if ( liveBootstrap?.likedByCurrentUser === true ) {
+    liveButtonLabel = unlikeLabel;
+  }
+  let liveLikeStateLabel = __( 'Unknown', 'persistence-examples' ) as string;
+  if ( liveBootstrap?.likedByCurrentUser === true ) {
+    liveLikeStateLabel = __( 'Yes', 'persistence-examples' ) as string;
+  } else if ( liveBootstrap?.likedByCurrentUser === false ) {
+    liveLikeStateLabel = __( 'No', 'persistence-examples' ) as string;
+  }
 
-	return (
+  return (
 		<>
 			<InspectorControls>
 				<PanelBody
 					title={ __(
 						'Persistence Like Button Settings',
-						'persistence-examples'
+						'persistence-examples',
 					) }
 				>
 					<ToggleControl
@@ -176,25 +176,25 @@ export default function Edit( {
 						}
 						help={ __(
 							'Stable key used by the like-button endpoint.',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					/>
 					<Notice status="info" isDismissible={ false }>
 						{ __(
 							'Policy: authenticated (logged-in user + REST nonce)',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					</Notice>
 					<Notice status="info" isDismissible={ false }>
 						{ __(
 							'Storage: custom-table user likes',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 					</Notice>
 					<PanelBody
 						title={ __(
 							'Live Endpoint Preview',
-							'persistence-examples'
+							'persistence-examples',
 						) }
 						initialOpen={ false }
 					>
@@ -203,14 +203,14 @@ export default function Edit( {
 								<p>
 									{ __(
 										'Editor post ID:',
-										'persistence-examples'
+										'persistence-examples',
 									) }{ ' ' }
 									{ currentPostId }
 								</p>
 								<p>
 									{ __(
 										'Live likes:',
-										'persistence-examples'
+										'persistence-examples',
 									) }{ ' ' }
 									{ typeof liveStatus?.count === 'number'
 										? liveStatus.count
@@ -219,7 +219,7 @@ export default function Edit( {
 								<p>
 									{ __(
 										'Current user liked:',
-										'persistence-examples'
+										'persistence-examples',
 									) }{ ' ' }
 									{ liveLikeStateLabel }
 								</p>
@@ -241,7 +241,7 @@ export default function Edit( {
 									{ liveToggleMutation.isPending
 										? __(
 												'Updating…',
-												'persistence-examples'
+												'persistence-examples',
 										  )
 										: liveButtonLabel }
 								</Button>
@@ -262,17 +262,17 @@ export default function Edit( {
 									{ liveStatusQuery.isFetching
 										? __(
 												'Refreshing…',
-												'persistence-examples'
+												'persistence-examples',
 										  )
 										: __(
 												'Refresh live status',
-												'persistence-examples'
+												'persistence-examples',
 										  ) }
 								</Button>
 								<Notice status="info" isDismissible={ false }>
 									{ __(
 										'This panel uses the new @wp-typia/rest/react query and mutation hooks against the authenticated endpoint surface.',
-										'persistence-examples'
+										'persistence-examples',
 									) }
 								</Notice>
 								{ liveErrorMessage && (
@@ -300,7 +300,7 @@ export default function Edit( {
 							<Notice status="warning" isDismissible={ false }>
 								{ __(
 									'Set a resource key while editing a post to enable the live authenticated endpoint preview.',
-									'persistence-examples'
+									'persistence-examples',
 								) }
 							</Notice>
 						) }
@@ -317,7 +317,7 @@ export default function Edit( {
 					}
 					placeholder={ __(
 						'Persistence like button example',
-						'persistence-examples'
+						'persistence-examples',
 					) }
 				/>
 				<p>

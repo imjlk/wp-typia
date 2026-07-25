@@ -5,25 +5,25 @@
 export function classNames(
 	...args: ( string | Record< string, boolean > | undefined | null | false )[]
 ): string {
-	const classes: string[] = [];
+  const classes: string[] = [];
 
-	for ( const arg of args ) {
-		if ( ! arg ) {
-			continue;
-		}
+  for ( const arg of args ) {
+    if ( ! arg ) {
+      continue;
+    }
 
-		if ( typeof arg === 'string' ) {
-			classes.push( arg );
-		} else if ( typeof arg === 'object' ) {
-			for ( const [ key, value ] of Object.entries( arg ) ) {
-				if ( value ) {
-					classes.push( key );
-				}
-			}
-		}
-	}
+    if ( typeof arg === 'string' ) {
+      classes.push( arg );
+    } else if ( typeof arg === 'object' ) {
+      for ( const [ key, value ] of Object.entries( arg ) ) {
+        if ( value ) {
+          classes.push( key );
+        }
+      }
+    }
+  }
 
-	return classes.join( ' ' );
+  return classes.join( ' ' );
 }
 
 /**
@@ -35,25 +35,25 @@ export function classNames(
 export function blockClass(
 	blockName: string,
 	element?: string,
-	modifier?: string | Record< string, boolean >
+	modifier?: string | Record< string, boolean >,
 ): string {
-	let className = blockName;
+  let className = blockName;
 
-	if ( element ) {
-		className += `__${ element }`;
-	}
+  if ( element ) {
+    className += `__${ element }`;
+  }
 
-	if ( modifier ) {
-		if ( typeof modifier === 'string' ) {
-			className += `--${ modifier }`;
-		} else {
-			for ( const [ mod, enabled ] of Object.entries( modifier ) ) {
-				if ( enabled ) {
-					className += `--${ mod }`;
-				}
-			}
-		}
-	}
+  if ( modifier ) {
+    if ( typeof modifier === 'string' ) {
+      className += `--${ modifier }`;
+    } else {
+      for ( const [ mod, enabled ] of Object.entries( modifier ) ) {
+        if ( enabled ) {
+          className += `--${ mod }`;
+        }
+      }
+    }
+  }
 
-	return className;
+  return className;
 }

@@ -1,6 +1,6 @@
-import type { BuiltInCodeArtifact } from "./built-in-block-code-artifacts.js";
-import { renderArtifact } from "./built-in-block-non-ts-render-utils.js";
-import type { ScaffoldTemplateVariables } from "./scaffold.js";
+import type { BuiltInCodeArtifact } from './built-in-block-code-artifacts.js';
+import { renderArtifact } from './built-in-block-non-ts-render-utils.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
 
 const INTERACTIVITY_STYLE_TEMPLATE = `.{{cssClassName}} {
   position: relative;
@@ -83,12 +83,12 @@ const INTERACTIVITY_EDITOR_STYLE_TEMPLATE = `/**
 export function buildInteractivityArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return [
-		renderArtifact(
-			"src/editor.scss",
-			INTERACTIVITY_EDITOR_STYLE_TEMPLATE,
-			variables,
-		),
-		renderArtifact("src/style.scss", INTERACTIVITY_STYLE_TEMPLATE, variables),
-	];
+  return [
+    renderArtifact(
+      'src/editor.scss',
+      INTERACTIVITY_EDITOR_STYLE_TEMPLATE,
+      variables,
+    ),
+    renderArtifact('src/style.scss', INTERACTIVITY_STYLE_TEMPLATE, variables),
+  ];
 }

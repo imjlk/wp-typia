@@ -3,7 +3,7 @@ export {
   DATAVIEWS_FILTER_OPERATORS,
   DATAVIEWS_LAYOUT_TYPES,
   DATAVIEWS_SORT_DIRECTIONS,
-} from "./types.js";
+} from './types.js';
 export type {
   DataFormCardFieldLayout,
   DataFormConfig,
@@ -70,15 +70,15 @@ export type {
   DefineDataViewsInput,
   QueryAdapter,
   QueryAdapterContext,
-} from "./types.js";
-export { defineDataViews } from "./define-data-views.js";
-export { createDataFormConfig } from "./data-form.js";
+} from './types.js';
+export { defineDataViews } from './define-data-views.js';
+export { createDataFormConfig } from './data-form.js';
 export {
   createDataViewsQueryAdapter,
   toDataViewsQueryArgs,
-} from "./query-adapter.js";
+} from './query-adapter.js';
 export {
   DATAVIEWS_STANDALONE_STYLE_IMPORTS,
   DATAVIEWS_WORDPRESS_COMPONENT_IMPORT,
   DATAVIEWS_WORDPRESS_STYLE_DEPENDENCIES,
-} from "./wordpress-assets.js";
+} from './wordpress-assets.js';

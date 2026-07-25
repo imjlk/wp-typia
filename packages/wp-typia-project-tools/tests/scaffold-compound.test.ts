@@ -601,7 +601,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       "import { deprecated } from '../../migrations/generated/${ childFolderSlug }/deprecated';",
     );
     expect(addChildScript).toContain(
-      "\\t\\tdeprecated,\n\\t\\tedit: Edit,\n\\t\\tsave: Save,",
+      '\\t\\tdeprecated,\n\\t\\tedit: Edit,\n\\t\\tsave: Save,',
     );
   });
 

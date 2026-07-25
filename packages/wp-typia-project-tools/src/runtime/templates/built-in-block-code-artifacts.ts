@@ -1,49 +1,49 @@
 import type {
 	ScaffoldTemplateVariables,
-} from "./scaffold.js";
+} from './scaffold.js';
 import type {
 	BuiltInTemplateId,
-} from "./template-registry.js";
-import { buildBuiltInNonTsArtifacts } from "./built-in-block-non-ts-artifacts.js";
+} from './template-registry.js';
+import { buildBuiltInNonTsArtifacts } from './built-in-block-non-ts-artifacts.js';
 import {
-	BASIC_EDIT_TEMPLATE,
-	BASIC_INDEX_TEMPLATE,
-	BASIC_SAVE_TEMPLATE,
-	BASIC_VALIDATORS_TEMPLATE,
-	BLOCK_METADATA_WRAPPER_TEMPLATE,
-	COMPOUND_CHILD_EDIT_TEMPLATE,
-	COMPOUND_CHILD_INDEX_TEMPLATE,
-	COMPOUND_CHILD_SAVE_TEMPLATE,
-	COMPOUND_CHILD_VALIDATORS_TEMPLATE,
-	COMPOUND_CHILDREN_TEMPLATE,
-	COMPOUND_LOCAL_HOOKS_TEMPLATE,
-	COMPOUND_PARENT_EDIT_TEMPLATE,
-	COMPOUND_PARENT_INDEX_TEMPLATE,
-	COMPOUND_PARENT_SAVE_TEMPLATE,
-	COMPOUND_PARENT_VALIDATORS_TEMPLATE,
-	COMPOUND_PERSISTENCE_PARENT_EDIT_TEMPLATE,
-	COMPOUND_PERSISTENCE_PARENT_INTERACTIVITY_TEMPLATE,
-	COMPOUND_PERSISTENCE_PARENT_SAVE_TEMPLATE,
-	COMPOUND_PERSISTENCE_PARENT_VALIDATORS_TEMPLATE,
-	INTERACTIVITY_EDIT_TEMPLATE,
-	INTERACTIVITY_INDEX_TEMPLATE,
-	INTERACTIVITY_SAVE_TEMPLATE,
-	INTERACTIVITY_SCRIPT_TEMPLATE,
-	INTERACTIVITY_STORE_TEMPLATE,
-	INTERACTIVITY_VALIDATORS_TEMPLATE,
-	MANIFEST_DEFAULTS_DOCUMENT_WRAPPER_TEMPLATE,
-	MANIFEST_DOCUMENT_WRAPPER_TEMPLATE,
-	PERSISTENCE_EDIT_TEMPLATE,
-	PERSISTENCE_INDEX_TEMPLATE,
-	PERSISTENCE_INTERACTIVITY_TEMPLATE,
-	PERSISTENCE_SAVE_TEMPLATE,
-	PERSISTENCE_VALIDATORS_TEMPLATE,
-	QUERY_LOOP_INDEX_TEMPLATE,
-	SHARED_HOOKS_TEMPLATE,
-} from "./built-in-block-code-templates.js";
-import { getScaffoldTemplateVariableGroups } from "./scaffold-template-variable-groups.js";
-import { assertScaffoldTemplateCodeIdentifiers } from "./scaffold-template-assertions.js";
-import { renderMustacheTemplateString } from "./template-render.js";
+  BASIC_EDIT_TEMPLATE,
+  BASIC_INDEX_TEMPLATE,
+  BASIC_SAVE_TEMPLATE,
+  BASIC_VALIDATORS_TEMPLATE,
+  BLOCK_METADATA_WRAPPER_TEMPLATE,
+  COMPOUND_CHILD_EDIT_TEMPLATE,
+  COMPOUND_CHILD_INDEX_TEMPLATE,
+  COMPOUND_CHILD_SAVE_TEMPLATE,
+  COMPOUND_CHILD_VALIDATORS_TEMPLATE,
+  COMPOUND_CHILDREN_TEMPLATE,
+  COMPOUND_LOCAL_HOOKS_TEMPLATE,
+  COMPOUND_PARENT_EDIT_TEMPLATE,
+  COMPOUND_PARENT_INDEX_TEMPLATE,
+  COMPOUND_PARENT_SAVE_TEMPLATE,
+  COMPOUND_PARENT_VALIDATORS_TEMPLATE,
+  COMPOUND_PERSISTENCE_PARENT_EDIT_TEMPLATE,
+  COMPOUND_PERSISTENCE_PARENT_INTERACTIVITY_TEMPLATE,
+  COMPOUND_PERSISTENCE_PARENT_SAVE_TEMPLATE,
+  COMPOUND_PERSISTENCE_PARENT_VALIDATORS_TEMPLATE,
+  INTERACTIVITY_EDIT_TEMPLATE,
+  INTERACTIVITY_INDEX_TEMPLATE,
+  INTERACTIVITY_SAVE_TEMPLATE,
+  INTERACTIVITY_SCRIPT_TEMPLATE,
+  INTERACTIVITY_STORE_TEMPLATE,
+  INTERACTIVITY_VALIDATORS_TEMPLATE,
+  MANIFEST_DEFAULTS_DOCUMENT_WRAPPER_TEMPLATE,
+  MANIFEST_DOCUMENT_WRAPPER_TEMPLATE,
+  PERSISTENCE_EDIT_TEMPLATE,
+  PERSISTENCE_INDEX_TEMPLATE,
+  PERSISTENCE_INTERACTIVITY_TEMPLATE,
+  PERSISTENCE_SAVE_TEMPLATE,
+  PERSISTENCE_VALIDATORS_TEMPLATE,
+  QUERY_LOOP_INDEX_TEMPLATE,
+  SHARED_HOOKS_TEMPLATE,
+} from './built-in-block-code-templates.js';
+import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
+import { assertScaffoldTemplateCodeIdentifiers } from './scaffold-template-assertions.js';
+import { renderMustacheTemplateString } from './template-render.js';
 
 /**
  * Emits built-in scaffold source files from typed block generation inputs.
@@ -57,16 +57,16 @@ export interface BuiltInCodeArtifact {
 	/**
 	 * File path relative to the generated project root.
 	 */
-	relativePath: string;
+  relativePath: string;
 	/**
 	 * Fully rendered file contents with a trailing newline.
 	 */
-	source: string;
+  source: string;
 }
 
 interface BuiltInCodeTemplateSpec {
-	relativePath: string;
-	template: string;
+  relativePath: string;
+  template: string;
 }
 
 // resourceKey is MaxLength<100>; generated scoped ids add "-" plus 9 characters.
@@ -76,15 +76,15 @@ function renderCodeTemplate(
 	template: string,
 	variables: ScaffoldTemplateVariables,
 ): string {
-	assertScaffoldTemplateCodeIdentifiers(variables);
-	const rendered = renderMustacheTemplateString(template, {
-		...variables,
-		resourceKeyPrefix: variables.slugKebabCase.slice(
-			0,
-			RESOURCE_KEY_PREFIX_MAX_LENGTH,
-		),
-	});
-	return rendered.endsWith("\n") ? rendered : `${rendered}\n`;
+  assertScaffoldTemplateCodeIdentifiers(variables);
+  const rendered = renderMustacheTemplateString(template, {
+    ...variables,
+    resourceKeyPrefix: variables.slugKebabCase.slice(
+      0,
+      RESOURCE_KEY_PREFIX_MAX_LENGTH,
+    ),
+  });
+  return rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 }
 
 function createCodeArtifact(
@@ -92,158 +92,158 @@ function createCodeArtifact(
 	template: string,
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact {
-	return {
-		relativePath,
-		source: renderCodeTemplate(template, variables),
-	};
+  return {
+    relativePath,
+    source: renderCodeTemplate(template, variables),
+  };
 }
 
 function createCodeArtifacts(
 	specs: readonly BuiltInCodeTemplateSpec[],
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return specs.map((spec) =>
-		createCodeArtifact(spec.relativePath, spec.template, variables),
-	);
+  return specs.map((spec) =>
+    createCodeArtifact(spec.relativePath, spec.template, variables),
+  );
 }
 
 function createTypedJsonWrapperArtifacts(
 	relativeDir: string,
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return [
-		createCodeArtifact(
-			`${relativeDir}/block-metadata.ts`,
-			BLOCK_METADATA_WRAPPER_TEMPLATE,
-			variables,
-		),
-		createCodeArtifact(
-			`${relativeDir}/manifest-document.ts`,
-			MANIFEST_DOCUMENT_WRAPPER_TEMPLATE,
-			variables,
-		),
-		createCodeArtifact(
-			`${relativeDir}/manifest-defaults-document.ts`,
-			MANIFEST_DEFAULTS_DOCUMENT_WRAPPER_TEMPLATE,
-			variables,
-		),
-	];
+  return [
+    createCodeArtifact(
+      `${relativeDir}/block-metadata.ts`,
+      BLOCK_METADATA_WRAPPER_TEMPLATE,
+      variables,
+    ),
+    createCodeArtifact(
+      `${relativeDir}/manifest-document.ts`,
+      MANIFEST_DOCUMENT_WRAPPER_TEMPLATE,
+      variables,
+    ),
+    createCodeArtifact(
+      `${relativeDir}/manifest-defaults-document.ts`,
+      MANIFEST_DEFAULTS_DOCUMENT_WRAPPER_TEMPLATE,
+      variables,
+    ),
+  ];
 }
 
 function ensureUniqueArtifactPaths(
 	artifacts: BuiltInCodeArtifact[],
 ): BuiltInCodeArtifact[] {
-	const seenPaths = new Set<string>();
+  const seenPaths = new Set<string>();
 
-	for (const artifact of artifacts) {
-		if (seenPaths.has(artifact.relativePath)) {
-			throw new Error(
-				`Duplicate built-in artifact path emitted: ${artifact.relativePath}`,
-			);
-		}
-		seenPaths.add(artifact.relativePath);
-	}
+  for (const artifact of artifacts) {
+    if (seenPaths.has(artifact.relativePath)) {
+      throw new Error(
+        `Duplicate built-in artifact path emitted: ${artifact.relativePath}`,
+      );
+    }
+    seenPaths.add(artifact.relativePath);
+  }
 
-	return artifacts;
+  return artifacts;
 }
 
 function buildBasicCodeArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return ensureUniqueArtifactPaths([
+  return ensureUniqueArtifactPaths([
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/hooks.ts",
+					relativePath: 'src/hooks.ts',
 					template: SHARED_HOOKS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...createTypedJsonWrapperArtifacts("src", variables),
+		...createTypedJsonWrapperArtifacts('src', variables),
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/edit.tsx",
+					relativePath: 'src/edit.tsx',
 					template: BASIC_EDIT_TEMPLATE,
 				},
 				{
-					relativePath: "src/save.tsx",
+					relativePath: 'src/save.tsx',
 					template: BASIC_SAVE_TEMPLATE,
 				},
 				{
-					relativePath: "src/index.tsx",
+					relativePath: 'src/index.tsx',
 					template: BASIC_INDEX_TEMPLATE,
 				},
 				{
-					relativePath: "src/validators.ts",
+					relativePath: 'src/validators.ts',
 					template: BASIC_VALIDATORS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...buildBuiltInNonTsArtifacts({ templateId: "basic", variables }),
+		...buildBuiltInNonTsArtifacts({ templateId: 'basic', variables }),
 	]);
 }
 
 function buildInteractivityCodeArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return ensureUniqueArtifactPaths([
+  return ensureUniqueArtifactPaths([
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/hooks.ts",
+					relativePath: 'src/hooks.ts',
 					template: SHARED_HOOKS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...createTypedJsonWrapperArtifacts("src", variables),
+		...createTypedJsonWrapperArtifacts('src', variables),
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/edit.tsx",
+					relativePath: 'src/edit.tsx',
 					template: INTERACTIVITY_EDIT_TEMPLATE,
 				},
 				{
-					relativePath: "src/save.tsx",
+					relativePath: 'src/save.tsx',
 					template: INTERACTIVITY_SAVE_TEMPLATE,
 				},
 				{
-					relativePath: "src/index.tsx",
+					relativePath: 'src/index.tsx',
 					template: INTERACTIVITY_INDEX_TEMPLATE,
 				},
 				{
-					relativePath: "src/interactivity.ts",
+					relativePath: 'src/interactivity.ts',
 					template: INTERACTIVITY_SCRIPT_TEMPLATE,
 				},
 				{
-					relativePath: "src/interactivity-store.ts",
+					relativePath: 'src/interactivity-store.ts',
 					template: INTERACTIVITY_STORE_TEMPLATE,
 				},
 				{
-					relativePath: "src/validators.ts",
+					relativePath: 'src/validators.ts',
 					template: INTERACTIVITY_VALIDATORS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...buildBuiltInNonTsArtifacts({ templateId: "interactivity", variables }),
+		...buildBuiltInNonTsArtifacts({ templateId: 'interactivity', variables }),
 	]);
 }
 
 function buildCompoundCodeArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	const parentBasePath = `src/blocks/${variables.slugKebabCase}`;
-	const childBasePath = `src/blocks/${variables.slugKebabCase}-item`;
-	const compoundGroup = getScaffoldTemplateVariableGroups(variables).compound;
-	const compoundPersistenceEnabled =
+  const parentBasePath = `src/blocks/${variables.slugKebabCase}`;
+  const childBasePath = `src/blocks/${variables.slugKebabCase}-item`;
+  const compoundGroup = getScaffoldTemplateVariableGroups(variables).compound;
+  const compoundPersistenceEnabled =
 		compoundGroup.enabled && compoundGroup.persistenceEnabled;
 
-	return ensureUniqueArtifactPaths([
-		createCodeArtifact("src/hooks.ts", SHARED_HOOKS_TEMPLATE, variables),
+  return ensureUniqueArtifactPaths([
+		createCodeArtifact('src/hooks.ts', SHARED_HOOKS_TEMPLATE, variables),
 		...createTypedJsonWrapperArtifacts(parentBasePath, variables),
 		createCodeArtifact(
 			`${parentBasePath}/edit.tsx`,
@@ -316,67 +316,67 @@ function buildCompoundCodeArtifacts(
 			COMPOUND_CHILD_VALIDATORS_TEMPLATE,
 			variables,
 		),
-		...buildBuiltInNonTsArtifacts({ templateId: "compound", variables }),
+		...buildBuiltInNonTsArtifacts({ templateId: 'compound', variables }),
 	]);
 }
 
 function buildPersistenceCodeArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return ensureUniqueArtifactPaths([
+  return ensureUniqueArtifactPaths([
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/hooks.ts",
+					relativePath: 'src/hooks.ts',
 					template: SHARED_HOOKS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...createTypedJsonWrapperArtifacts("src", variables),
+		...createTypedJsonWrapperArtifacts('src', variables),
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/edit.tsx",
+					relativePath: 'src/edit.tsx',
 					template: PERSISTENCE_EDIT_TEMPLATE,
 				},
 				{
-					relativePath: "src/save.tsx",
+					relativePath: 'src/save.tsx',
 					template: PERSISTENCE_SAVE_TEMPLATE,
 				},
 				{
-					relativePath: "src/index.tsx",
+					relativePath: 'src/index.tsx',
 					template: PERSISTENCE_INDEX_TEMPLATE,
 				},
 				{
-					relativePath: "src/interactivity.ts",
+					relativePath: 'src/interactivity.ts',
 					template: PERSISTENCE_INTERACTIVITY_TEMPLATE,
 				},
 				{
-					relativePath: "src/validators.ts",
+					relativePath: 'src/validators.ts',
 					template: PERSISTENCE_VALIDATORS_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...buildBuiltInNonTsArtifacts({ templateId: "persistence", variables }),
+		...buildBuiltInNonTsArtifacts({ templateId: 'persistence', variables }),
 	]);
 }
 
 function buildQueryLoopCodeArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return ensureUniqueArtifactPaths([
+  return ensureUniqueArtifactPaths([
 		...createCodeArtifacts(
 			[
 				{
-					relativePath: "src/index.ts",
+					relativePath: 'src/index.ts',
 					template: QUERY_LOOP_INDEX_TEMPLATE,
 				},
 			],
 			variables,
 		),
-		...buildBuiltInNonTsArtifacts({ templateId: "query-loop", variables }),
+		...buildBuiltInNonTsArtifacts({ templateId: 'query-loop', variables }),
 	]);
 }
 
@@ -391,23 +391,23 @@ export function buildBuiltInCodeArtifacts({
 	templateId,
 	variables,
 }: {
-	templateId: BuiltInTemplateId;
-	variables: ScaffoldTemplateVariables;
+  templateId: BuiltInTemplateId;
+  variables: ScaffoldTemplateVariables;
 }): BuiltInCodeArtifact[] {
-	switch (templateId) {
-		case "basic":
-			return buildBasicCodeArtifacts(variables);
-		case "interactivity":
-			return buildInteractivityCodeArtifacts(variables);
-		case "persistence":
-			return buildPersistenceCodeArtifacts(variables);
-		case "compound":
-			return buildCompoundCodeArtifacts(variables);
-		case "query-loop":
-			return buildQueryLoopCodeArtifacts(variables);
-		default: {
-			const unhandledTemplateId: never = templateId;
-			throw new Error(`Unhandled built-in template id: ${unhandledTemplateId}`);
-		}
-	}
+  switch (templateId) {
+    case 'basic':
+      return buildBasicCodeArtifacts(variables);
+    case 'interactivity':
+      return buildInteractivityCodeArtifacts(variables);
+    case 'persistence':
+      return buildPersistenceCodeArtifacts(variables);
+    case 'compound':
+      return buildCompoundCodeArtifacts(variables);
+    case 'query-loop':
+      return buildQueryLoopCodeArtifacts(variables);
+    default: {
+      const unhandledTemplateId: never = templateId;
+      throw new Error(`Unhandled built-in template id: ${unhandledTemplateId}`);
+    }
+  }
 }

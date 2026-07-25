@@ -1,10 +1,13 @@
-import { getDiagnosticSeverity, handleDiagnostics } from "./shared/diagnostics.js";
+import {
+  getDiagnosticSeverity,
+  handleDiagnostics,
+} from './shared/diagnostics.js';
 import type {
   BindingSourceAuthoringDiagnostic,
   BindingSourceDefinition,
   BindingSourceDiagnostic,
   DefineBindingSourceOptions,
-} from "./bindings-core.js";
+} from './bindings-core.js';
 
 const SOURCE_NAME_PATTERN =
   /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u;
@@ -24,7 +27,7 @@ export function createBindingSourceDiagnostics(
 
   if (!SOURCE_NAME_PATTERN.test(source.name)) {
     diagnostics.push({
-      code: "invalid-source-name",
+      code: 'invalid-source-name',
       message: `Block binding source "${source.name}" must be lowercase and namespaced, such as "acme/profile-data".`,
       severity,
       sourceName: source.name,
@@ -33,7 +36,7 @@ export function createBindingSourceDiagnostics(
 
   if (options.server && !source.getValueCallback) {
     diagnostics.push({
-      code: "missing-php-callback",
+      code: 'missing-php-callback',
       message: `Block binding source "${source.name}" needs getValueCallback when server registration is enabled.`,
       severity,
       sourceName: source.name,
@@ -42,7 +45,7 @@ export function createBindingSourceDiagnostics(
 
   if (options.fieldsList && !options.editor) {
     diagnostics.push({
-      code: "fields-list-requires-editor",
+      code: 'fields-list-requires-editor',
       message: `Block binding source "${source.name}" enables getFieldsList() without editor registration.`,
       severity,
       sourceName: source.name,
@@ -53,7 +56,7 @@ export function createBindingSourceDiagnostics(
   for (const field of source.fields ?? []) {
     if (!FIELD_NAME_PATTERN.test(field.name)) {
       diagnostics.push({
-        code: "invalid-field-name",
+        code: 'invalid-field-name',
         fieldName: field.name,
         message: `Block binding source "${source.name}" field "${field.name}" must be a stable identifier.`,
         severity,
@@ -62,7 +65,7 @@ export function createBindingSourceDiagnostics(
     }
     if (seenFields.has(field.name)) {
       diagnostics.push({
-        code: "duplicate-field-name",
+        code: 'duplicate-field-name',
         fieldName: field.name,
         message: `Block binding source "${source.name}" declares duplicate field "${field.name}".`,
         severity,
@@ -76,7 +79,7 @@ export function createBindingSourceDiagnostics(
     if (!SOURCE_NAME_PATTERN.test(target.blockName)) {
       diagnostics.push({
         blockName: target.blockName,
-        code: "invalid-block-name",
+        code: 'invalid-block-name',
         message: `Bindable attributes target "${target.blockName}" must be a lowercase namespaced block name.`,
         severity,
         sourceName: source.name,
@@ -89,7 +92,7 @@ export function createBindingSourceDiagnostics(
         diagnostics.push({
           attribute,
           blockName: target.blockName,
-          code: "invalid-bindable-attribute",
+          code: 'invalid-bindable-attribute',
           message: `Bindable attribute "${attribute}" for "${target.blockName}" must be a stable identifier.`,
           severity,
           sourceName: source.name,
@@ -99,7 +102,7 @@ export function createBindingSourceDiagnostics(
         diagnostics.push({
           attribute,
           blockName: target.blockName,
-          code: "duplicate-bindable-attribute",
+          code: 'duplicate-bindable-attribute',
           message: `Bindable attribute "${attribute}" for "${target.blockName}" is declared more than once.`,
           severity,
           sourceName: source.name,
@@ -114,11 +117,11 @@ export function createBindingSourceDiagnostics(
 
 export function handleBindingSourceDiagnostics(
   diagnostics: readonly BindingSourceDiagnostic[],
-  onDiagnostic: DefineBindingSourceOptions["onDiagnostic"],
-  logger: DefineBindingSourceOptions["logger"],
+  onDiagnostic: DefineBindingSourceOptions['onDiagnostic'],
+  logger: DefineBindingSourceOptions['logger'],
 ): void {
   handleDiagnostics(diagnostics, onDiagnostic, {
-    failureHeading: "WordPress block binding source check failed:",
+    failureHeading: 'WordPress block binding source check failed:',
     logger,
   });
 }

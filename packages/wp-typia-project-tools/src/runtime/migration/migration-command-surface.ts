@@ -1,24 +1,24 @@
-import type { ReadlinePrompt } from '../cli/cli-prompt.js'
-import type { ParsedMigrationArgs, RenderLine } from './migration-types.js'
+import type { ReadlinePrompt } from '../cli/cli-prompt.js';
+import type { ParsedMigrationArgs, RenderLine } from './migration-types.js';
 
-import { formatLegacyMigrationWorkspaceResetGuidance } from './migration-utils.js'
+import { formatLegacyMigrationWorkspaceResetGuidance } from './migration-utils.js';
 
 export type CommandRenderOptions = {
   prompt?: ReadlinePrompt
   renderLine?: RenderLine
-}
+};
 
 export type DiffLikeOptions = {
   fromMigrationVersion?: string
   renderLine?: RenderLine
   toMigrationVersion?: string
-}
+};
 
 export type VerifyOptions = {
   all?: boolean
   fromMigrationVersion?: string
   renderLine?: RenderLine
-}
+};
 
 export type FixturesOptions = {
   all?: boolean
@@ -28,7 +28,7 @@ export type FixturesOptions = {
   isInteractive?: boolean
   renderLine?: RenderLine
   toMigrationVersion?: string
-}
+};
 
 export type FuzzOptions = {
   all?: boolean
@@ -36,11 +36,11 @@ export type FuzzOptions = {
   iterations?: number
   renderLine?: RenderLine
   seed?: number
-}
+};
 
 export type WizardOptions = CommandRenderOptions & {
   isInteractive?: boolean
-}
+};
 
 /**
  * Returns the formatted help text for migration CLI commands and flags.
@@ -71,7 +71,7 @@ Notes:
   Existing fixture files are preserved and reported as skipped unless you pass \`--force\`.
   Use \`migrate fixtures --force\` as the explicit refresh path for generated fixture files.
   In TTY usage, \`migrate fixtures --force\` asks before overwriting existing fixture files.
-  In non-interactive usage, \`migrate fixtures --force\` overwrites immediately for script compatibility.`
+  In non-interactive usage, \`migrate fixtures --force\` overwrites immediately for script compatibility.`;
 }
 
 /**
@@ -94,80 +94,80 @@ export function parseMigrationArgs(argv: string[]): ParsedMigrationArgs {
       seed: undefined,
       toMigrationVersion: 'current',
     },
-  }
+  };
 
   if (argv.length === 0) {
-    throw new Error(formatMigrationHelpText())
+    throw new Error(formatMigrationHelpText());
   }
 
-  parsed.command = argv[0]
+  parsed.command = argv[0];
 
   for (let index = 1; index < argv.length; index += 1) {
-    const arg = argv[index]
-    const next = argv[index + 1]
+    const arg = argv[index];
+    const next = argv[index + 1];
 
-    if (arg === '--') continue
+    if (arg === '--') continue;
     if (arg === '--all') {
-      parsed.flags.all = true
-      continue
+      parsed.flags.all = true;
+      continue;
     }
     if (arg === '--force') {
-      parsed.flags.force = true
-      continue
+      parsed.flags.force = true;
+      continue;
     }
     if (arg === '--current-migration-version') {
-      parsed.flags.currentMigrationVersion = next
-      index += 1
-      continue
+      parsed.flags.currentMigrationVersion = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--current-migration-version=')) {
-      parsed.flags.currentMigrationVersion = arg.split('=', 2)[1]
-      continue
+      parsed.flags.currentMigrationVersion = arg.split('=', 2)[1];
+      continue;
     }
     if (arg === '--from-migration-version') {
-      parsed.flags.fromMigrationVersion = next
-      index += 1
-      continue
+      parsed.flags.fromMigrationVersion = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--from-migration-version=')) {
-      parsed.flags.fromMigrationVersion = arg.split('=', 2)[1]
-      continue
+      parsed.flags.fromMigrationVersion = arg.split('=', 2)[1];
+      continue;
     }
     if (arg === '--iterations') {
-      parsed.flags.iterations = next
-      index += 1
-      continue
+      parsed.flags.iterations = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--iterations=')) {
-      parsed.flags.iterations = arg.split('=', 2)[1]
-      continue
+      parsed.flags.iterations = arg.split('=', 2)[1];
+      continue;
     }
     if (arg === '--seed') {
-      parsed.flags.seed = next
-      index += 1
-      continue
+      parsed.flags.seed = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--seed=')) {
-      parsed.flags.seed = arg.split('=', 2)[1]
-      continue
+      parsed.flags.seed = arg.split('=', 2)[1];
+      continue;
     }
     if (arg === '--to-migration-version') {
-      parsed.flags.toMigrationVersion = next
-      index += 1
-      continue
+      parsed.flags.toMigrationVersion = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--to-migration-version=')) {
-      parsed.flags.toMigrationVersion = arg.split('=', 2)[1]
-      continue
+      parsed.flags.toMigrationVersion = arg.split('=', 2)[1];
+      continue;
     }
     if (arg === '--migration-version') {
-      parsed.flags.migrationVersion = next
-      index += 1
-      continue
+      parsed.flags.migrationVersion = next;
+      index += 1;
+      continue;
     }
     if (arg.startsWith('--migration-version=')) {
-      parsed.flags.migrationVersion = arg.split('=', 2)[1]
-      continue
+      parsed.flags.migrationVersion = arg.split('=', 2)[1];
+      continue;
     }
 
     if (
@@ -180,13 +180,13 @@ export function parseMigrationArgs(argv: string[]): ParsedMigrationArgs {
       arg === '--to' ||
       arg.startsWith('--to=')
     ) {
-      throwLegacyMigrationFlagError(arg)
+      throwLegacyMigrationFlagError(arg);
     }
 
-    throw new Error(`Unknown migration flag: ${arg}`)
+    throw new Error(`Unknown migration flag: ${arg}`);
   }
 
-  return parsed
+  return parsed;
 }
 
 /**
@@ -202,19 +202,19 @@ export function parsePositiveInteger(
   label: string,
 ): number | undefined {
   if (!value) {
-    return undefined
+    return undefined;
   }
 
   if (!/^\d+$/.test(value)) {
-    throw new Error(`Invalid ${label}: ${value}. Expected a positive integer.`)
+    throw new Error(`Invalid ${label}: ${value}. Expected a positive integer.`);
   }
 
-  const parsed = Number.parseInt(value, 10)
+  const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`Invalid ${label}: ${value}. Expected a positive integer.`)
+    throw new Error(`Invalid ${label}: ${value}. Expected a positive integer.`);
   }
 
-  return parsed
+  return parsed;
 }
 
 /**
@@ -230,23 +230,23 @@ export function parseNonNegativeInteger(
   label: string,
 ): number | undefined {
   if (!value) {
-    return undefined
+    return undefined;
   }
 
   if (!/^\d+$/.test(value)) {
     throw new Error(
       `Invalid ${label}: ${value}. Expected a non-negative integer.`,
-    )
+    );
   }
 
-  const parsed = Number.parseInt(value, 10)
+  const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error(
       `Invalid ${label}: ${value}. Expected a non-negative integer.`,
-    )
+    );
   }
 
-  return parsed
+  return parsed;
 }
 
 function throwLegacyMigrationFlagError(flag: string): never {
@@ -257,9 +257,9 @@ function throwLegacyMigrationFlagError(flag: string): never {
         ? '--migration-version'
         : flag.startsWith('--from')
           ? '--from-migration-version'
-          : '--to-migration-version'
+          : '--to-migration-version';
   throw new Error(
     `Legacy migration flag \`${flag}\` is no longer supported. Use \`${replacement}\` with schema labels like \`v1\` and \`v2\` instead. ` +
       formatLegacyMigrationWorkspaceResetGuidance(),
-  )
+  );
 }

@@ -1,16 +1,16 @@
 import typia from 'typia';
 
 import {
-	toValidationResult,
-	type ValidationResult,
+  toValidationResult,
+  type ValidationResult,
 } from '@wp-typia/api-client';
 import type {
-	PersistenceLikeBootstrapQuery,
-	PersistenceLikeBootstrapResponse,
-	PersistenceLikeStatusQuery,
-	PersistenceLikeStatusResponse,
-	PersistenceToggleLikeRequest,
-	PersistenceToggleLikeResponse,
+  PersistenceLikeBootstrapQuery,
+  PersistenceLikeBootstrapResponse,
+  PersistenceLikeStatusQuery,
+  PersistenceLikeStatusResponse,
+  PersistenceToggleLikeRequest,
+  PersistenceToggleLikeResponse,
 } from './api-types';
 
 const validateLikeBootstrapQuery =
@@ -28,27 +28,27 @@ const validateToggleLikeResponse =
 
 export const apiValidators = {
 	likeBootstrapQuery: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceLikeBootstrapQuery > =>
 		toValidationResult( validateLikeBootstrapQuery( input ) ),
 	likeBootstrapResponse: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceLikeBootstrapResponse > =>
 		toValidationResult( validateLikeBootstrapResponse( input ) ),
 	likeStatusQuery: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceLikeStatusQuery > =>
 		toValidationResult( validateLikeStatusQuery( input ) ),
 	likeStatusResponse: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceLikeStatusResponse > =>
 		toValidationResult( validateLikeStatusResponse( input ) ),
 	toggleLikeResponse: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceToggleLikeResponse > =>
 		toValidationResult( validateToggleLikeResponse( input ) ),
 	toggleLikeRequest: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceToggleLikeRequest > =>
 		toValidationResult( validateToggleLikeRequest( input ) ),
 };

@@ -1,1 +1,1 @@
-export * from "./shared/fs-async.js";
+export * from './shared/fs-async.js';

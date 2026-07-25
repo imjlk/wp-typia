@@ -2,43 +2,43 @@ import { validators } from '../validators';
 import { parseManifestDocument } from '@wp-typia/block-runtime/editor';
 import migrationRegistry from './generated/registry';
 import {
-	type ManifestAttribute,
-	type ManifestDocument,
-	manifestMatchesDocument,
-	summarizeVersionDelta,
+  type ManifestAttribute,
+  type ManifestDocument,
+  manifestMatchesDocument,
+  summarizeVersionDelta,
 } from './helpers';
 import { isNonArrayObject } from './plain-object';
 import {
-	type MigrationAnalysis,
-	type MigrationPreview,
-	type UnionBranchPreview,
-	createEmptyRiskSummary,
+  type MigrationAnalysis,
+  type MigrationPreview,
+  type UnionBranchPreview,
+  createEmptyRiskSummary,
 } from './types';
 
 interface MigrationResolution {
-	analysis: MigrationAnalysis;
-	preview: MigrationPreview;
+  analysis: MigrationAnalysis;
+  preview: MigrationPreview;
 }
 
 const manifestDocumentCache = new WeakMap< object, ManifestDocument >();
 
 function parseCachedManifestDocument( manifest: unknown ): ManifestDocument {
-	if ( typeof manifest !== 'object' || manifest === null ) {
-		return parseManifestDocument< ManifestDocument >( manifest );
-	}
+  if ( typeof manifest !== 'object' || manifest === null ) {
+    return parseManifestDocument< ManifestDocument >( manifest );
+  }
 
-	const cached = manifestDocumentCache.get( manifest );
-	if ( cached ) {
-		return cached;
-	}
+  const cached = manifestDocumentCache.get( manifest );
+  if ( cached ) {
+    return cached;
+  }
 
-	const parsed = parseManifestDocument< ManifestDocument >( manifest );
-	manifestDocumentCache.set( manifest, parsed );
-	return parsed;
+  const parsed = parseManifestDocument< ManifestDocument >( manifest );
+  manifestDocumentCache.set( manifest, parsed );
+  return parsed;
 }
 
 const currentManifestDocument = parseCachedManifestDocument(
-	migrationRegistry.currentManifest
+  migrationRegistry.currentManifest,
 );
 
 /**
@@ -46,9 +46,9 @@ const currentManifestDocument = parseCachedManifestDocument(
  * @param attributes
  */
 export function detectBlockMigration(
-	attributes: Record< string, unknown >
+	attributes: Record< string, unknown >,
 ): MigrationAnalysis {
-	return resolveMigrationState( attributes ).analysis;
+  return resolveMigrationState( attributes ).analysis;
 }
 
 /**
@@ -56,16 +56,16 @@ export function detectBlockMigration(
  * @param attributes
  */
 export function autoMigrate( attributes: Record< string, unknown > ) {
-	const resolution = resolveMigrationState( attributes );
-	if ( ! resolution.preview.after ) {
-		throw new Error(
+  const resolution = resolveMigrationState( attributes );
+  if ( ! resolution.preview.after ) {
+    throw new Error(
 			resolution.preview.validationErrors[ 0 ] ??
 				resolution.preview.unresolved[ 0 ] ??
-				'Unable to migrate block attributes because no supported snapshot matched.'
+				'Unable to migrate block attributes because no supported snapshot matched.',
 		);
-	}
+  }
 
-	return resolution.preview.after;
+  return resolution.preview.after;
 }
 
 /**
@@ -73,11 +73,11 @@ export function autoMigrate( attributes: Record< string, unknown > ) {
  * @param attributes
  */
 export function resolveMigrationState(
-	attributes: Record< string, unknown >
+	attributes: Record< string, unknown >,
 ): MigrationResolution {
-	const currentValidation = validators.validate( attributes as any );
-	if ( currentValidation.isValid ) {
-		return {
+  const currentValidation = validators.validate( attributes as any );
+  if ( currentValidation.isValid ) {
+    return {
 			analysis: {
 				affectedFields: {
 					added: [],
@@ -104,50 +104,50 @@ export function resolveMigrationState(
 				validationErrors: [],
 			} ),
 		};
-	}
+  }
 
-	for ( const entry of migrationRegistry.entries ) {
-		if (
+  for ( const entry of migrationRegistry.entries ) {
+    if (
 			manifestMatchesDocument(
-				parseCachedManifestDocument( entry.manifest ),
-				attributes
-			)
+        parseCachedManifestDocument(entry.manifest),
+        attributes,
+      )
 		) {
-			const migrated = entry.rule.migrate( attributes );
-			const migratedValidation = validators.validate( migrated as any );
-			const unresolved = Array.isArray( entry.rule.unresolved )
-				? [ ...entry.rule.unresolved ]
-				: [];
-			const validationErrors = migratedValidation.isValid
-				? []
-				: formatValidationErrors( migratedValidation.errors );
-			let status: 'auto' | 'manual' = 'manual';
-			if ( migratedValidation.isValid && unresolved.length === 0 ) {
-				status = 'auto';
-			}
-			const preview = createPreview( {
-				after: migratedValidation.isValid
-					? ( migrated as Record< string, unknown > )
-					: null,
-				before: attributes,
-				currentManifest: currentManifestDocument,
-				legacyManifest: parseCachedManifestDocument( entry.manifest ),
-				status,
-				unresolved,
-				validationErrors,
-			} );
-			const delta = summarizeVersionDelta(
-				parseCachedManifestDocument( entry.manifest ),
-				currentManifestDocument
-			);
-			let confidence = 0.95;
-			if ( ! migratedValidation.isValid ) {
-				confidence = 0.2;
-			} else if ( unresolved.length > 0 ) {
-				confidence = 0.8;
-			}
+      const migrated = entry.rule.migrate( attributes );
+      const migratedValidation = validators.validate( migrated as any );
+      const unresolved = Array.isArray(entry.rule.unresolved)
+        ? [...entry.rule.unresolved]
+        : [];
+      const validationErrors = migratedValidation.isValid
+        ? []
+        : formatValidationErrors(migratedValidation.errors);
+      let status: 'auto' | 'manual' = 'manual';
+      if ( migratedValidation.isValid && unresolved.length === 0 ) {
+        status = 'auto';
+      }
+      const preview = createPreview({
+        after: migratedValidation.isValid
+          ? (migrated as Record< string, unknown >)
+          : null,
+        before: attributes,
+        currentManifest: currentManifestDocument,
+        legacyManifest: parseCachedManifestDocument(entry.manifest),
+        status,
+        unresolved,
+        validationErrors,
+      });
+      const delta = summarizeVersionDelta(
+        parseCachedManifestDocument(entry.manifest),
+        currentManifestDocument,
+      );
+      let confidence = 0.95;
+      if ( ! migratedValidation.isValid ) {
+        confidence = 0.2;
+      } else if ( unresolved.length > 0 ) {
+        confidence = 0.8;
+      }
 
-			return {
+      return {
 				analysis: {
 					affectedFields: delta,
 					confidence,
@@ -161,7 +161,7 @@ export function resolveMigrationState(
 									branch.legacyBranch ?? 'unknown'
 								} -> ${ branch.nextBranch ?? 'unknown' } (${
 									branch.status
-								})`
+								})`,
 						),
 					],
 					riskSummary: entry.riskSummary ?? createEmptyRiskSummary(),
@@ -171,10 +171,10 @@ export function resolveMigrationState(
 				} satisfies MigrationAnalysis,
 				preview,
 			};
-		}
-	}
+    }
+  }
 
-	return {
+  return {
 		analysis: {
 			affectedFields: {
 				added: [],
@@ -201,7 +201,7 @@ export function resolveMigrationState(
 				'Manual migration review is required because the block does not match any supported snapshot.',
 			],
 			validationErrors: formatValidationErrors(
-				currentValidation.errors
+				currentValidation.errors,
 			),
 		} ),
 	};
@@ -216,58 +216,53 @@ function createPreview( {
 	unresolved,
 	validationErrors,
 }: {
-	after: Record< string, unknown > | null;
-	before: Record< string, unknown >;
-	currentManifest: ManifestDocument;
-	legacyManifest: ManifestDocument | null;
-	status: UnionBranchPreview[ 'status' ];
-	unresolved: string[];
-	validationErrors: string[];
+  after: Record< string, unknown > | null;
+  before: Record< string, unknown >;
+  currentManifest: ManifestDocument;
+  legacyManifest: ManifestDocument | null;
+  status: UnionBranchPreview[ 'status' ];
+  unresolved: string[];
+  validationErrors: string[];
 } ): MigrationPreview {
-	return {
-		after,
-		before,
-		changedFields: after ? collectChangedFieldPaths( before, after ) : [],
-		unresolved,
-		unionBranches: collectUnionBranchPreview(
-			legacyManifest,
-			currentManifest,
-			before,
-			after,
-			status
-		),
-		validationErrors,
-	};
+  return {
+    after,
+    before,
+    changedFields: after ? collectChangedFieldPaths(before, after) : [],
+    unresolved,
+    unionBranches: collectUnionBranchPreview(
+      legacyManifest,
+      currentManifest,
+      before,
+      after,
+      status,
+    ),
+    validationErrors,
+  };
 }
 
 function collectChangedFieldPaths(
 	before: Record< string, unknown >,
 	after: Record< string, unknown >,
-	prefix = ''
+	prefix = '',
 ): string[] {
-	const keys = new Set( [
-		...Object.keys( before ),
-		...Object.keys( after ),
-	] );
-	const changes: string[] = [];
+  const keys = new Set([...Object.keys( before ), ...Object.keys( after )]);
+  const changes: string[] = [];
 
-	for ( const key of keys ) {
-		const nextPrefix = prefix ? `${ prefix }.${ key }` : key;
-		const left = before[ key ];
-		const right = after[ key ];
+  for ( const key of keys ) {
+    const nextPrefix = prefix ? `${ prefix }.${ key }` : key;
+    const left = before[ key ];
+    const right = after[ key ];
 
-		if ( isNonArrayObject( left ) && isNonArrayObject( right ) ) {
-			changes.push(
-				...collectChangedFieldPaths( left, right, nextPrefix )
-			);
-			continue;
-		}
-		if ( JSON.stringify( left ) !== JSON.stringify( right ) ) {
-			changes.push( nextPrefix );
-		}
-	}
+    if ( isNonArrayObject( left ) && isNonArrayObject( right ) ) {
+      changes.push(...collectChangedFieldPaths( left, right, nextPrefix ));
+      continue;
+    }
+    if ( JSON.stringify( left ) !== JSON.stringify( right ) ) {
+      changes.push( nextPrefix );
+    }
+  }
 
-	return changes;
+  return changes;
 }
 
 function collectUnionBranchPreview(
@@ -275,75 +270,72 @@ function collectUnionBranchPreview(
 	currentManifest: ManifestDocument,
 	before: Record< string, unknown >,
 	after: Record< string, unknown > | null,
-	status: UnionBranchPreview[ 'status' ]
+	status: UnionBranchPreview[ 'status' ],
 ): UnionBranchPreview[] {
-	const fieldNames = new Set< string >();
+  const fieldNames = new Set< string >();
 
-	for ( const [ field, attribute ] of Object.entries(
-		legacyManifest?.attributes ?? {}
-	) ) {
-		if ( attribute.ts.kind === 'union' ) {
-			fieldNames.add( field );
-		}
-	}
-	for ( const [ field, attribute ] of Object.entries(
-		currentManifest.attributes ?? {}
-	) ) {
-		if ( attribute.ts.kind === 'union' ) {
-			fieldNames.add( field );
-		}
-	}
+  for ( const [ field, attribute ] of Object.entries(
+    legacyManifest?.attributes ?? {},
+  ) ) {
+    if ( attribute.ts.kind === 'union' ) {
+      fieldNames.add( field );
+    }
+  }
+  for ( const [ field, attribute ] of Object.entries(
+    currentManifest.attributes ?? {},
+  ) ) {
+    if ( attribute.ts.kind === 'union' ) {
+      fieldNames.add( field );
+    }
+  }
 
-	return [ ...fieldNames ].map( ( field ) => {
-		const legacyAttribute = legacyManifest?.attributes?.[ field ] ?? null;
-		const currentAttribute = currentManifest.attributes?.[ field ] ?? null;
-		return {
-			field,
-			legacyBranch: resolveUnionBranchKey(
-				legacyAttribute,
-				before[ field ]
-			),
-			nextBranch: resolveUnionBranchKey(
-				currentAttribute,
-				( after ?? before )[ field ]
-			),
-			status,
-		};
-	} );
+  return [ ...fieldNames ].map(( field ) => {
+    const legacyAttribute = legacyManifest?.attributes?.[ field ] ?? null;
+    const currentAttribute = currentManifest.attributes?.[ field ] ?? null;
+    return {
+      field,
+      legacyBranch: resolveUnionBranchKey(legacyAttribute, before[ field ]),
+      nextBranch: resolveUnionBranchKey(
+        currentAttribute,
+        ( after ?? before )[ field ],
+      ),
+      status,
+    };
+  });
 }
 
 function resolveUnionBranchKey(
 	attribute: ManifestAttribute | null,
-	value: unknown
+	value: unknown,
 ): string | null {
-	if (
+  if (
 		! attribute ||
 		attribute.ts.kind !== 'union' ||
 		! attribute.ts.union ||
 		! isNonArrayObject( value )
 	) {
-		return null;
-	}
+    return null;
+  }
 
-	const discriminatorValue = value[ attribute.ts.union.discriminator ];
-	if ( typeof discriminatorValue !== 'string' ) {
-		return null;
-	}
+  const discriminatorValue = value[ attribute.ts.union.discriminator ];
+  if ( typeof discriminatorValue !== 'string' ) {
+    return null;
+  }
 
-	return Object.prototype.hasOwnProperty.call(
-		attribute.ts.union.branches,
-		discriminatorValue
-	)
-		? discriminatorValue
-		: null;
+  return Object.prototype.hasOwnProperty.call(
+    attribute.ts.union.branches,
+    discriminatorValue,
+  )
+    ? discriminatorValue
+    : null;
 }
 
 function formatValidationErrors(
-	errors: Array< { expected?: string; path?: string } > = []
+	errors: Array< { expected?: string; path?: string } > = [],
 ): string[] {
-	return errors.map( ( error ) => {
-		const pathLabel = error.path ?? '$';
-		const expectedLabel = error.expected ?? 'unknown';
-		return `${ pathLabel }: ${ expectedLabel }`;
-	} );
+  return errors.map(( error ) => {
+    const pathLabel = error.path ?? '$';
+    const expectedLabel = error.expected ?? 'unknown';
+    return `${ pathLabel }: ${ expectedLabel }`;
+  });
 }

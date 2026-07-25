@@ -1,1 +1,1 @@
-export * from "./schema/typia-tags.js";
+export * from './schema/typia-tags.js';

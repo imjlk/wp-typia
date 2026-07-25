@@ -1,4 +1,4 @@
-import { promises as fsp } from "node:fs";
+import { promises as fsp } from 'node:fs';
 
 /**
  * Return whether a filesystem path exists without blocking the event loop.
@@ -7,12 +7,12 @@ import { promises as fsp } from "node:fs";
  * @returns `true` when the path can be accessed, otherwise `false`.
  */
 export async function pathExists(filePath: string): Promise<boolean> {
-	try {
-		await fsp.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
+  try {
+    await fsp.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -22,14 +22,14 @@ export async function pathExists(filePath: string): Promise<boolean> {
  * @returns The UTF-8 source, or `null` when the file is missing.
  */
 export async function readOptionalUtf8File(filePath: string): Promise<string | null> {
-	try {
-		return await fsp.readFile(filePath, "utf8");
-	} catch (error) {
-		if (isFileNotFoundError(error)) {
-			return null;
-		}
-		throw error;
-	}
+  try {
+    return await fsp.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -39,7 +39,7 @@ export async function readOptionalUtf8File(filePath: string): Promise<string | n
  * @returns The string error code, or an empty string when unavailable.
  */
 export function getNodeErrorCode(error: unknown): string {
-	return getOptionalNodeErrorCode(error) ?? "";
+  return getOptionalNodeErrorCode(error) ?? '';
 }
 
 /**
@@ -49,9 +49,9 @@ export function getNodeErrorCode(error: unknown): string {
  * @returns The string error code, or `undefined` when unavailable.
  */
 export function getOptionalNodeErrorCode(error: unknown): string | undefined {
-	return typeof error === "object" && error !== null && "code" in error
-		? String((error as { code: unknown }).code)
-		: undefined;
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : undefined;
 }
 
 /**
@@ -61,5 +61,5 @@ export function getOptionalNodeErrorCode(error: unknown): string | undefined {
  * @returns `true` when the error has Node.js code `ENOENT`.
  */
 export function isFileNotFoundError(error: unknown): boolean {
-	return getOptionalNodeErrorCode(error) === "ENOENT";
+  return getOptionalNodeErrorCode(error) === 'ENOENT';
 }

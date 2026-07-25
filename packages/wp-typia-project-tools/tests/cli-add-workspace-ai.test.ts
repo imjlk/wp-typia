@@ -1,58 +1,58 @@
-import { afterAll, describe, expect, test } from "bun:test";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { afterAll, describe, expect, test } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import {
-	cleanupScaffoldTempRoot,
-	createScaffoldTempRoot,
-	entryPath,
-	getCommandErrorMessage,
-	linkWorkspaceNodeModules,
-	parseJsonObjectFromOutput,
-	runCli,
-	runGeneratedScript,
-	scaffoldOfficialWorkspace,
-	typecheckGeneratedProject,
-} from "./helpers/scaffold-test-harness.js";
-import { readWorkspaceInventory } from "../src/runtime/workspace-inventory.js";
+  cleanupScaffoldTempRoot,
+  createScaffoldTempRoot,
+  entryPath,
+  getCommandErrorMessage,
+  linkWorkspaceNodeModules,
+  parseJsonObjectFromOutput,
+  runCli,
+  runGeneratedScript,
+  scaffoldOfficialWorkspace,
+  typecheckGeneratedProject,
+} from './helpers/scaffold-test-harness.js';
+import { readWorkspaceInventory } from '../src/runtime/workspace-inventory.js';
 
-describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
-	const tempRoot = createScaffoldTempRoot("wp-typia-add-ai-feature-");
+describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
+	const tempRoot = createScaffoldTempRoot('wp-typia-add-ai-feature-');
 
 	afterAll(() => {
 		cleanupScaffoldTempRoot(tempRoot);
 	});
 
-	test("ai-feature add validates names and namespaces before mutating the workspace", async () => {
-		const targetDir = path.join(tempRoot, "demo-workspace-add-ai-feature-invalid");
+	test('ai-feature add validates names and namespaces before mutating the workspace', async () => {
+		const targetDir = path.join(tempRoot, 'demo-workspace-add-ai-feature-invalid');
 
 		await scaffoldOfficialWorkspace(targetDir, {
-			description: "Demo workspace add ai feature invalid",
-			slug: "demo-workspace-add-ai-feature-invalid",
-			title: "Demo Workspace Add AI Feature Invalid",
+			description: 'Demo workspace add ai feature invalid',
+			slug: 'demo-workspace-add-ai-feature-invalid',
+			title: 'Demo Workspace Add AI Feature Invalid',
 		});
 
 		linkWorkspaceNodeModules(targetDir);
 
 		const invalidNameError = getCommandErrorMessage(() =>
-			runCli("node", [entryPath, "add", "ai-feature", "1brief-suggestions"], {
+			runCli('node', [entryPath, 'add', 'ai-feature', '1brief-suggestions'], {
 				cwd: targetDir,
 			}),
 		);
 		expect(invalidNameError).toContain(
-			"AI feature name must start with a letter and contain only lowercase letters, numbers, and hyphens.",
+			'AI feature name must start with a letter and contain only lowercase letters, numbers, and hyphens.',
 		);
 
 		const invalidNamespaceError = getCommandErrorMessage(() =>
 			runCli(
-				"node",
+				'node',
 				[
 					entryPath,
-					"add",
-					"ai-feature",
-					"brief-suggestions",
-					"--namespace",
-					"DemoSpace",
+					'add',
+					'ai-feature',
+					'brief-suggestions',
+					'--namespace',
+					'DemoSpace',
 				],
 				{
 					cwd: targetDir,
@@ -60,42 +60,42 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			),
 		);
 		expect(invalidNamespaceError).toContain(
-			"REST resource namespace must use lowercase slash-separated segments like `demo-space/v1`.",
+			'REST resource namespace must use lowercase slash-separated segments like `demo-space/v1`.',
 		);
 
 		expect(
 			fs.existsSync(
-				path.join(targetDir, "src", "ai-features", "brief-suggestions"),
+				path.join(targetDir, 'src', 'ai-features', 'brief-suggestions'),
 			),
 		).toBe(false);
 		expect(
 			fs.existsSync(
-				path.join(targetDir, "inc", "ai-features", "brief-suggestions.php"),
+				path.join(targetDir, 'inc', 'ai-features', 'brief-suggestions.php'),
 			),
 		).toBe(false);
 		expect(readWorkspaceInventory(targetDir).aiFeatures).toHaveLength(0);
 	}, 20_000);
 
-	test("canonical CLI can add a server-only AI feature to an official workspace template", async () => {
-		const targetDir = path.join(tempRoot, "demo-workspace-add-ai-feature");
+	test('canonical CLI can add a server-only AI feature to an official workspace template', async () => {
+		const targetDir = path.join(tempRoot, 'demo-workspace-add-ai-feature');
 
 		await scaffoldOfficialWorkspace(targetDir, {
-			description: "Demo workspace add ai feature",
-			slug: "demo-workspace-add-ai-feature",
-			title: "Demo Workspace Add AI Feature",
+			description: 'Demo workspace add ai feature',
+			slug: 'demo-workspace-add-ai-feature',
+			title: 'Demo Workspace Add AI Feature',
 		});
 
 		linkWorkspaceNodeModules(targetDir);
 
 		runCli(
-			"node",
+			'node',
 			[
 				entryPath,
-				"add",
-				"ai-feature",
-				"brief-suggestions",
-				"--namespace",
-				"demo-space/v1",
+				'add',
+				'ai-feature',
+				'brief-suggestions',
+				'--namespace',
+				'demo-space/v1',
 			],
 			{
 				cwd: targetDir,
@@ -103,72 +103,72 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		);
 
 		const blockConfigSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "block-config.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'block-config.ts'),
+			'utf8',
 		);
 		const bootstrapSource = fs.readFileSync(
-			path.join(targetDir, "demo-workspace-add-ai-feature.php"),
-			"utf8",
+			path.join(targetDir, 'demo-workspace-add-ai-feature.php'),
+			'utf8',
 		);
 		const packageJson = JSON.parse(
-			fs.readFileSync(path.join(targetDir, "package.json"), "utf8"),
+			fs.readFileSync(path.join(targetDir, 'package.json'), 'utf8'),
 		) as {
 			devDependencies?: Record<string, string>;
 			scripts?: Record<string, string>;
 		};
 		const syncProjectSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "sync-project.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'sync-project.ts'),
+			'utf8',
 		);
 		const syncRestSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "sync-rest-contracts.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'sync-rest-contracts.ts'),
+			'utf8',
 		);
 		const syncAiSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "sync-ai-features.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'sync-ai-features.ts'),
+			'utf8',
 		);
 		const typesSource = fs.readFileSync(
 			path.join(
 				targetDir,
-				"src",
-				"ai-features",
-				"brief-suggestions",
-				"api-types.ts",
+				'src',
+				'ai-features',
+				'brief-suggestions',
+				'api-types.ts',
 			),
-			"utf8",
+			'utf8',
 		);
 		const validatorsSource = fs.readFileSync(
 			path.join(
 				targetDir,
-				"src",
-				"ai-features",
-				"brief-suggestions",
-				"api-validators.ts",
+				'src',
+				'ai-features',
+				'brief-suggestions',
+				'api-validators.ts',
 			),
-			"utf8",
+			'utf8',
 		);
 		const apiSource = fs.readFileSync(
-			path.join(targetDir, "src", "ai-features", "brief-suggestions", "api.ts"),
-			"utf8",
+			path.join(targetDir, 'src', 'ai-features', 'brief-suggestions', 'api.ts'),
+			'utf8',
 		);
 		const dataSource = fs.readFileSync(
 			path.join(
 				targetDir,
-				"src",
-				"ai-features",
-				"brief-suggestions",
-				"data.ts",
+				'src',
+				'ai-features',
+				'brief-suggestions',
+				'data.ts',
 			),
-			"utf8",
+			'utf8',
 		);
 		const phpSource = fs.readFileSync(
-			path.join(targetDir, "inc", "ai-features", "brief-suggestions.php"),
-			"utf8",
+			path.join(targetDir, 'inc', 'ai-features', 'brief-suggestions.php'),
+			'utf8',
 		);
 		const inventory = readWorkspaceInventory(targetDir);
 		const aiFeatureEntry = inventory.aiFeatures.find(
-			(entry) => entry.slug === "brief-suggestions",
+			(entry) => entry.slug === 'brief-suggestions',
 		);
 
 		expect(blockConfigSource).toContain('slug: "brief-suggestions"');
@@ -185,67 +185,67 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		expect(blockConfigSource).toContain('"mode": "optional"');
 		expect(blockConfigSource).toContain('"optionalFeatureIds": [');
 		expect(blockConfigSource).toContain('"wordpress-ai-client"');
-		expect(blockConfigSource).toContain("WordPress AI Client");
+		expect(blockConfigSource).toContain('WordPress AI Client');
 		expect(blockConfigSource).toContain(
-			"WordPress AI Client: wordpress-core-feature WordPress AI Client",
+			'WordPress AI Client: wordpress-core-feature WordPress AI Client',
 		);
-		expect(blockConfigSource).toContain("defineEndpointManifest");
-		expect(bootstrapSource).toContain("Requires at least: 6.7");
-		expect(bootstrapSource).toContain("Tested up to:      7.0");
+		expect(blockConfigSource).toContain('defineEndpointManifest');
+		expect(bootstrapSource).toContain('Requires at least: 6.7');
+		expect(bootstrapSource).toContain('Tested up to:      7.0');
 		expect(bootstrapSource).toContain(
-			"function demo_space_register_ai_features()",
+			'function demo_space_register_ai_features()',
 		);
-		expect(bootstrapSource).toContain("inc/ai-features/*.php");
-		expect(packageJson.scripts?.["sync-ai"]).toBe("ttsx scripts/sync-ai-features.ts");
-		expect(packageJson.devDependencies?.["@wp-typia/project-tools"]).toBeDefined();
-		expect(syncProjectSource).toContain("const syncAiScriptPath");
+		expect(bootstrapSource).toContain('inc/ai-features/*.php');
+		expect(packageJson.scripts?.['sync-ai']).toBe('ttsx scripts/sync-ai-features.ts');
+		expect(packageJson.devDependencies?.['@wp-typia/project-tools']).toBeDefined();
+		expect(syncProjectSource).toContain('const syncAiScriptPath');
 		expect(syncProjectSource).toContain(
-			"runSyncScript( syncAiScriptPath, options );",
+			'runSyncScript( syncAiScriptPath, options );',
 		);
-		expect(syncRestSource).toContain("AI_FEATURES");
-		expect(syncRestSource).toContain("isWorkspaceAiFeature");
-		expect(syncRestSource).toContain("const aiFeatures = AI_FEATURES.filter");
-		expect(syncAiSource).toContain("@wp-typia/project-tools/ai-artifacts");
-		expect(syncAiSource).toContain("projectWordPressAiSchema");
+		expect(syncRestSource).toContain('AI_FEATURES');
+		expect(syncRestSource).toContain('isWorkspaceAiFeature');
+		expect(syncRestSource).toContain('const aiFeatures = AI_FEATURES.filter');
+		expect(syncAiSource).toContain('@wp-typia/project-tools/ai-artifacts');
+		expect(syncAiSource).toContain('projectWordPressAiSchema');
 		expect(typesSource).toContain(
-			"export interface BriefSuggestionsAiFeatureRequest",
+			'export interface BriefSuggestionsAiFeatureRequest',
 		);
 		expect(typesSource).toContain(
-			"export interface BriefSuggestionsAiFeatureResponse",
+			'export interface BriefSuggestionsAiFeatureResponse',
 		);
 		expect(typesSource).toContain("providerType: 'client' | 'cloud' | 'server'");
-		expect(validatorsSource).toContain("featureRequest");
-		expect(validatorsSource).toContain("featureResponse");
-		expect(apiSource).toContain("aiFeatureRunEndpoint");
-		expect(apiSource).toContain("aiFeatureSupportMetadata");
-		expect(apiSource).toContain("getAiFeatureSupportHintLines");
-		expect(apiSource).toContain("isAiFeatureSupportUnavailableError");
-		expect(apiSource).toContain("resolveAiFeatureUnavailableMessage");
-		expect(apiSource).toContain("missing-wordpress-ai-client");
-		expect(apiSource).toContain("request-time-support-probe");
+		expect(validatorsSource).toContain('featureRequest');
+		expect(validatorsSource).toContain('featureResponse');
+		expect(apiSource).toContain('aiFeatureRunEndpoint');
+		expect(apiSource).toContain('aiFeatureSupportMetadata');
+		expect(apiSource).toContain('getAiFeatureSupportHintLines');
+		expect(apiSource).toContain('isAiFeatureSupportUnavailableError');
+		expect(apiSource).toContain('resolveAiFeatureUnavailableMessage');
+		expect(apiSource).toContain('missing-wordpress-ai-client');
+		expect(apiSource).toContain('request-time-support-probe');
 		expect(apiSource).toContain("endpointMethod: 'POST'");
-		expect(apiSource).toContain("resolveRestNonce");
-		expect(dataSource).toContain("useRunBriefSuggestionsAiFeatureMutation");
-		expect(dataSource).toContain("aiFeatureSupportMetadata");
-		expect(dataSource).toContain("getAiFeatureSupportHintLines");
-		expect(dataSource).toContain("isAiFeatureSupportUnavailableError");
-		expect(dataSource).toContain("resolveAiFeatureUnavailableMessage");
-		expect(phpSource).toContain("wp_ai_client_prompt");
-		expect(phpSource).toContain("static $is_supported = null;");
-		expect(phpSource).toContain("is_supported_for_text_generation");
-		expect(phpSource).toContain("generate_text_result");
-		expect(phpSource).toContain("using_model_preference");
-		expect(phpSource).toContain("is_wp_error( $permission )");
+		expect(apiSource).toContain('resolveRestNonce');
+		expect(dataSource).toContain('useRunBriefSuggestionsAiFeatureMutation');
+		expect(dataSource).toContain('aiFeatureSupportMetadata');
+		expect(dataSource).toContain('getAiFeatureSupportHintLines');
+		expect(dataSource).toContain('isAiFeatureSupportUnavailableError');
+		expect(dataSource).toContain('resolveAiFeatureUnavailableMessage');
+		expect(phpSource).toContain('wp_ai_client_prompt');
+		expect(phpSource).toContain('static $is_supported = null;');
+		expect(phpSource).toContain('is_supported_for_text_generation');
+		expect(phpSource).toContain('generate_text_result');
+		expect(phpSource).toContain('using_model_preference');
+		expect(phpSource).toContain('is_wp_error( $permission )');
 		expect(phpSource).toContain(
-			"this server-only endpoint avoids WordPress script-module enqueue APIs",
+			'this server-only endpoint avoids WordPress script-module enqueue APIs',
 		);
-		expect(phpSource).not.toContain("wp_enqueue_script_module(");
-		expect(phpSource).toContain("admin_notices");
-		expect(phpSource).toContain("sprintf(");
-		expect(phpSource).toContain("The %s AI feature is optional");
-		expect(phpSource).toContain("optional and remains disabled");
+		expect(phpSource).not.toContain('wp_enqueue_script_module(');
+		expect(phpSource).toContain('admin_notices');
+		expect(phpSource).toContain('sprintf(');
+		expect(phpSource).toContain('The %s AI feature is optional');
+		expect(phpSource).toContain('optional and remains disabled');
 		expect(phpSource).toContain(
-			"Customization hooks for the Brief Suggestions AI feature:",
+			'Customization hooks for the Brief Suggestions AI feature:',
 		);
 		expect(phpSource).toContain(
 			"'demo_space_brief_suggestions_ai_feature_permission'",
@@ -268,54 +268,54 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		expect(phpSource).toContain(
 			"'demo_space_brief_suggestions_ai_feature_telemetry'",
 		);
-		expect(phpSource).toContain("`temperature` and `modelPreference` keys");
+		expect(phpSource).toContain('`temperature` and `modelPreference` keys');
 		const adminNoticeSource = phpSource.slice(
 			phpSource.indexOf(
-				"function demo_space_brief_suggestions_ai_feature_admin_notice",
+				'function demo_space_brief_suggestions_ai_feature_admin_notice',
 			),
 		);
 		expect(
 			adminNoticeSource.indexOf("! current_user_can( 'manage_options' )"),
 		).toBeLessThan(
 			adminNoticeSource.indexOf(
-				"demo_space_brief_suggestions_is_ai_feature_supported()",
+				'demo_space_brief_suggestions_is_ai_feature_supported()',
 			),
 		);
-		expect(phpSource).toContain("register_rest_route");
+		expect(phpSource).toContain('register_rest_route');
 		expect(phpSource).toContain("'demo-space/v1'");
 		expect(aiFeatureEntry).toEqual({
 			aiSchemaFile:
-				"src/ai-features/brief-suggestions/ai-schemas/feature-result.ai.schema.json",
-			apiFile: "src/ai-features/brief-suggestions/api.ts",
-			clientFile: "src/ai-features/brief-suggestions/api-client.ts",
+				'src/ai-features/brief-suggestions/ai-schemas/feature-result.ai.schema.json',
+			apiFile: 'src/ai-features/brief-suggestions/api.ts',
+			clientFile: 'src/ai-features/brief-suggestions/api-client.ts',
 			compatibility: {
 				hardMinimums: {},
-				mode: "optional",
-				optionalFeatureIds: ["wordpress-ai-client"],
-				optionalFeatures: ["WordPress AI Client"],
+				mode: 'optional',
+				optionalFeatureIds: ['wordpress-ai-client'],
+				optionalFeatures: ['WordPress AI Client'],
 				requiredFeatureIds: [],
 				requiredFeatures: [],
 				runtimeGates: [
-					"WordPress AI Client: wordpress-core-feature WordPress AI Client",
+					'WordPress AI Client: wordpress-core-feature WordPress AI Client',
 				],
 			},
-			dataFile: "src/ai-features/brief-suggestions/data.ts",
-			namespace: "demo-space/v1",
-			openApiFile: "src/ai-features/brief-suggestions/api.openapi.json",
-			phpFile: "inc/ai-features/brief-suggestions.php",
-			slug: "brief-suggestions",
-			typesFile: "src/ai-features/brief-suggestions/api-types.ts",
-			validatorsFile: "src/ai-features/brief-suggestions/api-validators.ts",
+			dataFile: 'src/ai-features/brief-suggestions/data.ts',
+			namespace: 'demo-space/v1',
+			openApiFile: 'src/ai-features/brief-suggestions/api.openapi.json',
+			phpFile: 'inc/ai-features/brief-suggestions.php',
+			slug: 'brief-suggestions',
+			typesFile: 'src/ai-features/brief-suggestions/api-types.ts',
+			validatorsFile: 'src/ai-features/brief-suggestions/api-validators.ts',
 		});
 
 		expect(
 			fs.existsSync(
 				path.join(
 					targetDir,
-					"src",
-					"ai-features",
-					"brief-suggestions",
-					"api-client.ts",
+					'src',
+					'ai-features',
+					'brief-suggestions',
+					'api-client.ts',
 				),
 			),
 		).toBe(true);
@@ -323,10 +323,10 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			fs.existsSync(
 				path.join(
 					targetDir,
-					"src",
-					"ai-features",
-					"brief-suggestions",
-					"api.openapi.json",
+					'src',
+					'ai-features',
+					'brief-suggestions',
+					'api.openapi.json',
 				),
 			),
 		).toBe(true);
@@ -334,11 +334,11 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			fs.existsSync(
 				path.join(
 					targetDir,
-					"src",
-					"ai-features",
-					"brief-suggestions",
-					"api-schemas",
-					"feature-request.schema.json",
+					'src',
+					'ai-features',
+					'brief-suggestions',
+					'api-schemas',
+					'feature-request.schema.json',
 				),
 			),
 		).toBe(true);
@@ -346,18 +346,18 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			fs.existsSync(
 				path.join(
 					targetDir,
-					"src",
-					"ai-features",
-					"brief-suggestions",
-					"ai-schemas",
-					"feature-result.ai.schema.json",
+					'src',
+					'ai-features',
+					'brief-suggestions',
+					'ai-schemas',
+					'feature-result.ai.schema.json',
 				),
 			),
 		).toBe(true);
 
 		const doctorOutput = runCli(
-			"node",
-			[entryPath, "doctor", "--format", "json"],
+			'node',
+			[entryPath, 'doctor', '--format', 'json'],
 			{
 				cwd: targetDir,
 			},
@@ -366,78 +366,78 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 			checks: Array<{ detail: string; label: string; status: string }>;
 		}>(doctorOutput);
 		expect(
-			doctorChecks.checks.find((check) => check.label === "AI feature bootstrap")
+			doctorChecks.checks.find((check) => check.label === 'AI feature bootstrap')
 				?.status,
-		).toBe("pass");
+		).toBe('pass');
 		expect(
 			doctorChecks.checks.find(
-				(check) => check.label === "AI feature config brief-suggestions",
+				(check) => check.label === 'AI feature config brief-suggestions',
 			)?.status,
-		).toBe("pass");
+		).toBe('pass');
 		expect(
 			doctorChecks.checks.find(
-				(check) => check.label === "AI feature brief-suggestions",
+				(check) => check.label === 'AI feature brief-suggestions',
 			)?.status,
-		).toBe("pass");
+		).toBe('pass');
 
-		runGeneratedScript(targetDir, "scripts/sync-rest-contracts.ts", ["--check"]);
-		runGeneratedScript(targetDir, "scripts/sync-ai-features.ts", ["--check"]);
+		runGeneratedScript(targetDir, 'scripts/sync-rest-contracts.ts', ['--check']);
+		runGeneratedScript(targetDir, 'scripts/sync-ai-features.ts', ['--check']);
 		typecheckGeneratedProject(targetDir);
 	}, 120_000);
 
-	test("later contract and REST resource adds preserve AI sync-rest wiring", async () => {
+	test('later contract and REST resource adds preserve AI sync-rest wiring', async () => {
 		const targetDir = path.join(
 			tempRoot,
-			"demo-workspace-add-ai-feature-contract-rest",
+			'demo-workspace-add-ai-feature-contract-rest',
 		);
 
 		await scaffoldOfficialWorkspace(targetDir, {
-			description: "Demo workspace add ai feature contract rest",
-			slug: "demo-workspace-add-ai-feature-contract-rest",
-			title: "Demo Workspace Add AI Feature Contract Rest",
+			description: 'Demo workspace add ai feature contract rest',
+			slug: 'demo-workspace-add-ai-feature-contract-rest',
+			title: 'Demo Workspace Add AI Feature Contract Rest',
 		});
 
 		linkWorkspaceNodeModules(targetDir);
 
 		runCli(
-			"node",
+			'node',
 			[
 				entryPath,
-				"add",
-				"ai-feature",
-				"brief-suggestions",
-				"--namespace",
-				"demo-space/v1",
+				'add',
+				'ai-feature',
+				'brief-suggestions',
+				'--namespace',
+				'demo-space/v1',
 			],
 			{
 				cwd: targetDir,
 			},
 		);
 		runCli(
-			"node",
+			'node',
 			[
 				entryPath,
-				"add",
-				"contract",
-				"external-response",
-				"--type",
-				"ExternalResponse",
+				'add',
+				'contract',
+				'external-response',
+				'--type',
+				'ExternalResponse',
 			],
 			{
 				cwd: targetDir,
 			},
 		);
 		runCli(
-			"node",
+			'node',
 			[
 				entryPath,
-				"add",
-				"rest-resource",
-				"snapshots",
-				"--namespace",
-				"demo-space/v1",
-				"--methods",
-				"list,read,create,update,delete",
+				'add',
+				'rest-resource',
+				'snapshots',
+				'--namespace',
+				'demo-space/v1',
+				'--methods',
+				'list,read,create,update,delete',
 			],
 			{
 				cwd: targetDir,
@@ -445,40 +445,40 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		);
 
 		const syncRestSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "sync-rest-contracts.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'sync-rest-contracts.ts'),
+			'utf8',
 		);
 
-		expect(syncRestSource).toContain("AI_FEATURES");
-		expect(syncRestSource).toContain("CONTRACTS");
-		expect(syncRestSource).toContain("REST_RESOURCES");
-		expect(syncRestSource).toContain("standaloneContracts.length === 0");
-		expect(syncRestSource).toContain("restResources.length === 0");
-		expect(syncRestSource).toContain("aiFeatures.length === 0");
+		expect(syncRestSource).toContain('AI_FEATURES');
+		expect(syncRestSource).toContain('CONTRACTS');
+		expect(syncRestSource).toContain('REST_RESOURCES');
+		expect(syncRestSource).toContain('standaloneContracts.length === 0');
+		expect(syncRestSource).toContain('restResources.length === 0');
+		expect(syncRestSource).toContain('aiFeatures.length === 0');
 
-		runGeneratedScript(targetDir, "scripts/sync-rest-contracts.ts", ["--check"]);
+		runGeneratedScript(targetDir, 'scripts/sync-rest-contracts.ts', ['--check']);
 	}, 120_000);
 
-	test("ai-feature duplicate failures preserve generated workspace files", async () => {
-		const targetDir = path.join(tempRoot, "demo-workspace-add-ai-feature-rollback");
+	test('ai-feature duplicate failures preserve generated workspace files', async () => {
+		const targetDir = path.join(tempRoot, 'demo-workspace-add-ai-feature-rollback');
 
 		await scaffoldOfficialWorkspace(targetDir, {
-			description: "Demo workspace add ai feature rollback",
-			slug: "demo-workspace-add-ai-feature-rollback",
-			title: "Demo Workspace Add AI Feature Rollback",
+			description: 'Demo workspace add ai feature rollback',
+			slug: 'demo-workspace-add-ai-feature-rollback',
+			title: 'Demo Workspace Add AI Feature Rollback',
 		});
 
 		linkWorkspaceNodeModules(targetDir);
 
 		runCli(
-			"node",
+			'node',
 			[
 				entryPath,
-				"add",
-				"ai-feature",
-				"brief-suggestions",
-				"--namespace",
-				"demo-space/v1",
+				'add',
+				'ai-feature',
+				'brief-suggestions',
+				'--namespace',
+				'demo-space/v1',
 			],
 			{
 				cwd: targetDir,
@@ -486,45 +486,45 @@ describe("@wp-typia/project-tools cli-add-workspace ai-feature", () => {
 		);
 
 		const originalConfigSource = fs.readFileSync(
-			path.join(targetDir, "scripts", "block-config.ts"),
-			"utf8",
+			path.join(targetDir, 'scripts', 'block-config.ts'),
+			'utf8',
 		);
 		const originalPhpSource = fs.readFileSync(
-			path.join(targetDir, "inc", "ai-features", "brief-suggestions.php"),
-			"utf8",
+			path.join(targetDir, 'inc', 'ai-features', 'brief-suggestions.php'),
+			'utf8',
 		);
 
 		expect(
 			getCommandErrorMessage(() =>
 				runCli(
-					"node",
+					'node',
 					[
 						entryPath,
-						"add",
-						"ai-feature",
-						"brief-suggestions",
-						"--namespace",
-						"demo-space/v1",
+						'add',
+						'ai-feature',
+						'brief-suggestions',
+						'--namespace',
+						'demo-space/v1',
 					],
 					{
 						cwd: targetDir,
 					},
 				),
 			),
-		).toContain("An AI feature already exists");
+		).toContain('An AI feature already exists');
 
 		expect(
-			fs.readFileSync(path.join(targetDir, "scripts", "block-config.ts"), "utf8"),
+			fs.readFileSync(path.join(targetDir, 'scripts', 'block-config.ts'), 'utf8'),
 		).toBe(originalConfigSource);
 		expect(
 			fs.readFileSync(
-				path.join(targetDir, "inc", "ai-features", "brief-suggestions.php"),
-				"utf8",
+				path.join(targetDir, 'inc', 'ai-features', 'brief-suggestions.php'),
+				'utf8',
 			),
 		).toBe(originalPhpSource);
 		expect(
 			readWorkspaceInventory(targetDir).aiFeatures.filter(
-				(entry) => entry.slug === "brief-suggestions",
+				(entry) => entry.slug === 'brief-suggestions',
 			),
 		).toHaveLength(1);
 	}, 20_000);

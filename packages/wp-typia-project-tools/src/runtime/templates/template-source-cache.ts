@@ -1,8 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto'
-import type { Dirent } from 'node:fs'
-import { promises as fsp } from 'node:fs'
-import path from 'node:path'
-import { getNodeErrorCode, pathExists } from '../shared/fs-async.js'
+import { createHash, randomUUID } from 'node:crypto';
+import type { Dirent } from 'node:fs';
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
+import { getNodeErrorCode, pathExists } from '../shared/fs-async.js';
 import {
   CACHE_MARKER_FILE,
   CACHE_PRUNE_MARKER_FILE,
@@ -13,14 +13,14 @@ import {
   parseExternalTemplateCacheEntryMarker,
   parseExternalTemplateCachePruneMarker,
   type ExternalTemplateCacheMetadata,
-} from './template-source-cache-markers.js'
+} from './template-source-cache-markers.js';
 import {
   getExternalTemplateCacheNowMs,
   getExternalTemplateCacheRoot,
   isExternalTemplateCacheEnabled,
   resolveExternalTemplateCachePruneIntervalMs,
   resolveExternalTemplateCacheTtlMs,
-} from './template-source-cache-policy.js'
+} from './template-source-cache-policy.js';
 export {
   EXTERNAL_TEMPLATE_CACHE_DIR_ENV,
   EXTERNAL_TEMPLATE_CACHE_ENV,
@@ -28,17 +28,17 @@ export {
   EXTERNAL_TEMPLATE_CACHE_TTL_DAYS_ENV,
   getExternalTemplateCacheRoot,
   isExternalTemplateCacheEnabled,
-} from './template-source-cache-policy.js'
+} from './template-source-cache-policy.js';
 
 /**
  * Private directory mode used for cache roots and entries on POSIX platforms.
  */
-const PRIVATE_CACHE_DIRECTORY_MODE = 0o700
+const PRIVATE_CACHE_DIRECTORY_MODE = 0o700;
 
 /**
  * Filesystem errors that mean another writer published the same cache entry.
  */
-const CACHE_PUBLISH_RACE_ERROR_CODES = new Set(['EEXIST', 'ENOTEMPTY'])
+const CACHE_PUBLISH_RACE_ERROR_CODES = new Set(['EEXIST', 'ENOTEMPTY']);
 
 /**
  * Filesystem errors that make the optional cache unavailable.
@@ -49,22 +49,22 @@ const CACHE_UNAVAILABLE_ERROR_CODES = new Set([
   'ENOTDIR',
   'EPERM',
   'EROFS',
-])
+]);
 
 /**
  * Cache namespaces must stay within one path segment under the cache root.
  */
-const SAFE_CACHE_NAMESPACE_SEGMENT = /^[A-Za-z0-9_.-]+$/u
+const SAFE_CACHE_NAMESPACE_SEGMENT = /^[A-Za-z0-9_.-]+$/u;
 
 /**
  * Cache entries are deterministic SHA-256 digest directory names.
  */
-const SAFE_CACHE_ENTRY_SEGMENT = /^[a-f0-9]{64}$/u
+const SAFE_CACHE_ENTRY_SEGMENT = /^[a-f0-9]{64}$/u;
 
 function createTemporaryCacheEntryDirName(cacheKey: string): string {
   // Crypto randomness keeps concurrent cache populators from colliding on the
   // staging directory before the final atomic rename publishes the cache entry.
-  return `.tmp-${cacheKey}-${process.pid}-${Date.now()}-${randomUUID()}`
+  return `.tmp-${cacheKey}-${process.pid}-${Date.now()}-${randomUUID()}`;
 }
 
 /**
@@ -196,49 +196,49 @@ export function createExternalTemplateCacheKey(
 ): string {
   return createHash('sha256')
     .update(JSON.stringify(keyParts))
-    .digest('hex')
+    .digest('hex');
 }
 
 async function isDirectoryPath(directory: string): Promise<boolean> {
   try {
-    const stats = await fsp.lstat(directory)
-    return stats.isDirectory() && !stats.isSymbolicLink()
+    const stats = await fsp.lstat(directory);
+    return stats.isDirectory() && !stats.isSymbolicLink();
   } catch {
-    return false
+    return false;
   }
 }
 
 async function removeTemporaryCacheEntry(entryDir: string): Promise<void> {
   try {
-    await fsp.rm(entryDir, { force: true, recursive: true })
+    await fsp.rm(entryDir, { force: true, recursive: true });
   } catch {
     // Cache cleanup is best-effort; the caller can still continue uncached.
   }
 }
 
 function getCurrentUid(): number | null {
-  return typeof process.getuid === 'function' ? process.getuid() : null
+  return typeof process.getuid === 'function' ? process.getuid() : null;
 }
 
 async function isPrivateCacheDirectory(directory: string): Promise<boolean> {
   try {
-    const stats = await fsp.lstat(directory)
+    const stats = await fsp.lstat(directory);
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
-      return false
+      return false;
     }
 
-    const currentUid = getCurrentUid()
+    const currentUid = getCurrentUid();
     if (currentUid !== null && stats.uid !== currentUid) {
-      return false
+      return false;
     }
 
     if (process.platform !== 'win32' && (stats.mode & 0o077) !== 0) {
-      return false
+      return false;
     }
 
-    return true
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -247,25 +247,25 @@ async function ensurePrivateCacheDirectory(directory: string): Promise<boolean> 
     await fsp.mkdir(directory, {
       mode: PRIVATE_CACHE_DIRECTORY_MODE,
       recursive: true,
-    })
-    const stats = await fsp.lstat(directory)
+    });
+    const stats = await fsp.lstat(directory);
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
-      return false
+      return false;
     }
 
-    const currentUid = getCurrentUid()
+    const currentUid = getCurrentUid();
     if (currentUid !== null && stats.uid !== currentUid) {
-      return false
+      return false;
     }
 
     if (process.platform !== 'win32') {
       if ((stats.mode & 0o077) !== 0) {
-        await fsp.chmod(directory, PRIVATE_CACHE_DIRECTORY_MODE)
+        await fsp.chmod(directory, PRIVATE_CACHE_DIRECTORY_MODE);
       }
     }
-    return isPrivateCacheDirectory(directory)
+    return isPrivateCacheDirectory(directory);
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -278,20 +278,20 @@ function resolveCacheNamespaceDir(
     namespace === '..' ||
     !SAFE_CACHE_NAMESPACE_SEGMENT.test(namespace)
   ) {
-    return null
+    return null;
   }
 
-  const namespaceDir = path.join(cacheRoot, namespace)
-  const relativeNamespaceDir = path.relative(cacheRoot, namespaceDir)
+  const namespaceDir = path.join(cacheRoot, namespace);
+  const relativeNamespaceDir = path.relative(cacheRoot, namespaceDir);
   if (
     relativeNamespaceDir.length === 0 ||
     relativeNamespaceDir.startsWith('..') ||
     path.isAbsolute(relativeNamespaceDir)
   ) {
-    return null
+    return null;
   }
 
-  return namespaceDir
+  return namespaceDir;
 }
 
 function getCacheEntryPaths(
@@ -304,17 +304,17 @@ function getCacheEntryPaths(
   namespaceDir: string
   sourceDir: string
 } | null {
-  const cacheKey = createExternalTemplateCacheKey(descriptor.keyParts)
-  const cacheRoot = getExternalTemplateCacheRoot()
+  const cacheKey = createExternalTemplateCacheKey(descriptor.keyParts);
+  const cacheRoot = getExternalTemplateCacheRoot();
   const namespaceDir = resolveCacheNamespaceDir(
     cacheRoot,
     descriptor.namespace,
-  )
+  );
   if (!namespaceDir) {
-    return null
+    return null;
   }
 
-  const entryDir = path.join(namespaceDir, cacheKey)
+  const entryDir = path.join(namespaceDir, cacheKey);
 
   return {
     cacheKey,
@@ -323,7 +323,7 @@ function getCacheEntryPaths(
     markerPath: path.join(entryDir, CACHE_MARKER_FILE),
     namespaceDir,
     sourceDir: path.join(entryDir, 'source'),
-  }
+  };
 }
 
 async function isReusableCacheEntry(
@@ -335,7 +335,7 @@ async function isReusableCacheEntry(
     (await isPrivateCacheDirectory(entryDir)) &&
     (await pathExists(markerPath)) &&
     (await isDirectoryPath(sourceDir))
-  )
+  );
 }
 
 async function readCacheEntryMarker(
@@ -347,9 +347,9 @@ async function readCacheEntryMarker(
   try {
     return parseExternalTemplateCacheEntryMarker(
       await fsp.readFile(markerPath, 'utf8'),
-    )
+    );
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -362,10 +362,10 @@ async function getReusableCacheEntryMarker(
   metadata: ExternalTemplateCacheMetadata
 } | null> {
   if (!(await isReusableCacheEntry(entryDir, markerPath, sourceDir))) {
-    return null
+    return null;
   }
 
-  return readCacheEntryMarker(markerPath)
+  return readCacheEntryMarker(markerPath);
 }
 
 async function isReusableFreshCacheEntry(
@@ -379,23 +379,23 @@ async function isReusableFreshCacheEntry(
     entryDir,
     markerPath,
     sourceDir,
-  )
+  );
   return (
     marker !== null &&
     isExternalTemplateCacheEntryFreshForTtl(marker.createdAtMs, nowMs, ttlMs)
-  )
+  );
 }
 
 function isPathInsideDirectory(
   directory: string,
   candidatePath: string,
 ): boolean {
-  const relativePath = path.relative(directory, candidatePath)
+  const relativePath = path.relative(directory, candidatePath);
   return (
     relativePath.length > 0 &&
     !relativePath.startsWith('..') &&
     !path.isAbsolute(relativePath)
-  )
+  );
 }
 
 async function removeCacheEntryWithinRoot(
@@ -403,19 +403,19 @@ async function removeCacheEntryWithinRoot(
   entryDir: string,
 ): Promise<boolean> {
   if (!isPathInsideDirectory(cacheRoot, entryDir)) {
-    return false
+    return false;
   }
 
   try {
-    await fsp.rm(entryDir, { force: true, recursive: true })
-    return true
+    await fsp.rm(entryDir, { force: true, recursive: true });
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
 function getCachePruneMarkerPath(cacheRoot: string): string {
-  return path.join(cacheRoot, CACHE_PRUNE_MARKER_FILE)
+  return path.join(cacheRoot, CACHE_PRUNE_MARKER_FILE);
 }
 
 async function shouldSkipExternalTemplateCachePrune({
@@ -432,27 +432,27 @@ async function shouldSkipExternalTemplateCachePrune({
   ttlMs: number
 }): Promise<boolean> {
   if (force || pruneIntervalMs === null) {
-    return false
+    return false;
   }
 
-  let markerText: string
+  let markerText: string;
   try {
-    markerText = await fsp.readFile(getCachePruneMarkerPath(cacheRoot), 'utf8')
+    markerText = await fsp.readFile(getCachePruneMarkerPath(cacheRoot), 'utf8');
   } catch {
-    return false
+    return false;
   }
 
-  const marker = parseExternalTemplateCachePruneMarker(markerText)
+  const marker = parseExternalTemplateCachePruneMarker(markerText);
   if (
     !marker ||
     marker.ttlMs !== ttlMs ||
     marker.pruneIntervalMs !== pruneIntervalMs
   ) {
-    return false
+    return false;
   }
 
-  const elapsedMs = nowMs - marker.prunedAtMs
-  return elapsedMs >= 0 && elapsedMs < pruneIntervalMs
+  const elapsedMs = nowMs - marker.prunedAtMs;
+  return elapsedMs >= 0 && elapsedMs < pruneIntervalMs;
 }
 
 async function writeExternalTemplateCachePruneMarker({
@@ -475,7 +475,7 @@ async function writeExternalTemplateCachePruneMarker({
         ttlMs,
       }),
       'utf8',
-    )
+    );
   } catch {
     // Prune markers are an optimization; failing to write one keeps TTL safe.
   }
@@ -494,16 +494,16 @@ async function writeExternalTemplateCachePruneMarker({
 export async function pruneExternalTemplateCache(
   options: ExternalTemplateCachePruneOptions = {},
 ): Promise<ExternalTemplateCachePruneResult> {
-  const env = options.env ?? process.env
-  const cacheRoot = getExternalTemplateCacheRoot(env)
+  const env = options.env ?? process.env;
+  const cacheRoot = getExternalTemplateCacheRoot(env);
   const ttlMs = resolveExternalTemplateCacheTtlMs({
     env,
     ttlDays: options.ttlDays,
-  })
+  });
   const pruneIntervalMs = resolveExternalTemplateCachePruneIntervalMs({
     env,
     pruneIntervalMs: options.pruneIntervalMs,
-  })
+  });
   const result: ExternalTemplateCachePruneResult = {
     cacheRoot,
     prunedEntries: 0,
@@ -511,13 +511,13 @@ export async function pruneExternalTemplateCache(
     skippedEntries: 0,
     skippedByThrottle: false,
     ttlMs,
-  }
+  };
 
   if (ttlMs === null || !(await isPrivateCacheDirectory(cacheRoot))) {
-    return result
+    return result;
   }
 
-  const nowMs = getExternalTemplateCacheNowMs(options.now)
+  const nowMs = getExternalTemplateCacheNowMs(options.now);
   if (
     await shouldSkipExternalTemplateCachePrune({
       cacheRoot,
@@ -527,73 +527,73 @@ export async function pruneExternalTemplateCache(
       ttlMs,
     })
   ) {
-    result.skippedByThrottle = true
-    return result
+    result.skippedByThrottle = true;
+    return result;
   }
 
-  let namespaceEntries: Dirent[]
+  let namespaceEntries: Dirent[];
   try {
-    namespaceEntries = await fsp.readdir(cacheRoot, { withFileTypes: true })
+    namespaceEntries = await fsp.readdir(cacheRoot, { withFileTypes: true });
   } catch {
-    return result
+    return result;
   }
 
-  const expiresBeforeMs = nowMs - ttlMs
+  const expiresBeforeMs = nowMs - ttlMs;
   for (const namespaceEntry of namespaceEntries) {
     if (!namespaceEntry.isDirectory()) {
-      continue
+      continue;
     }
 
     const namespaceDir = resolveCacheNamespaceDir(
       cacheRoot,
       namespaceEntry.name,
-    )
+    );
     if (!namespaceDir || !(await isPrivateCacheDirectory(namespaceDir))) {
-      result.skippedEntries += 1
-      continue
+      result.skippedEntries += 1;
+      continue;
     }
 
-    let cacheEntries: Dirent[]
+    let cacheEntries: Dirent[];
     try {
-      cacheEntries = await fsp.readdir(namespaceDir, { withFileTypes: true })
+      cacheEntries = await fsp.readdir(namespaceDir, { withFileTypes: true });
     } catch {
-      result.skippedEntries += 1
-      continue
+      result.skippedEntries += 1;
+      continue;
     }
 
     for (const cacheEntry of cacheEntries) {
       if (!cacheEntry.isDirectory()) {
-        continue
+        continue;
       }
       if (!SAFE_CACHE_ENTRY_SEGMENT.test(cacheEntry.name)) {
-        result.skippedEntries += 1
-        continue
+        result.skippedEntries += 1;
+        continue;
       }
 
-      const entryDir = path.join(namespaceDir, cacheEntry.name)
-      result.scannedEntries += 1
+      const entryDir = path.join(namespaceDir, cacheEntry.name);
+      result.scannedEntries += 1;
       if (!isPathInsideDirectory(cacheRoot, entryDir)) {
-        result.skippedEntries += 1
-        continue
+        result.skippedEntries += 1;
+        continue;
       }
 
-      const markerPath = path.join(entryDir, CACHE_MARKER_FILE)
-      const sourceDir = path.join(entryDir, 'source')
+      const markerPath = path.join(entryDir, CACHE_MARKER_FILE);
+      const sourceDir = path.join(entryDir, 'source');
       const marker = await getReusableCacheEntryMarker(
         entryDir,
         markerPath,
         sourceDir,
-      )
+      );
       if (!marker) {
-        result.skippedEntries += 1
-        continue
+        result.skippedEntries += 1;
+        continue;
       }
 
       if (marker.createdAtMs < expiresBeforeMs) {
         if (await removeCacheEntryWithinRoot(cacheRoot, entryDir)) {
-          result.prunedEntries += 1
+          result.prunedEntries += 1;
         } else {
-          result.skippedEntries += 1
+          result.skippedEntries += 1;
         }
       }
     }
@@ -604,9 +604,9 @@ export async function pruneExternalTemplateCache(
     nowMs,
     pruneIntervalMs,
     ttlMs,
-  })
+  });
 
-  return result
+  return result;
 }
 
 /**
@@ -623,48 +623,48 @@ export async function findReusableExternalTemplateSourceCache(
   descriptor: ExternalTemplateCacheLookupDescriptor,
 ): Promise<ExternalTemplateCacheResolution | null> {
   if (!isExternalTemplateCacheEnabled()) {
-    return null
+    return null;
   }
 
-  const cacheRoot = getExternalTemplateCacheRoot()
+  const cacheRoot = getExternalTemplateCacheRoot();
   const namespaceDir = resolveCacheNamespaceDir(
     cacheRoot,
     descriptor.namespace,
-  )
+  );
   if (!namespaceDir) {
-    return null
+    return null;
   }
   if (
     !(await isPrivateCacheDirectory(cacheRoot)) ||
     !(await isPrivateCacheDirectory(namespaceDir))
   ) {
-    return null
+    return null;
   }
-  const ttlMs = resolveExternalTemplateCacheTtlMs()
-  const nowMs = getExternalTemplateCacheNowMs(undefined)
-  await pruneExternalTemplateCache()
+  const ttlMs = resolveExternalTemplateCacheTtlMs();
+  const nowMs = getExternalTemplateCacheNowMs(undefined);
+  await pruneExternalTemplateCache();
 
-  let entries: Dirent[]
+  let entries: Dirent[];
   try {
-    entries = await fsp.readdir(namespaceDir, { withFileTypes: true })
+    entries = await fsp.readdir(namespaceDir, { withFileTypes: true });
   } catch {
-    return null
+    return null;
   }
 
-  let bestEntry: { createdAtMs: number; sourceDir: string } | null = null
+  let bestEntry: { createdAtMs: number; sourceDir: string } | null = null;
   for (const entry of entries) {
     if (!entry.isDirectory()) {
-      continue
+      continue;
     }
 
-    const entryDir = path.join(namespaceDir, entry.name)
-    const markerPath = path.join(entryDir, CACHE_MARKER_FILE)
-    const sourceDir = path.join(entryDir, 'source')
+    const entryDir = path.join(namespaceDir, entry.name);
+    const markerPath = path.join(entryDir, CACHE_MARKER_FILE);
+    const sourceDir = path.join(entryDir, 'source');
     const marker = await getReusableCacheEntryMarker(
       entryDir,
       markerPath,
       sourceDir,
-    )
+    );
     if (
       !marker ||
       !isExternalTemplateCacheEntryFreshForTtl(
@@ -677,13 +677,13 @@ export async function findReusableExternalTemplateSourceCache(
         descriptor.metadata,
       )
     ) {
-      continue
+      continue;
     }
     if (!bestEntry || marker.createdAtMs > bestEntry.createdAtMs) {
       bestEntry = {
         createdAtMs: marker.createdAtMs,
         sourceDir,
-      }
+      };
     }
   }
 
@@ -692,7 +692,7 @@ export async function findReusableExternalTemplateSourceCache(
         cacheHit: true,
         sourceDir: bestEntry.sourceDir,
       }
-    : null
+    : null;
 }
 
 /**
@@ -711,31 +711,31 @@ export async function resolveExternalTemplateSourceCache(
   populateSourceDir: (sourceDir: string) => Promise<void>,
 ): Promise<ExternalTemplateCacheResolution | null> {
   if (!isExternalTemplateCacheEnabled()) {
-    return null
+    return null;
   }
 
-  const cacheEntryPaths = getCacheEntryPaths(descriptor)
+  const cacheEntryPaths = getCacheEntryPaths(descriptor);
   if (!cacheEntryPaths) {
-    return null
+    return null;
   }
 
   const { cacheKey, cacheRoot, entryDir, markerPath, namespaceDir, sourceDir } =
-    cacheEntryPaths
+    cacheEntryPaths;
   if (
     !(await ensurePrivateCacheDirectory(cacheRoot)) ||
     !(await ensurePrivateCacheDirectory(namespaceDir))
   ) {
-    return null
+    return null;
   }
-  const ttlMs = resolveExternalTemplateCacheTtlMs()
-  const nowMs = getExternalTemplateCacheNowMs(undefined)
-  await pruneExternalTemplateCache()
+  const ttlMs = resolveExternalTemplateCacheTtlMs();
+  const nowMs = getExternalTemplateCacheNowMs(undefined);
+  await pruneExternalTemplateCache();
 
   const existingMarker = await getReusableCacheEntryMarker(
     entryDir,
     markerPath,
     sourceDir,
-  )
+  );
   if (
     existingMarker &&
     isExternalTemplateCacheEntryFreshForTtl(
@@ -747,32 +747,32 @@ export async function resolveExternalTemplateSourceCache(
     return {
       cacheHit: true,
       sourceDir,
-    }
+    };
   }
   if (existingMarker) {
-    await removeCacheEntryWithinRoot(cacheRoot, entryDir)
+    await removeCacheEntryWithinRoot(cacheRoot, entryDir);
   }
 
   const temporaryEntryDir = path.join(
     namespaceDir,
     createTemporaryCacheEntryDirName(cacheKey),
-  )
-  const temporarySourceDir = path.join(temporaryEntryDir, 'source')
-  let populateFailed = false
+  );
+  const temporarySourceDir = path.join(temporaryEntryDir, 'source');
+  let populateFailed = false;
 
   try {
     await fsp.mkdir(temporarySourceDir, {
       mode: PRIVATE_CACHE_DIRECTORY_MODE,
       recursive: true,
-    })
+    });
     if (process.platform !== 'win32') {
-      await fsp.chmod(temporaryEntryDir, PRIVATE_CACHE_DIRECTORY_MODE)
+      await fsp.chmod(temporaryEntryDir, PRIVATE_CACHE_DIRECTORY_MODE);
     }
     try {
-      await populateSourceDir(temporarySourceDir)
+      await populateSourceDir(temporarySourceDir);
     } catch (error) {
-      populateFailed = true
-      throw error
+      populateFailed = true;
+      throw error;
     }
     await fsp.writeFile(
       path.join(temporaryEntryDir, CACHE_MARKER_FILE),
@@ -783,23 +783,23 @@ export async function resolveExternalTemplateSourceCache(
         namespace: descriptor.namespace,
       }),
       'utf8',
-    )
-    await fsp.rename(temporaryEntryDir, entryDir)
+    );
+    await fsp.rename(temporaryEntryDir, entryDir);
 
     return {
       cacheHit: false,
       sourceDir,
-    }
+    };
   } catch (error) {
-    await removeTemporaryCacheEntry(temporaryEntryDir)
+    await removeTemporaryCacheEntry(temporaryEntryDir);
     if (populateFailed) {
       if (CACHE_UNAVAILABLE_ERROR_CODES.has(getNodeErrorCode(error))) {
-        return null
+        return null;
       }
-      throw error
+      throw error;
     }
 
-    const errorCode = getNodeErrorCode(error)
+    const errorCode = getNodeErrorCode(error);
     if (
       CACHE_PUBLISH_RACE_ERROR_CODES.has(errorCode) &&
       (await isReusableFreshCacheEntry(
@@ -813,14 +813,14 @@ export async function resolveExternalTemplateSourceCache(
       return {
         cacheHit: true,
         sourceDir,
-      }
+      };
     }
     if (
       CACHE_PUBLISH_RACE_ERROR_CODES.has(errorCode) ||
       CACHE_UNAVAILABLE_ERROR_CODES.has(errorCode)
     ) {
-      return null
+      return null;
     }
-    throw error
+    throw error;
   }
 }

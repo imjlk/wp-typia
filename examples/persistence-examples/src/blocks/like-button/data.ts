@@ -1,43 +1,43 @@
 import {
-	useEndpointMutation,
-	useEndpointQuery,
-	type UseEndpointMutationOptions,
-	type UseEndpointQueryOptions,
+  useEndpointMutation,
+  useEndpointQuery,
+  type UseEndpointMutationOptions,
+  type UseEndpointQueryOptions,
 } from '@wp-typia/rest/react';
 
 import { resolveRestNonce } from '../../shared/rest';
 import type {
-	PersistenceLikeBootstrapQuery,
-	PersistenceLikeBootstrapResponse,
-	PersistenceLikeStatusQuery,
-	PersistenceLikeStatusResponse,
-	PersistenceToggleLikeRequest,
-	PersistenceToggleLikeResponse,
+  PersistenceLikeBootstrapQuery,
+  PersistenceLikeBootstrapResponse,
+  PersistenceLikeStatusQuery,
+  PersistenceLikeStatusResponse,
+  PersistenceToggleLikeRequest,
+  PersistenceToggleLikeResponse,
 } from './api-types';
 import {
-	likeBootstrapEndpoint,
-	likeStatusEndpoint,
-	toggleLikeEndpoint,
+  likeBootstrapEndpoint,
+  likeStatusEndpoint,
+  toggleLikeEndpoint,
 } from './api';
 
 function buildNonceRequestOptions( restNonce?: string ) {
-	const nonce = resolveRestNonce( restNonce );
+  const nonce = resolveRestNonce( restNonce );
 
-	return nonce
-		? {
-				requestOptions: {
-					headers: {
-						'X-WP-Nonce': nonce,
-					},
-				},
-		  }
-		: undefined;
+  return nonce
+    ? {
+        requestOptions: {
+          headers: {
+            'X-WP-Nonce': nonce,
+          },
+        },
+      }
+    : undefined;
 }
 
-interface ToggleLikeMutationContext< Context > {
-	bootstrapPrevious: PersistenceLikeBootstrapResponse | undefined;
-	previous: PersistenceLikeStatusResponse | undefined;
-	userContext: Context | undefined;
+interface ToggleLikeMutationContext<Context> {
+  bootstrapPrevious: PersistenceLikeBootstrapResponse | undefined;
+  previous: PersistenceLikeStatusResponse | undefined;
+  userContext: Context | undefined;
 }
 
 export interface UsePersistenceLikeStatusQueryOptions<
@@ -75,55 +75,55 @@ export interface UseToggleLikeMutationOptions< Context = unknown >
 		| 'onSuccess'
 		| 'resolveCallOptions'
 	> {
-	onError?: (
+  onError?: (
 		error: unknown,
 		request: PersistenceToggleLikeRequest,
 		client: import('@wp-typia/rest/react').EndpointDataClient,
-		context: Context | undefined
+		context: Context | undefined,
 	) => void | Promise< void >;
-	onMutate?: (
+  onMutate?: (
 		request: PersistenceToggleLikeRequest,
-		client: import('@wp-typia/rest/react').EndpointDataClient
+		client: import('@wp-typia/rest/react').EndpointDataClient,
 	) => Context | Promise< Context >;
-	onSuccess?: (
+  onSuccess?: (
 		data: PersistenceToggleLikeResponse | undefined,
 		request: PersistenceToggleLikeRequest,
 		validation: import('@wp-typia/rest').ValidationResult< PersistenceToggleLikeResponse >,
 		client: import('@wp-typia/rest/react').EndpointDataClient,
-		context: Context | undefined
+		context: Context | undefined,
 	) => void | Promise< void >;
-	restNonce?: string;
+  restNonce?: string;
 }
 
 export function usePersistenceLikeStatusQuery<
 	Selected = PersistenceLikeStatusResponse,
 >(
 	request: PersistenceLikeStatusQuery,
-	options: UsePersistenceLikeStatusQueryOptions< Selected > = {}
+	options: UsePersistenceLikeStatusQueryOptions< Selected > = {},
 ) {
-	return useEndpointQuery( likeStatusEndpoint, request, {
-		...options,
-	} );
+  return useEndpointQuery(likeStatusEndpoint, request, {
+    ...options,
+  });
 }
 
 export function usePersistenceLikeBootstrapQuery<
 	Selected = PersistenceLikeBootstrapResponse,
 >(
 	request: PersistenceLikeBootstrapQuery,
-	options: UsePersistenceLikeBootstrapQueryOptions< Selected > = {}
+	options: UsePersistenceLikeBootstrapQueryOptions< Selected > = {},
 ) {
-	return useEndpointQuery( likeBootstrapEndpoint, request, {
-		...options,
-	} );
+  return useEndpointQuery(likeBootstrapEndpoint, request, {
+    ...options,
+  });
 }
 
 export function useToggleLikeMutation< Context = unknown >(
-	options: UseToggleLikeMutationOptions< Context > = {}
+	options: UseToggleLikeMutationOptions< Context > = {},
 ) {
-	const { onError, onMutate, onSuccess, restNonce, ...mutationOptions } =
+  const { onError, onMutate, onSuccess, restNonce, ...mutationOptions } =
 		options;
 
-	return useEndpointMutation( toggleLikeEndpoint, {
+  return useEndpointMutation( toggleLikeEndpoint, {
 		...mutationOptions,
 		invalidate: ( _data, request ) => ( {
 			endpoint: likeStatusEndpoint,
@@ -140,7 +140,7 @@ export function useToggleLikeMutation< Context = unknown >(
 						postId: request.postId,
 						resourceKey: request.resourceKey,
 					},
-					context.previous
+					context.previous,
 				);
 			}
 			if ( context?.bootstrapPrevious ) {
@@ -150,7 +150,7 @@ export function useToggleLikeMutation< Context = unknown >(
 						postId: request.postId,
 						resourceKey: request.resourceKey,
 					},
-					context.bootstrapPrevious
+					context.bootstrapPrevious,
 				);
 			}
 
@@ -168,7 +168,7 @@ export function useToggleLikeMutation< Context = unknown >(
 			} satisfies PersistenceLikeBootstrapQuery;
 			const bootstrapPrevious = client.getData(
 				likeBootstrapEndpoint,
-				bootstrapRequest
+				bootstrapRequest,
 			);
 
 			if ( previous !== undefined ) {
@@ -186,11 +186,11 @@ export function useToggleLikeMutation< Context = unknown >(
 							...current,
 							count: Math.max(
 								0,
-								current.count + ( nextLiked ? 1 : -1 )
+								current.count + ( nextLiked ? 1 : -1 ),
 							),
 							likedByCurrentUser: nextLiked,
 						};
-					}
+					},
 				);
 			}
 			if ( bootstrapPrevious !== undefined ) {
@@ -206,7 +206,7 @@ export function useToggleLikeMutation< Context = unknown >(
 							...current,
 							likedByCurrentUser: ! current.likedByCurrentUser,
 						};
-					}
+					},
 				);
 			}
 
@@ -220,14 +220,14 @@ export function useToggleLikeMutation< Context = unknown >(
 					client.setData(
 						likeStatusEndpoint,
 						queryRequest,
-						previous
+						previous,
 					);
 				}
 				if ( bootstrapPrevious !== undefined ) {
 					client.setData(
 						likeBootstrapEndpoint,
 						bootstrapRequest,
-						bootstrapPrevious
+						bootstrapPrevious,
 					);
 				}
 				throw error;
@@ -256,7 +256,7 @@ export function useToggleLikeMutation< Context = unknown >(
 									count: data.count,
 									likedByCurrentUser: data.likedByCurrentUser,
 							  }
-							: current
+							: current,
 				);
 				client.setData(
 					likeBootstrapEndpoint,
@@ -267,7 +267,7 @@ export function useToggleLikeMutation< Context = unknown >(
 									...current,
 									likedByCurrentUser: data.likedByCurrentUser,
 							  }
-							: current
+							: current,
 				);
 			}
 
@@ -276,7 +276,7 @@ export function useToggleLikeMutation< Context = unknown >(
 				request,
 				validation,
 				client,
-				context?.userContext
+				context?.userContext,
 			);
 		},
 		resolveCallOptions: () => buildNonceRequestOptions( restNonce ),

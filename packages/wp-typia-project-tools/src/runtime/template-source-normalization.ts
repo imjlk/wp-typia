@@ -1,1 +1,1 @@
-export * from "./templates/template-source-normalization.js";
+export * from './templates/template-source-normalization.js';

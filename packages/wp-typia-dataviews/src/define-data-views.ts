@@ -1,5 +1,5 @@
-import { createDataFormConfig } from "./data-form.js";
-import { toDataViewsQueryArgs } from "./query-adapter.js";
+import { createDataFormConfig } from './data-form.js';
+import { toDataViewsQueryArgs } from './query-adapter.js';
 import type {
   DataFormConfig,
   DataFormConfigOptions,
@@ -25,7 +25,7 @@ import type {
   DefineDataViewsFieldDefinition,
   DefineDataViewsFields,
   DefineDataViewsInput,
-} from "./types.js";
+} from './types.js';
 
 type MutableDataViewsFieldValidationRules<TItem extends object, TValue> = {
   -readonly [TKey in keyof DataViewsFieldValidationRules<TItem, TValue>]?: DataViewsFieldValidationRules<
@@ -42,7 +42,9 @@ export function defineDataViews<TItem extends object>(
     fields.map((field) => [field.id, field]),
   ) as DefinedDataViewsFieldMap<TItem>;
   const defaultView = normalizeDefineDataViewsDefaultView(definition, fields);
-  const defaultGetItemId = definition.getItemId ?? createGetItemId(definition.idField);
+  const defaultGetItemId = definition.getItemId ?? createGetItemId(
+    definition.idField,
+  );
   const toQueryArgs = <TQuery extends object = DataViewsQueryArgs>(
     view: DataViewsView<TItem>,
     ...args: DefinedDataViewsQueryAdapterArguments<TItem, TQuery>
@@ -118,7 +120,9 @@ function normalizeDefineDataViewsField<
   const label = fieldDefinition.label ?? formatDataViewsFieldLabel(id);
   const description = fieldDefinition.description ?? schema?.description;
   const type = normalizeDataViewsFieldType(fieldDefinition.type, schema);
-  const elements = fieldDefinition.elements ?? normalizeDataViewsFieldElements(schema);
+  const elements = fieldDefinition.elements ?? normalizeDataViewsFieldElements(
+    schema,
+  );
   const validation = normalizeDataViewsFieldValidation(isValid, schema);
 
   return {
@@ -139,7 +143,10 @@ function normalizeDefineDataViewsDefaultView<TItem extends object>(
   const defaults =
     definition.titleField === undefined
       ? { fields: fields.map((field) => field.id) }
-      : { fields: fields.map((field) => field.id), titleField: definition.titleField };
+      : {
+          fields: fields.map((field) => field.id),
+          titleField: definition.titleField,
+        };
 
   return {
     ...defaults,
@@ -155,20 +162,20 @@ function normalizeDataViewsFieldType<TValue>(
     return type;
   }
 
-  if (schema?.format === "date-time" || schema?.format === "datetime") {
-    return "datetime";
+  if (schema?.format === 'date-time' || schema?.format === 'datetime') {
+    return 'datetime';
   }
 
-  if (schema?.format === "date") {
-    return "date";
+  if (schema?.format === 'date') {
+    return 'date';
   }
 
-  if (schema?.format === "email") {
-    return "email";
+  if (schema?.format === 'email') {
+    return 'email';
   }
 
-  if (schema?.format === "uri" || schema?.format === "url") {
-    return "url";
+  if (schema?.format === 'uri' || schema?.format === 'url') {
+    return 'url';
   }
 
   const schemaType = getFirstDataViewsSchemaType(schema?.type);
@@ -246,22 +253,22 @@ function normalizeDataViewsFieldValidation<TItem extends object, TValue>(
 }
 
 function getFirstDataViewsSchemaType(
-  type: DataViewsFieldSchemaMetadata["type"] | undefined,
+  type: DataViewsFieldSchemaMetadata['type'] | undefined,
 ): DataViewsFieldType | undefined {
   const schemaType = Array.isArray(type)
-    ? (type.find((candidate) => candidate !== "object") ?? type[0])
+    ? (type.find((candidate) => candidate !== 'object') ?? type[0])
     : type;
 
-  if (schemaType === "string") {
-    return "text";
+  if (schemaType === 'string') {
+    return 'text';
   }
 
   if (
-    schemaType === "array" ||
-    schemaType === "boolean" ||
-    schemaType === "integer" ||
-    schemaType === "number" ||
-    schemaType === "object"
+    schemaType === 'array' ||
+    schemaType === 'boolean' ||
+    schemaType === 'integer' ||
+    schemaType === 'number' ||
+    schemaType === 'object'
   ) {
     return schemaType;
   }
@@ -279,11 +286,11 @@ function createGetItemId<TItem extends object>(
   return (item) => {
     const idValue = item[idField];
 
-    if (typeof idValue === "string") {
+    if (typeof idValue === 'string') {
       return idValue;
     }
 
-    if (typeof idValue === "number" && Number.isFinite(idValue)) {
+    if (typeof idValue === 'number' && Number.isFinite(idValue)) {
       return String(idValue);
     }
 
@@ -295,16 +302,16 @@ function createGetItemId<TItem extends object>(
 
 function formatDataViewsFieldLabel(id: string): string {
   return id
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatDataViewsElementLabel(value: DataViewsScalar): string {
-  if (typeof value === "boolean") {
-    return value ? "True" : "False";
+  if (typeof value === 'boolean') {
+    return value ? 'True' : 'False';
   }
 
   return formatDataViewsFieldLabel(String(value));

@@ -6,7 +6,10 @@ const repoRoot = path.resolve(import.meta.dir, '..', '..');
 
 function readJson(relativePath: string): Record<string, unknown> {
   return JSON.parse(
-    fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'),
+    fs.readFileSync(
+      path.join(repoRoot, relativePath),
+      'utf8',
+    ),
   ) as Record<string, unknown>;
 }
 
@@ -477,7 +480,7 @@ describe('repository DX baseline', () => {
     expect(createReleaseJob).toContain('--pattern SHA256SUMS');
     expect(createReleaseJob).toContain('asset_name="${asset_name#\\*}"');
     expect(createReleaseJob).toContain(
-      "asset_name=\"${asset_name%$'\\r'}\"",
+      'asset_name="${asset_name%$\'\\r\'}"',
     );
     expect(createReleaseJob).toContain(
       "if: steps.standalone_assets.outputs.complete != 'true'",

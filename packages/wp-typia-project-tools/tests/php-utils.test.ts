@@ -1,33 +1,33 @@
-import { expect, test } from "bun:test";
+import { expect, test } from 'bun:test';
 
 import {
-	escapeRegex,
-	findPhpFunctionCallEnd,
-	findPhpFunctionRange,
-	hasPhpCodeStringLiteralPrefix,
-	hasPhpFunctionCall,
-	hasPhpFunctionCallWithAssignedStringPrefixArgument,
-	hasPhpFunctionCallWithStringArgument,
-	hasPhpFunctionCallWithStringArgumentPrefix,
-	hasPhpFunctionCallWithStringArguments,
-	hasPhpFunctionDefinition,
-	quotePhpString,
-	replacePhpFunctionDefinition,
-} from "../src/runtime/php-utils.js";
+  escapeRegex,
+  findPhpFunctionCallEnd,
+  findPhpFunctionRange,
+  hasPhpCodeStringLiteralPrefix,
+  hasPhpFunctionCall,
+  hasPhpFunctionCallWithAssignedStringPrefixArgument,
+  hasPhpFunctionCallWithStringArgument,
+  hasPhpFunctionCallWithStringArgumentPrefix,
+  hasPhpFunctionCallWithStringArguments,
+  hasPhpFunctionDefinition,
+  quotePhpString,
+  replacePhpFunctionDefinition,
+} from '../src/runtime/php-utils.js';
 
-test("quotePhpString escapes single quotes and backslashes for generated PHP", () => {
-	expect(quotePhpString("Bob's \\ path")).toBe("'Bob\\'s \\\\ path'");
+test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {
+  expect(quotePhpString("Bob's \\ path")).toBe("'Bob\\'s \\\\ path'");
 });
 
-test("escapeRegex produces a literal-safe regular expression fragment", () => {
-	const literal = "feature.value[1](draft)?";
-	const pattern = new RegExp(`^${escapeRegex(literal)}$`, "u");
+test('escapeRegex produces a literal-safe regular expression fragment', () => {
+  const literal = 'feature.value[1](draft)?';
+  const pattern = new RegExp(`^${escapeRegex(literal)}$`, 'u');
 
-	expect(pattern.test(literal)).toBe(true);
-	expect(pattern.test("featureXvalue[1](draft)?")).toBe(false);
+  expect(pattern.test(literal)).toBe(true);
+  expect(pattern.test('featureXvalue[1](draft)?')).toBe(false);
 });
 
-test("findPhpFunctionCallEnd bounds nested calls in PHP code mode", () => {
+test('findPhpFunctionCallEnd bounds nested calls in PHP code mode', () => {
 	const source = `<?php
 register_rest_route(
 	'demo/v1',
@@ -41,23 +41,23 @@ register_rest_route(
 );
 $after = true;
 `;
-	const callOffset = source.indexOf("register_rest_route");
+	const callOffset = source.indexOf('register_rest_route');
 	const callEnd = findPhpFunctionCallEnd(
 		source,
 		callOffset,
-		"register_rest_route",
+		'register_rest_route',
 		{ requirePhpOpenTag: true },
 	);
 
 	expect(callEnd).not.toBeNull();
 	expect(source.slice(callOffset, callEnd ?? 0)).toContain(
-		"WP_REST_Server::READABLE",
+		'WP_REST_Server::READABLE',
 	);
-	expect(source[callEnd ?? 0]).toBe(";");
-	expect(source.slice(callOffset, callEnd ?? 0)).not.toContain("$after");
+	expect(source[callEnd ?? 0]).toBe(';');
+	expect(source.slice(callOffset, callEnd ?? 0)).not.toContain('$after');
 });
 
-test("findPhpFunctionRange locates a complete PHP function with nested braces", () => {
+test('findPhpFunctionRange locates a complete PHP function with nested braces', () => {
 	const source = `<?php
 function keep_me() {
 \treturn true;
@@ -74,14 +74,14 @@ function wp_typia_demo() {
 add_action( 'init', 'wp_typia_demo' );
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
-	expect(range?.source).toContain("function wp_typia_demo()");
+	expect(range?.source).toContain('function wp_typia_demo()');
 	expect(range?.source).toContain("return array( 'ok' => true );");
-	expect(range?.source).not.toContain("add_action");
+	expect(range?.source).not.toContain('add_action');
 });
 
-test("findPhpFunctionRange supports return types without spilling into later functions", () => {
+test('findPhpFunctionRange supports return types without spilling into later functions', () => {
 	const source = `<?php
 function malformed()
 
@@ -90,13 +90,13 @@ function wp_typia_typed() : array {
 }
 `;
 
-	expect(findPhpFunctionRange(source, "malformed")).toBeNull();
-	expect(findPhpFunctionRange(source, "wp_typia_typed")?.source).toContain(
-		"function wp_typia_typed() : array",
+	expect(findPhpFunctionRange(source, 'malformed')).toBeNull();
+	expect(findPhpFunctionRange(source, 'wp_typia_typed')?.source).toContain(
+		'function wp_typia_typed() : array',
 	);
 });
 
-test("findPhpFunctionRange can require a function signature inside PHP code", () => {
+test('findPhpFunctionRange can require a function signature inside PHP code', () => {
 	const source = `function wp_typia_target() {
 	return 'outside-php';
 }
@@ -106,7 +106,7 @@ function wp_typia_target() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_target", {
+	const range = findPhpFunctionRange(source, 'wp_typia_target', {
 		requirePhpOpenTag: true,
 	});
 
@@ -114,7 +114,7 @@ function wp_typia_target() {
 	expect(range?.source).not.toContain("return 'outside-php';");
 });
 
-test("findPhpFunctionRange ignores braces in HTML inside a PHP function", () => {
+test('findPhpFunctionRange ignores braces in HTML inside a PHP function', () => {
 	const source = `<?php
 function wp_typia_target() {
 ?>
@@ -128,15 +128,15 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_target", {
+	const range = findPhpFunctionRange(source, 'wp_typia_target', {
 		requirePhpOpenTag: true,
 	});
 
 	expect(range?.source).toContain("return 'inside-php';");
-	expect(range?.source).not.toContain("function keep_me()");
+	expect(range?.source).not.toContain('function keep_me()');
 });
 
-test("findPhpFunctionRange ignores braces inside PHP string literals", () => {
+test('findPhpFunctionRange ignores braces inside PHP string literals', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$json = '{"key": {"nested": true}}';
@@ -151,15 +151,15 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
 	expect(range).not.toBeNull();
 	expect(range?.source).toContain(`$json = '{"key": {"nested": true}}';`);
 	expect(range?.source).toContain('$template = "Hello {name}";');
-	expect(range?.source).not.toContain("function keep_me()");
+	expect(range?.source).not.toContain('function keep_me()');
 });
 
-test("PHP scanner keeps double-quoted interpolation blocks in string mode", () => {
+test('PHP scanner keeps double-quoted interpolation blocks in string mode', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$name = 'Reader';
@@ -176,7 +176,7 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
 	expect(range).not.toBeNull();
 	expect(range?.source).toContain('$message = "Hello {$name}";');
@@ -188,13 +188,13 @@ function keep_me() {
 	expect(range?.source).toContain(
 		'$commented = "Comment: {$object/* " } wp_enqueue_script_module( */->property}";',
 	);
-	expect(range?.source).not.toContain("function keep_me()");
-	expect(hasPhpFunctionCall(range?.source ?? "", "wp_enqueue_script_module")).toBe(
+	expect(range?.source).not.toContain('function keep_me()');
+	expect(hasPhpFunctionCall(range?.source ?? '', 'wp_enqueue_script_module')).toBe(
 		false,
 	);
 });
 
-test("findPhpFunctionRange ignores braces inside heredoc and nowdoc content", () => {
+test('findPhpFunctionRange ignores braces inside heredoc and nowdoc content', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$json = <<<JSON
@@ -215,15 +215,15 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
 	expect(range).not.toBeNull();
-	expect(range?.source).toContain("<<<JSON");
+	expect(range?.source).toContain('<<<JSON');
 	expect(range?.source).toContain("<<<'NOWDOC'");
-	expect(range?.source).not.toContain("function keep_me()");
+	expect(range?.source).not.toContain('function keep_me()');
 });
 
-test("findPhpFunctionRange accepts heredoc expression continuations", () => {
+test('findPhpFunctionRange accepts heredoc expression continuations', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$values = array(
@@ -250,17 +250,17 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
 	expect(range).not.toBeNull();
-	expect(range?.source).toContain("JSON,");
-	expect(range?.source).toContain("TEXT );");
+	expect(range?.source).toContain('JSON,');
+	expect(range?.source).toContain('TEXT );');
 	expect(range?.source).toContain("TEXT !== '';");
-	expect(range?.source).toContain("return array( $values, $trimmed, $nonEmpty );");
-	expect(range?.source).not.toContain("function keep_me()");
+	expect(range?.source).toContain('return array( $values, $trimmed, $nonEmpty );');
+	expect(range?.source).not.toContain('function keep_me()');
 });
 
-test("findPhpFunctionRange preserves PHP 8 attributes instead of treating them as comments", () => {
+test('findPhpFunctionRange preserves PHP 8 attributes instead of treating them as comments', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t#[ExampleAttribute] class LocalThing {
@@ -277,15 +277,15 @@ function keep_me() {
 }
 `;
 
-	const range = findPhpFunctionRange(source, "wp_typia_demo");
+	const range = findPhpFunctionRange(source, 'wp_typia_demo');
 
 	expect(range).not.toBeNull();
-	expect(range?.source).toContain("#[ExampleAttribute] class LocalThing");
-	expect(range?.source).toContain("return array();");
-	expect(range?.source).not.toContain("function keep_me()");
+	expect(range?.source).toContain('#[ExampleAttribute] class LocalThing');
+	expect(range?.source).toContain('return array();');
+	expect(range?.source).not.toContain('function keep_me()');
 });
 
-test("findPhpFunctionRange returns null for unterminated heredoc content", () => {
+test('findPhpFunctionRange returns null for unterminated heredoc content', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$json = <<<JSON
@@ -298,10 +298,10 @@ function keep_me() {
 }
 `;
 
-	expect(findPhpFunctionRange(source, "wp_typia_demo")).toBeNull();
+	expect(findPhpFunctionRange(source, 'wp_typia_demo')).toBeNull();
 });
 
-test("hasPhpFunctionCall ignores comments, strings, heredoc, and nowdoc", () => {
+test('hasPhpFunctionCall ignores comments, strings, heredoc, and nowdoc', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t// wp_enqueue_script_module(
@@ -314,46 +314,46 @@ TEXT;
 }
 `;
 
-	expect(hasPhpFunctionCall(source, "wp_enqueue_script_module")).toBe(false);
+	expect(hasPhpFunctionCall(source, 'wp_enqueue_script_module')).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\nwp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\nwp_enqueue_script_module/* reason */( 'demo', 'url', array(), null );\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\nwp_enqueue_script_module // reason\n( 'demo', 'url', array(), null );\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\nif ( $ok ) : wp_enqueue_script_module( 'demo', 'url', array(), null ); endif;\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\n$scripts->wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			`${source}\nScripts::wp_enqueue_script_module( 'demo', 'url', array(), null );\n`,
-			"wp_enqueue_script_module",
+			'wp_enqueue_script_module',
 		),
 	).toBe(false);
 });
 
-test("PHP call scanning can require actual PHP code regions", () => {
+test('PHP call scanning can require actual PHP code regions', () => {
 	const outsidePhp = `
 register_block_type( 'outside-before' );
 <?php register_block_type( 'inside' ); ?>
@@ -361,49 +361,49 @@ register_block_type( 'outside-after' );
 `;
 
 	expect(
-		hasPhpFunctionCall(outsidePhp, "register_block_type", {
+		hasPhpFunctionCall(outsidePhp, 'register_block_type', {
 			requirePhpOpenTag: true,
 		}),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCall(
 			"register_block_type( 'outside-only' );",
-			"register_block_type",
+			'register_block_type',
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			"<?php // register_block_type( 'commented' ); ?> register_block_type( 'outside' );",
-			"register_block_type",
+			'register_block_type',
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			"<?xml version='1.0'?> register_block_type( 'outside' );",
-			"register_block_type",
+			'register_block_type',
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			"<? register_block_type( 'short-tag' ); ?>",
-			"register_block_type",
+			'register_block_type',
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCall(
 			"<?= register_block_type( 'echo-tag' ); ?>",
-			"register_block_type",
+			'register_block_type',
 			{ requirePhpOpenTag: true },
 		),
 	).toBe(true);
 });
 
-test("hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments", () => {
-	const filterName = "block_bindings_supported_attributes_demo-space/card";
+test('hasPhpFunctionCallWithStringArgument matches only code-mode literal first arguments', () => {
+	const filterName = 'block_bindings_supported_attributes_demo-space/card';
 	const source = `<?php
 // add_filter( '${filterName}', 'ignored_comment' );
 $single = "add_filter( '${filterName}', 'ignored_string' )";
@@ -428,46 +428,46 @@ add_filter(
 `;
 
 	expect(
-		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+		hasPhpFunctionCallWithStringArgument(source, 'add_filter', filterName),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgument(
 			`<?php\nadd_filter( '${filterName}' . '_suffix', 'ignored' );\n`,
-			"add_filter",
+			'add_filter',
 			filterName,
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArgument(
 			`<?php\n$filters->add_filter( '${filterName}', 'ignored' );\n`,
-			"add_filter",
+			'add_filter',
 			filterName,
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArgument(
 			`<?php\nFilters::add_filter( '${filterName}', 'ignored' );\n`,
-			"add_filter",
+			'add_filter',
 			filterName,
 		),
 	).toBe(false);
 	expect(
-		hasPhpFunctionCallWithStringArgument(source, "add_filter", "other_filter"),
+		hasPhpFunctionCallWithStringArgument(source, 'add_filter', 'other_filter'),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgument(
 			`<?php\ncase 'x': add_filter( '${filterName}', 'cb' );\n`,
-			"add_filter",
+			'add_filter',
 			filterName,
 		),
 	).toBe(true);
 	expect(
-		hasPhpFunctionCallWithStringArgument(source, "add_filter", "missing_filter"),
+		hasPhpFunctionCallWithStringArgument(source, 'add_filter', 'missing_filter'),
 	).toBe(false);
 });
 
-test("hasPhpFunctionCallWithStringArgument ignores comments, strings, heredoc, and non-first arguments", () => {
-	const filterName = "block_bindings_supported_attributes_demo-space/card";
+test('hasPhpFunctionCallWithStringArgument ignores comments, strings, heredoc, and non-first arguments', () => {
+	const filterName = 'block_bindings_supported_attributes_demo-space/card';
 	const source = `<?php
 // add_filter( '${filterName}', 'ignored_comment' );
 $single = 'add_filter( "${filterName}", "ignored_string" )';
@@ -479,11 +479,11 @@ add_filter( 'other_filter', '${filterName}' );
 `;
 
 	expect(
-		hasPhpFunctionCallWithStringArgument(source, "add_filter", filterName),
+		hasPhpFunctionCallWithStringArgument(source, 'add_filter', filterName),
 	).toBe(false);
 });
 
-test("hasPhpFunctionCallWithStringArguments matches literals from the same code-mode call", () => {
+test('hasPhpFunctionCallWithStringArguments matches literals from the same code-mode call', () => {
 	const registrationCallback = (value: string): boolean =>
 		/^[A-Za-z_][A-Za-z0-9_]*_register_block$/u.test(value);
 	const source = `<?php
@@ -497,8 +497,8 @@ add_action(
 `;
 
 	expect(
-		hasPhpFunctionCallWithStringArguments(source, "add_action", [
-			"init",
+		hasPhpFunctionCallWithStringArguments(source, 'add_action', [
+			'init',
 			registrationCallback,
 		]),
 	).toBe(true);
@@ -508,8 +508,8 @@ add_action(
 add_action( 'init', 'demo_register_textdomain' );
 add_action( 'rest_api_init', 'demo_register_block' );
 `,
-			"add_action",
-			["init", registrationCallback],
+			'add_action',
+			['init', registrationCallback],
 		),
 	).toBe(false);
 	expect(
@@ -517,21 +517,21 @@ add_action( 'rest_api_init', 'demo_register_block' );
 			`<?php
 $example = "add_action( 'init', 'string_register_block' );";
 `,
-			"add_action",
-			["init", registrationCallback],
+			'add_action',
+			['init', registrationCallback],
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArguments(
 			"<?php add_action( 'init', 'unfinished_register_block'",
-			"add_action",
-			["init", registrationCallback],
+			'add_action',
+			['init', registrationCallback],
 		),
 	).toBe(false);
 });
 
-test("hasPhpFunctionCallWithStringArgumentPrefix matches code-mode literal first argument prefixes", () => {
-	const prefix = "block_bindings_supported_attributes_";
+test('hasPhpFunctionCallWithStringArgumentPrefix matches code-mode literal first argument prefixes', () => {
+	const prefix = 'block_bindings_supported_attributes_';
 	const source = `<?php
 // add_filter( 'block_bindings_supported_attributes_demo/comment', 'ignored_comment' );
 $fake = 'block_bindings_supported_attributes_demo/string';
@@ -546,47 +546,47 @@ add_filter(
 `;
 
 	expect(
-		hasPhpFunctionCallWithStringArgumentPrefix(source, "add_filter", prefix),
+		hasPhpFunctionCallWithStringArgumentPrefix(source, 'add_filter', prefix),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			source,
-			"add_filter",
-			"block_bindings_supported_attributes_missing/",
+			'add_filter',
+			'block_bindings_supported_attributes_missing/',
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\nif ( $ok ) : add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' ); endif;\n`,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\n$register = fn() => add_filter( 'block_bindings_supported_attributes_core/paragraph', 'cb' );\n`,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(true);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\n$filters->add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
 	expect(
 		hasPhpFunctionCallWithStringArgumentPrefix(
 			`<?php\nFilters::add_filter( 'block_bindings_supported_attributes_core/paragraph', 'ignored' );\n`,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
 });
 
-test("hasPhpFunctionCallWithAssignedStringPrefixArgument matches assigned hook variables", () => {
-	const prefix = "block_bindings_supported_attributes_";
+test('hasPhpFunctionCallWithAssignedStringPrefixArgument matches assigned hook variables', () => {
+	const prefix = 'block_bindings_supported_attributes_';
 	const source = `<?php
 $hook = 'block_bindings_supported_attributes_' . $block_type;
 add_filter( $hook, 'demo_space_supported_attributes' );
@@ -595,7 +595,7 @@ add_filter( $hook, 'demo_space_supported_attributes' );
 	expect(
 		hasPhpFunctionCallWithAssignedStringPrefixArgument(
 			source,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(true);
@@ -605,7 +605,7 @@ add_filter( $hook, 'demo_space_supported_attributes' );
 $hook = 'block_bindings_supported_attributes_core/paragraph';
 add_filter( 'init', 'demo_space_supported_attributes' );
 `,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
@@ -615,7 +615,7 @@ add_filter( 'init', 'demo_space_supported_attributes' );
 add_filter( $hook, 'demo_space_supported_attributes' );
 $hook = 'block_bindings_supported_attributes_core/paragraph';
 `,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
@@ -626,7 +626,7 @@ $hook = 'block_bindings_supported_attributes_' . $block_type;
 $hook = 'init';
 add_filter( $hook, 'demo_space_supported_attributes' );
 `,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
@@ -637,7 +637,7 @@ $hook = 'block_bindings_supported_attributes_' . $block_type;
 $hook = $other_hook;
 add_filter( $hook, 'demo_space_supported_attributes' );
 `,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
@@ -647,14 +647,14 @@ add_filter( $hook, 'demo_space_supported_attributes' );
 $hook = 'block_bindings_supported_attributes_core/paragraph';
 $filters->add_filter( $hook, 'ignored' );
 `,
-			"add_filter",
+			'add_filter',
 			prefix,
 		),
 	).toBe(false);
 });
 
-test("hasPhpCodeStringLiteralPrefix matches only code-mode PHP string literals", () => {
-	const prefix = "block_bindings_supported_attributes_";
+test('hasPhpCodeStringLiteralPrefix matches only code-mode PHP string literals', () => {
+	const prefix = 'block_bindings_supported_attributes_';
 	const source = `<?php
 // 'block_bindings_supported_attributes_demo/comment'
 $fake = "ignored";
@@ -673,32 +673,32 @@ TEXT;
 	).toBe(false);
 });
 
-test("PHP scanner transitions agree between range and call helpers", () => {
+test('PHP scanner transitions agree between range and call helpers', () => {
 	const scenarios = [
 		{
 			body: "\t$fake = 'wp_enqueue_script_module({';\n\treturn true;",
 			hasCall: false,
-			label: "single-quoted string",
+			label: 'single-quoted string',
 		},
 		{
 			body: '\t$fake = "wp_enqueue_script_module({";\n\treturn true;',
 			hasCall: false,
-			label: "double-quoted string",
+			label: 'double-quoted string',
 		},
 		{
-			body: "\t// wp_enqueue_script_module({\n\treturn true;",
+			body: '\t// wp_enqueue_script_module({\n\treturn true;',
 			hasCall: false,
-			label: "line comment",
+			label: 'line comment',
 		},
 		{
-			body: "\t# wp_enqueue_script_module({\n\treturn true;",
+			body: '\t# wp_enqueue_script_module({\n\treturn true;',
 			hasCall: false,
-			label: "hash comment",
+			label: 'hash comment',
 		},
 		{
-			body: "\t/* wp_enqueue_script_module({ */\n\treturn true;",
+			body: '\t/* wp_enqueue_script_module({ */\n\treturn true;',
 			hasCall: false,
-			label: "block comment",
+			label: 'block comment',
 		},
 		{
 			body: `\t$fake = <<<TEXT
@@ -706,7 +706,7 @@ wp_enqueue_script_module({
 TEXT;
 \treturn true;`,
 			hasCall: false,
-			label: "heredoc",
+			label: 'heredoc',
 		},
 		{
 			body: `\t$fake = <<<'TEXT'
@@ -714,12 +714,12 @@ wp_enqueue_script_module({
 TEXT;
 \treturn true;`,
 			hasCall: false,
-			label: "nowdoc",
+			label: 'nowdoc',
 		},
 		{
 			body: "\twp_enqueue_script_module( 'demo', 'url', array(), null );\n\treturn true;",
 			hasCall: true,
-			label: "code call",
+			label: 'code call',
 		},
 	];
 
@@ -733,30 +733,30 @@ function keep_me() {
 \treturn true;
 }
 `;
-		const range = findPhpFunctionRange(source, "wp_typia_demo");
+		const range = findPhpFunctionRange(source, 'wp_typia_demo');
 		if (!range) {
 			throw new Error(`Expected PHP function range for ${scenario.label}`);
 		}
 
-		expect(range.source).not.toContain("function keep_me()");
-		expect(hasPhpFunctionCall(range.source, "wp_enqueue_script_module")).toBe(
+		expect(range.source).not.toContain('function keep_me()');
+		expect(hasPhpFunctionCall(range.source, 'wp_enqueue_script_module')).toBe(
 			scenario.hasCall,
 		);
 	}
 });
 
-test("PHP scanner stays conservative when heredoc state is unterminated", () => {
+test('PHP scanner stays conservative when heredoc state is unterminated', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \t$fake = <<<TEXT
 wp_enqueue_script_module(
 `;
 
-	expect(findPhpFunctionRange(source, "wp_typia_demo")).toBeNull();
-	expect(hasPhpFunctionCall(source, "wp_enqueue_script_module")).toBe(false);
+	expect(findPhpFunctionRange(source, 'wp_typia_demo')).toBeNull();
+	expect(hasPhpFunctionCall(source, 'wp_enqueue_script_module')).toBe(false);
 });
 
-test("replacePhpFunctionDefinition replaces only the targeted PHP function", () => {
+test('replacePhpFunctionDefinition replaces only the targeted PHP function', () => {
 	const source = `<?php
 function wp_typia_demo() {
 \tif ( true ) {
@@ -771,7 +771,7 @@ function keep_me() {
 
 	const replaced = replacePhpFunctionDefinition(
 		source,
-		"wp_typia_demo",
+		'wp_typia_demo',
 		`
 function wp_typia_demo() {
 \treturn array( 'new' => true );
@@ -783,16 +783,16 @@ function wp_typia_demo() {
 	expect(replaced).not.toBeNull();
 	expect(replaced).toContain("return array( 'new' => true );");
 	expect(replaced).not.toContain("return array( 'old' => true );");
-	expect(replaced).toContain("function keep_me()");
+	expect(replaced).toContain('function keep_me()');
 });
 
-test("hasPhpFunctionDefinition treats function names as literal identifiers", () => {
+test('hasPhpFunctionDefinition treats function names as literal identifiers', () => {
 	const source = `<?php
 function wp_typia_feature_value() {
 \treturn true;
 }
 `;
 
-	expect(hasPhpFunctionDefinition(source, "wp_typia_feature_value")).toBe(true);
-	expect(hasPhpFunctionDefinition(source, "wp_typia_feature.value")).toBe(false);
+	expect(hasPhpFunctionDefinition(source, 'wp_typia_feature_value')).toBe(true);
+	expect(hasPhpFunctionDefinition(source, 'wp_typia_feature.value')).toBe(false);
 });

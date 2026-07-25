@@ -1,1 +1,1 @@
-export * from "./shared/package-managers.js";
+export * from './shared/package-managers.js';

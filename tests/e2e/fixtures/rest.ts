@@ -1,23 +1,23 @@
 import type { Page } from '@playwright/test';
 
 interface BrowserRestRequestOptions {
-	body?: Record<string, unknown>;
-	headers?: Record<string, string>;
-	method?: string;
-	params?: Record<string, string>;
-	routePath: string;
+  body?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  method?: string;
+  params?: Record<string, string>;
+  routePath: string;
 }
 
 interface BrowserRestResponse {
-	body: string;
-	status: number;
+  body: string;
+  status: number;
 }
 
 export async function requestWordPressRest(
 	page: Page,
 	options: BrowserRestRequestOptions,
 ): Promise<BrowserRestResponse> {
-	return page.evaluate(async (requestOptions) => {
+  return page.evaluate(async (requestOptions) => {
 		const mergeHeaders = (
 			headers: Record<string, string> | undefined,
 			body: Record<string, unknown> | undefined,

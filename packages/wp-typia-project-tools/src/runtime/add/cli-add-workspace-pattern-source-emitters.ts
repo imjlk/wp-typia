@@ -1,5 +1,5 @@
-import { quoteTsString } from "./cli-add-shared.js";
-import type { ResolvedPatternCatalogOptions } from "./cli-add-workspace-pattern-options.js";
+import { quoteTsString } from './cli-add-shared.js';
+import type { ResolvedPatternCatalogOptions } from './cli-add-workspace-pattern-options.js';
 
 /**
  * Render the block-config inventory entry for a generated pattern.
@@ -12,8 +12,8 @@ export function buildPatternConfigEntry(
 	patternSlug: string,
 	options: ResolvedPatternCatalogOptions,
 ): string {
-	const lines = [
-		"\t{",
+  const lines = [
+		'\t{',
 		`\t\tcontentFile: ${quoteTsString(options.contentFile)},`,
 		`\t\tfile: ${quoteTsString(options.contentFile)},`,
 		`\t\tscope: ${quoteTsString(options.patternScope)},`,
@@ -21,15 +21,15 @@ export function buildPatternConfigEntry(
 			? [`\t\tsectionRole: ${quoteTsString(options.sectionRole)},`]
 			: []),
 		`\t\tslug: ${quoteTsString(patternSlug)},`,
-		`\t\ttags: [${options.tags.map((tag) => quoteTsString(tag)).join(", ")}],`,
+		`\t\ttags: [${options.tags.map((tag) => quoteTsString(tag)).join(', ')}],`,
 		...(options.thumbnailUrl
 			? [`\t\tthumbnailUrl: ${quoteTsString(options.thumbnailUrl)},`]
 			: []),
 		`\t\ttitle: ${quoteTsString(options.title)},`,
-		"\t},",
+		'\t},',
 	];
 
-	return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -49,11 +49,11 @@ export function buildPatternSource(
 	textDomain: string,
 	title: string,
 ): string {
-	const content = sectionRole
-		? `'<!-- wp:group {"className":"section section--${sectionRole}"} --><div class="wp-block-group section section--${sectionRole}"><!-- wp:paragraph --><p>' . esc_html__( 'Describe this section pattern here.', '${textDomain}' ) . '</p><!-- /wp:paragraph --></div><!-- /wp:group -->'`
-		: `'<!-- wp:paragraph --><p>' . esc_html__( 'Describe this pattern here.', '${textDomain}' ) . '</p><!-- /wp:paragraph -->'`;
+  const content = sectionRole
+    ? `'<!-- wp:group {"className":"section section--${sectionRole}"} --><div class="wp-block-group section section--${sectionRole}"><!-- wp:paragraph --><p>' . esc_html__( 'Describe this section pattern here.', '${textDomain}' ) . '</p><!-- /wp:paragraph --></div><!-- /wp:group -->'`
+    : `'<!-- wp:paragraph --><p>' . esc_html__( 'Describe this pattern here.', '${textDomain}' ) . '</p><!-- /wp:paragraph -->'`;
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 	return;
 }

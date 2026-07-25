@@ -160,9 +160,7 @@ function resolvePatternSectionRoleFlag(
       : context.addRuntime.normalizeBlockSlug(sectionRole);
   if (
     normalizedSectionRole &&
-    !context.addRuntime.PATTERN_SECTION_ROLE_PATTERN.test(
-      normalizedSectionRole,
-    )
+    !context.addRuntime.PATTERN_SECTION_ROLE_PATTERN.test(normalizedSectionRole)
   ) {
     throw createInvalidPatternArgumentError(
       '`--section-role` must start with a lowercase letter and contain only lowercase letters, numbers, and hyphens. Section roles apply only with `--scope section`.',

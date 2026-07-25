@@ -130,9 +130,7 @@ function matchGeneratedArtifactCheckIssue(
     !artifactPath ||
     !(
       /^(?:\.{0,2}[\\/]|[A-Za-z]:[\\/]|\\\\)/u.test(artifactPath) ||
-      /(?:^|[\\/])[^\\/\s()]+\.[A-Za-z][A-Za-z0-9]{0,11}$/u.test(
-        artifactPath,
-      )
+      /(?:^|[\\/])[^\\/\s()]+\.[A-Za-z][A-Za-z0-9]{0,11}$/u.test(artifactPath)
     )
   ) {
     return undefined;
@@ -202,18 +200,14 @@ class BoundedSyncOutputCapture {
       return tail;
     }
     const preservedDiagnostics = diagnosticLines.join('\n');
-    return tail
-      ? `${tail}\n${preservedDiagnostics}`
-      : preservedDiagnostics;
+    return tail ? `${tail}\n${preservedDiagnostics}` : preservedDiagnostics;
   }
 
   private appendDiagnosticText(text: string, final: boolean): void {
     this.diagnosticPending += text;
     let newlineIndex = this.diagnosticPending.indexOf('\n');
     while (newlineIndex >= 0) {
-      this.recordDiagnosticLine(
-        this.diagnosticPending.slice(0, newlineIndex),
-      );
+      this.recordDiagnosticLine(this.diagnosticPending.slice(0, newlineIndex));
       this.diagnosticPending = this.diagnosticPending.slice(newlineIndex + 1);
       newlineIndex = this.diagnosticPending.indexOf('\n');
     }

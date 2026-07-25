@@ -1,1 +1,1 @@
-export * from "./add/alternate-render-targets.js";
+export * from './add/alternate-render-targets.js';

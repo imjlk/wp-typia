@@ -83,9 +83,7 @@ test('admin-view template builders emit rest-resource imports and taxonomy-speci
   expect(taxonomyConfigSource).toContain(
     'defineDataViews<CategoriesAdminViewItem>',
   );
-  expect(taxonomyConfigSource).toContain(
-    'label: __( \'Count\', "demo-space" )',
-  );
+  expect(taxonomyConfigSource).toContain('label: __( \'Count\', "demo-space" )');
 });
 
 test('admin-view template barrel delegates to focused variant emitters', () => {

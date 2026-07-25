@@ -92,7 +92,9 @@ async function captureNodeCli(
     return true;
   }) as typeof process.stderr.write;
   process.stdout.write = ((chunk: unknown, ...args: unknown[]) => {
-    stdout.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    stdout.push(
+      Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk),
+    );
     const callback = args.find(
       (arg): arg is (error?: Error | null) => void =>
         typeof arg === 'function',

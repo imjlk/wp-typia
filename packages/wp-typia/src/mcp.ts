@@ -213,7 +213,9 @@ export async function loadMcpToolGroups(
   cwd: string,
   schemaSources: WpTypiaSchemaSource[],
 ): Promise<MCPToolGroup[]> {
-  return Promise.all(schemaSources.map((source) => readSchemaSource(cwd, source)));
+  return Promise.all(
+    schemaSources.map((source) => readSchemaSource(cwd, source)),
+  );
 }
 
 export function extractCommandMetadata(
@@ -228,7 +230,9 @@ export function extractCommandMetadata(
     tool.inputSchema?.properties ?? {},
   )) {
     const flagName = flagNameTransform(propertyName);
-    const schemaType = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+    const schemaType = Array.isArray(schema.type)
+      ? schema.type[0]
+      : schema.type;
     const shortMatch = schema.description?.match(/^\[-([a-zA-Z])\]\s*/u);
     const short = shortMatch?.[1];
     const description = shortMatch
@@ -480,7 +484,10 @@ async function generateMcpTypes(
       continue;
     }
     await fs.writeFile(
-      path.join(outputDir, `${toGeneratedModuleBasename(group.namespace)}.gen.ts`),
+      path.join(
+        outputDir,
+        `${toGeneratedModuleBasename(group.namespace)}.gen.ts`,
+      ),
       generateNamespaceTypes(group.namespace, group.tools),
       'utf8',
     );
@@ -506,7 +513,9 @@ export async function syncMcpSchemas(
 
   const registry = groups.map((group) => ({
     namespace: group.namespace,
-    tools: group.tools.map((tool) => extractCommandMetadata(tool, group.namespace)),
+    tools: group.tools.map((tool) =>
+      extractCommandMetadata(tool, group.namespace),
+    ),
   }));
 
   await fs.mkdir(outputDir, { recursive: true });

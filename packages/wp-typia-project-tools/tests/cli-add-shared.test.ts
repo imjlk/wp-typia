@@ -88,10 +88,14 @@ test('shared add runtime keeps compatibility exports around focused modules', ()
   expect(sharedSource).toContain('export * from "./cli-add-collision.js";');
   expect(sharedSource).toContain('export * from "./cli-add-help.js";');
   expect(sharedSource).toContain('from "../templates/scaffold-identifiers.js"');
-  expect(sharedSource).not.toContain('export interface RunAddBlockCommandOptions');
+  expect(sharedSource).not.toContain(
+    'export interface RunAddBlockCommandOptions',
+  );
   expect(sharedSource).not.toContain('export function assertValidGeneratedSlug');
   expect(sharedSource).not.toContain('export async function patchFile');
-  expect(sharedSource).not.toContain('export function assertScaffoldDoesNotExist');
+  expect(sharedSource).not.toContain(
+    'export function assertScaffoldDoesNotExist',
+  );
   expect(sharedSource).not.toContain('export function formatAddHelpText');
 });
 
@@ -120,18 +124,38 @@ test('focused add runtime modules own their helper categories', () => {
   );
   expect(typesSource).not.toContain('export const ADD_KIND_IDS = [');
   expect(validationSource).toContain('export function assertValidGeneratedSlug');
-  expect(validationSource).toContain('export function assertValidTypeScriptIdentifier');
-  expect(validationSource).toContain('export function assertValidRestResourceMethods');
-  expect(validationSource).toContain('export function assertValidPostMetaPostType');
-  expect(validationSource).toContain('export function assertValidEditorPluginSlot');
-  expect(filesystemSource).toContain('export async function snapshotWorkspaceFiles');
-  expect(filesystemSource).toContain('export async function rollbackWorkspaceMutation');
+  expect(validationSource).toContain(
+    'export function assertValidTypeScriptIdentifier',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidRestResourceMethods',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidPostMetaPostType',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidEditorPluginSlot',
+  );
+  expect(filesystemSource).toContain(
+    'export async function snapshotWorkspaceFiles',
+  );
+  expect(filesystemSource).toContain(
+    'export async function rollbackWorkspaceMutation',
+  );
   expect(filesystemSource).not.toContain('function isFileNotFoundError');
-  expect(blockJsonSource).toContain('export async function readWorkspaceBlockJson');
+  expect(blockJsonSource).toContain(
+    'export async function readWorkspaceBlockJson',
+  );
   expect(blockJsonSource).toContain('export function getMutableBlockHooks');
-  expect(collisionSource).toContain('function assertAddKindScaffoldDoesNotExist');
-  expect(collisionSource).toContain('export function assertScaffoldDoesNotExist');
-  expect(collisionSource).toContain('export function assertEditorPluginDoesNotExist');
+  expect(collisionSource).toContain(
+    'function assertAddKindScaffoldDoesNotExist',
+  );
+  expect(collisionSource).toContain(
+    'export function assertScaffoldDoesNotExist',
+  );
+  expect(collisionSource).toContain(
+    'export function assertEditorPluginDoesNotExist',
+  );
   expect(helpSource).toContain('export function formatAddHelpText');
   expect(helpSource).toContain('REST_RESOURCE_METHOD_IDS.join(",")');
 });

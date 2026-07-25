@@ -1,1 +1,1 @@
-export * from "./add/pattern-catalog-section-roles.js";
+export * from './add/pattern-catalog-section-roles.js';

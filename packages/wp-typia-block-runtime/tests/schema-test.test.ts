@@ -1,69 +1,69 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from 'bun:test';
 
 import {
-	SchemaResponseValidationError,
-	assertResponseMatchesSchema,
-	createGeneratedSchemaValidator,
-	createResponseSchemaValidator,
-	validateResponseMatchesSchema,
-	type GeneratedSchemaDocument,
-} from "../src/schema-test.js";
+  SchemaResponseValidationError,
+  assertResponseMatchesSchema,
+  createGeneratedSchemaValidator,
+  createResponseSchemaValidator,
+  validateResponseMatchesSchema,
+  type GeneratedSchemaDocument,
+} from '../src/schema-test.js';
 
 interface ExternalRetrieveResponse {
-	count: number;
-	items: string[];
-	status: "ok";
+  count: number;
+  items: string[];
+  status: 'ok';
 }
 
 interface MetricResponse {
-	ratio: number;
-	velocity: number;
+  ratio: number;
+  velocity: number;
 }
 
 const externalRetrieveResponseSchema = {
-	$schema: "https://json-schema.org/draft/2020-12/schema",
-	additionalProperties: false,
-	properties: {
-		count: {
-			type: "integer",
-			"x-typeTag": "uint32",
-		},
-		items: {
-			items: {
-				type: "string",
-			},
-			type: "array",
-		},
-		status: {
-			enum: ["ok"],
-			type: "string",
-		},
-	},
-	required: ["count", "items", "status"],
-	title: "ExternalRetrieveResponse",
-	type: "object",
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  additionalProperties: false,
+  properties: {
+    count: {
+      type: 'integer',
+      'x-typeTag': 'uint32',
+    },
+    items: {
+      items: {
+        type: 'string',
+      },
+      type: 'array',
+    },
+    status: {
+      enum: ['ok'],
+      type: 'string',
+    },
+  },
+  required: ['count', 'items', 'status'],
+  title: 'ExternalRetrieveResponse',
+  type: 'object',
 } satisfies GeneratedSchemaDocument;
 
 const metricResponseSchema = {
-	$schema: "https://json-schema.org/draft/2020-12/schema",
-	additionalProperties: false,
-	properties: {
-		ratio: {
-			type: "number",
-			"x-typeTag": "double",
-		},
-		velocity: {
-			type: "number",
-			"x-typeTag": "float",
-		},
-	},
-	required: ["ratio", "velocity"],
-	title: "MetricResponse",
-	type: "object",
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  additionalProperties: false,
+  properties: {
+    ratio: {
+      type: 'number',
+      'x-typeTag': 'double',
+    },
+    velocity: {
+      type: 'number',
+      'x-typeTag': 'float',
+    },
+  },
+  required: ['ratio', 'velocity'],
+  title: 'MetricResponse',
+  type: 'object',
 } satisfies GeneratedSchemaDocument;
 
-describe("@wp-typia/block-runtime/schema-test", () => {
-	test("validates generated response schemas through reusable validators", () => {
+describe('@wp-typia/block-runtime/schema-test', () => {
+	test('validates generated response schemas through reusable validators', () => {
 		const validate =
 			createResponseSchemaValidator<ExternalRetrieveResponse>(
 				externalRetrieveResponseSchema,
@@ -71,14 +71,14 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 
 		const valid = validate({
 			count: 2,
-			items: ["first", "second"],
-			status: "ok",
+			items: ['first', 'second'],
+			status: 'ok',
 		});
 		expect(valid).toEqual({
 			data: {
 				count: 2,
-				items: ["first", "second"],
-				status: "ok",
+				items: ['first', 'second'],
+				status: 'ok',
 			},
 			errors: [],
 			isValid: true,
@@ -86,24 +86,24 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 
 		const invalid = validate({
 			count: -1,
-			items: ["first", 2],
-			status: "ok",
+			items: ['first', 2],
+			status: 'ok',
 			unexpected: true,
 		});
 		expect(invalid.isValid).toBe(false);
 		expect(invalid.errors.map((error) => error.path)).toEqual([
-			"$.unexpected",
-			"$.count",
-			"$.items[1]",
+			'$.unexpected',
+			'$.count',
+			'$.items[1]',
 		]);
 		expect(invalid.errors.map((error) => error.expected)).toEqual([
-			"additionalProperties",
-			"x-typeTag",
-			"type",
+			'additionalProperties',
+			'x-typeTag',
+			'type',
 		]);
 	});
 
-	test("accepts floating-point type tags for generated response schemas", () => {
+	test('accepts floating-point type tags for generated response schemas', () => {
 		const validate =
 			createResponseSchemaValidator<MetricResponse>(metricResponseSchema);
 
@@ -122,23 +122,23 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 
 		const invalid = validate({
 			ratio: Number.POSITIVE_INFINITY,
-			velocity: "fast",
+			velocity: 'fast',
 		});
 		expect(invalid.isValid).toBe(false);
 		expect(invalid.errors.map((error) => error.path)).toEqual([
-			"$.ratio",
-			"$.velocity",
-			"$.velocity",
+			'$.ratio',
+			'$.velocity',
+			'$.velocity',
 		]);
 	});
 
-	test("validates named generated schemas from a registry", () => {
+	test('validates named generated schemas from a registry', () => {
 		const valid = validateResponseMatchesSchema<ExternalRetrieveResponse>(
-			"ExternalRetrieveResponse",
+			'ExternalRetrieveResponse',
 			{
 				count: 1,
 				items: [],
-				status: "ok",
+				status: 'ok',
 			},
 			{
 				schemas: {
@@ -150,7 +150,7 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 		expect(valid.isValid).toBe(true);
 
 		expect(() =>
-			validateResponseMatchesSchema("MissingResponse", {}, {
+			validateResponseMatchesSchema('MissingResponse', {}, {
 				schemas: {
 					ExternalRetrieveResponse: externalRetrieveResponseSchema,
 				},
@@ -160,13 +160,13 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 		);
 	});
 
-	test("asserts response schemas with field-level failure paths", () => {
+	test('asserts response schemas with field-level failure paths', () => {
 		const response = assertResponseMatchesSchema<ExternalRetrieveResponse>(
 			externalRetrieveResponseSchema,
 			{
 				count: 3,
-				items: ["first"],
-				status: "ok",
+				items: ['first'],
+				status: 'ok',
 			},
 		);
 
@@ -174,9 +174,9 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 
 		expect(() =>
 			assertResponseMatchesSchema(
-				"ExternalRetrieveResponse",
+				'ExternalRetrieveResponse',
 				{
-					count: "3",
+					count: '3',
 					items: [],
 				},
 				{
@@ -189,9 +189,9 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 
 		try {
 			assertResponseMatchesSchema(
-				"ExternalRetrieveResponse",
+				'ExternalRetrieveResponse',
 				{
-					count: "3",
+					count: '3',
 					items: [],
 				},
 				{
@@ -203,20 +203,20 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 		} catch (error) {
 			expect(error).toBeInstanceOf(SchemaResponseValidationError);
 			expect((error as SchemaResponseValidationError).schemaName).toBe(
-				"ExternalRetrieveResponse",
+				'ExternalRetrieveResponse',
 			);
 			expect((error as SchemaResponseValidationError).errors).toMatchObject([
 				{
-					expected: "required",
-					path: "$.status",
+					expected: 'required',
+					path: '$.status',
 				},
 				{
-					expected: "type",
-					path: "$.count",
+					expected: 'type',
+					path: '$.count',
 				},
 				{
-					expected: "x-typeTag",
-					path: "$.count",
+					expected: 'x-typeTag',
+					path: '$.count',
 				},
 			]);
 			expect((error as Error).message).toContain(
@@ -225,7 +225,7 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 		}
 	});
 
-	test("exposes a generic schema validator for non-response contract payloads", () => {
+	test('exposes a generic schema validator for non-response contract payloads', () => {
 		const validate =
 			createGeneratedSchemaValidator<ExternalRetrieveResponse>(
 				externalRetrieveResponseSchema,
@@ -235,7 +235,7 @@ describe("@wp-typia/block-runtime/schema-test", () => {
 			validate({
 				count: 0,
 				items: [],
-				status: "ok",
+				status: 'ok',
 			}).isValid,
 		).toBe(true);
 	});

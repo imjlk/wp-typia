@@ -1,1 +1,1 @@
-export * from "./schema/metadata-projection.js";
+export * from './schema/metadata-projection.js';

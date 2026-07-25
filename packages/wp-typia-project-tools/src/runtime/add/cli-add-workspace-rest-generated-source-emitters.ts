@@ -1,13 +1,10 @@
+import { quoteTsString, type RestResourceMethodId } from './cli-add-shared.js';
 import {
-	quoteTsString,
-	type RestResourceMethodId,
-} from "./cli-add-shared.js";
-import {
-	formatResolveRestNonceSource,
-	indentMultiline,
-} from "./cli-add-workspace-rest-source-utils.js";
-import { buildRestResourceEndpointManifest } from "./rest-resource-artifacts.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
+  formatResolveRestNonceSource,
+  indentMultiline,
+} from './cli-add-workspace-rest-source-utils.js';
+import { buildRestResourceEndpointManifest } from './rest-resource-artifacts.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 
 /**
  * Build a generated REST resource config entry for `scripts/block-config.ts`.
@@ -19,29 +16,29 @@ import { toPascalCase, toTitleCase } from "../shared/string-case.js";
  * @returns TypeScript object literal source for one generated REST resource entry.
  */
 export function buildRestResourceConfigEntry(options: {
-	controllerClass?: string;
-	controllerExtends?: string;
-	methods: RestResourceMethodId[];
-	namespace: string;
-	permissionCallback?: string;
-	restResourceSlug: string;
-	routePattern?: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  methods: RestResourceMethodId[];
+  namespace: string;
+  permissionCallback?: string;
+  restResourceSlug: string;
+  routePattern?: string;
 }): string {
-	const pascalCase = toPascalCase(options.restResourceSlug);
-	const title = toTitleCase(options.restResourceSlug);
-	const manifest = buildRestResourceEndpointManifest(
-		{
-			namespace: options.namespace,
-			pascalCase,
-			...(options.routePattern ? { routePattern: options.routePattern } : {}),
-			slugKebabCase: options.restResourceSlug,
-			title,
-		},
-		options.methods,
-	);
+  const pascalCase = toPascalCase(options.restResourceSlug);
+  const title = toTitleCase(options.restResourceSlug);
+  const manifest = buildRestResourceEndpointManifest(
+    {
+      namespace: options.namespace,
+      pascalCase,
+      ...(options.routePattern ? { routePattern: options.routePattern } : {}),
+      slugKebabCase: options.restResourceSlug,
+      title,
+    },
+    options.methods,
+  );
 
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tapiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
 		...(options.controllerClass
 			? [`\t\tcontrollerClass: ${quoteTsString(options.controllerClass)},`]
@@ -51,24 +48,24 @@ export function buildRestResourceConfigEntry(options: {
 			: []),
 		`\t\tclientFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-client.ts`)},`,
 		`\t\tdataFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/data.ts`)},`,
-		`\t\tmethods: [ ${options.methods.map((method) => quoteTsString(method)).join(", ")} ],`,
+		`\t\tmethods: [ ${options.methods.map((method) => quoteTsString(method)).join(', ')} ],`,
 		`\t\tnamespace: ${quoteTsString(options.namespace)},`,
 		`\t\topenApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
 		...(options.permissionCallback
 			? [`\t\tpermissionCallback: ${quoteTsString(options.permissionCallback)},`]
 			: []),
 		`\t\tphpFile: ${quoteTsString(`inc/rest/${options.restResourceSlug}.php`)},`,
-		"\t\trestManifest: defineEndpointManifest(",
-		indentMultiline(JSON.stringify(manifest, null, "\t"), "\t\t\t"),
-		"\t\t),",
+		'\t\trestManifest: defineEndpointManifest(',
+		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
+		'\t\t),',
 		...(options.routePattern
 			? [`\t\troutePattern: ${quoteTsString(options.routePattern)},`]
 			: []),
 		`\t\tslug: ${quoteTsString(options.restResourceSlug)},`,
 		`\t\ttypesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
 		`\t\tvalidatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -82,95 +79,95 @@ export function buildRestResourceTypesSource(
 	restResourceSlug: string,
 	methods: RestResourceMethodId[],
 ): string {
-	const pascalCase = toPascalCase(restResourceSlug);
-	const lines = [
-		"import { tags } from 'typia';",
-		"",
-		`export type ${pascalCase}Status = 'draft' | 'published';`,
-		"",
-		`export interface ${pascalCase}Record {`,
-		"\tid: number & tags.Type< 'uint32' >;",
-		"\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;",
-		"\tcontent?: string & tags.MaxLength< 2000 >;",
-		`\tstatus: ${pascalCase}Status;`,
-		"\tupdatedAt: string;",
-		"}",
-	];
+  const pascalCase = toPascalCase(restResourceSlug);
+  const lines = [
+    "import { tags } from 'typia';",
+    '',
+    `export type ${pascalCase}Status = 'draft' | 'published';`,
+    '',
+    `export interface ${pascalCase}Record {`,
+    "\tid: number & tags.Type< 'uint32' >;",
+    '\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+    '\tcontent?: string & tags.MaxLength< 2000 >;',
+    `\tstatus: ${pascalCase}Status;`,
+    '\tupdatedAt: string;',
+    '}',
+  ];
 
-	if (methods.includes("list")) {
-		lines.push(
-			"",
-			`export interface ${pascalCase}ListQuery {`,
-			"\tpage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Default< 1 >;",
-			"\tperPage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Maximum< 50 > & tags.Default< 10 >;",
-			"\tsearch?: string & tags.MaxLength< 120 >;",
-			"}",
-			"",
-			`export interface ${pascalCase}ListResponse {`,
-			`\titems: ${pascalCase}Record[];`,
-			"\tpage: number & tags.Type< 'uint32' >;",
-			"\tperPage: number & tags.Type< 'uint32' >;",
-			"\ttotal: number & tags.Type< 'uint32' >;",
-			"}",
-		);
-	}
+  if (methods.includes('list')) {
+    lines.push(
+      '',
+      `export interface ${pascalCase}ListQuery {`,
+      "\tpage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Default< 1 >;",
+      "\tperPage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Maximum< 50 > & tags.Default< 10 >;",
+      '\tsearch?: string & tags.MaxLength< 120 >;',
+      '}',
+      '',
+      `export interface ${pascalCase}ListResponse {`,
+      `\titems: ${pascalCase}Record[];`,
+      "\tpage: number & tags.Type< 'uint32' >;",
+      "\tperPage: number & tags.Type< 'uint32' >;",
+      "\ttotal: number & tags.Type< 'uint32' >;",
+      '}',
+    );
+  }
 
-	if (methods.includes("read")) {
-		lines.push(
-			"",
-			`export interface ${pascalCase}ReadQuery {`,
-			"\tid: number & tags.Type< 'uint32' >;",
-			"}",
-			"",
-			`export type ${pascalCase}ReadResponse = ${pascalCase}Record;`,
-		);
-	}
+  if (methods.includes('read')) {
+    lines.push(
+      '',
+      `export interface ${pascalCase}ReadQuery {`,
+      "\tid: number & tags.Type< 'uint32' >;",
+      '}',
+      '',
+      `export type ${pascalCase}ReadResponse = ${pascalCase}Record;`,
+    );
+  }
 
-	if (methods.includes("create")) {
-		lines.push(
-			"",
-			`export interface ${pascalCase}CreateRequest {`,
-			"\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;",
-			"\tcontent?: string & tags.MaxLength< 2000 >;",
-			`\tstatus?: ${pascalCase}Status;`,
-			"}",
-			"",
-			`export type ${pascalCase}CreateResponse = ${pascalCase}Record;`,
-		);
-	}
+  if (methods.includes('create')) {
+    lines.push(
+      '',
+      `export interface ${pascalCase}CreateRequest {`,
+      '\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+      '\tcontent?: string & tags.MaxLength< 2000 >;',
+      `\tstatus?: ${pascalCase}Status;`,
+      '}',
+      '',
+      `export type ${pascalCase}CreateResponse = ${pascalCase}Record;`,
+    );
+  }
 
-	if (methods.includes("update")) {
-		lines.push(
-			"",
-			`export interface ${pascalCase}UpdateQuery {`,
-			"\tid: number & tags.Type< 'uint32' >;",
-			"}",
-			"",
-			`export interface ${pascalCase}UpdateRequest {`,
-			"\ttitle?: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;",
-			"\tcontent?: string & tags.MaxLength< 2000 >;",
-			`\tstatus?: ${pascalCase}Status;`,
-			"}",
-			"",
-			`export type ${pascalCase}UpdateResponse = ${pascalCase}Record;`,
-		);
-	}
+  if (methods.includes('update')) {
+    lines.push(
+      '',
+      `export interface ${pascalCase}UpdateQuery {`,
+      "\tid: number & tags.Type< 'uint32' >;",
+      '}',
+      '',
+      `export interface ${pascalCase}UpdateRequest {`,
+      '\ttitle?: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+      '\tcontent?: string & tags.MaxLength< 2000 >;',
+      `\tstatus?: ${pascalCase}Status;`,
+      '}',
+      '',
+      `export type ${pascalCase}UpdateResponse = ${pascalCase}Record;`,
+    );
+  }
 
-	if (methods.includes("delete")) {
-		lines.push(
-			"",
-			`export interface ${pascalCase}DeleteQuery {`,
-			"\tid: number & tags.Type< 'uint32' >;",
-			"}",
-			"",
-			`export interface ${pascalCase}DeleteResponse {`,
-			"\tdeleted: true;",
-			"\tid: number & tags.Type< 'uint32' >;",
-			"}",
-		);
-	}
+  if (methods.includes('delete')) {
+    lines.push(
+      '',
+      `export interface ${pascalCase}DeleteQuery {`,
+      "\tid: number & tags.Type< 'uint32' >;",
+      '}',
+      '',
+      `export interface ${pascalCase}DeleteResponse {`,
+      '\tdeleted: true;',
+      "\tid: number & tags.Type< 'uint32' >;",
+      '}',
+    );
+  }
 
-	return `${lines.join("\n")}\n`;
+  return `${lines.join('\n')}\n`;
 }
 
 /**
@@ -184,58 +181,94 @@ export function buildRestResourceValidatorsSource(
 	restResourceSlug: string,
 	methods: RestResourceMethodId[],
 ): string {
-	const pascalCase = toPascalCase(restResourceSlug);
-	const importedTypes = new Set<string>();
-	const validatorDeclarations: string[] = [];
-	const validatorEntries: string[] = [];
+  const pascalCase = toPascalCase(restResourceSlug);
+  const importedTypes = new Set<string>();
+  const validatorDeclarations: string[] = [];
+  const validatorEntries: string[] = [];
 
-	const addValidator = (
+  const addValidator = (
 		propertyName: string,
 		typeName: string,
 		validateIdentifier: string,
 	) => {
-		importedTypes.add(typeName);
-		validatorDeclarations.push(
-			`const ${validateIdentifier} = typia.createValidate< ${typeName} >();`,
-		);
-		validatorEntries.push(
-			`\t${propertyName}: ( input: unknown ) => toValidationResult< ${typeName} >( ${validateIdentifier}( input ) ),`,
-		);
-	};
+    importedTypes.add(typeName);
+    validatorDeclarations.push(
+      `const ${validateIdentifier} = typia.createValidate< ${typeName} >();`,
+    );
+    validatorEntries.push(
+      `\t${propertyName}: ( input: unknown ) => toValidationResult< ${typeName} >( ${validateIdentifier}( input ) ),`,
+    );
+  };
 
-	if (methods.includes("list")) {
-		addValidator("listQuery", `${pascalCase}ListQuery`, "validateListQuery");
-		addValidator("listResponse", `${pascalCase}ListResponse`, "validateListResponse");
-	}
-	if (methods.includes("read")) {
-		addValidator("readQuery", `${pascalCase}ReadQuery`, "validateReadQuery");
-		addValidator("readResponse", `${pascalCase}ReadResponse`, "validateReadResponse");
-	}
-	if (methods.includes("create")) {
-		addValidator("createRequest", `${pascalCase}CreateRequest`, "validateCreateRequest");
-		addValidator("createResponse", `${pascalCase}CreateResponse`, "validateCreateResponse");
-	}
-	if (methods.includes("update")) {
-		addValidator("updateQuery", `${pascalCase}UpdateQuery`, "validateUpdateQuery");
-		addValidator("updateRequest", `${pascalCase}UpdateRequest`, "validateUpdateRequest");
-		addValidator("updateResponse", `${pascalCase}UpdateResponse`, "validateUpdateResponse");
-	}
-	if (methods.includes("delete")) {
-		addValidator("deleteQuery", `${pascalCase}DeleteQuery`, "validateDeleteQuery");
-		addValidator("deleteResponse", `${pascalCase}DeleteResponse`, "validateDeleteResponse");
-	}
+  if (methods.includes('list')) {
+    addValidator('listQuery', `${pascalCase}ListQuery`, 'validateListQuery');
+    addValidator(
+      'listResponse',
+      `${pascalCase}ListResponse`,
+      'validateListResponse',
+    );
+  }
+  if (methods.includes('read')) {
+    addValidator('readQuery', `${pascalCase}ReadQuery`, 'validateReadQuery');
+    addValidator(
+      'readResponse',
+      `${pascalCase}ReadResponse`,
+      'validateReadResponse',
+    );
+  }
+  if (methods.includes('create')) {
+    addValidator(
+      'createRequest',
+      `${pascalCase}CreateRequest`,
+      'validateCreateRequest',
+    );
+    addValidator(
+      'createResponse',
+      `${pascalCase}CreateResponse`,
+      'validateCreateResponse',
+    );
+  }
+  if (methods.includes('update')) {
+    addValidator(
+      'updateQuery',
+      `${pascalCase}UpdateQuery`,
+      'validateUpdateQuery',
+    );
+    addValidator(
+      'updateRequest',
+      `${pascalCase}UpdateRequest`,
+      'validateUpdateRequest',
+    );
+    addValidator(
+      'updateResponse',
+      `${pascalCase}UpdateResponse`,
+      'validateUpdateResponse',
+    );
+  }
+  if (methods.includes('delete')) {
+    addValidator(
+      'deleteQuery',
+      `${pascalCase}DeleteQuery`,
+      'validateDeleteQuery',
+    );
+    addValidator(
+      'deleteResponse',
+      `${pascalCase}DeleteResponse`,
+      'validateDeleteResponse',
+    );
+  }
 
-	return `import typia from 'typia';
+  return `import typia from 'typia';
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
-\t${Array.from(importedTypes).sort().join(",\n\t")},
+\t${Array.from(importedTypes).sort().join(',\n\t')},
 } from './api-types';
 
-${validatorDeclarations.join("\n")}
+${validatorDeclarations.join('\n')}
 
 export const apiValidators = {
-${validatorEntries.join("\n")}
+${validatorEntries.join('\n')}
 };
 `;
 }
@@ -251,18 +284,18 @@ export function buildRestResourceApiSource(
 	restResourceSlug: string,
 	methods: RestResourceMethodId[],
 ): string {
-	const pascalCase = toPascalCase(restResourceSlug);
-	const typeImports = new Set<string>();
-	const clientEndpointImports: string[] = [];
-	const exportedBindings: string[] = [];
-	const writeMethods = methods.filter((method) =>
-		["create", "update", "delete"].includes(method),
-	);
+  const pascalCase = toPascalCase(restResourceSlug);
+  const typeImports = new Set<string>();
+  const clientEndpointImports: string[] = [];
+  const exportedBindings: string[] = [];
+  const writeMethods = methods.filter((method) =>
+    ['create', 'update', 'delete'].includes(method),
+  );
 
-	if (methods.includes("list")) {
-		typeImports.add(`${pascalCase}ListQuery`);
-		clientEndpointImports.push(`list${pascalCase}ResourcesEndpoint`);
-		exportedBindings.push(`export const restResourceListEndpoint = {
+  if (methods.includes('list')) {
+    typeImports.add(`${pascalCase}ListQuery`);
+    clientEndpointImports.push(`list${pascalCase}ResourcesEndpoint`);
+    exportedBindings.push(`export const restResourceListEndpoint = {
 \t...list${pascalCase}ResourcesEndpoint,
 \tbuildRequestOptions: ( request: ${pascalCase}ListQuery ) =>
 \t\tresolveEndpointRouteOptions( list${pascalCase}ResourcesEndpoint, request ),
@@ -271,12 +304,12 @@ export function buildRestResourceApiSource(
 export function listResource( request: ${pascalCase}ListQuery ) {
 \treturn callEndpoint( restResourceListEndpoint, request );
 }`);
-	}
+  }
 
-	if (methods.includes("read")) {
-		typeImports.add(`${pascalCase}ReadQuery`);
-		clientEndpointImports.push(`read${pascalCase}ResourceEndpoint`);
-		exportedBindings.push(`export const restResourceReadEndpoint = {
+  if (methods.includes('read')) {
+    typeImports.add(`${pascalCase}ReadQuery`);
+    clientEndpointImports.push(`read${pascalCase}ResourceEndpoint`);
+    exportedBindings.push(`export const restResourceReadEndpoint = {
 \t...read${pascalCase}ResourceEndpoint,
 \tbuildRequestOptions: ( request: ${pascalCase}ReadQuery ) =>
 \t\tresolveEndpointRouteOptions( read${pascalCase}ResourceEndpoint, request ),
@@ -285,12 +318,12 @@ export function listResource( request: ${pascalCase}ListQuery ) {
 export function readResource( request: ${pascalCase}ReadQuery ) {
 \treturn callEndpoint( restResourceReadEndpoint, request );
 }`);
-	}
+  }
 
-	if (methods.includes("create")) {
-		typeImports.add(`${pascalCase}CreateRequest`);
-		clientEndpointImports.push(`create${pascalCase}ResourceEndpoint`);
-		exportedBindings.push(`export const restResourceCreateEndpoint = {
+  if (methods.includes('create')) {
+    typeImports.add(`${pascalCase}CreateRequest`);
+    clientEndpointImports.push(`create${pascalCase}ResourceEndpoint`);
+    exportedBindings.push(`export const restResourceCreateEndpoint = {
 \t...create${pascalCase}ResourceEndpoint,
 \tbuildRequestOptions: ( request: ${pascalCase}CreateRequest ) => {
 \t\tconst nonce = resolveRestNonce();
@@ -308,13 +341,13 @@ export function readResource( request: ${pascalCase}ReadQuery ) {
 export function createResource( request: ${pascalCase}CreateRequest ) {
 \treturn callEndpoint( restResourceCreateEndpoint, request );
 }`);
-	}
+  }
 
-	if (methods.includes("update")) {
-		typeImports.add(`${pascalCase}UpdateQuery`);
-		typeImports.add(`${pascalCase}UpdateRequest`);
-		clientEndpointImports.push(`update${pascalCase}ResourceEndpoint`);
-		exportedBindings.push(`export const restResourceUpdateEndpoint = {
+  if (methods.includes('update')) {
+    typeImports.add(`${pascalCase}UpdateQuery`);
+    typeImports.add(`${pascalCase}UpdateRequest`);
+    clientEndpointImports.push(`update${pascalCase}ResourceEndpoint`);
+    exportedBindings.push(`export const restResourceUpdateEndpoint = {
 \t...update${pascalCase}ResourceEndpoint,
 \tbuildRequestOptions: ( request: {
 \t\tbody: ${pascalCase}UpdateRequest;
@@ -338,12 +371,12 @@ export function updateResource( request: {
 } ) {
 \treturn callEndpoint( restResourceUpdateEndpoint, request );
 }`);
-	}
+  }
 
-	if (methods.includes("delete")) {
-		typeImports.add(`${pascalCase}DeleteQuery`);
-		clientEndpointImports.push(`delete${pascalCase}ResourceEndpoint`);
-		exportedBindings.push(`export const restResourceDeleteEndpoint = {
+  if (methods.includes('delete')) {
+    typeImports.add(`${pascalCase}DeleteQuery`);
+    clientEndpointImports.push(`delete${pascalCase}ResourceEndpoint`);
+    exportedBindings.push(`export const restResourceDeleteEndpoint = {
 \t...delete${pascalCase}ResourceEndpoint,
 \tbuildRequestOptions: ( request: ${pascalCase}DeleteQuery ) => {
 \t\tconst nonce = resolveRestNonce();
@@ -361,23 +394,23 @@ export function updateResource( request: {
 export function deleteResource( request: ${pascalCase}DeleteQuery ) {
 \treturn callEndpoint( restResourceDeleteEndpoint, request );
 }`);
-	}
+  }
 
-	const resolveRestNonceSource =
+  const resolveRestNonceSource =
 		writeMethods.length > 0
-			? `${formatResolveRestNonceSource("spaced")}\n\n`
-			: "";
+      ? `${formatResolveRestNonceSource('spaced')}\n\n`
+      : '';
 
-	return `import {
+  return `import {
 \tcallEndpoint,
 \tresolveRestRouteUrl,
 } from '@wp-typia/rest';
 
 import type {
-\t${Array.from(typeImports).sort().join(",\n\t")},
+\t${Array.from(typeImports).sort().join(',\n\t')},
 } from './api-types';
 import {
-\t${clientEndpointImports.sort().join(",\n\t")},
+\t${clientEndpointImports.sort().join(',\n\t')},
 } from './api-client';
 ${resolveRestNonceSource}
 function resolveEndpointRouteOptions<TRequest>(
@@ -398,7 +431,7 @@ function resolveEndpointRouteOptions<TRequest>(
 \t};
 }
 
-${exportedBindings.join("\n\n")}
+${exportedBindings.join('\n\n')}
 `;
 }
 
@@ -413,16 +446,16 @@ export function buildRestResourceDataSource(
 	restResourceSlug: string,
 	methods: RestResourceMethodId[],
 ): string {
-	const pascalCase = toPascalCase(restResourceSlug);
-	const typeImports = new Set<string>();
-	const endpointImports: string[] = [];
-	const exportedBindings: string[] = [];
+  const pascalCase = toPascalCase(restResourceSlug);
+  const typeImports = new Set<string>();
+  const endpointImports: string[] = [];
+  const exportedBindings: string[] = [];
 
-	if (methods.includes("list")) {
-		typeImports.add(`${pascalCase}ListQuery`);
-		typeImports.add(`${pascalCase}ListResponse`);
-		endpointImports.push("restResourceListEndpoint");
-		exportedBindings.push(`export type Use${pascalCase}ListQueryOptions<
+  if (methods.includes('list')) {
+    typeImports.add(`${pascalCase}ListQuery`);
+    typeImports.add(`${pascalCase}ListResponse`);
+    endpointImports.push('restResourceListEndpoint');
+    exportedBindings.push(`export type Use${pascalCase}ListQueryOptions<
 \tSelected = ${pascalCase}ListResponse,
 > = UseEndpointQueryOptions<
 \t${pascalCase}ListQuery,
@@ -438,13 +471,13 @@ export function use${pascalCase}ListQuery<
 ) {
 \treturn useEndpointQuery( restResourceListEndpoint, request, options );
 }`);
-	}
+  }
 
-	if (methods.includes("read")) {
-		typeImports.add(`${pascalCase}ReadQuery`);
-		typeImports.add(`${pascalCase}ReadResponse`);
-		endpointImports.push("restResourceReadEndpoint");
-		exportedBindings.push(`export type Use${pascalCase}ReadQueryOptions<
+  if (methods.includes('read')) {
+    typeImports.add(`${pascalCase}ReadQuery`);
+    typeImports.add(`${pascalCase}ReadResponse`);
+    endpointImports.push('restResourceReadEndpoint');
+    exportedBindings.push(`export type Use${pascalCase}ReadQueryOptions<
 \tSelected = ${pascalCase}ReadResponse,
 > = UseEndpointQueryOptions<
 \t${pascalCase}ReadQuery,
@@ -460,13 +493,13 @@ export function use${pascalCase}ReadQuery<
 ) {
 \treturn useEndpointQuery( restResourceReadEndpoint, request, options );
 }`);
-	}
+  }
 
-	if (methods.includes("create")) {
-		typeImports.add(`${pascalCase}CreateRequest`);
-		typeImports.add(`${pascalCase}CreateResponse`);
-		endpointImports.push("restResourceCreateEndpoint");
-		exportedBindings.push(`export type UseCreate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
+  if (methods.includes('create')) {
+    typeImports.add(`${pascalCase}CreateRequest`);
+    typeImports.add(`${pascalCase}CreateResponse`);
+    endpointImports.push('restResourceCreateEndpoint');
+    exportedBindings.push(`export type UseCreate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
 \t${pascalCase}CreateRequest,
 \t${pascalCase}CreateResponse,
 \tunknown
@@ -477,14 +510,14 @@ export function useCreate${pascalCase}ResourceMutation(
 ) {
 \treturn useEndpointMutation( restResourceCreateEndpoint, options );
 }`);
-	}
+  }
 
-	if (methods.includes("update")) {
-		typeImports.add(`${pascalCase}UpdateQuery`);
-		typeImports.add(`${pascalCase}UpdateRequest`);
-		typeImports.add(`${pascalCase}UpdateResponse`);
-		endpointImports.push("restResourceUpdateEndpoint");
-		exportedBindings.push(`export type UseUpdate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
+  if (methods.includes('update')) {
+    typeImports.add(`${pascalCase}UpdateQuery`);
+    typeImports.add(`${pascalCase}UpdateRequest`);
+    typeImports.add(`${pascalCase}UpdateResponse`);
+    endpointImports.push('restResourceUpdateEndpoint');
+    exportedBindings.push(`export type UseUpdate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
 \t{
 \t\tbody: ${pascalCase}UpdateRequest;
 \t\tquery: ${pascalCase}UpdateQuery;
@@ -498,13 +531,13 @@ export function useUpdate${pascalCase}ResourceMutation(
 ) {
 \treturn useEndpointMutation( restResourceUpdateEndpoint, options );
 }`);
-	}
+  }
 
-	if (methods.includes("delete")) {
-		typeImports.add(`${pascalCase}DeleteQuery`);
-		typeImports.add(`${pascalCase}DeleteResponse`);
-		endpointImports.push("restResourceDeleteEndpoint");
-		exportedBindings.push(`export type UseDelete${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
+  if (methods.includes('delete')) {
+    typeImports.add(`${pascalCase}DeleteQuery`);
+    typeImports.add(`${pascalCase}DeleteResponse`);
+    endpointImports.push('restResourceDeleteEndpoint');
+    exportedBindings.push(`export type UseDelete${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
 \t${pascalCase}DeleteQuery,
 \t${pascalCase}DeleteResponse,
 \tunknown
@@ -515,9 +548,9 @@ export function useDelete${pascalCase}ResourceMutation(
 ) {
 \treturn useEndpointMutation( restResourceDeleteEndpoint, options );
 }`);
-	}
+  }
 
-	return `import {
+  return `import {
 \tuseEndpointMutation,
 \tuseEndpointQuery,
 \ttype UseEndpointMutationOptions,
@@ -525,12 +558,12 @@ export function useDelete${pascalCase}ResourceMutation(
 } from '@wp-typia/rest/react';
 
 import type {
-\t${Array.from(typeImports).sort().join(",\n\t")},
+\t${Array.from(typeImports).sort().join(',\n\t')},
 } from './api-types';
 import {
-\t${endpointImports.sort().join(",\n\t")},
+\t${endpointImports.sort().join(',\n\t')},
 } from './api';
 
-${exportedBindings.join("\n\n")}
+${exportedBindings.join('\n\n')}
 `;
 }

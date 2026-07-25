@@ -132,7 +132,10 @@ function hasUnknownOptionBefore(argv: string[], endIndex: number): boolean {
 }
 
 function getEditDistance(left: string, right: string): number {
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const previous = Array.from(
+    { length: right.length + 1 },
+    (_, index) => index,
+  );
   const current = new Array<number>(right.length + 1);
 
   for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {

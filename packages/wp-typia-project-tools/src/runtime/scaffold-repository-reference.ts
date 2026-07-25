@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-repository-reference.js";
+export * from './templates/scaffold-repository-reference.js';

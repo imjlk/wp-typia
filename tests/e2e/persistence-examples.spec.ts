@@ -1,4 +1,10 @@
-import { test, expect, PERSISTENCE_COUNTER_BLOCK, PERSISTENCE_LIKE_BUTTON_BLOCK, WordPressPage } from './fixtures/wordpress';
+import {
+  test,
+  expect,
+  PERSISTENCE_COUNTER_BLOCK,
+  PERSISTENCE_LIKE_BUTTON_BLOCK,
+  WordPressPage,
+} from './fixtures/wordpress';
 import { requestWordPressRest } from './fixtures/rest';
 
 interface CounterContext {

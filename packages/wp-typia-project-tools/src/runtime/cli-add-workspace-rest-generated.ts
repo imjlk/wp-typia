@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-rest-generated.js";
+export * from './add/cli-add-workspace-rest-generated.js';

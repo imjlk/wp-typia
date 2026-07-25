@@ -3,9 +3,9 @@
  * @param value
  */
 export function isNonArrayObject(
-	value: unknown
+	value: unknown,
 ): value is Record< string, unknown > {
-	return (
+  return (
 		typeof value === 'object' && value !== null && ! Array.isArray( value )
 	);
 }

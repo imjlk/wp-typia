@@ -315,7 +315,10 @@ export function createFetchTransport(
       ...(options.body === undefined ? {} : { body: options.body }),
       ...(headers === undefined ? {} : { headers }),
     };
-    const response = await fetchFn(resolveRequestUrl(options, baseUrl), requestInit);
+    const response = await fetchFn(
+      resolveRequestUrl(options, baseUrl),
+      requestInit,
+    );
 
     if (options.parse === false) {
       return response as Parse extends false ? Response : T;

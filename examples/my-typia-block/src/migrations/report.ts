@@ -5,7 +5,7 @@ import type { BlockScanResult } from './types';
 import type { MigrationRiskSummary } from './helpers';
 
 function formatRiskSummary( riskSummary: MigrationRiskSummary ): string {
-	return `additive ${ riskSummary.additive.count }, rename ${ riskSummary.rename.count }, transform ${ riskSummary.semanticTransform.count }, union breaking ${ riskSummary.unionBreaking.count }`;
+  return `additive ${ riskSummary.additive.count }, rename ${ riskSummary.rename.count }, transform ${ riskSummary.semanticTransform.count }, union breaking ${ riskSummary.unionBreaking.count }`;
 }
 
 /**
@@ -13,52 +13,52 @@ function formatRiskSummary( riskSummary: MigrationRiskSummary ): string {
  * @param scanResults
  */
 export function generateMigrationReport(
-	scanResults: BlockScanResult[]
+	scanResults: BlockScanResult[],
 ): string {
-	let report = `# ${ migrationConfig.blockName } Migration Report\n\n`;
-	report += `- Current migration version: ${ migrationRegistry.currentMigrationVersion }\n`;
-	report += `- Supported deprecated entries: ${ deprecated.length }\n`;
-	report += `- Scan results needing attention: ${ scanResults.length }\n\n`;
+  let report = `# ${ migrationConfig.blockName } Migration Report\n\n`;
+  report += `- Current migration version: ${ migrationRegistry.currentMigrationVersion }\n`;
+  report += `- Supported deprecated entries: ${ deprecated.length }\n`;
+  report += `- Scan results needing attention: ${ scanResults.length }\n\n`;
 
-	for ( const entry of scanResults ) {
-		report += `## ${ entry.postTitle } (#${ entry.postId })\n`;
-		report += `- Migration version: ${ entry.analysis.currentMigrationVersion } -> ${ entry.analysis.targetMigrationVersion }\n`;
-		report += `- Confidence: ${ entry.analysis.confidence }\n`;
-		report += `- Risk summary: ${ formatRiskSummary(
-			entry.analysis.riskSummary
+  for ( const entry of scanResults ) {
+    report += `## ${ entry.postTitle } (#${ entry.postId })\n`;
+    report += `- Migration version: ${ entry.analysis.currentMigrationVersion } -> ${ entry.analysis.targetMigrationVersion }\n`;
+    report += `- Confidence: ${ entry.analysis.confidence }\n`;
+    report += `- Risk summary: ${ formatRiskSummary(
+			entry.analysis.riskSummary,
 		) }\n`;
-		if ( entry.preview.changedFields.length > 0 ) {
-			report += `- Changed fields: ${ entry.preview.changedFields.join(
-				', '
+    if ( entry.preview.changedFields.length > 0 ) {
+      report += `- Changed fields: ${ entry.preview.changedFields.join(
+				', ',
 			) }\n`;
-		}
-		if ( entry.preview.unionBranches.length > 0 ) {
-			report += `- Union branches:\n`;
-			for ( const branch of entry.preview.unionBranches ) {
-				report += `  - ${ branch.field }: ${
+    }
+    if ( entry.preview.unionBranches.length > 0 ) {
+      report += `- Union branches:\n`;
+      for ( const branch of entry.preview.unionBranches ) {
+        report += `  - ${ branch.field }: ${
 					branch.legacyBranch ?? 'unknown'
 				} -> ${ branch.nextBranch ?? 'unknown' } (${
 					branch.status
 				})\n`;
-			}
-		}
-		if ( entry.preview.unresolved.length > 0 ) {
-			report += `- Unresolved: ${ entry.preview.unresolved.join(
-				', '
+      }
+    }
+    if ( entry.preview.unresolved.length > 0 ) {
+      report += `- Unresolved: ${ entry.preview.unresolved.join(
+				', ',
 			) }\n`;
-		}
-		if ( entry.preview.validationErrors.length > 0 ) {
-			report += `- Validation errors: ${ entry.preview.validationErrors.join(
-				', '
+    }
+    if ( entry.preview.validationErrors.length > 0 ) {
+      report += `- Validation errors: ${ entry.preview.validationErrors.join(
+				', ',
 			) }\n`;
-		}
-		report += '\n### Before\n\n```json\n';
-		report += `${ JSON.stringify( entry.preview.before, null, 2 ) }\n`;
-		report += '```\n\n';
-		report += '### After\n\n```json\n';
-		report += `${ JSON.stringify( entry.preview.after, null, 2 ) }\n`;
-		report += '```\n\n';
-	}
+    }
+    report += '\n### Before\n\n```json\n';
+    report += `${ JSON.stringify( entry.preview.before, null, 2 ) }\n`;
+    report += '```\n\n';
+    report += '### After\n\n```json\n';
+    report += `${ JSON.stringify( entry.preview.after, null, 2 ) }\n`;
+    report += '```\n\n';
+  }
 
-	return report;
+  return report;
 }

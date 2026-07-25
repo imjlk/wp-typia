@@ -8,46 +8,46 @@
  * - `cli-add-workspace` for workspace mutation commands
  */
 export {
-	ADD_BLOCK_TEMPLATE_IDS,
-	ADD_KIND_IDS,
-	EDITOR_PLUGIN_SLOT_IDS,
-	formatAddHelpText,
-	isAddBlockTemplateId,
-	normalizeBlockSlug,
-	PATTERN_CATALOG_SCOPE_IDS,
-	PATTERN_SECTION_ROLE_PATTERN,
-	PATTERN_TAG_PATTERN,
-	suggestAddBlockTemplateId,
-} from "./cli-add-shared.js";
+  ADD_BLOCK_TEMPLATE_IDS,
+  ADD_KIND_IDS,
+  EDITOR_PLUGIN_SLOT_IDS,
+  formatAddHelpText,
+  isAddBlockTemplateId,
+  normalizeBlockSlug,
+  PATTERN_CATALOG_SCOPE_IDS,
+  PATTERN_SECTION_ROLE_PATTERN,
+  PATTERN_TAG_PATTERN,
+  suggestAddBlockTemplateId,
+} from './cli-add-shared.js';
 export type {
-	AddBlockTemplateId,
-	AddKindId,
-	EditorPluginSlotId,
-	PatternCatalogScope,
-} from "./cli-add-shared.js";
+  AddBlockTemplateId,
+  AddKindId,
+  EditorPluginSlotId,
+  PatternCatalogScope,
+} from './cli-add-shared.js';
 export {
-	runAddBlockCommand,
-	seedWorkspaceMigrationProject,
-} from "./cli-add-block.js";
+  runAddBlockCommand,
+  seedWorkspaceMigrationProject,
+} from './cli-add-block.js';
 export {
-	runAddAdminViewCommand,
-	runAddAbilityCommand,
-	runAddAiFeatureCommand,
-	runAddBindingSourceCommand,
-	runAddBlockStyleCommand,
-	runAddBlockTransformCommand,
-	runAddContractCommand,
-	runAddCoreVariationCommand,
-	runAddEditorPluginCommand,
-	runAddHookedBlockCommand,
-	runAddIntegrationEnvCommand,
-	runAddPatternCommand,
-	runAddPostMetaCommand,
-	runAddRestResourceCommand,
-	runAddVariationCommand,
-} from "./cli-add-workspace.js";
+  runAddAdminViewCommand,
+  runAddAbilityCommand,
+  runAddAiFeatureCommand,
+  runAddBindingSourceCommand,
+  runAddBlockStyleCommand,
+  runAddBlockTransformCommand,
+  runAddContractCommand,
+  runAddCoreVariationCommand,
+  runAddEditorPluginCommand,
+  runAddHookedBlockCommand,
+  runAddIntegrationEnvCommand,
+  runAddPatternCommand,
+  runAddPostMetaCommand,
+  runAddRestResourceCommand,
+  runAddVariationCommand,
+} from './cli-add-workspace.js';
 export {
-	getWorkspaceBlockSelectOptions,
-	getWorkspaceBlockSelectOptionsAsync,
-} from "../workspace/workspace-inventory.js";
-export type { WorkspaceBlockSelectOption } from "../workspace/workspace-inventory.js";
+  getWorkspaceBlockSelectOptions,
+  getWorkspaceBlockSelectOptionsAsync,
+} from '../workspace/workspace-inventory.js';
+export type { WorkspaceBlockSelectOption } from '../workspace/workspace-inventory.js';

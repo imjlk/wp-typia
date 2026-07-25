@@ -1,1 +1,1 @@
-export * from "./doctor/cli-doctor.js";
+export * from './doctor/cli-doctor.js';

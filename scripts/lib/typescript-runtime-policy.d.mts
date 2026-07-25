@@ -1,17 +1,17 @@
 export interface TypeScriptRuntimePackagePolicy {
-	packageDir: string;
-	packageName: string;
-	reason: string;
-	requiredTypeScriptImportFiles: string[];
-	runtimeSourceRoots: string[];
-	typescriptPlacement: "dependency" | "non-runtime";
+  packageDir: string;
+  packageName: string;
+  reason: string;
+  requiredTypeScriptImportFiles: string[];
+  runtimeSourceRoots: string[];
+  typescriptPlacement: 'dependency' | 'non-runtime';
 }
 
-export declare const TYPESCRIPT_COMPILER_API_PACKAGE: "@typescript/typescript6";
+export declare const TYPESCRIPT_COMPILER_API_PACKAGE: '@typescript/typescript6';
 
 export declare const TYPESCRIPT_DEPENDENCY_POLICY: {
-	dependency: "dependency";
-	nonRuntime: "non-runtime";
+  dependency: 'dependency';
+  nonRuntime: 'non-runtime';
 };
 
 export declare const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES: TypeScriptRuntimePackagePolicy[];
@@ -28,7 +28,7 @@ export declare function sourceImportsTypeScriptAtRuntime(
 
 export declare function getTypeScriptDependencyPlacement(
 	packageJson: Record<string, unknown>,
-): "dependencies" | "devDependencies" | "missing";
+): 'dependencies' | 'devDependencies' | 'missing';
 
 export declare function evaluateTypeScriptRuntimePackagePolicy(
 	policy: TypeScriptRuntimePackagePolicy,
@@ -38,8 +38,8 @@ export declare function evaluateTypeScriptRuntimePackagePolicy(
 		typeScriptImportFiles: string[];
 	},
 ): {
-		errors: string[];
-		packedPlacement: "dependencies" | "devDependencies" | "missing";
-		sourcePlacement: "dependencies" | "devDependencies" | "missing";
-		typeScriptImportFiles: string[];
-	};
+  errors: string[];
+  packedPlacement: 'dependencies' | 'devDependencies' | 'missing';
+  sourcePlacement: 'dependencies' | 'devDependencies' | 'missing';
+  typeScriptImportFiles: string[];
+};

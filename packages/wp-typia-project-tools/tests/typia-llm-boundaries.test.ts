@@ -2,7 +2,13 @@ import { expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'schema');
+const runtimeRoot = path.join(
+  import.meta.dir,
+  '..',
+  'src',
+  'runtime',
+  'schema',
+);
 
 test('typia-llm delegates rendering, sync, projection, and OpenAPI constraint helpers to focused modules', () => {
   const facadeSource = fs.readFileSync(
@@ -40,12 +46,20 @@ test('typia-llm delegates rendering, sync, projection, and OpenAPI constraint he
   expect(facadeSource).toContain("from './typia-llm-projection.js'");
   expect(facadeSource).toContain("from './typia-llm-render.js'");
   expect(facadeSource).toContain("from './typia-llm-sync.js'");
-  expect(facadeSource).not.toContain('function mergeJsonSchemaConstraintProperties');
+  expect(facadeSource).not.toContain(
+    'function mergeJsonSchemaConstraintProperties',
+  );
   expect(facadeSource).not.toContain('function renderMethodSignature');
-  expect(facadeSource).not.toContain('async function reconcileGeneratedTypiaLlmArtifacts');
+  expect(facadeSource).not.toContain(
+    'async function reconcileGeneratedTypiaLlmArtifacts',
+  );
 
-  expect(typesSource).toContain('export interface TypiaLlmEndpointMethodDescriptor');
-  expect(typesSource).toContain('export interface ProjectedTypiaLlmApplicationArtifact');
+  expect(typesSource).toContain(
+    'export interface TypiaLlmEndpointMethodDescriptor',
+  );
+  expect(typesSource).toContain(
+    'export interface ProjectedTypiaLlmApplicationArtifact',
+  );
 
   expect(jsonSchemaSource).toContain('export function assertJsonSchemaObject(');
   expect(jsonSchemaSource).not.toContain('resolveOpenApiReferenceTarget');
@@ -53,8 +67,12 @@ test('typia-llm delegates rendering, sync, projection, and OpenAPI constraint he
   expect(constraintsSource).toContain(
     'export function applyOpenApiConstraintsToTypiaLlmFunctionArtifact(',
   );
-  expect(constraintsSource).toContain('function mergeJsonSchemaConstraintProperties(');
-  expect(constraintsSource).not.toContain('export function renderTypiaLlmModule(');
+  expect(constraintsSource).toContain(
+    'function mergeJsonSchemaConstraintProperties(',
+  );
+  expect(constraintsSource).not.toContain(
+    'export function renderTypiaLlmModule(',
+  );
 
   expect(projectionSource).toContain(
     'export function projectTypiaLlmApplicationArtifact(',
@@ -70,7 +88,13 @@ test('typia-llm delegates rendering, sync, projection, and OpenAPI constraint he
   expect(renderSource).toContain('export function renderTypiaLlmModule(');
   expect(renderSource).not.toContain('reconcileGeneratedTypiaLlmArtifacts');
 
-  expect(syncSource).toContain('export async function syncTypiaLlmAdapterModule(');
-  expect(syncSource).toContain('async function reconcileGeneratedTypiaLlmArtifacts(');
-  expect(syncSource).not.toContain('export function projectTypiaLlmApplicationArtifact(');
+  expect(syncSource).toContain(
+    'export async function syncTypiaLlmAdapterModule(',
+  );
+  expect(syncSource).toContain(
+    'async function reconcileGeneratedTypiaLlmArtifacts(',
+  );
+  expect(syncSource).not.toContain(
+    'export function projectTypiaLlmApplicationArtifact(',
+  );
 });

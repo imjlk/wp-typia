@@ -1,14 +1,14 @@
-import path from "node:path";
+import path from 'node:path';
 
 import {
-	assertDryRunTargetDirectoryReady,
-	listRelativeProjectFiles,
-} from "./cli-scaffold-files.js";
-import { scaffoldProject } from "./scaffold.js";
-import { collectBuiltInCompilerArtifactPaths } from "./scaffold-compiler-artifacts.js";
-import { createManagedTempRoot } from "../shared/temp-roots.js";
-import type { PackageManagerId } from "../shared/package-managers.js";
-import type { ScaffoldProgressEvent } from "./scaffold.js";
+  assertDryRunTargetDirectoryReady,
+  listRelativeProjectFiles,
+} from './cli-scaffold-files.js';
+import { scaffoldProject } from './scaffold.js';
+import { collectBuiltInCompilerArtifactPaths } from './scaffold-compiler-artifacts.js';
+import { createManagedTempRoot } from '../shared/temp-roots.js';
+import type { PackageManagerId } from '../shared/package-managers.js';
+import type { ScaffoldProgressEvent } from './scaffold.js';
 
 type ScaffoldProjectOptions = Parameters<typeof scaffoldProject>[0];
 
@@ -16,7 +16,7 @@ type ScaffoldProjectOptions = Parameters<typeof scaffoldProject>[0];
  * Dependency installation hook accepted by scaffold emission.
  */
 export type ScaffoldInstallDependencies =
-	ScaffoldProjectOptions["installDependencies"];
+	ScaffoldProjectOptions['installDependencies'];
 
 /**
  * Dry-run metadata returned after rendering a scaffold into a preview directory.
@@ -25,13 +25,13 @@ export interface ScaffoldDryRunPlan {
 	/**
 	 * Whether dependency installation would run or is skipped by --no-install.
 	 */
-	dependencyInstall: "skipped-by-flag" | "would-install";
+  dependencyInstall: 'skipped-by-flag' | 'would-install';
 	/**
 	 * Sorted project-relative paths guaranteed by the selected scaffold flags.
 	 * Compiler-derived paths are omitted with --no-install because their
 	 * availability then depends on the caller's local generator dependencies.
 	 */
-	files: string[];
+  files: string[];
 }
 
 /**
@@ -41,91 +41,91 @@ export interface ScaffoldEmissionOptions {
 	/**
 	 * Whether an existing target directory may be reused.
 	 */
-	allowExistingDir: boolean;
+  allowExistingDir: boolean;
 	/**
 	 * Optional alternate render target specification for supported templates.
 	 */
-	alternateRenderTargets?: ScaffoldProjectOptions["alternateRenderTargets"];
+  alternateRenderTargets?: ScaffoldProjectOptions['alternateRenderTargets'];
 	/**
 	 * Resolved scaffold answers used by template variable generation.
 	 */
-	answers: ScaffoldProjectOptions["answers"];
+  answers: ScaffoldProjectOptions['answers'];
 	/**
 	 * Caller working directory used to resolve relative template inputs.
 	 */
-	cwd: string;
+  cwd: string;
 	/**
 	 * Persistence storage mode for templates that support storage options.
 	 */
-	dataStorageMode?: ScaffoldProjectOptions["dataStorageMode"];
+  dataStorageMode?: ScaffoldProjectOptions['dataStorageMode'];
 	/**
 	 * Optional public root id selected from an external layer package.
 	 */
-	externalLayerId?: string;
+  externalLayerId?: string;
 	/**
 	 * Optional external layer source package, path, or locator.
 	 */
-	externalLayerSource?: string;
+  externalLayerSource?: string;
 	/**
 	 * Display label for the external layer source before path resolution.
 	 */
-	externalLayerSourceLabel?: string;
+  externalLayerSourceLabel?: string;
 	/**
 	 * Optional dependency installer override used by tests and callers.
 	 */
-	installDependencies?: ScaffoldProjectOptions["installDependencies"];
+  installDependencies?: ScaffoldProjectOptions['installDependencies'];
 	/**
 	 * Whether generated projects should skip dependency installation.
 	 */
-	noInstall: boolean;
+  noInstall: boolean;
 	/**
 	 * Optional callback for scaffold progress events.
 	 */
-	onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
+  onProgress?: ((event: ScaffoldProgressEvent) => void | Promise<void>) | undefined;
 	/**
 	 * Package manager used for generated metadata and follow-up commands.
 	 */
-	packageManager: PackageManagerId;
+  packageManager: PackageManagerId;
 	/**
 	 * Persistence access policy for templates that support server storage.
 	 */
-	persistencePolicy?: ScaffoldProjectOptions["persistencePolicy"];
+  persistencePolicy?: ScaffoldProjectOptions['persistencePolicy'];
 	/**
 	 * Optional create profile that enables preset groups such as plugin QA.
 	 */
-	profile?: ScaffoldProjectOptions["profile"];
+  profile?: ScaffoldProjectOptions['profile'];
 	/**
 	 * Absolute target directory for the generated project.
 	 */
-	projectDir: string;
+  projectDir: string;
 	/**
 	 * Internal preview control for compiler-backed metadata and REST seeding.
 	 */
-	seedCompilerArtifacts?: boolean;
+  seedCompilerArtifacts?: boolean;
 	/**
 	 * Resolved template id or external template locator to render.
 	 */
-	templateId: string;
+  templateId: string;
 	/**
 	 * Optional built-in or external template variant id.
 	 */
-	variant?: string;
+  variant?: string;
 	/**
 	 * Whether migration UI support should be added when supported.
 	 */
-	withMigrationUi: boolean;
+  withMigrationUi: boolean;
 	/**
 	 * Whether scaffold test presets should be emitted.
 	 */
-	withTestPreset: boolean;
+  withTestPreset: boolean;
 	/**
 	 * Whether local wp-env support should be emitted.
 	 */
-	withWpEnv: boolean;
+  withWpEnv: boolean;
 	/**
 	 * WordPress version target used for generated plugin Tested up to headers.
 	 */
-	wpVersion?: ScaffoldProjectOptions["wpVersion"];
+  wpVersion?: ScaffoldProjectOptions['wpVersion'];
 }
 
 /**
@@ -137,7 +137,7 @@ export interface ScaffoldEmissionOptions {
 export async function emitScaffoldProject(
 	options: ScaffoldEmissionOptions,
 ): Promise<Awaited<ReturnType<typeof scaffoldProject>>> {
-	return scaffoldProject(options);
+  return scaffoldProject(options);
 }
 
 /**
@@ -149,27 +149,27 @@ export async function emitScaffoldProject(
 export async function buildScaffoldDryRunPlan(
 	options: ScaffoldEmissionOptions,
 ): Promise<{
-	plan: ScaffoldDryRunPlan;
-	result: Awaited<ReturnType<typeof scaffoldProject>>;
+  plan: ScaffoldDryRunPlan;
+  result: Awaited<ReturnType<typeof scaffoldProject>>;
 }> {
-	await assertDryRunTargetDirectoryReady(
-		options.projectDir,
-		options.allowExistingDir,
-	);
-	const { path: tempRoot, cleanup } = await createManagedTempRoot(
-		"wp-typia-scaffold-plan-",
-	);
-	const previewProjectDir = path.join(tempRoot, "preview-project");
+  await assertDryRunTargetDirectoryReady(
+    options.projectDir,
+    options.allowExistingDir,
+  );
+  const { path: tempRoot, cleanup } = await createManagedTempRoot(
+    'wp-typia-scaffold-plan-',
+  );
+  const previewProjectDir = path.join(tempRoot, 'preview-project');
 
-	try {
-		const result = await emitScaffoldProject({
-			...options,
-			allowExistingDir: false,
-			noInstall: true,
-			projectDir: previewProjectDir,
-			seedCompilerArtifacts: false,
-		});
-		const files = [
+  try {
+    const result = await emitScaffoldProject({
+      ...options,
+      allowExistingDir: false,
+      noInstall: true,
+      projectDir: previewProjectDir,
+      seedCompilerArtifacts: false,
+    });
+    const files = [
 			...new Set([
 				...(await listRelativeProjectFiles(previewProjectDir)),
 				...(options.noInstall
@@ -181,16 +181,16 @@ export async function buildScaffoldDryRunPlan(
 			]),
 		].sort((left, right) => left.localeCompare(right));
 
-		return {
-			plan: {
-				dependencyInstall: options.noInstall
-					? "skipped-by-flag"
-					: "would-install",
-				files,
-			},
-			result,
-		};
-	} finally {
-		await cleanup();
-	}
+    return {
+      plan: {
+        dependencyInstall: options.noInstall
+          ? 'skipped-by-flag'
+          : 'would-install',
+        files,
+      },
+      result,
+    };
+  } finally {
+    await cleanup();
+  }
 }

@@ -5,7 +5,7 @@
  * @returns PHP source for `inc/rest-schema.php`.
  */
 export function buildWorkspaceRestSchemaHelperPhpSource(phpPrefix: string): string {
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }

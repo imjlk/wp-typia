@@ -1,1 +1,1 @@
-export * from "./templates/template-source-locators.js";
+export * from './templates/template-source-locators.js';

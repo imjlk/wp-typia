@@ -2,8 +2,8 @@
 import typia from 'typia';
 import { generateBlockId } from '@wp-typia/block-runtime/identifiers';
 import {
-	createNestedAttributeUpdater as createValidatedNestedAttributeUpdater,
-	type ValidationResult,
+  createNestedAttributeUpdater as createValidatedNestedAttributeUpdater,
+  type ValidationResult,
 } from '@wp-typia/block-runtime/validation';
 import currentManifest from './manifest-defaults-document';
 import { MyTypiaBlockAttributes } from './types';
@@ -16,7 +16,7 @@ const scaffoldValidators =
 	createTemplateValidatorToolkit< MyTypiaBlockAttributes >( {
 		assert: typia.createAssert< MyTypiaBlockAttributes >(),
 		clone: typia.plain.createClone< MyTypiaBlockAttributes >() as (
-			value: MyTypiaBlockAttributes
+			value: MyTypiaBlockAttributes,
 		) => MyTypiaBlockAttributes,
 		finalize: ( normalized ) => ( {
 			...normalized,
@@ -35,20 +35,20 @@ const scaffoldValidators =
 	} );
 
 export const validateMyTypiaBlockAttributes = (
-	attributes: unknown
+	attributes: unknown,
 ): ValidationResult< MyTypiaBlockAttributes > =>
 	scaffoldValidators.validateAttributes(
-		attributes
-	) as ValidationResult< MyTypiaBlockAttributes >;
+    attributes,
+  ) as ValidationResult< MyTypiaBlockAttributes >;
 
 export const validators = scaffoldValidators.validators;
 
 export function sanitizeMyTypiaBlockAttributes(
-	attributes: Partial< MyTypiaBlockAttributes >
+	attributes: Partial< MyTypiaBlockAttributes >,
 ): MyTypiaBlockAttributes {
-	return scaffoldValidators.sanitizeAttributes(
-		attributes
-	) as MyTypiaBlockAttributes;
+  return scaffoldValidators.sanitizeAttributes(
+    attributes,
+  ) as MyTypiaBlockAttributes;
 }
 
 /**
@@ -60,29 +60,26 @@ export function sanitizeMyTypiaBlockAttributes(
 export function createAttributeUpdater(
 	attributes: MyTypiaBlockAttributes,
 	setAttributes: ( attrs: Partial< MyTypiaBlockAttributes > ) => void,
-	validator = validateMyTypiaBlockAttributes
+	validator = validateMyTypiaBlockAttributes,
 ) {
-	return scaffoldValidators.createAttributeUpdater(
-		attributes,
-		setAttributes,
-		validator
-	);
+  return scaffoldValidators.createAttributeUpdater(
+    attributes,
+    setAttributes,
+    validator,
+  );
 }
 
 export function createNestedAttributeUpdater(
 	attributes: MyTypiaBlockAttributes,
 	setAttributes: ( attrs: Partial< MyTypiaBlockAttributes > ) => void,
-	validator = validateMyTypiaBlockAttributes
+	validator = validateMyTypiaBlockAttributes,
 ) {
-	return createValidatedNestedAttributeUpdater(
-		attributes,
-		setAttributes,
-		validator,
-		( validation, path ) => {
-			console.error(
-				`Validation failed for ${ path }:`,
-				validation.errors
-			);
-		}
-	);
+  return createValidatedNestedAttributeUpdater(
+    attributes,
+    setAttributes,
+    validator,
+    ( validation, path ) => {
+      console.error(`Validation failed for ${ path }:`, validation.errors);
+    },
+  );
 }

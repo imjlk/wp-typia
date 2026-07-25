@@ -1,15 +1,15 @@
 import typia from 'typia';
 
 import {
-	toValidationResult,
-	type ValidationResult,
+  toValidationResult,
+  type ValidationResult,
 } from '@wp-typia/api-client';
 import type {
-	PersistenceCounterBootstrapQuery,
-	PersistenceCounterBootstrapResponse,
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterQuery,
-	PersistenceCounterResponse,
+  PersistenceCounterBootstrapQuery,
+  PersistenceCounterBootstrapResponse,
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterQuery,
+  PersistenceCounterResponse,
 } from './api-types';
 
 const validateCounterQuery = typia.createValidate< PersistenceCounterQuery >();
@@ -24,23 +24,23 @@ const validateCounterResponse =
 
 export const apiValidators = {
 	counterBootstrapQuery: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceCounterBootstrapQuery > =>
 		toValidationResult( validateCounterBootstrapQuery( input ) ),
 	counterBootstrapResponse: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceCounterBootstrapResponse > =>
 		toValidationResult( validateCounterBootstrapResponse( input ) ),
 	counterQuery: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceCounterQuery > =>
 		toValidationResult( validateCounterQuery( input ) ),
 	counterResponse: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceCounterResponse > =>
 		toValidationResult( validateCounterResponse( input ) ),
 	incrementRequest: (
-		input: unknown
+		input: unknown,
 	): ValidationResult< PersistenceCounterIncrementRequest > =>
 		toValidationResult( validateIncrementRequest( input ) ),
 };

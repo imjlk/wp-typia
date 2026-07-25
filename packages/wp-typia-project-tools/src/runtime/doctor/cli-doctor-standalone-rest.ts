@@ -154,16 +154,8 @@ function getStandaloneRestContractArtifactPaths(baseName: string): {
   openApiFile: string;
 } {
   return {
-    jsonSchemaFile: path.join(
-      'src',
-      'api-schemas',
-      `${baseName}.schema.json`,
-    ),
-    openApiFile: path.join(
-      'src',
-      'api-schemas',
-      `${baseName}.openapi.json`,
-    ),
+    jsonSchemaFile: path.join('src', 'api-schemas', `${baseName}.schema.json`),
+    openApiFile: path.join('src', 'api-schemas', `${baseName}.openapi.json`),
   };
 }
 
@@ -797,10 +789,7 @@ function parseStaticEndpointManifestDeclaration(
   statement: ts.Statement,
   bindings: ReadonlySet<string>,
 ): EndpointManifestDefinition | null {
-  const initializer = getStaticEndpointManifestInitializer(
-    statement,
-    bindings,
-  );
+  const initializer = getStaticEndpointManifestInitializer(statement, bindings);
   if (!initializer) {
     return null;
   }
@@ -1202,11 +1191,7 @@ function isCatchAllFailureGuard(
   return (
     hasDirectThrowingBlock(statement) &&
     ts.isIfStatement(statement) &&
-    isIdentifierPropertyAccess(
-      statement.expression,
-      reportBinding,
-      'failure',
-    )
+    isIdentifierPropertyAccess(statement.expression, reportBinding, 'failure')
   );
 }
 
@@ -1274,10 +1259,7 @@ function hasCanonicalTypeArtifactPreflight(
       declaration.body.statements[1],
       invocation.binding,
     ) &&
-    isCatchAllFailureGuard(
-      declaration.body.statements[2],
-      invocation.binding,
-    )
+    isCatchAllFailureGuard(declaration.body.statements[2], invocation.binding)
   );
 }
 
@@ -1505,10 +1487,7 @@ function hasCanonicalRestCheckParser(sourceFile: ts.SourceFile): boolean {
     !hasOnlyCanonicalParserEffects(loop.statement, optionsBinding) ||
     !hasCanonicalUnknownFlagThrow(loop.statement, argumentBinding) ||
     countOuterParserContinues(loop.statement) !== 1 ||
-    hasEarlierAbruptCompletion(
-      loop.statement.statements,
-      guardIndexes[0],
-    ) ||
+    hasEarlierAbruptCompletion(loop.statement.statements, guardIndexes[0]) ||
     containsParserControlFlow(
       loop.statement,
       argumentBinding,

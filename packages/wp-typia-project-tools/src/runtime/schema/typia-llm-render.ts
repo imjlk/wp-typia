@@ -133,8 +133,8 @@ function getEndpointInputTypeDescriptor(
 
   const contractName =
     endpoint.method === 'GET'
-      ? endpoint.queryContract ?? null
-      : endpoint.bodyContract ?? endpoint.queryContract ?? null;
+      ? (endpoint.queryContract ?? null)
+      : (endpoint.bodyContract ?? endpoint.queryContract ?? null);
 
   if (!contractName) {
     return {

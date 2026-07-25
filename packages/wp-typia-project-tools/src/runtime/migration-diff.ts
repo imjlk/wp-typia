@@ -1,1 +1,1 @@
-export * from "./migration/migration-diff.js";
+export * from './migration/migration-diff.js';

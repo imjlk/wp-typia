@@ -5,12 +5,12 @@
  * and REST resource sync patchers live in focused implementation modules.
  */
 export {
-	ensureRestResourceBootstrapAnchors,
-	ensureRestSchemaHelperBootstrapAnchors,
-} from "./cli-add-workspace-rest-bootstrap-anchors.js";
+  ensureRestResourceBootstrapAnchors,
+  ensureRestSchemaHelperBootstrapAnchors,
+} from './cli-add-workspace-rest-bootstrap-anchors.js';
 export {
 	ensureContractSyncScriptAnchors,
-} from "./cli-add-workspace-rest-contract-sync-anchors.js";
+} from './cli-add-workspace-rest-contract-sync-anchors.js';
 export {
 	ensureRestResourceSyncScriptAnchors,
-} from "./cli-add-workspace-rest-resource-sync-anchors.js";
+} from './cli-add-workspace-rest-resource-sync-anchors.js';

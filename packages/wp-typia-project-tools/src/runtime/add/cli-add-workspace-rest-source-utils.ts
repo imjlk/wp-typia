@@ -6,10 +6,10 @@
  * @returns The source fragment with each line prefixed.
  */
 export function indentMultiline(source: string, prefix: string): string {
-	return source
-		.split("\n")
+  return source
+		.split('\n')
 		.map((line) => `${prefix}${line}`)
-		.join("\n");
+		.join('\n');
 }
 
 const RESOLVE_REST_NONCE_SOURCE = `function resolveRestNonce( fallback?: string ): string | undefined {
@@ -42,16 +42,16 @@ const RESOLVE_REST_NONCE_SOURCE = `function resolveRestNonce( fallback?: string 
  * @returns TypeScript source for the embedded `resolveRestNonce()` helper.
  */
 export function formatResolveRestNonceSource(
-	style: "compact" | "spaced",
+	style: 'compact' | 'spaced',
 ): string {
-	if (style === "spaced") {
-		return RESOLVE_REST_NONCE_SOURCE;
-	}
+  if (style === 'spaced') {
+    return RESOLVE_REST_NONCE_SOURCE;
+  }
 
-	return RESOLVE_REST_NONCE_SOURCE
+  return RESOLVE_REST_NONCE_SOURCE
 		.replace(
-			"function resolveRestNonce( fallback?: string ): string | undefined {",
-			"function resolveRestNonce(fallback?: string): string | undefined {",
+			'function resolveRestNonce( fallback?: string ): string | undefined {',
+			'function resolveRestNonce(fallback?: string): string | undefined {',
 		)
 		.replace(
 			"\tif ( typeof fallback === 'string' && fallback.length > 0 ) {",

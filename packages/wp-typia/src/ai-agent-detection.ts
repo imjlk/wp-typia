@@ -58,7 +58,9 @@ export function detectAIAgents(
       continue;
     }
     aiAgents.push(agent.name);
-    aiAgentEnvVars.push(...agent.envVars.filter((envVar) => Boolean(env[envVar])));
+    aiAgentEnvVars.push(
+      ...agent.envVars.filter((envVar) => Boolean(env[envVar])),
+    );
   }
 
   return {

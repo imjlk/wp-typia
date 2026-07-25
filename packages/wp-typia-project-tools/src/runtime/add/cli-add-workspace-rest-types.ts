@@ -1,9 +1,9 @@
 import type {
-	ManualRestContractAuthId,
-	ManualRestContractHttpMethodId,
-	RestResourceMethodId,
-} from "./cli-add-shared.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  ManualRestContractAuthId,
+  ManualRestContractHttpMethodId,
+  RestResourceMethodId,
+} from './cli-add-shared.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 /**
  * Normalized metadata returned after `wp-typia add rest-resource` completes.
@@ -23,26 +23,26 @@ import type { WorkspaceProject } from "../workspace/workspace-project.js";
  * should preserve the stored value when `secretFieldName` is set.
  */
 export interface RunAddRestResourceCommandResult {
-	auth?: ManualRestContractAuthId;
-	bodyTypeName?: string;
-	controllerClass?: string;
-	controllerExtends?: string;
-	method?: ManualRestContractHttpMethodId;
-	methods: RestResourceMethodId[];
-	mode: "generated" | "manual";
-	namespace: string;
-	permissionCallback?: string;
-	pathPattern?: string;
-	projectDir: string;
-	queryTypeName?: string;
-	restResourceSlug: string;
-	responseTypeName?: string;
-	routePattern?: string;
-	secretFieldName?: string;
-	secretHasValueFieldName?: string;
-	secretMaskedResponseFieldName?: string;
-	secretPreserveOnEmpty?: boolean;
-	secretStateFieldName?: string;
+  auth?: ManualRestContractAuthId;
+  bodyTypeName?: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  method?: ManualRestContractHttpMethodId;
+  methods: RestResourceMethodId[];
+  mode: 'generated' | 'manual';
+  namespace: string;
+  permissionCallback?: string;
+  pathPattern?: string;
+  projectDir: string;
+  queryTypeName?: string;
+  restResourceSlug: string;
+  responseTypeName?: string;
+  routePattern?: string;
+  secretFieldName?: string;
+  secretHasValueFieldName?: string;
+  secretMaskedResponseFieldName?: string;
+  secretPreserveOnEmpty?: boolean;
+  secretStateFieldName?: string;
 }
 
 /**
@@ -69,24 +69,24 @@ export interface RunAddRestResourceCommandResult {
  * @property workspace Resolved official workspace project.
  */
 export interface ManualRestContractScaffoldOptions {
-	auth: string | undefined;
-	bodyTypeName: string | undefined;
-	controllerClass: string | undefined;
-	controllerExtends: string | undefined;
-	method: string | undefined;
-	namespace: string;
-	pathPattern: string | undefined;
-	permissionCallback: string | undefined;
-	queryTypeName: string | undefined;
-	responseTypeName: string | undefined;
-	restResourceSlug: string;
-	routePattern: string | undefined;
-	secretFieldName: string | undefined;
-	secretHasValueFieldName: string | undefined;
-	secretMaskedResponseFieldName: string | undefined;
-	secretPreserveOnEmpty: boolean | undefined;
-	secretStateFieldName: string | undefined;
-	workspace: WorkspaceProject;
+  auth: string | undefined;
+  bodyTypeName: string | undefined;
+  controllerClass: string | undefined;
+  controllerExtends: string | undefined;
+  method: string | undefined;
+  namespace: string;
+  pathPattern: string | undefined;
+  permissionCallback: string | undefined;
+  queryTypeName: string | undefined;
+  responseTypeName: string | undefined;
+  restResourceSlug: string;
+  routePattern: string | undefined;
+  secretFieldName: string | undefined;
+  secretHasValueFieldName: string | undefined;
+  secretMaskedResponseFieldName: string | undefined;
+  secretPreserveOnEmpty: boolean | undefined;
+  secretStateFieldName: string | undefined;
+  workspace: WorkspaceProject;
 }
 
 /**
@@ -104,12 +104,12 @@ export interface ManualRestContractScaffoldOptions {
  * @property workspace Resolved official workspace project.
  */
 export interface GeneratedRestResourceScaffoldOptions {
-	controllerClass: string | undefined;
-	controllerExtends: string | undefined;
-	methods: string | undefined;
-	namespace: string;
-	permissionCallback: string | undefined;
-	restResourceSlug: string;
-	routePattern: string | undefined;
-	workspace: WorkspaceProject;
+  controllerClass: string | undefined;
+  controllerExtends: string | undefined;
+  methods: string | undefined;
+  namespace: string;
+  permissionCallback: string | undefined;
+  restResourceSlug: string;
+  routePattern: string | undefined;
+  workspace: WorkspaceProject;
 }

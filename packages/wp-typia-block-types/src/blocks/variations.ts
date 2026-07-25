@@ -1,43 +1,43 @@
-import type { BlockAttributes } from "./shared/block-attributes.js";
+import type { BlockAttributes } from './shared/block-attributes.js';
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
-} from "./compatibility.js";
+} from './compatibility.js';
 import {
   type DiagnosticLogger,
-} from "./shared/diagnostics.js";
-import { isObjectRecord } from "./shared/object-utils.js";
-import { normalizeStaticRegistrationValue } from "./shared/static-registration.js";
+} from './shared/diagnostics.js';
+import { isObjectRecord } from './shared/object-utils.js';
+import { normalizeStaticRegistrationValue } from './shared/static-registration.js';
 import {
   createCollectionDiagnostics,
   createVariationDiagnostics,
   handleVariationDiagnostics,
-} from "./variations-diagnostics.js";
+} from './variations-diagnostics.js';
 import {
   collectBlockVariationCompatibilityFeatures,
   createBlockVariationCompatibilityManifest,
   createBlockVariationCompatibilityManifestFromSettings,
-} from "./variations-manifest.js";
+} from './variations-manifest.js';
 import {
   resolveDefineVariationSettings,
   splitDefineVariationInput,
-} from "./variations-settings.js";
+} from './variations-settings.js';
 
 export {
   collectBlockVariationCompatibilityFeatures,
   createBlockVariationCompatibilityManifest,
 };
 
-export type { BlockAttributes } from "./shared/block-attributes.js";
+export type { BlockAttributes } from './shared/block-attributes.js';
 
-export type BlockVariationScope = "block" | "inserter" | "transform";
+export type BlockVariationScope = 'block' | 'inserter' | 'transform';
 
 export const BLOCK_VARIATION_SCOPES = [
-  "block",
-  "inserter",
-  "transform",
+  'block',
+  'inserter',
+  'transform',
 ] as const satisfies readonly BlockVariationScope[];
 
 export type BlockVariationAttributeMap<
@@ -136,7 +136,7 @@ export interface BlockVariationDefinition<
   TAttributes extends BlockAttributes = BlockAttributes,
 > extends Omit<
     BlockVariation<BlockVariationAttributeMap<TAttributes>>,
-    "attributes" | "example" | "innerBlocks" | "isActive" | "scope"
+    'attributes' | 'example' | 'innerBlocks' | 'isActive' | 'scope'
   > {
   readonly attributes?: BlockVariationAttributeMap<TAttributes>;
   readonly example?: BlockVariationExample<TAttributes>;
@@ -169,11 +169,11 @@ export type StripDefineVariationOptions<TVariation> = Omit<
 >;
 
 export const DEFINED_BLOCK_VARIATION_METADATA: unique symbol = Symbol.for(
-  "@wp-typia/block-types/defined-variation",
+  '@wp-typia/block-types/defined-variation',
 ) as never;
 
 export const DEFINED_BLOCK_VARIATIONS_METADATA: unique symbol = Symbol.for(
-  "@wp-typia/block-types/defined-variations",
+  '@wp-typia/block-types/defined-variations',
 ) as never;
 
 export type DefinedBlockVariationMetadataKey =
@@ -210,18 +210,18 @@ export type DefinedBlockVariations<
 };
 
 export type BlockVariationDiagnosticCode =
-  | "duplicate-active-marker"
-  | "duplicate-variation-name"
-  | "missing-is-active"
-  | "missing-stable-marker"
-  | "unknown-is-active-attribute";
+  | 'duplicate-active-marker'
+  | 'duplicate-variation-name'
+  | 'missing-is-active'
+  | 'missing-stable-marker'
+  | 'unknown-is-active-attribute';
 
 export interface BlockVariationAuthoringDiagnostic {
   readonly attribute?: string | undefined;
   readonly blockName: string;
   readonly code: BlockVariationDiagnosticCode;
   readonly message: string;
-  readonly severity: "error" | "warning";
+  readonly severity: 'error' | 'warning';
   readonly variationName: string;
 }
 
@@ -305,7 +305,11 @@ export function defineVariation<
     ),
   ];
 
-  handleVariationDiagnostics(diagnostics, resolved.onDiagnostic, resolved.logger);
+  handleVariationDiagnostics(
+    diagnostics,
+    resolved.onDiagnostic,
+    resolved.logger,
+  );
 
   Object.defineProperty(normalizedVariation, DEFINED_BLOCK_VARIATION_METADATA, {
     configurable: false,
@@ -356,10 +360,7 @@ export function defineVariations<
     (entry) => getDefinedVariationMetadata(entry.variation)?.diagnostics ?? [],
   );
   const collectionDiagnostics = createCollectionDiagnostics(entries, strict);
-  const diagnostics = [
-    ...variationDiagnostics,
-    ...collectionDiagnostics,
-  ];
+  const diagnostics = [...variationDiagnostics, ...collectionDiagnostics];
 
   handleVariationDiagnostics(
     collectionDiagnostics,
@@ -367,7 +368,9 @@ export function defineVariations<
     options.logger,
   );
 
-  const normalizedVariations = [...variations] as unknown as DefinedBlockVariations<
+  const normalizedVariations = [
+    ...variations,
+  ] as unknown as DefinedBlockVariations<
     TVariations
   >;
 
@@ -392,26 +395,26 @@ export function createStaticBlockVariationRegistrationSource(
   variations: readonly DefinedBlockVariation[],
   options: CreateBlockVariationRegistrationSourceOptions = {},
 ): string {
-  const importSource = options.importSource ?? "@wordpress/blocks";
-  const functionName = options.functionName ?? "registerWpTypiaBlockVariations";
+  const importSource = options.importSource ?? '@wordpress/blocks';
+  const functionName = options.functionName ?? 'registerWpTypiaBlockVariations';
   const entries = createBlockVariationRegistrationPlan(variations).map(
     (entry, index) =>
       normalizeStaticRegistrationValue(entry, `variations[${index}]`, {
-        description: "variation",
+        description: 'variation',
       }),
   );
   const serializedEntries = JSON.stringify(entries, null, 2);
 
   return [
     `import { registerBlockVariation } from ${JSON.stringify(importSource)};`,
-    "",
+    '',
     `const variations = ${serializedEntries};`,
-    "",
+    '',
     `export function ${functionName}() {`,
-    "  for (const { blockName, variation } of variations) {",
-    "    registerBlockVariation(blockName, variation);",
-    "  }",
-    "}",
-    "",
-  ].join("\n");
+    '  for (const { blockName, variation } of variations) {',
+    '    registerBlockVariation(blockName, variation);',
+    '  }',
+    '}',
+    '',
+  ].join('\n');
 }

@@ -2,7 +2,7 @@
  * Generate the `scripts/sync-ai-features.ts` source that projects AI-safe schemas for workspace features.
  */
 export function buildAiFeatureSyncScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 

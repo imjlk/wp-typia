@@ -1005,7 +1005,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         "const clickActionDirective = demoInteractivityStore.directive.action('handleClick');",
       );
       expect(generatedSave).toContain(
-        "const visibilityHiddenDirective = demoInteractivityStore.directive.negate(",
+        'const visibilityHiddenDirective = demoInteractivityStore.directive.negate(',
       );
       expect(generatedSave).toContain(
         'data-wp-bind--aria-valuenow={clampedClicksDirective}',
@@ -1039,7 +1039,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreActions');
       expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreCallbacks {}');
       expect(generatedInteractivityStore).toContain(
-        "export const demoInteractivityStore = defineInteractivityStore({",
+        'export const demoInteractivityStore = defineInteractivityStore({',
       );
       fs.writeFileSync(
         path.join(targetDir, 'src', 'interactivity-directive-typing.ts'),

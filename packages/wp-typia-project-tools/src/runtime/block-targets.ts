@@ -1,1 +1,1 @@
-export * from "./add/block-targets.js";
+export * from './add/block-targets.js';

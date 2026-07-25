@@ -1,12 +1,12 @@
 export interface PackageManifestPolicyResult {
-	errors: string[];
-	valid: boolean;
+  errors: string[];
+  valid: boolean;
 }
 
 export declare const ENGINE_BASELINE: Readonly<{
-	bun: string;
-	node: string;
-	npm: string;
+  bun: string;
+  node: string;
+  npm: string;
 }>;
 
 export declare const PACKAGE_MANAGER_BASELINE: string;
@@ -20,7 +20,7 @@ export declare function validatePackageManifestPolicy(
 ): PackageManifestPolicyResult;
 
 export declare function runCli(options?: {
-	cwd?: string;
-	stdout?: { write(chunk: string): unknown };
-	stderr?: { write(chunk: string): unknown };
+  cwd?: string;
+  stdout?: { write(chunk: string): unknown };
+  stderr?: { write(chunk: string): unknown };
 }): number;

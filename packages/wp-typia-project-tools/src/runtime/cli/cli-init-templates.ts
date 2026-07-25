@@ -1,21 +1,21 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { quoteTsString } from "../add/cli-add-shared.js";
-import type { RetrofitInitBlockTarget } from "./cli-init-types.js";
-import { updateWorkspaceInventorySource } from "../workspace/workspace-inventory.js";
+import { quoteTsString } from '../add/cli-add-shared.js';
+import type { RetrofitInitBlockTarget } from './cli-init-types.js';
+import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
 
 function buildRetrofitBlockConfigEntry(
 	target: RetrofitInitBlockTarget,
 ): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tslug: ${quoteTsString(target.slug)},`,
 		`\t\tattributeTypeName: ${quoteTsString(target.attributeTypeName)},`,
 		`\t\tblockJsonFile: ${quoteTsString(target.blockJsonFile)},`,
 		`\t\tmanifestFile: ${quoteTsString(target.manifestFile)},`,
 		`\t\ttypesFile: ${quoteTsString(target.typesFile)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -27,8 +27,8 @@ function buildRetrofitBlockConfigEntry(
 export function buildRetrofitBlockConfigSource(
 	targets: RetrofitInitBlockTarget[],
 ): string {
-	const blockEntries = targets.map(buildRetrofitBlockConfigEntry).join("\n");
-	const baseSource = `export interface WorkspaceBlockConfig {
+  const blockEntries = targets.map(buildRetrofitBlockConfigEntry).join('\n');
+  const baseSource = `export interface WorkspaceBlockConfig {
 \tattributeTypeName: string;
 \tapiTypesFile?: string;
 \tblockJsonFile?: string;
@@ -46,7 +46,7 @@ ${blockEntries}
 ];
 `;
 
-	return `${updateWorkspaceInventorySource(baseSource)}\n`;
+  return `${updateWorkspaceInventorySource(baseSource)}\n`;
 }
 
 /**
@@ -55,7 +55,7 @@ ${blockEntries}
  * @returns Complete TypeScript source for the metadata sync helper.
  */
 export function buildRetrofitSyncTypesScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import path from 'node:path';
 
 import { syncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';
@@ -140,7 +140,7 @@ main().catch( ( error ) => {
  * @returns Complete TypeScript source for the project sync entrypoint.
  */
 export function buildRetrofitSyncProjectScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -260,12 +260,12 @@ main().catch( ( error ) => {
 export function buildRetrofitHelperFiles(
 	blockTargets: RetrofitInitBlockTarget[],
 ): Record<string, string> {
-	return {
-		[path.join("scripts", "block-config.ts")]:
+  return {
+		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
-		[path.join("scripts", "sync-project.ts")]:
+		[path.join('scripts', 'sync-project.ts')]:
 			buildRetrofitSyncProjectScriptSource(),
-		[path.join("scripts", "sync-types-to-block-json.ts")]:
+		[path.join('scripts', 'sync-types-to-block-json.ts')]:
 			buildRetrofitSyncTypesScriptSource(),
 	};
 }

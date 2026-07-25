@@ -1,59 +1,67 @@
 import type {
-	GeneratedMigrationEntry,
-	MigrationEntry,
-	MigrationProjectState,
-} from "./migration-types.js";
+  GeneratedMigrationEntry,
+  MigrationEntry,
+  MigrationProjectState,
+} from './migration-types.js';
 
 export function renderVerifyFile(
 	state: MigrationProjectState,
 	blockKey: string,
 	entries: MigrationEntry[],
 ): string {
-	const block = state.blocks.find((entry) => entry.key === blockKey);
-	if (!block) {
-		throw new Error(`Unknown migration block target: ${blockKey}`);
-	}
-	if (entries.length === 0) {
-		return `/* eslint-disable no-console */
+  const block = state.blocks.find((entry) => entry.key === blockKey);
+  if (!block) {
+    throw new Error(`Unknown migration block target: ${blockKey}`);
+  }
+  if (entries.length === 0) {
+    return `/* eslint-disable no-console */
 console.log(
 \t'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before verify.'
 );
 `;
-	}
+  }
 
-	const imports = [
-		`import { validators } from "${entries[0]?.validatorImport ?? "./validators"}";`,
-		`import { deprecated } from "./deprecated";`,
-	];
-	const checks: string[] = [];
+  const imports = [
+    `import { validators } from "${entries[0]?.validatorImport ?? './validators'}";`,
+    `import { deprecated } from "./deprecated";`,
+  ];
+  const checks: string[] = [];
 
-	entries.forEach((entry, index) => {
-		imports.push(`import fixture_${index} from "${entry.fixtureImport}";`);
-		imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
-		checks.push(`\tif (selectedMigrationVersions.length === 0 || selectedMigrationVersions.includes("${entry.fromVersion}")) {`);
-		checks.push(`\t\tif (rule_${index}.unresolved.length > 0) {`);
-		checks.push(
-			`\t\t\tthrow new Error("Unresolved migration TODOs remain for ${entry.fromVersion} -> ${entry.toVersion}: " + rule_${index}.unresolved.join(", "));`,
-		);
-		checks.push(`\t\t}`);
-		checks.push(`\t\tconst cases_${index} = Array.isArray(fixture_${index}.cases) ? fixture_${index}.cases : [];`);
-		checks.push(`\t\tfor (const fixtureCase of cases_${index}) {`);
-		checks.push(`\t\t\tconst migrated_${index} = rule_${index}.migrate(fixtureCase.input ?? {});`);
-		checks.push(`\t\t\tconst validation_${index} = validators.validate(migrated_${index});`);
-		checks.push(`\t\t\tif (!isValidationSuccess(validation_${index})) {`);
-		checks.push(
-			`\t\t\t\tthrow new Error("Current validator rejected migrated fixture for ${entry.fromVersion} case " + String(fixtureCase.name ?? "unknown") + ": " + JSON.stringify(getValidationErrors(validation_${index})));`,
-		);
-		checks.push(`\t\t\t}`);
-		checks.push(`\t\t}`);
-		checks.push(
-			`\t\tconsole.log("Verified ${entry.fromVersion} -> ${entry.toVersion} (" + cases_${index}.length + " case(s))");`,
-		);
-		checks.push(`\t}`);
-	});
+  entries.forEach((entry, index) => {
+    imports.push(`import fixture_${index} from "${entry.fixtureImport}";`);
+    imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
+    checks.push(
+      `\tif (selectedMigrationVersions.length === 0 || selectedMigrationVersions.includes("${entry.fromVersion}")) {`,
+    );
+    checks.push(`\t\tif (rule_${index}.unresolved.length > 0) {`);
+    checks.push(
+      `\t\t\tthrow new Error("Unresolved migration TODOs remain for ${entry.fromVersion} -> ${entry.toVersion}: " + rule_${index}.unresolved.join(", "));`,
+    );
+    checks.push(`\t\t}`);
+    checks.push(
+      `\t\tconst cases_${index} = Array.isArray(fixture_${index}.cases) ? fixture_${index}.cases : [];`,
+    );
+    checks.push(`\t\tfor (const fixtureCase of cases_${index}) {`);
+    checks.push(
+      `\t\t\tconst migrated_${index} = rule_${index}.migrate(fixtureCase.input ?? {});`,
+    );
+    checks.push(
+      `\t\t\tconst validation_${index} = validators.validate(migrated_${index});`,
+    );
+    checks.push(`\t\t\tif (!isValidationSuccess(validation_${index})) {`);
+    checks.push(
+      `\t\t\t\tthrow new Error("Current validator rejected migrated fixture for ${entry.fromVersion} case " + String(fixtureCase.name ?? "unknown") + ": " + JSON.stringify(getValidationErrors(validation_${index})));`,
+    );
+    checks.push(`\t\t\t}`);
+    checks.push(`\t\t}`);
+    checks.push(
+      `\t\tconsole.log("Verified ${entry.fromVersion} -> ${entry.toVersion} (" + cases_${index}.length + " case(s))");`,
+    );
+    checks.push(`\t}`);
+  });
 
-	return `/* eslint-disable prettier/prettier, no-console, @typescript-eslint/no-unused-vars, no-nested-ternary */
-${imports.join("\n")}
+  return `/* eslint-disable prettier/prettier, no-console, @typescript-eslint/no-unused-vars, no-nested-ternary */
+${imports.join('\n')}
 
 function isValidationSuccess(result: unknown): boolean {
 \treturn (
@@ -86,7 +94,7 @@ if (deprecated.length !== ${entries.length}) {
 \tthrow new Error("Generated deprecated entries are out of sync with migration registry.");
 }
 
-${checks.join("\n")}
+${checks.join('\n')}
 
 console.log("Migration verification passed for ${block.blockName}");
 `;
@@ -97,24 +105,24 @@ export function renderFuzzFile(
 	blockKey: string,
 	entries: GeneratedMigrationEntry[],
 ): string {
-	const block = state.blocks.find((entry) => entry.key === blockKey);
-	if (!block) {
-		throw new Error(`Unknown migration block target: ${blockKey}`);
-	}
-	if (entries.length === 0) {
-		return `/* eslint-disable no-console */
+  const block = state.blocks.find((entry) => entry.key === blockKey);
+  if (!block) {
+    throw new Error(`Unknown migration block target: ${blockKey}`);
+  }
+  if (entries.length === 0) {
+    return `/* eslint-disable no-console */
 console.log(
 \t'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before fuzz.'
 );
 `;
-	}
+  }
 
-	const imports = [
-		`import { validators } from "${entries[0]?.entry.validatorImport ?? "./validators"}";`,
-	];
-	const edgeDefinitions: string[] = [];
+  const imports = [
+    `import { validators } from "${entries[0]?.entry.validatorImport ?? './validators'}";`,
+  ];
+  const edgeDefinitions: string[] = [];
 
-	entries.forEach(({ entry, fuzzPlan }, index) => {
+  entries.forEach(({ entry, fuzzPlan }, index) => {
 		imports.push(`import fixture_${index} from "${entry.fixtureImport}";`);
 		imports.push(`import manifest_${index} from "${entry.manifestImport}";`);
 		imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
@@ -124,12 +132,12 @@ console.log(
 \tfixture: fixture_${index},
 \tlegacyManifest: manifest_${index},
 \trule: rule_${index},
-\tplan: ${JSON.stringify(fuzzPlan, null, "\t").replace(/\n/g, "\n\t")},
+\tplan: ${JSON.stringify(fuzzPlan, null, '\t').replace(/\n/g, '\n\t')},
 }`);
 	});
 
-	return `/* eslint-disable prettier/prettier, no-console, no-bitwise, @typescript-eslint/no-unused-vars, no-nested-ternary, @typescript-eslint/method-signature-style */
-${imports.join("\n")}
+  return `/* eslint-disable prettier/prettier, no-console, no-bitwise, @typescript-eslint/no-unused-vars, no-nested-ternary, @typescript-eslint/method-signature-style */
+${imports.join('\n')}
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -177,7 +185,7 @@ type FuzzEdge = {
 };
 
 const edges: FuzzEdge[] = [
-${edgeDefinitions.join(",\n")}
+${edgeDefinitions.join(',\n')}
 ];
 
 function cloneJsonValue<T>(value: T): T {

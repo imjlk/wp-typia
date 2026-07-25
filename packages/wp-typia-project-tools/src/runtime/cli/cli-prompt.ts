@@ -1,22 +1,22 @@
-import readline from "node:readline";
+import readline from 'node:readline';
 
 type ValidateInput = (value: string) => boolean | string;
 type PromptQuestion = (query: string) => Promise<string>;
 export type PromptLinePrinter = (line: string) => void;
 
 interface PromptOption<T extends string> {
-	hint?: string;
-	label: string;
-	value: T;
+  hint?: string;
+  label: string;
+  value: T;
 }
 
 /**
  * Prompt adapter used by CLI scaffold flows and migration wizard flows.
  */
 export interface ReadlinePrompt {
-	close(): void;
-	select<T extends string>(message: string, options: PromptOption<T>[], defaultValue?: number): Promise<T>;
-	text(message: string, defaultValue: string, validate?: ValidateInput): Promise<string>;
+  close(): void;
+  select<T extends string>(message: string, options: PromptOption<T>[], defaultValue?: number): Promise<T>;
+  text(message: string, defaultValue: string, validate?: ValidateInput): Promise<string>;
 }
 
 /**
@@ -24,9 +24,9 @@ export interface ReadlinePrompt {
  */
 export interface ReadlinePromptOutput {
 	/** Render one informational prompt line. */
-	printLine?: PromptLinePrinter;
+  printLine?: PromptLinePrinter;
 	/** Render one validation or selection error line. */
-	errorLine?: PromptLinePrinter;
+  errorLine?: PromptLinePrinter;
 }
 
 /**
@@ -38,14 +38,14 @@ export interface ReadlinePromptOutput {
  */
 export interface ReadlineQuestionAdapter {
 	/** Close the underlying prompt interface and release any open handles. */
-	close(): void;
+  close(): void;
 	/**
 	 * Render one prompt and resolve with the collected answer string.
 	 *
 	 * @param query Prompt text written to the active output stream.
 	 * @param callback Callback that receives the entered answer.
 	 */
-	question(query: string, callback: (answer: string) => void): void;
+  question(query: string, callback: (answer: string) => void): void;
 }
 
 /**
@@ -55,12 +55,12 @@ export interface ReadlineQuestionAdapter {
  * @returns A prompt adapter that reads from stdin and writes to stdout.
  */
 export function createReadlinePrompt(output: ReadlinePromptOutput = {}): ReadlinePrompt {
-	const rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout,
-	});
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
 
-	return createReadlinePromptWithInterface(rl, output);
+  return createReadlinePromptWithInterface(rl, output);
 }
 
 /**
@@ -76,13 +76,13 @@ export function createReadlinePromptWithInterface(
 	rl: ReadlineQuestionAdapter,
 	output: ReadlinePromptOutput = {},
 ): ReadlinePrompt {
-	const { errorLine, printLine } = resolveReadlinePromptOutput(output);
-	const askQuestion: PromptQuestion = (query) =>
+  const { errorLine, printLine } = resolveReadlinePromptOutput(output);
+  const askQuestion: PromptQuestion = (query) =>
 		new Promise<string>((resolve) => {
-			rl.question(query, resolve);
-		});
+      rl.question(query, resolve);
+    });
 
-	return {
+  return {
 		async text(message: string, defaultValue: string, validate?: ValidateInput): Promise<string> {
 			while (true) {
 				const value = normalizePromptAnswer(
@@ -143,39 +143,39 @@ function resolveReadlinePromptOutput({
 	errorLine,
 	printLine,
 }: ReadlinePromptOutput): Required<ReadlinePromptOutput> {
-	return {
-		errorLine: errorLine ?? writePromptErrorLine,
-		printLine: printLine ?? writePromptLine,
-	};
+  return {
+    errorLine: errorLine ?? writePromptErrorLine,
+    printLine: printLine ?? writePromptLine,
+  };
 }
 
 function writePromptLine(line: string): void {
-	process.stdout.write(`${line}\n`);
+  process.stdout.write(`${line}\n`);
 }
 
 function writePromptErrorLine(line: string): void {
-	process.stderr.write(`${line}\n`);
+  process.stderr.write(`${line}\n`);
 }
 
 function normalizePromptAnswer(value: string): string {
-	return String(value).trim();
+  return String(value).trim();
 }
 
 function normalizePromptToken(value: string): string {
-	return value.trim().toLowerCase();
+  return value.trim().toLowerCase();
 }
 
 function getResolvedDefaultIndex<T extends string>(
 	options: PromptOption<T>[],
 	defaultValue: number,
 ): number {
-	const candidateIndex = Number.isInteger(defaultValue) ? defaultValue - 1 : -1;
-	return options[candidateIndex] ? candidateIndex : 0;
+  const candidateIndex = Number.isInteger(defaultValue) ? defaultValue - 1 : -1;
+  return options[candidateIndex] ? candidateIndex : 0;
 }
 
 function formatTextPrompt(message: string, defaultValue: string): string {
-	const suffix = defaultValue.length > 0 ? ` [default: ${defaultValue}]` : "";
-	return `${message}${suffix}: `;
+  const suffix = defaultValue.length > 0 ? ` [default: ${defaultValue}]` : '';
+  return `${message}${suffix}: `;
 }
 
 function formatValidationError(
@@ -183,14 +183,14 @@ function formatValidationError(
 	result: boolean | string,
 	defaultValue: string,
 ): string {
-	const detail = typeof result === "string" ? result : "Invalid input";
-	const retryHint =
-		defaultValue.length > 0 ? ` Press Enter to keep "${defaultValue}".` : "";
-	return `❌ ${message}: ${detail}.${retryHint}`;
+  const detail = typeof result === 'string' ? result : 'Invalid input';
+  const retryHint =
+		defaultValue.length > 0 ? ` Press Enter to keep "${defaultValue}".` : '';
+  return `❌ ${message}: ${detail}.${retryHint}`;
 }
 
 function formatChoicePrompt(defaultIndex: number): string {
-	return `Choice [default: ${defaultIndex + 1}, ? for options]: `;
+  return `Choice [default: ${defaultIndex + 1}, ? for options]: `;
 }
 
 function renderSelectPrompt<T extends string>(
@@ -199,15 +199,15 @@ function renderSelectPrompt<T extends string>(
 	defaultIndex: number,
 	printLine: PromptLinePrinter,
 ): void {
-	printLine(message);
-	printLine(
-		"  Enter a number, option label, or option value. Press Enter to keep the default, or type ? to list choices again.",
-	);
-	options.forEach((option, index) => {
-		const defaultMarker = index === defaultIndex ? " (default)" : "";
+  printLine(message);
+  printLine(
+    '  Enter a number, option label, or option value. Press Enter to keep the default, or type ? to list choices again.',
+  );
+  options.forEach((option, index) => {
+		const defaultMarker = index === defaultIndex ? ' (default)' : '';
 		const valueHint =
 			normalizePromptToken(option.label) === normalizePromptToken(option.value)
-				? ""
+				? ''
 				: ` [${option.value}]`;
 		printLine(`  ${index + 1}. ${option.label}${valueHint}${defaultMarker}`);
 		if (option.hint) {
@@ -217,25 +217,25 @@ function renderSelectPrompt<T extends string>(
 }
 
 function isPromptHelpToken(answer: string): boolean {
-	const normalized = normalizePromptToken(answer);
-	return normalized === "?" || normalized === "help" || normalized === "list";
+  const normalized = normalizePromptToken(answer);
+  return normalized === '?' || normalized === 'help' || normalized === 'list';
 }
 
 function resolvePromptSelection<T extends string>(
 	options: PromptOption<T>[],
 	answer: string,
 ): PromptOption<T> | undefined {
-	const numericChoice = Number(answer);
-	if (!Number.isNaN(numericChoice) && options[numericChoice - 1]) {
-		return options[numericChoice - 1];
-	}
+  const numericChoice = Number(answer);
+  if (!Number.isNaN(numericChoice) && options[numericChoice - 1]) {
+    return options[numericChoice - 1];
+  }
 
-	const normalizedAnswer = normalizePromptToken(answer);
-	return options.find((option) => {
-		const normalizedLabel = normalizePromptToken(option.label);
-		const normalizedValue = normalizePromptToken(option.value);
-		return normalizedAnswer === normalizedLabel || normalizedAnswer === normalizedValue;
-	});
+  const normalizedAnswer = normalizePromptToken(answer);
+  return options.find((option) => {
+    const normalizedLabel = normalizePromptToken(option.label);
+    const normalizedValue = normalizePromptToken(option.value);
+    return normalizedAnswer === normalizedLabel || normalizedAnswer === normalizedValue;
+  });
 }
 
 function formatInvalidSelectionError<T extends string>(
@@ -243,10 +243,10 @@ function formatInvalidSelectionError<T extends string>(
 	options: PromptOption<T>[],
 	defaultIndex: number,
 ): string {
-	const optionValues = options.map((option) => option.value).join(", ");
-	return [
+  const optionValues = options.map((option) => option.value).join(', ');
+  return [
 		`❌ Invalid selection: ${answer}.`,
 		`Enter 1-${options.length}, one of: ${optionValues},`,
 		`or press Enter for "${options[defaultIndex].label}".`,
-	].join(" ");
+	].join(' ');
 }

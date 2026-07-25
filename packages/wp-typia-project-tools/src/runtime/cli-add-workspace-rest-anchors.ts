@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-rest-anchors.js";
+export * from './add/cli-add-workspace-rest-anchors.js';

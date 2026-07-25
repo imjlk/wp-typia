@@ -1,5 +1,9 @@
 import { quoteTsString } from './cli-add-shared.js';
-import { toCamelCase, toPascalCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCamelCase,
+  toPascalCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 /**
  * Builds starter item and dataset types for the default admin-view variant.

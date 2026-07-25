@@ -1,1 +1,1 @@
-export * from "./doctor/cli-doctor-workspace-package.js";
+export * from './doctor/cli-doctor-workspace-package.js';

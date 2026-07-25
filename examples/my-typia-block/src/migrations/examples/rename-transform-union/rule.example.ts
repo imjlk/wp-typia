@@ -1,10 +1,10 @@
 import type { MyTypiaBlockAttributes } from '../../../types';
 import currentManifest from '../../../../typia.manifest.json';
 import {
-	type ManifestAttribute,
-	type RenameMap,
-	type TransformMap,
-	resolveMigrationAttribute,
+  type ManifestAttribute,
+  type RenameMap,
+  type TransformMap,
+  resolveMigrationAttribute,
 } from '../../helpers';
 
 export const renameMap: RenameMap = {
@@ -41,60 +41,60 @@ export const transforms: TransformMap = {
 };
 
 export const unresolved = [
-	'linkTarget: union-branch-removal (branch post was removed)',
+  'linkTarget: union-branch-removal (branch post was removed)',
 ] as const;
 
 function getRequiredManifestAttribute( key: string ): ManifestAttribute {
-	const manifestAttributes = currentManifest.attributes as Record<
+  const manifestAttributes = currentManifest.attributes as Record<
 		string,
 		ManifestAttribute
 	>;
-	const attribute = manifestAttributes[ key ];
+  const attribute = manifestAttributes[ key ];
 
-	if ( ! attribute ) {
-		throw new Error(
-			`Migration example is missing the required manifest attribute "${ key }".`
-		);
-	}
+  if ( ! attribute ) {
+    throw new Error(
+      `Migration example is missing the required manifest attribute "${ key }".`,
+    );
+  }
 
-	return attribute;
+  return attribute;
 }
 
 export function migrate(
-	input: Record< string, unknown >
+	input: Record< string, unknown >,
 ): MyTypiaBlockAttributes {
-	return {
-		content: resolveMigrationAttribute(
-			getRequiredManifestAttribute( 'content' ),
-			'content',
-			'content',
-			input,
-			renameMap,
-			transforms
-		),
-		padding: resolveMigrationAttribute(
-			getRequiredManifestAttribute( 'padding' ),
-			'padding',
-			'padding',
-			input,
-			renameMap,
-			transforms
-		),
-		borderRadius: resolveMigrationAttribute(
-			getRequiredManifestAttribute( 'borderRadius' ),
-			'borderRadius',
-			'borderRadius',
-			input,
-			renameMap,
-			transforms
-		),
-		linkTarget: resolveMigrationAttribute(
-			getRequiredManifestAttribute( 'linkTarget' ),
-			'linkTarget',
-			'linkTarget',
-			input,
-			renameMap,
-			transforms
-		),
-	} as MyTypiaBlockAttributes;
+  return {
+    content: resolveMigrationAttribute(
+      getRequiredManifestAttribute('content'),
+      'content',
+      'content',
+      input,
+      renameMap,
+      transforms,
+    ),
+    padding: resolveMigrationAttribute(
+      getRequiredManifestAttribute('padding'),
+      'padding',
+      'padding',
+      input,
+      renameMap,
+      transforms,
+    ),
+    borderRadius: resolveMigrationAttribute(
+      getRequiredManifestAttribute('borderRadius'),
+      'borderRadius',
+      'borderRadius',
+      input,
+      renameMap,
+      transforms,
+    ),
+    linkTarget: resolveMigrationAttribute(
+      getRequiredManifestAttribute('linkTarget'),
+      'linkTarget',
+      'linkTarget',
+      input,
+      renameMap,
+      transforms,
+    ),
+  } as MyTypiaBlockAttributes;
 }

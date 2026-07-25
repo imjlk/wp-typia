@@ -1,1 +1,1 @@
-export * from "./shared/php-utils.js";
+export * from './shared/php-utils.js';

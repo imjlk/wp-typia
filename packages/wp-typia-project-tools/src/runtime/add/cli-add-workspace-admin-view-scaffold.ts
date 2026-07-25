@@ -3,10 +3,7 @@ import path from 'node:path';
 
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
-import {
-  detectJsonIndent,
-  safeJsonParse,
-} from '../shared/json-utils.js';
+import { detectJsonIndent, safeJsonParse } from '../shared/json-utils.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -39,10 +36,7 @@ import {
   type AdminViewSource,
 } from './cli-add-workspace-admin-view-types.js';
 import { buildManualRestContractApiSource } from './cli-add-workspace-rest-manual-source-emitters.js';
-import {
-  getWorkspaceBootstrapPath,
-  patchFile,
-} from './cli-add-shared.js';
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
   appendPhpSnippetBeforeClosingTag,
   executeWorkspaceMutationPlan,
@@ -426,7 +420,9 @@ export async function scaffoldAdminViewWorkspace(options: {
     adminViewSlug,
   );
   const manualSettingsRestResource =
-    isAdminViewManualSettingsRestResource(restResource) ? restResource : undefined;
+    isAdminViewManualSettingsRestResource(restResource)
+      ? restResource
+      : undefined;
   const manualSettingsRestApiPath = manualSettingsRestResource
     ? path.join(workspace.projectDir, manualSettingsRestResource.apiFile)
     : undefined;

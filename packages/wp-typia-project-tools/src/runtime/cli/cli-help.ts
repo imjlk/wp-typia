@@ -1,5 +1,5 @@
-import { PACKAGE_MANAGER_IDS } from "../shared/package-managers.js";
-import { TEMPLATE_IDS } from "../templates/template-registry.js";
+import { PACKAGE_MANAGER_IDS } from '../shared/package-managers.js';
+import { TEMPLATE_IDS } from '../templates/template-registry.js';
 
 /**
  * Return the canonical CLI usage text for `wp-typia`.
@@ -10,7 +10,7 @@ import { TEMPLATE_IDS } from "../templates/template-registry.js";
  * @returns Human-readable help text for CLI usage output.
  */
 export function formatHelpText(): string {
-	return `Usage:
+  return `Usage:
   wp-typia create <project-dir> [--template <basic|interactivity>] [--wp-version <6.9|7.0>] [--external-layer-source <./path|github:owner/repo/path[#ref]|npm-package>] [--external-layer-id <layer-id>] [--namespace <value>] [--text-domain <value>] [--php-prefix <value>] [--with-migration-ui] [--with-wp-env] [--with-test-preset] [--yes] [--dry-run] [--no-install] [--package-manager <id>]
   wp-typia create <project-dir> [--template workspace] [--wp-version <6.9|7.0>] [--profile <plugin-qa>] [--namespace <value>] [--text-domain <value>] [--php-prefix <value>] [--with-migration-ui] [--with-wp-env] [--with-test-preset] [--yes] [--dry-run] [--no-install] [--package-manager <id>]
   wp-typia create <project-dir> [--template query-loop] [--wp-version <6.9|7.0>] [--external-layer-source <./path|github:owner/repo/path[#ref]|npm-package>] [--external-layer-id <layer-id>] [--query-post-type <post-type>] [--namespace <value>] [--text-domain <value>] [--php-prefix <value>] [--with-migration-ui] [--with-wp-env] [--with-test-preset] [--yes] [--dry-run] [--no-install] [--package-manager <id>]
@@ -45,8 +45,8 @@ export function formatHelpText(): string {
   wp-typia skills <list|sync>
   wp-typia completions <bash|zsh|fish|powershell>
 
-Built-in templates: ${TEMPLATE_IDS.join(", ")}
-Package managers: ${PACKAGE_MANAGER_IDS.join(", ")}
+Built-in templates: ${TEMPLATE_IDS.join(', ')}
+Package managers: ${PACKAGE_MANAGER_IDS.join(', ')}
 Output environment:
   WP_TYPIA_ASCII=1 forces ASCII status markers; WP_TYPIA_ASCII=0 opts back into Unicode markers even when NO_COLOR is set.
   A non-empty NO_COLOR requests ASCII-safe markers such as [ok], [dry-run], [!], and [...] when WP_TYPIA_ASCII is not set.

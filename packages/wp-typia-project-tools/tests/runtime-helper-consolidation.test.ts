@@ -19,7 +19,9 @@ import {
 import { getPropertyNameText } from '../src/runtime/ts-property-names.js';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime');
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-runtime-helpers-'));
+const tempRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'wp-typia-runtime-helpers-'),
+);
 
 afterAll(() => {
   fs.rmSync(tempRoot, { force: true, recursive: true });

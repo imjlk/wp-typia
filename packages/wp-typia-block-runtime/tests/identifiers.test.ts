@@ -1,29 +1,29 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
-	collectPersistentBlockIdentityRepairs,
-	ensurePersistentBlockIdentity,
-	generateBlockId,
-	generatePublicWriteRequestId,
-	generateResourceKey,
-	generateScopedClientId,
+  collectPersistentBlockIdentityRepairs,
+  ensurePersistentBlockIdentity,
+  generateBlockId,
+  generatePublicWriteRequestId,
+  generateResourceKey,
+  generateScopedClientId,
 } from '@wp-typia/block-runtime/identifiers';
 
 const originalCryptoDescriptor = Object.getOwnPropertyDescriptor(
-	globalThis,
-	'crypto'
+  globalThis,
+  'crypto',
 );
 const originalMathRandom = Math.random;
 
-afterEach( () => {
-	if ( originalCryptoDescriptor ) {
-		Object.defineProperty( globalThis, 'crypto', originalCryptoDescriptor );
-	} else {
-		Reflect.deleteProperty( globalThis, 'crypto' );
-	}
+afterEach(() => {
+  if ( originalCryptoDescriptor ) {
+    Object.defineProperty(globalThis, 'crypto', originalCryptoDescriptor);
+  } else {
+    Reflect.deleteProperty(globalThis, 'crypto');
+  }
 
-	Math.random = originalMathRandom;
-} );
+  Math.random = originalMathRandom;
+});
 
 describe( '@wp-typia/block-runtime/identifiers', () => {
 	test( 'generateBlockId uses crypto.randomUUID when available', () => {
@@ -50,7 +50,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 
 		expect( generateBlockId() ).toBe( '00010203-0405-4607-8809-0a0b0c0d0e0f' );
 		expect( generatePublicWriteRequestId() ).toBe(
-			'00010203-0405-4607-8809-0a0b0c0d0e0f'
+			'00010203-0405-4607-8809-0a0b0c0d0e0f',
 		);
 	} );
 
@@ -59,10 +59,10 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 		Math.random = () => 0.5;
 
 		expect( generateBlockId() ).toMatch(
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 		);
 		expect( generatePublicWriteRequestId() ).toMatch(
-			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 		);
 	} );
 
@@ -93,7 +93,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 				prefix: 'sec',
 				seenIds: [ 'sec-existing' ],
 				value: 'sec-current',
-			} )
+			} ),
 		).toEqual( {
 			changed: false,
 			previousValue: 'sec-current',
@@ -108,7 +108,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 				prefix: 'sec',
 				seenIds: [ 'sec-existing' ],
 				value: undefined,
-			} )
+			} ),
 		).toEqual( {
 			changed: true,
 			previousValue: null,
@@ -123,7 +123,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 				prefix: 'sec',
 				seenIds: [ 'sec-existing' ],
 				value: 'sec-existing',
-			} )
+			} ),
 		).toEqual( {
 			changed: true,
 			previousValue: 'sec-existing',
@@ -167,7 +167,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 					return () => values[ index++ ] ?? `sec-fallback-${ index }`;
 				} )( [ 'sec-generated', 'sec-regenerated' ] ),
 				prefix: 'sec',
-			}
+			},
 		);
 
 		expect( repairs ).toEqual( [
@@ -235,7 +235,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 					return () => values[ index++ ] ?? `counter-fallback-${ index }`;
 				} )( [ 'counter-duplicate', 'other-type-key' ] ),
 				prefix: 'counter',
-			}
+			},
 		);
 
 		expect( repairs ).toEqual( [
@@ -269,7 +269,7 @@ describe( '@wp-typia/block-runtime/identifiers', () => {
 				prefix: 'sec',
 				seenIds: createSeenIds(),
 				value: 'sec-existing',
-			} )
+			} ),
 		).toEqual( {
 			changed: true,
 			previousValue: 'sec-existing',
@@ -285,10 +285,10 @@ function mockCrypto(
 				getRandomValues?: ( target: Uint8Array ) => Uint8Array;
 				randomUUID?: () => string;
 		  }
-		| undefined
+		| undefined,
 ) {
-	Object.defineProperty( globalThis, 'crypto', {
-		configurable: true,
-		value,
-	});
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    value,
+  });
 }

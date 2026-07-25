@@ -95,7 +95,9 @@ export const DEFAULT_SCAFFOLD_COMPATIBILITY: ScaffoldPluginHeaderCompatibility =
 export function isScaffoldWordPressTargetVersion(
   value: string,
 ): value is ScaffoldWordPressTargetVersion {
-  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(value);
+  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(
+    value,
+  );
 }
 
 /**

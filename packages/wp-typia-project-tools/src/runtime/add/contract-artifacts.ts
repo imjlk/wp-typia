@@ -1,12 +1,12 @@
 import {
 	syncTypeSchemas,
-} from "@wp-typia/block-runtime/metadata-core";
+} from '@wp-typia/block-runtime/metadata-core';
 
 interface SyncStandaloneContractArtifactsOptions {
-	projectDir: string;
-	schemaFile: string;
-	sourceTypeName: string;
-	typesFile: string;
+  projectDir: string;
+  schemaFile: string;
+  sourceTypeName: string;
+  typesFile: string;
 }
 
 /**
@@ -21,10 +21,10 @@ export async function syncStandaloneContractArtifacts({
 	sourceTypeName,
 	typesFile,
 }: SyncStandaloneContractArtifactsOptions): Promise<void> {
-	await syncTypeSchemas({
-		jsonSchemaFile: schemaFile,
-		projectRoot: projectDir,
-		sourceTypeName,
-		typesFile,
-	});
+  await syncTypeSchemas({
+    jsonSchemaFile: schemaFile,
+    projectRoot: projectDir,
+    sourceTypeName,
+    typesFile,
+  });
 }

@@ -30,10 +30,10 @@ export async function executeTemplatesCommand(
 
   if (subcommand === 'list') {
     for (const template of listTemplates()) {
-      printBlock(
-        printLine,
-        [formatTemplateSummary(template), formatTemplateFeatures(template)],
-      );
+      printBlock(printLine, [
+        formatTemplateSummary(template),
+        formatTemplateFeatures(template),
+      ]);
     }
     return;
   }

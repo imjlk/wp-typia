@@ -1,1 +1,1 @@
-export * from "./schema/wordpress-ai.js";
+export * from './schema/wordpress-ai.js';

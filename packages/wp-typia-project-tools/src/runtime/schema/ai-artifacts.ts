@@ -105,7 +105,7 @@ async function reconcileGeneratedAiArtifacts(
 
       const code = getOptionalNodeErrorCode(error);
       issues.push(
-        `- ${artifact.filePath} (unreadable: ${error instanceof Error ? error.message : code ?? 'unknown'})`,
+        `- ${artifact.filePath} (unreadable: ${error instanceof Error ? error.message : (code ?? 'unknown')})`,
       );
     }
   }

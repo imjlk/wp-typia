@@ -1,1 +1,1 @@
-export * from "./shared/id-suggestions.js";
+export * from './shared/id-suggestions.js';

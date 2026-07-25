@@ -34,9 +34,7 @@ const AI_ENV_KEYS = [
 async function withAIAgentEnvCleared(
   callback: () => Promise<void>,
 ): Promise<void> {
-  const previous = new Map(
-    AI_ENV_KEYS.map((key) => [key, process.env[key]]),
-  );
+  const previous = new Map(AI_ENV_KEYS.map((key) => [key, process.env[key]]));
   for (const key of AI_ENV_KEYS) {
     delete process.env[key];
   }

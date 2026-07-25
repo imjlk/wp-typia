@@ -1,1 +1,1 @@
-export * from "./schema/metadata-parser.js";
+export * from './schema/metadata-parser.js';

@@ -1,1 +1,1 @@
-export * from "./templates/template-registry.js";
+export * from './templates/template-registry.js';

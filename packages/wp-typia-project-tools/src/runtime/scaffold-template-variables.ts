@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-template-variables.js";
+export * from './templates/scaffold-template-variables.js';

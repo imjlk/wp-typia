@@ -1,1 +1,1 @@
-export * from "./shared/version-floor.js";
+export * from './shared/version-floor.js';

@@ -1,73 +1,73 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
-import { parseScaffoldBlockMetadata } from "@wp-typia/block-runtime/blocks";
-import { WORDPRESS_BLOCK_API_COMPATIBILITY } from "@wp-typia/block-types/blocks/compatibility";
+import { parseScaffoldBlockMetadata } from '@wp-typia/block-runtime/blocks';
+import { WORDPRESS_BLOCK_API_COMPATIBILITY } from '@wp-typia/block-types/blocks/compatibility';
 
 import {
-	createDoctorCheck,
-	resolveWorkspaceBootstrapPath,
-} from "./cli-doctor-workspace-shared.js";
-import { readJsonFileSync } from "../shared/json-utils.js";
+  createDoctorCheck,
+  resolveWorkspaceBootstrapPath,
+} from './cli-doctor-workspace-shared.js';
+import { readJsonFileSync } from '../shared/json-utils.js';
 import {
-	hasPhpFunctionCallWithAssignedStringPrefixArgument,
-	hasPhpFunctionCallWithStringArgumentPrefix,
-} from "../shared/php-utils.js";
+  hasPhpFunctionCallWithAssignedStringPrefixArgument,
+  hasPhpFunctionCallWithStringArgumentPrefix,
+} from '../shared/php-utils.js';
 import {
-	hasExecutablePattern,
-	hasUncommentedPattern,
-	maskTypeScriptComments,
-	maskTypeScriptCommentsAndLiterals,
-} from "../shared/ts-source-masking.js";
+  hasExecutablePattern,
+  hasUncommentedPattern,
+  maskTypeScriptComments,
+  maskTypeScriptCommentsAndLiterals,
+} from '../shared/ts-source-masking.js';
 import {
-	compareVersionFloors,
-	pickHigherVersionFloor,
-} from "../shared/version-floor.js";
-import { DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION } from "../templates/scaffold-compatibility.js";
+  compareVersionFloors,
+  pickHigherVersionFloor,
+} from '../shared/version-floor.js';
+import { DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION } from '../templates/scaffold-compatibility.js';
 
-import type { DoctorCheck } from "./cli-doctor.js";
-import type { WorkspaceInventory } from "../workspace/workspace-inventory.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+import type { DoctorCheck } from './cli-doctor.js';
+import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 /** Options for opt-in WordPress version compatibility doctor checks. */
 export interface WorkspaceWordPressVersionDoctorCheckOptions {
 	/** WordPress target used for `Tested up to` warnings. Defaults to the scaffold target. */
-	targetVersion?: string;
+  targetVersion?: string;
 }
 
 interface WordPressVersionRequirement {
-	label: string;
-	version: string;
+  label: string;
+  version: string;
 }
 
 interface WordPressVersionRequirementCollection {
-	issues: string[];
-	requirements: WordPressVersionRequirement[];
+  issues: string[];
+  requirements: WordPressVersionRequirement[];
 }
 
 interface BootstrapHeaderVersionSnapshot {
-	requiresAtLeast?: string;
-	testedUpTo?: string;
+  requiresAtLeast?: string;
+  testedUpTo?: string;
 }
 
 const WORDPRESS_VERSION_CHECK_CODES = {
-	featureMinimum: "wp-typia.workspace.wordpress.feature-minimum",
-	testedTarget: "wp-typia.workspace.wordpress.tested-target",
+  featureMinimum: 'wp-typia.workspace.wordpress.feature-minimum',
+  testedTarget: 'wp-typia.workspace.wordpress.tested-target',
 } as const;
 
 type BlockVariationCompatibilityMatrix =
 	typeof WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;
 
 type BlockVariationBlockJsonFeature = {
-	[Feature in keyof BlockVariationCompatibilityMatrix]: "block-json" extends BlockVariationCompatibilityMatrix[Feature]["runtime"][number]
+	[Feature in keyof BlockVariationCompatibilityMatrix]: 'block-json' extends BlockVariationCompatibilityMatrix[Feature]['runtime'][number]
 		? Feature
 		: never;
 }[keyof BlockVariationCompatibilityMatrix];
 
 // Both entries read the same `variations` field and are distinguished by value type.
 const BLOCK_VARIATION_BLOCK_JSON_KEYS = {
-	registrationBlockJsonMetadata: "variations",
-	registrationMetadataFile: "variations",
+  registrationBlockJsonMetadata: 'variations',
+  registrationMetadataFile: 'variations',
 } as const satisfies Record<BlockVariationBlockJsonFeature, string>;
 
 const CORE_VARIATION_REGISTRY_IMPORT_PATTERN =
@@ -80,47 +80,49 @@ const REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN =
 const GET_FIELDS_LIST_PROPERTY_PATTERN =
 	/(?:async\s+)?\bgetFieldsList\s*\([^)]*\)|(?:async\s+)?["']getFieldsList["']\s*\([^)]*\)|\bgetFieldsList\s*:|["']getFieldsList["']\s*:|\bgetFieldsList\s*(?=,|\})/gu;
 const SUPPORTED_ATTRIBUTES_FILTER_PREFIX =
-	"block_bindings_supported_attributes_";
+	'block_bindings_supported_attributes_';
 
 function isEnabledMetadataValue(value: unknown): boolean {
-	return value !== undefined && value !== false && value !== null;
+  return value !== undefined && value !== false && value !== null;
 }
 
 function assertNeverBlockVariationFeature(feature: never): never {
-	throw new Error(`Unhandled block variation metadata feature "${String(feature)}".`);
+  throw new Error(
+    `Unhandled block variation metadata feature "${String(feature)}".`,
+  );
 }
 
 function isEnabledBlockVariationMetadataFeature(
 	feature: BlockVariationBlockJsonFeature,
 	value: unknown,
 ): boolean {
-	if (feature === "registrationBlockJsonMetadata") {
-		return Array.isArray(value) && value.length > 0;
-	}
-	if (feature === "registrationMetadataFile") {
-		return typeof value === "string" && value.trim().length > 0;
-	}
+  if (feature === 'registrationBlockJsonMetadata') {
+    return Array.isArray(value) && value.length > 0;
+  }
+  if (feature === 'registrationMetadataFile') {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
 
-	return assertNeverBlockVariationFeature(feature);
+  return assertNeverBlockVariationFeature(feature);
 }
 
 function getNestedMetadataValue(
 	object: Record<string, unknown> | undefined,
 	key: string,
 ): unknown {
-	if (!object) {
-		return undefined;
-	}
-	if (Object.prototype.hasOwnProperty.call(object, key)) {
-		return object[key];
-	}
+  if (!object) {
+    return undefined;
+  }
+  if (Object.prototype.hasOwnProperty.call(object, key)) {
+    return object[key];
+  }
 
-	return key
-		.split(".")
+  return key
+		.split('.')
 		.reduce<unknown>((current, segment) => {
 			if (
 				current === null ||
-				typeof current !== "object" ||
+				typeof current !== 'object' ||
 				Array.isArray(current)
 			) {
 				return undefined;
@@ -135,33 +137,33 @@ function getNestedMetadataValue(
 
 function getBootstrapHeaderValue(
 	source: string,
-	headerName: "Requires at least" | "Tested up to",
+	headerName: 'Requires at least' | 'Tested up to',
 ): string | undefined {
-	const escapedHeaderName = headerName.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-	const pattern = new RegExp(
-		`^\\s*\\*\\s*${escapedHeaderName}:\\s*([^\\r\\n]*)`,
-		"mu",
-	);
-	const match = pattern.exec(source);
-	return match?.[1]?.trim();
+  const escapedHeaderName = headerName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const pattern = new RegExp(
+    `^\\s*\\*\\s*${escapedHeaderName}:\\s*([^\\r\\n]*)`,
+    'mu',
+  );
+  const match = pattern.exec(source);
+  return match?.[1]?.trim();
 }
 
 function readBootstrapHeaderVersions(
 	workspace: WorkspaceProject,
 ): BootstrapHeaderVersionSnapshot {
-	const bootstrapPath = resolveWorkspaceBootstrapPath(
-		workspace.projectDir,
-		workspace.packageName,
-	);
-	if (!fs.existsSync(bootstrapPath)) {
-		return {};
-	}
+  const bootstrapPath = resolveWorkspaceBootstrapPath(
+    workspace.projectDir,
+    workspace.packageName,
+  );
+  if (!fs.existsSync(bootstrapPath)) {
+    return {};
+  }
 
-	const source = fs.readFileSync(bootstrapPath, "utf8");
-	return {
-		requiresAtLeast: getBootstrapHeaderValue(source, "Requires at least"),
-		testedUpTo: getBootstrapHeaderValue(source, "Tested up to"),
-	};
+  const source = fs.readFileSync(bootstrapPath, 'utf8');
+  return {
+    requiresAtLeast: getBootstrapHeaderValue(source, 'Requires at least'),
+    testedUpTo: getBootstrapHeaderValue(source, 'Tested up to'),
+  };
 }
 
 function pushRequirement(
@@ -169,10 +171,10 @@ function pushRequirement(
 	label: string,
 	version: string,
 ): void {
-	requirements.push({
-		label,
-		version,
-	});
+  requirements.push({
+    label,
+    version,
+  });
 }
 
 function pushBlockApiRequirement(
@@ -180,167 +182,172 @@ function pushBlockApiRequirement(
 	labelPrefix: string,
 	entry: { label: string; since: string },
 ): void {
-	pushRequirement(requirements, `${labelPrefix} ${entry.label}`, entry.since);
+  pushRequirement(requirements, `${labelPrefix} ${entry.label}`, entry.since);
 }
 
 function readExistingTextFile(filePath: string): string | undefined {
-	if (!fs.existsSync(filePath)) {
-		return undefined;
-	}
+  if (!fs.existsSync(filePath)) {
+    return undefined;
+  }
 
-	return fs.readFileSync(filePath, "utf8");
+  return fs.readFileSync(filePath, 'utf8');
 }
 
 function isTypeScriptIdentifierPart(character: string | undefined): boolean {
-	return /^[A-Za-z0-9_$]$/u.test(character ?? "");
+  return /^[A-Za-z0-9_$]$/u.test(character ?? '');
 }
 
 function skipTypeScriptWhitespace(source: string, index: number): number {
-	let cursor = index;
-	while (/\s/u.test(source[cursor] ?? "")) {
-		cursor += 1;
-	}
-	return cursor;
+  let cursor = index;
+  while (/\s/u.test(source[cursor] ?? '')) {
+    cursor += 1;
+  }
+  return cursor;
 }
 
 function findClosingDelimiter(
 	source: string,
 	openIndex: number,
-	openDelimiter: "{" | "(",
-	closeDelimiter: "}" | ")",
+	openDelimiter: '{' | '(',
+	closeDelimiter: '}' | ')',
 ): number | null {
-	let depth = 0;
-	for (let cursor = openIndex; cursor < source.length; cursor += 1) {
-		const character = source[cursor];
-		if (character === openDelimiter) {
-			depth += 1;
-			continue;
-		}
-		if (character === closeDelimiter) {
-			depth -= 1;
-			if (depth === 0) {
-				return cursor;
-			}
-		}
-	}
+  let depth = 0;
+  for (let cursor = openIndex; cursor < source.length; cursor += 1) {
+    const character = source[cursor];
+    if (character === openDelimiter) {
+      depth += 1;
+      continue;
+    }
+    if (character === closeDelimiter) {
+      depth -= 1;
+      if (depth === 0) {
+        return cursor;
+      }
+    }
+  }
 
-	return null;
+  return null;
 }
 
 function findTopLevelSatisfiesIndex(source: string): number | null {
-	let braceDepth = 0;
-	let bracketDepth = 0;
-	let parenthesisDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenthesisDepth = 0;
 
-	for (let cursor = 0; cursor < source.length; cursor += 1) {
-		const character = source[cursor];
-		if (character === "{") {
-			braceDepth += 1;
-			continue;
-		}
-		if (character === "}") {
-			braceDepth = Math.max(0, braceDepth - 1);
-			continue;
-		}
-		if (character === "[") {
-			bracketDepth += 1;
-			continue;
-		}
-		if (character === "]") {
-			bracketDepth = Math.max(0, bracketDepth - 1);
-			continue;
-		}
-		if (character === "(") {
-			parenthesisDepth += 1;
-			continue;
-		}
-		if (character === ")") {
-			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
-			continue;
-		}
-		if (
+  for (let cursor = 0; cursor < source.length; cursor += 1) {
+    const character = source[cursor];
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (character === '[') {
+      bracketDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+    if (character === '(') {
+      parenthesisDepth += 1;
+      continue;
+    }
+    if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+      continue;
+    }
+    if (
 			braceDepth === 0 &&
 			bracketDepth === 0 &&
 			parenthesisDepth === 0 &&
-			source.startsWith("satisfies", cursor) &&
+			source.startsWith('satisfies', cursor) &&
 			!isTypeScriptIdentifierPart(source[cursor - 1]) &&
-			!isTypeScriptIdentifierPart(source[cursor + "satisfies".length])
+			!isTypeScriptIdentifierPart(source[cursor + 'satisfies'.length])
 		) {
-			return cursor;
-		}
-	}
+      return cursor;
+    }
+  }
 
-	return null;
+  return null;
 }
 
 function isTopLevelObjectPropertyStart(
 	structureMaskedObjectSource: string,
 	index: number,
 ): boolean {
-	let braceDepth = 0;
-	let bracketDepth = 0;
-	let parenthesisDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenthesisDepth = 0;
 
-	for (let cursor = 0; cursor < index; cursor += 1) {
-		const character = structureMaskedObjectSource[cursor];
-		if (character === "{") {
-			braceDepth += 1;
-			continue;
-		}
-		if (character === "}") {
-			braceDepth = Math.max(0, braceDepth - 1);
-			continue;
-		}
-		if (character === "[") {
-			bracketDepth += 1;
-			continue;
-		}
-		if (character === "]") {
-			bracketDepth = Math.max(0, bracketDepth - 1);
-			continue;
-		}
-		if (character === "(") {
-			parenthesisDepth += 1;
-			continue;
-		}
-		if (character === ")") {
-			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
-		}
-	}
+  for (let cursor = 0; cursor < index; cursor += 1) {
+    const character = structureMaskedObjectSource[cursor];
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (character === '[') {
+      bracketDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+    if (character === '(') {
+      parenthesisDepth += 1;
+      continue;
+    }
+    if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+    }
+  }
 
-	if (braceDepth !== 1 || bracketDepth !== 0 || parenthesisDepth !== 0) {
-		return false;
-	}
+  if (braceDepth !== 1 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+    return false;
+  }
 
-	let previousCursor = index - 1;
-	while (
+  let previousCursor = index - 1;
+  while (
 		previousCursor >= 0 &&
-		/\s/u.test(structureMaskedObjectSource[previousCursor] ?? "")
+		/\s/u.test(structureMaskedObjectSource[previousCursor] ?? '')
 	) {
-		previousCursor -= 1;
-	}
-	const previousToken = structureMaskedObjectSource[previousCursor];
-	return previousToken === "{" || previousToken === ",";
+    previousCursor -= 1;
+  }
+  const previousToken = structureMaskedObjectSource[previousCursor];
+  return previousToken === '{' || previousToken === ',';
 }
 
 function objectLiteralHasGetFieldsListProperty(
 	commentMaskedObjectSource: string,
 	structureMaskedObjectSource: string,
 ): boolean {
-	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
-	let match: RegExpExecArray | null;
-	while ((match = GET_FIELDS_LIST_PROPERTY_PATTERN.exec(commentMaskedObjectSource))) {
-		if (isTopLevelObjectPropertyStart(structureMaskedObjectSource, match.index)) {
-			GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
-			return true;
-		}
-	}
-	GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
-	return false;
+  GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = GET_FIELDS_LIST_PROPERTY_PATTERN.exec(
+    commentMaskedObjectSource,
+  ))) {
+    if (isTopLevelObjectPropertyStart(
+      structureMaskedObjectSource,
+      match.index,
+    )) {
+      GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+      return true;
+    }
+  }
+  GET_FIELDS_LIST_PROPERTY_PATTERN.lastIndex = 0;
+  return false;
 }
 
 function getRuntimeArgumentEnd(maskedCallArgumentsSource: string): number {
-	return (
+  return (
 		findTopLevelSatisfiesIndex(maskedCallArgumentsSource) ??
 		maskedCallArgumentsSource.length
 	);
@@ -350,126 +357,129 @@ function getFirstObjectArgumentSpan(
 	structureMaskedRuntimeArgumentsSource: string,
 	absoluteStart: number,
 ): { end: number; start: number } | undefined {
-	const objectStartOffset = skipTypeScriptWhitespace(
-		structureMaskedRuntimeArgumentsSource,
-		0,
-	);
-	if (structureMaskedRuntimeArgumentsSource[objectStartOffset] !== "{") {
-		return undefined;
-	}
+  const objectStartOffset = skipTypeScriptWhitespace(
+    structureMaskedRuntimeArgumentsSource,
+    0,
+  );
+  if (structureMaskedRuntimeArgumentsSource[objectStartOffset] !== '{') {
+    return undefined;
+  }
 
-	const objectEndOffset = findClosingDelimiter(
-		structureMaskedRuntimeArgumentsSource,
-		objectStartOffset,
-		"{",
-		"}",
-	);
-	if (objectEndOffset === null) {
-		return undefined;
-	}
+  const objectEndOffset = findClosingDelimiter(
+    structureMaskedRuntimeArgumentsSource,
+    objectStartOffset,
+    '{',
+    '}',
+  );
+  if (objectEndOffset === null) {
+    return undefined;
+  }
 
-	return {
-		end: absoluteStart + objectEndOffset + 1,
-		start: absoluteStart + objectStartOffset,
-	};
+  return {
+    end: absoluteStart + objectEndOffset + 1,
+    start: absoluteStart + objectStartOffset,
+  };
 }
 
 function getSimpleRuntimeArgumentIdentifier(
 	structureMaskedRuntimeArgumentsSource: string,
 ): string | undefined {
-	const trimmed = structureMaskedRuntimeArgumentsSource.trim();
-	const match = /^([A-Za-z_$][\w$]*)(?:\s+as\b[\s\S]*)?$/u.exec(trimmed);
-	return match?.[1];
+  const trimmed = structureMaskedRuntimeArgumentsSource.trim();
+  const match = /^([A-Za-z_$][\w$]*)(?:\s+as\b[\s\S]*)?$/u.exec(trimmed);
+  return match?.[1];
 }
 
 function findObjectInitializerStart(
 	structureMaskedSource: string,
 	index: number,
 ): number | null {
-	let braceDepth = 0;
-	let bracketDepth = 0;
-	let parenthesisDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenthesisDepth = 0;
 
-	for (let cursor = index; cursor < structureMaskedSource.length; cursor += 1) {
-		const character = structureMaskedSource[cursor];
-		if (character === "{") {
-			braceDepth += 1;
-			continue;
-		}
-		if (character === "}") {
-			braceDepth = Math.max(0, braceDepth - 1);
-			continue;
-		}
-		if (character === "[") {
-			bracketDepth += 1;
-			continue;
-		}
-		if (character === "]") {
-			bracketDepth = Math.max(0, bracketDepth - 1);
-			continue;
-		}
-		if (character === "(") {
-			parenthesisDepth += 1;
-			continue;
-		}
-		if (character === ")") {
-			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
-			continue;
-		}
+  for (let cursor = index; cursor < structureMaskedSource.length; cursor += 1) {
+    const character = structureMaskedSource[cursor];
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (character === '[') {
+      bracketDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+    if (character === '(') {
+      parenthesisDepth += 1;
+      continue;
+    }
+    if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+      continue;
+    }
 
-		if (braceDepth !== 0 || bracketDepth !== 0 || parenthesisDepth !== 0) {
-			continue;
-		}
-		if (character === ";") {
-			return null;
-		}
-		if (character !== "=" || structureMaskedSource[cursor + 1] === ">") {
-			continue;
-		}
+    if (braceDepth !== 0 || bracketDepth !== 0 || parenthesisDepth !== 0) {
+      continue;
+    }
+    if (character === ';') {
+      return null;
+    }
+    if (character !== '=' || structureMaskedSource[cursor + 1] === '>') {
+      continue;
+    }
 
-		const valueStart = skipTypeScriptWhitespace(structureMaskedSource, cursor + 1);
-		return structureMaskedSource[valueStart] === "{" ? valueStart : null;
-	}
+    const valueStart = skipTypeScriptWhitespace(
+      structureMaskedSource,
+      cursor + 1,
+    );
+    return structureMaskedSource[valueStart] === '{' ? valueStart : null;
+  }
 
-	return null;
+  return null;
 }
 
 function isTopLevelTypeScriptPosition(
 	structureMaskedSource: string,
 	index: number,
 ): boolean {
-	let braceDepth = 0;
-	let bracketDepth = 0;
-	let parenthesisDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let parenthesisDepth = 0;
 
-	for (let cursor = 0; cursor < index; cursor += 1) {
-		const character = structureMaskedSource[cursor];
-		if (character === "{") {
-			braceDepth += 1;
-			continue;
-		}
-		if (character === "}") {
-			braceDepth = Math.max(0, braceDepth - 1);
-			continue;
-		}
-		if (character === "[") {
-			bracketDepth += 1;
-			continue;
-		}
-		if (character === "]") {
-			bracketDepth = Math.max(0, bracketDepth - 1);
-			continue;
-		}
-		if (character === "(") {
-			parenthesisDepth += 1;
-			continue;
-		}
-		if (character === ")") {
-			parenthesisDepth = Math.max(0, parenthesisDepth - 1);
-		}
-	}
+  for (let cursor = 0; cursor < index; cursor += 1) {
+    const character = structureMaskedSource[cursor];
+    if (character === '{') {
+      braceDepth += 1;
+      continue;
+    }
+    if (character === '}') {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (character === '[') {
+      bracketDepth += 1;
+      continue;
+    }
+    if (character === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+    if (character === '(') {
+      parenthesisDepth += 1;
+      continue;
+    }
+    if (character === ')') {
+      parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+    }
+  }
 
-	return braceDepth === 0 && bracketDepth === 0 && parenthesisDepth === 0;
+  return braceDepth === 0 && bracketDepth === 0 && parenthesisDepth === 0;
 }
 
 function variableObjectHasGetFieldsListProperty(
@@ -478,141 +488,147 @@ function variableObjectHasGetFieldsListProperty(
 	structureMaskedSource: string,
 	beforeIndex: number,
 ): boolean {
-	const variablePattern =
+  const variablePattern =
 		/\b(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\b/gu;
-	let match: RegExpExecArray | null;
-	let nearestObjectSpan: { end: number; start: number } | undefined;
+  let match: RegExpExecArray | null;
+  let nearestObjectSpan: { end: number; start: number } | undefined;
 
-	while ((match = variablePattern.exec(structureMaskedSource))) {
-		if (match.index >= beforeIndex) {
-			break;
-		}
-		if (match[1] !== identifier) {
-			continue;
-		}
-		if (!isTopLevelTypeScriptPosition(structureMaskedSource, match.index)) {
-			continue;
-		}
+  while ((match = variablePattern.exec(structureMaskedSource))) {
+    if (match.index >= beforeIndex) {
+      break;
+    }
+    if (match[1] !== identifier) {
+      continue;
+    }
+    if (!isTopLevelTypeScriptPosition(structureMaskedSource, match.index)) {
+      continue;
+    }
 
-		const objectStart = findObjectInitializerStart(
-			structureMaskedSource,
-			match.index + match[0].length,
-		);
-		if (objectStart === null || objectStart >= beforeIndex) {
-			continue;
-		}
-		const objectEnd = findClosingDelimiter(
-			structureMaskedSource,
-			objectStart,
-			"{",
-			"}",
-		);
-		if (objectEnd === null) {
-			continue;
-		}
+    const objectStart = findObjectInitializerStart(
+      structureMaskedSource,
+      match.index + match[0].length,
+    );
+    if (objectStart === null || objectStart >= beforeIndex) {
+      continue;
+    }
+    const objectEnd = findClosingDelimiter(
+      structureMaskedSource,
+      objectStart,
+      '{',
+      '}',
+    );
+    if (objectEnd === null) {
+      continue;
+    }
 
-		nearestObjectSpan = {
-			end: objectEnd + 1,
-			start: objectStart,
-		};
-	}
+    nearestObjectSpan = {
+      end: objectEnd + 1,
+      start: objectStart,
+    };
+  }
 
-	return nearestObjectSpan
-		? objectLiteralHasGetFieldsListProperty(
-				commentMaskedSource.slice(
-					nearestObjectSpan.start,
-					nearestObjectSpan.end,
-				),
-				structureMaskedSource.slice(
-					nearestObjectSpan.start,
-					nearestObjectSpan.end,
-				),
-			)
-		: false;
+  return nearestObjectSpan
+    ? objectLiteralHasGetFieldsListProperty(
+        commentMaskedSource.slice(
+          nearestObjectSpan.start,
+          nearestObjectSpan.end,
+        ),
+        structureMaskedSource.slice(
+          nearestObjectSpan.start,
+          nearestObjectSpan.end,
+        ),
+      )
+    : false;
 }
 
 function hasRegisterBlockBindingsSourceGetFieldsList(source: string): boolean {
-	const structureMaskedSource = maskTypeScriptCommentsAndLiterals(source);
-	const commentMaskedSource = maskTypeScriptComments(source);
-	REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = 0;
+  const structureMaskedSource = maskTypeScriptCommentsAndLiterals(source);
+  const commentMaskedSource = maskTypeScriptComments(source);
+  REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = 0;
 
-	let match: RegExpExecArray | null;
-	while (
+  let match: RegExpExecArray | null;
+  while (
 		(match =
 			REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.exec(structureMaskedSource))
 	) {
-		const openIndex = structureMaskedSource.indexOf("(", match.index);
-		if (openIndex === -1) {
-			continue;
-		}
+    const openIndex = structureMaskedSource.indexOf('(', match.index);
+    if (openIndex === -1) {
+      continue;
+    }
 
-		const closeIndex = findClosingDelimiter(
-			structureMaskedSource,
-			openIndex,
-			"(",
-			")",
-		);
-		if (closeIndex === null) {
-			continue;
-		}
+    const closeIndex = findClosingDelimiter(
+      structureMaskedSource,
+      openIndex,
+      '(',
+      ')',
+    );
+    if (closeIndex === null) {
+      continue;
+    }
 
-		const maskedCallArgumentsSource = structureMaskedSource.slice(
-			openIndex + 1,
-			closeIndex,
-		);
-		const runtimeArgumentEnd = getRuntimeArgumentEnd(maskedCallArgumentsSource);
-		const runtimeArgumentsStart = openIndex + 1;
-		const maskedRuntimeArgumentsSource = structureMaskedSource.slice(
-			runtimeArgumentsStart,
-			runtimeArgumentsStart + runtimeArgumentEnd,
-		);
-		const objectArgumentSpan = getFirstObjectArgumentSpan(
-			maskedRuntimeArgumentsSource,
-			runtimeArgumentsStart,
-		);
-		if (
+    const maskedCallArgumentsSource = structureMaskedSource.slice(
+      openIndex + 1,
+      closeIndex,
+    );
+    const runtimeArgumentEnd = getRuntimeArgumentEnd(maskedCallArgumentsSource);
+    const runtimeArgumentsStart = openIndex + 1;
+    const maskedRuntimeArgumentsSource = structureMaskedSource.slice(
+      runtimeArgumentsStart,
+      runtimeArgumentsStart + runtimeArgumentEnd,
+    );
+    const objectArgumentSpan = getFirstObjectArgumentSpan(
+      maskedRuntimeArgumentsSource,
+      runtimeArgumentsStart,
+    );
+    if (
 			objectArgumentSpan &&
 			objectLiteralHasGetFieldsListProperty(
-				commentMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
-				structureMaskedSource.slice(objectArgumentSpan.start, objectArgumentSpan.end),
-			)
+        commentMaskedSource.slice(
+          objectArgumentSpan.start,
+          objectArgumentSpan.end,
+        ),
+        structureMaskedSource.slice(
+          objectArgumentSpan.start,
+          objectArgumentSpan.end,
+        ),
+      )
 		) {
-			return true;
-		}
+      return true;
+    }
 
-		const runtimeArgumentIdentifier = getSimpleRuntimeArgumentIdentifier(
-			maskedRuntimeArgumentsSource,
-		);
-		if (
+    const runtimeArgumentIdentifier = getSimpleRuntimeArgumentIdentifier(
+      maskedRuntimeArgumentsSource,
+    );
+    if (
 			runtimeArgumentIdentifier &&
 			variableObjectHasGetFieldsListProperty(
-				runtimeArgumentIdentifier,
-				commentMaskedSource,
-				structureMaskedSource,
-				match.index,
-			)
+        runtimeArgumentIdentifier,
+        commentMaskedSource,
+        structureMaskedSource,
+        match.index,
+      )
 		) {
-			return true;
-		}
+      return true;
+    }
 
-		REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = closeIndex + 1;
-	}
+    REGISTER_BLOCK_BINDINGS_SOURCE_CALL_PATTERN.lastIndex = closeIndex + 1;
+  }
 
-	return false;
+  return false;
 }
 
 function hasSupportedAttributesFilterRegistration(source: string): boolean {
-	return (
+  return (
 		hasPhpFunctionCallWithStringArgumentPrefix(
-			source,
-			"add_filter",
-			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
-		) ||
+      source,
+      'add_filter',
+      SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+    ) ||
 		hasPhpFunctionCallWithAssignedStringPrefixArgument(
-			source,
-			"add_filter",
-			SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
-		)
+      source,
+      'add_filter',
+      SUPPORTED_ATTRIBUTES_FILTER_PREFIX,
+    )
 	);
 }
 
@@ -620,116 +636,124 @@ function collectBlockMetadataRequirements(
 	workspace: WorkspaceProject,
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const issues: string[] = [];
-	const requirements: WordPressVersionRequirement[] = [];
+  const issues: string[] = [];
+  const requirements: WordPressVersionRequirement[] = [];
 
-	for (const block of inventory.blocks) {
-		const blockJsonRelativePath = path.join(
-			"src",
-			"blocks",
-			block.slug,
-			"block.json",
-		);
-		const blockJsonPath = path.join(workspace.projectDir, blockJsonRelativePath);
-		if (!fs.existsSync(blockJsonPath)) {
-			continue;
-		}
+  for (const block of inventory.blocks) {
+    const blockJsonRelativePath = path.join(
+      'src',
+      'blocks',
+      block.slug,
+      'block.json',
+    );
+    const blockJsonPath = path.join(
+      workspace.projectDir,
+      blockJsonRelativePath,
+    );
+    if (!fs.existsSync(blockJsonPath)) {
+      continue;
+    }
 
-		let blockJson: Record<string, unknown> & {
-			blockHooks?: unknown;
-			supports?: Record<string, unknown>;
-		};
-		try {
-			blockJson = parseScaffoldBlockMetadata<
+    let blockJson: Record<string, unknown> & {
+      blockHooks?: unknown;
+      supports?: Record<string, unknown>;
+    };
+    try {
+      blockJson = parseScaffoldBlockMetadata<
 				Record<string, unknown> & {
 					blockHooks?: unknown;
 					supports?: Record<string, unknown>;
 				}
 			>(
-				readJsonFileSync(blockJsonPath, {
-					context: "workspace block metadata",
-				}),
-			);
-		} catch (error) {
-			issues.push(
+        readJsonFileSync(blockJsonPath, {
+          context: 'workspace block metadata',
+        }),
+      );
+    } catch (error) {
+      issues.push(
 				`${blockJsonRelativePath}: ${
 					error instanceof Error ? error.message : String(error)
 				}`,
 			);
-			continue;
-		}
+      continue;
+    }
 
-		for (const [feature, entry] of Object.entries(
-			WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports,
-		)) {
-			if (isEnabledMetadataValue(getNestedMetadataValue(blockJson.supports, feature))) {
-				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
-			}
-		}
+    for (const [feature, entry] of Object.entries(
+      WORDPRESS_BLOCK_API_COMPATIBILITY.blockSupports,
+    )) {
+      if (isEnabledMetadataValue(
+        getNestedMetadataValue(blockJson.supports, feature),
+      )) {
+        pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+      }
+    }
 
-		for (const [feature, entry] of Object.entries(
-			WORDPRESS_BLOCK_API_COMPATIBILITY.blockMetadata,
-		)) {
-			if (isEnabledMetadataValue(getNestedMetadataValue(blockJson, feature))) {
-				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
-			}
-		}
+    for (const [feature, entry] of Object.entries(
+      WORDPRESS_BLOCK_API_COMPATIBILITY.blockMetadata,
+    )) {
+      if (isEnabledMetadataValue(getNestedMetadataValue(blockJson, feature))) {
+        pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+      }
+    }
 
-		for (const [feature, entry] of Object.entries(
-			WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings,
-		)) {
-			if (
-				(entry.runtime as readonly string[]).includes("block-json") &&
+    for (const [feature, entry] of Object.entries(
+      WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings,
+    )) {
+      if (
+				(entry.runtime as readonly string[]).includes('block-json') &&
 				isEnabledMetadataValue(getNestedMetadataValue(blockJson, feature))
 			) {
-				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
-			}
-		}
+        pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+      }
+    }
 
-		for (const [feature, entry] of Object.entries(
-			WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations,
-		)) {
-			if (!(entry.runtime as readonly string[]).includes("block-json")) {
-				continue;
-			}
+    for (const [feature, entry] of Object.entries(
+      WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations,
+    )) {
+      if (!(entry.runtime as readonly string[]).includes('block-json')) {
+        continue;
+      }
 
-			const blockJsonFeature = feature as BlockVariationBlockJsonFeature;
-			const blockJsonKey = BLOCK_VARIATION_BLOCK_JSON_KEYS[blockJsonFeature];
-			if (
+      const blockJsonFeature = feature as BlockVariationBlockJsonFeature;
+      const blockJsonKey = BLOCK_VARIATION_BLOCK_JSON_KEYS[blockJsonFeature];
+      if (
 				isEnabledBlockVariationMetadataFeature(
-					blockJsonFeature,
-					getNestedMetadataValue(blockJson, blockJsonKey),
-				)
+          blockJsonFeature,
+          getNestedMetadataValue(blockJson, blockJsonKey),
+        )
 			) {
-				pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
-			}
-		}
-	}
+        pushBlockApiRequirement(requirements, `Block ${block.slug}`, entry);
+      }
+    }
+  }
 
-	return {
-		issues,
-		requirements,
-	};
+  return {
+    issues,
+    requirements,
+  };
 }
 
 function hasGeneratedCoreVariationRegistry(projectDir: string): boolean {
 	// Convention: generated core variation registries are rooted at this entrypoint.
-	const registryPath = path.join(
-		projectDir,
-		"src",
-		"editor-plugins",
-		"core-variations",
-		"index.ts",
-	);
-	const source = readExistingTextFile(registryPath);
-	if (!source) {
-		return false;
-	}
+  const registryPath = path.join(
+    projectDir,
+    'src',
+    'editor-plugins',
+    'core-variations',
+    'index.ts',
+  );
+  const source = readExistingTextFile(registryPath);
+  if (!source) {
+    return false;
+  }
 
-	return (
+  return (
 		hasUncommentedPattern(source, CORE_VARIATION_REGISTRY_IMPORT_PATTERN) &&
 		hasExecutablePattern(source, REGISTER_BLOCK_VARIATION_CALL_PATTERN) &&
-		hasExecutablePattern(source, REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN)
+		hasExecutablePattern(
+      source,
+      REGISTER_WORKSPACE_CORE_VARIATIONS_CALL_PATTERN,
+    )
 	);
 }
 
@@ -737,177 +761,185 @@ function collectVariationRequirements(
 	workspace: WorkspaceProject,
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const requirements: WordPressVersionRequirement[] = [];
-	const variationEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;
+  const requirements: WordPressVersionRequirement[] = [];
+  const variationEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockVariations;
 
-	for (const variation of inventory.variations) {
-		pushBlockApiRequirement(
-			requirements,
-			`Variation ${variation.block}/${variation.slug}`,
-			variationEntries.editorRegistration,
-		);
-	}
+  for (const variation of inventory.variations) {
+    pushBlockApiRequirement(
+      requirements,
+      `Variation ${variation.block}/${variation.slug}`,
+      variationEntries.editorRegistration,
+    );
+  }
 
-	if (hasGeneratedCoreVariationRegistry(workspace.projectDir)) {
-		pushBlockApiRequirement(
-			requirements,
-			"Core variations editor plugin",
-			variationEntries.editorRegistration,
-		);
-	}
+  if (hasGeneratedCoreVariationRegistry(workspace.projectDir)) {
+    pushBlockApiRequirement(
+      requirements,
+      'Core variations editor plugin',
+      variationEntries.editorRegistration,
+    );
+  }
 
-	return {
-		issues: [],
-		requirements,
-	};
+  return {
+    issues: [],
+    requirements,
+  };
 }
 
 function collectInventoryCompatibilityRequirements(
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const requirements: WordPressVersionRequirement[] = [];
+  const requirements: WordPressVersionRequirement[] = [];
 
-	for (const ability of inventory.abilities) {
-		const wordpressMinimum = ability.compatibility?.hardMinimums.wordpress;
-		if (wordpressMinimum) {
-			requirements.push({
-				label: `Ability ${ability.slug} compatibility metadata`,
-				version: wordpressMinimum,
-			});
-		}
-	}
+  for (const ability of inventory.abilities) {
+    const wordpressMinimum = ability.compatibility?.hardMinimums.wordpress;
+    if (wordpressMinimum) {
+      requirements.push({
+        label: `Ability ${ability.slug} compatibility metadata`,
+        version: wordpressMinimum,
+      });
+    }
+  }
 
-	for (const aiFeature of inventory.aiFeatures) {
-		const wordpressMinimum = aiFeature.compatibility?.hardMinimums.wordpress;
-		if (wordpressMinimum) {
-			requirements.push({
-				label: `AI feature ${aiFeature.slug} compatibility metadata`,
-				version: wordpressMinimum,
-			});
-		}
-	}
+  for (const aiFeature of inventory.aiFeatures) {
+    const wordpressMinimum = aiFeature.compatibility?.hardMinimums.wordpress;
+    if (wordpressMinimum) {
+      requirements.push({
+        label: `AI feature ${aiFeature.slug} compatibility metadata`,
+        version: wordpressMinimum,
+      });
+    }
+  }
 
-	return {
-		issues: [],
-		requirements,
-	};
+  return {
+    issues: [],
+    requirements,
+  };
 }
 
 function collectBindingSourceRequirements(
 	workspace: WorkspaceProject,
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const requirements: WordPressVersionRequirement[] = [];
-	const bindingEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings;
+  const requirements: WordPressVersionRequirement[] = [];
+  const bindingEntries = WORDPRESS_BLOCK_API_COMPATIBILITY.blockBindings;
 
-	for (const bindingSource of inventory.bindingSources) {
-		pushBlockApiRequirement(
-			requirements,
-			`Binding source ${bindingSource.slug}`,
-			bindingEntries.serverRegistration,
-		);
-		pushBlockApiRequirement(
-			requirements,
-			`Binding source ${bindingSource.slug}`,
-			bindingEntries.editorRegistration,
-		);
+  for (const bindingSource of inventory.bindingSources) {
+    pushBlockApiRequirement(
+      requirements,
+      `Binding source ${bindingSource.slug}`,
+      bindingEntries.serverRegistration,
+    );
+    pushBlockApiRequirement(
+      requirements,
+      `Binding source ${bindingSource.slug}`,
+      bindingEntries.editorRegistration,
+    );
 
-		const editorFilePath = path.join(
-			workspace.projectDir,
-			bindingSource.editorFile,
-		);
-		const editorSource = readExistingTextFile(editorFilePath);
-		if (
+    const editorFilePath = path.join(
+      workspace.projectDir,
+      bindingSource.editorFile,
+    );
+    const editorSource = readExistingTextFile(editorFilePath);
+    if (
 			editorSource &&
 			hasRegisterBlockBindingsSourceGetFieldsList(editorSource)
 		) {
-			pushBlockApiRequirement(
-				requirements,
-				`Binding source ${bindingSource.slug}`,
-				bindingEntries.editorFieldsList,
-			);
-		}
+      pushBlockApiRequirement(
+        requirements,
+        `Binding source ${bindingSource.slug}`,
+        bindingEntries.editorFieldsList,
+      );
+    }
 
-		const serverFilePath = path.join(
-			workspace.projectDir,
-			bindingSource.serverFile,
-		);
-		const serverSource = readExistingTextFile(serverFilePath);
-		if (serverSource && hasSupportedAttributesFilterRegistration(serverSource)) {
-			pushBlockApiRequirement(
-				requirements,
-				`Binding source ${bindingSource.slug}`,
-				bindingEntries.supportedAttributesFilter,
-			);
-		}
-	}
+    const serverFilePath = path.join(
+      workspace.projectDir,
+      bindingSource.serverFile,
+    );
+    const serverSource = readExistingTextFile(serverFilePath);
+    if (serverSource && hasSupportedAttributesFilterRegistration(
+      serverSource,
+    )) {
+      pushBlockApiRequirement(
+        requirements,
+        `Binding source ${bindingSource.slug}`,
+        bindingEntries.supportedAttributesFilter,
+      );
+    }
+  }
 
-	return {
-		issues: [],
-		requirements,
-	};
+  return {
+    issues: [],
+    requirements,
+  };
 }
 
 function collectWordPressVersionRequirements(
 	workspace: WorkspaceProject,
 	inventory: WorkspaceInventory,
 ): WordPressVersionRequirementCollection {
-	const blockRequirements = collectBlockMetadataRequirements(workspace, inventory);
-	const variationRequirements = collectVariationRequirements(workspace, inventory);
-	const bindingRequirements = collectBindingSourceRequirements(
-		workspace,
-		inventory,
-	);
-	const inventoryRequirements =
+  const blockRequirements = collectBlockMetadataRequirements(
+    workspace,
+    inventory,
+  );
+  const variationRequirements = collectVariationRequirements(
+    workspace,
+    inventory,
+  );
+  const bindingRequirements = collectBindingSourceRequirements(
+    workspace,
+    inventory,
+  );
+  const inventoryRequirements =
 		collectInventoryCompatibilityRequirements(inventory);
 
-	return {
-		issues: [
-			...blockRequirements.issues,
-			...variationRequirements.issues,
-			...bindingRequirements.issues,
-			...inventoryRequirements.issues,
-		],
-		requirements: [
-			...blockRequirements.requirements,
-			...variationRequirements.requirements,
-			...bindingRequirements.requirements,
-			...inventoryRequirements.requirements,
-		],
-	};
+  return {
+    issues: [
+      ...blockRequirements.issues,
+      ...variationRequirements.issues,
+      ...bindingRequirements.issues,
+      ...inventoryRequirements.issues,
+    ],
+    requirements: [
+      ...blockRequirements.requirements,
+      ...variationRequirements.requirements,
+      ...bindingRequirements.requirements,
+      ...inventoryRequirements.requirements,
+    ],
+  };
 }
 
 function pickHighestRequirementFloor(
 	requirements: readonly WordPressVersionRequirement[],
 	issues: string[],
 ): string | undefined {
-	let highest: string | undefined;
-	for (const requirement of requirements) {
-		try {
-			highest = pickHigherVersionFloor(highest, requirement.version);
-		} catch {
-			issues.push(
-				`${requirement.label} declares invalid WordPress version floor "${requirement.version}".`,
-			);
-		}
-	}
+  let highest: string | undefined;
+  for (const requirement of requirements) {
+    try {
+      highest = pickHigherVersionFloor(highest, requirement.version);
+    } catch {
+      issues.push(
+        `${requirement.label} declares invalid WordPress version floor "${requirement.version}".`,
+      );
+    }
+  }
 
-	return highest;
+  return highest;
 }
 
 function formatRequirementSummary(
 	requirements: readonly WordPressVersionRequirement[],
 	floor: string,
 ): string {
-	const labels = requirements
+  const labels = requirements
 		.filter((requirement) => requirement.version === floor)
 		.map((requirement) => requirement.label);
 
-	return labels.length > 0 ? labels.join(", ") : "generated workspace features";
+  return labels.length > 0 ? labels.join(', ') : 'generated workspace features';
 }
 
 function formatFeatureMinimumAction(floor: string): string {
-	return `Update the plugin bootstrap \`Requires at least\` header to ${floor} or remove the features that require that floor.`;
+  return `Update the plugin bootstrap \`Requires at least\` header to ${floor} or remove the features that require that floor.`;
 }
 
 function createFeatureMinimumCheck(
@@ -915,65 +947,65 @@ function createFeatureMinimumCheck(
 	inventory: WorkspaceInventory,
 	headers: BootstrapHeaderVersionSnapshot,
 ): DoctorCheck {
-	const { issues, requirements } = collectWordPressVersionRequirements(
-		workspace,
-		inventory,
-	);
-	const highestFloor = pickHighestRequirementFloor(requirements, issues);
+  const { issues, requirements } = collectWordPressVersionRequirements(
+    workspace,
+    inventory,
+  );
+  const highestFloor = pickHighestRequirementFloor(requirements, issues);
 
-	if (issues.length > 0) {
-		return createDoctorCheck(
-			"WordPress feature minimum",
-			"fail",
-			issues.join("; "),
-			WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
-		);
-	}
+  if (issues.length > 0) {
+    return createDoctorCheck(
+      'WordPress feature minimum',
+      'fail',
+      issues.join('; '),
+      WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
+    );
+  }
 
-	if (!highestFloor) {
-		return createDoctorCheck(
-			"WordPress feature minimum",
-			"pass",
-			"No generated workspace features declare an additional WordPress hard floor.",
-			WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
-		);
-	}
+  if (!highestFloor) {
+    return createDoctorCheck(
+      'WordPress feature minimum',
+      'pass',
+      'No generated workspace features declare an additional WordPress hard floor.',
+      WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
+    );
+  }
 
-	if (!headers.requiresAtLeast) {
-		return createDoctorCheck(
-			"WordPress feature minimum",
-			"fail",
+  if (!headers.requiresAtLeast) {
+    return createDoctorCheck(
+			'WordPress feature minimum',
+			'fail',
 			`Plugin bootstrap is missing a Requires at least header but generated features require WordPress ${highestFloor}. ${formatFeatureMinimumAction(
 				highestFloor,
 			)}`,
 			WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
 		);
-	}
+  }
 
-	try {
-		if (compareVersionFloors(headers.requiresAtLeast, highestFloor) < 0) {
-			return createDoctorCheck(
-				"WordPress feature minimum",
-				"fail",
+  try {
+    if (compareVersionFloors(headers.requiresAtLeast, highestFloor) < 0) {
+      return createDoctorCheck(
+				'WordPress feature minimum',
+				'fail',
 				`Requires at least ${headers.requiresAtLeast} is below generated feature floor ${highestFloor} (${formatRequirementSummary(
 					requirements,
 					highestFloor,
 				)}). ${formatFeatureMinimumAction(highestFloor)}`,
 				WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
 			);
-		}
-	} catch {
-		return createDoctorCheck(
-			"WordPress feature minimum",
-			"fail",
-			`Plugin bootstrap Requires at least header "${headers.requiresAtLeast}" is not a dotted numeric version.`,
-			WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
-		);
-	}
+    }
+  } catch {
+    return createDoctorCheck(
+      'WordPress feature minimum',
+      'fail',
+      `Plugin bootstrap Requires at least header "${headers.requiresAtLeast}" is not a dotted numeric version.`,
+      WORDPRESS_VERSION_CHECK_CODES.featureMinimum,
+    );
+  }
 
-	return createDoctorCheck(
-		"WordPress feature minimum",
-		"pass",
+  return createDoctorCheck(
+		'WordPress feature minimum',
+		'pass',
 		`Requires at least ${headers.requiresAtLeast} covers generated feature floor ${highestFloor} (${formatRequirementSummary(
 			requirements,
 			highestFloor,
@@ -986,39 +1018,39 @@ function createTestedTargetCheck(
 	headers: BootstrapHeaderVersionSnapshot,
 	targetVersion: string,
 ): DoctorCheck {
-	if (!headers.testedUpTo) {
-		return createDoctorCheck(
-			"WordPress tested target",
-			"fail",
-			`Plugin bootstrap is missing a Tested up to header; expected ${targetVersion} or newer.`,
-			WORDPRESS_VERSION_CHECK_CODES.testedTarget,
-		);
-	}
+  if (!headers.testedUpTo) {
+    return createDoctorCheck(
+      'WordPress tested target',
+      'fail',
+      `Plugin bootstrap is missing a Tested up to header; expected ${targetVersion} or newer.`,
+      WORDPRESS_VERSION_CHECK_CODES.testedTarget,
+    );
+  }
 
-	try {
-		if (compareVersionFloors(headers.testedUpTo, targetVersion) < 0) {
-			return createDoctorCheck(
-				"WordPress tested target",
-				"warn",
-				`Tested up to ${headers.testedUpTo} is below the selected WordPress target ${targetVersion}. Update the plugin bootstrap \`Tested up to\` header when the workspace is verified against WordPress ${targetVersion}.`,
-				WORDPRESS_VERSION_CHECK_CODES.testedTarget,
-			);
-		}
-	} catch {
-		return createDoctorCheck(
-			"WordPress tested target",
-			"fail",
-			`Plugin bootstrap Tested up to header "${headers.testedUpTo}" is not a dotted numeric version.`,
-			WORDPRESS_VERSION_CHECK_CODES.testedTarget,
-		);
-	}
+  try {
+    if (compareVersionFloors(headers.testedUpTo, targetVersion) < 0) {
+      return createDoctorCheck(
+        'WordPress tested target',
+        'warn',
+        `Tested up to ${headers.testedUpTo} is below the selected WordPress target ${targetVersion}. Update the plugin bootstrap \`Tested up to\` header when the workspace is verified against WordPress ${targetVersion}.`,
+        WORDPRESS_VERSION_CHECK_CODES.testedTarget,
+      );
+    }
+  } catch {
+    return createDoctorCheck(
+      'WordPress tested target',
+      'fail',
+      `Plugin bootstrap Tested up to header "${headers.testedUpTo}" is not a dotted numeric version.`,
+      WORDPRESS_VERSION_CHECK_CODES.testedTarget,
+    );
+  }
 
-	return createDoctorCheck(
-		"WordPress tested target",
-		"pass",
-		`Tested up to ${headers.testedUpTo} covers the selected WordPress target ${targetVersion}.`,
-		WORDPRESS_VERSION_CHECK_CODES.testedTarget,
-	);
+  return createDoctorCheck(
+    'WordPress tested target',
+    'pass',
+    `Tested up to ${headers.testedUpTo} covers the selected WordPress target ${targetVersion}.`,
+    WORDPRESS_VERSION_CHECK_CODES.testedTarget,
+  );
 }
 
 /**
@@ -1032,12 +1064,12 @@ export function getWorkspaceWordPressVersionDoctorChecks(
 	inventory: WorkspaceInventory,
 	options: WorkspaceWordPressVersionDoctorCheckOptions = {},
 ): DoctorCheck[] {
-	const targetVersion =
+  const targetVersion =
 		options.targetVersion ?? DEFAULT_SCAFFOLD_WORDPRESS_TARGET_VERSION;
-	const headers = readBootstrapHeaderVersions(workspace);
+  const headers = readBootstrapHeaderVersions(workspace);
 
-	return [
-		createFeatureMinimumCheck(workspace, inventory, headers),
-		createTestedTargetCheck(headers, targetVersion),
-	];
+  return [
+    createFeatureMinimumCheck(workspace, inventory, headers),
+    createTestedTargetCheck(headers, targetVersion),
+  ];
 }

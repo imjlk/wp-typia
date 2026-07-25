@@ -1,1 +1,1 @@
-export * from "./shared/string-case.js";
+export * from './shared/string-case.js';

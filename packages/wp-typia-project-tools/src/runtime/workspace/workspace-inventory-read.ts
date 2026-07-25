@@ -1,14 +1,14 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 
-import { isFileNotFoundError } from "../shared/fs-async.js";
-import { parseWorkspaceInventorySource } from "./workspace-inventory-parser.js";
+import { isFileNotFoundError } from '../shared/fs-async.js';
+import { parseWorkspaceInventorySource } from './workspace-inventory-parser.js';
 import type {
-	WorkspaceBlockInventoryEntry,
-	WorkspaceBlockSelectOption,
-	WorkspaceInventory,
-} from "./workspace-inventory-types.js";
+  WorkspaceBlockInventoryEntry,
+  WorkspaceBlockSelectOption,
+  WorkspaceInventory,
+} from './workspace-inventory-types.js';
 
 /**
  * Synchronously read and parse the canonical workspace inventory file.
@@ -27,23 +27,23 @@ import type {
  * @throws {Error} When `scripts/block-config.ts` is missing or invalid.
  */
 export function readWorkspaceInventory(projectDir: string): WorkspaceInventory {
-	const blockConfigPath = path.join(projectDir, "scripts", "block-config.ts");
-	let source: string;
-	try {
-		source = readFileSync(blockConfigPath, "utf8");
-	} catch (error) {
-		if (isFileNotFoundError(error)) {
-			throw new Error(
-				`Workspace inventory file is missing at ${blockConfigPath}. Expected scripts/block-config.ts to exist.`,
-			);
-		}
-		throw error;
-	}
+  const blockConfigPath = path.join(projectDir, 'scripts', 'block-config.ts');
+  let source: string;
+  try {
+    source = readFileSync(blockConfigPath, 'utf8');
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      throw new Error(
+        `Workspace inventory file is missing at ${blockConfigPath}. Expected scripts/block-config.ts to exist.`,
+      );
+    }
+    throw error;
+  }
 
-	return {
-		blockConfigPath,
-		...parseWorkspaceInventorySource(source),
-	};
+  return {
+    blockConfigPath,
+    ...parseWorkspaceInventorySource(source),
+  };
 }
 
 /**
@@ -56,33 +56,33 @@ export function readWorkspaceInventory(projectDir: string): WorkspaceInventory {
 export async function readWorkspaceInventoryAsync(
 	projectDir: string,
 ): Promise<WorkspaceInventory> {
-	const blockConfigPath = path.join(projectDir, "scripts", "block-config.ts");
-	let source: string;
-	try {
-		source = await readFile(blockConfigPath, "utf8");
-	} catch (error) {
-		if (isFileNotFoundError(error)) {
-			throw new Error(
-				`Workspace inventory file is missing at ${blockConfigPath}. Expected scripts/block-config.ts to exist.`,
-			);
-		}
-		throw error;
-	}
+  const blockConfigPath = path.join(projectDir, 'scripts', 'block-config.ts');
+  let source: string;
+  try {
+    source = await readFile(blockConfigPath, 'utf8');
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      throw new Error(
+        `Workspace inventory file is missing at ${blockConfigPath}. Expected scripts/block-config.ts to exist.`,
+      );
+    }
+    throw error;
+  }
 
-	return {
-		blockConfigPath,
-		...parseWorkspaceInventorySource(source),
-	};
+  return {
+    blockConfigPath,
+    ...parseWorkspaceInventorySource(source),
+  };
 }
 
 function toWorkspaceBlockSelectOptions(
 	blocks: readonly WorkspaceBlockInventoryEntry[],
 ): WorkspaceBlockSelectOption[] {
-	return blocks.map((block) => ({
-		description: block.typesFile,
-		name: block.slug,
-		value: block.slug,
-	}));
+  return blocks.map((block) => ({
+    description: block.typesFile,
+    name: block.slug,
+    value: block.slug,
+  }));
 }
 
 /**
@@ -102,9 +102,9 @@ function toWorkspaceBlockSelectOptions(
 export function getWorkspaceBlockSelectOptions(
 	projectDir: string,
 ): WorkspaceBlockSelectOption[] {
-	return toWorkspaceBlockSelectOptions(
-		readWorkspaceInventory(projectDir).blocks,
-	);
+  return toWorkspaceBlockSelectOptions(
+    readWorkspaceInventory(projectDir).blocks,
+  );
 }
 
 /**
@@ -119,7 +119,7 @@ export function getWorkspaceBlockSelectOptions(
 export async function getWorkspaceBlockSelectOptionsAsync(
 	projectDir: string,
 ): Promise<WorkspaceBlockSelectOption[]> {
-	return toWorkspaceBlockSelectOptions(
-		(await readWorkspaceInventoryAsync(projectDir)).blocks,
-	);
+  return toWorkspaceBlockSelectOptions(
+    (await readWorkspaceInventoryAsync(projectDir)).blocks,
+  );
 }

@@ -1,4 +1,4 @@
-import { isObjectRecord } from "./object-utils.js";
+import { isObjectRecord } from './object-utils.js';
 
 export interface NormalizeStaticRegistrationValueOptions {
   readonly description: string;
@@ -14,18 +14,18 @@ export function normalizeStaticRegistrationValue(
   }
   if (
     value === null ||
-    typeof value === "boolean" ||
-    typeof value === "number" ||
-    typeof value === "string"
+    typeof value === 'boolean' ||
+    typeof value === 'number' ||
+    typeof value === 'string'
   ) {
     return value;
   }
-  if (typeof value === "function") {
+  if (typeof value === 'function') {
     throw new Error(
       `Cannot generate static ${options.description} registration code for function value at ${path}.`,
     );
   }
-  if (typeof value === "bigint" || typeof value === "symbol") {
+  if (typeof value === 'bigint' || typeof value === 'symbol') {
     throw new Error(
       `Cannot generate static ${options.description} registration code for ${typeof value} value at ${path}.`,
     );

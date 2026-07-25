@@ -1,32 +1,32 @@
-export const BLOCK_CONFIG_ENTRY_MARKER = "\t// wp-typia add block entries";
+export const BLOCK_CONFIG_ENTRY_MARKER = '\t// wp-typia add block entries';
 export const VARIATION_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add variation entries";
+	'\t// wp-typia add variation entries';
 export const BLOCK_STYLE_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add style entries";
+	'\t// wp-typia add style entries';
 export const BLOCK_TRANSFORM_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add transform entries";
-export const PATTERN_CONFIG_ENTRY_MARKER = "\t// wp-typia add pattern entries";
+	'\t// wp-typia add transform entries';
+export const PATTERN_CONFIG_ENTRY_MARKER = '\t// wp-typia add pattern entries';
 export const BINDING_SOURCE_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add binding-source entries";
+	'\t// wp-typia add binding-source entries';
 export const CONTRACT_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add contract entries";
+	'\t// wp-typia add contract entries';
 export const REST_RESOURCE_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add rest-resource entries";
+	'\t// wp-typia add rest-resource entries';
 /**
  * Marker used to append generated post-meta entries into `POST_META`.
  */
 export const POST_META_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add post-meta entries";
-export const ABILITY_CONFIG_ENTRY_MARKER = "\t// wp-typia add ability entries";
+	'\t// wp-typia add post-meta entries';
+export const ABILITY_CONFIG_ENTRY_MARKER = '\t// wp-typia add ability entries';
 export const AI_FEATURE_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add ai-feature entries";
+	'\t// wp-typia add ai-feature entries';
 export const ADMIN_VIEW_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add admin-view entries";
+	'\t// wp-typia add admin-view entries';
 /**
  * Marker used to append generated editor-plugin entries into `EDITOR_PLUGINS`.
  */
 export const EDITOR_PLUGIN_CONFIG_ENTRY_MARKER =
-	"\t// wp-typia add editor-plugin entries";
+	'\t// wp-typia add editor-plugin entries';
 
 export const VARIATIONS_INTERFACE_SECTION = `
 

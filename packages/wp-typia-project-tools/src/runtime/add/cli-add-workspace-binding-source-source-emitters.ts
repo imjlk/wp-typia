@@ -1,7 +1,10 @@
-import { quoteTsString } from "./cli-add-shared.js";
-import { quotePhpString } from "../shared/php-utils.js";
-import { toTitleCase } from "../shared/string-case.js";
-import type { BindingPostMetaSource, BindingTarget } from "./cli-add-workspace-binding-source-types.js";
+import { quoteTsString } from './cli-add-shared.js';
+import { quotePhpString } from '../shared/php-utils.js';
+import { toTitleCase } from '../shared/string-case.js';
+import type {
+  BindingPostMetaSource,
+  BindingTarget,
+} from './cli-add-workspace-binding-source-types.js';
 
 /**
  * Render one `scripts/block-config.ts` binding-source inventory entry.
@@ -16,8 +19,8 @@ export function buildBindingSourceConfigEntry(
 	target?: BindingTarget,
 	postMeta?: BindingPostMetaSource,
 ): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		...(target ? [`\t\tattribute: ${quoteTsString(target.attributeName)},`] : []),
 		...(target ? [`\t\tblock: ${quoteTsString(target.blockSlug)},`] : []),
 		`\t\teditorFile: ${quoteTsString(`src/bindings/${bindingSourceSlug}/editor.ts`)},`,
@@ -25,35 +28,35 @@ export function buildBindingSourceConfigEntry(
 		...(postMeta ? [`\t\tpostMeta: ${quoteTsString(postMeta.postMetaSlug)},`] : []),
 		`\t\tserverFile: ${quoteTsString(`src/bindings/${bindingSourceSlug}/server.php`)},`,
 		`\t\tslug: ${quoteTsString(bindingSourceSlug)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 function buildPhpStringList(values: readonly string[]): string {
-	if (values.length === 0) {
-		return "array()";
-	}
+  if (values.length === 0) {
+    return 'array()';
+  }
 
-	return `array( ${values.map((value) => quotePhpString(value)).join(", ")} )`;
+  return `array( ${values.map((value) => quotePhpString(value)).join(', ')} )`;
 }
 
 function buildBindingPostMetaServerSource(options: {
-	bindingSourceSlug: string;
-	namespace: string;
-	phpPrefix: string;
-	postMeta: BindingPostMetaSource;
-	target?: BindingTarget;
-	textDomain: string;
+  bindingSourceSlug: string;
+  namespace: string;
+  phpPrefix: string;
+  postMeta: BindingPostMetaSource;
+  target?: BindingTarget;
+  textDomain: string;
 }): string {
-	const bindingSourceTitle = toTitleCase(options.bindingSourceSlug);
-	const bindingSourcePhpId = options.bindingSourceSlug.replace(/-/g, "_");
-	const functionPrefix = `${options.phpPrefix}_${bindingSourcePhpId}`;
-	const fieldsFunctionName = `${functionPrefix}_post_meta_binding_fields`;
-	const canReadFunctionName = `${functionPrefix}_can_read_post_meta`;
-	const resolveFunctionName = `${functionPrefix}_resolve_binding_source_value`;
-	const supportedAttributesFunctionName = `${functionPrefix}_supported_binding_attributes`;
-	const fieldNames = options.postMeta.fields.map((field) => field.name);
-	const supportedAttributesSource = options.target
+  const bindingSourceTitle = toTitleCase(options.bindingSourceSlug);
+  const bindingSourcePhpId = options.bindingSourceSlug.replace(/-/g, '_');
+  const functionPrefix = `${options.phpPrefix}_${bindingSourcePhpId}`;
+  const fieldsFunctionName = `${functionPrefix}_post_meta_binding_fields`;
+  const canReadFunctionName = `${functionPrefix}_can_read_post_meta`;
+  const resolveFunctionName = `${functionPrefix}_resolve_binding_source_value`;
+  const supportedAttributesFunctionName = `${functionPrefix}_supported_binding_attributes`;
+  const fieldNames = options.postMeta.fields.map((field) => field.name);
+  const supportedAttributesSource = options.target
 		? `
 if ( ! function_exists( '${supportedAttributesFunctionName}' ) ) {
 \tfunction ${supportedAttributesFunctionName}( array $supported_attributes ) : array {
@@ -65,8 +68,8 @@ if ( ! function_exists( '${supportedAttributesFunctionName}' ) ) {
 \t}
 }
 `
-		: "";
-	const supportedAttributesHook = options.target
+		: '';
+  const supportedAttributesHook = options.target
 		? `
 if ( function_exists( '${supportedAttributesFunctionName}' ) ) {
 \tadd_filter(
@@ -75,9 +78,9 @@ if ( function_exists( '${supportedAttributesFunctionName}' ) ) {
 \t);
 }
 `
-		: "";
+		: '';
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }
@@ -191,24 +194,24 @@ export function buildBindingSourceServerSource(
 	target?: BindingTarget,
 	postMeta?: BindingPostMetaSource,
 ): string {
-	if (postMeta) {
-		return buildBindingPostMetaServerSource({
-			bindingSourceSlug,
-			namespace,
-			phpPrefix,
-			postMeta,
-			target,
-			textDomain,
-		});
-	}
+  if (postMeta) {
+    return buildBindingPostMetaServerSource({
+      bindingSourceSlug,
+      namespace,
+      phpPrefix,
+      postMeta,
+      target,
+      textDomain,
+    });
+  }
 
-	const bindingSourceTitle = toTitleCase(bindingSourceSlug);
-	const bindingSourcePhpId = bindingSourceSlug.replace(/-/g, "_");
-	const bindingSourceValueFunctionName = `${phpPrefix}_${bindingSourcePhpId}_binding_source_values`;
-	const bindingSourceResolveFunctionName = `${phpPrefix}_${bindingSourcePhpId}_resolve_binding_source_value`;
-	const bindingSourceSupportedAttributesFunctionName = `${phpPrefix}_${bindingSourcePhpId}_supported_binding_attributes`;
-	const starterValue = `${bindingSourceTitle} starter value`;
-	const supportedAttributesSource = target
+  const bindingSourceTitle = toTitleCase(bindingSourceSlug);
+  const bindingSourcePhpId = bindingSourceSlug.replace(/-/g, '_');
+  const bindingSourceValueFunctionName = `${phpPrefix}_${bindingSourcePhpId}_binding_source_values`;
+  const bindingSourceResolveFunctionName = `${phpPrefix}_${bindingSourcePhpId}_resolve_binding_source_value`;
+  const bindingSourceSupportedAttributesFunctionName = `${phpPrefix}_${bindingSourcePhpId}_supported_binding_attributes`;
+  const starterValue = `${bindingSourceTitle} starter value`;
+  const supportedAttributesSource = target
 		? `
 if ( ! function_exists( '${bindingSourceSupportedAttributesFunctionName}' ) ) {
 \tfunction ${bindingSourceSupportedAttributesFunctionName}( array $supported_attributes ) : array {
@@ -220,8 +223,8 @@ if ( ! function_exists( '${bindingSourceSupportedAttributesFunctionName}' ) ) {
 \t}
 }
 `
-		: "";
-	const supportedAttributesHook = target
+		: '';
+  const supportedAttributesHook = target
 		? `
 if ( function_exists( '${bindingSourceSupportedAttributesFunctionName}' ) ) {
 \tadd_filter(
@@ -230,9 +233,9 @@ if ( function_exists( '${bindingSourceSupportedAttributesFunctionName}' ) ) {
 \t);
 }
 `
-		: "";
+		: '';
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }
@@ -272,54 +275,54 @@ register_block_bindings_source(
 ${supportedAttributesHook}`;
 }
 
-function buildTsPostMetaPreviewValue(field: BindingPostMetaSource["fields"][number]): string {
-	switch (field.schemaType) {
-		case "array":
-			return "[]";
-		case "boolean":
-			return field.fallbackValue === "true" ? "true" : "false";
-		case "integer":
-		case "number": {
-			const value = Number(field.fallbackValue);
-			return Number.isFinite(value) ? String(value) : "0";
-		}
-		case "object":
-			return "{}";
-		default:
-			return quoteTsString(field.fallbackValue);
-	}
+function buildTsPostMetaPreviewValue(field: BindingPostMetaSource['fields'][number]): string {
+  switch (field.schemaType) {
+    case 'array':
+      return '[]';
+    case 'boolean':
+      return field.fallbackValue === 'true' ? 'true' : 'false';
+    case 'integer':
+    case 'number': {
+      const value = Number(field.fallbackValue);
+      return Number.isFinite(value) ? String(value) : '0';
+    }
+    case 'object':
+      return '{}';
+    default:
+      return quoteTsString(field.fallbackValue);
+  }
 }
 
 function buildTsPostMetaFieldEntries(
-	fields: readonly BindingPostMetaSource["fields"][number][],
+	fields: readonly BindingPostMetaSource['fields'][number][],
 	textDomain: string,
 ): string {
-	return fields
+  return fields
 		.map((field) =>
 			[
-				"\t{",
+				'\t{',
 				`\t\tfallbackValue: ${quoteTsString(field.fallbackValue)},`,
 				`\t\tlabel: __( ${quoteTsString(field.label)}, ${quoteTsString(textDomain)} ),`,
 				`\t\tname: ${quoteTsString(field.name)},`,
 				`\t\tpreviewValue: ${buildTsPostMetaPreviewValue(field)},`,
-				`\t\trequired: ${field.required ? "true" : "false"},`,
+				`\t\trequired: ${field.required ? 'true' : 'false'},`,
 				`\t\tschemaType: ${quoteTsString(field.schemaType)},`,
-				"\t},",
-			].join("\n"),
+				'\t},',
+			].join('\n'),
 		)
-		.join("\n");
+		.join('\n');
 }
 
 function buildBindingPostMetaEditorSource(options: {
-	bindingSourceSlug: string;
-	namespace: string;
-	postMeta: BindingPostMetaSource;
-	target?: BindingTarget;
-	textDomain: string;
+  bindingSourceSlug: string;
+  namespace: string;
+  postMeta: BindingPostMetaSource;
+  target?: BindingTarget;
+  textDomain: string;
 }): string {
-	const bindingSourceTitle = toTitleCase(options.bindingSourceSlug);
-	const bindingSourceName = `${options.namespace}/${options.bindingSourceSlug}`;
-	const targetSource = options.target
+  const bindingSourceTitle = toTitleCase(options.bindingSourceSlug);
+  const bindingSourceName = `${options.namespace}/${options.bindingSourceSlug}`;
+  const targetSource = options.target
 		? `
 export const BINDING_SOURCE_TARGET = {
 \tattribute: ${quoteTsString(options.target.attributeName)},
@@ -328,9 +331,9 @@ export const BINDING_SOURCE_TARGET = {
 \tsource: ${quoteTsString(bindingSourceName)},
 } as const;
 `
-		: "";
+		: '';
 
-	return `import { registerBlockBindingsSource } from '@wordpress/blocks';
+  return `import { registerBlockBindingsSource } from '@wordpress/blocks';
 import { __ } from '@wordpress/i18n';
 
 interface BindingSourceRegistration {
@@ -413,20 +416,20 @@ export function buildBindingSourceEditorSource(
 	target?: BindingTarget,
 	postMeta?: BindingPostMetaSource,
 ): string {
-	if (postMeta) {
-		return buildBindingPostMetaEditorSource({
-			bindingSourceSlug,
-			namespace,
-			postMeta,
-			target,
-			textDomain,
-		});
-	}
+  if (postMeta) {
+    return buildBindingPostMetaEditorSource({
+      bindingSourceSlug,
+      namespace,
+      postMeta,
+      target,
+      textDomain,
+    });
+  }
 
-	const bindingSourceTitle = toTitleCase(bindingSourceSlug);
-	const starterValue = `${bindingSourceTitle} starter value`;
-	const bindingSourceName = `${namespace}/${bindingSourceSlug}`;
-	const targetSource = target
+  const bindingSourceTitle = toTitleCase(bindingSourceSlug);
+  const starterValue = `${bindingSourceTitle} starter value`;
+  const bindingSourceName = `${namespace}/${bindingSourceSlug}`;
+  const targetSource = target
 		? `
 export const BINDING_SOURCE_TARGET = {
 \tattribute: ${quoteTsString(target.attributeName)},
@@ -435,9 +438,9 @@ export const BINDING_SOURCE_TARGET = {
 \tsource: ${quoteTsString(bindingSourceName)},
 } as const;
 `
-		: "";
+		: '';
 
-	return `import { registerBlockBindingsSource } from '@wordpress/blocks';
+  return `import { registerBlockBindingsSource } from '@wordpress/blocks';
 import { __ } from '@wordpress/i18n';
 
 interface BindingSourceRegistration {

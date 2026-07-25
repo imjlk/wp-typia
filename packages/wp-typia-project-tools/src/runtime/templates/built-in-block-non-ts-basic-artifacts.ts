@@ -1,6 +1,6 @@
-import type { BuiltInCodeArtifact } from "./built-in-block-code-artifacts.js";
-import { renderArtifact } from "./built-in-block-non-ts-render-utils.js";
-import type { ScaffoldTemplateVariables } from "./scaffold.js";
+import type { BuiltInCodeArtifact } from './built-in-block-code-artifacts.js';
+import { renderArtifact } from './built-in-block-non-ts-render-utils.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
 
 const BASIC_STYLE_TEMPLATE = `/**
  * {{title}} Block Styles
@@ -84,9 +84,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 export function buildBasicArtifacts(
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact[] {
-	return [
-		renderArtifact("src/editor.scss", BASIC_EDITOR_STYLE_TEMPLATE, variables),
-		renderArtifact("src/style.scss", BASIC_STYLE_TEMPLATE, variables),
-		renderArtifact("src/render.php", BASIC_RENDER_TEMPLATE, variables),
-	];
+  return [
+    renderArtifact('src/editor.scss', BASIC_EDITOR_STYLE_TEMPLATE, variables),
+    renderArtifact('src/style.scss', BASIC_STYLE_TEMPLATE, variables),
+    renderArtifact('src/render.php', BASIC_RENDER_TEMPLATE, variables),
+  ];
 }

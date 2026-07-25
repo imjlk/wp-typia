@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import { syncBlockMetadata } from '../../scripts/lib/typia-metadata-core';
 import { createTempFixture } from '../helpers/file-fixtures';

@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-answer-resolution.js";
+export * from './templates/scaffold-answer-resolution.js';

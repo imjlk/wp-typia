@@ -1,16 +1,16 @@
-import path from "node:path";
+import path from 'node:path';
 
 import {
-	formatInstallCommand,
-	formatRunScript,
-} from "../shared/package-managers.js";
+  formatInstallCommand,
+  formatRunScript,
+} from '../shared/package-managers.js';
 import {
-	getOptionalOnboardingNote,
-	getOptionalOnboardingShortNote,
-	getOptionalOnboardingSteps,
-} from "./scaffold-onboarding.js";
-import { getPrimaryDevelopmentScript } from "./local-dev-presets.js";
-import type { PackageManagerId } from "../shared/package-managers.js";
+  getOptionalOnboardingNote,
+  getOptionalOnboardingShortNote,
+  getOptionalOnboardingSteps,
+} from './scaffold-onboarding.js';
+import { getPrimaryDevelopmentScript } from './local-dev-presets.js';
+import type { PackageManagerId } from '../shared/package-managers.js';
 
 /**
  * Inputs used to build CLI next-step commands after scaffolding succeeds.
@@ -19,23 +19,23 @@ export interface ScaffoldNextStepsOptions {
 	/**
 	 * Whether install instructions should be printed because install was skipped.
 	 */
-	noInstall: boolean;
+  noInstall: boolean;
 	/**
 	 * Package manager used to format install and run commands.
 	 */
-	packageManager: PackageManagerId;
+  packageManager: PackageManagerId;
 	/**
 	 * Absolute scaffold target directory.
 	 */
-	projectDir: string;
+  projectDir: string;
 	/**
 	 * Project path exactly as provided to the CLI.
 	 */
-	projectInput: string;
+  projectInput: string;
 	/**
 	 * Resolved template id used to choose the primary development script.
 	 */
-	templateId: string;
+  templateId: string;
 }
 
 /**
@@ -45,19 +45,19 @@ export interface ScaffoldOptionalOnboardingOptions {
 	/**
 	 * Script names discovered from the generated package manifest.
 	 */
-	availableScripts?: string[];
+  availableScripts?: string[];
 	/**
 	 * Package manager used to format optional commands.
 	 */
-	packageManager: PackageManagerId;
+  packageManager: PackageManagerId;
 	/**
 	 * Resolved template id used to select template-specific guidance.
 	 */
-	templateId: string;
+  templateId: string;
 	/**
 	 * Whether compound persistence support is present in generated variables.
 	 */
-	compoundPersistenceEnabled?: boolean;
+  compoundPersistenceEnabled?: boolean;
 }
 
 /**
@@ -67,26 +67,26 @@ export interface OptionalOnboardingGuidance {
 	/**
 	 * Full note shown in the detailed completion output.
 	 */
-	note: string;
+  note: string;
 	/**
 	 * Short note shown in compact completion output.
 	 */
-	shortNote: string;
+  shortNote: string;
 	/**
 	 * Optional follow-up commands to show after next steps.
 	 */
-	steps: string[];
+  steps: string[];
 }
 
 function quoteShellValue(value: string): string {
-	if (
-		!value.startsWith("-") &&
+  if (
+		!value.startsWith('-') &&
 		/^[A-Za-z0-9._/@:-]+(?:\/[A-Za-z0-9._@:-]+)*$/.test(value)
 	) {
-		return value;
-	}
+    return value;
+  }
 
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 /**
@@ -103,15 +103,17 @@ export function getNextSteps({
 	noInstall,
 	templateId,
 }: ScaffoldNextStepsOptions): string[] {
-	const cdTarget = path.isAbsolute(projectInput) ? projectDir : projectInput;
-	const steps = [`cd ${quoteShellValue(cdTarget)}`];
+  const cdTarget = path.isAbsolute(projectInput) ? projectDir : projectInput;
+  const steps = [`cd ${quoteShellValue(cdTarget)}`];
 
-	if (noInstall) {
-		steps.push(formatInstallCommand(packageManager));
-	}
+  if (noInstall) {
+    steps.push(formatInstallCommand(packageManager));
+  }
 
-	steps.push(formatRunScript(packageManager, getPrimaryDevelopmentScript(templateId)));
-	return steps;
+  steps.push(
+    formatRunScript(packageManager, getPrimaryDevelopmentScript(templateId)),
+  );
+  return steps;
 }
 
 /**
@@ -126,18 +128,18 @@ export function getOptionalOnboarding({
 	templateId,
 	compoundPersistenceEnabled = false,
 }: ScaffoldOptionalOnboardingOptions): OptionalOnboardingGuidance {
-	return {
-		note: getOptionalOnboardingNote(packageManager, templateId, {
-			availableScripts,
-			compoundPersistenceEnabled,
-		}),
-		shortNote: getOptionalOnboardingShortNote(packageManager, templateId, {
-			availableScripts,
-			compoundPersistenceEnabled,
-		}),
-		steps: getOptionalOnboardingSteps(packageManager, templateId, {
-			availableScripts,
-			compoundPersistenceEnabled,
-		}),
-	};
+  return {
+    note: getOptionalOnboardingNote(packageManager, templateId, {
+      availableScripts,
+      compoundPersistenceEnabled,
+    }),
+    shortNote: getOptionalOnboardingShortNote(packageManager, templateId, {
+      availableScripts,
+      compoundPersistenceEnabled,
+    }),
+    steps: getOptionalOnboardingSteps(packageManager, templateId, {
+      availableScripts,
+      compoundPersistenceEnabled,
+    }),
+  };
 }

@@ -5,13 +5,13 @@ import type { CompoundPatternsItemAttributes } from './types';
 export default function Save( {
 	attributes,
 }: {
-	attributes: CompoundPatternsItemAttributes;
+  attributes: CompoundPatternsItemAttributes;
 } ) {
-	return (
+  return (
 		<div
-			{ ...useBlockProps.save( {
-				className: 'wp-block-compound-patterns-item',
-			} ) }
+			{ ...useBlockProps.save({
+        className: 'wp-block-compound-patterns-item',
+      }) }
 		>
 			<RichText.Content
 				tagName="h4"

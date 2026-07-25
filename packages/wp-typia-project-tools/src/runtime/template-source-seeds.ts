@@ -1,1 +1,1 @@
-export * from "./templates/template-source-seeds.js";
+export * from './templates/template-source-seeds.js';

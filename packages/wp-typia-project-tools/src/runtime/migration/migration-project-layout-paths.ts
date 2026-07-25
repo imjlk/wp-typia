@@ -1,41 +1,41 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
 import {
-	CONFIG_FILE,
-	FIXTURES_DIR,
-	GENERATED_DIR,
-	MIGRATION_TODO_PREFIX,
-	ROOT_BLOCK_JSON,
-	ROOT_MANIFEST,
-	RULES_DIR,
-	SNAPSHOT_DIR,
-} from "./migration-constants.js";
+  CONFIG_FILE,
+  FIXTURES_DIR,
+  GENERATED_DIR,
+  MIGRATION_TODO_PREFIX,
+  ROOT_BLOCK_JSON,
+  ROOT_MANIFEST,
+  RULES_DIR,
+  SNAPSHOT_DIR,
+} from './migration-constants.js';
 import {
 	compareMigrationVersionLabels,
-} from "./migration-utils.js";
+} from './migration-utils.js';
 import {
-	ensureRelativePath,
-	normalizeRelativePath,
-} from "./migration-project-config-source.js";
+  ensureRelativePath,
+  normalizeRelativePath,
+} from './migration-project-config-source.js';
 import type {
-	MigrationBlockConfig,
-	MigrationEntry,
-	MigrationProjectPaths,
-	MigrationProjectState,
-	ResolvedMigrationBlockTarget,
-	RuleMetadata,
-} from "./migration-types.js";
+  MigrationBlockConfig,
+  MigrationEntry,
+  MigrationProjectPaths,
+  MigrationProjectState,
+  ResolvedMigrationBlockTarget,
+  RuleMetadata,
+} from './migration-types.js';
 
 function toImportPath(fromDir: string, targetPath: string, stripExtension = false): string {
-	let relativePath = normalizeRelativePath(path.relative(fromDir, targetPath));
-	if (!relativePath.startsWith(".")) {
-		relativePath = `./${relativePath}`;
-	}
-	if (stripExtension) {
-		relativePath = relativePath.replace(/\.[^.]+$/u, "");
-	}
-	return relativePath;
+  let relativePath = normalizeRelativePath(path.relative(fromDir, targetPath));
+  if (!relativePath.startsWith('.')) {
+    relativePath = `./${relativePath}`;
+  }
+  if (stripExtension) {
+    relativePath = relativePath.replace(/\.[^.]+$/u, '');
+  }
+  return relativePath;
 }
 /**
  * Resolves the canonical migration workspace paths for a project directory.
@@ -44,13 +44,13 @@ function toImportPath(fromDir: string, targetPath: string, stripExtension = fals
  * @returns Absolute filesystem paths for config, generated, fixture, rule, and snapshot roots.
  */
 export function getProjectPaths(projectDir: string): MigrationProjectPaths {
-	return {
-		configFile: path.join(projectDir, CONFIG_FILE),
-		fixturesDir: path.join(projectDir, FIXTURES_DIR),
-		generatedDir: path.join(projectDir, GENERATED_DIR),
-		rulesDir: path.join(projectDir, RULES_DIR),
-		snapshotDir: path.join(projectDir, SNAPSHOT_DIR),
-	};
+  return {
+    configFile: path.join(projectDir, CONFIG_FILE),
+    fixturesDir: path.join(projectDir, FIXTURES_DIR),
+    generatedDir: path.join(projectDir, GENERATED_DIR),
+    rulesDir: path.join(projectDir, RULES_DIR),
+    snapshotDir: path.join(projectDir, SNAPSHOT_DIR),
+  };
 }
 /**
  * Resolves the snapshot root for a block target and migration version.
@@ -65,10 +65,10 @@ export function getSnapshotRoot(
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 	version: string,
 ): string {
-	if ("layout" in block && block.layout === "legacy") {
-		return path.join(projectDir, SNAPSHOT_DIR, version);
-	}
-	return path.join(projectDir, SNAPSHOT_DIR, version, block.key);
+  if ('layout' in block && block.layout === 'legacy') {
+    return path.join(projectDir, SNAPSHOT_DIR, version);
+  }
+  return path.join(projectDir, SNAPSHOT_DIR, version, block.key);
 }
 
 /**
@@ -84,7 +84,10 @@ export function getSnapshotBlockJsonPath(
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 	version: string,
 ): string {
-	return path.join(getSnapshotRoot(projectDir, block, version), ROOT_BLOCK_JSON);
+  return path.join(
+    getSnapshotRoot(projectDir, block, version),
+    ROOT_BLOCK_JSON,
+  );
 }
 
 /**
@@ -100,7 +103,7 @@ export function getSnapshotManifestPath(
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 	version: string,
 ): string {
-	return path.join(getSnapshotRoot(projectDir, block, version), ROOT_MANIFEST);
+  return path.join(getSnapshotRoot(projectDir, block, version), ROOT_MANIFEST);
 }
 
 /**
@@ -114,7 +117,7 @@ export function getAvailableSnapshotVersionsForBlock(
 	supportedMigrationVersions: string[],
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 ): string[] {
-	return supportedMigrationVersions
+  return supportedMigrationVersions
 		.filter((version) => fs.existsSync(getSnapshotManifestPath(projectDir, block, version)))
 		.sort(compareMigrationVersionLabels);
 }
@@ -130,11 +133,11 @@ export function createMissingBlockSnapshotMessage(
 	fromVersion: string,
 	availableSnapshotVersions: string[],
 ): string {
-	return availableSnapshotVersions.length === 0
+  return availableSnapshotVersions.length === 0
 		? `Snapshot manifest for ${blockName} @ ${fromVersion} does not exist. ` +
 				`No snapshots exist yet for ${blockName}. Run \`wp-typia migrate snapshot --migration-version ${fromVersion}\` first.`
 		: `Snapshot manifest for ${blockName} @ ${fromVersion} does not exist. ` +
-				`Available snapshot versions for ${blockName}: ${availableSnapshotVersions.join(", ")}. ` +
+				`Available snapshot versions for ${blockName}: ${availableSnapshotVersions.join(', ')}. ` +
 				`Run \`wp-typia migrate snapshot --migration-version ${fromVersion}\` first if you want to preserve that release.`;
 }
 
@@ -151,7 +154,7 @@ export function getSnapshotSavePath(
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 	version: string,
 ): string {
-	return path.join(getSnapshotRoot(projectDir, block, version), "save.tsx");
+  return path.join(getSnapshotRoot(projectDir, block, version), 'save.tsx');
 }
 
 /**
@@ -165,10 +168,10 @@ export function getGeneratedDirForBlock(
 	paths: MigrationProjectPaths,
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 ): string {
-	if ("layout" in block && block.layout === "legacy") {
-		return paths.generatedDir;
-	}
-	return path.join(paths.generatedDir, block.key);
+  if ('layout' in block && block.layout === 'legacy') {
+    return paths.generatedDir;
+  }
+  return path.join(paths.generatedDir, block.key);
 }
 
 /**
@@ -186,10 +189,14 @@ export function getRuleFilePath(
 	fromVersion: string,
 	toVersion: string,
 ): string {
-	if ("layout" in block && block.layout === "legacy") {
-		return path.join(paths.rulesDir, `${fromVersion}-to-${toVersion}.ts`);
-	}
-	return path.join(paths.rulesDir, block.key, `${fromVersion}-to-${toVersion}.ts`);
+  if ('layout' in block && block.layout === 'legacy') {
+    return path.join(paths.rulesDir, `${fromVersion}-to-${toVersion}.ts`);
+  }
+  return path.join(
+    paths.rulesDir,
+    block.key,
+    `${fromVersion}-to-${toVersion}.ts`,
+  );
 }
 
 /**
@@ -207,10 +214,14 @@ export function getFixtureFilePath(
 	fromVersion: string,
 	toVersion: string,
 ): string {
-	if ("layout" in block && block.layout === "legacy") {
-		return path.join(paths.fixturesDir, `${fromVersion}-to-${toVersion}.json`);
-	}
-	return path.join(paths.fixturesDir, block.key, `${fromVersion}-to-${toVersion}.json`);
+  if ('layout' in block && block.layout === 'legacy') {
+    return path.join(paths.fixturesDir, `${fromVersion}-to-${toVersion}.json`);
+  }
+  return path.join(
+    paths.fixturesDir,
+    block.key,
+    `${fromVersion}-to-${toVersion}.json`,
+  );
 }
 
 /**
@@ -226,11 +237,11 @@ export function getValidatorsImportPath(
 	block: MigrationBlockConfig | ResolvedMigrationBlockTarget,
 	fromDir: string,
 ): string {
-	const validatorPath = path.join(
-		projectDir,
-		block.typesFile.replace(/types\.ts$/u, "validators.ts"),
-	);
-	return toImportPath(fromDir, validatorPath, true);
+  const validatorPath = path.join(
+    projectDir,
+    block.typesFile.replace(/types\.ts$/u, 'validators.ts'),
+  );
+  return toImportPath(fromDir, validatorPath, true);
 }
 
 /**
@@ -241,21 +252,21 @@ export function getValidatorsImportPath(
  * @returns Nothing.
  */
 export function ensureMigrationDirectories(projectDir: string, blocks?: MigrationBlockConfig[]): void {
-	const paths = getProjectPaths(projectDir);
-	fs.mkdirSync(paths.fixturesDir, { recursive: true });
-	fs.mkdirSync(paths.generatedDir, { recursive: true });
-	fs.mkdirSync(paths.rulesDir, { recursive: true });
-	fs.mkdirSync(paths.snapshotDir, { recursive: true });
+  const paths = getProjectPaths(projectDir);
+  fs.mkdirSync(paths.fixturesDir, { recursive: true });
+  fs.mkdirSync(paths.generatedDir, { recursive: true });
+  fs.mkdirSync(paths.rulesDir, { recursive: true });
+  fs.mkdirSync(paths.snapshotDir, { recursive: true });
 
-	if (!Array.isArray(blocks) || blocks.length === 0) {
-		return;
-	}
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return;
+  }
 
-	for (const block of blocks) {
-		fs.mkdirSync(path.join(paths.fixturesDir, block.key), { recursive: true });
-		fs.mkdirSync(path.join(paths.generatedDir, block.key), { recursive: true });
-		fs.mkdirSync(path.join(paths.rulesDir, block.key), { recursive: true });
-	}
+  for (const block of blocks) {
+    fs.mkdirSync(path.join(paths.fixturesDir, block.key), { recursive: true });
+    fs.mkdirSync(path.join(paths.generatedDir, block.key), { recursive: true });
+    fs.mkdirSync(path.join(paths.rulesDir, block.key), { recursive: true });
+  }
 }
 
 /**
@@ -265,56 +276,76 @@ export function ensureMigrationDirectories(projectDir: string, blocks?: Migratio
  * @returns Sorted migration registry entries for every available block/version edge.
  */
 export function discoverMigrationEntries(state: MigrationProjectState): MigrationEntry[] {
-	const entries: MigrationEntry[] = [];
-	const currentVersion = state.config.currentMigrationVersion;
+  const entries: MigrationEntry[] = [];
+  const currentVersion = state.config.currentMigrationVersion;
 
-	for (const block of state.blocks) {
-		const generatedDir = getGeneratedDirForBlock(state.paths, block);
+  for (const block of state.blocks) {
+    const generatedDir = getGeneratedDirForBlock(state.paths, block);
 
-		for (const version of state.config.supportedMigrationVersions) {
-			if (version === currentVersion) {
-				continue;
-			}
+    for (const version of state.config.supportedMigrationVersions) {
+      if (version === currentVersion) {
+        continue;
+      }
 
-			const manifestPath = getSnapshotManifestPath(state.projectDir, block, version);
-			const blockJsonPath = getSnapshotBlockJsonPath(state.projectDir, block, version);
-			const savePath = getSnapshotSavePath(state.projectDir, block, version);
-			const rulePath = getRuleFilePath(state.paths, block, version, currentVersion);
-			if (
+      const manifestPath = getSnapshotManifestPath(
+        state.projectDir,
+        block,
+        version,
+      );
+      const blockJsonPath = getSnapshotBlockJsonPath(
+        state.projectDir,
+        block,
+        version,
+      );
+      const savePath = getSnapshotSavePath(state.projectDir, block, version);
+      const rulePath = getRuleFilePath(
+        state.paths,
+        block,
+        version,
+        currentVersion,
+      );
+      if (
 				!fs.existsSync(manifestPath) ||
 				!fs.existsSync(blockJsonPath) ||
 				!fs.existsSync(savePath) ||
 				!fs.existsSync(rulePath)
 			) {
-				continue;
-			}
+        continue;
+      }
 
-			entries.push({
-				block,
-				blockJsonImport: toImportPath(generatedDir, blockJsonPath),
-				fixtureImport: toImportPath(
-					generatedDir,
-					getFixtureFilePath(state.paths, block, version, currentVersion),
-				),
-				fromVersion: version,
-				generatedDir,
-				manifestImport: toImportPath(generatedDir, manifestPath),
-				ruleImport: toImportPath(generatedDir, rulePath, true),
-				rulePath,
-				saveImport: toImportPath(generatedDir, savePath, true),
-				toVersion: currentVersion,
-				validatorImport: getValidatorsImportPath(state.projectDir, block, generatedDir),
-			});
-		}
-	}
+      entries.push({
+        block,
+        blockJsonImport: toImportPath(generatedDir, blockJsonPath),
+        fixtureImport: toImportPath(
+          generatedDir,
+          getFixtureFilePath(state.paths, block, version, currentVersion),
+        ),
+        fromVersion: version,
+        generatedDir,
+        manifestImport: toImportPath(generatedDir, manifestPath),
+        ruleImport: toImportPath(generatedDir, rulePath, true),
+        rulePath,
+        saveImport: toImportPath(generatedDir, savePath, true),
+        toVersion: currentVersion,
+        validatorImport: getValidatorsImportPath(
+          state.projectDir,
+          block,
+          generatedDir,
+        ),
+      });
+    }
+  }
 
-	return entries.sort((left, right) => {
-		const versionDelta = compareMigrationVersionLabels(right.fromVersion, left.fromVersion);
-		if (versionDelta !== 0) {
-			return versionDelta;
-		}
-		return left.block.key.localeCompare(right.block.key);
-	});
+  return entries.sort((left, right) => {
+    const versionDelta = compareMigrationVersionLabels(
+      right.fromVersion,
+      left.fromVersion,
+    );
+    if (versionDelta !== 0) {
+      return versionDelta;
+    }
+    return left.block.key.localeCompare(right.block.key);
+  });
 }
 /**
  * Verifies that a migration rule file exists and no TODO markers remain in it.
@@ -332,14 +363,23 @@ export function assertRuleHasNoTodos(
 	fromMigrationVersion: string,
 	toMigrationVersion: string,
 ): void {
-	const rulePath = getRuleFilePath(getProjectPaths(projectDir), block, fromMigrationVersion, toMigrationVersion);
-	if (!fs.existsSync(rulePath)) {
-		throw new Error(`Missing migration rule: ${path.relative(projectDir, rulePath)}`);
-	}
-	const source = fs.readFileSync(rulePath, "utf8");
-	if (source.includes(MIGRATION_TODO_PREFIX)) {
-		throw new Error(`Migration rule still contains ${MIGRATION_TODO_PREFIX} markers: ${path.relative(projectDir, rulePath)}`);
-	}
+  const rulePath = getRuleFilePath(
+    getProjectPaths(projectDir),
+    block,
+    fromMigrationVersion,
+    toMigrationVersion,
+  );
+  if (!fs.existsSync(rulePath)) {
+    throw new Error(
+      `Missing migration rule: ${path.relative(projectDir, rulePath)}`,
+    );
+  }
+  const source = fs.readFileSync(rulePath, 'utf8');
+  if (source.includes(MIGRATION_TODO_PREFIX)) {
+    throw new Error(
+      `Migration rule still contains ${MIGRATION_TODO_PREFIX} markers: ${path.relative(projectDir, rulePath)}`,
+    );
+  }
 }
 
 /**
@@ -349,25 +389,35 @@ export function assertRuleHasNoTodos(
  * @returns Parsed unresolved paths, rename mappings, and transform keys.
  */
 export function readRuleMetadata(rulePath: string): RuleMetadata {
-	const source = fs.readFileSync(rulePath, "utf8");
-	const unresolvedBlock = source.match(/export const unresolved = \[([\s\S]*?)\] as const;/);
-	const renameMapBlock = source.match(/export const renameMap: RenameMap = \{([\s\S]*?)\};/);
-	const transformsBlock = source.match(/export const transforms: TransformMap = \{([\s\S]*?)\};/);
+  const source = fs.readFileSync(rulePath, 'utf8');
+  const unresolvedBlock = source.match(
+    /export const unresolved = \[([\s\S]*?)\] as const;/,
+  );
+  const renameMapBlock = source.match(
+    /export const renameMap: RenameMap = \{([\s\S]*?)\};/,
+  );
+  const transformsBlock = source.match(
+    /export const transforms: TransformMap = \{([\s\S]*?)\};/,
+  );
 
-	const unresolved: string[] = unresolvedBlock
-		? [...unresolvedBlock[1].matchAll(/"([^"]+)"/g)].map((match) => match[1])
-		: [];
-	const renameMap: RuleMetadata["renameMap"] = renameMapBlock
-		? [...renameMapBlock[1].matchAll(/^\s*"([^"]+)":\s*"([^"]+)"/gm)].map((match) => ({
-			currentPath: match[1],
-			legacyPath: match[2],
-		}))
-		: [];
-	const transforms: string[] = transformsBlock
-		? [...transformsBlock[1].matchAll(/^\s*"([^"]+)":\s*\(/gm)].map((match) => match[1])
-		: [];
+  const unresolved: string[] = unresolvedBlock
+    ? [...unresolvedBlock[1].matchAll(/"([^"]+)"/g)].map((match) => match[1])
+    : [];
+  const renameMap: RuleMetadata['renameMap'] = renameMapBlock
+    ? [...renameMapBlock[1].matchAll(/^\s*"([^"]+)":\s*"([^"]+)"/gm)].map(
+        (match) => ({
+          currentPath: match[1],
+          legacyPath: match[2],
+        }),
+      )
+    : [];
+  const transforms: string[] = transformsBlock
+    ? [...transformsBlock[1].matchAll(/^\s*"([^"]+)":\s*\(/gm)].map(
+        (match) => match[1],
+      )
+    : [];
 
-	return { renameMap, transforms, unresolved };
+  return { renameMap, transforms, unresolved };
 }
 
 /**
@@ -377,12 +427,12 @@ export function readRuleMetadata(rulePath: string): RuleMetadata {
  * @returns A normalized migration block config with ensured relative paths.
  */
 export function createMigrationBlockConfig(block: MigrationBlockConfig): MigrationBlockConfig {
-	return {
-		blockJsonFile: ensureRelativePath(process.cwd(), block.blockJsonFile),
-		blockName: block.blockName,
-		key: block.key,
-		manifestFile: ensureRelativePath(process.cwd(), block.manifestFile),
-		saveFile: ensureRelativePath(process.cwd(), block.saveFile),
-		typesFile: ensureRelativePath(process.cwd(), block.typesFile),
-	};
+  return {
+    blockJsonFile: ensureRelativePath(process.cwd(), block.blockJsonFile),
+    blockName: block.blockName,
+    key: block.key,
+    manifestFile: ensureRelativePath(process.cwd(), block.manifestFile),
+    saveFile: ensureRelativePath(process.cwd(), block.saveFile),
+    typesFile: ensureRelativePath(process.cwd(), block.typesFile),
+  };
 }

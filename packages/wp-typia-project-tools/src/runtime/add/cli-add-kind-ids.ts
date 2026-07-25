@@ -5,22 +5,22 @@
  * Keep this order stable because it drives help output and command metadata.
  */
 export const ADD_KIND_IDS = [
-	"admin-view",
-	"block",
-	"integration-env",
-	"core-variation",
-	"variation",
-	"style",
-	"transform",
-	"pattern",
-	"binding-source",
-	"contract",
-	"rest-resource",
-	"post-meta",
-	"ability",
-	"ai-feature",
-	"hooked-block",
-	"editor-plugin",
+  'admin-view',
+  'block',
+  'integration-env',
+  'core-variation',
+  'variation',
+  'style',
+  'transform',
+  'pattern',
+  'binding-source',
+  'contract',
+  'rest-resource',
+  'post-meta',
+  'ability',
+  'ai-feature',
+  'hooked-block',
+  'editor-plugin',
 ] as const;
 
 /**

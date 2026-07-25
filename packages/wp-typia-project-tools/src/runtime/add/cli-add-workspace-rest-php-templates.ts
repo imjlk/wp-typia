@@ -1,15 +1,15 @@
-import { type RestResourceMethodId } from "./cli-add-shared.js";
-import { quotePhpString } from "../shared/php-utils.js";
-import { toTitleCase } from "../shared/string-case.js";
+import { type RestResourceMethodId } from './cli-add-shared.js';
+import { quotePhpString } from '../shared/php-utils.js';
+import { toTitleCase } from '../shared/string-case.js';
 import {
-	buildRestResourceControllerBootstrapSource,
-	buildRestResourceControllerClassSource,
-	buildRestResourceRouteRegistrations,
-} from "./cli-add-workspace-rest-resource-php-routing-template.js";
+  buildRestResourceControllerBootstrapSource,
+  buildRestResourceControllerClassSource,
+  buildRestResourceRouteRegistrations,
+} from './cli-add-workspace-rest-resource-php-routing-template.js';
 
 export {
 	buildWorkspaceRestSchemaHelperPhpSource,
-} from "./cli-add-workspace-rest-schema-helper-php-template.js";
+} from './cli-add-workspace-rest-schema-helper-php-template.js';
 
 /**
  * Build the PHP route/controller glue for generated workspace REST resources.
@@ -33,22 +33,24 @@ export function buildRestResourcePhpSource(
 		routePattern: string;
 	},
 ): string {
-	const restResourceTitle = toTitleCase(restResourceSlug);
-	const restResourcePhpId = restResourceSlug.replace(/-/g, "_");
-	const canWriteFunctionName = `${phpPrefix}_${restResourcePhpId}_can_manage_rest_resource`;
-	const getItemsFunctionName = `${phpPrefix}_${restResourcePhpId}_get_rest_resource_items`;
-	const validatePayloadFunctionName = `${phpPrefix}_${restResourcePhpId}_validate_rest_resource_payload`;
-	const normalizeItemFunctionName = `${phpPrefix}_${restResourcePhpId}_normalize_rest_resource_item`;
-	const saveItemsFunctionName = `${phpPrefix}_${restResourcePhpId}_save_rest_resource_items`;
-	const getOptionNameFunctionName = `${phpPrefix}_${restResourcePhpId}_get_rest_resource_option_name`;
-	const listHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_list_rest_resource`;
-	const readHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_read_rest_resource`;
-	const createHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_create_rest_resource`;
-	const updateHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_update_rest_resource`;
-	const deleteHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_delete_rest_resource`;
-	const registerRoutesFunctionName = `${phpPrefix}_${restResourcePhpId}_register_rest_routes`;
-	const controllerVariableName = options.controllerClass ? "$controller" : undefined;
-	const routeRegistrations = buildRestResourceRouteRegistrations(restResourceSlug, methods, {
+  const restResourceTitle = toTitleCase(restResourceSlug);
+  const restResourcePhpId = restResourceSlug.replace(/-/g, '_');
+  const canWriteFunctionName = `${phpPrefix}_${restResourcePhpId}_can_manage_rest_resource`;
+  const getItemsFunctionName = `${phpPrefix}_${restResourcePhpId}_get_rest_resource_items`;
+  const validatePayloadFunctionName = `${phpPrefix}_${restResourcePhpId}_validate_rest_resource_payload`;
+  const normalizeItemFunctionName = `${phpPrefix}_${restResourcePhpId}_normalize_rest_resource_item`;
+  const saveItemsFunctionName = `${phpPrefix}_${restResourcePhpId}_save_rest_resource_items`;
+  const getOptionNameFunctionName = `${phpPrefix}_${restResourcePhpId}_get_rest_resource_option_name`;
+  const listHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_list_rest_resource`;
+  const readHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_read_rest_resource`;
+  const createHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_create_rest_resource`;
+  const updateHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_update_rest_resource`;
+  const deleteHandlerName = `${phpPrefix}_${restResourcePhpId}_handle_delete_rest_resource`;
+  const registerRoutesFunctionName = `${phpPrefix}_${restResourcePhpId}_register_rest_routes`;
+  const controllerVariableName = options.controllerClass
+    ? '$controller'
+    : undefined;
+  const routeRegistrations = buildRestResourceRouteRegistrations(restResourceSlug, methods, {
 		canWriteFunctionName,
 		createHandlerName,
 		deleteHandlerName,
@@ -62,7 +64,7 @@ export function buildRestResourcePhpSource(
 			: {}),
 		routePattern: options.routePattern,
 	});
-	const controllerClassSource = options.controllerClass
+  const controllerClassSource = options.controllerClass
 		? buildRestResourceControllerClassSource({
 				controllerClass: options.controllerClass,
 				...(options.controllerExtends
@@ -77,12 +79,12 @@ export function buildRestResourcePhpSource(
 					updateHandlerName,
 				},
 			})
-		: "";
-	const controllerBootstrapSource = buildRestResourceControllerBootstrapSource(
-		options.controllerClass,
-	);
+		: '';
+  const controllerBootstrapSource = buildRestResourceControllerBootstrapSource(
+    options.controllerClass,
+  );
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }

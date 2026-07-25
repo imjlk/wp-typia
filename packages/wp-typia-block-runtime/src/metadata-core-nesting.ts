@@ -203,7 +203,9 @@ function normalizeInnerBlocksTemplate(
   context: string,
 ): NormalizedBlockInnerBlocksTemplate {
   if (!Array.isArray(value)) {
-    throw new Error(`${context} must be an array of InnerBlocks template tuples.`);
+    throw new Error(
+      `${context} must be an array of InnerBlocks template tuples.`,
+    );
   }
 
   return value.map((item, index) => {
@@ -306,7 +308,9 @@ function validateKnownBlockName(
   const isExternalBlockName =
     options.allowExternalBlockName === true &&
     knownBlockNameContext.allowExternalBlockNames &&
-    !knownBlockNameContext.knownBlockNamespaces.has(getBlockNamespace(blockName));
+    !knownBlockNameContext.knownBlockNamespaces.has(
+      getBlockNamespace(blockName),
+    );
 
   if (isExternalBlockName) {
     return;
@@ -358,7 +362,12 @@ export function validateBlockNestingContract(
   const issues: string[] = [];
 
   for (const [blockName, rule] of Object.entries(normalized)) {
-    validateKnownBlockName(issues, knownBlockNameContext, blockName, 'Contract key');
+    validateKnownBlockName(
+      issues,
+      knownBlockNameContext,
+      blockName,
+      'Contract key',
+    );
 
     for (const key of BLOCK_NESTING_RELATION_KEYS) {
       const relatedBlockNames = rule[key];
@@ -423,7 +432,9 @@ export function validateBlockNestingContract(
   }
 
   if (issues.length > 0) {
-    throw new Error(`Invalid block nesting contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`);
+    throw new Error(
+      `Invalid block nesting contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
+    );
   }
 }
 
@@ -436,7 +447,11 @@ export function getInnerBlocksTemplatesFromNesting(
 
   const templates: Record<string, BlockInnerBlocksTemplate> = {};
   for (const [blockName, rule] of Object.entries(nesting)) {
-    if (isRecord(rule) && hasOwn(rule, 'template') && rule.template !== undefined) {
+    if (
+      isRecord(rule) &&
+      hasOwn(rule, 'template') &&
+      rule.template !== undefined
+    ) {
       assertBlockName(blockName, `Block nesting contract key "${blockName}"`);
       templates[blockName] = rule.template as BlockInnerBlocksTemplate;
     }
@@ -470,7 +485,9 @@ function hasRelationshipOverlap(
   expectedBlockNames: readonly string[],
   actualBlockNames: readonly string[],
 ): boolean {
-  return expectedBlockNames.some((blockName) => actualBlockNames.includes(blockName));
+  return expectedBlockNames.some((blockName) =>
+    actualBlockNames.includes(blockName),
+  );
 }
 
 function validateInnerBlocksTemplateList(
@@ -587,7 +604,9 @@ export function validateInnerBlocksTemplates(
   );
 
   if (issues.length > 0) {
-    throw new Error(`Invalid InnerBlocks template contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`);
+    throw new Error(
+      `Invalid InnerBlocks template contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
+    );
   }
 }
 
@@ -764,7 +783,11 @@ function parseBlockPatternContent(
   ];
 
   for (const match of content.matchAll(WORDPRESS_BLOCK_COMMENT_PATTERN)) {
-    const comment = parseBlockPatternComment(match[1] ?? '', diagnostics, patternFile);
+    const comment = parseBlockPatternComment(
+      match[1] ?? '',
+      diagnostics,
+      patternFile,
+    );
     if (!comment) {
       continue;
     }
@@ -877,7 +900,9 @@ function isKnownOrAllowedExternalBlockName(
 
   return (
     knownBlockNameContext.allowExternalBlockNames &&
-    !knownBlockNameContext.knownBlockNamespaces.has(getBlockNamespace(blockName))
+    !knownBlockNameContext.knownBlockNamespaces.has(
+      getBlockNamespace(blockName),
+    )
   );
 }
 

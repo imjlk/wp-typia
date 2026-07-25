@@ -1,1 +1,1 @@
-export * from "../templates/built-in-block-code-templates/compound-persistence.js";
+export * from '../templates/built-in-block-code-templates/compound-persistence.js';
