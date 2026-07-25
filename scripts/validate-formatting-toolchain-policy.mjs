@@ -342,6 +342,15 @@ function inspectEslintConfig(sourceText) {
     }
 
     if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      isTypeScriptEslintPackage(node.moduleSpecifier.text)
+    ) {
+      hasTypeScriptEslint = true;
+    }
+
+    if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
         (ts.isIdentifier(node.expression) &&
@@ -544,10 +553,19 @@ export function validateFormattingToolchainPolicy(
   }
 
   const eslintConfigSource = readRelativeText(repoRoot, 'eslint.config.mjs');
-  const eslintConfig = inspectEslintConfig(eslintConfigSource);
-  if (eslintConfig.hasTypeScriptEslint || eslintConfig.hasTypeScriptFileScope) {
+  try {
+    const eslintConfig = inspectEslintConfig(eslintConfigSource);
+    if (
+      eslintConfig.hasTypeScriptEslint ||
+      eslintConfig.hasTypeScriptFileScope
+    ) {
+      errors.push(
+        'eslint.config.mjs must keep TypeScript outside the ESLint scope; @ttsc/lint owns TS/TSX.',
+      );
+    }
+  } catch (error) {
     errors.push(
-      'eslint.config.mjs must keep TypeScript outside the ESLint scope; @ttsc/lint owns TS/TSX.',
+      `eslint.config.mjs must be statically inspectable: ${error instanceof Error ? error.message : String(error)}.`,
     );
   }
 
