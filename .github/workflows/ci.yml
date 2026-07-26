@@ -141,6 +141,12 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      - name: Restore ttsc source plugin cache
+        uses: actions/cache@v6
+        with:
+          path: node_modules/.cache/ttsc/plugins
+          key: ttsc-source-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+
       - name: Build Project Tools workspace packages
         run: bun run project-tools-prebuilt:prepare
 
@@ -188,6 +194,12 @@ jobs:
         uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Restore ttsc source plugin cache
+        uses: actions/cache@v6
+        with:
+          path: node_modules/.cache/ttsc/plugins
+          key: ttsc-source-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
       - name: Download prebuilt workspace
         uses: actions/download-artifact@v8

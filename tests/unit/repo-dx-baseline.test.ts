@@ -390,6 +390,14 @@ describe('repository DX baseline', () => {
     expect(prepareJob).toContain('bun run project-tools-prebuilt:prepare');
     expect(prepareJob).toContain('name: project-tools-workspace-dist');
     expect(prepareJob).toContain('bun run project-tools-prebuilt:validate');
+    const ttscPluginCache = [
+      'uses: actions/cache@v6',
+      'path: node_modules/.cache/ttsc/plugins',
+      "key: ttsc-source-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}",
+    ];
+    for (const cacheContract of ttscPluginCache) {
+      expect(prepareJob).toContain(cacheContract);
+    }
     for (const packagePath of [
       'wp-typia-api-client/dist/',
       'wp-typia-block-types/dist/',
@@ -412,6 +420,9 @@ describe('repository DX baseline', () => {
     );
     expect(testJob).toContain('uses: actions/download-artifact@v8');
     expect(testJob).toContain('path: packages');
+    for (const cacheContract of ttscPluginCache) {
+      expect(testJob).toContain(cacheContract);
+    }
     expect(testJob).toContain(
       'PROJECT_TOOLS_TEST_SCRIPT: ${{ matrix.script }}',
     );
