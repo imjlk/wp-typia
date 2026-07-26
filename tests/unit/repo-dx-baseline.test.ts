@@ -66,6 +66,9 @@ describe('repository DX baseline', () => {
     expect(scripts['examples:build']).toBe(
       'node scripts/run-clean-examples-build.mjs',
     );
+    expect(scripts['test:coverage:packages']).toStartWith(
+      'bun run packages:build && bun run test:unit:coverage',
+    );
     expect(scripts['lint:repo']).toBe('eslint . --max-warnings=0');
     expect(scripts['lint:fix']).toBe(
       'eslint . --fix --max-warnings=0 && ttsc fix --singleThreaded',

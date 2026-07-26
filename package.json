@@ -67,7 +67,7 @@
     "test:project-tools:migration-execution": "bun run --filter @wp-typia/project-tools test:migration-execution",
     "test:project-tools:migration-execution:run": "bun scripts/run-project-tools-test-shard.ts migration-execution",
     "project-tools-prebuilt:validate": "bun scripts/validate-project-tools-prebuilt.ts",
-    "test:coverage:packages": "bun run test:unit:coverage && bun run --filter @wp-typia/block-types test:coverage && bun run --filter @wp-typia/dataviews test:coverage && bun run --filter @wp-typia/rest test:coverage && bun run --filter @wp-typia/api-client test:coverage && bun run --filter wp-typia test:coverage && bun run --filter @wp-typia/block-runtime test:coverage",
+    "test:coverage:packages": "bun run packages:build && bun run test:unit:coverage && bun run --filter @wp-typia/block-types test:coverage && bun run --filter @wp-typia/dataviews test:coverage && bun run --filter @wp-typia/rest test:coverage && bun run --filter @wp-typia/api-client test:coverage && bun run --filter wp-typia test:coverage && bun run --filter @wp-typia/block-runtime test:coverage",
     "test:coverage:project-tools": "bun run --filter @wp-typia/project-tools test:coverage",
     "test:unit:coverage": "bun test tests/unit --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage/unit",
     "test:cli:coverage": "bun run --filter @wp-typia/block-types test:coverage && bun run --filter @wp-typia/dataviews test:coverage && bun run --filter @wp-typia/rest test:coverage && bun run --filter @wp-typia/api-client test:coverage && bun run --filter @wp-typia/project-tools test:coverage && bun run --filter wp-typia test:coverage && bun run --filter @wp-typia/block-runtime test:coverage",
