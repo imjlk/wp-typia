@@ -35,6 +35,9 @@ function createFormattingPolicyRepo() {
   const policy = FORMATTING_TOOLCHAIN_POLICY;
 
   writeJson(path.join(repoRoot, 'package.json'), {
+    dependencies: {
+      typia: policy.typiaVersion,
+    },
     devDependencies: {
       '@ttsc/lint': policy.ttscLintVersion,
       '@typescript/typescript6': policy.typescript6Version,
@@ -54,7 +57,12 @@ function createFormattingPolicyRepo() {
       'formatting-policy:validate': policy.rootPolicyValidateScript,
       typecheck: policy.rootTypecheckScript,
     },
+    patchedDependencies: policy.compatibilityPatches,
   });
+
+  for (const patchPath of Object.values(policy.compatibilityPatches)) {
+    writeText(path.join(repoRoot, patchPath), 'compatibility patch fixture\n');
+  }
 
   writeText(
     path.join(repoRoot, 'lint.config.ts'),
@@ -159,6 +167,62 @@ describe('validateFormattingToolchainPolicy', () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
       `package.json must declare devDependencies.prettier="${FORMATTING_TOOLCHAIN_POLICY.prettierVersion}", found "3.0.0".`,
+    );
+  });
+
+  test('fails when a required compatibility patch mapping is missing', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const packageJsonPath = path.join(repoRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    delete packageJson.patchedDependencies['typia@13.2.0'];
+    writeJson(packageJsonPath, packageJson);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'package.json must declare patchedDependencies["typia@13.2.0"]="patches/typia@13.2.0.patch", found null.',
+    );
+  });
+
+  test('fails when a patch key or path drifts from its exact package version', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const packageJsonPath = path.join(repoRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    packageJson.dependencies.typia = '13.2.1';
+    delete packageJson.patchedDependencies['typia@13.2.0'];
+    packageJson.patchedDependencies['typia@13.2.1'] =
+      'patches/typia@13.2.1.patch';
+    packageJson.patchedDependencies['@ttsc/lint@0.22.0'] =
+      'patches/lint.patch';
+    writeJson(packageJsonPath, packageJson);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'package.json must declare dependencies.typia="13.2.0", found "13.2.1".',
+    );
+    expect(result.errors).toContain(
+      'package.json must declare patchedDependencies["typia@13.2.0"]="patches/typia@13.2.0.patch", found null.',
+    );
+    expect(result.errors).toContain(
+      'package.json must declare patchedDependencies["@ttsc/lint@0.22.0"]="patches/@ttsc%2Flint@0.22.0.patch", found "patches/lint.patch".',
+    );
+    expect(result.errors).toContain(
+      'package.json must not declare undocumented compatibility patch "typia@13.2.1".',
+    );
+  });
+
+  test('fails when a required compatibility patch file is missing', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    fs.rmSync(path.join(repoRoot, 'patches/typia@13.2.0.patch'));
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'patches/typia@13.2.0.patch must exist as the compatibility patch for "typia@13.2.0".',
     );
   });
 

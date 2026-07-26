@@ -27,6 +27,11 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   rootPolicyValidateScript: 'node scripts/validate-formatting-toolchain-policy.mjs';
   ttscLintVersion: '0.22.0';
   ttscVersion: '0.22.0';
+  typiaVersion: '13.2.0';
+  compatibilityPatches: Readonly<{
+    '@ttsc/lint@0.22.0': 'patches/@ttsc%2Flint@0.22.0.patch';
+    'typia@13.2.0': 'patches/typia@13.2.0.patch';
+  }>;
   generatedPackageManifestPaths: readonly string[];
   generatedWpScriptsLintCompatTemplateRoots: readonly string[];
   workspaceExamplePackagePaths: readonly string[];

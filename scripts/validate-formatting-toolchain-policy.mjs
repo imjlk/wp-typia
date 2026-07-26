@@ -5,6 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from '@typescript/typescript6';
 
+const TTSC_LINT_VERSION = '0.22.0';
+const TYPIA_VERSION = '13.2.0';
+
 export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   eslintJsVersion: '9.39.4',
   eslintVersion: '9.39.4',
@@ -32,8 +35,13 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootFormatCheckScript: 'node scripts/check-repo-format.mjs',
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
-  ttscLintVersion: '0.22.0',
+  ttscLintVersion: TTSC_LINT_VERSION,
   ttscVersion: '0.22.0',
+  typiaVersion: TYPIA_VERSION,
+  compatibilityPatches: Object.freeze({
+    [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,
+    [`typia@${TYPIA_VERSION}`]: `patches/typia@${TYPIA_VERSION}.patch`,
+  }),
   generatedPackageManifestPaths: Object.freeze([
     'packages/create-workspace-template/package.json.mustache',
     'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
@@ -559,6 +567,37 @@ function getLintJobBlock(workflowSource) {
   return lintBlockLines.join('\n');
 }
 
+function validateCompatibilityPatches(repoRoot, packageJson, policy, errors) {
+  const actualPatches = packageJson.patchedDependencies ?? {};
+  const expectedPatches = policy.compatibilityPatches;
+
+  for (const [packageId, patchPath] of Object.entries(expectedPatches)) {
+    if (actualPatches[packageId] !== patchPath) {
+      errors.push(
+        `package.json must declare patchedDependencies[${JSON.stringify(packageId)}]=${JSON.stringify(patchPath)}, found ${JSON.stringify(actualPatches[packageId] ?? null)}.`,
+      );
+    }
+
+    const absolutePatchPath = path.join(repoRoot, patchPath);
+    if (
+      !fs.existsSync(absolutePatchPath) ||
+      !fs.statSync(absolutePatchPath).isFile()
+    ) {
+      errors.push(
+        `${patchPath} must exist as the compatibility patch for ${JSON.stringify(packageId)}.`,
+      );
+    }
+  }
+
+  for (const packageId of Object.keys(actualPatches)) {
+    if (!(packageId in expectedPatches)) {
+      errors.push(
+        `package.json must not declare undocumented compatibility patch ${JSON.stringify(packageId)}.`,
+      );
+    }
+  }
+}
+
 export function validateFormattingToolchainPolicy(
   repoRoot = DEFAULT_REPO_ROOT,
 ) {
@@ -597,6 +636,14 @@ export function validateFormattingToolchainPolicy(
       `package.json must declare devDependencies["@ttsc/lint"]="${policy.ttscLintVersion}", found ${JSON.stringify(devDependencies['@ttsc/lint'] ?? null)}.`,
     );
   }
+
+  if (packageJson.dependencies?.typia !== policy.typiaVersion) {
+    errors.push(
+      `package.json must declare dependencies.typia="${policy.typiaVersion}", found ${JSON.stringify(packageJson.dependencies?.typia ?? null)}.`,
+    );
+  }
+
+  validateCompatibilityPatches(repoRoot, packageJson, policy, errors);
 
   if (
     devDependencies['@typescript/typescript6'] !== policy.typescript6Version

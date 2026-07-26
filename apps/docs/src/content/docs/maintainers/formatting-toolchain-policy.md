@@ -100,6 +100,34 @@ remain under `ttsc`. Generated manifests also declare React 18 and its type
 packages directly so TS7 JSX resolution is reproducible under npm, Bun, pnpm,
 and Yarn rather than depending on transitive hoisting.
 
+## Root compatibility patches
+
+The root Bun workspace carries two exact-version build-tool patches:
+
+- `typia@13.2.0` accepts the JSON-encoded `--tsgo-args` envelope in its native
+  `ttsc-typia` build and transform hosts. Without the patch, TypeScript CLI
+  options forwarded by `ttsc`, such as `--strict`, do not reach the tsgo
+  program used by the typia transform.
+- `@ttsc/lint@0.22.0` avoids asking the TypeScript-Go shim for a declaration
+  type-parameter list when formatting mapped-type and `infer` type parameters.
+  Without the patch, trailing-comma formatting can panic on those nodes.
+
+These patches belong only to the root development and build toolchain.
+Published packages and generated projects do not inherit Bun
+`patchedDependencies`; their install smoke tests must pass against registry
+typia and ttsc packages.
+
+The formatting policy validator ties each patch path to its exact package
+version and fails when the package version, mapping, or patch file changes. To
+upgrade either dependency:
+
+1. install the new unpatched version and run the ttsc compatibility regression
+   tests;
+2. remove the patch only when CLI option forwarding, typia transformation, and
+   mapped/`infer` formatting all pass without it;
+3. otherwise port the patch to the exact new version, update the documented
+   mapping, and rerun generated-project and publish-install smoke tests.
+
 ## CI posture
 
 Formatting is a first-class CI expectation.
