@@ -292,7 +292,7 @@ describe('wp-typia package', () => {
         parsed.data?.plan?.packageChanges?.scripts?.map(
           (script) => script.name,
         ),
-      ).toEqual(['sync', 'sync-types', 'typecheck']);
+      ).toEqual(['postinstall', 'sync', 'sync-types', 'typecheck']);
       expect(parsed.data?.projectDir).toBe(fs.realpathSync(fixtureRoot));
       expect(parsed.data?.packageManager).toBe('npm');
       expect(parsed.data?.files).toEqual(

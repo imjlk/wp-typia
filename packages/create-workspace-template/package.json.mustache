@@ -9,6 +9,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "postinstall": "node scripts/apply-ttsc-lint-compat.mjs",
     "sync": "ttsx scripts/sync-project.ts",
     "sync-types": "ttsx scripts/sync-types-to-block-json.ts",
     "sync-rest": "ttsx scripts/sync-rest-contracts.ts",
@@ -42,7 +43,7 @@
     "@wp-typia/project-tools": "{{projectToolsPackageVersion}}",
     "@wp-typia/rest": "{{restPackageVersion}}",
     "wp-typia": "{{wpTypiaPackageVersion}}",
-    "@ttsc/lint": "^0.22.0",
+    "@ttsc/lint": "0.22.0",
     "@ttsc/unplugin": "^0.22.0",
     "@typescript/typescript6": "6.0.2",
     "@types/node": "^24.5.2",

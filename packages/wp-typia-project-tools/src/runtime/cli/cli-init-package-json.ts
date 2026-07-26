@@ -26,6 +26,7 @@ import type {
 import { parseWorkspacePackageManagerId } from '../workspace/workspace-project.js';
 
 const BASE_RETROFIT_SCRIPTS = {
+  postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
   sync: 'ttsx scripts/sync-project.ts',
   'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
   typecheck: 'bun run sync --check && ttsc --noEmit',
@@ -145,6 +146,14 @@ function getExistingDependencyVersion(
   return packageJson?.devDependencies?.[name] ?? packageJson?.dependencies?.[name];
 }
 
+export function hasObsoleteTypiaUnpluginDependency(
+	packageJson: ProjectPackageJson | null,
+): boolean {
+  return (
+		getExistingDependencyVersion(packageJson, '@typia/unplugin') !== undefined
+  );
+}
+
 export function buildDependencyChanges(
 	packageJson: ProjectPackageJson | null,
 ): InitDependencyChange[] {
@@ -176,11 +185,21 @@ export function buildScriptChanges(
 
   return Object.entries(BASE_RETROFIT_SCRIPTS).flatMap(
 		([name, commandSource]) => {
-			const requiredValue = transformPackageManagerText(
+			const command = transformPackageManagerText(
 				commandSource,
 				packageManager,
 			);
 			const currentValue = scripts[name];
+			let requiredValue = command;
+			if (
+				name === 'postinstall' &&
+				typeof currentValue === 'string' &&
+				currentValue.trim().length > 0
+			) {
+				requiredValue = currentValue.includes(command)
+					? currentValue
+					: `${currentValue} && ${command}`;
+			}
 			if (currentValue === requiredValue) {
 				return [];
 			}
@@ -272,6 +291,14 @@ function setDependencyVersion(
   packageJson.devDependencies[name] = requiredValue;
 }
 
+function removeDependency(
+	packageJson: ProjectPackageJson,
+	name: string,
+): void {
+  delete packageJson.devDependencies?.[name];
+  delete packageJson.dependencies?.[name];
+}
+
 export function buildNextProjectPackageJson(options: {
   packageChanges: RetrofitInitPlan['packageChanges'];
   packageJson: ProjectPackageJson | null;
@@ -295,6 +322,7 @@ export function buildNextProjectPackageJson(options: {
       dependencyChange.requiredValue,
     );
   }
+  removeDependency(nextPackageJson, '@typia/unplugin');
 
   if (options.packageChanges.packageManagerField) {
     nextPackageJson.packageManager =

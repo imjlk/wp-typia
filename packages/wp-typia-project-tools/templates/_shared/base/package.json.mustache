@@ -10,6 +10,7 @@
   },
   "main": "build/index.js",
   "scripts": {
+    "postinstall": "node scripts/apply-ttsc-lint-compat.mjs",
     "sync": "ttsx scripts/sync-project.ts",
     "sync-types": "ttsx scripts/sync-types-to-block-json.ts",
     "build": "bun run sync --check && wp-scripts build --experimental-modules",
@@ -32,7 +33,7 @@
     "@wordpress/scripts": "^30.22.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-jsx-a11y": "^6.10.2",
-    "@ttsc/lint": "^0.22.0",
+    "@ttsc/lint": "0.22.0",
     "@ttsc/unplugin": "^0.22.0",
     "@typescript/typescript6": "6.0.2",
     "@types/react": "^18.3.28",

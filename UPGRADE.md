@@ -27,6 +27,13 @@ Generated TypeScript workflows now use `ttsc` and `ttsx`:
 - upgrade `typia` to 13.x and use `@ttsc/unplugin` for Webpack integration
 - remove `@typia/unplugin`, `ts-patch`, and other superseded transformer wiring
 
+`wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
+migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
+and retrofitted projects pin `@ttsc/lint@0.22.0` and run the generated
+`scripts/apply-ttsc-lint-compat.mjs` install hook until an unpatched upstream
+release passes the mapped/`infer` formatter regression. The hook affects only
+the development compiler plugin; it is not a WordPress runtime dependency.
+
 TypeScript 7 does not expose the JavaScript Compiler API. Custom tooling that
 imports `typescript` at runtime should use the isolated
 `@typescript/typescript6` compatibility package instead.

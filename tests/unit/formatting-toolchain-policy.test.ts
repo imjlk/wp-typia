@@ -109,6 +109,7 @@ if (request === 'typescript') {}
   for (const relativePath of policy.generatedPackageManifestPaths) {
     const scripts: Record<string, string> = {
       'lint:js': policy.generatedWpScriptsLintJsScript,
+      postinstall: policy.generatedTtscLintCompatScript,
     };
     if (
       policy.generatedWpScriptsStyleLintManifestPaths.includes(relativePath)
@@ -118,7 +119,7 @@ if (request === 'typescript') {}
     writeJson(path.join(repoRoot, relativePath), {
       scripts,
       devDependencies: {
-        '@ttsc/lint': `^${policy.ttscLintVersion}`,
+        '@ttsc/lint': policy.ttscLintVersion,
         '@typescript/typescript6': policy.typescript6Version,
         '@types/react': policy.generatedReactTypesVersion,
         '@types/react-dom': policy.generatedReactDomTypesVersion,
@@ -132,7 +133,24 @@ if (request === 'typescript') {}
     });
   }
 
-  for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {
+  for (const templateRoot of policy.generatedTtscLintCompatTemplateRoots) {
+    writeText(
+      path.join(
+        repoRoot,
+        templateRoot,
+        policy.generatedTtscLintCompatTemplatePath,
+      ),
+      `const REQUIRED_VERSION = '${policy.ttscLintVersion}';
+const sourcePath = path.join('linthost', 'rules_format_trailing_comma.go');
+if node.Parent.FunctionLikeData() == nil {
+}
+fs.writeFileSync(
+  sourcePath,
+  source,
+);
+fs.renameSync(temporaryPath, sourcePath);
+`,
+    );
     writeText(
       path.join(
         repoRoot,
@@ -250,6 +268,58 @@ describe('validateFormattingToolchainPolicy', () => {
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
       'patches/typia@13.2.0.patch must exist as the compatibility patch for "typia@13.2.0".',
+    );
+  });
+
+  test('fails when a generated ttsc lint compatibility hook drifts', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const manifestPath = path.join(
+      repoRoot,
+      'packages/create-workspace-template/package.json.mustache',
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifest.devDependencies['@ttsc/lint'] = '^0.22.0';
+    delete manifest.scripts.postinstall;
+    writeJson(manifestPath, manifest);
+    fs.rmSync(
+      path.join(
+        repoRoot,
+        'packages/create-workspace-template',
+        FORMATTING_TOOLCHAIN_POLICY.generatedTtscLintCompatTemplatePath,
+      ),
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@ttsc/lint"]="0.22.0" while the generated compatibility hook targets that exact source, found "^0.22.0".',
+    );
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/package.json.mustache must keep scripts.postinstall="node scripts/apply-ttsc-lint-compat.mjs", found null.',
+    );
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/scripts/apply-ttsc-lint-compat.mjs.mustache must exist so generated projects patch the exact @ttsc/lint source before ttsc runs.',
+    );
+  });
+
+  test('compares generated ttsc lint hooks with the explicit shared-base canonical source', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const relativePath = path.join(
+      'packages/create-workspace-template',
+      FORMATTING_TOOLCHAIN_POLICY.generatedTtscLintCompatTemplatePath,
+    );
+    fs.appendFileSync(
+      path.join(repoRoot, relativePath),
+      '\n// Noncanonical generated hook drift.\n',
+      'utf8',
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      `${relativePath} must match the canonical generated @ttsc/lint compatibility hook byte-for-byte.`,
     );
   });
 

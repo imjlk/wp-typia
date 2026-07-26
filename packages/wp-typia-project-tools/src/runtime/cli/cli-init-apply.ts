@@ -19,6 +19,10 @@ import {
 import { createRetrofitPlan, getInitPlan } from './cli-init-plan.js';
 import { buildRetrofitHelperFiles } from './cli-init-templates.js';
 import {
+  collectRetrofitWebpackChanges,
+  type RetrofitWebpackChange,
+} from './cli-init-webpack.js';
+import {
   RETROFIT_APPLY_PREVIEW_NOTE,
   RETROFIT_ROLLBACK_NOTE,
   type ProjectPackageJson,
@@ -52,6 +56,7 @@ async function writeRetrofitFiles(options: {
   blockTargets: RetrofitInitBlockTarget[];
   packageJson: ProjectPackageJson;
   projectDir: string;
+  webpackChanges: RetrofitWebpackChange[];
 }): Promise<void> {
   const helperFiles = buildRetrofitHelperFiles(options.blockTargets);
   const scriptsDir = path.join(options.projectDir, 'scripts');
@@ -67,6 +72,13 @@ async function writeRetrofitFiles(options: {
     await fsp.writeFile(
       path.join(options.projectDir, relativePath),
       source,
+      'utf8',
+    );
+  }
+  for (const change of options.webpackChanges) {
+    await fsp.writeFile(
+      path.join(options.projectDir, change.path),
+      change.source,
       'utf8',
     );
   }
@@ -136,10 +148,14 @@ export async function applyInitPlan(
     projectName: previewPlan.projectName,
   });
   const helperFiles = buildRetrofitHelperFiles(previewPlan.blockTargets);
+  const webpackChanges = collectRetrofitWebpackChanges(previewPlan.projectDir);
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
 		...Object.keys(helperFiles).map((relativePath) =>
 			path.join(previewPlan.projectDir, relativePath),
+		),
+		...webpackChanges.map((change) =>
+			path.join(previewPlan.projectDir, change.path),
 		),
 	];
   const mutationSnapshot = await createRetrofitMutationSnapshot(
@@ -152,6 +168,7 @@ export async function applyInitPlan(
       blockTargets: previewPlan.blockTargets,
       packageJson: nextPackageJson,
       projectDir: previewPlan.projectDir,
+      webpackChanges,
     });
   } catch (error) {
     await rollbackWorkspaceMutation(mutationSnapshot);

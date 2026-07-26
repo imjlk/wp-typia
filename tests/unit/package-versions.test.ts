@@ -136,7 +136,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^2.3.4',
 			projectToolsPackageVersion: '^4.5.6',
 			restPackageVersion: '^3.4.5',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',
@@ -174,7 +174,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^2.3.4',
 			projectToolsPackageVersion: '^4.5.6',
 			restPackageVersion: '^3.4.5',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',
@@ -184,6 +184,32 @@ describe('package version helpers', () => {
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});
+	});
+
+	test('keeps the exact ttsc lint fallback when the monorepo uses workspace protocol', async () => {
+		const monorepoRoot = createTempDir('wp-typia-workspace-lint-root-');
+		const createPackageRoot = path.join(
+			monorepoRoot,
+			'packages',
+			'wp-typia-project-tools',
+		);
+
+		writeJsonFile(path.join(monorepoRoot, 'package.json'), {
+			devDependencies: {
+				'@ttsc/lint': 'workspace:*',
+			},
+		});
+		writeJsonFile(path.join(createPackageRoot, 'package.json'), {
+			version: '4.5.6',
+		});
+
+		const module = await importPackageVersionsModule({
+			createPackageRoot,
+		});
+
+		expect(module.getPackageVersions().ttscLintPackageVersion).toBe(
+			'0.22.0',
+		);
 	});
 
 	test('falls back to installed package manifests when the workspace manifest is missing', async () => {
@@ -216,7 +242,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^0.3.0',
 			projectToolsPackageVersion: '^0.8.0',
 			restPackageVersion: '~0.4.0',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',
@@ -277,7 +303,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^0.2.0',
 			projectToolsPackageVersion: '^0.11.0',
 			restPackageVersion: '^0.3.1',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',
@@ -307,7 +333,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^0.0.0',
 			projectToolsPackageVersion: '^0.0.0',
 			restPackageVersion: '^0.0.0',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',
@@ -358,7 +384,7 @@ describe('package version helpers', () => {
 			blockTypesPackageVersion: '^2.3.4',
 			projectToolsPackageVersion: '^11.22.33',
 			restPackageVersion: '^30.40.50',
-			ttscLintPackageVersion: '^0.22.0',
+			ttscLintPackageVersion: '0.22.0',
 			ttscPackageVersion: '^0.22.0',
 			tsxPackageVersion: '^0.22.0',
 			typiaPackageVersion: '^0.0.0',

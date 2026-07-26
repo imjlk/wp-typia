@@ -26,6 +26,11 @@ const GENERATED_WP_SCRIPTS_STYLE_LINT_MANIFEST_PATHS = Object.freeze(
     (relativePath) => relativePath !== QUERY_LOOP_PACKAGE_MANIFEST_PATH,
   ),
 );
+const GENERATED_LINT_COMPAT_TEMPLATE_ROOTS = Object.freeze([
+  'packages/create-workspace-template',
+  'packages/wp-typia-project-tools/templates/_shared/base',
+  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates',
+]);
 
 export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   eslintJsVersion: '9.39.4',
@@ -37,6 +42,11 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   generatedWpScriptsLintJsScript:
     'node scripts/run-wp-scripts-lint-js-compat.mjs',
   generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input',
+  generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs',
+  generatedTtscLintCompatCanonicalTemplateRoot:
+    'packages/wp-typia-project-tools/templates/_shared/base',
+  generatedTtscLintCompatTemplatePath:
+    'scripts/apply-ttsc-lint-compat.mjs.mustache',
   generatedReactDomTypesVersion: '^18.3.7',
   generatedReactDomVersion: '^18.3.1',
   generatedReactTypesVersion: '^18.3.28',
@@ -86,10 +96,11 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   generatedPackageManifestPaths: GENERATED_PACKAGE_MANIFEST_PATHS,
   generatedWpScriptsStyleLintManifestPaths:
     GENERATED_WP_SCRIPTS_STYLE_LINT_MANIFEST_PATHS,
+  generatedTtscLintCompatTemplateRoots: Object.freeze([
+    ...GENERATED_LINT_COMPAT_TEMPLATE_ROOTS,
+  ]),
   generatedWpScriptsLintCompatTemplateRoots: Object.freeze([
-    'packages/create-workspace-template',
-    'packages/wp-typia-project-tools/templates/_shared/base',
-    'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates',
+    ...GENERATED_LINT_COMPAT_TEMPLATE_ROOTS,
   ]),
   workspaceExamplePackagePaths: Object.freeze([
     'examples/api-contract-adapter-poc/package.json',
@@ -102,8 +113,9 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     'examples/persistence-examples/package.json',
     'examples/compound-patterns/package.json',
   ]),
-  // Root dependencies are exact for a reproducible workspace; generated
-  // projects use compatible caret ranges so patch releases remain available.
+  // Root dependencies are exact for a reproducible workspace. Generated
+  // projects keep @ttsc/lint exact while the compatibility hook targets that
+  // exact source version.
   ttscLintConfig: Object.freeze({
     ignores: Object.freeze([
       '**/*.d.ts',
@@ -474,7 +486,6 @@ function validateGeneratedTemplateManifest(
   const manifest = JSON.parse(sourceText);
   const devDependencyPrettier = manifest.devDependencies?.prettier;
   const expectedTtscRange = `^${policy.ttscVersion}`;
-  const expectedTtscLintRange = `^${policy.ttscLintVersion}`;
 
   validateNoTypeScriptEslintDevDependencies(relativePath, manifest, errors);
 
@@ -494,9 +505,15 @@ function validateGeneratedTemplateManifest(
     );
   }
 
-  if (manifest.devDependencies?.['@ttsc/lint'] !== expectedTtscLintRange) {
+  if (manifest.devDependencies?.['@ttsc/lint'] !== policy.ttscLintVersion) {
     errors.push(
-      `${relativePath} must declare devDependencies["@ttsc/lint"]="${expectedTtscLintRange}", found ${JSON.stringify(manifest.devDependencies?.['@ttsc/lint'] ?? null)}.`,
+      `${relativePath} must declare devDependencies["@ttsc/lint"]="${policy.ttscLintVersion}" while the generated compatibility hook targets that exact source, found ${JSON.stringify(manifest.devDependencies?.['@ttsc/lint'] ?? null)}.`,
+    );
+  }
+
+  if (manifest.scripts?.postinstall !== policy.generatedTtscLintCompatScript) {
+    errors.push(
+      `${relativePath} must keep scripts.postinstall="${policy.generatedTtscLintCompatScript}", found ${JSON.stringify(manifest.scripts?.postinstall ?? null)}.`,
     );
   }
 
@@ -609,6 +626,68 @@ function validateWpScriptsLintCompatSources(
       `${registerRelativePath} must redirect TypeScript consumers to @typescript/typescript6.`,
     );
   }
+}
+
+function validateGeneratedTtscLintCompatSource(
+  repoRoot,
+  relativePath,
+  policy,
+  expectedSource,
+  errors,
+) {
+  const filePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(filePath)) {
+    errors.push(
+      `${relativePath} must exist so generated projects patch the exact @ttsc/lint source before ttsc runs.`,
+    );
+    return null;
+  }
+
+  const source = fs.readFileSync(filePath, 'utf8');
+  const escapedVersion = policy.ttscLintVersion.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    '\\$&',
+  );
+  for (const { description, pattern } of [
+    {
+      description: `an executable REQUIRED_VERSION declaration for ${policy.ttscLintVersion}`,
+      pattern: new RegExp(
+        `^const REQUIRED_VERSION = '${escapedVersion}';$`,
+        'mu',
+      ),
+    },
+    {
+      description: 'the @ttsc/lint trailing-comma source path',
+      pattern:
+        /const sourcePath = path\.join\([\s\S]*?['"]linthost['"],[\s\S]*?['"]rules_format_trailing_comma\.go['"][\s\S]*?\);/u,
+    },
+    {
+      description: 'the mapped/infer FunctionLikeData guard',
+      pattern: /^\s*if node\.Parent\.FunctionLikeData\(\) == nil \{$/mu,
+    },
+    {
+      description: 'the atomic temporary-file write',
+      pattern: /^\s*fs\.writeFileSync\($/mu,
+    },
+    {
+      description: 'the atomic rename into the installed package',
+      pattern: /^\s*fs\.renameSync\(temporaryPath, sourcePath\);$/mu,
+    },
+  ]) {
+    if (!pattern.test(source)) {
+      errors.push(
+        `${relativePath} must include ${description} for the guarded @ttsc/lint mapped/infer compatibility patch.`,
+      );
+    }
+  }
+
+  if (expectedSource !== null && source !== expectedSource) {
+    errors.push(
+      `${relativePath} must match the canonical generated @ttsc/lint compatibility hook byte-for-byte.`,
+    );
+  }
+
+  return source;
 }
 
 function validateGeneratedPrettierConfig(
@@ -958,6 +1037,29 @@ export function validateFormattingToolchainPolicy(
       repoRoot,
       path.join(templateRoot, `${policy.generatedPrettierConfigPath}.mustache`),
       policy,
+      errors,
+    );
+  }
+
+  const canonicalTtscLintCompatRelativePath = path.join(
+    policy.generatedTtscLintCompatCanonicalTemplateRoot,
+    policy.generatedTtscLintCompatTemplatePath,
+  );
+  const canonicalTtscLintCompatPath = path.join(
+    repoRoot,
+    canonicalTtscLintCompatRelativePath,
+  );
+  const generatedTtscLintCompatSource = fs.existsSync(
+    canonicalTtscLintCompatPath,
+  )
+    ? fs.readFileSync(canonicalTtscLintCompatPath, 'utf8')
+    : null;
+  for (const templateRoot of policy.generatedTtscLintCompatTemplateRoots) {
+    validateGeneratedTtscLintCompatSource(
+      repoRoot,
+      path.join(templateRoot, policy.generatedTtscLintCompatTemplatePath),
+      policy,
+      generatedTtscLintCompatSource,
       errors,
     );
   }

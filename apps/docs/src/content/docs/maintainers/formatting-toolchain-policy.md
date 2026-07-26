@@ -74,9 +74,10 @@ compatibility lane.
 
 ## Example apps and built-in templates
 
-Example apps and built-in scaffold package manifests stay aligned on compatible
-`ttsc`/`@ttsc/lint` `0.22.0` and `prettier` `3.8.2` ranges when they declare
-those direct development dependencies.
+Example apps and built-in scaffold package manifests stay aligned on
+`ttsc` `0.22.0` and `prettier` `3.8.2` ranges when they declare those direct
+development dependencies. Generated manifests pin `@ttsc/lint` to exact
+`0.22.0` while its compatibility hook targets that source.
 
 Their formatter scripts run `ttsc format` for TypeScript/TSX and then Prettier
 over JSON, Markdown, styles, and other non-TypeScript inputs. Generated
@@ -112,10 +113,26 @@ The root Bun workspace carries two exact-version build-tool patches:
   type-parameter list when formatting mapped-type and `infer` type parameters.
   Without the patch, trailing-comma formatting can panic on those nodes.
 
-These patches belong only to the root development and build toolchain.
-Published packages and generated projects do not inherit Bun
-`patchedDependencies`; their install smoke tests must pass against registry
-typia and ttsc packages.
+The Bun `patchedDependencies` mappings belong only to the root development and
+build toolchain. Published packages and generated projects do not inherit
+them; publish-install smoke must pass against registry typia and ttsc packages.
+
+Registry `@ttsc/lint@0.22.0` still reproduces the mapped/`infer` panic outside
+the root. Generated projects therefore include
+`scripts/apply-ttsc-lint-compat.mjs` and run it from `postinstall`. The script:
+
+- requires exact `@ttsc/lint@0.22.0`
+- verifies the expected unpatched or already-patched source before writing
+- atomically applies only the mapped/`infer` parent guard used by the root
+  patch, so pnpm-style content-addressed stores are not modified through a
+  shared file inode
+- works after npm, Bun, pnpm, or Yarn installs without adding a runtime
+  dependency
+- fails closed when the package version or source layout changes
+
+This is a generated development-tool compatibility hook, not a WordPress
+runtime dependency. Generated-project smoke owns the create, install, doctor,
+and build proof for this root-patch-free consumer path.
 
 The formatting policy validator ties each patch path to its exact package
 version and fails when the package version, mapping, or patch file changes. To
@@ -123,10 +140,12 @@ upgrade either dependency:
 
 1. install the new unpatched version and run the ttsc compatibility regression
    tests;
-2. remove the patch only when CLI option forwarding, typia transformation, and
-   mapped/`infer` formatting all pass without it;
-3. otherwise port the patch to the exact new version, update the documented
-   mapping, and rerun generated-project and publish-install smoke tests.
+2. remove the root patch and generated compatibility hook only when CLI option
+   forwarding, typia transformation, and mapped/`infer` formatting all pass
+   without them;
+3. otherwise port the root patch and generated hook to the exact new version,
+   update the documented mapping, and rerun generated-project and
+   publish-install smoke tests.
 
 ## CI posture
 

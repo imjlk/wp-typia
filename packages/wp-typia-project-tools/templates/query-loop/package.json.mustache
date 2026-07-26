@@ -10,6 +10,7 @@
   },
   "main": "build/index.js",
   "scripts": {
+    "postinstall": "node scripts/apply-ttsc-lint-compat.mjs",
     "build": "wp-scripts build --experimental-modules",
     "start": "wp-scripts start --experimental-modules",
     "dev": "wp-scripts start --experimental-modules",
@@ -20,7 +21,7 @@
     "typecheck": "ttsc --noEmit"
   },
   "devDependencies": {
-    "@ttsc/lint": "^0.22.0",
+    "@ttsc/lint": "0.22.0",
     "@wp-typia/block-types": "{{blockTypesPackageVersion}}",
     "@typescript/typescript6": "6.0.2",
     "@types/node": "^24.5.2",

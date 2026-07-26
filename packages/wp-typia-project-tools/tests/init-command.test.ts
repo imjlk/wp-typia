@@ -115,11 +115,13 @@ describe('wp-typia init', () => {
 				path: filePath,
 			})),
 		).toEqual([
+			{ action: 'add', path: 'scripts/apply-ttsc-lint-compat.mjs' },
 			{ action: 'add', path: 'scripts/block-config.ts' },
 			{ action: 'add', path: 'scripts/sync-types-to-block-json.ts' },
 			{ action: 'add', path: 'scripts/sync-project.ts' },
 		]);
 		expect(plan.packageChanges.scripts.map((script) => script.name)).toEqual([
+			'postinstall',
 			'sync',
 			'sync-types',
 			'typecheck',
@@ -284,6 +286,9 @@ describe('wp-typia init', () => {
 			DEFAULT_WORDPRESS_BLOCKS_VERSION,
 		);
 		expect(packageJson.scripts?.sync).toBe('ttsx scripts/sync-project.ts');
+		expect(packageJson.scripts?.postinstall).toBe(
+			'node scripts/apply-ttsc-lint-compat.mjs',
+		);
 		expect(packageJson.scripts?.typecheck).toBe(
 			'pnpm run sync --check && ttsc --noEmit',
 		);
@@ -292,6 +297,11 @@ describe('wp-typia init', () => {
 			"manifestFile: 'typia.manifest.json'",
 		);
 		expect(
+			fs.existsSync(
+				path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+			),
+		).toBe(true);
+		expect(
 			fs.existsSync(path.join(projectDir, 'scripts', 'sync-project.ts')),
 		).toBe(true);
 		expect(
@@ -299,6 +309,93 @@ describe('wp-typia init', () => {
 				path.join(projectDir, 'scripts', 'sync-types-to-block-json.ts'),
 			),
 		).toBe(true);
+	});
+
+	test('replaces an empty retrofit postinstall script without a shell prefix', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-empty-postinstall');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitEmptyPostinstallAttributes',
+			packageJson: {
+				scripts: {
+					postinstall: '',
+				},
+			},
+		});
+
+		const preview = getInitPlan(projectDir);
+		const postinstallChange = preview.packageChanges.scripts.find(
+			(script) => script.name === 'postinstall',
+		);
+		const applied = await applyInitPlan(projectDir);
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+		) as {
+			scripts?: Record<string, string>;
+		};
+
+		expect(postinstallChange).toEqual({
+			action: 'update',
+			currentValue: '',
+			name: 'postinstall',
+			requiredValue: 'node scripts/apply-ttsc-lint-compat.mjs',
+		});
+		expect(applied.status).toBe('applied');
+		expect(packageJson.scripts?.postinstall).toBe(
+			'node scripts/apply-ttsc-lint-compat.mjs',
+		);
+	});
+
+	test('removes the Typia 12 plugin and migrates its Webpack import during retrofit', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-typia-12-plugin');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitTypia12Attributes',
+			packageJson: {
+				devDependencies: {
+					'@typia/unplugin': '^12.0.1',
+				},
+				scripts: {
+					postinstall: 'node scripts/existing-postinstall.mjs',
+				},
+			},
+		});
+		fs.writeFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			"module.exports = () => import('@typia/unplugin/webpack');\n",
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+		const applied = await applyInitPlan(projectDir);
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+		) as {
+			dependencies?: Record<string, string>;
+			devDependencies?: Record<string, string>;
+			scripts?: Record<string, string>;
+		};
+		const webpackSource = fs.readFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			'utf8',
+		);
+
+		expect(preview.notes).toContain(
+			'The obsolete `@typia/unplugin` dependency will be removed while `@ttsc/unplugin` is installed.',
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({
+				action: 'update',
+				path: 'webpack.config.js',
+			}),
+		);
+		expect(applied.status).toBe('applied');
+		expect(packageJson.dependencies?.['@typia/unplugin']).toBeUndefined();
+		expect(packageJson.devDependencies?.['@typia/unplugin']).toBeUndefined();
+		expect(packageJson.devDependencies?.['@ttsc/unplugin']).toBeDefined();
+		expect(packageJson.scripts?.postinstall).toBe(
+			'node scripts/existing-postinstall.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+		);
+		expect(webpackSource).toContain('@ttsc/unplugin/webpack');
+		expect(webpackSource).not.toContain('@typia/unplugin/webpack');
 	});
 
 	test('plan presentation helpers keep summary, changes, and next steps stable', () => {
@@ -444,6 +541,7 @@ describe('wp-typia init', () => {
 					name: 'retrofit-already-initialized',
 					private: true,
 					scripts: {
+						postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
 						sync: 'ttsx scripts/sync-project.ts',
 						'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
 						typecheck: 'npm run sync -- --check && ttsc --noEmit',
@@ -464,6 +562,11 @@ describe('wp-typia init', () => {
 				null,
 				2,
 			)}\n`,
+			'utf8',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+			'export {};\n',
 			'utf8',
 		);
 		fs.writeFileSync(

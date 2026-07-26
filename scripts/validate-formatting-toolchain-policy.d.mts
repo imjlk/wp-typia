@@ -11,6 +11,9 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   exampleWpScriptsLintJsScript: 'node ../../scripts/run-wp-scripts-lint-js-compat.mjs';
   generatedWpScriptsLintJsScript: 'node scripts/run-wp-scripts-lint-js-compat.mjs';
   generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input';
+  generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs';
+  generatedTtscLintCompatCanonicalTemplateRoot: 'packages/wp-typia-project-tools/templates/_shared/base';
+  generatedTtscLintCompatTemplatePath: 'scripts/apply-ttsc-lint-compat.mjs.mustache';
   generatedReactDomTypesVersion: '^18.3.7';
   generatedReactDomVersion: '^18.3.1';
   generatedReactTypesVersion: '^18.3.28';
@@ -54,6 +57,7 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   }>;
   generatedPackageManifestPaths: readonly string[];
   generatedWpScriptsStyleLintManifestPaths: readonly string[];
+  generatedTtscLintCompatTemplateRoots: readonly string[];
   generatedWpScriptsLintCompatTemplateRoots: readonly string[];
   workspaceExamplePackagePaths: readonly string[];
   wpScriptsExamplePackagePaths: readonly string[];

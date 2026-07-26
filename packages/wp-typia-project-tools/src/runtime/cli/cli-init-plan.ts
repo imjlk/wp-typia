@@ -11,6 +11,7 @@ import {
   formatRunScript,
   type PackageManagerId,
 } from '../shared/package-managers.js';
+import { getPackageVersions } from '../shared/package-versions.js';
 import { toPascalCase } from '../shared/string-case.js';
 import {
   buildDependencyChanges,
@@ -18,9 +19,11 @@ import {
   buildScriptChanges,
   getWpTypiaCliSpecifier,
   hasExistingWpTypiaProjectSurface,
+  hasObsoleteTypiaUnpluginDependency,
   readProjectPackageJson,
   resolveInitPackageManager,
 } from './cli-init-package-json.js';
+import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
 import {
   buildInitPlanChangeSummary,
   buildInitPlanNextSteps,
@@ -237,7 +240,18 @@ function buildPlannedFiles(
     return [];
   }
 
+  const ttscLintPackageVersion = getPackageVersions().ttscLintPackageVersion;
+
   return [
+		{
+			action: fs.existsSync(
+				path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+			)
+				? 'update'
+				: 'add',
+			path: 'scripts/apply-ttsc-lint-compat.mjs',
+			purpose: `Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
+		},
 		{
 			action: fs.existsSync(path.join(projectDir, 'scripts', 'block-config.ts'))
 				? 'update'
@@ -396,6 +410,9 @@ export function getInitPlan(
   const layout = buildInitLayoutDetails(resolvedProjectDir);
   const dependencyChanges = buildDependencyChanges(packageJson);
   const scriptChanges = buildScriptChanges(packageJson, packageManager);
+  const obsoleteTypiaUnplugin =
+		hasObsoleteTypiaUnpluginDependency(packageJson);
+  const webpackChanges = collectRetrofitWebpackChanges(resolvedProjectDir);
   const packageManagerFieldChange = buildPackageManagerFieldChange(
     packageJson,
     packageManager,
@@ -403,10 +420,18 @@ export function getInitPlan(
       persistExplicitOverride: typeof options.packageManager === 'string',
     },
   );
-  const rawPlannedFiles =
+  const rawPlannedFiles: InitFilePlan[] =
 		layout.kind === 'generated-project' || layout.kind === 'official-workspace'
       ? []
       : buildPlannedFiles(resolvedProjectDir, layout.kind);
+  rawPlannedFiles.push(
+    ...webpackChanges.map((change) => ({
+      action: 'update' as const,
+      path: change.path,
+      purpose:
+        'Replace the obsolete @typia/unplugin Webpack loader with @ttsc/unplugin.',
+    })),
+  );
   const hasExistingSurface = hasExistingWpTypiaProjectSurface(
     resolvedProjectDir,
     packageJson,
@@ -415,6 +440,8 @@ export function getInitPlan(
 		hasExistingSurface &&
 		dependencyChanges.length === 0 &&
 		scriptChanges.length === 0 &&
+		!obsoleteTypiaUnplugin &&
+		webpackChanges.length === 0 &&
 		packageManagerFieldChange === undefined
 			? 'already-initialized'
 			: 'preview';
@@ -447,6 +474,16 @@ export function getInitPlan(
 			new Set([
 				'Preview only: `wp-typia init` does not write files yet.',
 				RETROFIT_APPLY_PREVIEW_NOTE,
+				...(obsoleteTypiaUnplugin
+					? [
+							'The obsolete `@typia/unplugin` dependency will be removed while `@ttsc/unplugin` is installed.',
+					  ]
+					: []),
+				...(webpackChanges.length > 0
+					? [
+							'Webpack imports from `@typia/unplugin/webpack` will be migrated to `@ttsc/unplugin/webpack`.',
+					  ]
+					: []),
 				...layout.notes,
 			]),
 		),

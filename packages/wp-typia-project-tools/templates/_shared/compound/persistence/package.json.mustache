@@ -10,6 +10,7 @@
   },
   "main": "build/index.js",
   "scripts": {
+    "postinstall": "node scripts/apply-ttsc-lint-compat.mjs",
     "add-child": "ttsx scripts/add-compound-child.ts",
     "sync": "ttsx scripts/sync-project.ts",
     "sync-types": "ttsx scripts/sync-types-to-block-json.ts",
@@ -29,7 +30,7 @@
 		"@wp-typia/api-client": "{{apiClientPackageVersion}}",
 		"@wp-typia/block-types": "{{blockTypesPackageVersion}}",
     "@wp-typia/rest": "{{restPackageVersion}}",
-    "@ttsc/lint": "^0.22.0",
+    "@ttsc/lint": "0.22.0",
     "@ttsc/unplugin": "^0.22.0",
     "@typescript/typescript6": "6.0.2",
     "@wordpress/browserslist-config": "^6.42.0",

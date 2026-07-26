@@ -45,7 +45,7 @@ const require = createRequire(import.meta.url);
 const DEFAULT_VERSION_RANGE = '^0.0.0';
 const DEFAULT_EXACT_VERSION = '0.0.0';
 const DEFAULT_TTSC_PACKAGE_VERSION = '^0.22.0';
-const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '^0.22.0';
+const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.22.0';
 const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.22.0';
 /**
  * Explicit fallback ranges for managed WordPress-facing workspace dependencies.
@@ -90,6 +90,14 @@ function normalizeExactVersion(value: string | undefined): string {
     return DEFAULT_EXACT_VERSION;
   }
   return trimmed.replace(/^[~^<>=]+/, '');
+}
+
+function normalizeExactVersionWithFallback(
+  value: string | undefined,
+  fallback: string,
+): string {
+  const normalized = normalizeExactVersion(value);
+  return normalized === DEFAULT_EXACT_VERSION ? fallback : normalized;
 }
 
 function normalizeVersionRangeWithFallback(
@@ -388,7 +396,7 @@ export function getPackageVersions(): PackageVersions {
       createManifest.dependencies?.['@wp-typia/rest'] ??
         readPackageManifest(installedRestManifestLocation)?.version,
     ),
-    ttscLintPackageVersion: normalizeVersionRangeWithFallback(
+    ttscLintPackageVersion: normalizeExactVersionWithFallback(
       monorepoManifest.dependencies?.['@ttsc/lint'] ??
         monorepoManifest.devDependencies?.['@ttsc/lint'] ??
         readPackageManifest(installedTtscLintManifestLocation)?.version,

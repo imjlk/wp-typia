@@ -15,6 +15,33 @@ const ttscLauncher = path.join(
 );
 const ttscCacheDir = path.join(repoRoot, 'node_modules', '.cache', 'ttsc');
 const TTSC_PROCESS_TIMEOUT_MS = 300_000;
+const GENERATED_TTSC_LINT_COMPAT_TEMPLATE = path.join(
+  repoRoot,
+  'packages',
+  'wp-typia-project-tools',
+  'templates',
+  '_shared',
+  'base',
+  'scripts',
+  'apply-ttsc-lint-compat.mjs.mustache',
+);
+const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
+    case shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeAliasDeclaration,
+      shimast.KindJSTypeAliasDeclaration,
+      shimast.KindJSDocTemplateTag:
+      // These declaration kinds own an actual type-parameter list.
+    default:
+      if node.Parent.FunctionLikeData() == nil {
+        // Type parameters used by mapped and infer types are represented by
+        // the same node kind, but their parents do not expose
+        // TypeParameterList and the TypeScript-Go shim panics when asked.
+        return
+      }
+    }
+`;
 let tempDirs: string[] = [];
 
 afterEach(() => {
@@ -188,4 +215,152 @@ export type Inferred<Value> =
     expect(result.status, result.output).toBe(0);
     expect(result.output.toLowerCase()).not.toContain('panic');
   }, TTSC_PROCESS_TIMEOUT_MS);
+
+  test('repairs a root-patch-free generated consumer before ttsc runs', () => {
+    const projectDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-generated-lint-compat-'),
+    );
+    tempDirs.push(projectDir);
+    const nodeModulesDir = path.join(projectDir, 'node_modules');
+    const scopedTtscDir = path.join(nodeModulesDir, '@ttsc');
+    fs.mkdirSync(scopedTtscDir, { recursive: true });
+    fs.cpSync(
+      fs.realpathSync(path.join(repoRoot, 'node_modules', '@ttsc', 'lint')),
+      path.join(scopedTtscDir, 'lint'),
+      { recursive: true },
+    );
+    fs.symlinkSync(
+      path.join(repoRoot, 'node_modules', 'ttsc'),
+      path.join(nodeModulesDir, 'ttsc'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    fs.symlinkSync(
+      path.join(repoRoot, 'node_modules', 'typescript'),
+      path.join(nodeModulesDir, 'typescript'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+
+    const lintRulePath = path.join(
+      scopedTtscDir,
+      'lint',
+      'linthost',
+      'rules_format_trailing_comma.go',
+    );
+    const patchedRuleSource = fs.readFileSync(lintRulePath, 'utf8');
+    expect(patchedRuleSource).toContain(PATCHED_TTSC_LINT_PARENT_GUARD);
+    writeText(
+      lintRulePath,
+      patchedRuleSource.replace(PATCHED_TTSC_LINT_PARENT_GUARD, ''),
+    );
+    writeJson(path.join(projectDir, 'package.json'), {
+      devDependencies: {
+        '@ttsc/lint': '0.22.0',
+        ttsc: '0.22.0',
+        typescript: '7.0.2',
+      },
+      private: true,
+      type: 'module',
+    });
+    writeJson(path.join(projectDir, 'tsconfig.json'), {
+      compilerOptions: {
+        module: 'ESNext',
+        moduleResolution: 'bundler',
+        noEmit: true,
+        skipLibCheck: true,
+        strict: true,
+        target: 'ES2020',
+        types: [],
+      },
+      include: ['src/**/*.ts'],
+    });
+    writeText(
+      path.join(projectDir, 'lint.config.ts'),
+      `export default {
+  format: {
+    severity: 'error',
+    trailingComma: 'all',
+  },
+};
+`,
+    );
+    writeText(
+      path.join(projectDir, 'src', 'index.ts'),
+      `export type Mapped<Value> = {
+  [Key in keyof Value]: Value[Key];
+};
+
+export type Inferred<Value> =
+  Value extends Promise<infer Item> ? Item : never;
+`,
+    );
+    const compatScriptPath = path.join(
+      projectDir,
+      'scripts',
+      'apply-ttsc-lint-compat.mjs',
+    );
+    writeText(
+      compatScriptPath,
+      fs.readFileSync(GENERATED_TTSC_LINT_COMPAT_TEMPLATE, 'utf8'),
+    );
+
+    const patchResult = spawnSync('node', [compatScriptPath], {
+      cwd: projectDir,
+      encoding: 'utf8',
+    });
+    expect(patchResult.error).toBeUndefined();
+    expect(
+      patchResult.status,
+      `${patchResult.stdout ?? ''}${patchResult.stderr ?? ''}`,
+    ).toBe(0);
+    expect(fs.readFileSync(lintRulePath, 'utf8')).toContain(
+      'Mapped and infer type parameters do not expose TypeParameterList.',
+    );
+    const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
+      cwd: projectDir,
+      encoding: 'utf8',
+    });
+    expect(repeatedPatchResult.error).toBeUndefined();
+    expect(
+      repeatedPatchResult.status,
+      `${repeatedPatchResult.stdout ?? ''}${repeatedPatchResult.stderr ?? ''}`,
+    ).toBe(0);
+
+    const result = runTtsc(projectDir, [
+      '--project',
+      'tsconfig.json',
+      '--noEmit',
+    ]);
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.output).toBe(0);
+    expect(result.output.toLowerCase()).not.toContain('panic');
+  }, TTSC_PROCESS_TIMEOUT_MS);
+
+  test('keeps every generated ttsc lint compatibility hook identical', () => {
+    const canonicalSource = fs.readFileSync(
+      GENERATED_TTSC_LINT_COMPAT_TEMPLATE,
+      'utf8',
+    );
+    for (const templatePath of [
+      path.join(
+        repoRoot,
+        'packages',
+        'create-workspace-template',
+        'scripts',
+        'apply-ttsc-lint-compat.mjs.mustache',
+      ),
+      path.join(
+        repoRoot,
+        'packages',
+        'wp-typia-project-tools',
+        'tests',
+        'fixtures',
+        'create-block-external',
+        'plugin-templates',
+        'scripts',
+        'apply-ttsc-lint-compat.mjs.mustache',
+      ),
+    ]) {
+      expect(fs.readFileSync(templatePath, 'utf8')).toBe(canonicalSource);
+    }
+  });
 });

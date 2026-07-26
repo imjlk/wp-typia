@@ -1,0 +1,69 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+
+const REQUIRED_VERSION = '0.22.0';
+const require = createRequire(path.join(process.cwd(), 'package.json'));
+const manifestPath = require.resolve('@ttsc/lint/package.json');
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+if (manifest.version !== REQUIRED_VERSION) {
+	throw new Error(
+		`Expected @ttsc/lint ${REQUIRED_VERSION}, found ${String(
+			manifest.version
+		)}. Remove this compatibility hook only after the mapped/infer regression passes on the replacement version.`
+	);
+}
+
+const sourcePath = path.join(
+	path.dirname(manifestPath),
+	'linthost',
+	'rules_format_trailing_comma.go'
+);
+const source = fs.readFileSync(sourcePath, 'utf8');
+const unpatchedSource = `    list := node.Parent.TypeParameterList()
+    if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
+      return
+    }`;
+const patchedSource = `    switch node.Parent.Kind {
+    case shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeAliasDeclaration,
+      shimast.KindJSTypeAliasDeclaration,
+      shimast.KindJSDocTemplateTag:
+      // These declaration kinds own an actual type-parameter list.
+    default:
+      if node.Parent.FunctionLikeData() == nil {
+        // Mapped and infer type parameters do not expose TypeParameterList.
+        return
+      }
+    }
+    list := node.Parent.TypeParameterList()
+    if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
+      return
+    }`;
+
+if (source.includes(patchedSource)) {
+	process.exit(0);
+}
+if (!source.includes(unpatchedSource)) {
+	throw new Error(
+		`Refusing to patch unexpected @ttsc/lint source at ${sourcePath}.`
+	);
+}
+
+const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
+try {
+	fs.writeFileSync(
+		temporaryPath,
+		source.replace(unpatchedSource, patchedSource),
+		{
+			encoding: 'utf8',
+			mode: fs.statSync(sourcePath).mode,
+		}
+	);
+	fs.renameSync(temporaryPath, sourcePath);
+} finally {
+	fs.rmSync(temporaryPath, { force: true });
+}

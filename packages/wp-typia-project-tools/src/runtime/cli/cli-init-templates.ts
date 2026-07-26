@@ -1,6 +1,8 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import { quoteTsString } from '../add/cli-add-shared.js';
+import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
 import type { RetrofitInitBlockTarget } from './cli-init-types.js';
 import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
 
@@ -251,6 +253,22 @@ main().catch( ( error ) => {
 `;
 }
 
+function readRetrofitTtscLintCompatSource(): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  if (/\{\{|\}\}/u.test(source)) {
+    throw new Error(
+      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
+    );
+  }
+
+  return source;
+}
+
 /**
  * Build the helper file source map written by `wp-typia init --apply`.
  *
@@ -261,6 +279,8 @@ export function buildRetrofitHelperFiles(
 	blockTargets: RetrofitInitBlockTarget[],
 ): Record<string, string> {
   return {
+		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
+			readRetrofitTtscLintCompatSource(),
 		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
 		[path.join('scripts', 'sync-project.ts')]:
