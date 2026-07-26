@@ -320,9 +320,9 @@ export function assertValidRestResourceMethods(
  */
 export function resolveOptionalPhpCallbackReference(
 	label: string,
-	callback?: string,
+	callback?: string | null,
 ): string | undefined {
-  if (callback === undefined) {
+  if (callback === undefined || callback === null) {
     return undefined;
   }
   const trimmed = callback.trim();
@@ -348,9 +348,9 @@ export function resolveOptionalPhpCallbackReference(
  */
 export function resolveOptionalPhpClassReference(
 	label: string,
-	classReference?: string,
+	classReference?: string | null,
 ): string | undefined {
-  if (classReference === undefined) {
+  if (classReference === undefined || classReference === null) {
     return undefined;
   }
   const trimmed = classReference.trim();

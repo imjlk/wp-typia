@@ -28,6 +28,8 @@ import {
   assertValidPostMetaPostType,
   resolvePostMetaKey,
   resolveManualRestContractPathPattern,
+  resolveOptionalPhpCallbackReference,
+  resolveOptionalPhpClassReference,
   resolveRestResourceNamespace,
   quoteTsString,
 } from '../src/runtime/cli-add-validation.js';
@@ -269,6 +271,33 @@ test('focused validation helpers normalize REST namespaces, methods, and manual 
       slug: 'integration-state',
     }),
   ).toThrow('Post meta key must not contain whitespace');
+});
+
+test('optional PHP references preserve nullish omission semantics', () => {
+  expect(
+    resolveOptionalPhpCallbackReference('Permission callback', undefined),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpCallbackReference('Permission callback', null),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpClassReference('Controller class', undefined),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpClassReference('Controller class', null),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpCallbackReference(
+      'Permission callback',
+      ' Demo_Controller::allow ',
+    ),
+  ).toBe('Demo_Controller::allow');
+  expect(
+    resolveOptionalPhpClassReference(
+      'Controller class',
+      ' Vendor\\Plugin\\Controller ',
+    ),
+  ).toBe('Vendor\\Plugin\\Controller');
 });
 
 test('focused validation helpers accept TypeScript identifiers and reject malformed type names', () => {
