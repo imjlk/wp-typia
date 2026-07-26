@@ -24,6 +24,10 @@ const packageManifest = JSON.parse(
     'utf8',
   ),
 ) as { scripts?: Record<string, string> };
+const workspaceAddTestSource = fs.readFileSync(
+  path.join(testsRoot, 'workspace-add.test.ts'),
+  'utf8',
+);
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -55,6 +59,30 @@ describe('Project Tools test shard manifest', () => {
     );
 
     expect(packageTestFiles).toEqual(expectedTestFiles);
+  });
+
+  test('keeps generated workspace builds on the cold-build timeout', () => {
+    expect(workspaceAddTestSource).toContain(
+      'const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedBuildTests = Array.from(
+      workspaceAddTestSource.matchAll(
+        /(?:^|\n)test\([\s\S]*?(?=\ntest\(|\s*$)/g,
+      ),
+      (match) => match[0],
+    ).filter((testSource) =>
+      testSource.includes(
+        "runCli('npm', ['run', 'build'], { cwd: targetDir });",
+      ),
+    );
+
+    expect(generatedBuildTests).toHaveLength(12);
+    for (const testSource of generatedBuildTests) {
+      expect(testSource.trimEnd()).toEndWith(
+        '}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);',
+      );
+    }
   });
 
   test('rejects missing and unknown selections', () => {

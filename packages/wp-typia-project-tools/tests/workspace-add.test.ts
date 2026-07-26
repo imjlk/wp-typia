@@ -25,7 +25,7 @@ import {
 } from '../src/runtime/cli-core.js';
 import { scaffoldProject } from '../src/runtime/index.js';
 
-const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 120_000;
+const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;
 
 const legacyValidatorToolkitSource = [
   "import { parseManifestDefaultsDocument } from '@wp-typia/block-runtime/defaults';",
@@ -753,7 +753,7 @@ test('canonical CLI can add a variation to an official workspace template', asyn
 
   linkWorkspaceNodeModules(targetDir);
   runCli('npm', ['run', 'build'], { cwd: targetDir });
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add core block variations without generating block manifests', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-core-variation');
@@ -930,7 +930,7 @@ test('canonical CLI can add core block variations without generating block manif
   ).toBe(false);
 
   runCli('npm', ['run', 'build'], { cwd: targetDir });
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('variation workflow keeps registry identifiers unique for similar slugs', async () => {
   const targetDir = path.join(
@@ -994,7 +994,7 @@ test('variation workflow keeps registry identifiers unique for similar slugs', a
   );
 
   runCli('npm', ['run', 'build'], { cwd: targetDir });
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add block styles and transforms to an official workspace block', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-style-transform');
@@ -1328,7 +1328,7 @@ const copiedStyleImport = \`import { registerWorkspaceBlockStyles } from './styl
   fs.writeFileSync(transformsIndexPath, transformsIndexSource, 'utf8');
 
   runCli('npm', ['run', 'build'], { cwd: targetDir });
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('transform workflow rejects direct registerBlockType entrypoints without writing partial files', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-transform-direct-entry');
@@ -3513,7 +3513,7 @@ test('canonical CLI can add a binding source to an official workspace template',
   expect(
     fs.existsSync(path.join(targetDir, 'build', 'blocks-manifest.php')),
   ).toBe(true);
-}, 30_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add an end-to-end binding source target to an existing block', async () => {
   const targetDir = path.join(
@@ -4233,7 +4233,7 @@ test('canonical CLI can add a binding source backed by typed post meta', async (
 
   runCli('npm', ['run', 'sync-rest', '--', '--check'], { cwd: targetDir });
   runCli('npm', ['run', 'build'], { cwd: targetDir });
-}, 120_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add a type-only manual REST contract to an official workspace template', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-manual-rest-contract');
@@ -6917,7 +6917,7 @@ test('canonical CLI can add an editor plugin to an official workspace template',
   expect(
     fs.existsSync(path.join(targetDir, 'build', 'blocks-manifest.php')),
   ).toBe(true);
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add a document settings panel editor plugin', async () => {
   const targetDir = path.join(
