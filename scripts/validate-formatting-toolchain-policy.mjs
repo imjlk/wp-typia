@@ -95,6 +95,11 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..');
+const TYPESCRIPT_ESLINT_DEPENDENCY_NAMES = Object.freeze([
+  '@typescript-eslint/eslint-plugin',
+  '@typescript-eslint/parser',
+  'typescript-eslint',
+]);
 
 function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -398,6 +403,21 @@ function inspectEslintConfig(sourceText) {
   return { hasTypeScriptEslint, hasTypeScriptFileScope };
 }
 
+function validateNoTypeScriptEslintDevDependencies(
+  relativePath,
+  manifest,
+  errors,
+) {
+  const devDependencies = manifest.devDependencies ?? {};
+  for (const dependencyName of TYPESCRIPT_ESLINT_DEPENDENCY_NAMES) {
+    if (dependencyName in devDependencies) {
+      errors.push(
+        `${relativePath} must not declare devDependencies[${JSON.stringify(dependencyName)}]; TypeScript linting is owned by @ttsc/lint.`,
+      );
+    }
+  }
+}
+
 function validateGeneratedTemplateManifest(
   relativePath,
   sourceText,
@@ -408,6 +428,8 @@ function validateGeneratedTemplateManifest(
   const devDependencyPrettier = manifest.devDependencies?.prettier;
   const expectedTtscRange = `^${policy.ttscVersion}`;
   const expectedTtscLintRange = `^${policy.ttscLintVersion}`;
+
+  validateNoTypeScriptEslintDevDependencies(relativePath, manifest, errors);
 
   if (devDependencyPrettier === undefined) {
     errors.push(
@@ -558,17 +580,11 @@ export function validateFormattingToolchainPolicy(
     );
   }
 
-  for (const dependencyName of [
-    '@typescript-eslint/eslint-plugin',
-    '@typescript-eslint/parser',
-    'typescript-eslint',
-  ]) {
-    if (dependencyName in devDependencies) {
-      errors.push(
-        `package.json must not declare devDependencies[${JSON.stringify(dependencyName)}]; TypeScript linting is owned by @ttsc/lint.`,
-      );
-    }
-  }
+  validateNoTypeScriptEslintDevDependencies(
+    'package.json',
+    packageJson,
+    errors,
+  );
 
   if (devDependencies.ttsc !== policy.ttscVersion) {
     errors.push(
@@ -691,12 +707,17 @@ export function validateFormattingToolchainPolicy(
     }
   }
 
+  const expectedTtscRange = `^${policy.ttscVersion}`;
+  const expectedTtscLintRange = `^${policy.ttscLintVersion}`;
   for (const relativePath of policy.workspaceExamplePackagePaths) {
     const examplePackageJson = readRelativeJson(repoRoot, relativePath);
     const examplePrettier = examplePackageJson.devDependencies?.prettier;
-    const expectedTtscRange = `^${policy.ttscVersion}`;
-    const expectedTtscLintRange = `^${policy.ttscLintVersion}`;
 
+    validateNoTypeScriptEslintDevDependencies(
+      relativePath,
+      examplePackageJson,
+      errors,
+    );
     if (examplePrettier !== policy.prettierVersion) {
       errors.push(
         `${relativePath} must declare devDependencies.prettier="${policy.prettierVersion}", found ${JSON.stringify(examplePrettier ?? null)}.`,

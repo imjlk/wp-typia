@@ -428,6 +428,40 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
     );
   });
 
+  test('fails when example or generated manifests reintroduce TypeScript ESLint', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const exampleManifestPath = path.join(
+      repoRoot,
+      'examples/my-typia-block/package.json',
+    );
+    const examplePackageJson = JSON.parse(
+      fs.readFileSync(exampleManifestPath, 'utf8'),
+    );
+    examplePackageJson.devDependencies['typescript-eslint'] = '8.58.2';
+    writeJson(exampleManifestPath, examplePackageJson);
+
+    const templateManifestPath = path.join(
+      repoRoot,
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
+    );
+    const templatePackageJson = JSON.parse(
+      fs.readFileSync(templateManifestPath, 'utf8'),
+    );
+    templatePackageJson.devDependencies['@typescript-eslint/parser'] =
+      '8.58.2';
+    writeJson(templateManifestPath, templatePackageJson);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'examples/my-typia-block/package.json must not declare devDependencies["typescript-eslint"]; TypeScript linting is owned by @ttsc/lint.',
+    );
+    expect(result.errors).toContain(
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must not declare devDependencies["@typescript-eslint/parser"]; TypeScript linting is owned by @ttsc/lint.',
+    );
+  });
+
   test('fails when WordPress example lint compatibility drifts', () => {
     const repoRoot = createFormattingPolicyRepo();
     const exampleManifestPath = path.join(
