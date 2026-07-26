@@ -1017,7 +1017,10 @@ function renderValidatorsFile(
 ): string {
   return `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
-import type { ${childTypeName}, ${childInterfaceName}ValidationResult } from './types';
+import type {
+  ${childTypeName},
+  ${childInterfaceName}ValidationResult,
+} from './types';
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
 const scaffoldValidators =

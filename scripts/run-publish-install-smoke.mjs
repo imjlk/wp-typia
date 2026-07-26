@@ -63,6 +63,17 @@ function readJson(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function getRootDevToolVersion(packageName) {
+	const packageJson = readJson(path.join(repoRoot, "package.json"));
+	const version = packageJson.devDependencies?.[packageName];
+	if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) {
+		throw new Error(
+			`Root devDependencies.${packageName} must be an exact version for publish-install smoke, found ${JSON.stringify(version ?? null)}.`,
+		);
+	}
+	return version;
+}
+
 function getInstalledWpTypiaCliPath(projectDir) {
 	const installedManifest = readJson(
 		path.join(projectDir, "node_modules", "wp-typia", "package.json"),
@@ -178,8 +189,14 @@ function installGeneratedProject(projectDir, tarballs) {
 	run(npmCommand, ["install"], { cwd: projectDir });
 }
 
-function typecheckGeneratedProject(projectDir) {
-	run(npmCommand, ["exec", "--", "ttsc", "--noEmit"], { cwd: projectDir });
+function typecheckGeneratedProject(projectDir, ttscCacheDir) {
+	run(npmCommand, ["exec", "--", "ttsc", "--noEmit"], {
+		cwd: projectDir,
+		env: {
+			...process.env,
+			TTSC_CACHE_DIR: ttscCacheDir,
+		},
+	});
 }
 
 execFileSync("bun", ["run", "packages:build"], {
@@ -191,6 +208,8 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	const tarballDir = path.join(tempRoot, "tarballs");
 	const projectDir = path.join(tempRoot, "project");
 	const defaultCliDir = path.join(tempRoot, "default-cli-install");
+	const blockTypesTypecheckDir = path.join(tempRoot, "block-types-typecheck");
+	const ttscCacheDir = path.join(tempRoot, "ttsc-cache");
 	const tarballs = new Map();
 	const packedManifests = new Map();
 	const footprintResults = [];
@@ -214,6 +233,17 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			if (leaks.length > 0) {
 				throw new Error(
 					`Packed ${packageName} manifest still contains workspace protocol dependencies: ${leaks.join(", ")}`,
+				);
+			}
+		}
+
+		if (packageName === "@wp-typia/create-workspace-template") {
+			const tarballEntries = run(tarCommand, ["-tf", tarballPath])
+				.trim()
+				.split("\n");
+			if (!tarballEntries.includes("package/lint.config.ts.mustache")) {
+				throw new Error(
+					"Packed create-workspace-template tarball is missing package/lint.config.ts.mustache.",
 				);
 			}
 		}
@@ -280,8 +310,30 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"@wordpress/block-editor",
 		"@wordpress/blocks",
 	]);
+	fs.mkdirSync(blockTypesTypecheckDir, { recursive: true });
+	writeJson(path.join(blockTypesTypecheckDir, "package.json"), {
+		dependencies: {
+			"@wp-typia/block-types": `file:${tarballs.get("@wp-typia/block-types")}`,
+		},
+		devDependencies: {
+			ttsc: getRootDevToolVersion("ttsc"),
+			typescript: getRootDevToolVersion("typescript"),
+		},
+		name: "wp-typia-block-types-typecheck-smoke",
+		private: true,
+	});
+	run(npmCommand, ["install", "--no-audit", "--no-fund"], {
+		cwd: blockTypesTypecheckDir,
+	});
+	assertPackagesNotInstalled(blockTypesTypecheckDir, [
+		"@types/react",
+		"@types/wordpress__block-editor",
+		"@types/wordpress__blocks",
+		"@wordpress/block-editor",
+		"@wordpress/blocks",
+	]);
 	fs.writeFileSync(
-		path.join(defaultCliDir, "block-types-peer-free-smoke.ts"),
+		path.join(blockTypesTypecheckDir, "block-types-peer-free-smoke.ts"),
 		[
 			'import { BLOCK_SUPPORT_FEATURES, BLOCK_VARIATION_SCOPES, defineVariation, type BlockAttributes, type BlockVariation } from "@wp-typia/block-types";',
 			'import { BLOCK_SUPPORT_FEATURES as blockFeatures, BLOCK_VARIATION_SCOPES as blockScopes, type BlockVariationDefinition } from "@wp-typia/block-types/blocks";',
@@ -308,7 +360,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		].join("\n"),
 		"utf8",
 	);
-	writeJson(path.join(defaultCliDir, "block-types-peer-free-tsconfig.json"), {
+	writeJson(path.join(blockTypesTypecheckDir, "block-types-peer-free-tsconfig.json"), {
 		compilerOptions: {
 			lib: ["ES2020"],
 			module: "NodeNext",
@@ -330,7 +382,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			"--project",
 			"block-types-peer-free-tsconfig.json",
 		],
-		{ cwd: defaultCliDir },
+		{ cwd: blockTypesTypecheckDir },
 	);
 	runScript(
 		defaultCliDir,
@@ -686,7 +738,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"src/manifest-defaults-document.ts",
 	]);
 	installGeneratedProject(basicDir, tarballs);
-	typecheckGeneratedProject(basicDir);
+	typecheckGeneratedProject(basicDir, ttscCacheDir);
 
 	const adminViewDir = path.join(projectDir, "demo-admin-view");
 	runWpTypiaCli(projectDir, cliPath, [
@@ -731,12 +783,13 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		throw new Error("Generated admin-view workspace is missing @wordpress/dataviews.");
 	}
 	assertFilesExist(adminViewDir, [
+		"lint.config.ts",
 		"src/admin-views/snapshots/index.tsx",
 		"src/admin-views/snapshots/Screen.tsx",
 		"inc/admin-views/snapshots.php",
 	]);
 	installGeneratedProject(adminViewDir, tarballs);
-	typecheckGeneratedProject(adminViewDir);
+	typecheckGeneratedProject(adminViewDir, ttscCacheDir);
 
 	const compoundDir = path.join(projectDir, "demo-compound");
 	runWpTypiaCli(projectDir, cliPath, [
@@ -757,6 +810,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	installGeneratedProject(compoundDir, tarballs);
 	run(npmCommand, ["exec", "--", "ttsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
 		cwd: compoundDir,
+		env: {
+			...process.env,
+			TTSC_CACHE_DIR: ttscCacheDir,
+		},
 	});
 	assertFilesExist(compoundDir, [
 		"src/blocks/demo-compound/block-metadata.ts",
@@ -766,7 +823,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"src/blocks/demo-compound-faq-item/manifest-document.ts",
 		"src/blocks/demo-compound-faq-item/manifest-defaults-document.ts",
 	]);
-	typecheckGeneratedProject(compoundDir);
+	typecheckGeneratedProject(compoundDir, ttscCacheDir);
 
 	process.stdout.write(
 		`Verified published-install smoke for wp-typia ${parsed.data.version}, a ${defaultCliInstallPackageCount}-package default CLI install without WordPress registration peers, portable CLI metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,

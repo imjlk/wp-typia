@@ -1284,6 +1284,14 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'DemoCompoundAddChildFaqItemValidationResult',
       );
       expect(newChildValidators).toContain(
+        [
+          'import type {',
+          '  DemoCompoundAddChildFaqItemAttributes,',
+          '  DemoCompoundAddChildFaqItemValidationResult,',
+          "} from './types';",
+        ].join('\n'),
+      );
+      expect(newChildValidators).toContain(
         'scaffoldValidators.validateAttributes as (',
       );
       expect(newChildIndex).toContain('buildScaffoldBlockRegistration');
