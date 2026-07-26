@@ -382,7 +382,13 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			"--project",
 			"block-types-peer-free-tsconfig.json",
 		],
-		{ cwd: blockTypesTypecheckDir },
+		{
+			cwd: blockTypesTypecheckDir,
+			env: {
+				...process.env,
+				TTSC_CACHE_DIR: ttscCacheDir,
+			},
+		},
 	);
 	runScript(
 		defaultCliDir,
