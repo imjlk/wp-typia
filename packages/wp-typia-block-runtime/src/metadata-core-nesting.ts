@@ -192,8 +192,8 @@ function renderTypeScriptValue(value: unknown): string {
     ) {
       return compact;
     }
-    return `[\n${value
-      .map((entry) => `${indentTypeScriptValue(renderTypeScriptValue(entry), 2)},`)
+    return `[\n${renderedEntries
+      .map((entry) => `${indentTypeScriptValue(entry, 2)},`)
       .join('\n')}\n]`;
   }
   if (typeof value === 'object') {

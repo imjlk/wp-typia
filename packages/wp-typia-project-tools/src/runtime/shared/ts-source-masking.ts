@@ -24,7 +24,7 @@ function findPatternMatch(
     const match = pattern.exec(maskedSource);
     pattern.lastIndex = 0;
 
-    if (match && match.index !== undefined) {
+    if (match) {
       return {
         end: match.index + match[0].length,
         start: match.index,

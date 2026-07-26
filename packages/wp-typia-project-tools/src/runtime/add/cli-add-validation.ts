@@ -581,7 +581,7 @@ export function isAddBlockTemplateId(value: string): value is AddBlockTemplateId
  * Quote a value for safe insertion into generated TypeScript source.
  *
  * @param value Raw string value.
- * @returns JSON-escaped TypeScript string literal.
+ * @returns A single-quoted TypeScript string literal.
  */
 export function quoteTsString(value: string): string {
   return quoteTypeScriptString(value);

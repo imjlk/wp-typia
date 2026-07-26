@@ -20,7 +20,7 @@ export function createTestScaffoldTemplateVariables(
 		apiClientPackageVersion: '^0.2.0',
 		author: 'Test Author',
 		bootstrapEndpointDeclaration:
-			'export const bootstrapEndpoint = createRestEndpoint(getDemoBlockBootstrapEndpoint);',
+			'export const bootstrapEndpoint = createRestEndpoint(\n  getDemoBlockBootstrapEndpoint,\n);',
 		blockMetadataVersion: '0.1.0',
 		blockRuntimePackageVersion: '^0.3.0',
 		blockTypesPackageVersion: '^0.2.0',
@@ -99,7 +99,7 @@ export function createTestScaffoldTemplateVariables(
 			titleTsLiteral: "'Demo Block'",
 			testedUpTo: '6.9',
 			writeStateEndpointDeclaration:
-				'export const writeStateEndpoint = createRestEndpoint(writeDemoBlockStateEndpoint);',
+				'export const writeStateEndpoint = createRestEndpoint(\n  writeDemoBlockStateEndpoint,\n);',
 		};
 
   const variables: FlatScaffoldTemplateVariables = {
