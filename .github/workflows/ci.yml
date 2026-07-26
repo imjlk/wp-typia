@@ -147,6 +147,9 @@ jobs:
           path: node_modules/.cache/ttsc/plugins
           key: ttsc-source-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
 
+      - name: Prepare all ttsc source plugins
+        run: bun x ttsc prepare --project tsconfig.json
+
       - name: Build Project Tools workspace packages
         run: bun run project-tools-prebuilt:prepare
 

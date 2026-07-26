@@ -398,6 +398,9 @@ describe('repository DX baseline', () => {
     for (const cacheContract of ttscPluginCache) {
       expect(prepareJob).toContain(cacheContract);
     }
+    expect(prepareJob).toContain(
+      'run: bun x ttsc prepare --project tsconfig.json',
+    );
     for (const packagePath of [
       'wp-typia-api-client/dist/',
       'wp-typia-block-types/dist/',
