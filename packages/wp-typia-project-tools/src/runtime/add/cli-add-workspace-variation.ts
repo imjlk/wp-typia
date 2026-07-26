@@ -20,6 +20,7 @@ import {
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 import { toKebabCase, toTitleCase } from '../shared/string-case.js';
+import { TYPESCRIPT_PRINT_WIDTH } from '../shared/ts-string-literals.js';
 
 const VARIATIONS_IMPORT_LINE =
 	"import { registerWorkspaceVariations } from './variations';";
@@ -27,7 +28,6 @@ const VARIATIONS_IMPORT_PATTERN =
 	/^[ \t]*import\s*\{\s*registerWorkspaceVariations\s*\}\s*from\s*["']\.\/variations["'][ \t]*;?[ \t]*$/mu;
 const VARIATIONS_CALL_LINE = 'registerWorkspaceVariations();';
 const VARIATIONS_CALL_PATTERN = /registerWorkspaceVariations\s*\(\s*\)\s*;?/u;
-const TYPESCRIPT_PRINT_WIDTH = 80;
 
 function buildVariationConfigEntry(blockSlug: string, variationSlug: string): string {
   return [

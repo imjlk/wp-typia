@@ -222,12 +222,14 @@ export async function ensureWorkspaceEntrypointCall({
 
 			if (callRange) {
         const suffix = nextSource.slice(callRange.end);
-        const normalizedSuffix =
-          suffix.length === 0
-            ? lineEnding
-            : suffix.startsWith(lineEnding)
-              ? suffix
-              : `${lineEnding}${suffix}`;
+        let normalizedSuffix: string;
+        if (suffix.length === 0) {
+          normalizedSuffix = lineEnding;
+        } else if (suffix.startsWith(lineEnding)) {
+          normalizedSuffix = suffix;
+        } else {
+          normalizedSuffix = `${lineEnding}${suffix}`;
+        }
 				nextSource = [
 					nextSource.slice(0, callRange.end),
 					`${lineEnding}${callLine}`,

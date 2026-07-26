@@ -1,7 +1,8 @@
 import { quoteTsString } from './cli-add-shared.js';
-import { renderNamedTypeScriptImport } from '../shared/ts-string-literals.js';
-
-const TYPESCRIPT_PRINT_WIDTH = 80;
+import {
+  renderNamedTypeScriptImport,
+  TYPESCRIPT_PRINT_WIDTH,
+} from '../shared/ts-string-literals.js';
 
 function getTypeScriptLineLength(line: string): number {
   return line.replace(/\t/gu, '  ').length;

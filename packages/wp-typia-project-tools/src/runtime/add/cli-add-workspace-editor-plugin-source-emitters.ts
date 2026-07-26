@@ -1,46 +1,10 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
-
-const TYPESCRIPT_PRINT_WIDTH = 80;
-
-function renderNamedTypeScriptImport(
-  names: readonly string[],
-  moduleSpecifier: string,
-): string {
-  const compact =
-    `import { ${names.join(', ')} } from ${quoteTsString(moduleSpecifier)};`;
-  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
-    return compact;
-  }
-
-  return [
-    'import {',
-    ...names.map((name) => `  ${name},`),
-    `} from ${quoteTsString(moduleSpecifier)};`,
-  ].join('\n');
-}
-
-function renderTypeScriptCallLine(options: {
-  arguments: readonly string[];
-  callee: string;
-  indentation: string;
-  prefix: string;
-  suffix: string;
-}): string {
-  const compact =
-    `${options.indentation}${options.prefix}${options.callee}(${options.arguments.join(', ')})${options.suffix}`;
-  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
-    return compact;
-  }
-
-  return [
-    `${options.indentation}${options.prefix}${options.callee}(`,
-    ...options.arguments.map(
-      (argument) => `${options.indentation}  ${argument},`,
-    ),
-    `${options.indentation})${options.suffix}`,
-  ].join('\n');
-}
+import {
+  renderNamedTypeScriptImport,
+  renderTypeScriptCallLine,
+  TYPESCRIPT_PRINT_WIDTH,
+} from '../shared/ts-string-literals.js';
 
 function renderEditorPluginSurfaceDeclaration(
   componentName: string,
@@ -155,7 +119,7 @@ export function buildEditorPluginSurfaceSource(
 
   if (slot === 'document-setting-panel') {
     const hintTranslation = renderTypeScriptCallLine({
-      arguments: [
+      args: [
         quoteTsString(
           'Use data.ts to add post type, capability, or editor context guards before showing this panel.',
         ),
@@ -206,7 +170,7 @@ ${hintTranslation}
   }
 
   const panelTitleTranslation = renderTypeScriptCallLine({
-    arguments: [quoteTsString('Document workflow'), quoteTsString(textDomain)],
+    args: [quoteTsString('Document workflow'), quoteTsString(textDomain)],
     callee: '__',
     indentation: '            ',
     prefix: 'title={',
@@ -275,7 +239,7 @@ export function buildEditorPluginEntrySource(
   const surfaceName = `${pluginName}-surface`;
   const pluginTitle = toTitleCase(editorPluginSlug);
   const titleDeclaration = renderTypeScriptCallLine({
-    arguments: [quoteTsString(pluginTitle), quoteTsString(textDomain)],
+    args: [quoteTsString(pluginTitle), quoteTsString(textDomain)],
     callee: '__',
     indentation: '',
     prefix: 'const EDITOR_PLUGIN_TITLE = ',

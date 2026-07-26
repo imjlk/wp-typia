@@ -193,6 +193,73 @@ on:
     );
   });
 
+  test('reports each explicit legacy Node reference once', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/legacy-label.yml',
+      `name: Legacy Node reference
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: ['node-20']
+`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+    const matchingErrors = result.errors.filter((error) =>
+      error.includes(
+        '.github/workflows/legacy-label.yml must not configure Node 20',
+      ),
+    );
+
+    expect(matchingErrors).toEqual([
+      '.github/workflows/legacy-label.yml must not configure Node 20 at jobs.test.strategy.matrix.node.0; the minimum supported major is 24.',
+    ]);
+  });
+
+  test('rejects single-digit legacy Node majors', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/ancient.yml',
+      `name: Ancient Node
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: ['8', '24']
+`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+
+    expect(result.errors).toContain(
+      '.github/workflows/ancient.yml must not configure Node 8 at jobs.test.strategy.matrix.node.0; the minimum supported major is 24.',
+    );
+  });
+
+  test('ignores numeric workflow expression placeholders in Node contexts', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/expression.yml',
+      `name: Node expression
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: \${{ fromJSON(format('["{0}"]', '24')) }}
+`,
+    );
+
+    expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+      errors: [],
+      valid: true,
+    });
+  });
+
   test('reports missing workflow and documentation files without throwing', () => {
     const repoRoot = createPolicyRepo();
     fs.rmSync(path.join(repoRoot, '.github/workflows/ci.yml'));

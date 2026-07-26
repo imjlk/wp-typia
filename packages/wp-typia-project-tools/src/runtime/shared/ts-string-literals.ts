@@ -1,3 +1,6 @@
+/** Canonical print width for generated TypeScript source. */
+export const TYPESCRIPT_PRINT_WIDTH = 80;
+
 /**
  * Quote arbitrary text as a single-quoted TypeScript string literal.
  *
@@ -91,7 +94,7 @@ export function renderNamedTypeScriptImport(
   const quotedModuleSpecifier = quoteTypeScriptString(moduleSpecifier);
   const compact =
     `${importKeyword} { ${names.join(', ')} } from ${quotedModuleSpecifier};`;
-  if (compact.length <= 80) {
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
     return compact;
   }
 
@@ -99,6 +102,32 @@ export function renderNamedTypeScriptImport(
     `${importKeyword} {`,
     ...names.map((name) => `  ${name},`),
     `} from ${quotedModuleSpecifier};`,
+  ].join('\n');
+}
+
+/**
+ * Render a call expression on one line when it fits the generated-source
+ * policy, otherwise place each argument on its own indented line.
+ */
+export function renderTypeScriptCallLine(options: {
+  args: readonly string[];
+  callee: string;
+  indentation: string;
+  prefix: string;
+  suffix: string;
+}): string {
+  const compact =
+    `${options.indentation}${options.prefix}${options.callee}(${options.args.join(', ')})${options.suffix}`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return [
+    `${options.indentation}${options.prefix}${options.callee}(`,
+    ...options.args.map(
+      (argument) => `${options.indentation}  ${argument},`,
+    ),
+    `${options.indentation})${options.suffix}`,
   ].join('\n');
 }
 
@@ -111,7 +140,7 @@ export function renderTypeScriptConstCall(
   argument: string,
 ): string {
   const compact = `export const ${constName} = ${callee}(${argument});`;
-  return compact.length <= 80
+  return compact.length <= TYPESCRIPT_PRINT_WIDTH
     ? compact
     : `export const ${constName} = ${callee}(\n  ${argument},\n);`;
 }
@@ -139,7 +168,7 @@ function indentTypeScriptValue(value: string, spaces: number): string {
  */
 export function renderTypeScriptValue(
   value: unknown,
-  maxInlineLength = 80,
+  maxInlineLength = TYPESCRIPT_PRINT_WIDTH,
 ): string {
   if (value === null) {
     return 'null';

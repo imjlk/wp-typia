@@ -4,12 +4,12 @@ import type {
 } from '@wp-typia/block-runtime/metadata-core';
 
 import { normalizeEndpointAuthDefinition } from './schema-core.js';
+import { TYPESCRIPT_PRINT_WIDTH } from '../shared/ts-string-literals.js';
 import type {
   RenderTypiaLlmModuleOptions,
   TypiaLlmEndpointMethodDescriptor,
 } from './typia-llm-types.js';
 
-const TYPESCRIPT_PRINT_WIDTH = 80;
 const TYPESCRIPT_RESERVED_WORDS = new Set([
   'abstract',
   'any',

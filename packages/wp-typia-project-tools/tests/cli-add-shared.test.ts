@@ -34,7 +34,10 @@ import {
   quoteTsString,
 } from '../src/runtime/cli-add-validation.js';
 import type { WorkspaceInventory } from '../src/runtime/workspace-inventory.js';
-import { renderTypeScriptValue } from '../src/runtime/shared/ts-string-literals.js';
+import {
+  renderTypeScriptCallLine,
+  renderTypeScriptValue,
+} from '../src/runtime/shared/ts-string-literals.js';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-add-shared-'));
@@ -373,6 +376,33 @@ test('TypeScript value rendering preserves JSON data with formatter-safe literal
     'TypeScript value rendering requires finite numbers.',
   );
   expect(renderTypeScriptValue(-0)).toBe('-0');
+});
+
+test('TypeScript call rendering follows the shared 80-column policy', () => {
+  expect(
+    renderTypeScriptCallLine({
+      args: ["'title'", "'demo-block'"],
+      callee: '__',
+      indentation: '  ',
+      prefix: 'title: ',
+      suffix: ',',
+    }),
+  ).toBe(`  title: __('title', 'demo-block'),`);
+  expect(
+    renderTypeScriptCallLine({
+      args: [
+        "'A deliberately long generated label that cannot fit inline'",
+        "'demo-block'",
+      ],
+      callee: '__',
+      indentation: '  ',
+      prefix: 'description: ',
+      suffix: ',',
+    }),
+  ).toBe(`  description: __(
+    'A deliberately long generated label that cannot fit inline',
+    'demo-block',
+  ),`);
 });
 
 test('shared add collision helper allows missing filesystem paths and inventory entries', () => {

@@ -47,6 +47,7 @@ import { renderMustacheTemplateString } from './template-render.js';
 import {
   quoteTypeScriptString,
   renderNamedTypeScriptImport,
+  renderTypeScriptCallLine,
   renderTypeScriptStringArray,
 } from '../shared/ts-string-literals.js';
 
@@ -76,28 +77,6 @@ interface BuiltInCodeTemplateSpec {
 
 // resourceKey is MaxLength<100>; generated scoped ids add "-" plus 9 characters.
 const RESOURCE_KEY_PREFIX_MAX_LENGTH = 90;
-const TYPESCRIPT_PRINT_WIDTH = 80;
-
-function renderTypeScriptCallLine(options: {
-  arguments: readonly string[];
-  callee: string;
-  indentation: string;
-  prefix: string;
-  suffix: string;
-}): string {
-  const compact = `${options.indentation}${options.prefix}${options.callee}(${options.arguments.join(', ')})${options.suffix}`;
-  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
-    return compact;
-  }
-
-  return [
-    `${options.indentation}${options.prefix}${options.callee}(`,
-    ...options.arguments.map(
-      (argument) => `${options.indentation}  ${argument},`,
-    ),
-    `${options.indentation})${options.suffix}`,
-  ].join('\n');
-}
 
 function renderCodeTemplate(
 	template: string,
@@ -139,7 +118,7 @@ function renderCodeTemplate(
   const renderedPersistenceEditorFieldLabels = persistenceEditorFieldLabels
     .map(([propertyName, label]) =>
       renderTypeScriptCallLine({
-        arguments: [
+        args: [
           quoteTypeScriptString(label),
           quoteTypeScriptString(variables.textDomain),
         ],
@@ -156,7 +135,7 @@ function renderCodeTemplate(
     descriptionTsLiteral: quoteTypeScriptString(variables.description),
     persistenceEditorFieldLabels: renderedPersistenceEditorFieldLabels,
     persistenceSanitizeAttributesCall: renderTypeScriptCallLine({
-      arguments: ['nextAttributes'],
+      args: ['nextAttributes'],
       callee: `sanitize${variables.pascalCase}Attributes`,
       indentation: '        ',
       prefix: 'data: ',
@@ -180,7 +159,7 @@ function renderCodeTemplate(
     persistenceTypesImport,
     titleTsLiteral: quoteTypeScriptString(variables.title),
     persistenceValidateAttributesCall: renderTypeScriptCallLine({
-      arguments: ['nextAttributes'],
+      args: ['nextAttributes'],
       callee: `validate${variables.pascalCase}Attributes`,
       indentation: '      ',
       prefix: 'return ',

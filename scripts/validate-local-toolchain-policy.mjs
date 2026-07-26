@@ -85,6 +85,14 @@ function readWorkflowEnv(workflowSource, variableName) {
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
 }
 
+function addNodeMajorMatch(matches, major, valuePath) {
+  if (
+    !matches.some((entry) => entry.major === major && entry.path === valuePath)
+  ) {
+    matches.push({ major, path: valuePath });
+  }
+}
+
 function collectNumericNodeMajors(value, nodeContext, pathSegments, matches) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) => {
@@ -105,16 +113,15 @@ function collectNumericNodeMajors(value, nodeContext, pathSegments, matches) {
         normalizedKey === 'node' ||
         normalizedKey === 'nodeversion' ||
         normalizedKey.startsWith('nodebaseline');
-      const keyNodeVersionMatch = normalizedKey.match(
-        /node(\d{2})(?=\D|$)/u,
-      );
+      const keyNodeVersionMatch = normalizedKey.match(/node(\d{1,2})(?=\D|$)/u);
       const nextPath = [...pathSegments, key];
 
       if (keyNodeVersionMatch) {
-        matches.push({
-          major: Number.parseInt(keyNodeVersionMatch[1], 10),
-          path: nextPath.join('.'),
-        });
+        addNodeMajorMatch(
+          matches,
+          Number.parseInt(keyNodeVersionMatch[1], 10),
+          nextPath.join('.'),
+        );
       }
 
       collectNumericNodeMajors(
@@ -134,24 +141,27 @@ function collectNumericNodeMajors(value, nodeContext, pathSegments, matches) {
   }
 
   const source = String(value);
-  const explicitNodePattern = /node(?:\.js)?[-_ ]?(\d{2})(?=\D|$)/giu;
+  const explicitNodePattern = /node(?:\.js)?[-_ ]?(\d{1,2})(?=\D|$)/giu;
   for (const match of source.matchAll(explicitNodePattern)) {
-    matches.push({
-      major: Number.parseInt(match[1], 10),
-      path: pathSegments.join('.'),
-    });
+    addNodeMajorMatch(
+      matches,
+      Number.parseInt(match[1], 10),
+      pathSegments.join('.'),
+    );
   }
 
   if (!nodeContext) {
     return;
   }
 
-  const versionPattern = /(?:^|[^0-9])(\d{2})(?:\.\d+(?:\.\d+)?)?(?=$|[^0-9])/gu;
+  const versionPattern =
+    /(?:^|[^0-9{])(\d{1,2})(?:\.\d+(?:\.\d+)?)?(?=$|[^0-9}])/gu;
   for (const match of source.matchAll(versionPattern)) {
-    matches.push({
-      major: Number.parseInt(match[1], 10),
-      path: pathSegments.join('.'),
-    });
+    addNodeMajorMatch(
+      matches,
+      Number.parseInt(match[1], 10),
+      pathSegments.join('.'),
+    );
   }
 }
 
@@ -177,10 +187,7 @@ function validateNodeWorkflowBaselines(repoRoot, policy, errors) {
   try {
     workflowFiles = fs
       .readdirSync(workflowDirectory, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isFile() && /\.(?:ya?ml)$/iu.test(entry.name),
-      )
+      .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/iu.test(entry.name))
       .map((entry) => path.join(policy.workflowDirectory, entry.name));
   } catch (error) {
     const errorCode =

@@ -24,6 +24,10 @@ import {
   toPascalCase,
   toTitleCase,
 } from '../shared/string-case.js';
+import {
+  renderNamedTypeScriptImport,
+  TYPESCRIPT_PRINT_WIDTH,
+} from '../shared/ts-string-literals.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 
 const CORE_VARIATIONS_EDITOR_PLUGIN_SLUG = 'core-variations';
@@ -236,7 +240,7 @@ function buildCoreVariationTranslationProperty(options: {
     options.message,
     options.textDomain,
   )},`;
-  if (compact.length <= 80) {
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
     return compact;
   }
 
@@ -257,7 +261,7 @@ function buildCoreVariationKeywordsSource(options: {
     buildCoreVariationTranslationCall(message, options.textDomain),
   );
   const compact = `  keywords: [${calls.join(', ')}],`;
-  if (compact.length <= 80) {
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
     return compact;
   }
 
@@ -268,7 +272,7 @@ function buildCoreVariationKeywordsSource(options: {
         message,
         options.textDomain,
       )},`;
-      return call.length <= 80
+      return call.length <= TYPESCRIPT_PRINT_WIDTH
         ? [call]
         : [
             '    __(',
@@ -540,10 +544,13 @@ function buildCoreVariationIndexSource(refs: readonly CoreVariationModuleRef[]):
 				ref.targetBlockName,
 				ref.variationSlug,
 			);
-			return `import {
-  ${blockConstName} as CORE_VARIATION_BLOCK_${index},
-  ${variationConstName} as coreVariationEntry${index},
-} from '${buildCoreVariationImportPath(ref)}';`;
+			return renderNamedTypeScriptImport(
+				[
+					`${blockConstName} as CORE_VARIATION_BLOCK_${index}`,
+					`${variationConstName} as coreVariationEntry${index}`,
+				],
+				buildCoreVariationImportPath(ref),
+			);
 		})
 		.join('\n');
   const entryLines = refs
