@@ -210,6 +210,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	const defaultCliDir = path.join(tempRoot, "default-cli-install");
 	const blockTypesTypecheckDir = path.join(tempRoot, "block-types-typecheck");
 	const ttscCacheDir = path.join(tempRoot, "ttsc-cache");
+	fs.mkdirSync(ttscCacheDir, { recursive: true });
 	const tarballs = new Map();
 	const packedManifests = new Map();
 	const footprintResults = [];
