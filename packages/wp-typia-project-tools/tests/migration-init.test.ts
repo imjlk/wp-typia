@@ -25,6 +25,8 @@ import {
 import { formatMigrationHelpText } from '../src/runtime/migration-command-surface.js';
 import { loadMigrationProject } from '../src/runtime/migration-project.js';
 
+const GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS = 300_000;
+
 describe('wp-typia migrate init', () => {
   const tempRoot = createMigrationTempRoot('wp-typia-migration-init-');
 
@@ -83,7 +85,7 @@ test('migrate init keeps deprecated generation compatible when current manifest 
 			'src/migrations/versions/**/save.tsx',
 		],
 	});
-}, { timeout: 30_000 });
+}, { timeout: GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS });
 
 test('migrate init auto-detects current single-block scaffold layouts', () => {
 	const projectDir = path.join(tempRoot, 'init-current-single-block-project');

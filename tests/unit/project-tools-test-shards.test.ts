@@ -28,6 +28,10 @@ const workspaceAddTestSource = fs.readFileSync(
   path.join(testsRoot, 'workspace-add.test.ts'),
   'utf8',
 );
+const migrationInitTestSource = fs.readFileSync(
+  path.join(testsRoot, 'migration-init.test.ts'),
+  'utf8',
+);
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -83,6 +87,25 @@ describe('Project Tools test shard manifest', () => {
         '}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);',
       );
     }
+  });
+
+  test('keeps generated migration typechecks on the cold-build timeout', () => {
+    expect(migrationInitTestSource).toContain(
+      'const GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedTypecheckTest =
+      migrationInitTestSource.match(
+        /test\('migrate init keeps deprecated generation compatible[\s\S]*?(?=\ntest\()/,
+      )?.[0] ?? '';
+
+    expect(generatedTypecheckTest).toContain(
+      'typecheckMigrationProject(projectDir, {',
+    );
+    expect(generatedTypecheckTest.trimEnd()).toEndWith(
+      '}, { timeout: GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS });',
+    );
+    expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
   });
 
   test('rejects missing and unknown selections', () => {
