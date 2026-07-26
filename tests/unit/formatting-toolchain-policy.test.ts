@@ -380,6 +380,25 @@ export default {
     });
   });
 
+  test('rejects malformed ESLint config syntax', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    writeText(
+      path.join(repoRoot, 'eslint.config.mjs'),
+      'export default [{ files: ["**/*.js"] };\n',
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith(
+          'eslint.config.mjs must be statically inspectable:',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   test('accepts equivalent ttsc lint config property ordering', () => {
     const repoRoot = createFormattingPolicyRepo();
     const policy = FORMATTING_TOOLCHAIN_POLICY.ttscLintConfig;

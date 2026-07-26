@@ -220,14 +220,7 @@ function readTsLiteral(expression, sourceFile) {
   );
 }
 
-function readTsDefaultObjectConfig(sourceText, relativePath) {
-  const sourceFile = ts.createSourceFile(
-    relativePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
+function assertNoParseDiagnostics(sourceFile) {
   const diagnostics = sourceFile.parseDiagnostics ?? [];
 
   if (diagnostics.length > 0) {
@@ -239,6 +232,17 @@ function readTsDefaultObjectConfig(sourceText, relativePath) {
         .join('; '),
     );
   }
+}
+
+function readTsDefaultObjectConfig(sourceText, relativePath) {
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  assertNoParseDiagnostics(sourceFile);
 
   const exportAssignment = sourceFile.statements.find((statement) =>
     ts.isExportAssignment(statement),
@@ -357,6 +361,7 @@ function inspectEslintConfig(sourceText) {
     true,
     ts.ScriptKind.JS,
   );
+  assertNoParseDiagnostics(sourceFile);
   const bindings = getStaticBindings(sourceFile);
   let hasTypeScriptEslint = false;
   let hasTypeScriptFileScope = false;
