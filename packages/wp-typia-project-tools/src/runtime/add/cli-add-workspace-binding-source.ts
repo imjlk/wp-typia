@@ -182,10 +182,10 @@ function formatBindingAttributeTypeMember(
     : JSON.stringify(attributeName);
   const tsType = resolveBindingAttributeTsType(schemaType);
   return [
-		'\t/**',
-		`\t * Starter ${tsType} attribute declared for WordPress Block Bindings.`,
-		'\t */',
-		`\t${propertyName}?: ${tsType};`,
+		'  /**',
+		`   * Starter ${tsType} attribute declared for WordPress Block Bindings.`,
+		'   */',
+		`  ${propertyName}?: ${tsType};`,
 	].join('\n');
 }
 

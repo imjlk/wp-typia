@@ -1,14 +1,14 @@
 name: Setup Bun Workspace
-description: Setup Bun (and optional Node), warm the Bun install cache, and install root workspace dependencies.
+description: Setup Bun and Node, warm the Bun install cache, and install root workspace dependencies.
 
 inputs:
   bun-version:
     description: Bun version to install.
     required: true
   node-version:
-    description: Optional Node.js version to install before Bun.
+    description: Node.js version to install before Bun.
     required: false
-    default: ''
+    default: '24'
   install-command:
     description: Command used to install workspace dependencies.
     required: false

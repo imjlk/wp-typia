@@ -45,6 +45,41 @@ function writeFixtureFile(rootDir: string, relativePath: string, source: string)
   return filePath;
 }
 
+interface GeneratedPackageFixture {
+  [key: string]: unknown;
+  devDependencies?: Record<string, string>;
+  scripts?: Record<string, string>;
+}
+
+function addGeneratedLintBoundary(
+  projectDir: string,
+  packageJson: GeneratedPackageFixture,
+): GeneratedPackageFixture {
+  packageJson.devDependencies = {
+    ...packageJson.devDependencies,
+    '@types/react': '^18.3.28',
+    '@types/react-dom': '^18.3.7',
+    '@typescript/typescript6': '6.0.2',
+    react: '^18.3.1',
+    'react-dom': '^18.3.1',
+  };
+  packageJson.scripts = {
+    ...packageJson.scripts,
+    'lint:js': 'node scripts/run-wp-scripts-lint-js-compat.mjs',
+  };
+  writeFixtureFile(
+    projectDir,
+    'scripts/register-typescript6.cjs',
+    "'use strict';\n",
+  );
+  writeFixtureFile(
+    projectDir,
+    'scripts/run-wp-scripts-lint-js-compat.mjs',
+    '#!/usr/bin/env node\n',
+  );
+  return packageJson;
+}
+
 afterEach(() => {
   for (const tempDir of tempDirs) {
     fs.rmSync(tempDir, { force: true, recursive: true });
@@ -83,7 +118,7 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(smokeScript).toContain('runExampleProjectSmoke');
   expect(smokeScript).toContain('assertGeneratedProjectScaffold');
   expect(smokeScript).toContain('assertScaffoldPackageManagerField');
-  expect(smokeScript).toContain('packageManager === "npm"');
+  expect(smokeScript).toContain("packageManager === 'npm'");
   expect(smokeScript).toContain('Expected npm scaffolds to omit packageManager');
   expect(exampleHelper).toContain('ensureCopiedExampleSupportDependencies');
   expect(exampleHelper).toContain('runExampleProjectSmoke');
@@ -99,9 +134,9 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(assertionHelper).toContain('${filePath}');
   expect(assertionHelper).toContain('error?.stderr');
   expect(assertionHelper).toContain('error?.stdout');
-  expect(assertionHelper).toContain('exampleProject === "my-typia-block"');
+  expect(assertionHelper).toContain("exampleProject === 'my-typia-block'");
   expect(assertionHelper).toContain(
-    'path.join(projectDir, "build", "blocks", blockSlug)',
+    "path.join(projectDir, 'build', 'blocks', blockSlug)",
   );
   expect(coreHelper).toContain(
     'Expected ${configPath} to declare currentMigrationVersion in a supported format',
@@ -412,7 +447,7 @@ test('generated project smoke assertions accept local project-tools smoke rewrit
 	fs.writeFileSync(
 		join(projectDir, 'package.json'),
 		`${JSON.stringify(
-			{
+			addGeneratedLintBoundary(projectDir, {
 				name: 'demo-smoke-boundary',
 				private: true,
 				devDependencies: {
@@ -425,7 +460,7 @@ test('generated project smoke assertions accept local project-tools smoke rewrit
 				scripts: {
 					build: 'wp-scripts build',
 				},
-			},
+			}),
 			null,
 			2,
 		)}\n`,
@@ -450,7 +485,7 @@ test('generated project smoke assertions allow official workspace CLI helper scr
 	fs.writeFileSync(
 		join(projectDir, 'package.json'),
 		`${JSON.stringify(
-			{
+			addGeneratedLintBoundary(projectDir, {
 				name: 'demo-smoke-workspace-boundary',
 				private: true,
 				scripts: {
@@ -462,7 +497,7 @@ test('generated project smoke assertions allow official workspace CLI helper scr
 					projectType: 'workspace',
 					templatePackage: '@wp-typia/create-workspace-template',
 				},
-			},
+			}),
 			null,
 			2,
 		)}\n`,
@@ -487,13 +522,13 @@ test('generated project smoke assertions reject non-workspace wp-typia scripts',
 	fs.writeFileSync(
 		join(projectDir, 'package.json'),
 		`${JSON.stringify(
-			{
+			addGeneratedLintBoundary(projectDir, {
 				name: 'demo-smoke-script-boundary',
 				private: true,
 				scripts: {
 					'wp-typia:sync': 'wp-typia sync',
 				},
-			},
+			}),
 			null,
 			2,
 		)}\n`,
@@ -520,7 +555,7 @@ test('generated project smoke assertions still reject published project-tools de
 	fs.writeFileSync(
 		join(projectDir, 'package.json'),
 		`${JSON.stringify(
-			{
+			addGeneratedLintBoundary(projectDir, {
 				name: 'demo-smoke-boundary-reject',
 				private: true,
 				devDependencies: {
@@ -529,7 +564,7 @@ test('generated project smoke assertions still reject published project-tools de
 				scripts: {
 					build: 'wp-scripts build',
 				},
-			},
+			}),
 			null,
 			2,
 		)}\n`,

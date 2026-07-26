@@ -48,23 +48,23 @@ test('built-in non-ts artifacts delegate family emitters and render helpers to f
     'utf8',
   );
 
-  expect(facadeSource).toContain(
-    'from "./built-in-block-non-ts-family-artifacts.js"',
+  expect(facadeSource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-family-artifacts\.js['"]/,
   );
   expect(facadeSource).toContain('buildBasicArtifacts');
   expect(facadeSource).not.toContain('const BASIC_STYLE_TEMPLATE =');
   expect(facadeSource).not.toContain('function renderArtifact(');
-  expect(familySource).toContain(
-    'from "./built-in-block-non-ts-basic-artifacts.js"',
+  expect(familySource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-basic-artifacts\.js['"]/,
   );
-  expect(familySource).toContain(
-    'from "./built-in-block-non-ts-compound-artifacts.js"',
+  expect(familySource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-compound-artifacts\.js['"]/,
   );
-  expect(familySource).toContain(
-    'from "./built-in-block-non-ts-interactivity-artifacts.js"',
+  expect(familySource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-interactivity-artifacts\.js['"]/,
   );
-  expect(familySource).toContain(
-    'from "./built-in-block-non-ts-persistence-artifacts.js"',
+  expect(familySource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-persistence-artifacts\.js['"]/,
   );
   expect(familySource).not.toContain('const BASIC_STYLE_TEMPLATE =');
   expect(basicSource).toContain('const BASIC_STYLE_TEMPLATE =');
@@ -73,8 +73,8 @@ test('built-in non-ts artifacts delegate family emitters and render helpers to f
   expect(interactivitySource).toContain(
     'export function buildInteractivityArtifacts(',
   );
-  expect(persistenceSource).toContain(
-    'from "./built-in-block-non-ts-persistence-templates.js"',
+  expect(persistenceSource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-persistence-templates\.js['"]/,
   );
   expect(persistenceSource).toContain(
     'export function buildPersistenceArtifacts(',
@@ -92,12 +92,12 @@ test('built-in non-ts artifacts delegate family emitters and render helpers to f
   expect(persistenceTemplatesSource).toContain(
     'export const PERSISTENCE_STYLE_TEMPLATE =',
   );
-  expect(compoundSource).toContain(
-    'from "./built-in-block-non-ts-compound-templates.js"',
+  expect(compoundSource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-compound-templates\.js['"]/,
   );
   expect(compoundSource).toContain('export function buildCompoundArtifacts(');
-  expect(compoundSource).toContain(
-    'from "./built-in-block-non-ts-render-utils.js"',
+  expect(compoundSource).toMatch(
+    /from\s+['"]\.\/built-in-block-non-ts-render-utils\.js['"]/,
   );
   expect(compoundSource).not.toContain(
     'const COMPOUND_PERSISTENCE_RENDER_TARGETS_TEMPLATE =',

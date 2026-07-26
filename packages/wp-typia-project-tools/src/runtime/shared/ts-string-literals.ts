@@ -74,6 +74,34 @@ export function renderTypeScriptStringArray(
 }
 
 /**
+ * Render a named TypeScript import using the canonical 80-column layout.
+ *
+ * @param names Imported binding names in their desired order.
+ * @param moduleSpecifier Module specifier to quote.
+ * @param options Import rendering options.
+ * @returns A compact import when it fits, otherwise one binding per line.
+ */
+export function renderNamedTypeScriptImport(
+  names: readonly string[],
+  moduleSpecifier: string,
+  options: { typeOnly?: boolean } = {},
+): string {
+  const importKeyword = options.typeOnly ? 'import type' : 'import';
+  const quotedModuleSpecifier = quoteTypeScriptString(moduleSpecifier);
+  const compact =
+    `${importKeyword} { ${names.join(', ')} } from ${quotedModuleSpecifier};`;
+  if (compact.length <= 80) {
+    return compact;
+  }
+
+  return [
+    `${importKeyword} {`,
+    ...names.map((name) => `  ${name},`),
+    `} from ${quotedModuleSpecifier};`,
+  ].join('\n');
+}
+
+/**
  * Render a print-width-aware exported const initialized by a one-argument call.
  */
 export function renderTypeScriptConstCall(

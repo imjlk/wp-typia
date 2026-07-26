@@ -4,7 +4,6 @@
       "description": "Read the current counter state.\n\nREST path: GET /persistence-examples/v1/counter\nAuth intent: public",
       "name": "getPersistenceCounterState",
       "output": {
-        "description": "Current Type: {@link PersistenceCounterResponse}",
         "type": "object",
         "properties": {
           "postId": {
@@ -41,7 +40,6 @@
         "$defs": {}
       },
       "parameters": {
-        "description": "Current Type: {@link PersistenceCounterQuery}",
         "type": "object",
         "properties": {
           "postId": {
@@ -69,7 +67,6 @@
       "description": "Increment the current counter state.\n\nREST path: POST /persistence-examples/v1/counter\nAuth intent: public-write-protected\nWordPress auth: public-signed-token (field: publicWriteToken)",
       "name": "incrementPersistenceCounterState",
       "output": {
-        "description": "Current Type: {@link PersistenceCounterResponse}",
         "type": "object",
         "properties": {
           "postId": {
@@ -106,7 +103,6 @@
         "$defs": {}
       },
       "parameters": {
-        "description": "Current Type: {@link PersistenceCounterIncrementRequest}",
         "type": "object",
         "properties": {
           "postId": {

@@ -49,11 +49,13 @@ function getMetadataEntries() {
 		for ( const inputPath of findMetadataFiles( blockDir.dir ) ) {
 			entries.push( {
 				inputPath,
-				outputPath: path.join(
-					'blocks',
-					blockDir.slug,
-					path.relative( blockDir.dir, inputPath )
-				).replaceAll( '\\', '/' ),
+				outputPath: path
+					.join(
+						'blocks',
+						blockDir.slug,
+						path.relative( blockDir.dir, inputPath )
+					)
+					.replaceAll( '\\', '/' ),
 			} );
 		}
 	}

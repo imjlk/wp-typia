@@ -418,9 +418,11 @@ function buildEndpointPathRequestOptionLines(options: {
 			const index = pathParameterNames.indexOf(name);
 			return [
 				`    if (pathParam${index} === undefined || pathParam${index} === null || pathParam${index} === '') {`,
-				`      throw new Error(${toJavaScriptStringLiteral(
+				`      throw new Error(`,
+				`        ${toJavaScriptStringLiteral(
 					`Missing path parameter "${name}" for endpoint path "${options.endpointPath}".`,
-				)});`,
+				)},`,
+				`      );`,
 				`    }`,
 			];
 		}),
@@ -505,7 +507,8 @@ export async function syncEndpointClientModule(
     );
     importedTypeNames.add(responseContract.sourceTypeName);
 
-    let requestTypeName = 'undefined';
+    let endpointRequestTypeLines = ['  undefined,'];
+    let requestParameterLines: string[] = [];
     let requestValidatorExpression = 'validateNoRequest';
     let requestLocationExpression: string | null = null;
     const queryContract = queryContractKey
@@ -534,14 +537,38 @@ export async function syncEndpointClientModule(
         bodyContractKey!,
         validatorPropertyNames,
       );
-      requestTypeName = `{ query: ${queryContract.sourceTypeName}; body: ${bodyContract.sourceTypeName} }`;
-      requestValidatorExpression = `(input) => validateCombinedRequest(input, ${queryValidatorExpression}, ${bodyValidatorExpression})`;
+      endpointRequestTypeLines = [
+        '  {',
+        `    query: ${queryContract.sourceTypeName};`,
+        `    body: ${bodyContract.sourceTypeName};`,
+        '  },',
+      ];
+      requestParameterLines = [
+        '  request: {',
+        `    query: ${queryContract.sourceTypeName};`,
+        `    body: ${bodyContract.sourceTypeName};`,
+        '  },',
+      ];
+      const combinedValidatorCall =
+        `    validateCombinedRequest(input, ${queryValidatorExpression}, ${bodyValidatorExpression})`;
+      requestValidatorExpression =
+        combinedValidatorCall.length <= 80
+          ? ['(input) =>', combinedValidatorCall].join('\n')
+          : [
+              '(input) =>',
+              '    validateCombinedRequest(',
+              '      input,',
+              `      ${queryValidatorExpression},`,
+              `      ${bodyValidatorExpression},`,
+              '    )',
+            ].join('\n');
       requestLocationExpression = "'query-and-body'";
       importedTypeNames.add(queryContract.sourceTypeName);
       importedTypeNames.add(bodyContract.sourceTypeName);
       inlineHelpers.add('validateCombinedRequest');
     } else if (queryContract) {
-      requestTypeName = queryContract.sourceTypeName;
+      endpointRequestTypeLines = [`  ${queryContract.sourceTypeName},`];
+      requestParameterLines = [`  request: ${queryContract.sourceTypeName},`];
       requestValidatorExpression = toValidatorAccessExpression(
         queryContractKey!,
         validatorPropertyNames,
@@ -549,7 +576,8 @@ export async function syncEndpointClientModule(
       requestLocationExpression = "'query'";
       importedTypeNames.add(queryContract.sourceTypeName);
     } else if (bodyContract) {
-      requestTypeName = bodyContract.sourceTypeName;
+      endpointRequestTypeLines = [`  ${bodyContract.sourceTypeName},`];
+      requestParameterLines = [`  request: ${bodyContract.sourceTypeName},`];
       requestValidatorExpression = toValidatorAccessExpression(
         bodyContractKey!,
         validatorPropertyNames,
@@ -580,8 +608,8 @@ export async function syncEndpointClientModule(
     endpointLines.push(
 			[
 				`export const ${endpointConstantName} = createEndpoint<`,
-				`\t${requestTypeName},`,
-				`\t${responseContract.sourceTypeName}`,
+				...endpointRequestTypeLines,
+				`  ${responseContract.sourceTypeName}`,
 				`>({`,
 				`  authIntent: ${toJavaScriptStringLiteral(normalizedAuth.auth)},`,
 				...(normalizedAuth.authMode
@@ -602,8 +630,8 @@ export async function syncEndpointClientModule(
 				`});`,
 				'',
 				`export function ${endpoint.operationId}(`,
-				...(hasRequest ? [`\trequest: ${requestTypeName},`] : []),
-				`\toptions: EndpointCallOptions,`,
+				...requestParameterLines,
+				`  options: EndpointCallOptions,`,
 				`) {`,
 				...returnCallLines,
 				`}`,
@@ -661,25 +689,25 @@ export async function syncEndpointClientModule(
 		...(inlineHelpers.has('validateNoRequest')
 			? [
 					`function validateNoRequest(input: unknown) {`,
-					`\tif (input !== undefined) {`,
-					`\t\treturn {`,
-					`\t\t\tdata: undefined,`,
-					`\t\t\terrors: [`,
-					`\t\t\t\t{`,
-					`\t\t\t\t\texpected: 'undefined',`,
-					`\t\t\t\t\tpath: '(root)',`,
-					`\t\t\t\t\tvalue: input,`,
-					`\t\t\t\t},`,
-					`\t\t\t],`,
-					`\t\t\tisValid: false,`,
-					`\t\t};`,
-					`\t}`,
+					`  if (input !== undefined) {`,
+					`    return {`,
+					`      data: undefined,`,
+					`      errors: [`,
+					`        {`,
+					`          expected: 'undefined',`,
+					`          path: '(root)',`,
+					`          value: input,`,
+					`        },`,
+					`      ],`,
+					`      isValid: false,`,
+					`    };`,
+					`  }`,
 					'',
-					`\treturn {`,
-					`\t\tdata: undefined,`,
-					`\t\terrors: [],`,
-					`\t\tisValid: true,`,
-					`\t};`,
+					`  return {`,
+					`    data: undefined,`,
+					`    errors: [],`,
+					`    isValid: true,`,
+					`  };`,
 					`}`,
 					'',
 				]
@@ -687,76 +715,81 @@ export async function syncEndpointClientModule(
 		...(inlineHelpers.has('validateCombinedRequest')
 			? [
 					`function validateCombinedRequest<TQuery, TBody>(`,
-					`\tinput: unknown,`,
-					`\tvalidateQuery: (input: unknown) => ${combinedValidationResultTypeName}<TQuery>,`,
-					`\tvalidateBody: (input: unknown) => ${combinedValidationResultTypeName}<TBody>,`,
+					`  input: unknown,`,
+					`  validateQuery: (input: unknown) => ${combinedValidationResultTypeName}<TQuery>,`,
+					`  validateBody: (input: unknown) => ${combinedValidationResultTypeName}<TBody>,`,
 					`): ${combinedValidationResultTypeName}<{ query: TQuery; body: TBody }> {`,
-					`\tif ( input === null || typeof input !== 'object' || Array.isArray( input ) ) {`,
-					`\t\treturn {`,
-					`\t\t\tdata: undefined,`,
-					`\t\t\terrors: [`,
-					`\t\t\t\t{`,
-					`\t\t\t\t\texpected: '{ query, body }',`,
-					`\t\t\t\t\tpath: '(root)',`,
-					`\t\t\t\t\tvalue: input,`,
-					`\t\t\t\t},`,
-					`\t\t\t],`,
-					`\t\t\tisValid: false,`,
-					`\t\t};`,
-					`\t}`,
+					`  if ( input === null || typeof input !== 'object' || Array.isArray( input ) ) {`,
+					`    return {`,
+					`      data: undefined,`,
+					`      errors: [`,
+					`        {`,
+					`          expected: '{ query, body }',`,
+					`          path: '(root)',`,
+					`          value: input,`,
+					`        },`,
+					`      ],`,
+					`      isValid: false,`,
+					`    };`,
+					`  }`,
 					``,
-					`\tconst request = input as { query?: unknown; body?: unknown };`,
-					`\tif ( !Object.prototype.hasOwnProperty.call( request, 'query' ) || !Object.prototype.hasOwnProperty.call( request, 'body' ) ) {`,
-					`\t\treturn {`,
-					`\t\t\tdata: undefined,`,
-					`\t\t\terrors: [`,
-					`\t\t\t\t{`,
-					`\t\t\t\t\texpected: '{ query, body }',`,
-					`\t\t\t\t\tpath: '(root)',`,
-					`\t\t\t\t\tvalue: input,`,
-					`\t\t\t\t},`,
-					`\t\t\t],`,
-					`\t\t\tisValid: false,`,
-					`\t\t};`,
-					`\t}`,
+					`  const request = input as { query?: unknown; body?: unknown };`,
+					`  if ( !Object.prototype.hasOwnProperty.call(`,
+					`    request,`,
+					`    'query',`,
+					`  ) || !Object.prototype.hasOwnProperty.call(request, 'body') ) {`,
+					`    return {`,
+					`      data: undefined,`,
+					`      errors: [`,
+					`        {`,
+					`          expected: '{ query, body }',`,
+					`          path: '(root)',`,
+					`          value: input,`,
+					`        },`,
+					`      ],`,
+					`      isValid: false,`,
+					`    };`,
+					`  }`,
 					``,
-					`\tconst prefixPath = (prefix: '$.query' | '$.body', path: string): string => {`,
-					`\t\tif ( path === '(root)' ) {`,
-					`\t\t\treturn prefix;`,
-					`\t\t}`,
+					`  const prefixPath = (prefix: '$.query' | '$.body', path: string): string => {`,
+					`    if ( path === '(root)' ) {`,
+					`      return prefix;`,
+					`    }`,
 					``,
-					`\t\treturn path.startsWith( '$' ) ? \`\${prefix}\${path.slice( 1 )}\` : \`\${prefix}.\${path}\`;`,
-					`\t};`,
+					`    return path.startsWith('$')`,
+					`      ? \`\${prefix}\${path.slice( 1 )}\``,
+					`      : \`\${prefix}.\${path}\`;`,
+					`  };`,
 					``,
-					`\tconst queryValidation = validateQuery( request.query );`,
-					`\tconst bodyValidation = validateBody( request.body );`,
-					`\tconst errors: ${combinedValidationErrorTypeName}[] = [`,
-					`\t\t...queryValidation.errors.map( ( error ) => ( {`,
-					`\t\t\t...error,`,
-					`\t\t\tpath: prefixPath( '$.query', error.path ),`,
-					`\t\t} ) ),`,
-					`\t\t...bodyValidation.errors.map( ( error ) => ( {`,
-					`\t\t\t...error,`,
-					`\t\t\tpath: prefixPath( '$.body', error.path ),`,
-					`\t\t} ) ),`,
-					`\t];`,
+					`  const queryValidation = validateQuery( request.query );`,
+					`  const bodyValidation = validateBody( request.body );`,
+					`  const errors: ${combinedValidationErrorTypeName}[] = [`,
+					`    ...queryValidation.errors.map( ( error ) => ( {`,
+					`      ...error,`,
+					`      path: prefixPath( '$.query', error.path ),`,
+					`    } ) ),`,
+					`    ...bodyValidation.errors.map( ( error ) => ( {`,
+					`      ...error,`,
+					`      path: prefixPath( '$.body', error.path ),`,
+					`    } ) ),`,
+					`  ];`,
 					``,
-					`\tif ( !queryValidation.isValid || !bodyValidation.isValid ) {`,
-					`\t\treturn {`,
-					`\t\t\tdata: undefined,`,
-					`\t\t\terrors,`,
-					`\t\t\tisValid: false,`,
-					`\t\t};`,
-					`\t}`,
+					`  if ( !queryValidation.isValid || !bodyValidation.isValid ) {`,
+					`    return {`,
+					`      data: undefined,`,
+					`      errors,`,
+					`      isValid: false,`,
+					`    };`,
+					`  }`,
 					``,
-					`\treturn {`,
-					`\t\tdata: {`,
-					`\t\t\tbody: bodyValidation.data ?? ( request.body as TBody ),`,
-					`\t\t\tquery: queryValidation.data ?? ( request.query as TQuery ),`,
-					`\t\t},`,
-					`\t\terrors: [],`,
-					`\t\tisValid: true,`,
-					`\t};`,
+					`  return {`,
+					`    data: {`,
+					`      body: bodyValidation.data ?? ( request.body as TBody ),`,
+					`      query: queryValidation.data ?? ( request.query as TQuery ),`,
+					`    },`,
+					`    errors: [],`,
+					`    isValid: true,`,
+					`  };`,
 					`}`,
 					'',
 				]

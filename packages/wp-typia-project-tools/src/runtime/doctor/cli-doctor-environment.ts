@@ -160,7 +160,7 @@ export async function getEnvironmentDoctorChecks(cwd: string): Promise<DoctorChe
     ),
     createDoctorCheck(
       'Node',
-      nodeVersion && compareMajorVersion(nodeVersion, 20) ? 'pass' : 'fail',
+      nodeVersion && compareMajorVersion(nodeVersion, 24) ? 'pass' : 'fail',
       nodeVersion ? `Detected ${nodeVersion}` : 'Not available',
     ),
     createDoctorCheck(

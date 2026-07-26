@@ -1,6 +1,12 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { type AdminViewCoreDataSource } from './cli-add-workspace-admin-view-types.js';
 import {
+  renderAdminViewQuerySource,
+  renderNamedTypeScriptTypeImport,
+  wrapLongDataViewsDeclaration,
+  wrapLongTranslationCalls,
+} from './cli-add-workspace-admin-view-typescript-format.js';
+import {
   toCamelCase,
   toPascalCase,
   toTitleCase,
@@ -108,6 +114,7 @@ export function buildCoreDataAdminViewConfigSource(
   const camelName = toCamelCase(adminViewSlug);
   const itemTypeName = `${pascalName}AdminViewItem`;
   const dataViewsName = `${camelName}AdminDataViews`;
+  const typesImport = renderNamedTypeScriptTypeImport([itemTypeName]);
   const isTaxonomyCoreDataSource = coreDataSource.entityKind === 'taxonomy';
   const defaultViewFields = isTaxonomyCoreDataSource
     ? "['name', 'slug', 'count']"
@@ -120,64 +127,64 @@ export function buildCoreDataAdminViewConfigSource(
     : "\t\ttitleField: 'title',\n";
   const additionalFieldsSource = isTaxonomyCoreDataSource
     ? `\t\tcount: {
-\t\t\tlabel: __( 'Count', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Count', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'integer' },
 \t\t},
 \t\tdescription: {
-\t\t\tlabel: __( 'Description', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Description', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tlink: {
-\t\t\tlabel: __( 'Link', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Link', ${quoteTsString(textDomain)}),
 \t\t\tschema: { format: 'uri', type: 'string' },
 \t\t},
 \t\tname: {
 \t\t\tenableGlobalSearch: true,
-\t\t\tlabel: __( 'Name', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Name', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tparent: {
-\t\t\tlabel: __( 'Parent', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Parent', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'integer' },
 \t\t},
 \t\tslug: {
 \t\t\tenableGlobalSearch: true,
-\t\t\tlabel: __( 'Slug', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Slug', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\ttaxonomy: {
-\t\t\tlabel: __( 'Taxonomy', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Taxonomy', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},`
     : `\t\tslug: {
 \t\t\tenableGlobalSearch: true,
-\t\t\tlabel: __( 'Slug', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Slug', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tstatus: {
-\t\t\tlabel: __( 'Status', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Status', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\ttitle: {
 \t\t\tenableGlobalSearch: true,
-\t\t\tlabel: __( 'Title', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Title', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tupdatedAt: {
-\t\t\tlabel: __( 'Updated', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Updated', ${quoteTsString(textDomain)}),
 \t\t\tschema: { format: 'date-time', type: 'string' },
 \t\t\ttype: 'datetime',
 \t\t},`;
 
-  return `import { defineDataViews } from '@wp-typia/dataviews';
+  const source = `import { defineDataViews } from '@wp-typia/dataviews';
 import { __ } from '@wordpress/i18n';
 
-import type { ${itemTypeName} } from './types';
+${typesImport}
 
 export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \tidField: 'id',
 \tsearch: true,
-\tsearchLabel: __( 'Search records', ${quoteTsString(textDomain)} ),
+\tsearchLabel: __('Search records', ${quoteTsString(textDomain)}),
 ${titleFieldSource}
 \tdefaultView: {
 \t\tfields: ${defaultViewFields},
@@ -189,7 +196,7 @@ ${defaultViewEnhancementsSource}
 \tfields: {
 \t\tid: {
 \t\t\tenableHiding: false,
-\t\t\tlabel: __( 'ID', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('ID', ${quoteTsString(textDomain)}),
 \t\t\treadOnly: true,
 \t\t\tschema: { type: 'integer' },
 \t\t},
@@ -197,6 +204,10 @@ ${additionalFieldsSource}
 \t},
 });
 `;
+  return wrapLongTranslationCalls(
+    wrapLongDataViewsDeclaration(source, dataViewsName, itemTypeName),
+    textDomain,
+  );
 }
 
 /**
@@ -220,6 +231,16 @@ export function buildCoreDataAdminViewDataSource(
   const useEntityRecordName = `use${pascalName}EntityRecord`;
   const useEntityRecordsName = `use${pascalName}EntityRecords`;
   const useAdminViewDataName = `use${pascalName}AdminViewData`;
+  const querySource = renderAdminViewQuerySource({
+    dataViewsName,
+    properties: ["perPageParam: 'per_page'"],
+    queryTypeName,
+  });
+  const typesImport = renderNamedTypeScriptTypeImport([
+    coreDataRecordTypeName,
+    dataSetTypeName,
+    itemTypeName,
+  ]);
 
   if (coreDataSource.entityKind === 'taxonomy') {
     return `import type { DataViewsView } from '@wp-typia/dataviews';
@@ -227,11 +248,7 @@ import { useEntityRecord, useEntityRecords } from '@wordpress/core-data';
 import { useMemo } from '@wordpress/element';
 
 import { ${dataViewsName} } from './config';
-import type {
-\t${coreDataRecordTypeName},
-\t${dataSetTypeName},
-\t${itemTypeName},
-} from './types';
+${typesImport}
 
 export interface ${queryTypeName} {
 \tpage?: number;
@@ -262,7 +279,7 @@ function normalizeTaxonomyRecord(record: ${coreDataRecordTypeName}): ${itemTypeN
 \t\tslug: normalizeCoreDataString(record.slug),
 \t\ttaxonomy: normalizeCoreDataString(record.taxonomy),
 \t};
-\t}
+}
 
 export function ${useEntityRecordName}(recordId: number | undefined) {
 \treturn useEntityRecord<${coreDataRecordTypeName}>(
@@ -271,19 +288,17 @@ export function ${useEntityRecordName}(recordId: number | undefined) {
 \t\trecordId ?? 0,
 \t\t{ enabled: typeof recordId === 'number' },
 \t);
-\t}
+}
 
 export function ${useEntityRecordsName}(view: DataViewsView<${itemTypeName}>) {
-\tconst query = ${dataViewsName}.toQueryArgs<${queryTypeName}>(view, {
-\t\tperPageParam: 'per_page',
-\t});
+${querySource}
 
 \treturn useEntityRecords<${coreDataRecordTypeName}>(
 \t\tCORE_DATA_ENTITY_KIND,
 \t\tCORE_DATA_ENTITY_NAME,
 \t\tquery,
 \t);
-\t}
+}
 
 export function ${useAdminViewDataName}(view: DataViewsView<${itemTypeName}>) {
 \tconst { hasResolved, isResolving, records, totalItems, totalPages } =
@@ -312,7 +327,7 @@ export function ${useAdminViewDataName}(view: DataViewsView<${itemTypeName}>) {
 \t\terror,
 \t\tisLoading: isResolving,
 \t};
-\t}
+}
 `;
   }
 
@@ -321,11 +336,7 @@ import { useEntityRecord, useEntityRecords } from '@wordpress/core-data';
 import { useMemo } from '@wordpress/element';
 
 import { ${dataViewsName} } from './config';
-import type {
-\t${coreDataRecordTypeName},
-\t${dataSetTypeName},
-\t${itemTypeName},
-} from './types';
+${typesImport}
 
 export interface ${queryTypeName} {
 \tpage?: number;
@@ -353,11 +364,17 @@ function normalizeCoreDataTitle(record: ${coreDataRecordTypeName}): string {
 \t\t}
 \t}
 
-\treturn normalizeCoreDataString(record.name) || normalizeCoreDataString(record.slug);
+\treturn (
+\t\tnormalizeCoreDataString(record.name) ||
+\t\tnormalizeCoreDataString(record.slug)
+\t);
 }
 
 function normalizeCoreDataUpdatedAt(record: ${coreDataRecordTypeName}): string {
-\treturn normalizeCoreDataString(record.modified) || normalizeCoreDataString(record.date);
+\treturn (
+\t\tnormalizeCoreDataString(record.modified) ||
+\t\tnormalizeCoreDataString(record.date)
+\t);
 }
 
 function normalizeCoreDataRecord(record: ${coreDataRecordTypeName}): ${itemTypeName} {
@@ -381,9 +398,7 @@ export function ${useEntityRecordName}(recordId: number | undefined) {
 }
 
 export function ${useEntityRecordsName}(view: DataViewsView<${itemTypeName}>) {
-\tconst query = ${dataViewsName}.toQueryArgs<${queryTypeName}>(view, {
-\t\tperPageParam: 'per_page',
-\t});
+${querySource}
 
 \treturn useEntityRecords<${coreDataRecordTypeName}>(
 \t\tCORE_DATA_ENTITY_KIND,
@@ -442,6 +457,10 @@ export function buildCoreDataAdminViewScreenSource(
   const dataViewsName = `${camelName}AdminDataViews`;
   const useAdminViewDataName = `use${pascalName}AdminViewData`;
   const title = toTitleCase(adminViewSlug);
+  const typesImport = renderNamedTypeScriptTypeImport([
+    dataSetTypeName,
+    itemTypeName,
+  ]);
 
   return `import type { DataViewsConfig, DataViewsView } from '@wp-typia/dataviews';
 import { Notice, Spinner } from '@wordpress/components';
@@ -451,7 +470,7 @@ import { DataViews } from '@wordpress/dataviews/wp';
 
 import { ${dataViewsName} } from './config';
 import { ${useAdminViewDataName} } from './data';
-import type { ${dataSetTypeName}, ${itemTypeName} } from './types';
+${typesImport}
 
 const TypedDataViews = DataViews as unknown as <TItem extends object>(
 \tprops: DataViewsConfig<TItem>,
@@ -487,11 +506,11 @@ export function ${componentName}() {
 \t\t\t<header className="wp-typia-admin-view-screen__header">
 \t\t\t\t<div>
 \t\t\t\t\t<p className="wp-typia-admin-view-screen__eyebrow">
-\t\t\t\t\t\t{ __( 'DataViews admin screen', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('DataViews admin screen', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</p>
-\t\t\t\t\t<h1>{ __( ${quoteTsString(title)}, ${quoteTsString(textDomain)} ) }</h1>
+\t\t\t\t\t<h1>{ __(${quoteTsString(title)}, ${quoteTsString(textDomain)}) }</h1>
 \t\t\t\t\t<p>
-\t\t\t\t\t\t{ __( 'This screen reads from the WordPress core-data entity store. Extend data.ts when you need entity-specific field mapping or edit flows.', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('This screen reads from the WordPress core-data entity store. Extend data.ts when you need entity-specific field mapping or edit flows.', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</p>
 \t\t\t\t</div>
 \t\t\t\t<div className="wp-typia-admin-view-screen__actions">

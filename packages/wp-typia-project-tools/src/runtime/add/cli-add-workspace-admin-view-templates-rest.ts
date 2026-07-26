@@ -1,6 +1,12 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { type AdminViewRestResource } from './cli-add-workspace-admin-view-types.js';
 import { getAdminViewRelativeModuleSpecifier } from './cli-add-workspace-admin-view-templates-shared.js';
+import {
+  renderAdminViewQuerySource,
+  renderNamedTypeScriptTypeImport,
+  wrapLongDataViewsDeclaration,
+  wrapLongTranslationCalls,
+} from './cli-add-workspace-admin-view-typescript-format.js';
 import { toCamelCase, toPascalCase } from '../shared/string-case.js';
 
 /**
@@ -22,8 +28,12 @@ export function buildRestAdminViewTypesSource(
     adminViewSlug,
     restResource.typesFile,
   );
+  const restTypesImport = renderNamedTypeScriptTypeImport(
+    [`${restPascalName}Record`],
+    restTypesModule,
+  );
 
-  return `import type { ${restPascalName}Record } from ${quoteTsString(restTypesModule)};
+  return `${restTypesImport}
 
 export type ${itemTypeName} = ${restPascalName}Record;
 
@@ -52,16 +62,17 @@ export function buildRestAdminViewConfigSource(
   const camelName = toCamelCase(adminViewSlug);
   const itemTypeName = `${pascalName}AdminViewItem`;
   const dataViewsName = `${camelName}AdminDataViews`;
+  const typesImport = renderNamedTypeScriptTypeImport([itemTypeName]);
 
-  return `import { defineDataViews } from '@wp-typia/dataviews';
+  const source = `import { defineDataViews } from '@wp-typia/dataviews';
 import { __ } from '@wordpress/i18n';
 
-import type { ${itemTypeName} } from './types';
+${typesImport}
 
 export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \tidField: 'id',
 \tsearch: false,
-\tsearchLabel: __( 'Search records', ${quoteTsString(textDomain)} ),
+\tsearchLabel: __('Search records', ${quoteTsString(textDomain)}),
 \tdefaultView: {
 \t\tfields: ['id'],
 \t\tpage: 1,
@@ -71,7 +82,7 @@ export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \tfields: {
 \t\tid: {
 \t\t\tenableHiding: false,
-\t\t\tlabel: __( 'ID', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('ID', ${quoteTsString(textDomain)}),
 \t\t\treadOnly: true,
 \t\t\tschema: { type: 'integer' },
 \t\t},
@@ -79,6 +90,10 @@ export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \t},
 });
 `;
+  return wrapLongTranslationCalls(
+    wrapLongDataViewsDeclaration(source, dataViewsName, itemTypeName),
+    textDomain,
+  );
 }
 
 /**
@@ -107,13 +122,26 @@ export function buildRestAdminViewDataSource(
     adminViewSlug,
     restResource.typesFile,
   );
+  const restQueryImport = renderNamedTypeScriptTypeImport(
+    [`${restPascalName}ListQuery`],
+    restTypesModule,
+  );
+  const typesImport = renderNamedTypeScriptTypeImport([
+    dataSetTypeName,
+    itemTypeName,
+  ]);
+  const querySource = renderAdminViewQuerySource({
+    dataViewsName,
+    properties: ["perPageParam: 'perPage'", 'searchParam: false'],
+    queryTypeName: `${restPascalName}ListQuery`,
+  });
 
   return `import type { DataViewsView } from '@wp-typia/dataviews';
 
 import { listResource } from ${quoteTsString(restApiModule)};
-import type { ${restPascalName}ListQuery } from ${quoteTsString(restTypesModule)};
+${restQueryImport}
 import { ${dataViewsName} } from './config';
-import type { ${dataSetTypeName}, ${itemTypeName} } from './types';
+${typesImport}
 
 function resolveTotalPages(total: number, perPage: number | undefined): number {
 \tconst resolvedPerPage = perPage && perPage > 0 ? perPage : 1;
@@ -123,10 +151,7 @@ function resolveTotalPages(total: number, perPage: number | undefined): number {
 export async function ${fetchName}(
 \tview: DataViewsView<${itemTypeName}>,
 ): Promise<${dataSetTypeName}> {
-\tconst query = ${dataViewsName}.toQueryArgs<${restPascalName}ListQuery>(view, {
-\t\tperPageParam: 'perPage',
-\t\tsearchParam: false,
-\t});
+${querySource}
 \tconst result = await listResource({
 \t\tpage: query.page,
 \t\tperPage: query.perPage,
@@ -141,7 +166,10 @@ export async function ${fetchName}(
 \t\titems: response.items,
 \t\tpaginationInfo: {
 \t\t\ttotalItems: response.total,
-\t\t\ttotalPages: resolveTotalPages(response.total, response.perPage ?? query.perPage),
+\t\t\ttotalPages: resolveTotalPages(
+\t\t\t\tresponse.total,
+\t\t\t\tresponse.perPage ?? query.perPage,
+\t\t\t),
 \t\t},
 \t};
 }

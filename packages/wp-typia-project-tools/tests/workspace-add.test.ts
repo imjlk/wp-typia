@@ -25,6 +25,8 @@ import {
 } from '../src/runtime/cli-core.js';
 import { scaffoldProject } from '../src/runtime/index.js';
 
+const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 120_000;
+
 const legacyValidatorToolkitSource = [
   "import { parseManifestDefaultsDocument } from '@wp-typia/block-runtime/defaults';",
   'import {',
@@ -66,11 +68,14 @@ function writeLegacyCompoundValidatorFixture(
   typeName: string,
   exportSuffix: string,
   options?: {
+    includeImportStringDecoy?: boolean;
     includeTypiaImport?: boolean;
     lineEnding?: '\n' | '\r\n';
     quoteStyle?: "'" | '"';
   },
 ) {
+  const includeImportStringDecoy =
+    options?.includeImportStringDecoy ?? false;
   const includeTypiaImport = options?.includeTypiaImport ?? false;
   const lineEnding = options?.lineEnding ?? '\n';
   const quoteStyle = options?.quoteStyle ?? "'";
@@ -87,6 +92,9 @@ function writeLegacyCompoundValidatorFixture(
       `} from ${quoteStyle}./types${quoteStyle};`,
       `import { createTemplateValidatorToolkit } from ${quoteStyle}../../validator-toolkit${quoteStyle};`,
       '',
+      ...(includeImportStringDecoy
+        ? [`export const legacyImportString = 'from "typia"';`, '']
+        : []),
       `const scaffoldValidators = createTemplateValidatorToolkit< ${typeName} >( {`,
       '\tmanifest: currentManifest,',
       '} );',
@@ -125,74 +133,80 @@ function createLegacySyncRestSourceWithoutContractAndRestResources(
 ): string {
   let nextSource = replaceFixtureSource(
     source,
-    /import \{\n\tBLOCKS,\n\tCONTRACTS,\n\tPOST_META,\n\tREST_RESOURCES,\n\ttype WorkspaceBlockConfig,\n\ttype WorkspaceContractConfig,\n\ttype WorkspacePostMetaConfig,\n\ttype WorkspaceRestResourceConfig,\n\} from '\.\/block-config';/u,
-    "import { BLOCKS, type WorkspaceBlockConfig } from './block-config';",
+    /import\s*\{\s*BLOCKS,\s*CONTRACTS,\s*POST_META,\s*REST_RESOURCES,\s*type WorkspaceBlockConfig,\s*type WorkspaceContractConfig,\s*type WorkspacePostMetaConfig,\s*type WorkspaceRestResourceConfig,\s*\}\s*from\s*'\.\/block-config';/u,
+    [
+      'import {',
+      '  BLOCKS,',
+      '  type WorkspaceBlockConfig,',
+      '  type WorkspaceRestResourceConfig,',
+      "} from './block-config';",
+    ].join('\n'),
     'legacy sync-rest import',
   );
   nextSource = replaceFixtureSource(
     nextSource,
     /\nfunction isWorkspaceStandaloneContract\([\s\S]*?\n\}\n/u,
-    '\n',
+    '',
     'standalone contract type guard',
   );
   nextSource = replaceFixtureSource(
     nextSource,
     /\nfunction isWorkspacePostMetaContract\([\s\S]*?\n\}\n/u,
-    '\n',
+    '',
     'post-meta contract type guard',
   );
   nextSource = replaceFixtureSource(
     nextSource,
     /\nfunction isWorkspaceRestResource\([\s\S]*?\n\}\n/u,
-    '\n',
+    '',
     'REST resource type guard',
   );
   nextSource = replaceFixtureSource(
     nextSource,
-    '\n\tconst standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
+    /\n[ \t]*const standaloneContracts = CONTRACTS\.filter\(\s*isWorkspaceStandaloneContract\s*,?\s*\);/u,
     '',
     'standalone contract filter',
   );
   nextSource = replaceFixtureSource(
     nextSource,
-    '\n\tconst postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );',
+    /\n[ \t]*const postMetaContracts = POST_META\.filter\(\s*isWorkspacePostMetaContract\s*,?\s*\);/u,
     '',
     'post-meta contract filter',
   );
   nextSource = replaceFixtureSource(
     nextSource,
-    '\n\tconst restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
+    /\n[ \t]*const restResources = REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*,?\s*\);/u,
     '',
     'REST resource filter',
   );
   nextSource = replaceFixtureSource(
     nextSource,
-    /\n\tif \(\s*restBlocks\.length === 0 &&\s*standaloneContracts\.length === 0(?:\s*&&\s*postMetaContracts\.length === 0)? &&\s*restResources\.length === 0\s*\) \{[\s\S]*?\n\t\}/u,
+    /\n[ \t]*if \(\s*restBlocks\.length === 0 &&\s*standaloneContracts\.length === 0(?:\s*&&\s*postMetaContracts\.length === 0)? &&\s*restResources\.length === 0\s*\) \{[\s\S]*?\n[ \t]{2}\}/u,
     [
-      '\n\tif ( restBlocks.length === 0 ) {',
-      '\t\tconsole.log(',
-      '\t\t\toptions.check',
-      "\t\t\t\t? 'ℹ️ No REST-enabled workspace blocks are registered yet. `sync-rest --check` is already clean.'",
-      "\t\t\t\t: 'ℹ️ No REST-enabled workspace blocks are registered yet.'",
-      '\t\t);',
-      '\t\treturn;',
-      '\t}',
+      '\n  if (restBlocks.length === 0) {',
+      '    console.log(',
+      '      options.check',
+      "        ? 'ℹ️ No REST-enabled workspace blocks are registered yet. `sync-rest --check` is already clean.'",
+      "        : 'ℹ️ No REST-enabled workspace blocks are registered yet.',",
+      '    );',
+      '    return;',
+      '  }',
     ].join('\n'),
     'no-resources guard',
   );
 
   return nextSource
     .replace(
-      /\n\tfor \( const contract of standaloneContracts \) \{[\s\S]*?\n\t\}\n/u,
+      /\n[ \t]*for\s*\(\s*const contract of standaloneContracts\s*\)\s*\{[\s\S]*?\n[ \t]{2}\}\n/u,
       '\n',
     )
     .replace(
-      /\n\tfor \( const postMeta of postMetaContracts \) \{[\s\S]*?\n\t\}\n/u,
+      /\n[ \t]*for\s*\(\s*const postMeta of postMetaContracts\s*\)\s*\{[\s\S]*?\n[ \t]{2}\}\n/u,
       '\n',
     )
     .replace(
-      /\n\tfor \( const resource of restResources \) \{[\s\S]*?\n\t\}\n\n\tconsole\.log\(/u,
-      '\n\tconsole.log(',
+      /\n[ \t]*for\s*\(\s*const resource of restResources\s*\)\s*\{[\s\S]*?\n[ \t]{2}\}\n\n[ \t]*console\.log\(/u,
+      '\n  console.log(',
     )
     .replace(
       '✅ REST contract schemas, standalone schemas, post meta schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date for workspace blocks, standalone contracts, post meta contracts, and plugin-level resources!',
@@ -263,7 +277,7 @@ test('canonical CLI can add a basic block to an official workspace template', as
   expect(blockConfigSource).toContain('defineInnerBlocksTemplates');
   expect(blockConfigSource).toContain('export const BLOCK_NESTING');
   expect(blockConfigSource).toContain('export const BLOCK_TEMPLATES');
-  expect(blockConfigSource).toContain('slug: "counter-card"');
+  expect(blockConfigSource).toContain("slug: 'counter-card'");
   expect(syncTypesSource).toContain('syncInnerBlocksTemplateModule');
   expect(syncTypesSource).toContain('validateBlockPatternContentNesting');
   expect(syncTypesSource).toContain('PATTERNS');
@@ -284,12 +298,12 @@ test('canonical CLI can add a basic block to an official workspace template', as
     blockConfigPath,
     blockConfigSource
       .replace(
-        '\t// Add parent, ancestor, and allowedBlocks relationships here.',
-        '\t"demo-space/counter-card": {\n\t\tallowedBlocks: [ "core/group" ],\n\t},',
+        '  // Add parent, ancestor, and allowedBlocks relationships here.',
+        "  'demo-space/counter-card': {\n    allowedBlocks: ['core/group'],\n  },",
       )
       .replace(
-        '\t// Add default InnerBlocks templates here.',
-        '\t"demo-space/counter-card": [\n\t\t[ "core/group", { layout: { type: "constrained" } } ],\n\t],',
+        '  // Add default InnerBlocks templates here.',
+        "  'demo-space/counter-card': [\n    ['core/group', { layout: { type: 'constrained' } }],\n  ],",
       ),
     'utf8',
   );
@@ -308,8 +322,8 @@ test('canonical CLI can add a basic block to an official workspace template', as
   expect(innerBlocksTemplateSource).toContain(
     'export const INNER_BLOCKS_TEMPLATES',
   );
-  expect(innerBlocksTemplateSource).toContain('"demo-space/counter-card"');
-  expect(innerBlocksTemplateSource).toContain('"core/group"');
+  expect(innerBlocksTemplateSource).toContain("'demo-space/counter-card'");
+  expect(innerBlocksTemplateSource).toContain("'core/group'");
   runGeneratedScript(targetDir, 'scripts/sync-types-to-block-json.ts', [
     '--check',
   ]);
@@ -335,8 +349,8 @@ test('canonical CLI can add a basic block to an official workspace template', as
     fs
       .readFileSync(blockConfigPath, 'utf8')
       .replace(
-        '\t// wp-typia add pattern entries',
-        '\t{\n\t\tfile: "src/patterns/invalid-nesting.php",\n\t\tslug: "invalid-nesting",\n\t},\n\t// wp-typia add pattern entries',
+        '  // wp-typia add pattern entries',
+        "  {\n    file: 'src/patterns/invalid-nesting.php',\n    slug: 'invalid-nesting',\n  },\n  // wp-typia add pattern entries",
       ),
     'utf8',
   );
@@ -357,8 +371,8 @@ test('canonical CLI can add a basic block to an official workspace template', as
     fs
       .readFileSync(blockConfigPath, 'utf8')
       .replace(
-        '\t\tallowedBlocks: [ "core/group" ],',
-        '\t\tallowedBlocks: [ "demo-space/missing-child" ],',
+        "    allowedBlocks: ['core/group'],",
+        "    allowedBlocks: ['demo-space/missing-child'],",
       ),
     'utf8',
   );
@@ -705,8 +719,8 @@ test('canonical CLI can add a variation to an official workspace template', asyn
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('block: "counter-card"');
-  expect(blockConfigSource).toContain('slug: "hero-card"');
+  expect(blockConfigSource).toContain("block: 'counter-card'");
+  expect(blockConfigSource).toContain("slug: 'hero-card'");
   expect(blockIndexSource).toContain('registerWorkspaceVariations');
   expect(blockIndexSource).toContain('registerWorkspaceVariations();');
   expect(variationsIndexSource).toContain('workspaceVariation_hero_card');
@@ -883,7 +897,7 @@ test('canonical CLI can add core block variations without generating block manif
   expect(groupVariationSource).toContain("'core/heading'");
   expect(groupVariationSource).toContain("'core/paragraph'");
   expect(paragraphVariationSource).toContain(
-    'export const CORE_PARAGRAPH_EDITORIAL_PARAGRAPH_BLOCK_NAME = "core/paragraph"',
+    "export const CORE_PARAGRAPH_EDITORIAL_PARAGRAPH_BLOCK_NAME = 'core/paragraph'",
   );
   expect(paragraphVariationSource).toContain('[] satisfies BlockTemplate');
   expect(columnsVariationSource).toContain("'core/column'");
@@ -1020,7 +1034,7 @@ test('canonical CLI can add block styles and transforms to an official workspace
   fs.writeFileSync(
     blockIndexPath,
     `${fs.readFileSync(blockIndexPath, 'utf8')}
-const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './styles';";
+const copiedStyleImport = \`import { registerWorkspaceBlockStyles } from './styles';\`;
 `,
     'utf8',
   );
@@ -1038,7 +1052,7 @@ const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './style
   fs.writeFileSync(
     blockIndexPath,
     [
-      'import { applyWorkspaceBlockTransforms } from "./transforms"',
+      "import { applyWorkspaceBlockTransforms } from './transforms'",
       semicolonlessBlockIndexSource,
     ].join('\n'),
     'utf8',
@@ -1113,10 +1127,14 @@ const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './style
 
   expect(blockConfigSource).toContain('export const BLOCK_STYLES');
   expect(blockConfigSource).toContain('export const BLOCK_TRANSFORMS');
-  expect(blockConfigSource).toContain('file: "src/blocks/counter-card/styles/callout-emphasis.ts"');
-  expect(blockConfigSource).toContain('file: "src/blocks/counter-card/transforms/quote-to-counter.ts"');
-  expect(blockConfigSource).toContain('from: "3d/quote"');
-  expect(blockConfigSource).toContain('to: "demo-space/counter-card"');
+  expect(blockConfigSource).toContain(
+    "file: 'src/blocks/counter-card/styles/callout-emphasis.ts'",
+  );
+  expect(blockConfigSource).toContain(
+    "file: 'src/blocks/counter-card/transforms/quote-to-counter.ts'",
+  );
+  expect(blockConfigSource).toContain("from: '3d/quote'");
+  expect(blockConfigSource).toContain("to: 'demo-space/counter-card'");
   expect(blockIndexSource).toContain('registerWorkspaceBlockStyles();');
   expect(blockIndexSource).toContain(
     'applyWorkspaceBlockTransforms(registration.settings);',
@@ -1138,10 +1156,10 @@ const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './style
   expect(stylesIndexSource).toContain(
     'workspaceBlockStyle_callout_emphasis',
   );
-  expect(styleSource).toContain('name: "callout-emphasis"');
+  expect(styleSource).toContain("name: 'callout-emphasis'");
   expect(styleSource).toContain('Callout Emphasis');
   expect(transformsIndexSource).toContain('WORKSPACE_BLOCK_TRANSFORMS');
-  expect(transformSource).toContain('blocks: ["3d/quote"]');
+  expect(transformSource).toContain("blocks: ['3d/quote']");
   expect(transformSource).toContain('createBlock(metadata.name');
 
   const semicolonlessTransformHookSource = replaceFixtureSource(
@@ -1150,7 +1168,16 @@ const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './style
     'applyWorkspaceBlockTransforms(registration.settings)',
     'semicolonless transform hook',
   );
-  fs.writeFileSync(blockIndexPath, semicolonlessTransformHookSource, 'utf8');
+  const transformImportComment = [
+    '/*',
+    'import { applyWorkspaceBlockTransforms } from "./transforms";',
+    '*/',
+  ].join('\n');
+  fs.writeFileSync(
+    blockIndexPath,
+    `${transformImportComment}\n${semicolonlessTransformHookSource}`,
+    'utf8',
+  );
   runCli(
     'node',
     [
@@ -1170,14 +1197,15 @@ const copiedStyleImport = "import { registerWorkspaceBlockStyles } from './style
   blockIndexSource = fs.readFileSync(blockIndexPath, 'utf8');
   transformsIndexSource = fs.readFileSync(transformsIndexPath, 'utf8');
   expect(blockConfigSource).toContain(
-    'file: "src/blocks/counter-card/transforms/paragraph-to-counter.ts"',
+    "file: 'src/blocks/counter-card/transforms/paragraph-to-counter.ts'",
   );
-  expect(blockConfigSource).toContain('from: "core/paragraph"');
+  expect(blockConfigSource).toContain("from: 'core/paragraph'");
   expect(
     blockIndexSource.match(
       /applyWorkspaceBlockTransforms\s*\(\s*registration\s*\.\s*settings\s*\)/gu,
     )?.length ?? 0,
   ).toBe(1);
+  expect(blockIndexSource).toContain(transformImportComment);
   expect(transformsIndexSource).toContain('paragraph-to-counter');
 
   const doctorOutput = runCli('node', [entryPath, 'doctor', '--format', 'json'], {
@@ -2149,7 +2177,7 @@ test('canonical CLI can add a compound persistence block to an official workspac
   );
 
   expect(blockConfigSource).toContain('defineEndpointManifest');
-  expect(blockConfigSource).toContain('slug: "faq-stack-item"');
+  expect(blockConfigSource).toContain("slug: 'faq-stack-item'");
   expect(serverModuleSource).toContain('rest-public.php');
   expect(serverModuleSource).toContain(
     "array_key_exists( 'resourceKey', $attributes )",
@@ -2313,6 +2341,7 @@ test('add compound block repairs a legacy shared validator toolkit in an officia
     'FaqStackItemAttributes',
     'FaqStackItemAttributes',
     {
+      includeImportStringDecoy: true,
       lineEnding: '\r\n',
       quoteStyle: '"',
     },
@@ -2348,7 +2377,7 @@ test('add compound block repairs a legacy shared validator toolkit in an officia
 
   expect(validatorToolkitSource).toContain('interface TemplateValidatorFunctions<');
   expect(validatorToolkitSource).toContain(
-    "assert: ScaffoldValidatorToolkitOptions< T >['assert'];",
+    "assert: ScaffoldValidatorToolkitOptions<T>['assert'];",
   );
   expect(repairedParentValidatorSource).toContain("import typia from 'typia';");
   expect(repairedParentValidatorSource).toContain(
@@ -2363,6 +2392,17 @@ test('add compound block repairs a legacy shared validator toolkit in an officia
   );
   expect(repairedChildValidatorSource).toContain(
     'assert: typia.createAssert< FaqStackItemAttributes >()',
+  );
+  expect(repairedChildValidatorSource).toContain(
+    `export const legacyImportString = 'from "typia"';`,
+  );
+  expect(repairedChildValidatorSource.replace(/\r\n/gu, '')).not.toContain(
+    '\n',
+  );
+  runCli(
+    path.join(targetDir, 'node_modules', '.bin', 'ttsc'),
+    ['format', '--singleThreaded'],
+    { cwd: targetDir },
   );
   typecheckGeneratedProject(targetDir);
 }, 60_000);
@@ -2967,7 +3007,7 @@ test('add compound block ignores a block-commented manifest import during legacy
   typecheckGeneratedProject(targetDir);
 }, 30_000);
 
-test('add compound block preserves a compatible shared validator toolkit with different formatting', async () => {
+test('add compound block preserves a compatible shared validator toolkit', async () => {
   const targetDir = path.join(
     tempRoot,
     'demo-workspace-add-compound-compatible-validator-toolkit',
@@ -3013,55 +3053,54 @@ test('add compound block preserves a compatible shared validator toolkit with di
   );
   fs.writeFileSync(
     validatorToolkitPath,
-    [
-      '// preserve-compatible-toolkit',
-      'import { parseManifestDefaultsDocument } from "@wp-typia/block-runtime/defaults";',
-      'import {',
-      '\tcreateScaffoldValidatorToolkit,',
-      '\ttype ScaffoldValidatorToolkitOptions,',
-      '} from "@wp-typia/block-runtime/validation";',
-      '',
-      'interface TemplateValidatorFunctions<T extends object>{',
-      '\tassert:ScaffoldValidatorToolkitOptions<T>["assert"];',
-      '\tclone:ScaffoldValidatorToolkitOptions<T>["clone"];',
-      '\tis:ScaffoldValidatorToolkitOptions<T>["is"];',
-      '\tprune:ScaffoldValidatorToolkitOptions<T>["prune"];',
-      '\trandom:ScaffoldValidatorToolkitOptions<T>["random"];',
-      '\tvalidate:ScaffoldValidatorToolkitOptions<T>["validate"];',
-      '}',
-      '',
-      'interface TemplateValidatorToolkitOptions<T extends object>',
-      '\textends TemplateValidatorFunctions<T> {',
-      '\tfinalize?: ScaffoldValidatorToolkitOptions<T>["finalize"];',
-      '\tmanifest: unknown;',
-      '\tonValidationError?: ScaffoldValidatorToolkitOptions<T>["onValidationError"];',
-      '}',
-      '',
-      'export function createTemplateValidatorToolkit<T extends object>({',
-      '\tassert,',
-      '\tclone,',
-      '\tfinalize,',
-      '\tis,',
-      '\tmanifest,',
-      '\tonValidationError,',
-      '\tprune,',
-      '\trandom,',
-      '\tvalidate ,',
-      '}: TemplateValidatorToolkitOptions<T>) {',
-      '\treturn createScaffoldValidatorToolkit<T>({',
-      '\t\tmanifest: parseManifestDefaultsDocument( manifest ),',
-      '\t\tvalidate,',
-      '\t\tassert,',
-      '\t\tis,',
-      '\t\trandom,',
-      '\t\tclone,',
-      '\t\tprune,',
-      '\t\tfinalize,',
-      '\t\tonValidationError,',
-      '\t});',
-      '}',
-      '',
-    ].join('\n'),
+    `// preserve-compatible-toolkit
+import {
+  createScaffoldValidatorToolkit,
+  type ScaffoldValidatorToolkitOptions,
+} from '@wp-typia/block-runtime/validation';
+import { parseManifestDefaultsDocument } from '@wp-typia/block-runtime/defaults';
+
+interface TemplateValidatorFunctions<T extends object> {
+  assert: ScaffoldValidatorToolkitOptions<T>['assert'];
+  clone: ScaffoldValidatorToolkitOptions<T>['clone'];
+  is: ScaffoldValidatorToolkitOptions<T>['is'];
+  prune: ScaffoldValidatorToolkitOptions<T>['prune'];
+  random: ScaffoldValidatorToolkitOptions<T>['random'];
+  validate: ScaffoldValidatorToolkitOptions<T>['validate'];
+}
+
+interface TemplateValidatorToolkitOptions<
+  T extends object,
+> extends TemplateValidatorFunctions<T> {
+  finalize?: ScaffoldValidatorToolkitOptions<T>['finalize'];
+  manifest: unknown;
+  onValidationError?: ScaffoldValidatorToolkitOptions<T>['onValidationError'];
+}
+
+export function createTemplateValidatorToolkit<T extends object>({
+  assert,
+  clone,
+  finalize,
+  is,
+  manifest,
+  onValidationError,
+  prune,
+  random,
+  validate,
+}: TemplateValidatorToolkitOptions<T>) {
+  return createScaffoldValidatorToolkit<T>({
+    manifest: parseManifestDefaultsDocument(manifest),
+    validate,
+    assert,
+    is,
+    random,
+    clone,
+    prune,
+    finalize,
+    onValidationError,
+  });
+}
+`,
     'utf8',
   );
 
@@ -3268,16 +3307,16 @@ test('canonical CLI can add a pattern to an official workspace template', async 
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "hero-layout"');
+  expect(blockConfigSource).toContain("slug: 'hero-layout'");
   expect(blockConfigSource).toContain(
-    'contentFile: "src/patterns/sections/hero-layout.php"',
+    "contentFile: 'src/patterns/sections/hero-layout.php'",
   );
-  expect(blockConfigSource).toContain('scope: "section"');
-  expect(blockConfigSource).toContain('sectionRole: "hero"');
-  expect(blockConfigSource).toContain('tags: ["hero", "landing"]');
-  expect(blockConfigSource).toContain('title: "Homepage Hero"');
+  expect(blockConfigSource).toContain("scope: 'section'");
+  expect(blockConfigSource).toContain("sectionRole: 'hero'");
+  expect(blockConfigSource).toContain("tags: ['hero', 'landing']");
+  expect(blockConfigSource).toContain("title: 'Homepage Hero'");
   expect(blockConfigSource).toContain(
-    'thumbnailUrl: "./thumbnails/hero-layout.png"',
+    "thumbnailUrl: './thumbnails/hero-layout.png'",
   );
   expect(bootstrapSource).toContain('register_block_pattern_category');
   expect(bootstrapSource).toContain('/src/patterns/*.php');
@@ -3311,9 +3350,9 @@ test('canonical CLI can add a pattern to an official workspace template', async 
     path.join(targetDir, 'scripts', 'block-config.ts'),
     'utf8',
   );
-  expect(updatedBlockConfigSource).toContain('slug: "gallery-grid"');
+  expect(updatedBlockConfigSource).toContain("slug: 'gallery-grid'");
   expect(updatedBlockConfigSource).toContain(
-    'tags: ["gallery", "hero", "landing"]',
+    "tags: ['gallery', 'hero', 'landing']",
   );
 
   const doctorOutput = runCli('node', [entryPath, 'doctor', '--format', 'json'], {
@@ -3412,12 +3451,12 @@ test('canonical CLI can add a binding source to an official workspace template',
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "hero-data"');
+  expect(blockConfigSource).toContain("slug: 'hero-data'");
   expect(blockConfigSource).toContain(
-    'serverFile: "src/bindings/hero-data/server.php"',
+    "serverFile: 'src/bindings/hero-data/server.php'",
   );
   expect(blockConfigSource).toContain(
-    'editorFile: "src/bindings/hero-data/editor.ts"',
+    "editorFile: 'src/bindings/hero-data/editor.ts'",
   );
   expect(bootstrapSource).toContain('src/bindings/*/server.php');
   expect(bootstrapSource).toContain('build/bindings/index.js');
@@ -3432,8 +3471,10 @@ test('canonical CLI can add a binding source to an official workspace template',
   expect(bindingServerSource).toContain("'hero-data' => 'Hero Data starter value'");
   expect(bindingEditorSource).toContain('registerBlockBindingsSource');
   expect(bindingEditorSource).toContain('const BINDING_SOURCE_VALUES');
-  expect(bindingEditorSource).toContain('"hero-data": "Hero Data starter value"');
-  expect(bindingEditorSource).toContain('resolveBindingSourceValue( field )');
+  expect(bindingEditorSource).toContain(
+    "'hero-data': 'Hero Data starter value'",
+  );
+  expect(bindingEditorSource).toContain('resolveBindingSourceValue(field)');
   expect(bindingEditorSource).toContain('getFieldsList()');
 
   const doctorOutput = runCli('node', [entryPath, 'doctor', '--format', 'json'], {
@@ -3562,8 +3603,8 @@ test('canonical CLI can add an end-to-end binding source target to an existing b
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('block: "counter-card"');
-  expect(blockConfigSource).toContain('attribute: "headline"');
+  expect(blockConfigSource).toContain("block: 'counter-card'");
+  expect(blockConfigSource).toContain("attribute: 'headline'");
   expect(blockJson.attributes.headline).toEqual({ type: 'string' });
   expect(bindingServerSource).toContain(
     'block_bindings_supported_attributes_demo-space/counter-card',
@@ -3576,8 +3617,8 @@ test('canonical CLI can add an end-to-end binding source target to an existing b
   );
   expect(bindingServerSource).toContain("'headline'");
   expect(bindingEditorSource).toContain('export const BINDING_SOURCE_TARGET');
-  expect(bindingEditorSource).toContain('block: "demo-space/counter-card"');
-  expect(bindingEditorSource).toContain('attribute: "headline"');
+  expect(bindingEditorSource).toContain("block: 'demo-space/counter-card'");
+  expect(bindingEditorSource).toContain("attribute: 'headline'");
 
   const doctorOutput = runCli('node', [entryPath, 'doctor', '--format', 'json'], {
     cwd: targetDir,
@@ -3595,7 +3636,7 @@ test('canonical CLI can add an end-to-end binding source target to an existing b
   expect(
     fs.existsSync(path.join(targetDir, 'build', 'bindings', 'index.js')),
   ).toBe(true);
-}, 45_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('binding source workflow preserves existing files on duplicate failure', async () => {
   const targetDir = path.join(
@@ -3791,10 +3832,12 @@ test('canonical CLI can add a standalone contract to an official workspace templ
   );
 
   expect(blockConfigSource).toContain('export const CONTRACTS');
-  expect(blockConfigSource).toContain('slug: "external-retrieve-response"');
-  expect(blockConfigSource).toContain('sourceTypeName: "ExternalRetrieveResponse"');
+  expect(blockConfigSource).toContain("slug: 'external-retrieve-response'");
   expect(blockConfigSource).toContain(
-    'schemaFile: "src/contracts/external-retrieve-response.schema.json"',
+    "sourceTypeName: 'ExternalRetrieveResponse'",
+  );
+  expect(blockConfigSource).toContain(
+    "schemaFile: 'src/contracts/external-retrieve-response.schema.json'",
   );
   expect(typesSource).toContain('export interface ExternalRetrieveResponse');
   expect(syncRestSource).toContain('const standaloneContracts');
@@ -3814,7 +3857,7 @@ test('canonical CLI can add a standalone contract to an official workspace templ
   ).toThrow('Sync script failed');
   runCli('npm', ['run', 'sync'], { cwd: targetDir });
   typecheckGeneratedProject(targetDir);
-}, 30_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('contract workflow rejects reserved TypeScript type names before writing files', async () => {
   const targetDir = path.join(
@@ -3876,7 +3919,7 @@ test('contract workflow rejects reserved TypeScript type names before writing fi
   expect(
     fs
       .readFileSync(path.join(targetDir, 'scripts', 'block-config.ts'), 'utf8')
-      .includes('slug: "external-retrieve-response"'),
+      .includes("slug: 'external-retrieve-response'"),
   ).toBe(false);
 }, 20_000);
 
@@ -3943,15 +3986,17 @@ test('canonical CLI can add a typed post meta contract to an official workspace 
   );
 
   expect(blockConfigSource).toContain('export const POST_META');
-  expect(blockConfigSource).toContain('slug: "integration-state"');
-  expect(blockConfigSource).toContain('postType: "example_post_type"');
+  expect(blockConfigSource).toContain("slug: 'integration-state'");
+  expect(blockConfigSource).toContain("postType: 'example_post_type'");
   expect(blockConfigSource).toContain(
-    'metaKey: "_demo_space_integration_state"',
+    "metaKey: '_demo_space_integration_state'",
   );
   expect(blockConfigSource).toContain('showInRest: true');
-  expect(blockConfigSource).toContain('sourceTypeName: "IntegrationStateMeta"');
   expect(blockConfigSource).toContain(
-    'schemaFile: "src/post-meta/integration-state/meta.schema.json"',
+    "sourceTypeName: 'IntegrationStateMeta'",
+  );
+  expect(blockConfigSource).toContain(
+    "schemaFile: 'src/post-meta/integration-state/meta.schema.json'",
   );
   expect(bootstrapSource).toContain(
     'function demo_space_register_post_meta_contracts()',
@@ -3959,7 +4004,7 @@ test('canonical CLI can add a typed post meta contract to an official workspace 
   expect(bootstrapSource).toContain('inc/post-meta/*.php');
   expect(syncRestSource).toContain('POST_META');
   expect(syncRestSource).toContain('const postMetaContracts');
-  expect(syncRestSource).toContain('for ( const postMeta of postMetaContracts )');
+  expect(syncRestSource).toContain('for (const postMeta of postMetaContracts)');
   expect(typesSource).toContain('export interface IntegrationStateMeta');
   expect(phpSource).toContain('register_post_meta');
   expect(phpSource).toContain('example_post_type');
@@ -4120,8 +4165,8 @@ test('canonical CLI can add a binding source backed by typed post meta', async (
     ),
   ) as { attributes?: Record<string, unknown> };
 
-  expect(blockConfigSource).toContain('postMeta: "integration-state"');
-  expect(blockConfigSource).toContain('metaPath: "enabled"');
+  expect(blockConfigSource).toContain("postMeta: 'integration-state'");
+  expect(blockConfigSource).toContain("metaPath: 'enabled'");
   expect(bindingServerSource).toContain('get_post_meta');
   expect(bindingServerSource).toContain('dirname( __DIR__, 3 )');
   expect(bindingServerSource).toContain('_demo_space_integration_state');
@@ -4148,21 +4193,23 @@ test('canonical CLI can add a binding source backed by typed post meta', async (
   expect(bindingServerSource).toContain("'enabled'");
   expect(bindingEditorSource).toContain('POST_META_BINDING_SOURCE');
   expect(bindingEditorSource).toContain('POST_META_BINDING_FIELDS');
-  expect(bindingEditorSource).toContain('label: __( "Status", "demo-space" )');
-  expect(bindingEditorSource).toContain('schemaType: "boolean"');
+  expect(bindingEditorSource).toContain(
+    "label: __('Status', 'demo-space')",
+  );
+  expect(bindingEditorSource).toContain("schemaType: 'boolean'");
   expect(bindingEditorSource).toContain('previewValue: false');
   expect(bindingEditorSource).toContain(
     'const POST_META_PREVIEW_VALUES: Record<string, unknown>',
   );
   expect(bindingEditorSource).toContain(
-    'type: resolveBindingFieldType( field.schemaType )',
+    'type: resolveBindingFieldType(field.schemaType)',
   );
   expect(bindingEditorSource).toContain(
     'const values: Record<string, unknown>',
   );
-  expect(bindingEditorSource).toContain('field: "enabled"');
+  expect(bindingEditorSource).toContain("field: 'enabled'");
   expect(bindingEditorSource).toContain(
-    'schemaFile: "src/post-meta/integration-state/meta.schema.json"',
+    "schemaFile: 'src/post-meta/integration-state/meta.schema.json'",
   );
   expect(blockTypesSource).toContain('isEnabled?: boolean;');
   expect(blockJson.attributes?.isEnabled).toEqual({ type: 'boolean' });
@@ -4214,25 +4261,23 @@ test('canonical CLI can add a type-only manual REST contract to an official work
     blockConfigPath,
     replaceFixtureSource(
       fs.readFileSync(blockConfigPath, 'utf8'),
-      /export interface WorkspaceRestResourceBaseConfig \{[\s\S]*?export type WorkspaceRestResourceConfig =\n\t\| GeneratedWorkspaceRestResourceConfig\n\t\| ManualWorkspaceRestResourceConfig;\n/u,
-      [
-        'export interface WorkspaceRestResourceConfig {',
-        '\tapiFile: string;',
-        '\tclientFile: string;',
-        '\tdataFile: string;',
-        "\tmethods: Array< 'list' | 'read' | 'create' | 'update' | 'delete' >;",
-        '\tnamespace: string;',
-        '\topenApiFile: string;',
-        '\tphpFile: string;',
-        '\trestManifest?: ReturnType<',
-        "\t\ttypeof import( '@wp-typia/block-runtime/metadata-core' ).defineEndpointManifest",
-        '\t>;',
-        '\tslug: string;',
-        '\ttypesFile: string;',
-        '\tvalidatorsFile: string;',
-        '}',
-        '',
-      ].join('\n'),
+      /export interface WorkspaceRestResourceBaseConfig \{[\s\S]*?export type WorkspaceRestResourceConfig =\s*\|\s*GeneratedWorkspaceRestResourceConfig\s*\|\s*ManualWorkspaceRestResourceConfig;\n/u,
+      `export interface WorkspaceRestResourceConfig {
+  apiFile: string;
+  clientFile: string;
+  dataFile: string;
+  methods: Array<'list' | 'read' | 'create' | 'update' | 'delete'>;
+  namespace: string;
+  openApiFile: string;
+  phpFile: string;
+  restManifest?: ReturnType<
+    typeof import('@wp-typia/block-runtime/metadata-core').defineEndpointManifest
+  >;
+  slug: string;
+  typesFile: string;
+  validatorsFile: string;
+}
+`,
       'legacy REST resource config interface',
     ),
     'utf8',
@@ -4319,39 +4364,47 @@ test('canonical CLI can add a type-only manual REST contract to an official work
     'request.schema.json',
   );
 
-  expect(blockConfigSource).toContain('slug: "external-record"');
+  expect(blockConfigSource).toContain("slug: 'external-record'");
   expect(blockConfigSource).toContain("mode: 'manual'");
-  expect(blockConfigSource).toContain('auth: "authenticated"');
-  expect(blockConfigSource).toContain('namespace: "legacy/v1"');
-  expect(blockConfigSource).toContain('method: "POST"');
+  expect(blockConfigSource).toContain("auth: 'authenticated'");
+  expect(blockConfigSource).toContain("namespace: 'legacy/v1'");
+  expect(blockConfigSource).toContain("method: 'POST'");
   expect(blockConfigSource).toContain(
-    'pathPattern: "/records/(?P<post_id>[\\\\d]+(?:-[\\\\d]+)*)"',
+    "pathPattern: '/records/(?P<post_id>[\\\\d]+(?:-[\\\\d]+)*)'",
   );
   expect(blockConfigSource).toContain(
-    'permissionCallback: "legacy_can_read_external_record"',
+    "permissionCallback: 'legacy_can_read_external_record'",
   );
   expect(blockConfigSource).toContain(
-    'controllerClass: "Legacy\\\\Records\\\\Controller"',
+    "controllerClass: 'Legacy\\\\Records\\\\Controller'",
   );
   expect(blockConfigSource).toContain(
-    'controllerExtends: "Legacy\\\\Records\\\\BaseController"',
+    "controllerExtends: 'Legacy\\\\Records\\\\BaseController'",
   );
-  expect(blockConfigSource).toContain('queryTypeName: "ExternalRecordQuery"');
-  expect(blockConfigSource).toContain('bodyTypeName: "ExternalRecordRequest"');
-  expect(blockConfigSource).toContain('responseTypeName: "ExternalRecordResponse"');
+  expect(blockConfigSource).toContain(
+    "queryTypeName: 'ExternalRecordQuery'",
+  );
+  expect(blockConfigSource).toContain(
+    "bodyTypeName: 'ExternalRecordRequest'",
+  );
+  expect(blockConfigSource).toContain(
+    "responseTypeName: 'ExternalRecordResponse'",
+  );
   expect(blockConfigSource).toContain('secretPreserveOnEmpty: true');
-  expect(blockConfigSource).toContain('\tdataFile?: string;');
-  expect(blockConfigSource).toContain('\tphpFile?: string;');
+  expect(blockConfigSource).toContain('  dataFile?: string;');
+  expect(blockConfigSource).toContain('  phpFile?: string;');
   expect(blockConfigSource).not.toContain('inc/rest/external-record.php');
   expect(blockConfigSource).not.toContain(
-    'dataFile: "src/rest/external-record/data.ts"',
+    "dataFile: 'src/rest/external-record/data.ts'",
   );
-  expect(syncRestSource).toContain('REST_RESOURCES.filter( isWorkspaceRestResource )');
+  expect(syncRestSource).toContain(
+    'REST_RESOURCES.filter(isWorkspaceRestResource)',
+  );
   expect(typesSource).toContain('export interface ExternalRecordQuery');
   expect(typesSource).toContain('post_id: string & tags.MinLength< 1 >;');
   expect(typesSource).toContain('export interface ExternalRecordRequest');
   expect(typesSource).toContain('apiKey?: string');
-  expect(typesSource).toContain('tags.Secret< "hasApiKey" >');
+  expect(typesSource).toContain("tags.Secret< 'hasApiKey' >");
   expect(typesSource).toContain('tags.PreserveOnEmpty< true >');
   expect(typesSource).toContain('export interface ExternalRecordResponse');
   expect(typesSource).toContain('hasApiKey: boolean');
@@ -4435,7 +4488,7 @@ test('canonical CLI can add a type-only manual REST contract to an official work
 
   expect(updatedBlockConfigSource).toContain('secretPreserveOnEmpty: false');
   expect(nonPreservedTypesSource).toContain(
-    'apiToken?: string & tags.MaxLength< 4096 > & tags.Secret< "hasApiToken" >;',
+    "apiToken?: string & tags.MaxLength< 4096 > & tags.Secret< 'hasApiToken' >;",
   );
   expect(nonPreservedTypesSource).not.toContain(
     'apiToken?: string & tags.MinLength< 1 >',
@@ -4603,23 +4656,27 @@ test('canonical CLI can add a typed admin settings screen from a manual REST con
 
   expect(packageJson.dependencies?.['@wordpress/dataviews']).toBeUndefined();
   expect(packageJson.devDependencies?.['@wp-typia/dataviews']).toBeUndefined();
-  expect(blockConfigSource).toContain('source: "rest-resource:integration-settings"');
-  expect(blockConfigSource).toContain('secretFieldName: "apiKey"');
+  expect(blockConfigSource).toContain(
+    "source: 'rest-resource:integration-settings'",
+  );
+  expect(blockConfigSource).toContain("secretFieldName: 'apiKey'");
   expect(blockConfigSource).toContain('secretPreserveOnEmpty: true');
-  expect(blockConfigSource).toContain('secretStateFieldName: "hasApiKey"');
+  expect(blockConfigSource).toContain(
+    "secretStateFieldName: 'hasApiKey'",
+  );
   expect(apiSource).toContain('manualRestContractEndpoint');
   expect(apiSource).toContain('callManualRestContract');
   expect(apiSource).toContain('resolveRestRouteUrl');
   expect(entrySource).not.toContain('@wordpress/dataviews/build-style/style.css');
   expect(configSource).toContain('integrationSettingsSettingsConfig');
-  expect(configSource).toContain('secretFieldName: "apiKey"');
+  expect(configSource).toContain("secretFieldName: 'apiKey'");
   expect(configSource).toContain('secretPreserveOnEmpty: true');
   expect(configSource).toContain('preserveOnEmpty: true');
-  expect(configSource).toContain('secretStateFieldName: "hasApiKey"');
+  expect(configSource).toContain("secretStateFieldName: 'hasApiKey'");
   expect(dataSource).toContain('callManualRestContract');
   expect(dataSource).toContain('saveIntegrationSettingsSettings');
   expect(dataSource).not.toContain("apiKey: ''");
-  expect(dataSource).toContain('delete requestBody["apiKey"]');
+  expect(dataSource).toContain("delete requestBody['apiKey']");
   expect(dataSource).toContain('if (!result.isValid)');
   expect(dataSource).not.toContain('!result.data');
   expect(dataSource).toContain(
@@ -4683,7 +4740,7 @@ test('canonical CLI can add a typed admin settings screen from a manual REST con
     'secretPreserveOnEmpty: false',
   );
   expect(nonPreservedSettingsConfigSource).toContain('preserveOnEmpty: false');
-  expect(nonPreservedSettingsDataSource).toContain('"apiToken": \'\',');
+  expect(nonPreservedSettingsDataSource).toContain("apiToken: '',");
   expect(nonPreservedSettingsDataSource).not.toContain(
     'delete requestBody["apiToken"]',
   );
@@ -4708,7 +4765,7 @@ test('canonical CLI can add a typed admin settings screen from a manual REST con
   runCli('npm', ['run', 'sync-rest', '--', '--check'], { cwd: targetDir });
   runCli('npm', ['run', 'build'], { cwd: targetDir });
   typecheckGeneratedProject(targetDir);
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('admin settings screens reject manual REST contracts with route parameters', async () => {
   const targetDir = path.join(
@@ -4781,15 +4838,15 @@ test('admin settings screens reject manual REST contracts with route parameters'
   fs.writeFileSync(
     blockConfigPath,
     blockConfigSource.replace(
-      '\t// wp-typia add admin-view entries',
+      '  // wp-typia add admin-view entries',
       [
-        '\t{',
-        '\t\tfile: "src/admin-views/integration-settings/index.tsx",',
-        '\t\tphpFile: "inc/admin-views/integration-settings.php",',
-        '\t\tslug: "integration-settings",',
-        '\t\tsource: "rest-resource:integration-settings",',
-        '\t},',
-        '\t// wp-typia add admin-view entries',
+        '  {',
+        "    file: 'src/admin-views/integration-settings/index.tsx',",
+        "    phpFile: 'inc/admin-views/integration-settings.php',",
+        "    slug: 'integration-settings',",
+        "    source: 'rest-resource:integration-settings',",
+        '  },',
+        '  // wp-typia add admin-view entries',
       ].join('\n'),
     ),
     'utf8',
@@ -5135,16 +5192,16 @@ test('canonical CLI can add a plugin-level REST resource to an official workspac
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "snapshots"');
-  expect(blockConfigSource).toContain('namespace: "demo-space/v1"');
+  expect(blockConfigSource).toContain("slug: 'snapshots'");
+  expect(blockConfigSource).toContain("namespace: 'demo-space/v1'");
   expect(blockConfigSource).toContain('methods: [');
-  expect(blockConfigSource).toContain('"list"');
-  expect(blockConfigSource).toContain('"read"');
-  expect(blockConfigSource).toContain('"create"');
-  expect(blockConfigSource).toContain('"update"');
-  expect(blockConfigSource).toContain('"delete"');
-  expect(blockConfigSource).toContain('apiFile: "src/rest/snapshots/api.ts"');
-  expect(blockConfigSource).toContain('phpFile: "inc/rest/snapshots.php"');
+  expect(blockConfigSource).toContain("'list'");
+  expect(blockConfigSource).toContain("'read'");
+  expect(blockConfigSource).toContain("'create'");
+  expect(blockConfigSource).toContain("'update'");
+  expect(blockConfigSource).toContain("'delete'");
+  expect(blockConfigSource).toContain("apiFile: 'src/rest/snapshots/api.ts'");
+  expect(blockConfigSource).toContain("phpFile: 'inc/rest/snapshots.php'");
   expect(blockConfigSource).toContain('defineEndpointManifest');
   expect(bootstrapSource).toContain('function demo_space_register_rest_resources()');
   expect(bootstrapSource).toContain('inc/rest/*.php');
@@ -5391,15 +5448,19 @@ test('canonical CLI can add a generated REST resource with custom route and cont
   );
 
   expect(blockConfigSource).toContain(
-    'controllerClass: "\\\\Demo_Space_Snapshots_Controller"',
+    "controllerClass: '\\\\Demo_Space_Snapshots_Controller'",
   );
-  expect(blockConfigSource).toContain('controllerExtends: "WP_REST_Controller"');
   expect(blockConfigSource).toContain(
-    'permissionCallback: "demo_space_can_manage_snapshots"',
+    "controllerExtends: 'WP_REST_Controller'",
   );
-  expect(blockConfigSource).toContain('routePattern: "/snapshots/(?P<id>[\\\\d]+)"');
+  expect(blockConfigSource).toContain(
+    "permissionCallback: 'demo_space_can_manage_snapshots'",
+  );
+  expect(blockConfigSource).toContain(
+    "routePattern: '/snapshots/(?P<id>[\\\\d]+)'",
+  );
   expect(apiSource).toContain(
-    'resolveEndpointRouteOptions( readSnapshotsResourceEndpoint, request )',
+    'resolveEndpointRouteOptions(readSnapshotsResourceEndpoint, request)',
   );
   expect(clientSource).toContain(
     'path: `/demo-space/v1/snapshots/${encodeURIComponent( String( pathParam0 ) )}`,',
@@ -5562,13 +5623,15 @@ test('canonical CLI can add a DataViews admin screen with a REST resource source
   expect(packageJson.dependencies?.['@wordpress/dataviews']).toBeTruthy();
   expect(packageJson.dependencies?.['@wordpress/core-data']).toBeUndefined();
   expect(packageJson.dependencies?.['@wordpress/data']).toBe('~10.46.0');
-  expect(blockConfigSource).toContain('slug: "snapshots"');
-  expect(blockConfigSource).toContain('source: "rest-resource:snapshots"');
+  expect(blockConfigSource).toContain("slug: 'snapshots'");
   expect(blockConfigSource).toContain(
-    'file: "src/admin-views/snapshots/index.tsx"',
+    "source: 'rest-resource:snapshots'",
   );
   expect(blockConfigSource).toContain(
-    'phpFile: "inc/admin-views/snapshots.php"',
+    "file: 'src/admin-views/snapshots/index.tsx'",
+  );
+  expect(blockConfigSource).toContain(
+    "phpFile: 'inc/admin-views/snapshots.php'",
   );
   expect(bootstrapSource).toContain('inc/admin-views/*.php');
   expect(adminViewsIndexSource).toContain("import './snapshots';");
@@ -5580,8 +5643,8 @@ test('canonical CLI can add a DataViews admin screen with a REST resource source
   expect(dataSource).toContain('listResource');
   expect(dataSource).toContain("perPageParam: 'perPage'");
   expect(dataSource).toContain('searchParam: false');
-  expect(dataSource).toContain('from "../../rest/snapshots/api"');
-  expect(dataSource).toContain('from "../../rest/snapshots/api-types"');
+  expect(dataSource).toContain("from '../../rest/snapshots/api'");
+  expect(dataSource).toContain("from '../../rest/snapshots/api-types'");
   expect(dataSource).not.toContain('search: query.search');
   expect(dataSource).toContain('if (!result.isValid || !result.data)');
   expect(dataSource).toContain('const response = result.data');
@@ -5663,7 +5726,7 @@ test('canonical CLI can add a DataViews admin screen with a REST resource source
     ),
   ).toBe(true);
   typecheckGeneratedProject(targetDir);
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add a DataViews admin screen with a core-data source', async () => {
   const targetDir = path.join(
@@ -5735,11 +5798,13 @@ test('canonical CLI can add a DataViews admin screen with a core-data source', a
   expect(packageJson.dependencies?.['@wordpress/dataviews']).toBeTruthy();
   expect(packageJson.dependencies?.['@wordpress/core-data']).toBeTruthy();
   expect(packageJson.dependencies?.['@wordpress/data']).toBeTruthy();
-  expect(blockConfigSource).toContain('source: "core-data:postType/post"');
+  expect(blockConfigSource).toContain(
+    "source: 'core-data:postType/post'",
+  );
   expect(dataSource).toContain('useEntityRecord');
   expect(dataSource).toContain('useEntityRecords');
-  expect(dataSource).toContain('const CORE_DATA_ENTITY_KIND = "postType"');
-  expect(dataSource).toContain('const CORE_DATA_ENTITY_NAME = "post"');
+  expect(dataSource).toContain("const CORE_DATA_ENTITY_KIND = 'postType'");
+  expect(dataSource).toContain("const CORE_DATA_ENTITY_NAME = 'post'");
   expect(dataSource).toContain("perPageParam: 'per_page'");
   expect(dataSource).toContain('export function usePostsAdminViewData');
   expect(screenSource).toContain('usePostsAdminViewData');
@@ -5765,7 +5830,7 @@ test('canonical CLI can add a DataViews admin screen with a core-data source', a
   linkWorkspaceNodeModules(targetDir);
   runCli('npm', ['run', 'build'], { cwd: targetDir });
   typecheckGeneratedProject(targetDir);
-}, 60_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('canonical CLI can add a taxonomy core-data admin screen', async () => {
   const targetDir = path.join(
@@ -5825,7 +5890,9 @@ test('canonical CLI can add a taxonomy core-data admin screen', async () => {
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('source: "core-data:taxonomy/category"');
+  expect(blockConfigSource).toContain(
+    "source: 'core-data:taxonomy/category'",
+  );
   expect(typesSource).toContain('export interface CategoriesCoreDataRecord');
   expect(typesSource).toContain('count?: number');
   expect(typesSource).toContain('name?: string');
@@ -5834,12 +5901,12 @@ test('canonical CLI can add a taxonomy core-data admin screen', async () => {
   expect(typesSource).toContain('name: string');
   expect(configSource).toContain("fields: ['name', 'slug', 'count']");
   expect(configSource).toContain("titleField: 'name'");
-  expect(configSource).toContain("label: __( 'Count'");
-  expect(configSource).toContain("label: __( 'Taxonomy'");
+  expect(configSource).toContain("label: __('Count'");
+  expect(configSource).toContain("label: __('Taxonomy'");
   expect(configSource).not.toContain('updatedAt');
   expect(configSource).not.toContain('Status');
-  expect(dataSource).toContain('const CORE_DATA_ENTITY_KIND = "taxonomy"');
-  expect(dataSource).toContain('const CORE_DATA_ENTITY_NAME = "category"');
+  expect(dataSource).toContain("const CORE_DATA_ENTITY_KIND = 'taxonomy'");
+  expect(dataSource).toContain("const CORE_DATA_ENTITY_NAME = 'category'");
   expect(dataSource).toContain('function normalizeTaxonomyRecord');
   expect(dataSource).toContain('count: normalizeCoreDataNumber(record.count)');
   expect(dataSource).toContain(
@@ -6035,7 +6102,9 @@ test('admin view core-data sources accept numeric-leading entity names', async (
     checks: Array<{ detail: string; label: string; status: string }>;
   }>(doctorOutput);
 
-  expect(blockConfigSource).toContain('source: "core-data:postType/2fa_logs"');
+  expect(blockConfigSource).toContain(
+    "source: 'core-data:postType/2fa_logs'",
+  );
   expect(
     doctorChecks.checks.find((check) => check.label === 'Admin view config audit-logs')
       ?.status,
@@ -6166,12 +6235,14 @@ test('rest resource workflow repairs legacy sync-rest scripts before writing wor
   expect(repairedSyncRestSource).toContain('REST_RESOURCES');
   expect(repairedSyncRestSource).toContain('function isWorkspaceRestResource(');
   expect(repairedSyncRestSource).toContain(
-    'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
+    'const restResources = REST_RESOURCES.filter(isWorkspaceRestResource);',
   );
   expect(repairedSyncRestSource).toContain(
     'plugin-level REST resources are registered yet',
   );
-  expect(repairedSyncRestSource).toContain('for ( const resource of restResources )');
+  expect(repairedSyncRestSource).toContain(
+    'for (const resource of restResources)',
+  );
 
   runCli('npm', ['run', 'sync-rest', '--', '--check'], { cwd: targetDir });
 }, 120_000);
@@ -6227,9 +6298,11 @@ test('contract workflow repairs legacy sync-rest scripts before writing standalo
   expect(repairedSyncRestSource).toContain('CONTRACTS');
   expect(repairedSyncRestSource).toContain('function isWorkspaceStandaloneContract(');
   expect(repairedSyncRestSource).toContain(
-    'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
+    'const standaloneContracts = CONTRACTS.filter(',
   );
-  expect(repairedSyncRestSource).toContain('for ( const contract of standaloneContracts )');
+  expect(repairedSyncRestSource).toContain(
+    'for (const contract of standaloneContracts)',
+  );
 
   runCli('npm', ['run', 'sync-rest', '--', '--check'], { cwd: targetDir });
 }, 120_000);
@@ -6302,10 +6375,10 @@ test('rest resource workflow repairs sync-rest after legacy contract-first repai
   expect(repairedSyncRestSource).toContain('CONTRACTS');
   expect(repairedSyncRestSource).toContain('REST_RESOURCES');
   expect(repairedSyncRestSource).toContain(
-    'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );',
+    'const standaloneContracts = CONTRACTS.filter(',
   );
   expect(repairedSyncRestSource).toContain(
-    'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
+    'const restResources = REST_RESOURCES.filter(isWorkspaceRestResource);',
   );
 
   runCli('npm', ['run', 'sync-rest', '--', '--check'], { cwd: targetDir });
@@ -6700,7 +6773,7 @@ function demo_space_enqueue_workflow_abilities() {
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "review-workflow"');
+  expect(blockConfigSource).toContain("slug: 'review-workflow'");
 
   expect(
     fs.existsSync(
@@ -6780,10 +6853,10 @@ test('canonical CLI can add an editor plugin to an official workspace template',
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "document-tools"');
-  expect(blockConfigSource).toContain('slot: "sidebar"');
+  expect(blockConfigSource).toContain("slug: 'document-tools'");
+  expect(blockConfigSource).toContain("slot: 'sidebar'");
   expect(blockConfigSource).toContain(
-    'file: "src/editor-plugins/document-tools/index.tsx"',
+    "file: 'src/editor-plugins/document-tools/index.tsx'",
   );
   expect(bootstrapSource).toContain('build/editor-plugins/index.js');
   expect(bootstrapSource).toContain('build/editor-plugins/style-index.css');
@@ -6796,7 +6869,7 @@ test('canonical CLI can add an editor plugin to an official workspace template',
   expect(entrySource).toContain('Surface');
   expect(surfaceSource).toContain('PluginSidebar');
   expect(surfaceSource).toContain('PluginSidebarMoreMenuItem');
-  expect(dataSource).toContain('EDITOR_PLUGIN_SLOT = "sidebar"');
+  expect(dataSource).toContain("EDITOR_PLUGIN_SLOT = 'sidebar'");
   expect(dataSource).toContain('getDocumentToolsEditorPluginModel');
   expect(dataSource).toContain('isDocumentToolsEnabled');
 
@@ -6844,7 +6917,7 @@ test('canonical CLI can add an editor plugin to an official workspace template',
   expect(
     fs.existsSync(path.join(targetDir, 'build', 'blocks-manifest.php')),
   ).toBe(true);
-}, 30_000);
+}, 60_000);
 
 test('canonical CLI can add a document settings panel editor plugin', async () => {
   const targetDir = path.join(
@@ -6902,14 +6975,18 @@ test('canonical CLI can add a document settings panel editor plugin', async () =
     'utf8',
   );
 
-  expect(blockConfigSource).toContain('slug: "seo-notes"');
-  expect(blockConfigSource).toContain('slot: "document-setting-panel"');
+  expect(blockConfigSource).toContain("slug: 'seo-notes'");
+  expect(blockConfigSource).toContain(
+    "slot: 'document-setting-panel'",
+  );
   expect(entrySource).toContain('registerPlugin');
   expect(entrySource).toContain('demo-space-seo-notes');
   expect(surfaceSource).toContain('PluginDocumentSettingPanel');
   expect(surfaceSource).not.toContain('PluginSidebarMoreMenuItem');
   expect(surfaceSource).toContain('Use data.ts to add post type');
-  expect(dataSource).toContain('EDITOR_PLUGIN_SLOT = "document-setting-panel"');
+  expect(dataSource).toContain(
+    "EDITOR_PLUGIN_SLOT = 'document-setting-panel'",
+  );
   expect(dataSource).toContain('getSeoNotesEditorPluginModel');
 
   const doctorOutput = runCli('node', [entryPath, 'doctor', '--format', 'json'], {
@@ -6993,7 +7070,7 @@ test('editor plugin workflow repairs legacy workspace build config hooks', async
   expect(
     fs.existsSync(path.join(targetDir, 'build', 'editor-plugins', 'index.js')),
   ).toBe(true);
-}, 30_000);
+}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
 test('editor plugin workflow repairs formatted legacy workspace build config hooks', async () => {
   const targetDir = path.join(

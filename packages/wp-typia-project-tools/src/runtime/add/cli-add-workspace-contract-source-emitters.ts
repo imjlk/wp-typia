@@ -44,10 +44,10 @@ export function buildContractTypesSource(
  * artifact referenced from scripts/block-config.ts.
  */
 export interface ${sourceTypeName} {
-\tid: string;
-\tstatus: 'pending' | 'ready';
-\tupdatedAt: string;
-\tmessage?: string;
+  id: string;
+  status: 'pending' | 'ready';
+  updatedAt: string;
+  message?: string;
 }
 `;
 }

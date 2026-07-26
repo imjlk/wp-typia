@@ -31,6 +31,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 		reason:
 			"workspace inventory, standalone doctor sync parsing, and generated workspace asset helpers used by add/doctor/migrations and exported workspace selection flows use the TypeScript compiler API at runtime",
 		requiredTypeScriptImportFiles: [
+			"src/runtime/add/cli-add-block-legacy-validator.ts",
 			"src/runtime/add/cli-add-workspace-binding-source.ts",
 			"src/runtime/cli/cli-init-plan.ts",
 			"src/runtime/doctor/cli-doctor-standalone-control-flow.ts",

@@ -26,11 +26,17 @@ test('scaffold test environment facade delegates focused helper modules', () => 
     'utf8',
   );
 
-  expect(environmentSource).toContain('from "./scaffold-test-paths.js"');
-  expect(environmentSource).toContain('from "./scaffold-test-runtime.js"');
-  expect(environmentSource).toContain('from "./scaffold-test-workspace.js"');
-  expect(environmentSource).toContain(
-    'from "./scaffold-test-generated-project.js"',
+  expect(environmentSource).toMatch(
+    /from\s+['"]\.\/scaffold-test-paths\.js['"]/,
+  );
+  expect(environmentSource).toMatch(
+    /from\s+['"]\.\/scaffold-test-runtime\.js['"]/,
+  );
+  expect(environmentSource).toMatch(
+    /from\s+['"]\.\/scaffold-test-workspace\.js['"]/,
+  );
+  expect(environmentSource).toMatch(
+    /from\s+['"]\.\/scaffold-test-generated-project\.js['"]/,
   );
   expect(environmentSource).not.toContain('function acquireWorkspaceBuildLock(');
   expect(environmentSource).not.toContain('export function runGeneratedScript(');

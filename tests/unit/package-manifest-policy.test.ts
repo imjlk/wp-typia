@@ -30,7 +30,7 @@ function createManifestRepo() {
     },
     engines: {
       bun: '>=1.3.11',
-      node: '>=20.0.0',
+      node: '>=24.0.0',
       npm: '>=10.0.0',
     },
     name: '@wp-typia/repo',
@@ -42,7 +42,7 @@ function createManifestRepo() {
     dependencies: {},
     engines: {
       bun: '>=1.3.11',
-      node: '>=20.0.0',
+      node: '>=24.0.0',
       npm: '>=10.0.0',
     },
     name: '@wp-typia/api-client',
@@ -52,7 +52,7 @@ function createManifestRepo() {
     dependencies: {},
     engines: {
       bun: '>=1.3.11',
-      node: '>=20.0.0',
+      node: '>=24.0.0',
       npm: '>=10.0.0',
     },
     name: '@wp-typia/block-types',
@@ -78,7 +78,7 @@ function createManifestRepo() {
       },
       engines: {
         bun: '>=1.3.11',
-        node: '>=20.0.0',
+        node: '>=24.0.0',
         npm: '>=10.0.0',
       },
       name: '@wp-typia/block-runtime',
@@ -91,7 +91,7 @@ function createManifestRepo() {
     },
     engines: {
       bun: '>=1.3.11',
-      node: '>=20.0.0',
+      node: '>=24.0.0',
       npm: '>=10.0.0',
     },
     name: '@wp-typia/rest',
@@ -115,7 +115,7 @@ function createManifestRepo() {
       },
       engines: {
         bun: '>=1.3.11',
-        node: '>=20.0.0',
+        node: '>=24.0.0',
         npm: '>=10.0.0',
       },
       name: '@wp-typia/project-tools',
@@ -133,7 +133,7 @@ function createManifestRepo() {
     },
     engines: {
       bun: '>=1.3.11',
-      node: '>=20.0.0',
+      node: '>=24.0.0',
       npm: '>=10.0.0',
     },
     name: 'wp-typia',
@@ -196,7 +196,7 @@ describe('validatePackageManifestPolicy', () => {
 		const repoRoot = createManifestRepo();
 		const rootPackageJsonPath = path.join(repoRoot, 'package.json');
 		const rootPackageJson = JSON.parse(fs.readFileSync(rootPackageJsonPath, 'utf8'));
-		rootPackageJson.engines.node = '>=24.0.0';
+		rootPackageJson.engines.node = '>=22.0.0';
 		writeJson(rootPackageJsonPath, rootPackageJson);
 
 		const projectToolsPackageJsonPath = path.join(
@@ -213,7 +213,7 @@ describe('validatePackageManifestPolicy', () => {
 
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain(
-			'package.json must declare engines.node=">=20.0.0", found ">=24.0.0".',
+			'package.json must declare engines.node=">=24.0.0", found ">=22.0.0".',
 		);
 		expect(result.errors).toContain(
 			'@wp-typia/project-tools should not keep unused devDependencies.react-devtools-core.',

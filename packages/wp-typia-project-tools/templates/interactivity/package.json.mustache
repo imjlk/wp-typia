@@ -5,6 +5,9 @@
 	"description": "{{description}}",
 	"author": "{{author}}",
 	"license": "GPL-2.0-or-later",
+	"engines": {
+		"node": ">=24.0.0"
+	},
 	"main": "build/index.js",
 	"scripts": {
 		"sync": "ttsx scripts/sync-project.ts",
@@ -13,7 +16,7 @@
 		"start": "bun run sync && wp-scripts start --experimental-modules",
 		"dev": "bun run start",
 		"lint:ts": "ttsc --noEmit",
-		"lint:js": "wp-scripts lint-js",
+		"lint:js": "node scripts/run-wp-scripts-lint-js-compat.mjs",
 		"lint:css": "wp-scripts lint-style",
 		"lint": "bun run lint:ts && bun run lint:js && bun run lint:css",
 		"format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{cjs,css,js,json,md,mjs,scss,yaml,yml}\"",
@@ -28,10 +31,15 @@
 		"@wordpress/browserslist-config": "^6.42.0",
 		"@wordpress/scripts": "^30.22.0",
 		"eslint-plugin-jsx-a11y": "^6.10.2",
-		"@ttsc/lint": "^0.21.0",
-		"@ttsc/unplugin": "^0.21.0",
+		"@ttsc/lint": "^0.22.0",
+		"@ttsc/unplugin": "^0.22.0",
+		"@typescript/typescript6": "6.0.2",
+		"@types/react": "^18.3.28",
+		"@types/react-dom": "^18.3.7",
 		"prettier": "3.8.2",
-		"ttsc": "^0.21.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"ttsc": "^0.22.0",
 		"typescript": "^7.0.2",
 		"typia": "^13.2.0"
 	},

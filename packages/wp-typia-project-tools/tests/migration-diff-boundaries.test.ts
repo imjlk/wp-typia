@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { renderMigrationRuleFile } from '../src/runtime/migration/migration-render-diff-rule.js';
+
 const sourceRoot = resolve(
   import.meta.dir,
   '..',
@@ -24,8 +26,12 @@ test('migration-diff keeps rename and transform helpers in dedicated modules', (
     'utf8',
   );
 
-  expect(migrationDiffSource).toContain('from "./migration-diff-rename.js"');
-  expect(migrationDiffSource).toContain('from "./migration-diff-transform.js"');
+  expect(migrationDiffSource).toMatch(
+    /from\s+['"]\.\/migration-diff-rename\.js['"]/,
+  );
+  expect(migrationDiffSource).toMatch(
+    /from\s+['"]\.\/migration-diff-transform\.js['"]/,
+  );
   expect(migrationDiffSource).not.toContain('function createRenameCandidates(');
   expect(migrationDiffSource).not.toContain('function assessRenameCandidate(');
   expect(migrationDiffSource).not.toContain(
@@ -43,5 +49,45 @@ test('migration-diff keeps rename and transform helpers in dedicated modules', (
   );
   expect(migrationDiffTransformSource).toContain(
     'export function describeConstraintChange(',
+  );
+});
+
+test('migration rules use a record fallback when sourceType is missing', () => {
+  const projectDir = '/tmp/wp-typia-migration-rule-fallback';
+  const source = renderMigrationRuleFile({
+    block: {
+      blockJsonFile: 'src/block.json',
+      blockName: 'demo/fallback',
+      key: 'fallback',
+      manifestFile: 'typia.manifest.json',
+      saveFile: 'src/save.tsx',
+      typesFile: 'src/types.ts',
+    },
+    currentAttributes: {},
+    currentTypeName: null,
+    diff: {
+      currentTypeName: null,
+      fromVersion: 'v1',
+      summary: {
+        auto: 0,
+        autoItems: [],
+        manual: 0,
+        manualItems: [],
+        renameCandidates: [],
+        transformSuggestions: [],
+      },
+      toVersion: 'v2',
+    },
+    fromVersion: 'v1',
+    projectDir,
+    rulePath: `${projectDir}/src/migrations/rules/v1-to-v2.ts`,
+    targetVersion: 'v2',
+  });
+
+  expect(source).not.toContain('import type { null }');
+  expect(source).not.toContain('import type { Record<string, unknown> }');
+  expect(source).toContain(
+    'export function migrate(input: Record<string, unknown>): ' +
+      'Record<string, unknown>',
   );
 });

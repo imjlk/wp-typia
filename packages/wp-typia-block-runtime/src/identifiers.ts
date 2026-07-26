@@ -6,8 +6,18 @@ const UUID_HEX_RADIX = 16;
 const SCOPED_SUFFIX_LENGTH = 9;
 const MAX_PERSISTENT_BLOCK_ID_ATTEMPTS = 32;
 
+/**
+ * Reason why a persistent block identity needs repair.
+ *
+ * @category Types
+ */
 export type PersistentBlockIdentityRepairReason = 'missing' | 'duplicate';
 
+/**
+ * Minimal block-editor tree node used while repairing persistent identities.
+ *
+ * @category Types
+ */
 export interface PersistentBlockIdentityNode {
   attributes?: Record< string, unknown > | null;
   clientId: string;
@@ -15,6 +25,11 @@ export interface PersistentBlockIdentityNode {
   name?: string;
 }
 
+/**
+ * One persistent identity replacement to apply to a block-editor tree.
+ *
+ * @category Types
+ */
 export interface PersistentBlockIdentityRepair {
   clientId: string;
   nextValue: string;
@@ -22,6 +37,11 @@ export interface PersistentBlockIdentityRepair {
   reason: PersistentBlockIdentityRepairReason;
 }
 
+/**
+ * Inputs for preserving or generating one persistent block identity.
+ *
+ * @category Types
+ */
 export interface EnsurePersistentBlockIdentityOptions {
   duplicateDetection?: boolean;
   existingIds?: Iterable< string >;
@@ -31,6 +51,11 @@ export interface EnsurePersistentBlockIdentityOptions {
   value: unknown;
 }
 
+/**
+ * Result of resolving one persistent block identity.
+ *
+ * @category Types
+ */
 export interface EnsurePersistentBlockIdentityResult {
   changed: boolean;
   previousValue: string | null;
@@ -38,6 +63,11 @@ export interface EnsurePersistentBlockIdentityResult {
   value: string;
 }
 
+/**
+ * Options for collecting persistent identity repairs across a block tree.
+ *
+ * @category Types
+ */
 export interface CollectPersistentBlockIdentityRepairsOptions {
   attributeName: string;
 	/**

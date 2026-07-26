@@ -146,10 +146,7 @@ registerScaffoldBlockType(registration.name, registration.settings);
 
 export const COMPOUND_CHILD_VALIDATORS_TEMPLATE = `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
-import type {
-  {{pascalCase}}ItemAttributes,
-  {{pascalCase}}ItemValidationResult,
-} from './types';
+{{childValidationTypesImport}}
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
 const scaffoldValidators =

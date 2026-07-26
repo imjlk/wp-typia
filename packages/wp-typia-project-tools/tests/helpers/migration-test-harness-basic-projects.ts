@@ -249,7 +249,7 @@ export function createVersionedMigrationProject(projectDir: string) {
 
   writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = typeof input.content === "string" && (input.isVisible === undefined || typeof input.isVisible === "boolean");\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "MigrationAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello", isVisible: false };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.content === "string" && (attributes.isVisible === undefined || typeof attributes.isVisible === "boolean");\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "MigrationAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello", isVisible: false };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),

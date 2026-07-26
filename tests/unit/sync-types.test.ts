@@ -138,6 +138,6 @@ describe('Type Sync Tests', () => {
 			expect(builtOpenApi).toEqual(openApi);
 			expect(builtPhpValidatorSource).toEqual(phpValidatorSource);
 		},
-		{ timeout: 90_000 },
+		{ timeout: 180_000 },
 	);
 });

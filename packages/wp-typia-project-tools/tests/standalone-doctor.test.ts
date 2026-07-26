@@ -1187,8 +1187,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       const original = fs.readFileSync(syncScriptPath, 'utf8');
       const source = original.replace(
-        `${propertyName}: "${canonicalPath}"`,
-        `${propertyName}: "${damagedPath}"`,
+        `${propertyName}: '${canonicalPath}'`,
+        `${propertyName}: '${damagedPath}'`,
       );
       expect(source).not.toBe(original);
       fs.writeFileSync(syncScriptPath, source);
@@ -1218,8 +1218,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncScriptPath, 'utf8');
     const source = original.replace(
-      'blockJsonFile: "src/block.json",',
-      'projectRoot: "..",\n    blockJsonFile: "src/block.json",',
+      "blockJsonFile: 'src/block.json',",
+      "projectRoot: '..',\n      blockJsonFile: 'src/block.json',",
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncScriptPath, source);
@@ -1246,10 +1246,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const original = fs.readFileSync(syncScriptPath, 'utf8');
     const source = original
       .replace(
-        '    blockJsonFile: "src/block.json",',
-        '    ...{ blockJsonFile: "src/block.json" },',
+        "      blockJsonFile: 'src/block.json',",
+        "      ...{ blockJsonFile: 'src/block.json' },",
       )
-      .replace('    sourceTypeName:', '    ["sourceTypeName"]:');
+      .replace('      sourceTypeName:', "      ['sourceTypeName']:");
     expect(source).not.toBe(original);
     fs.writeFileSync(syncScriptPath, source);
 
@@ -1529,19 +1529,19 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
   test('rejects sync-types warning policies that doctor cannot replay', async () => {
     const strictGuard = [
-      '    if (argument === "--strict") {',
+      "    if (argument === '--strict') {",
       '      options.strict = true;',
       '      continue;',
       '    }',
     ].join('\n');
     const lossyGuard = [
-      '    if (argument === "--fail-on-lossy") {',
+      "    if (argument === '--fail-on-lossy') {",
       '      options.failOnLossy = true;',
       '      continue;',
       '    }',
     ].join('\n');
     const checkGuard = [
-      '    if (argument === "--check") {',
+      "    if (argument === '--check') {",
       '      options.check = true;',
       '      continue;',
       '    }',
@@ -1570,7 +1570,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         'skipped-strict-guard',
         strictGuard,
         [
-          '    if (argument === "--strict") { continue; }',
+          "    if (argument === '--strict') { continue; }",
           strictGuard,
         ].join('\n'),
       ],
@@ -1605,28 +1605,28 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const mutations = [
       [
         'wrong-status',
-        'if (report.status === "error") {\n    process.exitCode = 1;',
-        'if (report.status === "success") {\n    process.exitCode = 1;',
+        "if (report.status === 'error') {\n    process.exitCode = 1;",
+        "if (report.status === 'success') {\n    process.exitCode = 1;",
       ],
       [
         'zero-exit-code',
-        'if (report.status === "error") {\n    process.exitCode = 1;',
-        'if (report.status === "error") {\n    process.exitCode = 0;',
+        "if (report.status === 'error') {\n    process.exitCode = 1;",
+        "if (report.status === 'error') {\n    process.exitCode = 0;",
       ],
       [
         'overridden-exit-code',
-        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n}',
-        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n  process.exitCode = 0;\n}',
+        "  if (report.status === 'error') {\n    process.exitCode = 1;\n  }\n}",
+        "  if (report.status === 'error') {\n    process.exitCode = 1;\n  }\n  process.exitCode = 0;\n}",
       ],
       [
         'return-after-guard',
-        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n}',
-        '  if (report.status === "error") {\n    process.exitCode = 1;\n  }\n  return;\n}',
+        "  if (report.status === 'error') {\n    process.exitCode = 1;\n  }\n}",
+        "  if (report.status === 'error') {\n    process.exitCode = 1;\n  }\n  return;\n}",
       ],
       [
         'mutated-report-status',
-        '  if (report.status === "error") {\n    process.exitCode = 1;',
-        '  report.status = "success";\n\n  if (report.status === "error") {\n    process.exitCode = 1;',
+        "  if (report.status === 'error') {\n    process.exitCode = 1;",
+        "  report.status = 'success';\n\n  if (report.status === 'error') {\n    process.exitCode = 1;",
       ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -1655,7 +1655,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       [
         'missing-rendering',
         [
-          '  if (options.report === "json") {',
+          "  if (options.report === 'json') {",
           '    process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`);',
           '  } else {',
           '    printHumanReport(options, report);',
@@ -1666,18 +1666,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ],
       [
         'extra-statement',
-        '  if (options.report === "json") {',
+        "  if (options.report === 'json') {",
         [
           "  process.getBuiltinModule('node:fs').writeFileSync('src/block.json', '{}');",
-          '  if (options.report === "json") {',
+          "  if (options.report === 'json') {",
         ].join('\n'),
       ],
       [
         'report-helper',
-        '    console.error("❌ Type sync failed:", report.failure.message);',
+        "    console.error('❌ Type sync failed:', report.failure.message);",
         [
           "    process.getBuiltinModule('node:fs').writeFileSync('src/block.json', '{}');",
-          '    console.error("❌ Type sync failed:", report.failure.message);',
+          "    console.error('❌ Type sync failed:', report.failure.message);",
         ].join('\n'),
       ],
     ] as const;
@@ -1859,18 +1859,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       },
       {
         canonical:
-          'function runSyncScript( scriptPath: string, options: SyncCliOptions )',
+          'function runSyncScript(scriptPath: string, options: SyncCliOptions)',
         damaged:
-          'function* runSyncScript( scriptPath: string, options: SyncCliOptions )',
+          'function* runSyncScript(scriptPath: string, options: SyncCliOptions)',
         name: 'sync-project-generator-runner',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
         canonical:
-          'function runSyncScript( scriptPath: string, options: SyncCliOptions )',
+          'function runSyncScript(scriptPath: string, options: SyncCliOptions)',
         damaged:
-          'function runSyncScript( scriptPath: string, ...options: SyncCliOptions[] )',
+          'function runSyncScript(scriptPath: string, ...options: SyncCliOptions[])',
         name: 'sync-project-rest-runner-parameter',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
@@ -1927,8 +1927,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncScriptPath, 'utf8');
     const source = original.replace(
-      'console.error("❌ Type sync failed:", error);',
-      'console.error("❌ Type sync failed:", error);\n  process.exit(0);',
+      "console.error('❌ Type sync failed:', error);",
+      "console.error('❌ Type sync failed:', error);\n  process.exit(0);",
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncScriptPath, source);
@@ -1992,9 +1992,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
   test('requires the canonical sync-types report parser branch', async () => {
     const reportGuard = [
-      '    if (argument === "--report") {',
+      "    if (argument === '--report') {",
       '      const reportMode = argv[index + 1];',
-      '      if (reportMode !== "json") {',
+      "      if (reportMode !== 'json') {",
       "        throw new Error('The `--report` flag currently supports only `json`.');",
       '      }',
       '      options.report = reportMode;',
@@ -2004,7 +2004,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       '',
     ].join('\n');
     const mutations = [
-      ['default', 'report: "human",', 'report: "json",'],
+      ['default', "report: 'human',", "report: 'json',"],
       ['guard', reportGuard, ''],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -2094,8 +2094,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         name: 'rest-runner',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
-        canonical: '\tsyncEndpointClient,',
-        damaged: '\ttype syncEndpointClient,',
+        canonical: '  syncEndpointClient,',
+        damaged: '  type syncEndpointClient,',
       },
     ] as const;
     for (const fixture of cases) {
@@ -2135,8 +2135,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
-        canonical: '\tdefineEndpointManifest,',
-        damaged: '\tdefineEndpointManifest,\n\tmissingExport,',
+        canonical: '  defineEndpointManifest,',
+        damaged: '  defineEndpointManifest,\n  missingExport,',
         name: 'sync-rest',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
@@ -2179,7 +2179,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const syncTypes = fs.readFileSync(syncTypesPath, 'utf8');
     const syncTypesWithNestedLoop = syncTypes.replace(
-      '    if (argument === "--check") {',
+      "    if (argument === '--check') {",
       [
         '    breakLoop: for (const item of []) {',
         '      if (!item) break breakLoop;',
@@ -2188,7 +2188,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         '      if (!item) continue continueLoop;',
         '    }',
         '',
-        '    if (argument === "--check") {',
+        "    if (argument === '--check') {",
       ].join('\n'),
     );
     expect(syncTypesWithNestedLoop).not.toBe(syncTypes);
@@ -2212,16 +2212,16 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const syncRest = fs.readFileSync(syncRestPath, 'utf8');
     const syncRestWithNestedLoops = syncRest.replace(
-      "\t\tif ( argument === '--check' ) {",
+      "    if (argument === '--check') {",
       [
-        '\t\tbreakLoop: for ( const item of [] ) {',
-        '\t\t\tif ( ! item ) break breakLoop;',
-        '\t\t}',
-        '\t\tcontinueLoop: for ( const item of [] ) {',
-        '\t\t\tif ( ! item ) continue continueLoop;',
-        '\t\t}',
+        '    breakLoop: for (const item of []) {',
+        '      if (!item) break breakLoop;',
+        '    }',
+        '    continueLoop: for (const item of []) {',
+        '      if (!item) continue continueLoop;',
+        '    }',
         '',
-        "\t\tif ( argument === '--check' ) {",
+        "    if (argument === '--check') {",
       ].join('\n'),
     );
     expect(syncRestWithNestedLoops).not.toBe(syncRest);
@@ -2259,27 +2259,27 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('rejects noncanonical generated main catch handlers', async () => {
     const cases = [
       {
-        canonical: 'main().catch( ( error ) => {',
-        damaged: 'main().catch( function* ( error ) {',
+        canonical: 'main().catch((error) => {',
+        damaged: 'main().catch(function* (error) {',
         name: 'sync-project-generator-catch',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
-        canonical: "\tconsole.error( '❌ Project sync failed:', error );",
+        canonical: "  console.error('❌ Project sync failed:', error);",
         damaged: [
-          "\tprocess.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' );",
-          "\tconsole.error( '❌ Project sync failed:', error );",
+          "  process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+          "  console.error('❌ Project sync failed:', error);",
         ].join('\n'),
         name: 'sync-project-side-effect-catch',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
-        canonical: "\tconsole.error( '❌ REST contract sync failed:', error );",
+        canonical: "  console.error('❌ REST contract sync failed:', error);",
         damaged: [
-          "\tprocess.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' );",
-          "\tconsole.error( '❌ REST contract sync failed:', error );",
+          "  process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+          "  console.error('❌ REST contract sync failed:', error);",
         ].join('\n'),
         name: 'sync-rest-side-effect-catch',
         scaffold: scaffoldPersistence,
@@ -2306,18 +2306,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('rejects parser accessors that neutralize --check assignments', async () => {
     const cases = [
       {
-        insertionLine: '\tfor ( const argument of argv ) {',
+        insertionLine: '  for (const argument of argv) {',
         name: 'sync-project-parser-accessor',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
-        statementIndentation: '\t\t',
+        statementIndentation: '    ',
       },
       {
-        insertionLine: '\tfor ( const argument of argv ) {',
+        insertionLine: '  for (const argument of argv) {',
         name: 'sync-rest-parser-accessor',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
-        statementIndentation: '\t\t',
+        statementIndentation: '    ',
       },
       {
         insertionLine: '    const argument = argv[index];',
@@ -2357,54 +2357,54 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('rejects unrelated runtime effects in generated option parsers', async () => {
     const cases = [
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-project-parser-chdir',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
-        statement: "\t\tprocess.chdir( '..' );",
+        statement: "    process.chdir('..');",
       },
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-rest-parser-write',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
         statement:
-          "\t\tprocess.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' );",
+          "    process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
       },
       {
-        guard: '    if (argument === "--check") {',
+        guard: "    if (argument === '--check') {",
         name: 'sync-types-parser-eval',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-types-to-block-json.ts'),
         statement: '    eval( \'process.chdir("..")\' );',
       },
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-project-parser-for-of-write',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
-        statement: "\t\tfor ( process.env.PWNED of [ '1' ] ) {}",
+        statement: "    for (process.env.PWNED of ['1']) {}",
       },
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-rest-parser-infinite-loop',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
-        statement: '\t\twhile ( true ) {}',
+        statement: '    while (true) {}',
       },
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-project-parser-array-spread',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
-        statement: '\t\tconst spread = [ ...( options as never[] ) ];',
+        statement: '    const spread = [...(options as never[])];',
       },
       {
-        guard: "\t\tif ( argument === '--check' ) {",
+        guard: "    if (argument === '--check') {",
         name: 'sync-rest-parser-object-spread',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
-        statement: '\t\tconst spread = { ...options };',
+        statement: '    const spread = { ...options };',
       },
     ] as const;
     for (const fixture of cases) {
@@ -2434,14 +2434,14 @@ describe('@wp-typia/project-tools standalone doctor', () => {
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
         unknownFlagThrow:
-          '\t\tthrow new Error( `Unknown sync flag: ${ argument }` );',
+          '    throw new Error(`Unknown sync flag: ${argument}`);',
       },
       {
         name: 'sync-rest',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
         unknownFlagThrow:
-          '\t\tthrow new Error( `Unknown sync-rest flag: ${ argument }` );',
+          '    throw new Error(`Unknown sync-rest flag: ${argument}`);',
       },
     ] as const;
     for (const fixture of cases) {
@@ -2474,10 +2474,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncProjectPath, 'utf8');
     const canonicalThrow =
-      '\t\tthrow new Error( `Unknown sync flag: ${ argument }` );';
+      '    throw new Error(`Unknown sync flag: ${argument}`);';
     const source = original.replace(
       canonicalThrow,
-      '\t\tthrow ( new Error( `Unknown sync flag: ${ argument }` ) );',
+      '    throw (new Error(`Unknown sync flag: ${argument}`));',
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncProjectPath, source);
@@ -2510,17 +2510,17 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       const scriptPath = path.join(targetDir, fixture.script);
       const original = fs.readFileSync(scriptPath, 'utf8');
       const checkGuard = [
-        "\t\tif ( argument === '--check' ) {",
-        '\t\t\toptions.check = true;',
-        '\t\t\tcontinue;',
-        '\t\t}',
+        "    if (argument === '--check') {",
+        '      options.check = true;',
+        '      continue;',
+        '    }',
       ].join('\n');
       const source = original.replace(
         checkGuard,
         [
           checkGuard,
           '',
-          "\t\tif ( argument !== '--check' ) continue;",
+          "    if (argument !== '--check') continue;",
         ].join('\n'),
       );
       expect(source).not.toBe(original);
@@ -2567,8 +2567,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       const scriptPath = path.join(targetDir, fixture.script);
       const original = fs.readFileSync(scriptPath, 'utf8');
       const source = original.replace(
-        /(\n[ \t]*if \( argument === '--check' \) \{)/u,
-        `\n\t\t${fixture.completion}$1`,
+        /(\n[ \t]*if \(argument === '--check'\) \{)/u,
+        `\n    ${fixture.completion}$1`,
       );
       expect(source).not.toBe(original);
       fs.writeFileSync(scriptPath, source);
@@ -2603,8 +2603,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       const scriptPath = path.join(targetDir, fixture.script);
       const original = fs.readFileSync(scriptPath, 'utf8');
       const source = original.replace(
-        'for ( const argument of argv ) {',
-        "for ( let argument of argv ) {\n\t\targument = '';",
+        'for (const argument of argv) {',
+        "for (let argument of argv) {\n    argument = '';",
       );
       expect(source).not.toBe(original);
       fs.writeFileSync(scriptPath, source);
@@ -2670,7 +2670,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const source = fs
       .readFileSync(syncProjectPath, 'utf8')
-      .replace(/\n\s*runSyncScript\( syncTypesScriptPath, options \);/u, '');
+      .replace(/\n\s*runSyncScript\(syncTypesScriptPath, options\);/u, '');
     fs.writeFileSync(syncProjectPath, source);
 
     const checks = await getDoctorChecks(targetDir);
@@ -2695,10 +2695,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncProjectPath, 'utf8');
     const source = original.replace(
-      '\trunSyncScript( syncTypesScriptPath, options );',
+      '  runSyncScript(syncTypesScriptPath, options);',
       [
-        '\trunSyncScript( syncTypesScriptPath, options );',
-        "\tfs.writeFileSync( path.join( process.cwd(), 'src', 'block.json' ), '{}' );",
+        '  runSyncScript(syncTypesScriptPath, options);',
+        "  fs.writeFileSync(path.join(process.cwd(), 'src', 'block.json'), '{}');",
       ].join('\n'),
     );
     expect(source).not.toBe(original);
@@ -2718,15 +2718,13 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const cases = [
       {
         name: 'sync-project',
-        optionsLine:
-          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
+        optionsLine: '  const options = parseCliOptions(process.argv.slice(2));',
         scaffold: scaffoldBasic,
         script: path.join('scripts', 'sync-project.ts'),
       },
       {
         name: 'sync-rest',
-        optionsLine:
-          '\tconst options = parseCliOptions( process.argv.slice( 2 ) );',
+        optionsLine: '  const options = parseCliOptions(process.argv.slice(2));',
         scaffold: scaffoldPersistence,
         script: path.join('scripts', 'sync-rest-contracts.ts'),
       },
@@ -2787,7 +2785,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const source = fs
       .readFileSync(syncProjectPath, 'utf8')
       .replace(
-        /\n\s*if \( options\.check \) \{\s*args\.push\( '--check' \);\s*\}/u,
+        /\n\s*if \(options\.check\) \{\s*args\.push\('--check'\);\s*\}/u,
         '',
       );
     fs.writeFileSync(syncProjectPath, source);
@@ -2804,34 +2802,34 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
   test('rejects a sync-project runner that stops propagating child failures', async () => {
     const mutations = [
-      ['error', 'if ( result.error )', 'if ( false )'],
-      ['status', 'if ( result.status !== 0 )', 'if ( false )'],
+      ['error', 'if (result.error)', 'if (false)'],
+      ['status', 'if (result.status !== 0)', 'if (false)'],
       [
         'error-success-exit',
-        'if ( result.error ) {',
-        'if ( result.error ) {\n\t\tprocess.exit( 0 );',
+        'if (result.error) {',
+        'if (result.error) {\n    process.exit(0);',
       ],
       [
         'status-success-exit',
-        'if ( result.status !== 0 ) {',
-        'if ( result.status !== 0 ) {\n\t\tprocess.exit( 0 );',
+        'if (result.status !== 0) {',
+        'if (result.status !== 0) {\n    process.exit(0);',
       ],
       [
         'error-side-effect',
-        'if ( result.error ) {',
+        'if (result.error) {',
         [
-          'if ( result.error ) {',
-          "\t\tfs.writeFileSync( 'src/unchecked.txt', 'x' );",
+          'if (result.error) {',
+          "    fs.writeFileSync('src/unchecked.txt', 'x');",
         ].join('\n'),
       ],
       [
         'status-side-effectful-throw',
-        'throw new Error( `Sync script failed: ${ scriptPath }` );',
+        'throw new Error(`Sync script failed: ${scriptPath}`);',
         [
           'throw (',
-          "\t\t\tfs.writeFileSync( 'src/unchecked.txt', 'x' ),",
-          '\t\t\tnew Error( `Sync script failed: ${ scriptPath }` )',
-          '\t\t);',
+          "      fs.writeFileSync('src/unchecked.txt', 'x'),",
+          '      new Error(`Sync script failed: ${scriptPath}`)',
+          '    );',
         ].join('\n'),
       ],
     ] as const;
@@ -2903,7 +2901,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ["'node_modules', '.bin'", "'vendor', 'bin'"],
       ['process.env.PATH ??', 'process.env.WP_TYPIA_PATH ??'],
       ['...process.env,', 'PATH: inheritedPath,'],
-      ['delete env[ key ];', 'continue;'],
+      ['delete env[key];', 'continue;'],
       ['env.PATH = nextPath;', 'env.PATH = inheritedPath;'],
       ['return env;', 'return {};'],
     ] as const;
@@ -2935,12 +2933,12 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const original = fs.readFileSync(syncProjectPath, 'utf8');
     const mutations = [
       [
-        'const args = [ scriptPath ];',
-        'const args = [ scriptPath ], ignoredArgs = [];',
+        'const args = [scriptPath];',
+        'const args = [scriptPath], ignoredArgs = [];',
       ],
       [
-        '\t} );',
-        '\t} ), ignored = ( result.status = 0 );',
+        '  });',
+        '  }), ignored = (result.status = 0);',
       ],
     ] as const;
     for (const [canonicalSource, damagedSource] of mutations) {
@@ -2969,18 +2967,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncProjectPath, 'utf8');
     const canonicalTail = [
-      '\tif ( result.status !== 0 ) {',
-      '\t\tthrow new Error( `Sync script failed: ${ scriptPath }` );',
-      '\t}',
+      '  if (result.status !== 0) {',
+      '    throw new Error(`Sync script failed: ${scriptPath}`);',
+      '  }',
       '}',
       '',
       'async function main()',
     ].join('\n');
     const damagedTail = [
-      '\tif ( result.status !== 0 ) {',
-      '\t\tthrow new Error( `Sync script failed: ${ scriptPath }` );',
-      '\t}',
-      "\tfs.writeFileSync( 'src/unchecked.txt', 'x' );",
+      '  if (result.status !== 0) {',
+      '    throw new Error(`Sync script failed: ${scriptPath}`);',
+      '  }',
+      "  fs.writeFileSync('src/unchecked.txt', 'x');",
       '}',
       '',
       'async function main()',
@@ -3002,8 +3000,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const syncProjectPath = path.join(targetDir, 'scripts', 'sync-project.ts');
     const original = fs.readFileSync(syncProjectPath, 'utf8');
     const source = original.replace(
-      '\tthrow result.error;',
-      '\tif ( true ) { return; }\n\n\tthrow result.error;',
+      '    throw result.error;',
+      '    if (true) { return; }\n\n    throw result.error;',
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncProjectPath, source);
@@ -3025,11 +3023,11 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const source = fs
       .readFileSync(syncProjectPath, 'utf8')
       .replace(
-        '\trunSyncScript( syncTypesScriptPath, options );',
+        '  runSyncScript(syncTypesScriptPath, options);',
         [
-          '\tif ( false ) {',
-          '\t\trunSyncScript( syncTypesScriptPath, options );',
-          '\t}',
+          '  if (false) {',
+          '    runSyncScript(syncTypesScriptPath, options);',
+          '  }',
         ].join('\n'),
       );
     fs.writeFileSync(syncProjectPath, source);
@@ -3050,7 +3048,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const syncProjectPath = path.join(targetDir, 'scripts', 'sync-project.ts');
     const source = fs
       .readFileSync(syncProjectPath, 'utf8')
-      .replace(/\n\s*runSyncScript\( syncRestScriptPath, options \);/u, '');
+      .replace(/\n\s*runSyncScript\(syncRestScriptPath, options\);/u, '');
     fs.writeFileSync(syncProjectPath, source);
 
     const checks = await getDoctorChecks(targetDir);
@@ -3134,12 +3132,12 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      '\n\tconsole.log(',
+      '\n  console.log(',
       [
         '',
-        "\tprocess.getBuiltinModule( 'node:fs' ).rmSync( 'src/api-client.ts' );",
+        "  process.getBuiltinModule('node:fs').rmSync('src/api-client.ts');",
         '',
-        '\tconsole.log(',
+        '  console.log(',
       ].join('\n'),
     );
     expect(source).not.toBe(original);
@@ -3184,20 +3182,20 @@ describe('@wp-typia/project-tools standalone doctor', () => {
   test('rejects REST helpers with a disabled type-artifact preflight', async () => {
     const mutations = [
       ['write-mode', 'check: true', 'check: false'],
-      ['ignored-failure', 'if ( report.failure )', 'if ( false )'],
+      ['ignored-failure', 'if (report.failure)', 'if (false)'],
       [
         'side-effect-before-throw',
-        'if ( report.failure ) {\n\t\tthrow new Error(',
+        'if (report.failure) {\n    throw new Error(',
         [
-          'if ( report.failure ) {',
-          "\t\tprocess.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' );",
-          '\t\tthrow new Error(',
+          'if (report.failure) {',
+          "    process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x');",
+          '    throw new Error(',
         ].join('\n'),
       ],
       [
         'side-effectful-throw-message',
-        '${ report.failure.message }`',
-        "${ process.chdir( '..' ) }`",
+        '${report.failure.message}`',
+        "${process.chdir('..')}`",
       ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -3287,22 +3285,22 @@ describe('@wp-typia/project-tools standalone doctor', () => {
 
   test('rejects REST helpers that stop parsing the process --check flag', async () => {
     const mutations = [
-      ['argv', 'process.argv.slice( 2 )', '[]'],
+      ['argv', 'process.argv.slice(2)', '[]'],
       ['assignment', 'options.check = true', 'options.check = false'],
       [
         'unreachable',
-        'for ( const argument of argv ) {',
-        'for ( const argument of argv ) {\n\t\tbreak;',
+        'for (const argument of argv) {',
+        'for (const argument of argv) {\n    break;',
       ],
       [
         'nested-unreachable',
-        'for ( const argument of argv ) {',
-        'for ( const argument of argv ) {\n\t\tif ( true ) { break; }',
+        'for (const argument of argv) {',
+        'for (const argument of argv) {\n    if (true) { break; }',
       ],
       [
         'early-return',
-        'for ( const argument of argv ) {',
-        'for ( const argument of argv ) {\n\t\tif ( true ) { return options; }',
+        'for (const argument of argv) {',
+        'for (const argument of argv) {\n    if (true) { return options; }',
       ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -3335,7 +3333,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'sync-rest-contracts.ts',
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
-    const source = original.replace('process.exit( 1 );', 'return;');
+    const source = original.replace('process.exit(1);', 'return;');
     expect(source).not.toBe(original);
     fs.writeFileSync(syncRestPath, source);
 
@@ -3359,8 +3357,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      '\tawait assertTypeArtifactsCurrent();',
-      '\tprocess.exit( 0 );\n\tawait assertTypeArtifactsCurrent();',
+      '  await assertTypeArtifactsCurrent();',
+      '  process.exit(0);\n  await assertTypeArtifactsCurrent();',
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncRestPath, source);
@@ -3390,8 +3388,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       const original = fs.readFileSync(syncRestPath, 'utf8');
       const source = original.replace(
-        '\tawait assertTypeArtifactsCurrent();',
-        `\t${exitStatement}\n\tawait assertTypeArtifactsCurrent();`,
+        '  await assertTypeArtifactsCurrent();',
+        `  ${exitStatement}\n  await assertTypeArtifactsCurrent();`,
       );
       expect(source).not.toBe(original);
       fs.writeFileSync(syncRestPath, source);
@@ -3411,13 +3409,13 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const mutations = [
       [
         'unreachable',
-        "console.error( '❌ REST contract sync failed:', error );",
-        "console.error( '❌ REST contract sync failed:', error );\n\tif ( true ) { return; }",
+        "console.error('❌ REST contract sync failed:', error);",
+        "console.error('❌ REST contract sync failed:', error);\n  if (true) { return; }",
       ],
       [
         'terminated',
-        'process.exit( 1 );',
-        'process.exit( 0 );\n\tprocess.exit( 1 );',
+        'process.exit(1);',
+        'process.exit(0);\n  process.exit(1);',
       ],
       ['shadowed', '/* eslint-disable no-console */', "import process from 'node:process';"],
     ] as const;
@@ -3451,14 +3449,14 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'sync-rest-contracts.ts',
     );
     const source = fs.readFileSync(syncRestPath, 'utf8');
-    const callStart = source.indexOf('\tawait syncEndpointClient( {');
-    const callEndMarker = '\n\t} );';
+    const callStart = source.indexOf('  await syncEndpointClient(');
+    const callEndMarker = '\n  );';
     const callEnd = source.indexOf(callEndMarker, callStart);
     expect(callStart).toBeGreaterThan(-1);
     expect(callEnd).toBeGreaterThan(callStart);
     fs.writeFileSync(
       syncRestPath,
-      `${source.slice(0, callStart)}\tawait syncEndpointClient();${source.slice(
+      `${source.slice(0, callStart)}  await syncEndpointClient();${source.slice(
         callEnd + callEndMarker.length,
       )}`,
     );
@@ -3477,18 +3475,18 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const mutations = [
       [
         'schemas',
-        'await syncTypeSchemas( {\n\t\t\tjsonSchemaFile:',
-        "await syncTypeSchemas( {\n\t\t\tprojectRoot: 'detached-root',\n\t\t\tjsonSchemaFile:",
+        'await syncTypeSchemas(\n      {\n        jsonSchemaFile:',
+        "await syncTypeSchemas(\n      {\n        projectRoot: 'detached-root',\n        jsonSchemaFile:",
       ],
       [
         'openapi',
-        'await syncRestOpenApi( {\n\t\tmanifest:',
-        "await syncRestOpenApi( {\n\t\tprojectRoot: 'detached-root',\n\t\tmanifest:",
+        'await syncRestOpenApi(\n    {\n      manifest:',
+        "await syncRestOpenApi(\n    {\n      projectRoot: 'detached-root',\n      manifest:",
       ],
       [
         'client',
-        'await syncEndpointClient( {\n\t\tclientFile:',
-        "await syncEndpointClient( {\n\t\tprojectRoot: 'detached-root',\n\t\tclientFile:",
+        'await syncEndpointClient(\n    {\n      clientFile:',
+        "await syncEndpointClient(\n    {\n      projectRoot: 'detached-root',\n      clientFile:",
       ],
     ] as const;
     for (const [name, canonicalSource, damagedSource] of mutations) {
@@ -3525,9 +3523,12 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const source = fs.readFileSync(syncRestPath, 'utf8');
     const loopStart = source.indexOf(
-      '\tfor ( const [ baseName, contract ] of Object.entries( REST_ENDPOINT_MANIFEST.contracts ) ) {',
+      '  for (const [baseName, contract] of Object.entries(\n    REST_ENDPOINT_MANIFEST.contracts,\n  )) {',
     );
-    const openApiStart = source.indexOf('\n\n\tawait syncRestOpenApi(', loopStart);
+    const openApiStart = source.indexOf(
+      '\n\n  await syncRestOpenApi(',
+      loopStart,
+    );
     expect(loopStart).toBeGreaterThan(-1);
     expect(openApiStart).toBeGreaterThan(loopStart);
     const schemaLoop = source.slice(loopStart, openApiStart);
@@ -3619,9 +3620,9 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'sync-rest-contracts.ts',
     );
     const source = fs.readFileSync(orderPath, 'utf8');
-    const openApiStart = source.indexOf('\tawait syncRestOpenApi( {');
-    const clientStart = source.indexOf('\tawait syncEndpointClient( {');
-    const callEndMarker = '\n\t} );';
+    const openApiStart = source.indexOf('  await syncRestOpenApi(');
+    const clientStart = source.indexOf('  await syncEndpointClient(');
+    const callEndMarker = '\n  );';
     const clientEnd =
       source.indexOf(callEndMarker, clientStart) + callEndMarker.length;
     expect(openApiStart).toBeGreaterThan(-1);
@@ -3696,8 +3697,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       );
       const original = fs.readFileSync(syncRestPath, 'utf8');
       const source = original.replace(
-        '\tendpoints: [',
-        `\tendpoints: [\n\t\t${entry},`,
+        '  endpoints: [',
+        `  endpoints: [\n    ${entry},`,
       );
       expect(source).not.toBe(original);
       fs.writeFileSync(syncRestPath, source);
@@ -3788,17 +3789,17 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       {
         mutate(source: string): string {
           return source.replace(
-            '\tendpoints: [',
+            '  endpoints: [',
             [
-              '\tendpoints: [',
-              '\t\t{',
-              "\t\t\tauth: 'public',",
-              "\t\t\tmethod: 'GET',",
-              "\t\t\toperationId: 'unboundPathCapture',",
-              "\t\t\tpath: '/invalid/(?P<id>[^/]+)',",
-              "\t\t\tresponseContract: 'state-response',",
-              "\t\t\ttags: [ 'Invalid' ],",
-              '\t\t},',
+              '  endpoints: [',
+              '    {',
+              "      auth: 'public',",
+              "      method: 'GET',",
+              "      operationId: 'unboundPathCapture',",
+              "      path: '/invalid/(?P<id>[^/]+)',",
+              "      responseContract: 'state-response',",
+              "      tags: ['Invalid'],",
+              '    },',
             ].join('\n'),
           );
         },
@@ -3807,10 +3808,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       {
         mutate(source: string): string {
           return source.replace(
-            "\t\t\tauth: 'public',",
+            "      auth: 'public',",
             [
-              "\t\t\tauth: 'public',",
-              "\t\t\tauthMode: 'authenticated-rest-nonce',",
+              "      auth: 'public',",
+              "      authMode: 'authenticated-rest-nonce',",
             ].join('\n'),
           );
         },
@@ -3854,13 +3855,13 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      "\t\t\tauth: 'public',",
+      "      auth: 'public',",
       [
-        "\t\t\tauthMode: 'public-signed-token',",
-        '\t\t\twordpressAuth: {',
-        "\t\t\t\tmechanism: 'public-signed-token',",
-        "\t\t\t\tpublicTokenField: 'customToken',",
-        '\t\t\t},',
+        "      authMode: 'public-signed-token',",
+        '      wordpressAuth: {',
+        "        mechanism: 'public-signed-token',",
+        "        publicTokenField: 'customToken',",
+        '      },',
       ].join('\n'),
     );
     expect(source).not.toBe(original);
@@ -3883,17 +3884,17 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      '\tendpoints: [',
+      '  endpoints: [',
       [
-        '\tendpoints: [',
-        '\t\t{',
-        "\t\t\tauth: 'public',",
-        "\t\t\tmethod: 'GET',",
-        "\t\t\toperationId: 'literalCaptureText',",
-        "\t\t\tpath: '/literal/(?P<id>',",
-        "\t\t\tresponseContract: 'state-response',",
-        "\t\t\ttags: [ 'Literal' ],",
-        '\t\t},',
+        '  endpoints: [',
+        '    {',
+        "      auth: 'public',",
+        "      method: 'GET',",
+        "      operationId: 'literalCaptureText',",
+        "      path: '/literal/(?P<id>',",
+        "      responseContract: 'state-response',",
+        "      tags: ['Literal'],",
+        '    },',
       ].join('\n'),
     );
     expect(source).not.toBe(original);
@@ -3916,8 +3917,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      "\t\tversion: '1.0.0',",
-      '\t\tversion: 1,',
+      "    version: '1.0.0',",
+      '    version: 1,',
     );
     expect(source).not.toBe(original);
     fs.writeFileSync(syncRestPath, source);
@@ -3939,10 +3940,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     const original = fs.readFileSync(syncRestPath, 'utf8');
     const source = original.replace(
-      'const REST_ENDPOINT_MANIFEST = defineEndpointManifest( {',
+      'const REST_ENDPOINT_MANIFEST = defineEndpointManifest({',
       [
-        "const leaked = process.getBuiltinModule( 'node:fs' ).writeFileSync( 'src/unchecked.txt', 'x' ),",
-        '\tREST_ENDPOINT_MANIFEST = defineEndpointManifest( {',
+        "const leaked = process.getBuiltinModule('node:fs').writeFileSync('src/unchecked.txt', 'x'),",
+        '  REST_ENDPOINT_MANIFEST = defineEndpointManifest({',
       ].join('\n'),
     );
     expect(source).not.toBe(original);
@@ -4718,8 +4719,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const apiTypesPath = path.join(targetDir, 'src', 'api-types.ts');
     const apiTypes = fs.readFileSync(apiTypesPath, 'utf8');
     const changedApiTypes = apiTypes.replace(
-      'tags.MaxLength< 100 >',
-      'tags.MaxLength< 101 >',
+      'tags.MaxLength<100>',
+      'tags.MaxLength<101>',
     );
     expect(changedApiTypes).not.toBe(apiTypes);
     fs.writeFileSync(apiTypesPath, changedApiTypes);

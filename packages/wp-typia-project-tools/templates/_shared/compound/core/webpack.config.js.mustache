@@ -125,7 +125,9 @@ function getOptionalModuleEntries() {
 }
 
 module.exports = async () => {
-	const { createTypiaWebpackConfig } = await import( '@wp-typia/block-runtime/blocks' );
+	const { createTypiaWebpackConfig } = await import(
+		'@wp-typia/block-runtime/blocks'
+	);
 
 	return createTypiaWebpackConfig( {
 		defaultConfig,

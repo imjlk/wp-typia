@@ -6,6 +6,7 @@ import {
   HELPERS_SOURCE,
 } from './migration-test-harness-manifest.js';
 import {
+  installMigrationCompilerFixture,
   repoTtsxPath,
   writeFile,
   writeJson,
@@ -78,7 +79,7 @@ export function writeMultiBlockCurrentFiles(
   );
   writeFile(
     path.join(blockDir, 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = typeof input.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "${block.typeName}" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello ${block.blockSlug}" };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "${block.typeName}" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello ${block.blockSlug}" };\n\t},\n};\n`,
   );
   writeJson(path.join(blockDir, 'block.json'), {
     apiVersion: 3,
@@ -155,6 +156,7 @@ export function createMultiBlockMigrationProject(
     type: 'module',
     version: '0.1.0',
   });
+  installMigrationCompilerFixture(projectDir);
 
   const parent = {
     blockName: 'create-block/multi-parent',

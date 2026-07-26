@@ -5,12 +5,24 @@ import {
   appendPhpSnippetBeforeClosingTag,
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
+import {
+  buildNoResourcesGuard,
+  FINAL_SYNC_SUMMARY_PATTERN,
+  replaceBlockConfigImport,
+  replaceNoResourcesGuard,
+} from './cli-add-workspace-rest-sync-script-shared.js';
 import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 const POST_META_SERVER_GLOB = '/inc/post-meta/*.php';
-const NO_RESOURCES_GUARD_PATTERN =
-	/if \(\s*restBlocks\.length === 0(?:\s*&&\s*standaloneContracts\.length === 0)?(?:\s*&&\s*postMetaContracts\.length === 0)?(?:\s*&&\s*restResources\.length === 0)?(?:\s*&&\s*aiFeatures\.length === 0)?\s*\) \{[\s\S]*?\n\t\treturn;\n\t\}/u;
+type SourceMatcher = string | RegExp;
+
+function matchesSource(source: string, matcher: SourceMatcher): boolean {
+  return typeof matcher === 'string'
+    ? source.includes(matcher)
+    : matcher.test(source);
+}
 
 /**
  * Ensure the workspace bootstrap loads generated post-meta PHP modules.
@@ -74,78 +86,30 @@ function replaceBlockConfigImportForPostMeta(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  const importPatterns = [
-    /^import\s*\{\n(?:\t[^\n]*\n)+\} from ["']\.\/block-config["'];?$/mu,
-    /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
-  ];
-  const importMatch =
-		importPatterns.map((pattern) => pattern.exec(nextSource)).find(Boolean) ??
-		null;
-
-  if (!importMatch) {
-    throw new Error(
-      getSyncRestPatchErrorMessage(syncRestScriptPath, 'block-config import'),
-    );
-  }
-
-  const importSource = importMatch[0];
-  if (
-		importSource.includes('POST_META') &&
-		importSource.includes('WorkspacePostMetaConfig')
-	) {
-    return nextSource;
-  }
-  if (
-		!importSource.includes('BLOCKS') ||
-		!importSource.includes('WorkspaceBlockConfig')
-	) {
-    throw new Error(
-      getSyncRestPatchErrorMessage(syncRestScriptPath, 'BLOCKS import'),
-    );
-  }
-
-  const hasAiFeatures = importSource.includes('AI_FEATURES');
-  const hasAiFeatureConfig = importSource.includes('WorkspaceAiFeatureConfig');
-  const hasContracts = importSource.includes('CONTRACTS');
-  const hasContractConfig = importSource.includes('WorkspaceContractConfig');
-  const hasRestResources = importSource.includes('REST_RESOURCES');
-  const hasRestResourceConfig = importSource.includes(
-    'WorkspaceRestResourceConfig',
-  );
-  const replacement = [
-		'import {',
-		...(hasAiFeatures ? ['\tAI_FEATURES,'] : []),
-		'\tBLOCKS,',
-		...(hasContracts ? ['\tCONTRACTS,'] : []),
-		'\tPOST_META,',
-		...(hasRestResources ? ['\tREST_RESOURCES,'] : []),
-		...(hasAiFeatureConfig ? ['\ttype WorkspaceAiFeatureConfig,'] : []),
-		'\ttype WorkspaceBlockConfig,',
-		...(hasContractConfig ? ['\ttype WorkspaceContractConfig,'] : []),
-		'\ttype WorkspacePostMetaConfig,',
-		...(hasRestResourceConfig ? ['\ttype WorkspaceRestResourceConfig,'] : []),
-		"} from './block-config';",
-	].join('\n');
-
-  return nextSource.replace(importSource, replacement);
+  return replaceBlockConfigImport({
+    functionName: 'ensurePostMetaSyncScriptAnchors',
+    nextSource,
+    subject: {
+      configTypeName: 'WorkspacePostMetaConfig',
+      constName: 'POST_META',
+    },
+    syncRestScriptPath,
+  });
 }
 
 function replaceRequiredSyncRestSource(
 	nextSource: string,
-	target: string,
-	anchor: string | RegExp,
+	target: SourceMatcher,
+	anchor: SourceMatcher,
 	replacement: string,
 	anchorDescription: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes(target)) {
+  if (matchesSource(nextSource, target)) {
     return nextSource;
   }
 
-  const hasAnchor =
-		typeof anchor === 'string'
-      ? nextSource.includes(anchor)
-      : anchor.test(nextSource);
+  const hasAnchor = matchesSource(nextSource, anchor);
   if (!hasAnchor) {
     throw new Error(
       getSyncRestPatchErrorMessage(syncRestScriptPath, anchorDescription),
@@ -163,116 +127,95 @@ function replaceAllOccurrences(
   return source.split(searchValue).join(replacement);
 }
 
-function buildPostMetaNoResourcesGuard({
-	hasAiFeatures,
-	hasRestResources,
-}: {
-  hasAiFeatures: boolean;
-  hasRestResources: boolean;
-}): string {
-  const condition = [
-    'restBlocks.length === 0 &&',
-    'standaloneContracts.length === 0 &&',
-    'postMetaContracts.length === 0',
-  ];
-  if (hasRestResources) {
-    condition[condition.length - 1] = `${condition[condition.length - 1]} &&`;
-    condition.push('restResources.length === 0');
-  }
-  if (hasAiFeatures) {
-    condition[condition.length - 1] = `${condition[condition.length - 1]} &&`;
-    condition.push('aiFeatures.length === 0');
-  }
-
-  const noResourcesSubject = [
-		'REST-enabled workspace blocks',
-		'standalone contracts',
-		'post meta contracts',
-		...(hasRestResources ? ['plugin-level REST resources'] : []),
-		...(hasAiFeatures ? ['AI features'] : []),
-	].join(', ');
-
-  return [
-		'if (',
-		...condition.map((line) => `\t\t${line}`),
-		'\t) {',
-		'\t\tconsole.log(',
-		'\t\t\toptions.check',
-		`\t\t\t\t? 'ℹ️ No ${noResourcesSubject} are registered yet. \`sync-rest --check\` is already clean.'`,
-		`\t\t\t\t: 'ℹ️ No ${noResourcesSubject} are registered yet.'`,
-		'\t\t);',
-		'\t\treturn;',
-		'\t}',
-	].join('\n');
-}
-
-function replaceNoResourcesGuard(
-	nextSource: string,
-	replacement: string,
-	syncRestScriptPath: string,
-): string {
-  if (!NO_RESOURCES_GUARD_PATTERN.test(nextSource)) {
-    throw new Error(
-      getSyncRestPatchErrorMessage(syncRestScriptPath, 'no-resources guard'),
-    );
-  }
-
-  return nextSource.replace(NO_RESOURCES_GUARD_PATTERN, replacement);
-}
-
 function insertPostMetaFilter(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes('const postMetaContracts = POST_META.filter')) {
+  if (
+    /const\s+postMetaContracts\s*=\s*POST_META\.filter\(\s*isWorkspacePostMetaContract\s*,?\s*\);/u.test(
+      nextSource,
+    )
+  ) {
     return nextSource;
   }
 
+  const lineEnding = detectSourceLineEnding(nextSource);
   const restResourcesFilter =
-		'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );';
-  if (nextSource.includes(restResourcesFilter)) {
+    /^([ \t]*)const\s+restResources\s*=\s*REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*\);/mu;
+  if (restResourcesFilter.test(nextSource)) {
     return nextSource.replace(
-			restResourcesFilter,
-			[
-				'const postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );',
-				restResourcesFilter,
-			].join('\n\t'),
-		);
+      restResourcesFilter,
+      (match, indentation: string) =>
+        [
+          `${indentation}const postMetaContracts = POST_META.filter(isWorkspacePostMetaContract);`,
+          match,
+        ].join(lineEnding),
+    );
   }
 
   const standaloneContractsFilter =
-		'const standaloneContracts = CONTRACTS.filter( isWorkspaceStandaloneContract );';
+    /^([ \t]*)const\s+standaloneContracts\s*=\s*CONTRACTS\.filter\(\s*isWorkspaceStandaloneContract\s*,?\s*\);/mu;
   return replaceRequiredSyncRestSource(
-		nextSource,
-		'const postMetaContracts = POST_META.filter',
-		standaloneContractsFilter,
-		[
-			standaloneContractsFilter,
-			'const postMetaContracts = POST_META.filter( isWorkspacePostMetaContract );',
-		].join('\n\t'),
-		'standaloneContracts filter',
-		syncRestScriptPath,
-	);
+    nextSource,
+    /const\s+postMetaContracts\s*=\s*POST_META\.filter/u,
+    standaloneContractsFilter,
+    [
+      '$1const standaloneContracts = CONTRACTS.filter(isWorkspaceStandaloneContract);',
+      '$1const postMetaContracts = POST_META.filter(isWorkspacePostMetaContract);',
+    ].join(lineEnding),
+    'standaloneContracts filter',
+    syncRestScriptPath,
+  );
 }
 
 function insertPostMetaNoResourcesGuard(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  const hasRestResources = nextSource.includes(
-    'const restResources = REST_RESOURCES.filter( isWorkspaceRestResource );',
-  );
-  const hasAiFeatures = nextSource.includes(
-    'const aiFeatures = AI_FEATURES.filter( isWorkspaceAiFeature );',
-  );
+  const hasRestResources =
+    /const\s+restResources\s*=\s*REST_RESOURCES\.filter\(\s*isWorkspaceRestResource\s*\);/u.test(
+      nextSource,
+    );
+  const hasAiFeatures =
+    /const\s+aiFeatures\s*=\s*AI_FEATURES\.filter\(\s*isWorkspaceAiFeature\s*\);/u.test(
+      nextSource,
+    );
 
   return replaceNoResourcesGuard(
     nextSource,
-    buildPostMetaNoResourcesGuard({
-      hasAiFeatures,
-      hasRestResources,
+    buildNoResourcesGuard({
+      lineEnding: detectSourceLineEnding(nextSource),
+      subjects: [
+        {
+          condition: 'restBlocks.length === 0',
+          include: true,
+          subject: 'REST-enabled workspace blocks',
+        },
+        {
+          condition: 'standaloneContracts.length === 0',
+          include: true,
+          subject: 'standalone contracts',
+        },
+        {
+          condition: 'postMetaContracts.length === 0',
+          include: true,
+          subject: 'post meta contracts',
+        },
+        {
+          condition: 'restResources.length === 0',
+          include: hasRestResources,
+          subject: 'plugin-level REST resources',
+        },
+        {
+          condition: 'aiFeatures.length === 0',
+          include: hasAiFeatures,
+          subject: 'AI features',
+        },
+      ],
     }),
+    'ensurePostMetaSyncScriptAnchors',
     syncRestScriptPath,
+    'POST_META',
   );
 }
 
@@ -280,47 +223,48 @@ function insertPostMetaSyncLoop(
 	nextSource: string,
 	syncRestScriptPath: string,
 ): string {
-  if (nextSource.includes('for ( const postMeta of postMetaContracts )')) {
+  if (
+    /for\s*\(\s*const\s+postMeta\s+of\s+postMetaContracts\s*\)\s*\{/u.test(
+      nextSource,
+    )
+  ) {
     return nextSource;
   }
 
+  const lineEnding = detectSourceLineEnding(nextSource);
   const loopSource = [
-		'\tfor ( const postMeta of postMetaContracts ) {',
-		'\t\tawait syncTypeSchemas(',
-		'\t\t\t{',
-		'\t\t\t\tjsonSchemaFile: postMeta.schemaFile,',
-		'\t\t\t\tsourceTypeName: postMeta.sourceTypeName,',
-		'\t\t\t\ttypesFile: postMeta.typesFile,',
-		'\t\t\t},',
-		'\t\t\t{',
-		'\t\t\t\tcheck: options.check,',
-		'\t\t\t}',
-		'\t\t);',
-		'\t}',
-	].join('\n');
-  const resourceLoopAnchor = '\n\tfor ( const resource of restResources ) {';
-  if (nextSource.includes(resourceLoopAnchor)) {
+    '  for (const postMeta of postMetaContracts) {',
+    '    await syncTypeSchemas(',
+    '      {',
+    '        jsonSchemaFile: postMeta.schemaFile,',
+    '        sourceTypeName: postMeta.sourceTypeName,',
+    '        typesFile: postMeta.typesFile,',
+    '      },',
+    '      {',
+    '        check: options.check,',
+    '      },',
+    '    );',
+    '  }',
+  ].join(lineEnding);
+  const resourceLoopAnchor =
+    /\r?\n[ \t]+for\s*\(\s*const\s+resource\s+of\s+restResources\s*\)\s*\{/u;
+  if (resourceLoopAnchor.test(nextSource)) {
     return nextSource.replace(
       resourceLoopAnchor,
-      `\n${loopSource}\n${resourceLoopAnchor}`,
+      (match) => `${lineEnding}${loopSource}${lineEnding}${match}`,
     );
   }
 
-  const consoleLogPattern = /\n\tconsole\.log\(\n\t\toptions\.check/u;
   return replaceRequiredSyncRestSource(
-		nextSource,
-		'for ( const postMeta of postMetaContracts )',
-		consoleLogPattern,
-		[
-			'',
-			loopSource,
-			'',
-			'\tconsole.log(',
-			'\t\toptions.check',
-		].join('\n'),
-		'success log insertion point',
-		syncRestScriptPath,
-	);
+    nextSource,
+    /for\s*\(\s*const\s+postMeta\s+of\s+postMetaContracts\s*\)/u,
+    FINAL_SYNC_SUMMARY_PATTERN,
+    ['', loopSource, '', '  console.log(', '    options.check'].join(
+      lineEnding,
+    ),
+    'success log insertion point',
+    syncRestScriptPath,
+  );
 }
 
 /**
@@ -343,6 +287,7 @@ export async function ensurePostMetaSyncScriptAnchors(
   );
 
   await patchFile(syncRestScriptPath, (source) => {
+    const lineEnding = detectSourceLineEnding(source);
 		let nextSource = replaceBlockConfigImportForPostMeta(
 			source,
 			syncRestScriptPath,
@@ -355,21 +300,21 @@ export async function ensurePostMetaSyncScriptAnchors(
 			helperInsertionAnchor,
 			[
 				'function isWorkspacePostMetaContract(',
-				'\tpostMeta: WorkspacePostMetaConfig',
+				'  postMeta: WorkspacePostMetaConfig,',
 				'): postMeta is WorkspacePostMetaConfig & {',
-				'\tschemaFile: string;',
-				'\tsourceTypeName: string;',
-				'\ttypesFile: string;',
+				'  schemaFile: string;',
+				'  sourceTypeName: string;',
+				'  typesFile: string;',
 				'} {',
-				'\treturn (',
-				"\t\ttypeof postMeta.schemaFile === 'string' &&",
-				"\t\ttypeof postMeta.sourceTypeName === 'string' &&",
-				"\t\ttypeof postMeta.typesFile === 'string'",
-				'\t);',
+				'  return (',
+				"    typeof postMeta.schemaFile === 'string' &&",
+				"    typeof postMeta.sourceTypeName === 'string' &&",
+				"    typeof postMeta.typesFile === 'string'",
+				'  );',
 				'}',
 				'',
 				'async function assertTypeArtifactsCurrent',
-			].join('\n'),
+			].join(lineEnding),
 			'type artifact assertion helper',
 			syncRestScriptPath,
 		);

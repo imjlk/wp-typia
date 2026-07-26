@@ -13,6 +13,7 @@ import {
   createVersionedMigrationProject,
   entryPath,
   runCli,
+  typecheckMigrationProject,
 } from './helpers/migration-test-harness.js';
 import { createMigrationDiff } from '../src/runtime/migration-diff.js';
 import { loadMigrationProject } from '../src/runtime/migration-project.js';
@@ -68,6 +69,7 @@ test('scaffold and verify generate auto-migration artifacts for additive schema 
 	});
 	expect(verifyOutput).toContain('Verified v1 -> v3');
 	expect(verifyOutput).toContain('Migration verification passed for create-block/migration-smoke');
+	typecheckMigrationProject(projectDir);
 }, { timeout: 30_000 });
 
 test('scaffold exposes renameMap and transforms helpers for rename candidates', () => {
@@ -90,17 +92,24 @@ test('scaffold exposes renameMap and transforms helpers for rename candidates', 
 	const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
 	expect(ruleSource).toContain('export const renameMap');
-	expect(ruleSource).toContain('"content": "headline"');
+	expect(ruleSource).toContain("content: 'headline'");
 	expect(ruleSource).toContain('export const transforms');
 	expect(ruleSource).not.toContain('content: rename candidate from headline');
-	expect(ruleSource).toContain('resolveMigrationAttribute(currentManifest.attributes.content, "content", "content", input, renameMap, transforms)');
+	expect(ruleSource).toContain(
+		[
+			'content: resolveMigrationAttribute(',
+			'      currentManifest.attributes.content,',
+			"      'content',",
+		].join('\n'),
+	);
 	expect(fixture.cases.some((entry: { name: string }) => entry.name === 'rename:headline->content')).toBe(true);
 
 	const verifyOutput = runCli('node', [entryPath, 'migrate', 'verify', '--all'], {
 		cwd: projectDir,
 	});
 	expect(verifyOutput).toContain('Verified v1 -> v3');
-});
+	typecheckMigrationProject(projectDir);
+}, { timeout: 30_000 });
 
 test('scaffold auto-applies nested leaf rename candidates', () => {
 	const projectDir = path.join(tempRoot, 'nested-rename-project');
@@ -120,8 +129,14 @@ test('scaffold auto-applies nested leaf rename candidates', () => {
 	const ruleSource = fs.readFileSync(rulePath, 'utf8');
 	const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
-	expect(ruleSource).toContain('"settings.label": "settings.title"');
-	expect(ruleSource).toContain('resolveMigrationAttribute(currentManifest.attributes.settings, "settings", "settings", input, renameMap, transforms)');
+	expect(ruleSource).toContain("'settings.label': 'settings.title'");
+	expect(ruleSource).toContain(
+		[
+			'settings: resolveMigrationAttribute(',
+			'      currentManifest.attributes.settings,',
+			"      'settings',",
+		].join('\n'),
+	);
 	expect(
 		fixture.cases.some((entry: { name: string }) => entry.name === 'rename:settings.title->settings.label'),
 	).toBe(true);
@@ -143,7 +158,7 @@ test('ambiguous rename candidates stay unresolved', () => {
 	const rulePath = path.join(projectDir, 'src', 'migrations', 'rules', 'v1-to-v3.ts');
 	const ruleSource = fs.readFileSync(rulePath, 'utf8');
 
-	expect(ruleSource).toContain('// "content": "headline",');
+	expect(ruleSource).toContain("// content: 'headline',");
 	expect(ruleSource).toContain('rename candidate from');
 });
 
@@ -159,10 +174,15 @@ test('scaffold suggests transform bodies for semantic coercion', () => {
 	const ruleSource = fs.readFileSync(rulePath, 'utf8');
 
 	expect(ruleSource).toContain('export const transforms');
-	expect(ruleSource).toContain('// "clickCount": (legacyValue, legacyInput) => {');
-	expect(ruleSource).toContain('// const numericValue = typeof legacyValue === "number" ? legacyValue : Number(legacyValue ?? 0);');
+	expect(ruleSource).toContain(
+		'// clickCount: (legacyValue, legacyInput) => {',
+	);
+	expect(ruleSource).toContain(
+		"//   const numericValue = typeof legacyValue === 'number'",
+	);
 	expect(ruleSource).toContain('clickCount: transform suggested from clickCount');
-});
+	typecheckMigrationProject(projectDir);
+}, { timeout: 30_000 });
 
 test('union diff distinguishes additive and removal changes', () => {
 	const additiveProjectDir = path.join(tempRoot, 'union-additive-project');
@@ -255,6 +275,7 @@ test('multi-block configs load and scaffold per-target migration artifacts', () 
 	expect(phpRegistry).toContain("'blocks' =>");
 	expect(phpRegistry).toContain("'multi-parent'");
 	expect(phpRegistry).toContain("'multi-parent-item'");
+	typecheckMigrationProject(projectDir);
 });
 
 test('createMigrationDiff requires an explicit block key for multi-block projects', () => {

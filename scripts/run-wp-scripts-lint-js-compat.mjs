@@ -16,6 +16,9 @@ export const LINT_CONFIG_FILES = [
   '.eslintrc',
 ];
 
+export const DEFAULT_LINT_EXTENSIONS = 'js,jsx,cjs,mjs';
+export const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
+
 const LINT_OPTIONS_WITH_VALUES = new Set([
   '-c',
   '--cache-location',
@@ -86,6 +89,18 @@ function hasPackageProp(projectRequire, propertyName) {
   }
 }
 
+function hasPackageDependency(projectRequire, dependencyName) {
+  try {
+    const packageJson = projectRequire('./package.json');
+    return ['dependencies', 'devDependencies'].some(
+      (field) =>
+        typeof packageJson[field]?.[dependencyName] === 'string',
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function runWpScriptsLintJsCompat({
   args = process.argv.slice(2),
   cwd = process.cwd(),
@@ -101,7 +116,10 @@ export function runWpScriptsLintJsCompat({
     '@wordpress/scripts/package.json',
   );
   const wpScriptsDir = path.dirname(wpScriptsPackageJsonPath);
-  const eslintPackageJsonPath = projectRequire.resolve('eslint/package.json');
+  const eslintRequire = hasPackageDependency(projectRequire, 'eslint')
+    ? projectRequire
+    : createRequire(wpScriptsPackageJsonPath);
+  const eslintPackageJsonPath = eslintRequire.resolve('eslint/package.json');
   const eslintPackageJson = JSON.parse(
     fs.readFileSync(eslintPackageJsonPath, 'utf8'),
   );
@@ -125,12 +143,18 @@ export function runWpScriptsLintJsCompat({
       : ['--ignore-path', path.join(wpScriptsDir, 'config', '.eslintignore')];
   const defaultExtArgs = hasArg(args, '--ext')
     ? []
-    : ['--ext', 'js,jsx'];
+    : ['--ext', DEFAULT_LINT_EXTENSIONS];
   const defaultFilesArgs = hasExplicitLintTargets(args) ? [] : ['.'];
+  const registerTypescript6Path = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    TYPESCRIPT6_REGISTER_FILE,
+  );
 
   const result = spawnSync(
     process.execPath,
     [
+      '--require',
+      registerTypescript6Path,
       eslintBinPath,
       ...defaultConfigArgs,
       ...defaultIgnoreArgs,

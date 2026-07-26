@@ -75,6 +75,28 @@ interface BuiltInCodeTemplateSpec {
 
 // resourceKey is MaxLength<100>; generated scoped ids add "-" plus 9 characters.
 const RESOURCE_KEY_PREFIX_MAX_LENGTH = 90;
+const TYPESCRIPT_PRINT_WIDTH = 80;
+
+function renderTypeScriptCallLine(options: {
+  arguments: readonly string[];
+  callee: string;
+  indentation: string;
+  prefix: string;
+  suffix: string;
+}): string {
+  const compact = `${options.indentation}${options.prefix}${options.callee}(${options.arguments.join(', ')})${options.suffix}`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return [
+    `${options.indentation}${options.prefix}${options.callee}(`,
+    ...options.arguments.map(
+      (argument) => `${options.indentation}  ${argument},`,
+    ),
+    `${options.indentation})${options.suffix}`,
+  ].join('\n');
+}
 
 function renderCodeTemplate(
 	template: string,
@@ -85,11 +107,44 @@ function renderCodeTemplate(
     getScaffoldTemplateVariableGroups(variables).queryLoop;
   const validationTypesImport =
     `import type { ${variables.pascalCase}Attributes, ${variables.pascalCase}ValidationResult } from './types';`;
+  const childValidationTypesImport =
+    `import type { ${variables.pascalCase}ItemAttributes, ${variables.pascalCase}ItemValidationResult } from './types';`;
   const persistenceTypesImport =
     `import type { ${variables.pascalCase}ClientState, ${variables.pascalCase}Context, ${variables.pascalCase}State } from './types';`;
+  const persistenceEditorFieldLabels = [
+    ['buttonLabel', 'Button Label'],
+    ['resourceKey', 'Resource Key'],
+    ['showCount', 'Show Count'],
+  ] as const;
+  const renderedPersistenceEditorFieldLabels = persistenceEditorFieldLabels
+    .map(([propertyName, label]) =>
+      renderTypeScriptCallLine({
+        arguments: [
+          quoteTypeScriptString(label),
+          quoteTypeScriptString(variables.textDomain),
+        ],
+        callee: '__',
+        indentation: '      ',
+        prefix: `${propertyName}: `,
+        suffix: ',',
+      }),
+    )
+    .join('\n');
   const rendered = renderMustacheTemplateString(template, {
     ...variables,
+    childValidationTypesImport:
+      childValidationTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
+        ? childValidationTypesImport
+        : `import type {\n  ${variables.pascalCase}ItemAttributes,\n  ${variables.pascalCase}ItemValidationResult,\n} from './types';`,
     descriptionTsLiteral: quoteTypeScriptString(variables.description),
+    persistenceEditorFieldLabels: renderedPersistenceEditorFieldLabels,
+    persistenceSanitizeAttributesCall: renderTypeScriptCallLine({
+      arguments: ['nextAttributes'],
+      callee: `sanitize${variables.pascalCase}Attributes`,
+      indentation: '        ',
+      prefix: 'data: ',
+      suffix: ',',
+    }),
     queryAllowedControlsTsLiteral: queryLoop.enabled
       ? renderTypeScriptStringArray(queryLoop.allowedControls)
       : '[]',
@@ -106,12 +161,19 @@ function renderCodeTemplate(
       RESOURCE_KEY_PREFIX_MAX_LENGTH,
     ),
     persistenceTypesImport:
-      persistenceTypesImport.length <= 80
+      persistenceTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
         ? persistenceTypesImport
         : `import type {\n  ${variables.pascalCase}ClientState,\n  ${variables.pascalCase}Context,\n  ${variables.pascalCase}State,\n} from './types';`,
     titleTsLiteral: quoteTypeScriptString(variables.title),
+    persistenceValidateAttributesCall: renderTypeScriptCallLine({
+      arguments: ['nextAttributes'],
+      callee: `validate${variables.pascalCase}Attributes`,
+      indentation: '      ',
+      prefix: 'return ',
+      suffix: ';',
+    }),
     validationTypesImport:
-      validationTypesImport.length <= 80
+      validationTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
         ? validationTypesImport
         : `import type {\n  ${variables.pascalCase}Attributes,\n  ${variables.pascalCase}ValidationResult,\n} from './types';`,
   });

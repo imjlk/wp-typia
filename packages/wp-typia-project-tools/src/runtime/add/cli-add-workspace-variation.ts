@@ -24,9 +24,10 @@ import { toKebabCase, toTitleCase } from '../shared/string-case.js';
 const VARIATIONS_IMPORT_LINE =
 	"import { registerWorkspaceVariations } from './variations';";
 const VARIATIONS_IMPORT_PATTERN =
-	/^\s*import\s*\{\s*registerWorkspaceVariations\s*\}\s*from\s*["']\.\/variations["']\s*;?\s*$/mu;
+	/^[ \t]*import\s*\{\s*registerWorkspaceVariations\s*\}\s*from\s*["']\.\/variations["'][ \t]*;?[ \t]*$/mu;
 const VARIATIONS_CALL_LINE = 'registerWorkspaceVariations();';
 const VARIATIONS_CALL_PATTERN = /registerWorkspaceVariations\s*\(\s*\)\s*;?/u;
+const TYPESCRIPT_PRINT_WIDTH = 80;
 
 function buildVariationConfigEntry(blockSlug: string, variationSlug: string): string {
   return [
@@ -44,6 +45,27 @@ function buildVariationConstName(variationSlug: string): string {
 		.filter(Boolean);
 
   return `workspaceVariation_${identifierSegments.join('_')}`;
+}
+
+function buildVariationTranslationProperty(
+  propertyName: string,
+  message: string,
+  textDomain: string,
+): string {
+  const messageLiteral = quoteTsString(message);
+  const textDomainLiteral = quoteTsString(textDomain);
+  const compact =
+    `  ${propertyName}: __(${messageLiteral}, ${textDomainLiteral}),`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return [
+    `  ${propertyName}: __(`,
+    `    ${messageLiteral},`,
+    `    ${textDomainLiteral},`,
+    '  ),',
+  ].join('\n');
 }
 
 function getVariationConstBindings(
@@ -69,19 +91,26 @@ function getVariationConstBindings(
 function buildVariationSource(variationSlug: string, textDomain: string): string {
   const variationTitle = toTitleCase(variationSlug);
   const variationConstName = buildVariationConstName(variationSlug);
+  const titleProperty = buildVariationTranslationProperty(
+    'title',
+    variationTitle,
+    textDomain,
+  );
+  const descriptionProperty = buildVariationTranslationProperty(
+    'description',
+    `A starter variation for ${variationTitle}.`,
+    textDomain,
+  );
 
   return `import type { BlockVariation } from '@wp-typia/block-types/blocks/registration';
 import { __ } from '@wordpress/i18n';
 
 export const ${variationConstName} = {
-\tname: ${quoteTsString(variationSlug)},
-\ttitle: __( ${quoteTsString(variationTitle)}, ${quoteTsString(textDomain)} ),
-\tdescription: __(
-\t\t${quoteTsString(`A starter variation for ${variationTitle}.`)},
-\t\t${quoteTsString(textDomain)},
-\t),
-\tattributes: {},
-\tscope: ['inserter'],
+  name: ${quoteTsString(variationSlug)},
+${titleProperty}
+${descriptionProperty}
+  attributes: {},
+  scope: ['inserter'],
 } satisfies BlockVariation;
 `;
 }
@@ -94,22 +123,22 @@ function buildVariationIndexSource(variationSlugs: string[]): string {
 		})
 		.join('\n');
   const variationConstNames = variationBindings
-		.map(({ constName }) => constName)
-		.join(',\n\t\t');
+		.map(({ constName }) => `  ${constName},`)
+		.join('\n');
 
   return `import { registerBlockVariation } from '@wordpress/blocks';
 import metadata from '../block.json';
 ${importLines ? `\n${importLines}` : ''}
 
 const WORKSPACE_VARIATIONS = [
-\t${variationConstNames}
-\t// wp-typia add variation entries
+${variationConstNames}
+  // wp-typia add variation entries
 ];
 
 export function registerWorkspaceVariations() {
-\tfor (const variation of WORKSPACE_VARIATIONS) {
-\t\tregisterBlockVariation(metadata.name, variation);
-\t}
+  for (const variation of WORKSPACE_VARIATIONS) {
+    registerBlockVariation(metadata.name, variation);
+  }
 }
 `;
 }

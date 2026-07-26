@@ -432,8 +432,8 @@ describe('typia.llm adapter emitter', () => {
       typesImportPath: '../counter/api-types',
     });
 
-    expect(source).toContain('import typia from "typia";');
-    expect(source).toContain('} from "../counter/api-types";');
+    expect(source).toContain("import typia from 'typia';");
+    expect(source).toContain("} from '../counter/api-types';");
     expect(source).toContain('export interface CounterRestToolController');
     expect(source).toContain('getCounter(input: CounterQuery): CounterResponse;');
     expect(source).toContain(
@@ -491,10 +491,10 @@ describe('typia.llm adapter emitter', () => {
 
     expect(source).toContain(
       [
-        '\t/**',
-        '\t * Read the counter.',
-        '\t * Includes generated adapter context.',
-        '\t *',
+        '  /**',
+        '   * Read the counter.',
+        '   * Includes generated adapter context.',
+        '   *',
       ].join('\n'),
     );
   });
@@ -1144,7 +1144,14 @@ describe('typia.llm adapter emitter', () => {
     });
 
     expect(source).toContain(
-      'updateCounter(input: { body: CounterUpdateRequest; query: CounterQuery }): CounterResponse;',
+      [
+        '  updateCounter(',
+        '    input: {',
+        '      body: CounterUpdateRequest;',
+        '      query: CounterQuery;',
+        '    },',
+        '  ): CounterResponse;',
+      ].join('\n'),
     );
     expect(source).toContain('CounterQuery,');
     expect(source).toContain('CounterUpdateRequest,');

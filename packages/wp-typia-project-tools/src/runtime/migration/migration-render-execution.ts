@@ -3,6 +3,10 @@ import type {
   MigrationEntry,
   MigrationProjectState,
 } from './migration-types.js';
+import {
+  quoteTypeScriptString,
+  renderTypeScriptValue,
+} from '../shared/ts-string-literals.js';
 
 export function renderVerifyFile(
 	state: MigrationProjectState,
@@ -21,81 +25,103 @@ export function renderVerifyFile(
   }
 
   const imports = [
-    `import { validators } from "${entries[0]?.validatorImport ?? './validators'}";`,
-    `import { deprecated } from "./deprecated";`,
+    `import { validators } from ${quoteTypeScriptString(entries[0]?.validatorImport ?? './validators')};`,
+    "import { deprecated } from './deprecated';",
   ];
   const checks: string[] = [];
 
   entries.forEach((entry, index) => {
-    imports.push(`import fixture_${index} from "${entry.fixtureImport}";`);
-    imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
-    checks.push(
-      `\tif (selectedMigrationVersions.length === 0 || selectedMigrationVersions.includes("${entry.fromVersion}")) {`,
+    imports.push(
+      `import fixture_${index} from ${quoteTypeScriptString(entry.fixtureImport)} with { type: 'json' };`,
     );
-    checks.push(`\t\tif (rule_${index}.unresolved.length > 0) {`);
-    checks.push(
-      `\t\t\tthrow new Error("Unresolved migration TODOs remain for ${entry.fromVersion} -> ${entry.toVersion}: " + rule_${index}.unresolved.join(", "));`,
-    );
-    checks.push(`\t\t}`);
-    checks.push(
-      `\t\tconst cases_${index} = Array.isArray(fixture_${index}.cases) ? fixture_${index}.cases : [];`,
-    );
-    checks.push(`\t\tfor (const fixtureCase of cases_${index}) {`);
-    checks.push(
-      `\t\t\tconst migrated_${index} = rule_${index}.migrate(fixtureCase.input ?? {});`,
+    imports.push(
+      `import * as rule_${index} from ${quoteTypeScriptString(entry.ruleImport)};`,
     );
     checks.push(
-      `\t\t\tconst validation_${index} = validators.validate(migrated_${index});`,
+      `if (selectedMigrationVersions.length === 0 || selectedMigrationVersions.includes(`,
+      `  ${quoteTypeScriptString(entry.fromVersion)},`,
+      ')) {',
     );
-    checks.push(`\t\t\tif (!isValidationSuccess(validation_${index})) {`);
+    checks.push(`  if (rule_${index}.unresolved.length > 0) {`);
     checks.push(
-      `\t\t\t\tthrow new Error("Current validator rejected migrated fixture for ${entry.fromVersion} case " + String(fixtureCase.name ?? "unknown") + ": " + JSON.stringify(getValidationErrors(validation_${index})));`,
+      '    throw new Error(',
+      `      ${quoteTypeScriptString(`Unresolved migration TODOs remain for ${entry.fromVersion} -> ${entry.toVersion}: `)} +`,
+      `        rule_${index}.unresolved.join(', '),`,
+      '    );',
     );
-    checks.push(`\t\t\t}`);
-    checks.push(`\t\t}`);
+    checks.push('  }');
     checks.push(
-      `\t\tconsole.log("Verified ${entry.fromVersion} -> ${entry.toVersion} (" + cases_${index}.length + " case(s))");`,
+      `  const cases_${index} = Array.isArray(fixture_${index}.cases) ? fixture_${index}.cases : [];`,
     );
-    checks.push(`\t}`);
+    checks.push(`  for (const fixtureCase of cases_${index}) {`);
+    checks.push(
+      `    const migrated_${index} = rule_${index}.migrate(fixtureCase.input ?? {});`,
+    );
+    checks.push(
+      `    const validation_${index} = validators.validate(migrated_${index});`,
+    );
+    checks.push(`    if (!isValidationSuccess(validation_${index})) {`);
+    checks.push(
+      '      throw new Error(',
+      `        ${quoteTypeScriptString(`Current validator rejected migrated fixture for ${entry.fromVersion} case `)} +`,
+      `          String(fixtureCase.name ?? 'unknown') +`,
+      "          ': ' +",
+      `          JSON.stringify(getValidationErrors(validation_${index})),`,
+      '      );',
+    );
+    checks.push('    }');
+    checks.push('  }');
+    checks.push(
+      '  console.log(',
+      `    ${quoteTypeScriptString(`Verified ${entry.fromVersion} -> ${entry.toVersion} (`)} +`,
+      `      cases_${index}.length +`,
+      "      ' case(s))',",
+      '  );',
+    );
+    checks.push('}');
   });
 
-  return `/* eslint-disable no-console, @typescript-eslint/no-unused-vars, no-nested-ternary */
+  return `/* eslint-disable no-console */
 ${imports.join('\n')}
 
 function isValidationSuccess(result: unknown): boolean {
-\treturn (
-\t\tresult !== null &&
-\t\ttypeof result === "object" &&
-\t\t(
-\t\t\t(result as { isValid?: unknown }).isValid === true ||
-\t\t\t(result as { success?: unknown }).success === true
-\t\t)
-\t);
+  return (
+    result !== null &&
+    typeof result === 'object' &&
+    ((result as { isValid?: unknown }).isValid === true ||
+      (result as { success?: unknown }).success === true)
+  );
 }
 
 function getValidationErrors(result: unknown): unknown[] {
-\tif (result !== null && typeof result === "object" && Array.isArray((result as { errors?: unknown[] }).errors)) {
-\t\treturn (result as { errors: unknown[] }).errors;
-\t}
+  if (
+    result !== null &&
+    typeof result === 'object' &&
+    Array.isArray((result as { errors?: unknown[] }).errors)
+  ) {
+    return (result as { errors: unknown[] }).errors;
+  }
 
-\treturn [];
+  return [];
 }
 
 const args = process.argv.slice(2);
 const selectedMigrationVersions =
-\targs[0] === "--all"
-\t\t? []
-\t\t: args[0] === "--from-migration-version" && args[1]
-\t\t\t? [args[1]]
-\t\t\t: [];
+  args[0] === '--all'
+    ? []
+    : args[0] === '--from-migration-version' && args[1]
+      ? [args[1]]
+      : [];
 
 if (deprecated.length !== ${entries.length}) {
-\tthrow new Error("Generated deprecated entries are out of sync with migration registry.");
+  throw new Error(
+    'Generated deprecated entries are out of sync with migration registry.',
+  );
 }
 
 ${checks.join('\n')}
 
-console.log("Migration verification passed for ${block.blockName}");
+console.log(${quoteTypeScriptString(`Migration verification passed for ${block.blockName}`)});
 `;
 }
 
@@ -116,25 +142,32 @@ export function renderFuzzFile(
   }
 
   const imports = [
-    `import { validators } from "${entries[0]?.entry.validatorImport ?? './validators'}";`,
+    `import { validators } from ${quoteTypeScriptString(entries[0]?.entry.validatorImport ?? './validators')};`,
   ];
   const edgeDefinitions: string[] = [];
 
   entries.forEach(({ entry, fuzzPlan }, index) => {
-		imports.push(`import fixture_${index} from "${entry.fixtureImport}";`);
-		imports.push(`import manifest_${index} from "${entry.manifestImport}";`);
-		imports.push(`import * as rule_${index} from "${entry.ruleImport}";`);
-		edgeDefinitions.push(`{
-\tfromMigrationVersion: "${entry.fromVersion}",
-\ttoMigrationVersion: "${entry.toVersion}",
-\tfixture: fixture_${index},
-\tlegacyManifest: manifest_${index},
-\trule: rule_${index},
-\tplan: ${JSON.stringify(fuzzPlan, null, '\t').replace(/\n/g, '\n\t')},
-}`);
-	});
+    imports.push(
+      `import fixture_${index} from ${quoteTypeScriptString(entry.fixtureImport)} with { type: 'json' };`,
+    );
+    imports.push(
+      `import manifest_${index} from ${quoteTypeScriptString(entry.manifestImport)} with { type: 'json' };`,
+    );
+    imports.push(
+      `import * as rule_${index} from ${quoteTypeScriptString(entry.ruleImport)};`,
+    );
+    const renderedPlan = renderTypeScriptValue(fuzzPlan);
+    edgeDefinitions.push(`  {
+    fromMigrationVersion: ${quoteTypeScriptString(entry.fromVersion)},
+    toMigrationVersion: ${quoteTypeScriptString(entry.toVersion)},
+    fixture: fixture_${index},
+    legacyManifest: manifest_${index},
+    rule: rule_${index},
+    plan: ${renderedPlan.replace(/\n/gu, '\n    ')},
+  },`);
+  });
 
-  return `/* eslint-disable no-console, no-bitwise, @typescript-eslint/no-unused-vars, no-nested-ternary */
+  return `/* eslint-disable no-console, no-bitwise */
 ${imports.join('\n')}
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -177,30 +210,37 @@ type FuzzEdge = {
 \t\tcompatibleMappings: Array<{ currentPath: string; legacyPath: string }>;
 \t};
 \trule: {
-\t\tmigrate(input: Record<string, unknown>): Record<string, unknown>;
+\t\tmigrate(input: Record<string, unknown>): unknown;
 \t};
 \ttoMigrationVersion: string;
 };
 
 const edges: FuzzEdge[] = [
-${edgeDefinitions.join(',\n')}
+${edgeDefinitions.join('\n')}
 ];
 
 function cloneJsonValue<T>(value: T): T {
 \treturn JSON.parse(JSON.stringify(value));
 }
 
+function toRecord(value: unknown, label: string): Record<string, unknown> {
+\tif (value === null || typeof value !== 'object' || Array.isArray(value)) {
+\t\tthrow new Error(label + ' must be a JSON object.');
+\t}
+\treturn value as Record<string, unknown>;
+}
+
 function getValueAtPath(input: Record<string, unknown>, pathLabel: string): unknown {
 \treturn String(pathLabel)
-\t\t.split(".")
+\t\t.split('.')
 \t\t.reduce<unknown>(
-\t\t\t(value, segment) => (value && typeof value === "object" ? (value as Record<string, unknown>)[segment] : undefined),
+\t\t\t(value, segment) => (value && typeof value === 'object' ? (value as Record<string, unknown>)[segment] : undefined),
 \t\t\tinput,
 \t\t);
 }
 
 function setValueAtPath(input: Record<string, unknown>, pathLabel: string, value: unknown): void {
-\tconst segments = String(pathLabel).split(".").filter(Boolean);
+\tconst segments = String(pathLabel).split('.').filter(Boolean);
 \tif (segments.length === 0) {
 \t\treturn;
 \t}
@@ -211,10 +251,16 @@ function setValueAtPath(input: Record<string, unknown>, pathLabel: string, value
 \t\tif (!segment) {
 \t\t\tcontinue;
 \t\t}
-\t\tif (!target[segment] || typeof target[segment] !== "object" || Array.isArray(target[segment])) {
-\t\t\ttarget[segment] = {};
+\t\tconst nestedValue = target[segment];
+\t\tif (nestedValue === null || typeof nestedValue !== 'object' || Array.isArray(
+\t\t\tnestedValue,
+\t\t)) {
+\t\t\tconst nextTarget: Record<string, unknown> = {};
+\t\t\ttarget[segment] = nextTarget;
+\t\t\ttarget = nextTarget;
+\t\t\tcontinue;
 \t\t}
-\t\ttarget = target[segment];
+\t\ttarget = nestedValue as Record<string, unknown>;
 \t}
 
 \ttarget[segments[0]!] = value;
@@ -232,23 +278,24 @@ function createDefaultValue(attribute: ManifestAttribute): JsonValue | Record<st
 \t}
 
 \tswitch (attribute?.ts?.kind) {
-\t\tcase "string":
-\t\t\treturn "";
-\t\tcase "number":
+\t\tcase 'string':
+\t\t\treturn '';
+\t\tcase 'number':
 \t\t\treturn 0;
-\t\tcase "boolean":
+\t\tcase 'boolean':
 \t\t\treturn false;
-\t\tcase "array":
+\t\tcase 'array':
 \t\t\treturn [];
-\t\tcase "object":
+\t\tcase 'object':
 \t\t\treturn Object.fromEntries(
-\t\t\t\tObject.entries(attribute?.ts?.properties ?? {}).map(([key, property]) => [
-\t\t\t\t\tkey,
-\t\t\t\t\tcreateDefaultValue(property),
-\t\t\t\t]),
+\t\t\t\tObject.entries(attribute?.ts?.properties ?? {}).map(
+\t\t\t\t\t([key, property]) => [key, createDefaultValue(property)],
+\t\t\t\t),
 \t\t\t);
-\t\tcase "union": {
-\t\t\tconst firstBranch = Object.values(attribute?.ts?.union?.branches ?? {})[0];
+\t\tcase 'union': {
+\t\t\tconst firstBranch = Object.values(
+\t\t\t\tattribute?.ts?.union?.branches ?? {},
+\t\t\t)[0];
 \t\t\treturn firstBranch ? createDefaultValue(firstBranch) : null;
 \t\t}
 \t\tdefault:
@@ -258,13 +305,16 @@ function createDefaultValue(attribute: ManifestAttribute): JsonValue | Record<st
 
 function createDefaultInput(manifest: ManifestDocument): Record<string, unknown> {
 \treturn Object.fromEntries(
-\t\tObject.entries(manifest?.attributes ?? {}).map(([key, attribute]) => [key, createDefaultValue(attribute)]),
+\t\tObject.entries(manifest?.attributes ?? {}).map(([key, attribute]) => [
+\t\t\tkey,
+\t\t\tcreateDefaultValue(attribute),
+\t\t]),
 \t);
 }
 
 function isValidationSuccess(result: unknown): boolean {
 \tconst typedResult =
-\t\tresult !== null && typeof result === "object"
+\t\tresult !== null && typeof result === 'object'
 \t\t\t? (result as { isValid?: unknown; success?: unknown })
 \t\t\t: null;
 
@@ -280,7 +330,7 @@ function isValidationSuccess(result: unknown): boolean {
 function getValidationErrors(result: unknown): unknown[] {
 \tif (
 \t\tresult !== null &&
-\t\ttypeof result === "object" &&
+\t\ttypeof result === 'object' &&
 \t\tArray.isArray((result as { errors?: unknown[] }).errors)
 \t) {
 \t\treturn (result as { errors: unknown[] }).errors;
@@ -322,22 +372,22 @@ function parseArgs(argv: string[]): {
 \t\tconst arg = argv[index];
 \t\tconst next = argv[index + 1];
 
-\t\tif (arg === "--all") {
+\t\tif (arg === '--all') {
 \t\t\tall = true;
 \t\t\tcontinue;
 \t\t}
-\t\tif (arg === "--from-migration-version") {
+\t\tif (arg === '--from-migration-version') {
 \t\t\tfromMigrationVersion = next;
 \t\t\tindex += 1;
 \t\t\tcontinue;
 \t\t}
-\t\tif (arg === "--iterations") {
-\t\t\titerations = Number.parseInt(next ?? "", 10) || 25;
+\t\tif (arg === '--iterations') {
+\t\t\titerations = Number.parseInt(next ?? '', 10) || 25;
 \t\t\tindex += 1;
 \t\t\tcontinue;
 \t\t}
-\t\tif (arg === "--seed") {
-\t\t\tseed = Number.parseInt(next ?? "", 10);
+\t\tif (arg === '--seed') {
+\t\t\tseed = Number.parseInt(next ?? '', 10);
 \t\t\tindex += 1;
 \t\t}
 \t}
@@ -362,7 +412,7 @@ function applyCompatibleMappings(
 function assertValidMigration(
 \tedge: FuzzEdge,
 \tcandidateInput: Record<string, unknown>,
-\tmigratedOutput: Record<string, unknown>,
+\tmigratedOutput: unknown,
 \tvalidation: unknown,
 \titerationSeed: number,
 \titeration: number | string,
@@ -372,15 +422,15 @@ function assertValidMigration(
 \t}
 
 \tthrow new Error(
-\t\t"Migration fuzz failed for " +
+\t\t'Migration fuzz failed for ' +
 \t\t\tedge.fromMigrationVersion +
-\t\t\t" -> " +
+\t\t\t' -> ' +
 \t\t\tedge.toMigrationVersion +
-\t\t\t" (seed " +
+\t\t\t' (seed ' +
 \t\t\tString(iterationSeed) +
-\t\t\t", iteration " +
+\t\t\t', iteration ' +
 \t\t\tString(iteration) +
-\t\t\t"): " +
+\t\t\t'): ' +
 \t\t\tJSON.stringify({
 \t\t\t\tinput: candidateInput,
 \t\t\t\tmigrated: migratedOutput,
@@ -395,37 +445,53 @@ const selectedMigrationVersions = parsed.all
 \t: parsed.fromMigrationVersion
 \t\t? [parsed.fromMigrationVersion]
 \t\t: edges.map((edge) => edge.fromMigrationVersion);
-const baseSeed = typeof parsed.seed === "number" ? parsed.seed : Date.now();
+const baseSeed = typeof parsed.seed === 'number' ? parsed.seed : Date.now();
 
 if (!Number.isInteger(parsed.seed)) {
-\tconsole.log("Using migration fuzz seed " + String(baseSeed));
+\tconsole.log('Using migration fuzz seed ' + String(baseSeed));
 }
 
 if (edges.length === 0) {
-\tconsole.log("No legacy migration versions configured for migration fuzzing.");
+\tconsole.log('No legacy migration versions configured for migration fuzzing.');
 \tprocess.exit(0);
 }
 
 let executedEdges = 0;
 
 for (const [edgeIndex, edge] of edges.entries()) {
-\tif (selectedMigrationVersions.length > 0 && !selectedMigrationVersions.includes(edge.fromMigrationVersion)) {
+\tif (selectedMigrationVersions.length > 0 && !selectedMigrationVersions.includes(
+\t\tedge.fromMigrationVersion,
+\t)) {
 \t\tcontinue;
 \t}
 
 \texecutedEdges += 1;
 
-\tconst fixtureCases = Array.isArray(edge.fixture?.cases) ? edge.fixture.cases : [];
+\tconst fixtureCases = Array.isArray(edge.fixture?.cases)
+\t\t? edge.fixture.cases
+\t\t: [];
 \tfor (const fixtureCase of fixtureCases) {
 \t\tconst migrated = edge.rule.migrate(fixtureCase.input ?? {});
 \t\tconst validation = validators.validate(migrated);
-\t\tassertValidMigration(edge, fixtureCase.input ?? {}, migrated, validation, baseSeed, fixtureCase.name ?? "fixture");
+\t\tassertValidMigration(
+\t\t\tedge,
+\t\t\tfixtureCase.input ?? {},
+\t\t\tmigrated,
+\t\t\tvalidation,
+\t\t\tbaseSeed,
+\t\t\tfixtureCase.name ?? 'fixture',
+\t\t);
 \t}
 
 \tfor (let iteration = 0; iteration < parsed.iterations; iteration += 1) {
 \t\tconst iterationSeed = (baseSeed + edgeIndex * 100003 + iteration) >>> 0;
-\t\tconst currentSample = withSeededRandom(iterationSeed, () => validators.random());
-\t\tconst baseFixture = fixtureCases.find((fixtureCase) => fixtureCase.name === "default")?.input;
+\t\tconst currentSample = toRecord(
+\t\t\twithSeededRandom(iterationSeed, () => validators.random()),
+\t\t\t'Current validator random sample',
+\t\t);
+\t\tconst baseFixture = fixtureCases.find(
+\t\t\t(fixtureCase) => fixtureCase.name === 'default',
+\t\t)?.input;
 \t\tconst legacyInput = applyCompatibleMappings(
 \t\t\tcloneJsonValue(baseFixture ?? createDefaultInput(edge.legacyManifest)),
 \t\t\tcurrentSample,
@@ -433,29 +499,36 @@ for (const [edgeIndex, edge] of edges.entries()) {
 \t\t);
 \t\tconst migrated = edge.rule.migrate(legacyInput);
 \t\tconst validation = validators.validate(migrated);
-\t\tassertValidMigration(edge, legacyInput, migrated, validation, iterationSeed, iteration);
+\t\tassertValidMigration(
+\t\t\tedge,
+\t\t\tlegacyInput,
+\t\t\tmigrated,
+\t\t\tvalidation,
+\t\t\titerationSeed,
+\t\t\titeration,
+\t\t);
 \t}
 
 \tconsole.log(
-\t\t"Fuzzed " +
+\t\t'Fuzzed ' +
 \t\t\tedge.fromMigrationVersion +
-\t\t\t" -> " +
+\t\t\t' -> ' +
 \t\t\tedge.toMigrationVersion +
-\t\t\t" (" +
+\t\t\t' (' +
 \t\t\tString(fixtureCases.length) +
-\t\t\t" fixture case(s), " +
+\t\t\t' fixture case(s), ' +
 \t\t\tString(parsed.iterations) +
-\t\t\t" fuzz iteration(s))",
+\t\t\t' fuzz iteration(s))',
 \t);
 }
 
 if (selectedMigrationVersions.length > 0 && executedEdges === 0) {
 \tthrow new Error(
-\t\t"Requested migration version was not exercised by fuzz: " +
-\t\t\tselectedMigrationVersions.join(", "),
+\t\t'Requested migration version was not exercised by fuzz: ' +
+\t\t\tselectedMigrationVersions.join(', '),
 \t);
 }
 
-console.log("Migration fuzzing passed for ${block.blockName}");
-`;
+console.log(${quoteTypeScriptString(`Migration fuzzing passed for ${block.blockName}`)});
+`.replace(/\t/gu, '  ');
 }

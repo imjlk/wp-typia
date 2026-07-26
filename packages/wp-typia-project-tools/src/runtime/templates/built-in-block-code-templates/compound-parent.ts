@@ -175,10 +175,7 @@ export type {
 
 export const COMPOUND_PARENT_VALIDATORS_TEMPLATE = `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
-import type {
-  {{pascalCase}}Attributes,
-  {{pascalCase}}ValidationResult,
-} from './types';
+{{validationTypesImport}}
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
 const scaffoldValidators =

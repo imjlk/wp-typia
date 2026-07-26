@@ -3,6 +3,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { runUtf8Command } from '../../../../tests/helpers/process-utils';
+import { packageRoot } from './scaffold-test-paths.js';
+
+const TTSC_TEST_CACHE_DIR = path.resolve(
+  packageRoot,
+  '..',
+  '..',
+  'node_modules',
+  '.cache',
+  'ttsc',
+);
 
 const AI_AGENT_ENV_KEYS = [
   'AGENT',
@@ -18,8 +28,9 @@ const AI_AGENT_ENV_KEYS = [
 ] as const;
 
 function buildCliTestEnv(env: NodeJS.ProcessEnv | undefined) {
-  const nextEnv = {
+  const nextEnv: NodeJS.ProcessEnv = {
     ...process.env,
+    TTSC_CACHE_DIR: process.env.TTSC_CACHE_DIR ?? TTSC_TEST_CACHE_DIR,
     ...env,
   };
   for (const key of AI_AGENT_ENV_KEYS) {

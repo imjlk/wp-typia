@@ -287,8 +287,10 @@ describe('wp-typia init', () => {
 		expect(packageJson.scripts?.typecheck).toBe(
 			'pnpm run sync --check && ttsc --noEmit',
 		);
-		expect(blockConfigSource).toContain(`blockJsonFile: "block.json"`);
-		expect(blockConfigSource).toContain(`manifestFile: "typia.manifest.json"`);
+		expect(blockConfigSource).toContain("blockJsonFile: 'block.json'");
+		expect(blockConfigSource).toContain(
+			"manifestFile: 'typia.manifest.json'",
+		);
 		expect(
 			fs.existsSync(path.join(projectDir, 'scripts', 'sync-project.ts')),
 		).toBe(true);

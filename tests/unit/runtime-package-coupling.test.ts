@@ -234,6 +234,20 @@ describe('validate-runtime-package-coupling', () => {
 		expect(result.errors).toEqual([]);
 	});
 
+	test('allows current caret source ranges until release versioning runs', () => {
+		const repoRoot = createRuntimeRepo();
+		writeChangeset(repoRoot, 'api-client-minor.md', ['npm/@wp-typia/api-client: minor']);
+		writeChangeset(repoRoot, 'block-runtime-patch.md', ['npm/@wp-typia/block-runtime: patch']);
+		writeChangeset(repoRoot, 'rest-patch.md', ['npm/@wp-typia/rest: patch']);
+		writeChangeset(repoRoot, 'project-tools-patch.md', ['npm/@wp-typia/project-tools: patch']);
+		writeChangeset(repoRoot, 'wp-typia-patch.md', ['npm/wp-typia: patch']);
+
+		const result = validateRuntimePackageCoupling(repoRoot);
+
+		expect(result.valid).toBe(true);
+		expect(result.errors).toEqual([]);
+	});
+
 	test('fails when project-tools changes but wp-typia keeps a stale exact dependency without a changeset', () => {
 		const repoRoot = createRuntimeRepo();
 		writeChangeset(repoRoot, 'project-tools-patch.md', ['npm/@wp-typia/project-tools: patch']);

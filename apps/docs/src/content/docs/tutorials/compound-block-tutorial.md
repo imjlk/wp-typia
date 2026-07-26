@@ -6,7 +6,7 @@ This tutorial walks through the `compound` built-in template. It is the starting
 
 ## Prerequisites
 
-- Node.js 20+ installed
+- Node.js 24+ installed
 - WordPress development environment (wp-env or local server)
 - Familiarity with the [Basic Block Tutorial](./basic-block-tutorial.md)
 

@@ -49,11 +49,11 @@ describe('@wp-typia/dataviews package contracts', () => {
   test('keeps the source root as a narrow facade over focused modules', () => {
     const indexSource = readFileSync(resolve(packageRoot, 'src/index.ts'), 'utf8');
 
-    expect(indexSource).toContain('from "./types.js"');
-    expect(indexSource).toContain('from "./define-data-views.js"');
-    expect(indexSource).toContain('from "./query-adapter.js"');
-    expect(indexSource).toContain('from "./data-form.js"');
-    expect(indexSource).toContain('from "./wordpress-assets.js"');
+    expect(indexSource).toMatch(/from ['"]\.\/types\.js['"]/u);
+    expect(indexSource).toMatch(/from ['"]\.\/define-data-views\.js['"]/u);
+    expect(indexSource).toMatch(/from ['"]\.\/query-adapter\.js['"]/u);
+    expect(indexSource).toMatch(/from ['"]\.\/data-form\.js['"]/u);
+    expect(indexSource).toMatch(/from ['"]\.\/wordpress-assets\.js['"]/u);
     expect(indexSource).not.toContain('function normalizeDataViewsFieldType');
     expect(indexSource).not.toContain('function mergeDataViewsSortQuery');
     expect(indexSource).not.toContain('function normalizeDataFormField');

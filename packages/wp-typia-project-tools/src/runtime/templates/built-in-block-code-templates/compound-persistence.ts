@@ -175,10 +175,7 @@ export const COMPOUND_PERSISTENCE_PARENT_SAVE_TEMPLATE = `export default functio
 
 export const COMPOUND_PERSISTENCE_PARENT_VALIDATORS_TEMPLATE = `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
-import type {
-  {{pascalCase}}Attributes,
-  {{pascalCase}}ValidationResult,
-} from './types';
+{{validationTypesImport}}
 import { generateResourceKey } from '@wp-typia/block-runtime/identifiers';
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 

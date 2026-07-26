@@ -40,12 +40,12 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0",
     "bun": ">=1.3.11"
   },
   "devDependencies": {
-    "ttsc": "^0.21.0",
+    "ttsc": "^0.22.0",
     "typescript": "^7.0.2"
   }
 }

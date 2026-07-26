@@ -1,5 +1,12 @@
 import { quoteTsString } from './cli-add-shared.js';
 import {
+  renderAdminViewQuerySource,
+  renderNamedTypeScriptTypeImport,
+  renderTypeScriptConstDeclaration,
+  wrapLongDataViewsDeclaration,
+  wrapLongTranslationCalls,
+} from './cli-add-workspace-admin-view-typescript-format.js';
+import {
   toCamelCase,
   toPascalCase,
   toTitleCase,
@@ -51,16 +58,17 @@ export function buildDefaultAdminViewConfigSource(
   const camelName = toCamelCase(adminViewSlug);
   const itemTypeName = `${pascalName}AdminViewItem`;
   const dataViewsName = `${camelName}AdminDataViews`;
+  const typesImport = renderNamedTypeScriptTypeImport([itemTypeName]);
 
-  return `import { defineDataViews } from '@wp-typia/dataviews';
+  const source = `import { defineDataViews } from '@wp-typia/dataviews';
 import { __ } from '@wordpress/i18n';
 
-import type { ${itemTypeName} } from './types';
+${typesImport}
 
 export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \tidField: 'id',
 \tsearch: true,
-\tsearchLabel: __( 'Search records', ${quoteTsString(textDomain)} ),
+\tsearchLabel: __('Search records', ${quoteTsString(textDomain)}),
 \ttitleField: 'title',
 \tdefaultView: {
 \t\tfields: ['title', 'status', 'updatedAt'],
@@ -76,22 +84,22 @@ export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \tfields: {
 \t\tid: {
 \t\t\tenableHiding: false,
-\t\t\tlabel: __( 'ID', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('ID', ${quoteTsString(textDomain)}),
 \t\t\treadOnly: true,
 \t\t\tschema: { type: 'integer' },
 \t\t},
 \t\towner: {
-\t\t\tlabel: __( 'Owner', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Owner', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tstatus: {
 \t\t\tfilterBy: { operators: ['isAny', 'isNone'] },
-\t\t\tlabel: __( 'Status', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Status', ${quoteTsString(textDomain)}),
 \t\t\tschema: {
 \t\t\t\tenum: ['draft', 'published'],
 \t\t\t\tenumLabels: {
-\t\t\t\t\tdraft: __( 'Draft', ${quoteTsString(textDomain)} ),
-\t\t\t\t\tpublished: __( 'Published', ${quoteTsString(textDomain)} ),
+\t\t\t\t\tdraft: __('Draft', ${quoteTsString(textDomain)}),
+\t\t\t\t\tpublished: __('Published', ${quoteTsString(textDomain)}),
 \t\t\t\t},
 \t\t\t\ttype: 'string',
 \t\t\t},
@@ -99,18 +107,22 @@ export const ${dataViewsName} = defineDataViews<${itemTypeName}>({
 \t\ttitle: {
 \t\t\tenableGlobalSearch: true,
 \t\t\tenableSorting: true,
-\t\t\tlabel: __( 'Title', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Title', ${quoteTsString(textDomain)}),
 \t\t\tschema: { type: 'string' },
 \t\t},
 \t\tupdatedAt: {
 \t\t\tenableSorting: true,
-\t\t\tlabel: __( 'Updated', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Updated', ${quoteTsString(textDomain)}),
 \t\t\tschema: { format: 'date-time', type: 'string' },
 \t\t\ttype: 'datetime',
 \t\t},
 \t},
 });
 `;
+  return wrapLongTranslationCalls(
+    wrapLongDataViewsDeclaration(source, dataViewsName, itemTypeName),
+    textDomain,
+  );
 }
 
 /**
@@ -128,11 +140,20 @@ export function buildDefaultAdminViewDataSource(adminViewSlug: string): string {
   const queryTypeName = `${pascalName}AdminViewQuery`;
   const dataViewsName = `${camelName}AdminDataViews`;
   const fetchName = `fetch${pascalName}AdminViewData`;
+  const typesImport = renderNamedTypeScriptTypeImport([
+    dataSetTypeName,
+    itemTypeName,
+  ]);
+  const querySource = renderAdminViewQuerySource({
+    dataViewsName,
+    properties: ["perPageParam: 'perPage'"],
+    queryTypeName,
+  });
 
   return `import type { DataViewsView } from '@wp-typia/dataviews';
 
 import { ${dataViewsName} } from './config';
-import type { ${dataSetTypeName}, ${itemTypeName} } from './types';
+${typesImport}
 
 export interface ${queryTypeName} {
 \tpage?: number;
@@ -178,9 +199,7 @@ function matchesSearch(item: ${itemTypeName}, search: string | undefined): boole
 export async function ${fetchName}(
 \tview: DataViewsView<${itemTypeName}>,
 ): Promise<${dataSetTypeName}> {
-\tconst query = ${dataViewsName}.toQueryArgs<${queryTypeName}>(view, {
-\t\tperPageParam: 'perPage',
-\t});
+${querySource}
 \tconst requestedPage = query.page ?? 1;
 \tconst page = requestedPage > 0 ? requestedPage : 1;
 \tconst requestedPerPage = query.perPage ?? view.perPage ?? 10;
@@ -221,6 +240,14 @@ export function buildAdminViewScreenSource(
   const dataViewsName = `${camelName}AdminDataViews`;
   const fetchName = `fetch${pascalName}AdminViewData`;
   const title = toTitleCase(adminViewSlug);
+  const typesImport = renderNamedTypeScriptTypeImport([
+    dataSetTypeName,
+    itemTypeName,
+  ]);
+  const dataSetStateSource = renderTypeScriptConstDeclaration(
+    '[dataSet, setDataSet]',
+    `useState<${dataSetTypeName}>(EMPTY_DATA_SET)`,
+  );
 
   return `import type { DataViewsConfig, DataViewsView } from '@wp-typia/dataviews';
 import { Button, Notice, Spinner } from '@wordpress/components';
@@ -230,7 +257,7 @@ import { DataViews } from '@wordpress/dataviews/wp';
 
 import { ${dataViewsName} } from './config';
 import { ${fetchName} } from './data';
-import type { ${dataSetTypeName}, ${itemTypeName} } from './types';
+${typesImport}
 
 const TypedDataViews = DataViews as unknown as <TItem extends object>(
 \tprops: DataViewsConfig<TItem>,
@@ -248,7 +275,7 @@ export function ${componentName}() {
 \tconst [view, setView] = useState<DataViewsView<${itemTypeName}>>(
 \t\t${dataViewsName}.defaultView,
 \t);
-\tconst [dataSet, setDataSet] = useState<${dataSetTypeName}>(EMPTY_DATA_SET);
+${dataSetStateSource}
 \tconst [error, setError] = useState<string | null>(null);
 \tconst [isLoading, setIsLoading] = useState(true);
 \tconst [reloadToken, setReloadToken] = useState(0);
@@ -269,7 +296,7 @@ export function ${componentName}() {
 \t\t\t\t\tsetError(
 \t\t\t\t\t\tnextError instanceof Error
 \t\t\t\t\t\t\t? nextError.message
-\t\t\t\t\t\t\t: __( 'Unable to load records.', ${quoteTsString(textDomain)} ),
+\t\t\t\t\t\t\t: __('Unable to load records.', ${quoteTsString(textDomain)}),
 \t\t\t\t\t);
 \t\t\t\t}
 \t\t\t})
@@ -297,11 +324,11 @@ export function ${componentName}() {
 \t\t\t<header className="wp-typia-admin-view-screen__header">
 \t\t\t\t<div>
 \t\t\t\t\t<p className="wp-typia-admin-view-screen__eyebrow">
-\t\t\t\t\t\t{ __( 'DataViews admin screen', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('DataViews admin screen', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</p>
-\t\t\t\t\t<h1>{ __( ${quoteTsString(title)}, ${quoteTsString(textDomain)} ) }</h1>
+\t\t\t\t\t<h1>{ __(${quoteTsString(title)}, ${quoteTsString(textDomain)}) }</h1>
 \t\t\t\t\t<p>
-\t\t\t\t\t\t{ __( 'Replace the fetcher in data.ts with your project data source when this screen graduates from scaffold to product UI.', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('Replace the fetcher in data.ts with your project data source when this screen graduates from scaffold to product UI.', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</p>
 \t\t\t\t</div>
 \t\t\t\t<div className="wp-typia-admin-view-screen__actions">
@@ -311,7 +338,7 @@ export function ${componentName}() {
 \t\t\t\t\t\tonClick={ () => setReloadToken((token) => token + 1) }
 \t\t\t\t\t\tvariant="secondary"
 \t\t\t\t\t>
-\t\t\t\t\t\t{ __( 'Reload', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('Reload', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</Button>
 \t\t\t\t</div>
 \t\t\t</header>

@@ -63,9 +63,7 @@ function insertStandaloneContractFilter(nextSource: string, syncRestScriptPath: 
       restResourcesFilter,
       (match, indentation: string) =>
         [
-          `${indentation}const standaloneContracts = CONTRACTS.filter(`,
-          `${indentation}  isWorkspaceStandaloneContract,`,
-          `${indentation});`,
+          `${indentation}const standaloneContracts = CONTRACTS.filter(isWorkspaceStandaloneContract);`,
           match,
         ].join(lineEnding),
     );
@@ -79,9 +77,7 @@ function insertStandaloneContractFilter(nextSource: string, syncRestScriptPath: 
     restBlocksFilter,
     [
       '$1const restBlocks = BLOCKS.filter(isRestEnabledBlock);',
-      '$1const standaloneContracts = CONTRACTS.filter(',
-      '$1  isWorkspaceStandaloneContract,',
-      '$1);',
+      '$1const standaloneContracts = CONTRACTS.filter(isWorkspaceStandaloneContract);',
     ].join(lineEnding),
     'restBlocks filter',
     syncRestScriptPath,
@@ -156,6 +152,11 @@ function insertStandaloneContractSyncLoop(
   }
 
   const lineEnding = detectSourceLineEnding(nextSource);
+  const normalizeLoopBoundary = (source: string) =>
+    source.replace(
+      /\r?\n(?:[ \t]*\r?\n){2,}(?=[ \t]+for\s*\(\s*const\s+contract\s+of\s+standaloneContracts\s*\))/gu,
+      `${lineEnding}${lineEnding}`,
+    );
   const loopSource = [
     '  for (const contract of standaloneContracts) {',
     '    await syncTypeSchemas(',
@@ -173,21 +174,25 @@ function insertStandaloneContractSyncLoop(
   const resourceLoopAnchor =
     /\r?\n[ \t]+for\s*\(\s*const\s+resource\s+of\s+restResources\s*\)\s*\{/u;
   if (resourceLoopAnchor.test(nextSource)) {
-    return nextSource.replace(
-      resourceLoopAnchor,
-      (match) => `${lineEnding}${loopSource}${lineEnding}${match}`,
+    return normalizeLoopBoundary(
+      nextSource.replace(
+        resourceLoopAnchor,
+        (match) => `${lineEnding}${loopSource}${lineEnding}${match}`,
+      ),
     );
   }
 
-  return replaceRequiredContractSyncRestSource(
-    nextSource,
-    /for\s*\(\s*const\s+contract\s+of\s+standaloneContracts\s*\)/u,
-    FINAL_SYNC_SUMMARY_PATTERN,
-    ['', loopSource, '', '  console.log(', '    options.check'].join(
-      lineEnding,
+  return normalizeLoopBoundary(
+    replaceRequiredContractSyncRestSource(
+      nextSource,
+      /for\s*\(\s*const\s+contract\s+of\s+standaloneContracts\s*\)/u,
+      FINAL_SYNC_SUMMARY_PATTERN,
+      ['', loopSource, '', '  console.log(', '    options.check'].join(
+        lineEnding,
+      ),
+      'success log insertion point',
+      syncRestScriptPath,
     ),
-    'success log insertion point',
-    syncRestScriptPath,
   );
 }
 

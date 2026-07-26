@@ -170,9 +170,7 @@ function isModuleConfig( config ) {
 }
 
 module.exports = async () => {
-	const { default: UnpluginTypia } = await import(
-		'@ttsc/unplugin/webpack'
-	);
+	const { default: UnpluginTypia } = await import( '@ttsc/unplugin/webpack' );
 	const resolvedDefaultConfig =
 		typeof defaultConfig === 'function'
 			? await defaultConfig()

@@ -36,7 +36,7 @@ export function buildWpEnvConfigSource(): string {
 export function buildDockerComposeSource(): string {
   return `services:
   integration-service:
-    image: node:22-alpine
+    image: node:24-alpine
     working_dir: /workspace
     volumes:
       - .:/workspace

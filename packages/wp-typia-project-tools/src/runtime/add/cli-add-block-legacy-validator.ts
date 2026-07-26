@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
+import ts from '@typescript/typescript6';
+
 import { readOptionalFile } from './cli-add-shared.js';
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 
 export const COMPOUND_SHARED_SUPPORT_FILES = [
   'hooks.ts',
@@ -104,7 +107,46 @@ function replaceFirstNonCommentLine(
   return source;
 }
 
+function normalizeLegacyValidatorImportQuotes(source: string): string {
+  const normalizableSpecifiers = new Set([
+    '../../validator-toolkit',
+    './types',
+    'typia',
+  ]);
+  const sourceFile = ts.createSourceFile(
+    'validators.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
+  const moduleSpecifierRanges = sourceFile.statements
+    .filter(ts.isImportDeclaration)
+    .map((statement) => statement.moduleSpecifier)
+    .filter(
+      (moduleSpecifier): moduleSpecifier is ts.StringLiteral =>
+        ts.isStringLiteral(moduleSpecifier) &&
+        normalizableSpecifiers.has(moduleSpecifier.text) &&
+        source[moduleSpecifier.getStart(sourceFile)] === '"',
+    )
+    .map((moduleSpecifier) => ({
+      end: moduleSpecifier.getEnd(),
+      replacement: `'${moduleSpecifier.text}'`,
+      start: moduleSpecifier.getStart(sourceFile),
+    }))
+    .sort((left, right) => right.start - left.start);
+
+  return moduleSpecifierRanges.reduce(
+    (nextSource, range) =>
+      nextSource.slice(0, range.start) +
+      range.replacement +
+      nextSource.slice(range.end),
+    source,
+  );
+}
+
 function upgradeLegacyCompoundValidatorSource(source: string): string {
+  const lineEnding = detectSourceLineEnding(source);
   const typeNameMatch = source.match(LEGACY_TOOLKIT_CALL_PATTERN);
   const typeName = typeNameMatch?.groups?.typeName;
   if (!typeName) {
@@ -115,7 +157,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
 
   let nextSource = source;
   if (!hasTypiaImport(nextSource)) {
-    nextSource = `import typia from 'typia';\n${nextSource}`;
+    nextSource = `import typia from 'typia';${lineEnding}${nextSource}`;
   }
 
   nextSource = replaceFirstNonCommentLine(
@@ -133,7 +175,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
 			`\t\tvalue: ${typeName},`,
 			`\t) => ${typeName},`,
 			`\tis: typia.createIs< ${typeName} >(),`,
-		].join('\n') + '\n',
+		].join(lineEnding) + lineEnding,
 	);
 
   const replacedManifest = nextSource.replace(
@@ -146,7 +188,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
 			'\t\t...args: unknown[]',
 			`\t) => ${typeName},`,
 			`\tvalidate: typia.createValidate< ${typeName} >(),`,
-		].join('\n'),
+		].join(lineEnding),
 	);
   if (replacedManifest === nextSource) {
     throw new Error(
@@ -154,7 +196,7 @@ function upgradeLegacyCompoundValidatorSource(source: string): string {
     );
   }
 
-  return replacedManifest;
+  return normalizeLegacyValidatorImportQuotes(replacedManifest);
 }
 
 function renderLegacyManifestDefaultsWrapperSource(): string {

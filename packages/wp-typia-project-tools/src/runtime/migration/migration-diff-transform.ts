@@ -167,25 +167,34 @@ function buildTransformBodyLines(
   switch (attribute.ts.kind) {
     case 'string':
       return [
-        `// return typeof legacyValue === "string" ? legacyValue : String(legacyValue ?? "");`,
+        "//   return typeof legacyValue === 'string'",
+        '//     ? legacyValue',
+        "//     : String(legacyValue ?? '');",
       ];
     case 'number':
       return [
-        `// const numericValue = typeof legacyValue === "number" ? legacyValue : Number(legacyValue ?? 0);`,
-        `// return Number.isNaN(numericValue) ? undefined : numericValue;`,
+        "//   const numericValue = typeof legacyValue === 'number'",
+        '//     ? legacyValue',
+        '//     : Number(legacyValue ?? 0);',
+        '//   return Number.isNaN(numericValue) ? undefined : numericValue;',
       ];
     case 'boolean':
       return [
-        `// return typeof legacyValue === "boolean" ? legacyValue : Boolean(legacyValue);`,
+        "//   return typeof legacyValue === 'boolean'",
+        '//     ? legacyValue',
+        '//     : Boolean(legacyValue);',
       ];
     case 'union':
       return [
-        `// const legacyObject = typeof legacyValue === "object" && legacyValue !== null ? legacyValue : {};`,
-        `// return legacyObject; // adjust discriminator / branch fields before verify`,
+        '//   const legacyObject =',
+        "//     typeof legacyValue === 'object' && legacyValue !== null",
+        '//       ? legacyValue',
+        '//       : {};',
+        '//   return legacyObject; // adjust discriminator / branch fields before verify',
       ];
     default:
       return [
-        `// return legacyValue; // customize migration from ${legacyPath}`,
+        `//   return legacyValue; // customize migration from ${legacyPath}`,
       ];
   }
 }

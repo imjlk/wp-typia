@@ -86,6 +86,29 @@ describe('@wp-typia/project-tools scaffold query-loop', () => {
 			expect(
 				fs.existsSync(path.join(targetDir, 'src', 'validator-toolkit.ts')),
 			).toBe(false);
+			expect(
+				fs.existsSync(
+					path.join(targetDir, 'scripts', 'register-typescript6.cjs'),
+				),
+			).toBe(true);
+			expect(
+				fs.existsSync(
+					path.join(
+						targetDir,
+						'scripts',
+						'run-wp-scripts-lint-js-compat.mjs',
+					),
+				),
+			).toBe(true);
+			for (const staleScript of [
+				'block-config.ts',
+				'sync-project.ts',
+				'sync-types-to-block-json.ts',
+			]) {
+				expect(
+					fs.existsSync(path.join(targetDir, 'scripts', staleScript)),
+				).toBe(false);
+			}
 			expect(variationSource).toMatch(
 				/registerBlockVariation\('core\/query', queryLoopVariation\);/,
 			);

@@ -54,10 +54,10 @@ export function buildPostMetaTypesSource(
  * JSON Schema artifact and PHP registration stay aligned.
  */
 export interface ${sourceTypeName} {
-\tenabled: boolean;
-\tstatus: 'draft' | 'ready';
-\tupdatedAt: string;
-\tnotes?: string;
+  enabled: boolean;
+  status: 'draft' | 'ready';
+  updatedAt: string;
+  notes?: string;
 }
 `;
 }

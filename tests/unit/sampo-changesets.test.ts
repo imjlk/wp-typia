@@ -120,13 +120,12 @@ function bumpPackageVersion(repoRoot: string, packageDir: string, version: strin
 }
 
 describe('validate-sampo-changesets', () => {
-	test('findPublishablePackageIds returns canonical npm ids for non-private workspaces', () => {
+	test('findPublishablePackageIds returns canonical npm ids for release packages only', () => {
 		const repoRoot = createTempRepo();
 
 		expect(findPublishablePackageIds(repoRoot)).toEqual([
 			'npm/@wp-typia/project-tools',
 			'npm/@wp-typia/rest',
-			'npm/compound-patterns',
 		]);
 	});
 
@@ -164,7 +163,7 @@ describe('validate-sampo-changesets', () => {
 
 		fs.writeFileSync(
 			path.join(repoRoot, '.sampo', 'changesets', 'valid.md'),
-			['---', 'npm/@wp-typia/project-tools: patch', 'npm/compound-patterns: patch', '---', '', 'Valid.'].join(
+			['---', 'npm/@wp-typia/project-tools: patch', '---', '', 'Valid.'].join(
 				'\n',
 			),
 		);

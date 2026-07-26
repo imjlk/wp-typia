@@ -19,6 +19,7 @@ import {
   createSingleBlockProjectWithBrokenMultiBlockCandidate,
   entryPath,
   runCli,
+  typecheckMigrationProject,
   writeJson,
 } from './helpers/migration-test-harness.js';
 import { formatMigrationHelpText } from '../src/runtime/migration-command-surface.js';
@@ -73,7 +74,16 @@ test('migrate init keeps deprecated generation compatible when current manifest 
 		'export const deprecated: BlockDeprecationList<Record<string, unknown>> = [];',
 	);
 	expect(deprecatedSource).not.toContain('import type { MigrationAttributes }');
-});
+	typecheckMigrationProject(projectDir, {
+		checkInputs: ['src/migrations/generated/deprecated.ts'],
+		formatInputs: [
+			'src/save.tsx',
+			'src/types.ts',
+			'src/validators.ts',
+			'src/migrations/versions/**/save.tsx',
+		],
+	});
+}, { timeout: 30_000 });
 
 test('migrate init auto-detects current single-block scaffold layouts', () => {
 	const projectDir = path.join(tempRoot, 'init-current-single-block-project');
@@ -161,10 +171,10 @@ test('migrate init keeps generated registry imports compatible with legacy-root 
 	const registrySource = fs.readFileSync(
 		path.join(projectDir, 'src', 'migrations', 'generated', 'registry.ts'),
 		'utf8',
-	);
-	expect(registrySource).toContain(
-		"import rawCurrentManifest from '../../../typia.manifest.json';",
-	);
+  );
+  expect(registrySource).toContain(
+    "import rawCurrentManifest from '../../../typia.manifest.json' with { type: 'json' };",
+  );
 	expect(registrySource).toContain(
 		'currentManifest: parseManifestDocument<ManifestDocument>(rawCurrentManifest),',
 	);

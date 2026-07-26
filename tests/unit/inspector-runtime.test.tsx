@@ -143,13 +143,13 @@ describe('runtime inspector helpers', () => {
 		);
 
 		expect(inspectorRuntimeSource).toContain(
-			'from "./inspector-runtime-types.js"',
+			"from './inspector-runtime-types.js'",
 		);
 		expect(inspectorRuntimeSource).toContain(
-			'from "./inspector-runtime-model.js"',
+			"from './inspector-runtime-model.js'",
 		);
 		expect(inspectorRuntimeSource).toContain(
-			'from "./inspector-runtime-controls.js"',
+			"from './inspector-runtime-controls.js'",
 		);
 		expect(inspectorRuntimeSource).not.toContain('function getPathSegments(');
 		expect(inspectorRuntimeSource).not.toContain('export function useEditorFields(');

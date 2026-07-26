@@ -30,8 +30,8 @@
     "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{cjs,css,js,json,md,mjs,scss,yaml,yml}\""
   },
   "devDependencies": {
-    "@ttsc/lint": "^0.21.0",
-    "@ttsc/unplugin": "^0.21.0",
+    "@ttsc/lint": "^0.22.0",
+    "@ttsc/unplugin": "^0.22.0",
     "@wp-typia/block-runtime": "workspace:*",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -44,7 +44,7 @@
     "eslint": "8.57.1",
     "wp-typia": "workspace:*",
     "prettier": "3.8.2",
-    "ttsc": "^0.21.0",
+    "ttsc": "^0.22.0",
     "typescript": "^7.0.2",
     "typia": "^13.2.0"
   },

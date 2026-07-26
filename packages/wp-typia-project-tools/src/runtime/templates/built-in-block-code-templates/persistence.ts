@@ -53,9 +53,7 @@ export default function Edit({
   const editorFields = useEditorFields(currentManifest, {
     manual: ['content', 'resourceKey'],
     labels: {
-      buttonLabel: __('Button Label', '{{textDomain}}'),
-      resourceKey: __('Resource Key', '{{textDomain}}'),
-      showCount: __('Show Count', '{{textDomain}}'),
+{{persistenceEditorFieldLabels}}
     },
   });
   const { errorMessages, isValid } = useTypiaValidation(
@@ -67,12 +65,12 @@ export default function Edit({
   ) => {
     try {
       return {
-        data: sanitize{{pascalCase}}Attributes(nextAttributes),
+{{persistenceSanitizeAttributesCall}}
         errors: [],
         isValid: true as const,
       };
     } catch {
-      return validate{{pascalCase}}Attributes(nextAttributes);
+{{persistenceValidateAttributesCall}}
     }
   };
   const { updateField } = useTypedAttributeUpdater(

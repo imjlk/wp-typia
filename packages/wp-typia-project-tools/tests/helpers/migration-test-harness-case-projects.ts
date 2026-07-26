@@ -20,8 +20,12 @@ export function createRenameCandidateProject(projectDir: string) {
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface RenameAttributes {\n\tcontent: string;\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = typeof input.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "RenameAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello" };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "RenameAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello" };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),
@@ -93,12 +97,16 @@ export function createNestedRenameProject(projectDir: string) {
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface NestedRenameAttributes {\n\tsettings: {\n\t\tlabel: string;\n\t};\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'save.tsx'),
     `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.settings?.label ?? null;\n}\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst settings = input.settings as Record<string, unknown> | undefined;\n\t\tconst success =\n\t\t\ttypeof settings === "object" &&\n\t\t\tsettings !== null &&\n\t\t\ttypeof settings.label === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$.settings.label", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { settings: { label: "Hello" } };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst settings = attributes.settings as Record<string, unknown> | undefined;\n\t\tconst success =\n\t\t\ttypeof settings === "object" &&\n\t\t\tsettings !== null &&\n\t\t\ttypeof settings.label === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.settings.label", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { settings: { label: "Hello" } };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),
@@ -234,8 +242,12 @@ export function createAmbiguousRenameProject(projectDir: string) {
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface AmbiguousRenameAttributes {\n\tcontent: string;\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = typeof input.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "AmbiguousRenameAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello" };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "AmbiguousRenameAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello" };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),
@@ -311,12 +323,16 @@ export function createTypeCoercionProject(projectDir: string) {
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface CoercionAttributes {\n\tclickCount: number;\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'save.tsx'),
     `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.clickCount ?? null;\n}\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = typeof input.clickCount === "number";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "CoercionAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { clickCount: 1 };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.clickCount === "number";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "CoercionAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { clickCount: 1 };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),
@@ -388,12 +404,16 @@ export function createUnionProject(projectDir: string, { removeBranch = false }:
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface UnionAttributes {\n\tlinkTarget: {\n\t\thref?: string;\n\t\tkind: string;\n\t\tpostId?: number;\n\t};\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'save.tsx'),
     `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.linkTarget ?? null;\n}\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst target = input.linkTarget as any;\n\t\tconst success = typeof target === "object" && target !== null && typeof target.kind === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "UnionAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { linkTarget: { kind: "post", postId: 1 } };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst target = attributes.linkTarget as Record<string, unknown> | undefined;\n\t\tconst success = typeof target === "object" && target !== null && typeof target.kind === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$", expected: "UnionAttributes" }] };\n\t},\n\trandom() {\n\t\treturn { linkTarget: { kind: "post", postId: 1 } };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),
@@ -503,8 +523,12 @@ export function createFuzzFailureProject(projectDir: string) {
   createProjectShell(projectDir);
 
   writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface FuzzFailureAttributes {\n\tcontent: string;\n}\n`,
+  );
+  writeFile(
     path.join(projectDir, 'src', 'validators.ts'),
-    `export const validators = {\n\tvalidate(input: Record<string, unknown>) {\n\t\tconst success = input.content === "Hello";\n\t\treturn success\n\t\t\t? { success: true as const, data: input }\n\t\t\t: { success: false as const, errors: [{ path: "$.content", expected: '"Hello"' }] };\n\t},\n\trandom() {\n\t\treturn { content: "legacy-random" };\n\t},\n};\n`,
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = attributes.content === "Hello";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.content", expected: '"Hello"' }] };\n\t},\n\trandom() {\n\t\treturn { content: "legacy-random" };\n\t},\n};\n`,
   );
   writeFile(
     path.join(projectDir, 'src', 'migrations', 'config.ts'),

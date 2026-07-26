@@ -1,6 +1,62 @@
 import { quoteTsString } from './cli-add-shared.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 
+const TYPESCRIPT_PRINT_WIDTH = 80;
+
+function renderNamedTypeScriptImport(
+  names: readonly string[],
+  moduleSpecifier: string,
+): string {
+  const compact =
+    `import { ${names.join(', ')} } from ${quoteTsString(moduleSpecifier)};`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return [
+    'import {',
+    ...names.map((name) => `  ${name},`),
+    `} from ${quoteTsString(moduleSpecifier)};`,
+  ].join('\n');
+}
+
+function renderTypeScriptCallLine(options: {
+  arguments: readonly string[];
+  callee: string;
+  indentation: string;
+  prefix: string;
+  suffix: string;
+}): string {
+  const compact =
+    `${options.indentation}${options.prefix}${options.callee}(${options.arguments.join(', ')})${options.suffix}`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return [
+    `${options.indentation}${options.prefix}${options.callee}(`,
+    ...options.arguments.map(
+      (argument) => `${options.indentation}  ${argument},`,
+    ),
+    `${options.indentation})${options.suffix}`,
+  ].join('\n');
+}
+
+function renderEditorPluginSurfaceDeclaration(
+  componentName: string,
+): string {
+  const compact =
+    `export function ${componentName}({ surfaceName, title }: ${componentName}Props) {`;
+  if (compact.length <= TYPESCRIPT_PRINT_WIDTH) {
+    return compact;
+  }
+
+  return `export function ${componentName}({
+  surfaceName,
+  title,
+}: ${componentName}Props) {`;
+}
+
 /**
  * Render one `scripts/block-config.ts` editor-plugin inventory entry.
  *
@@ -13,12 +69,12 @@ export function buildEditorPluginConfigEntry(
 	slot: string,
 ): string {
   return [
-		'\t{',
-		`\t\tfile: ${quoteTsString(`src/editor-plugins/${editorPluginSlug}/index.tsx`)},`,
-		`\t\tslug: ${quoteTsString(editorPluginSlug)},`,
-		`\t\tslot: ${quoteTsString(slot)},`,
-		'\t},',
-	].join('\n');
+    '  {',
+    `    file: ${quoteTsString(`src/editor-plugins/${editorPluginSlug}/index.tsx`)},`,
+    `    slug: ${quoteTsString(editorPluginSlug)},`,
+    `    slot: ${quoteTsString(slot)},`,
+    '  },',
+  ].join('\n');
 }
 
 /**
@@ -31,8 +87,8 @@ export function buildEditorPluginTypesSource(editorPluginSlug: string): string {
   const typeName = `${toPascalCase(editorPluginSlug)}EditorPluginModel`;
 
   return `export interface ${typeName} {
-\tprimaryActionLabel: string;
-\tsummary: string;
+  primaryActionLabel: string;
+  summary: string;
 }
 `;
 }
@@ -59,16 +115,16 @@ export const EDITOR_PLUGIN_SLOT = ${quoteTsString(slot)} as const;
 export const REQUIRED_CAPABILITY = 'edit_posts' as const;
 
 const DEFAULT_EDITOR_PLUGIN_MODEL: ${typeName} = {
-\tprimaryActionLabel: ${quoteTsString(`Review ${pluginTitle}`)},
-\tsummary: ${quoteTsString(`Replace this summary with your ${pluginTitle} workflow state.`)},
+  primaryActionLabel: ${quoteTsString(`Review ${pluginTitle}`)},
+  summary: ${quoteTsString(`Replace this summary with your ${pluginTitle} workflow state.`)},
 };
 
 export function ${modelFactoryName}(): ${typeName} {
-\treturn DEFAULT_EDITOR_PLUGIN_MODEL;
+  return DEFAULT_EDITOR_PLUGIN_MODEL;
 }
 
 export function ${enabledFactoryName}(): boolean {
-\treturn true;
+  return true;
 }
 `;
 }
@@ -90,91 +146,112 @@ export function buildEditorPluginSurfaceSource(
   const modelFactoryName = `get${pascalName}EditorPluginModel`;
   const enabledFactoryName = `is${pascalName}Enabled`;
   const componentName = `${pascalName}Surface`;
+  const dataImport = renderNamedTypeScriptImport(
+    [modelFactoryName, enabledFactoryName],
+    './data',
+  );
+  const componentDeclaration =
+    renderEditorPluginSurfaceDeclaration(componentName);
 
   if (slot === 'document-setting-panel') {
+    const hintTranslation = renderTypeScriptCallLine({
+      arguments: [
+        quoteTsString(
+          'Use data.ts to add post type, capability, or editor context guards before showing this panel.',
+        ),
+        quoteTsString(textDomain),
+      ],
+      callee: '__',
+      indentation: '        ',
+      prefix: '{',
+      suffix: '}',
+    });
+
     return `import { Button } from '@wordpress/components';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { __ } from '@wordpress/i18n';
 
-import { ${modelFactoryName}, ${enabledFactoryName} } from './data';
+${dataImport}
 import './style.scss';
 
 export interface ${componentName}Props {
-\tsurfaceName: string;
-\ttitle: string;
+  surfaceName: string;
+  title: string;
 }
 
-export function ${componentName}( {
-\tsurfaceName,
-\ttitle,
-}: ${componentName}Props ) {
-\tif ( ! ${enabledFactoryName}() ) {
-\t\treturn null;
-\t}
+${componentDeclaration}
+  if (!${enabledFactoryName}()) {
+    return null;
+  }
 
-\tconst editorPluginModel = ${modelFactoryName}();
+  const editorPluginModel = ${modelFactoryName}();
 
-\treturn (
-\t\t<PluginDocumentSettingPanel
-\t\t\tclassName="wp-typia-editor-plugin-shell"
-\t\t\tname={ surfaceName }
-\t\t\ttitle={ title }
-\t\t>
-\t\t\t<p>{ editorPluginModel.summary }</p>
-\t\t\t<Button variant="secondary">
-\t\t\t\t{ editorPluginModel.primaryActionLabel }
-\t\t\t</Button>
-\t\t\t<p className="wp-typia-editor-plugin-shell__hint">
-\t\t\t\t{ __( 'Use data.ts to add post type, capability, or editor context guards before showing this panel.', ${quoteTsString(textDomain)} ) }
-\t\t\t</p>
-\t\t</PluginDocumentSettingPanel>
-\t);
+  return (
+    <PluginDocumentSettingPanel
+      className="wp-typia-editor-plugin-shell"
+      name={surfaceName}
+      title={title}
+    >
+      <p>{editorPluginModel.summary}</p>
+      <Button variant="secondary">
+        {editorPluginModel.primaryActionLabel}
+      </Button>
+      <p className="wp-typia-editor-plugin-shell__hint">
+${hintTranslation}
+      </p>
+    </PluginDocumentSettingPanel>
+  );
 }
 `;
   }
+
+  const panelTitleTranslation = renderTypeScriptCallLine({
+    arguments: [quoteTsString('Document workflow'), quoteTsString(textDomain)],
+    callee: '__',
+    indentation: '            ',
+    prefix: 'title={',
+    suffix: '}',
+  });
 
   return `import { Button, PanelBody } from '@wordpress/components';
 import { PluginSidebar, PluginSidebarMoreMenuItem } from '@wordpress/editor';
 import { __ } from '@wordpress/i18n';
 
-import { ${modelFactoryName}, ${enabledFactoryName} } from './data';
+${dataImport}
 import './style.scss';
 
 export interface ${componentName}Props {
-\tsurfaceName: string;
-\ttitle: string;
+  surfaceName: string;
+  title: string;
 }
 
-export function ${componentName}( {
-\tsurfaceName,
-\ttitle,
-}: ${componentName}Props ) {
-\tif ( ! ${enabledFactoryName}() ) {
-\t\treturn null;
-\t}
+${componentDeclaration}
+  if (!${enabledFactoryName}()) {
+    return null;
+  }
 
-\tconst editorPluginModel = ${modelFactoryName}();
+  const editorPluginModel = ${modelFactoryName}();
 
-\treturn (
-\t\t<>
-\t\t\t<PluginSidebarMoreMenuItem target={ surfaceName }>
-\t\t\t\t{ title }
-\t\t\t</PluginSidebarMoreMenuItem>
-\t\t\t<PluginSidebar name={ surfaceName } title={ title }>
-\t\t\t\t<div className="wp-typia-editor-plugin-shell">
-\t\t\t\t\t<PanelBody
-\t\t\t\t\t\tinitialOpen
-\t\t\t\t\t\ttitle={ __( 'Document workflow', ${quoteTsString(textDomain)} ) }
-\t\t\t\t\t>
-\t\t\t\t\t\t<p>{ editorPluginModel.summary }</p>
-\t\t\t\t\t\t<Button variant="secondary">
-\t\t\t\t\t\t\t{ editorPluginModel.primaryActionLabel }
-\t\t\t\t\t\t</Button>
-\t\t\t\t\t</PanelBody>
-\t\t\t\t</div>
-\t\t\t</PluginSidebar>
-\t\t</>
-\t);
+  return (
+    <>
+      <PluginSidebarMoreMenuItem target={surfaceName}>
+        {title}
+      </PluginSidebarMoreMenuItem>
+      <PluginSidebar name={surfaceName} title={title}>
+        <div className="wp-typia-editor-plugin-shell">
+          <PanelBody
+            initialOpen
+${panelTitleTranslation}
+          >
+            <p>{editorPluginModel.summary}</p>
+            <Button variant="secondary">
+              {editorPluginModel.primaryActionLabel}
+            </Button>
+          </PanelBody>
+        </div>
+      </PluginSidebar>
+    </>
+  );
 }
 `;
 }
@@ -197,6 +274,13 @@ export function buildEditorPluginEntrySource(
   const pluginName = `${namespace}-${editorPluginSlug}`;
   const surfaceName = `${pluginName}-surface`;
   const pluginTitle = toTitleCase(editorPluginSlug);
+  const titleDeclaration = renderTypeScriptCallLine({
+    arguments: [quoteTsString(pluginTitle), quoteTsString(textDomain)],
+    callee: '__',
+    indentation: '',
+    prefix: 'const EDITOR_PLUGIN_TITLE = ',
+    suffix: ';',
+  });
 
   return `import { registerPlugin } from '@wordpress/plugins';
 import { __ } from '@wordpress/i18n';
@@ -206,17 +290,17 @@ import { ${componentName} } from './Surface';
 
 const EDITOR_PLUGIN_NAME = ${quoteTsString(pluginName)};
 const EDITOR_PLUGIN_SURFACE_NAME = ${quoteTsString(surfaceName)};
-const EDITOR_PLUGIN_TITLE = __( ${quoteTsString(pluginTitle)}, ${quoteTsString(textDomain)} );
+${titleDeclaration}
 
-registerPlugin( EDITOR_PLUGIN_NAME, {
-\ticon: 'admin-generic',
-\trender: () => (
-\t\t<${componentName}
-\t\t\tsurfaceName={ EDITOR_PLUGIN_SURFACE_NAME }
-\t\t\ttitle={ EDITOR_PLUGIN_TITLE }
-\t\t/>
-\t),
-} );
+registerPlugin(EDITOR_PLUGIN_NAME, {
+  icon: 'admin-generic',
+  render: () => (
+    <${componentName}
+      surfaceName={EDITOR_PLUGIN_SURFACE_NAME}
+      title={EDITOR_PLUGIN_TITLE}
+    />
+  ),
+});
 
 export { REQUIRED_CAPABILITY };
 `;

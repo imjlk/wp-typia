@@ -2,7 +2,9 @@ import path from 'node:path';
 
 import { patchFile } from './cli-add-shared.js';
 import {
+  detectSourceLineEnding,
   findExecutablePatternMatch,
+  findUncommentedPatternMatch,
   hasExecutablePattern,
   hasUncommentedPattern,
   maskTypeScriptCommentsAndLiterals,
@@ -11,6 +13,8 @@ import {
 
 const SCAFFOLD_REGISTRATION_SETTINGS_CALL_PATTERN =
 	/registerScaffoldBlockType\s*\(\s*registration\s*\.\s*name\s*,\s*registration\s*\.\s*settings\s*\)\s*;?/u;
+const SCAFFOLD_REGISTRATION_SETTINGS_CALL_LINE =
+	'registerScaffoldBlockType(registration.name, registration.settings);';
 
 function isIdentifierBoundary(source: string, index: number): boolean {
   if (index < 0 || index >= source.length) {
@@ -137,6 +141,43 @@ function findBlockRegistrationCallRange(source: string): SourceRange | undefined
 	);
 }
 
+function normalizeUncommentedImport(
+	source: string,
+	importPattern: RegExp,
+	importLine: string,
+): string {
+  const importRange = findUncommentedPatternMatch(source, [importPattern]);
+  if (!importRange) {
+    return source;
+  }
+
+  return (
+    source.slice(0, importRange.start) +
+    importLine +
+    source.slice(importRange.end)
+  );
+}
+
+function normalizeExecutableCall(
+	source: string,
+	callPattern: RegExp,
+	callLine: string,
+): string {
+  const callRange = findExecutablePatternMatch(source, [callPattern]);
+  if (!callRange) {
+    return source;
+  }
+
+  const matchedSource = source.slice(callRange.start, callRange.end);
+  const trailingWhitespace = matchedSource.match(/\s*$/u)?.[0] ?? '';
+  return (
+    source.slice(0, callRange.start) +
+    callLine +
+    trailingWhitespace +
+    source.slice(callRange.end)
+  );
+}
+
 /**
  * Ensure a block entrypoint imports and calls a workspace registration helper.
  *
@@ -164,23 +205,41 @@ export async function ensureWorkspaceEntrypointCall({
 }): Promise<void> {
   await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
-			nextSource = `${importLine}\n${nextSource}`;
+			nextSource = `${importLine}${lineEnding}${nextSource}`;
+		} else {
+			nextSource = normalizeUncommentedImport(
+				nextSource,
+				importPattern,
+				importLine,
+			);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
 			const callRange = findBlockRegistrationCallRange(nextSource);
 
 			if (callRange) {
+        const suffix = nextSource.slice(callRange.end);
+        const normalizedSuffix =
+          suffix.length === 0
+            ? lineEnding
+            : suffix.startsWith(lineEnding)
+              ? suffix
+              : `${lineEnding}${suffix}`;
 				nextSource = [
 					nextSource.slice(0, callRange.end),
-					`\n${callLine}\n`,
-					nextSource.slice(callRange.end),
+					`${lineEnding}${callLine}`,
+					normalizedSuffix,
 				].join('');
 			} else {
-				nextSource = `${nextSource.trimEnd()}\n\n${callLine}\n`;
+				nextSource =
+          `${nextSource.trimEnd()}${lineEnding}${lineEnding}` +
+          `${callLine}${lineEnding}`;
 			}
+		} else {
+			nextSource = normalizeExecutableCall(nextSource, callPattern, callLine);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
@@ -221,9 +280,16 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 }): Promise<void> {
   await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
-			nextSource = `${importLine}\n${nextSource}`;
+			nextSource = `${importLine}${lineEnding}${nextSource}`;
+		} else {
+			nextSource = normalizeUncommentedImport(
+				nextSource,
+				importPattern,
+				importLine,
+			);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
@@ -241,10 +307,18 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 
 			nextSource = [
 				nextSource.slice(0, callRange.start),
-				`${callLine}\n`,
+				`${callLine}${lineEnding}`,
 				nextSource.slice(callRange.start),
 			].join('');
+		} else {
+			nextSource = normalizeExecutableCall(nextSource, callPattern, callLine);
 		}
+
+		nextSource = normalizeExecutableCall(
+			nextSource,
+			SCAFFOLD_REGISTRATION_SETTINGS_CALL_PATTERN,
+			SCAFFOLD_REGISTRATION_SETTINGS_CALL_LINE,
+		);
 
 		return nextSource;
 	});

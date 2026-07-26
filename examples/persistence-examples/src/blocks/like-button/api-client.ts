@@ -14,8 +14,8 @@ import type {
 import { apiValidators } from './api-validators';
 
 export const getPersistenceLikeStatusEndpoint = createEndpoint<
-	PersistenceLikeStatusQuery,
-	PersistenceLikeStatusResponse
+  PersistenceLikeStatusQuery,
+  PersistenceLikeStatusResponse
 >({
   authIntent: 'public',
   authMode: 'public-read',
@@ -28,15 +28,15 @@ export const getPersistenceLikeStatusEndpoint = createEndpoint<
 });
 
 export function getPersistenceLikeStatus(
-	request: PersistenceLikeStatusQuery,
-	options: EndpointCallOptions,
+  request: PersistenceLikeStatusQuery,
+  options: EndpointCallOptions,
 ) {
-  return callEndpoint( getPersistenceLikeStatusEndpoint, request, options );
+  return callEndpoint(getPersistenceLikeStatusEndpoint, request, options);
 }
 
 export const togglePersistenceLikeStatusEndpoint = createEndpoint<
-	PersistenceToggleLikeRequest,
-	PersistenceToggleLikeResponse
+  PersistenceToggleLikeRequest,
+  PersistenceToggleLikeResponse
 >({
   authIntent: 'authenticated',
   authMode: 'authenticated-rest-nonce',
@@ -49,15 +49,15 @@ export const togglePersistenceLikeStatusEndpoint = createEndpoint<
 });
 
 export function togglePersistenceLikeStatus(
-	request: PersistenceToggleLikeRequest,
-	options: EndpointCallOptions,
+  request: PersistenceToggleLikeRequest,
+  options: EndpointCallOptions,
 ) {
   return callEndpoint(togglePersistenceLikeStatusEndpoint, request, options);
 }
 
 export const getPersistenceLikeBootstrapEndpoint = createEndpoint<
-	PersistenceLikeBootstrapQuery,
-	PersistenceLikeBootstrapResponse
+  PersistenceLikeBootstrapQuery,
+  PersistenceLikeBootstrapResponse
 >({
   authIntent: 'public',
   authMode: 'public-read',
@@ -70,8 +70,8 @@ export const getPersistenceLikeBootstrapEndpoint = createEndpoint<
 });
 
 export function getPersistenceLikeBootstrap(
-	request: PersistenceLikeBootstrapQuery,
-	options: EndpointCallOptions,
+  request: PersistenceLikeBootstrapQuery,
+  options: EndpointCallOptions,
 ) {
   return callEndpoint(getPersistenceLikeBootstrapEndpoint, request, options);
 }

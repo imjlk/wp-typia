@@ -28,7 +28,7 @@ import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
 const BLOCK_TRANSFORMS_IMPORT_LINE =
 	"import { applyWorkspaceBlockTransforms } from './transforms';";
 const BLOCK_TRANSFORMS_IMPORT_PATTERN =
-	/^\s*import\s*\{\s*applyWorkspaceBlockTransforms\s*\}\s*from\s*["']\.\/transforms["']\s*;?\s*$/mu;
+	/^[ \t]*import\s*\{\s*applyWorkspaceBlockTransforms\s*\}\s*from\s*["']\.\/transforms["'][ \t]*;?[ \t]*$/mu;
 const BLOCK_TRANSFORMS_CALL_LINE =
 	'applyWorkspaceBlockTransforms(registration.settings);';
 const BLOCK_TRANSFORMS_CALL_PATTERN =
@@ -94,19 +94,19 @@ type TransformAttributes = Record<string, unknown>;
 type TransformInnerBlock = ReturnType<typeof createBlock>;
 
 function mapTransformAttributes(attributes: TransformAttributes): TransformAttributes {
-\tconst content = attributes.content;
+  const content = attributes.content;
 
-\treturn typeof content === 'string' ? { content } : {};
+  return typeof content === 'string' ? { content } : {};
 }
 
 export const ${transformConstName} = {
-\ttype: 'block',
-\tblocks: [${quoteTsString(options.fromBlockName)}],
-\ttitle: __( ${quoteTsString(transformTitle)}, ${quoteTsString(options.textDomain)} ),
-\ttransform: (
-\t\tattributes: TransformAttributes,
-\t\tinnerBlocks: TransformInnerBlock[] = [],
-\t) => createBlock(metadata.name, mapTransformAttributes(attributes), innerBlocks),
+  type: 'block',
+  blocks: [${quoteTsString(options.fromBlockName)}],
+  title: __(${quoteTsString(transformTitle)}, ${quoteTsString(options.textDomain)}),
+  transform: (
+    attributes: TransformAttributes,
+    innerBlocks: TransformInnerBlock[] = [],
+  ) => createBlock(metadata.name, mapTransformAttributes(attributes), innerBlocks),
 } as const;
 `;
 }
@@ -120,28 +120,28 @@ function buildBlockTransformIndexSource(transformSlugs: string[]): string {
 		)
 		.join('\n');
   const transformConstNames = transformBindings
-		.map(({ constName }) => constName)
-		.join(',\n\t');
+		.map(({ constName }) => `  ${constName},`)
+		.join('\n');
 
   return `${importLines ? `${importLines}\n\n` : ''}type BlockSettingsWithTransforms = {
-\ttransforms?: {
-\t\tfrom?: unknown[];
-\t\tto?: unknown[];
-\t};
+  transforms?: {
+    from?: unknown[];
+    to?: unknown[];
+  };
 };
 
 const WORKSPACE_BLOCK_TRANSFORMS = [
-\t${transformConstNames}
-\t// wp-typia add transform entries
+${transformConstNames}
+  // wp-typia add transform entries
 ] as const;
 
 export function applyWorkspaceBlockTransforms(settings: BlockSettingsWithTransforms) {
-\tconst transforms = settings.transforms ?? {};
+  const transforms = settings.transforms ?? {};
 
-\tsettings.transforms = {
-\t\t...transforms,
-\t\tfrom: [...(transforms.from ?? []), ...WORKSPACE_BLOCK_TRANSFORMS],
-\t};
+  settings.transforms = {
+    ...transforms,
+    from: [...(transforms.from ?? []), ...WORKSPACE_BLOCK_TRANSFORMS],
+  };
 }
 `;
 }

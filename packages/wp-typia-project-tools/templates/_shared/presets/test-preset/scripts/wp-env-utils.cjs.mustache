@@ -1,26 +1,32 @@
-const { execFileSync } = require("node:child_process");
-const path = require("node:path");
+const { execFileSync } = require( 'node:child_process' );
+const path = require( 'node:path' );
 
-const ROOT_DIR = path.resolve(__dirname, "..");
-const TEST_WP_ENV_CONFIG = ".wp-env.test.json";
+const ROOT_DIR = path.resolve( __dirname, '..' );
+const TEST_WP_ENV_CONFIG = '.wp-env.test.json';
 
 function getWpEnvCommand() {
-	return process.platform === "win32"
-		? path.join(ROOT_DIR, "node_modules", ".bin", "wp-env.cmd")
-		: path.join(ROOT_DIR, "node_modules", ".bin", "wp-env");
+	return process.platform === 'win32'
+		? path.join( ROOT_DIR, 'node_modules', '.bin', 'wp-env.cmd' )
+		: path.join( ROOT_DIR, 'node_modules', '.bin', 'wp-env' );
 }
 
-function runWpEnv(args, { cwd = ROOT_DIR } = {}) {
-	return execFileSync(getWpEnvCommand(), args, {
+function runWpEnv( args, { cwd = ROOT_DIR } = {} ) {
+	return execFileSync( getWpEnvCommand(), args, {
 		cwd,
-		encoding: "utf8",
-		shell: process.platform === "win32",
-		stdio: "pipe",
-	});
+		encoding: 'utf8',
+		shell: process.platform === 'win32',
+		stdio: 'pipe',
+	} );
 }
 
-function runWpCli(args, { configPath = TEST_WP_ENV_CONFIG, cwd = ROOT_DIR } = {}) {
-	return runWpEnv(["run", "cli", `--config=${configPath}`, "wp", ...args], { cwd });
+function runWpCli(
+	args,
+	{ configPath = TEST_WP_ENV_CONFIG, cwd = ROOT_DIR } = {}
+) {
+	return runWpEnv(
+		[ 'run', 'cli', `--config=${ configPath }`, 'wp', ...args ],
+		{ cwd }
+	);
 }
 
 module.exports = {

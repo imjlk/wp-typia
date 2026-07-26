@@ -11,8 +11,8 @@
         "@eslint/js": "9.39.4",
         "@playwright/test": "^1.40.0",
         "@samchon/graph": "0.1.0",
-        "@ttsc/lint": "0.21.0",
-        "@ttsc/unplugin": "0.21.0",
+        "@ttsc/lint": "0.22.0",
+        "@ttsc/unplugin": "0.22.0",
         "@types/node": "^24.0.0",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
@@ -36,7 +36,7 @@
         "prettier": "3.8.2",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
-        "ttsc": "0.21.0",
+        "ttsc": "0.22.0",
         "typescript": "7.0.2",
       },
     },
@@ -55,13 +55,13 @@
       "name": "api-contract-adapter-poc",
       "version": "0.1.0",
       "devDependencies": {
-        "@ttsc/lint": "^0.21.0",
+        "@ttsc/lint": "^0.22.0",
         "@types/node": "^24.0.0",
         "@wp-typia/api-client": "workspace:*",
         "@wp-typia/block-runtime": "workspace:*",
         "@wp-typia/project-tools": "workspace:*",
         "prettier": "3.8.2",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
         "typia": "^13.2.0",
       },
@@ -77,8 +77,8 @@
         "@wordpress/i18n": "^6.2.0",
       },
       "devDependencies": {
-        "@ttsc/lint": "^0.21.0",
-        "@ttsc/unplugin": "^0.21.0",
+        "@ttsc/lint": "^0.22.0",
+        "@ttsc/unplugin": "^0.22.0",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
         "@types/wordpress__block-editor": "^11.5.17",
@@ -89,7 +89,7 @@
         "@wp-typia/block-types": "workspace:*",
         "eslint": "8.57.1",
         "prettier": "3.8.2",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
         "typia": "^13.2.0",
       },
@@ -107,8 +107,8 @@
         "@wordpress/interactivity": "^6.29.0",
       },
       "devDependencies": {
-        "@ttsc/lint": "^0.21.0",
-        "@ttsc/unplugin": "^0.21.0",
+        "@ttsc/lint": "^0.22.0",
+        "@ttsc/unplugin": "^0.22.0",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
         "@types/wordpress__block-editor": "^11.5.17",
@@ -120,7 +120,7 @@
         "@wp-typia/rest": "workspace:*",
         "eslint": "8.57.1",
         "prettier": "3.8.2",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
         "typia": "^13.2.0",
         "wp-typia": "workspace:*",
@@ -139,8 +139,8 @@
         "@wordpress/interactivity": "^6.29.0",
       },
       "devDependencies": {
-        "@ttsc/lint": "^0.21.0",
-        "@ttsc/unplugin": "^0.21.0",
+        "@ttsc/lint": "^0.22.0",
+        "@ttsc/unplugin": "^0.22.0",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.2",
         "@types/wordpress__block-editor": "^11.5.17",
@@ -153,7 +153,7 @@
         "@wp-typia/rest": "workspace:*",
         "eslint": "8.57.1",
         "prettier": "3.8.2",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
         "typia": "^13.2.0",
       },
@@ -176,7 +176,7 @@
         "zod": "4.3.6",
       },
       "devDependencies": {
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
     },
@@ -187,7 +187,7 @@
         "@typia/interface": "^13.2.0",
       },
       "devDependencies": {
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
     },
@@ -201,7 +201,7 @@
       },
       "devDependencies": {
         "react": "^19.2.0",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
         "typia": "^13.2.0",
       },
@@ -220,7 +220,7 @@
         "@types/wordpress__block-editor": "^11.5.17",
         "@types/wordpress__blocks": "^12.5.18",
         "@wordpress/blocks": "^15.2.0",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
@@ -236,7 +236,7 @@
       "name": "@wp-typia/dataviews",
       "version": "0.1.2",
       "devDependencies": {
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
     },
@@ -257,7 +257,7 @@
       },
       "devDependencies": {
         "react": "^19.2.0",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
     },
@@ -272,7 +272,7 @@
       "devDependencies": {
         "@wordpress/element": "^6.29.0",
         "happy-dom": "^20.8.9",
-        "ttsc": "^0.21.0",
+        "ttsc": "^0.22.0",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
@@ -284,7 +284,7 @@
     },
   },
   "patchedDependencies": {
-    "@ttsc/lint@0.21.0": "patches/@ttsc%2Flint@0.21.0.patch",
+    "@ttsc/lint@0.22.0": "patches/@ttsc%2Flint@0.22.0.patch",
     "typia@13.2.0": "patches/typia@13.2.0.patch",
   },
   "packages": {
@@ -1316,23 +1316,23 @@
 
     "@tootallnate/quickjs-emscripten": ["@tootallnate/quickjs-emscripten@0.23.0", "", {}, "sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA=="],
 
-    "@ttsc/darwin-arm64": ["@ttsc/darwin-arm64@0.21.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-RyMwS1veEBKV5VlOUiVqZws/d0dCua5wqmy0cQZTSaeXnBClxsZo9fWQGCO1W+Idb6yw5US+sB2mOmJTezz0Kw=="],
+    "@ttsc/darwin-arm64": ["@ttsc/darwin-arm64@0.22.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-UVXV6gerO3r+lK8lJbhOS1HtLKrGRTKTleean1IDKmXC7JqEiKqpbOhhRynb7qbMG2LOl/nqTLQBLjSs4sHl/A=="],
 
-    "@ttsc/darwin-x64": ["@ttsc/darwin-x64@0.21.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-wdgvFk/oZXAELSR2lqe4aRbJ3yBDGYuZupumaZwhDzDs+OcW/OCtynzbX5IUwtHsCBiQm9CvfNztqHfeXj25kg=="],
+    "@ttsc/darwin-x64": ["@ttsc/darwin-x64@0.22.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-OZQCk0wNNmGxX39HPf8Rj9kFqC5Aax/i1SJST1XWGkCQMP6d3A4BGNSJ6TNCBoMT7pU//jCj7xMmV4Av0g4seg=="],
 
-    "@ttsc/lint": ["@ttsc/lint@0.21.0", "", {}, "sha512-R2HHj7bJQiI3WOY3lxlGxwJRBZmO6LSHHzE2UaV6tRcrcWH1oW0b7+5kx0My8Ky+65wsGnUySbhB7qMtr+vWlQ=="],
+    "@ttsc/lint": ["@ttsc/lint@0.22.0", "", {}, "sha512-l83CIBEAiDYtAPrrweDEU96DTkZstR6EUw28XX7KqKfe8imYeDuuO8WpoXu8wgQibXyqhdbTkYVPtAefZF0WoQ=="],
 
-    "@ttsc/linux-arm": ["@ttsc/linux-arm@0.21.0", "", { "os": "linux", "cpu": "arm" }, "sha512-+8dlbyvm6K/an5KEJtChcTTyqWFt+d9uzBYjwwGiUaCibmW9GuJmjiYMmGOD8YFee/JholJwy9TRaaqWcdnp6Q=="],
+    "@ttsc/linux-arm": ["@ttsc/linux-arm@0.22.0", "", { "os": "linux", "cpu": "arm" }, "sha512-wEG7Jq11AhuSLPOv6sE+kexSBlpDCCHoWjO5QgdN3WJ5oqhuBJyYoQoyujxXDxHGCi60a2vFpJiALk3uQU5lTw=="],
 
-    "@ttsc/linux-arm64": ["@ttsc/linux-arm64@0.21.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-9KA18t+VST6AxXh+pNs9N6KwjcZ5e5vudCCEHLLIRWNHGxONuJj1AVUFD4t6B5Q3wpInG60tIy7QGFZfk00+og=="],
+    "@ttsc/linux-arm64": ["@ttsc/linux-arm64@0.22.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-6x5UprHcy29/hC5aTqkJnkBWuXyKCV2X9a4yhhhsM94JXqqKAifWos8HgJ1roUvmGG8zaEHNJrR0LtIvbFwBdA=="],
 
-    "@ttsc/linux-x64": ["@ttsc/linux-x64@0.21.0", "", { "os": "linux", "cpu": "x64" }, "sha512-1d4hkb/MiVJGXTfK+/ij7TyjDI/Dm+rbvThNiUJe2uO0iwJpdiS8rgokGuCd7Ta5OyfsUnzH+32dstap1Q1HeA=="],
+    "@ttsc/linux-x64": ["@ttsc/linux-x64@0.22.0", "", { "os": "linux", "cpu": "x64" }, "sha512-u1mC/ch4+Tpvmb2uNfJagHROo/OlpQt6FLXQrY7dPfPhRIgFbpoEy/rW2IgBumYIIwYBAB9hDfgUdO5ue3l9iw=="],
 
-    "@ttsc/unplugin": ["@ttsc/unplugin@0.21.0", "", { "dependencies": { "unplugin": "^2.3.11" }, "peerDependencies": { "ttsc": "^0.21.0" } }, "sha512-XcyN4zUfO95lLDpLhWGuqVCbG+yDTuZJ8Go4PPTotZG47N2QgjxIxuUyfTyuU2+pPrpTiajIvEMfM/8RB4xRxQ=="],
+    "@ttsc/unplugin": ["@ttsc/unplugin@0.22.0", "", { "dependencies": { "unplugin": "^2.3.11" }, "peerDependencies": { "ttsc": "^0.22.0" } }, "sha512-dXju37iPlKSzfFzBUn08715IQUC6rLVip8DTsdGMKXjJSKwKw7YjhisU3/+OUXdyQRiHIE+QaKHtVBQZd7FfdA=="],
 
-    "@ttsc/win32-arm64": ["@ttsc/win32-arm64@0.21.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-RLxFrcA7cOdHsQNG9R67A+lI5TDhuF1g7WZe+xzw6au6oDpseboyqgcT6wVTOiNViM1qzDkTxSadM6kSumUHvw=="],
+    "@ttsc/win32-arm64": ["@ttsc/win32-arm64@0.22.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-RyZq5qgjZjm5H14Bw/5tkRqCLwSk4sXnExGjfoPj4hmv8Ia+MxsAJkh0ZQZQNq0JCZkRlxLfOxfFIMbbJJ/swQ=="],
 
-    "@ttsc/win32-x64": ["@ttsc/win32-x64@0.21.0", "", { "os": "win32", "cpu": "x64" }, "sha512-R+GGTLgou3J2iPiaFrJtT/rOgScXn1UXRD4zsP+AjqQpOkbIvQL8qhr/81SdWtCU76o8gOr7qlfT1TzIAu5tQw=="],
+    "@ttsc/win32-x64": ["@ttsc/win32-x64@0.22.0", "", { "os": "win32", "cpu": "x64" }, "sha512-l0l8dVSU6aSdBKFqCT3n32Tjx6Q7QmoPP4gD7J3apZ+5pJC4H5gmQs+EJwKd9zjnmx0LPI3TVhXtJ5pcr61mrg=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
@@ -4258,7 +4258,7 @@
 
     "tsx": ["tsx@4.21.0", "", { "dependencies": { "esbuild": "~0.27.0", "get-tsconfig": "^4.7.5" }, "optionalDependencies": { "fsevents": "~2.3.3" }, "bin": { "tsx": "dist/cli.mjs" } }, "sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw=="],
 
-    "ttsc": ["ttsc@0.21.0", "", { "optionalDependencies": { "@ttsc/darwin-arm64": "0.21.0", "@ttsc/darwin-x64": "0.21.0", "@ttsc/linux-arm": "0.21.0", "@ttsc/linux-arm64": "0.21.0", "@ttsc/linux-x64": "0.21.0", "@ttsc/win32-arm64": "0.21.0", "@ttsc/win32-x64": "0.21.0" }, "bin": { "ttsc": "lib/launcher/ttsc.js", "ttscserver": "lib/launcher/ttscserver.js", "ttsx": "lib/launcher/ttsx.js" } }, "sha512-lvPSC1acqHpefBiwP7PuS+E8gyIuHPy9xVQksZRzF7SuWNyGJcB9JrnQIumgUITMNpq6mtu7Iz/f2uDhMu+G4w=="],
+    "ttsc": ["ttsc@0.22.0", "", { "optionalDependencies": { "@ttsc/darwin-arm64": "0.22.0", "@ttsc/darwin-x64": "0.22.0", "@ttsc/linux-arm": "0.22.0", "@ttsc/linux-arm64": "0.22.0", "@ttsc/linux-x64": "0.22.0", "@ttsc/win32-arm64": "0.22.0", "@ttsc/win32-x64": "0.22.0" }, "bin": { "ttsc": "lib/launcher/ttsc.js", "ttscserver": "lib/launcher/ttscserver.js", "ttsx": "lib/launcher/ttsx.js" } }, "sha512-rjxf2KqOE9ajhALXQT5MQmTLuV+yolJby76nLEWSTtXVLgdA0ZXvlmnncHSbK+axhDp0KG9jhle40+n19dlS3Q=="],
 
     "type-check": ["type-check@0.4.0", "", { "dependencies": { "prelude-ls": "^1.2.1" } }, "sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew=="],
 

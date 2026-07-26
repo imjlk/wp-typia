@@ -901,7 +901,7 @@ test('doctor WordPress version check covers binding source API floors', async ()
     'utf8',
   );
   const getFieldsListMethodBlockPattern =
-    /\tgetFieldsList\(\) \{\n[\s\S]*?\n\t\},\n\tgetValues/u;
+    /  getFieldsList\(\) \{\n[\s\S]*?\n  \},\n  getValues/u;
   replaceBootstrapHeader(targetDir, 'Requires at least', '6.8');
 
   for (const [label, transformSource] of [
@@ -938,7 +938,7 @@ test('doctor WordPress version check covers binding source API floors', async ()
       (source: string) =>
         source.replace(
           getFieldsListMethodBlockPattern,
-          '\t"getFieldsList": () => [],\n\tgetValues',
+          '  "getFieldsList": () => [],\n  getValues',
         ),
     ],
     [
@@ -949,7 +949,7 @@ test('doctor WordPress version check covers binding source API floors', async ()
             'function resolveBindingSourceValue',
             'const getFieldsList = () => [];\n\nfunction resolveBindingSourceValue',
           )
-          .replace(getFieldsListMethodBlockPattern, '\tgetFieldsList,\n\tgetValues'),
+          .replace(getFieldsListMethodBlockPattern, '  getFieldsList,\n  getValues'),
     ],
     [
       'function reference property',
@@ -961,7 +961,7 @@ test('doctor WordPress version check covers binding source API floors', async ()
           )
           .replace(
             getFieldsListMethodBlockPattern,
-            '\tgetFieldsList: buildFieldsList,\n\tgetValues',
+            '  getFieldsList: buildFieldsList,\n  getValues',
           ),
     ],
     [
@@ -969,12 +969,12 @@ test('doctor WordPress version check covers binding source API floors', async ()
       (source: string) =>
         source
           .replace(
-            'registerBlockBindingsSource( {',
+            'registerBlockBindingsSource({',
             'const bindingSourceRegistration = {',
           )
           .replace(
-            /\n\} \);\s*$/u,
-            '\n};\n\nregisterBlockBindingsSource( bindingSourceRegistration );\n',
+            /\n\}\);\s*$/u,
+            '\n};\n\nregisterBlockBindingsSource(bindingSourceRegistration);\n',
           ),
     ],
     [
@@ -982,20 +982,20 @@ test('doctor WordPress version check covers binding source API floors', async ()
       (source: string) =>
         source
           .replace(
-            'registerBlockBindingsSource( {',
+            'registerBlockBindingsSource({',
             'const bindingSourceRegistration = {',
           )
           .replace(
-            /\n\} \);\s*$/u,
-            '\n};\n\nregisterBlockBindingsSource( bindingSourceRegistration as unknown );\n',
+            /\n\}\);\s*$/u,
+            '\n};\n\nregisterBlockBindingsSource(bindingSourceRegistration as unknown);\n',
           ),
     ],
     [
       'inner satisfies expression',
       (source: string) =>
         source.replace(
-          'registerBlockBindingsSource( {',
-          'const metadata = {};\n\nregisterBlockBindingsSource( {\n\tmeta: metadata satisfies Record<string, unknown>,',
+          'registerBlockBindingsSource({',
+          'const metadata = {};\n\nregisterBlockBindingsSource({\n  meta: metadata satisfies Record<string, unknown>,',
         ),
     ],
   ] satisfies Array<[string, (source: string) => string]>) {
@@ -1050,7 +1050,7 @@ test('doctor WordPress version check covers binding source API floors', async ()
 
   const sourceWithoutRuntimeGetFieldsList = originalBindingEditorSource.replace(
     getFieldsListMethodBlockPattern,
-    '\tgetValues',
+    '  getValues',
   );
   expect(sourceWithoutRuntimeGetFieldsList).not.toBe(
     originalBindingEditorSource,

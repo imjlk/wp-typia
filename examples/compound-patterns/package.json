@@ -1,6 +1,7 @@
 {
   "name": "compound-patterns",
   "version": "0.1.1",
+  "private": true,
   "packageManager": "bun@1.3.11",
   "description": "A parent-and-child WordPress block scaffold with InnerBlocks, optional persistence wiring, and hidden implementation child blocks",
   "author": "imjlk",
@@ -20,8 +21,8 @@
     "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{cjs,css,js,json,md,mjs,scss,yaml,yml}\""
   },
   "devDependencies": {
-    "@ttsc/lint": "^0.21.0",
-    "@ttsc/unplugin": "^0.21.0",
+    "@ttsc/lint": "^0.22.0",
+    "@ttsc/unplugin": "^0.22.0",
     "@wp-typia/block-runtime": "workspace:*",
     "@wp-typia/block-types": "workspace:*",
     "@wordpress/browserslist-config": "^6.42.0",
@@ -32,7 +33,7 @@
     "@types/wordpress__blocks": "^12.5.18",
     "eslint": "8.57.1",
     "prettier": "3.8.2",
-    "ttsc": "^0.21.0",
+    "ttsc": "^0.22.0",
     "typescript": "^7.0.2",
     "typia": "^13.2.0"
   },

@@ -330,7 +330,10 @@ export function escapeForCode(value: unknown): string {
 }
 
 export function renderObjectKey(key: string): string {
-  return JSON.stringify(String(key));
+  const value = String(key);
+  return /^[$A-Z_a-z][$\w]*$/u.test(value)
+    ? value
+    : `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 export function isNumber(value: unknown): value is number {

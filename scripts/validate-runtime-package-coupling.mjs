@@ -159,13 +159,12 @@ export function validateRuntimePackageCoupling(repoRoot) {
 			dependencyInfo.plannedVersion,
 			coupling.rangePolicy,
 		);
-		const allowsSourceExactPinUntilRelease =
-			coupling.rangePolicy === RANGE_POLICY.exact &&
+		const allowsSourceSpecUntilRelease =
 			dependentInfo.pendingReleaseType !== null &&
 			dependencyInfo.currentVersion !== dependencyInfo.plannedVersion &&
 			allowsCurrentVersion;
 
-		if (!allowsPlannedVersion && !allowsSourceExactPinUntilRelease) {
+		if (!allowsPlannedVersion && !allowsSourceSpecUntilRelease) {
 			if (dependentInfo.pendingReleaseType !== null) {
 				errors.push(
 					`${coupling.dependentName} has a pending ${dependentInfo.pendingReleaseType} changeset, but dependencies.${coupling.dependencyName}="${spec}" still does not allow planned ${coupling.dependencyName}@${dependencyInfo.plannedVersion}.`,

@@ -9,6 +9,7 @@ import type {
   TypiaLlmEndpointMethodDescriptor,
 } from './typia-llm-types.js';
 
+const TYPESCRIPT_PRINT_WIDTH = 80;
 const TYPESCRIPT_RESERVED_WORDS = new Set([
   'abstract',
   'any',
@@ -223,8 +224,29 @@ function renderMethodSignature(method: TypiaLlmEndpointMethodDescriptor): string
     !TYPESCRIPT_RESERVED_WORDS.has(method.operationId)
     ? method.operationId
     : JSON.stringify(method.operationId);
+  const compact =
+    `${methodName}(${inputSignature}): ${method.outputTypeName};`;
+  if (`  ${compact}`.length <= TYPESCRIPT_PRINT_WIDTH || !inputSignature) {
+    return compact;
+  }
 
-  return `${methodName}(${inputSignature}): ${method.outputTypeName};`;
+  const inlineObjectMatch = inputSignature.match(
+    /^input: \{ body: ([^;]+); query: ([^;]+) \}$/u,
+  );
+  const inputLines = inlineObjectMatch
+    ? [
+        '    input: {',
+        `      body: ${inlineObjectMatch[1]};`,
+        `      query: ${inlineObjectMatch[2]};`,
+        '    },',
+      ]
+    : [`    ${inputSignature},`];
+
+  return [
+    `${methodName}(`,
+    ...inputLines,
+    `  ): ${method.outputTypeName};`,
+  ].join('\n');
 }
 
 export function renderTypiaLlmModuleFromMethodDescriptors(
@@ -250,32 +272,32 @@ export function renderTypiaLlmModuleFromMethodDescriptors(
     }
   }
 
-  const imports = Array.from(importedTypeNames).sort().join(',\n\t');
+  const imports = Array.from(importedTypeNames).sort().join(',\n  ');
   const methodBlocks = methods
     .map((method) => {
       const jsDoc = renderMethodJsDoc(method)
         .split('\n')
-        .map((line) => `\t${line}`)
+        .map((line) => `  ${line}`)
         .join('\n');
 
-      return `${jsDoc}\n\t${renderMethodSignature(method)}`;
+      return `${jsDoc}\n  ${renderMethodSignature(method)}`;
     })
     .join('\n\n');
 
-  return `import typia from "typia";
+  return `import typia from 'typia';
 import type {
-\t${imports},
-} from "${typesImportPath}";
+  ${imports},
+} from '${typesImportPath}';
 
 export interface ${interfaceName} {
 ${methodBlocks}
 }
 
 export const ${applicationExportName} =
-\ttypia.llm.application<${interfaceName}>();
+  typia.llm.application<${interfaceName}>();
 
 export const ${structuredOutputExportName} =
-\ttypia.llm.structuredOutput<${structuredOutputTypeName}>();
+  typia.llm.structuredOutput<${structuredOutputTypeName}>();
 `;
 }
 

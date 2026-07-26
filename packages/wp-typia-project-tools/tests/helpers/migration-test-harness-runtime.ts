@@ -11,7 +11,9 @@ import {
 
 export const packageRoot = resolvePackageRoot();
 export const entryPath = resolveCliEntryPath();
+export const repoTtscPath = resolveRepoTtscBinary();
 export const repoTtsxPath = resolveRepoTtsxBinary();
+export const repoTypeScriptPath = resolveRepoTypeScriptPackage();
 
 export function runCli(
 	command: string,
@@ -68,6 +70,36 @@ export function resolveRepoTtsxBinary() {
   }
 
   return resolved;
+}
+
+export function resolveRepoTtscBinary() {
+  const candidates = [
+    path.resolve(packageRoot, 'node_modules/.bin/ttsc'),
+    path.resolve(packageRoot, '../../node_modules/.bin/ttsc'),
+  ];
+  const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!resolved) {
+    throw new Error(
+      'Unable to locate a repo ttsc binary for migration verification tests.',
+    );
+  }
+
+  return resolved;
+}
+
+export function resolveRepoTypeScriptPackage() {
+  const candidates = [
+    path.resolve(packageRoot, 'node_modules/typescript'),
+    path.resolve(packageRoot, '../../node_modules/typescript'),
+  ];
+  const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!resolved) {
+    throw new Error(
+      'Unable to locate the repo TypeScript package for migration verification tests.',
+    );
+  }
+
+  return fs.realpathSync(resolved);
 }
 
 export function resolvePackageRoot() {
@@ -138,6 +170,7 @@ export function createProjectShell(projectDir: string) {
     type: 'module',
     version: '0.1.0',
   });
+  installMigrationCompilerFixture(projectDir);
   writeFile(
     path.join(projectDir, 'src', 'save.tsx'),
     `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.content ?? null;\n}\n`,
@@ -146,6 +179,166 @@ export function createProjectShell(projectDir: string) {
     path.join(projectDir, 'src', 'types.ts'),
     `export interface MigrationAttributes {\n\tcontent: string;\n\tisVisible?: boolean;\n}\n`,
   );
+}
+
+export function installMigrationCompilerFixture(projectDir: string) {
+  writeFile(
+    path.join(projectDir, 'lint.config.ts'),
+    `export default {
+  format: {
+    severity: 'error',
+    printWidth: 80,
+    tabWidth: 2,
+    useTabs: false,
+    semi: true,
+    singleQuote: true,
+    trailingComma: 'all',
+    endOfLine: 'lf',
+  },
+  rules: {
+    'no-var': 'error',
+    'prefer-const': 'error',
+    eqeqeq: 'error',
+  },
+};
+`,
+  );
+  writeJson(path.join(projectDir, 'tsconfig.json'), {
+    compilerOptions: {
+      allowSyntheticDefaultImports: true,
+      esModuleInterop: true,
+      forceConsistentCasingInFileNames: true,
+      isolatedModules: true,
+      jsx: 'react-jsx',
+      lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+      module: 'ESNext',
+      moduleResolution: 'bundler',
+      noEmit: true,
+      resolveJsonModule: true,
+      rootDir: '.',
+      skipLibCheck: true,
+      strict: true,
+      target: 'ES2020',
+      types: ['node'],
+    },
+    include: ['src/**/*'],
+  });
+
+  const nodeModulesDir = path.join(projectDir, 'node_modules');
+  fs.mkdirSync(nodeModulesDir, { recursive: true });
+
+  const repoRoot = path.resolve(packageRoot, '../..');
+  const packageLinks = [
+    {
+      source: path.join(repoRoot, 'node_modules', '@ttsc', 'lint'),
+      target: path.join(nodeModulesDir, '@ttsc', 'lint'),
+    },
+    {
+      source: repoTypeScriptPath,
+      target: path.join(nodeModulesDir, 'typescript'),
+    },
+    {
+      source: path.join(repoRoot, 'node_modules', '@types', 'node'),
+      target: path.join(nodeModulesDir, '@types', 'node'),
+    },
+    {
+      source: path.join(repoRoot, 'packages', 'wp-typia-block-runtime'),
+      target: path.join(nodeModulesDir, '@wp-typia', 'block-runtime'),
+    },
+    {
+      source: path.join(repoRoot, 'packages', 'wp-typia-block-types'),
+      target: path.join(nodeModulesDir, '@wp-typia', 'block-types'),
+    },
+  ] as const;
+
+  for (const { source, target } of packageLinks) {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    if (!fs.existsSync(target)) {
+      fs.symlinkSync(fs.realpathSync(source), target, 'junction');
+    }
+  }
+}
+
+const DEFAULT_MIGRATION_FIXTURE_FORMAT_INPUTS = [
+  'src/save.tsx',
+  'src/types.ts',
+  'src/validators.ts',
+  'src/blocks/**/save.tsx',
+  'src/blocks/**/types.ts',
+  'src/blocks/**/validators.ts',
+  'src/migrations/config.ts',
+  'src/migrations/helpers.ts',
+  'src/migrations/versions/**/save.tsx',
+];
+
+export function typecheckMigrationProject(
+  projectDir: string,
+  {
+    checkInputs,
+    formatInputs = DEFAULT_MIGRATION_FIXTURE_FORMAT_INPUTS,
+  }: {
+    checkInputs?: string[];
+    formatInputs?: string[];
+  } = {},
+) {
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+    devDependencies?: Record<string, string>;
+  };
+  writeJson(packageJsonPath, {
+    ...packageJson,
+    devDependencies: {
+      ...packageJson.devDependencies,
+      '@ttsc/lint': '0.22.0',
+      ttsc: '0.22.0',
+      typescript: '7.0.2',
+    },
+  });
+
+  const repoRoot = path.resolve(packageRoot, '../..');
+  const env = {
+    ...process.env,
+    TTSC_CACHE_DIR: path.join(repoRoot, 'node_modules', '.cache', 'ttsc'),
+  };
+  if (formatInputs.length > 0) {
+    const formatConfigPath = path.join(
+      projectDir,
+      'tsconfig.fixture-format.json',
+    );
+    writeJson(formatConfigPath, {
+      extends: './tsconfig.json',
+      include: formatInputs,
+    });
+    execFileSync(
+      repoTtscPath,
+      ['format', '--project', formatConfigPath, '--singleThreaded'],
+      {
+        cwd: projectDir,
+        encoding: 'utf8',
+        env,
+        stdio: 'pipe',
+      },
+    );
+  }
+
+  let checkConfigPath: string | undefined;
+  if (checkInputs) {
+    checkConfigPath = path.join(projectDir, 'tsconfig.migration-check.json');
+    writeJson(checkConfigPath, {
+      extends: './tsconfig.json',
+      include: checkInputs,
+    });
+  }
+  const checkArgs = ['--noEmit', '--singleThreaded'];
+  if (checkConfigPath) {
+    checkArgs.push('--project', checkConfigPath);
+  }
+  execFileSync(repoTtscPath, checkArgs, {
+    cwd: projectDir,
+    encoding: 'utf8',
+    env,
+    stdio: 'pipe',
+  });
 }
 
 export function createMigrationTempRoot(prefix = 'wp-typia-migrations-') {

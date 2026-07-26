@@ -8,8 +8,8 @@ import { isDeepStrictEqual } from "node:util";
 import { DEPENDENCY_FIELDS } from "../publish-package-utils.mjs";
 
 export const CHANGESET_DIR = path.join(".sampo", "changesets");
-export const WORKSPACE_ROOTS = ["packages", "examples"];
-const WORKSPACE_PACKAGE_MANIFEST_PATTERN = /^(?:packages|examples)\/[^/]+\/package\.json$/u;
+export const WORKSPACE_ROOTS = ["packages"];
+const WORKSPACE_PACKAGE_MANIFEST_PATTERN = /^packages\/[^/]+\/package\.json$/u;
 export const RELEASE_TYPE_PRIORITY = {
 	patch: 0,
 	minor: 1,

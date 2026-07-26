@@ -1,5 +1,9 @@
 {
 	"extends": "../../tsconfig.json",
-	"include": ["src/**/*", "../../types/assets.d.ts"],
+	"compilerOptions": {
+		"paths": {},
+		"rootDir": "."
+	},
+	"include": ["src/**/*", "scripts/**/*", "../../types/assets.d.ts"],
 	"exclude": ["node_modules", "build"]
 }

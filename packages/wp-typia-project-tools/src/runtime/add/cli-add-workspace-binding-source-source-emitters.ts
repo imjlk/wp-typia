@@ -300,14 +300,14 @@ function buildTsPostMetaFieldEntries(
   return fields
 		.map((field) =>
 			[
-				'\t{',
-				`\t\tfallbackValue: ${quoteTsString(field.fallbackValue)},`,
-				`\t\tlabel: __( ${quoteTsString(field.label)}, ${quoteTsString(textDomain)} ),`,
-				`\t\tname: ${quoteTsString(field.name)},`,
-				`\t\tpreviewValue: ${buildTsPostMetaPreviewValue(field)},`,
-				`\t\trequired: ${field.required ? 'true' : 'false'},`,
-				`\t\tschemaType: ${quoteTsString(field.schemaType)},`,
-				'\t},',
+				'  {',
+				`    fallbackValue: ${quoteTsString(field.fallbackValue)},`,
+				`    label: __(${quoteTsString(field.label)}, ${quoteTsString(textDomain)}),`,
+				`    name: ${quoteTsString(field.name)},`,
+				`    previewValue: ${buildTsPostMetaPreviewValue(field)},`,
+				`    required: ${field.required ? 'true' : 'false'},`,
+				`    schemaType: ${quoteTsString(field.schemaType)},`,
+				'  },',
 			].join('\n'),
 		)
 		.join('\n');
@@ -325,10 +325,10 @@ function buildBindingPostMetaEditorSource(options: {
   const targetSource = options.target
 		? `
 export const BINDING_SOURCE_TARGET = {
-\tattribute: ${quoteTsString(options.target.attributeName)},
-\tblock: ${quoteTsString(`${options.namespace}/${options.target.blockSlug}`)},
-\tfield: ${quoteTsString(options.postMeta.metaPath)},
-\tsource: ${quoteTsString(bindingSourceName)},
+  attribute: ${quoteTsString(options.target.attributeName)},
+  block: ${quoteTsString(`${options.namespace}/${options.target.blockSlug}`)},
+  field: ${quoteTsString(options.postMeta.metaPath)},
+  source: ${quoteTsString(bindingSourceName)},
 } as const;
 `
 		: '';
@@ -337,65 +337,64 @@ export const BINDING_SOURCE_TARGET = {
 import { __ } from '@wordpress/i18n';
 
 interface BindingSourceRegistration {
-\targs?: {
-\t\tfield?: string;
-\t};
+  args?: {
+    field?: string;
+  };
+}
+
+interface BindingSourceValuesOptions {
+  bindings: Record<string, BindingSourceRegistration>;
 }
 
 export const POST_META_BINDING_SOURCE = {
-\tmetaKey: ${quoteTsString(options.postMeta.metaKey)},
-\tpostMeta: ${quoteTsString(options.postMeta.postMetaSlug)},
-\tpostType: ${quoteTsString(options.postMeta.postType)},
-\tschemaFile: ${quoteTsString(options.postMeta.schemaFile)},
-\tsourceTypeName: ${quoteTsString(options.postMeta.sourceTypeName)},
+  metaKey: ${quoteTsString(options.postMeta.metaKey)},
+  postMeta: ${quoteTsString(options.postMeta.postMetaSlug)},
+  postType: ${quoteTsString(options.postMeta.postType)},
+  schemaFile: ${quoteTsString(options.postMeta.schemaFile)},
+  sourceTypeName: ${quoteTsString(options.postMeta.sourceTypeName)},
 } as const;
 
 const POST_META_BINDING_FIELDS = [
 ${buildTsPostMetaFieldEntries(options.postMeta.fields, options.textDomain)}
 ] as const;
 
-const POST_META_PREVIEW_VALUES: Record<string, unknown> = Object.fromEntries(
-\tPOST_META_BINDING_FIELDS.map( ( field ) => [
-\t\tfield.name,
-\t\tfield.previewValue,
-\t] )
-);
+const POST_META_PREVIEW_VALUES: Record<string, unknown> =
+  Object.fromEntries(
+    POST_META_BINDING_FIELDS.map((field) => [field.name, field.previewValue]),
+  );
 ${targetSource}
-
-function resolveBindingFieldType( schemaType: string ): string {
-\treturn schemaType === 'unknown' ? 'string' : schemaType;
+function resolveBindingFieldType(schemaType: string): string {
+  return schemaType === 'unknown' ? 'string' : schemaType;
 }
 
-function resolveBindingSourceValue( field: string ): unknown {
-\treturn POST_META_PREVIEW_VALUES[ field ] ?? '';
+function resolveBindingSourceValue(field: string): unknown {
+  return POST_META_PREVIEW_VALUES[field] ?? '';
 }
 
-registerBlockBindingsSource( {
-\tname: ${quoteTsString(bindingSourceName)},
-\tlabel: __( ${quoteTsString(bindingSourceTitle)}, ${quoteTsString(options.textDomain)} ),
-\tgetFieldsList() {
-\t\treturn POST_META_BINDING_FIELDS.map( ( field ) => ( {
-\t\t\tlabel: field.label,
-\t\t\ttype: resolveBindingFieldType( field.schemaType ),
-\t\t\targs: {
-\t\t\t\tfield: field.name,
-\t\t\t},
-\t\t} ) );
-\t},
-\tgetValues( { bindings } ) {
-\t\tconst values: Record<string, unknown> = {};
-\t\tfor ( const [ attributeName, binding ] of Object.entries(
-\t\t\tbindings as Record<string, BindingSourceRegistration>
-\t\t) ) {
-\t\t\tconst field =
-\t\t\t\ttypeof binding?.args?.field === 'string'
-\t\t\t\t\t? binding.args.field
-\t\t\t\t\t: ${quoteTsString(options.postMeta.metaPath)};
-\t\t\tvalues[ attributeName ] = resolveBindingSourceValue( field );
-\t\t}
-\t\treturn values;
-\t},
-} );
+registerBlockBindingsSource({
+  name: ${quoteTsString(bindingSourceName)},
+  label: __(${quoteTsString(bindingSourceTitle)}, ${quoteTsString(options.textDomain)}),
+  getFieldsList() {
+    return POST_META_BINDING_FIELDS.map((field) => ({
+      label: field.label,
+      type: resolveBindingFieldType(field.schemaType),
+      args: {
+        field: field.name,
+      },
+    }));
+  },
+  getValues({ bindings }: BindingSourceValuesOptions) {
+    const values: Record<string, unknown> = {};
+    for (const [attributeName, binding] of Object.entries(bindings)) {
+      const field =
+        typeof binding?.args?.field === 'string'
+          ? binding.args.field
+          : ${quoteTsString(options.postMeta.metaPath)};
+      values[attributeName] = resolveBindingSourceValue(field);
+    }
+    return values;
+  },
+});
 `;
 }
 
@@ -432,10 +431,10 @@ export function buildBindingSourceEditorSource(
   const targetSource = target
 		? `
 export const BINDING_SOURCE_TARGET = {
-\tattribute: ${quoteTsString(target.attributeName)},
-\tblock: ${quoteTsString(`${namespace}/${target.blockSlug}`)},
-\tfield: ${quoteTsString(bindingSourceSlug)},
-\tsource: ${quoteTsString(bindingSourceName)},
+  attribute: ${quoteTsString(target.attributeName)},
+  block: ${quoteTsString(`${namespace}/${target.blockSlug}`)},
+  field: ${quoteTsString(bindingSourceSlug)},
+  source: ${quoteTsString(bindingSourceName)},
 } as const;
 `
 		: '';
@@ -444,47 +443,48 @@ export const BINDING_SOURCE_TARGET = {
 import { __ } from '@wordpress/i18n';
 
 interface BindingSourceRegistration {
-\targs?: {
-\t\tfield?: string;
-\t};
+  args?: {
+    field?: string;
+  };
+}
+
+interface BindingSourceValuesOptions {
+  bindings: Record<string, BindingSourceRegistration>;
 }
 
 const BINDING_SOURCE_VALUES: Record<string, string> = {
-\t${quoteTsString(bindingSourceSlug)}: ${quoteTsString(starterValue)},
+  ${quoteTsString(bindingSourceSlug)}: ${quoteTsString(starterValue)},
 };
 ${targetSource}
-
-function resolveBindingSourceValue( field: string ): string {
-\treturn BINDING_SOURCE_VALUES[ field ] ?? '';
+function resolveBindingSourceValue(field: string): string {
+  return BINDING_SOURCE_VALUES[field] ?? '';
 }
 
-registerBlockBindingsSource( {
-\tname: ${quoteTsString(bindingSourceName)},
-\tlabel: __( ${quoteTsString(bindingSourceTitle)}, ${quoteTsString(textDomain)} ),
-\tgetFieldsList() {
-\t\treturn [
-\t\t\t{
-\t\t\t\tlabel: __( ${quoteTsString(bindingSourceTitle)}, ${quoteTsString(textDomain)} ),
-\t\t\t\ttype: 'string',
-\t\t\t\targs: {
-\t\t\t\t\tfield: ${quoteTsString(bindingSourceSlug)},
-\t\t\t\t},
-\t\t\t},
-\t\t];
-\t},
-\tgetValues( { bindings } ) {
-\t\tconst values: Record<string, string> = {};
-\t\tfor ( const [ attributeName, binding ] of Object.entries(
-\t\t\tbindings as Record<string, BindingSourceRegistration>
-\t\t) ) {
-\t\t\tconst field =
-\t\t\t\ttypeof binding?.args?.field === 'string'
-\t\t\t\t\t? binding.args.field
-\t\t\t\t\t: ${quoteTsString(bindingSourceSlug)};
-\t\t\tvalues[ attributeName ] = resolveBindingSourceValue( field );
-\t\t}
-\t\treturn values;
-\t},
-} );
+registerBlockBindingsSource({
+  name: ${quoteTsString(bindingSourceName)},
+  label: __(${quoteTsString(bindingSourceTitle)}, ${quoteTsString(textDomain)}),
+  getFieldsList() {
+    return [
+      {
+        label: __(${quoteTsString(bindingSourceTitle)}, ${quoteTsString(textDomain)}),
+        type: 'string',
+        args: {
+          field: ${quoteTsString(bindingSourceSlug)},
+        },
+      },
+    ];
+  },
+  getValues({ bindings }: BindingSourceValuesOptions) {
+    const values: Record<string, string> = {};
+    for (const [attributeName, binding] of Object.entries(bindings)) {
+      const field =
+        typeof binding?.args?.field === 'string'
+          ? binding.args.field
+          : ${quoteTsString(bindingSourceSlug)};
+      values[attributeName] = resolveBindingSourceValue(field);
+    }
+    return values;
+  },
+});
 `;
 }

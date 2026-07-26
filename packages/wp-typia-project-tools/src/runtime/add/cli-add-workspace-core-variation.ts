@@ -219,6 +219,68 @@ function formatCoreVariationTitle(variationSlug: string): string {
   return toTitleCase(variationSlug);
 }
 
+function buildCoreVariationTranslationCall(
+	message: string,
+	textDomain: string,
+): string {
+  return `__(${quoteTsString(message)}, ${quoteTsString(textDomain)})`;
+}
+
+function buildCoreVariationTranslationProperty(options: {
+  indentation: string;
+  message: string;
+  propertyName: string;
+  textDomain: string;
+}): string {
+  const compact = `${options.indentation}${options.propertyName}: ${buildCoreVariationTranslationCall(
+    options.message,
+    options.textDomain,
+  )},`;
+  if (compact.length <= 80) {
+    return compact;
+  }
+
+  return [
+    `${options.indentation}${options.propertyName}: __(`,
+    `${options.indentation}  ${quoteTsString(options.message)},`,
+    `${options.indentation}  ${quoteTsString(options.textDomain)},`,
+    `${options.indentation}),`,
+  ].join('\n');
+}
+
+function buildCoreVariationKeywordsSource(options: {
+  textDomain: string;
+  variationTitle: string;
+}): string {
+  const messages = ['variation', options.variationTitle];
+  const calls = messages.map((message) =>
+    buildCoreVariationTranslationCall(message, options.textDomain),
+  );
+  const compact = `  keywords: [${calls.join(', ')}],`;
+  if (compact.length <= 80) {
+    return compact;
+  }
+
+  return [
+    '  keywords: [',
+    ...messages.flatMap((message) => {
+      const call = `    ${buildCoreVariationTranslationCall(
+        message,
+        options.textDomain,
+      )},`;
+      return call.length <= 80
+        ? [call]
+        : [
+            '    __(',
+            `      ${quoteTsString(message)},`,
+            `      ${quoteTsString(options.textDomain)},`,
+            '    ),',
+          ];
+    }),
+    '  ],',
+  ].join('\n');
+}
+
 function getUnknownCoreVariationTargetWarning(
 	targetBlockName: string,
 ): string | undefined {
@@ -264,43 +326,63 @@ function buildCoreVariationInnerBlocksSource(options: {
 }): string {
   if (options.targetBlockName === 'core/columns') {
     return `export const ${options.constName} = [
-\t[
-\t\t'core/column',
-\t\t{},
-\t\t[
-\t\t\t[
-\t\t\t\t'core/heading',
-\t\t\t\t{
-\t\t\t\t\tlevel: 2,
-\t\t\t\t\tplaceholder: __( ${quoteTsString('Add a section heading')}, ${quoteTsString(options.textDomain)} ),
-\t\t\t\t},
-\t\t\t],
-\t\t\t[
-\t\t\t\t'core/paragraph',
-\t\t\t\t{
-\t\t\t\t\tplaceholder: __( ${quoteTsString('Add supporting copy')}, ${quoteTsString(options.textDomain)} ),
-\t\t\t\t},
-\t\t\t],
-\t\t],
-\t],
+  [
+    'core/column',
+    {},
+    [
+      [
+        'core/heading',
+        {
+          level: 2,
+${buildCoreVariationTranslationProperty({
+  indentation: '          ',
+  message: 'Add a section heading',
+  propertyName: 'placeholder',
+  textDomain: options.textDomain,
+})}
+        },
+      ],
+      [
+        'core/paragraph',
+        {
+${buildCoreVariationTranslationProperty({
+  indentation: '          ',
+  message: 'Add supporting copy',
+  propertyName: 'placeholder',
+  textDomain: options.textDomain,
+})}
+        },
+      ],
+    ],
+  ],
 ] satisfies BlockTemplate;`;
   }
 
   if (CORE_VARIATION_SIMPLE_CONTAINER_BLOCKS.has(options.targetBlockName)) {
     return `export const ${options.constName} = [
-\t[
-\t\t'core/heading',
-\t\t{
-\t\t\tlevel: 2,
-\t\t\tplaceholder: __( ${quoteTsString('Add a section heading')}, ${quoteTsString(options.textDomain)} ),
-\t\t},
-\t],
-\t[
-\t\t'core/paragraph',
-\t\t{
-\t\t\tplaceholder: __( ${quoteTsString('Add supporting copy')}, ${quoteTsString(options.textDomain)} ),
-\t\t},
-\t],
+  [
+    'core/heading',
+    {
+      level: 2,
+${buildCoreVariationTranslationProperty({
+  indentation: '      ',
+  message: 'Add a section heading',
+  propertyName: 'placeholder',
+  textDomain: options.textDomain,
+})}
+    },
+  ],
+  [
+    'core/paragraph',
+    {
+${buildCoreVariationTranslationProperty({
+  indentation: '      ',
+  message: 'Add supporting copy',
+  propertyName: 'placeholder',
+  textDomain: options.textDomain,
+})}
+    },
+  ],
 ] satisfies BlockTemplate;`;
   }
 
@@ -338,26 +420,26 @@ function buildCoreVariationSource(options: {
   const variationClassName = `is-${options.variationSlug}`;
 
   return `import type {
-\tBlockTemplate,
-\tBlockVariation,
+  BlockTemplate,
+  BlockVariation,
 } from '@wp-typia/block-types/blocks/registration';
 import { __ } from '@wordpress/i18n';
 
 export const ${blockConstName} = ${quoteTsString(options.targetBlockName)};
 
 export interface ${attributesTypeName} {
-\tclassName?: string;
-\tmetadata?: {
-\t\tname?: string;
-\t};
-\t[key: string]: unknown;
+  className?: string;
+  metadata?: {
+    name?: string;
+  };
+  [key: string]: unknown;
 }
 
 export const ${attributesConstName} = {
-\tclassName: ${quoteTsString(variationClassName)},
-\tmetadata: {
-\t\tname: ${quoteTsString(variationTitle)},
-\t},
+  className: ${quoteTsString(variationClassName)},
+  metadata: {
+    name: ${quoteTsString(variationTitle)},
+  },
 } satisfies ${attributesTypeName};
 
 ${buildCoreVariationInnerBlocksSource({
@@ -367,22 +449,29 @@ ${buildCoreVariationInnerBlocksSource({
 })}
 
 export const ${variationConstName} = {
-\tname: ${quoteTsString(options.variationSlug)},
-\ttitle: __( ${quoteTsString(variationTitle)}, ${quoteTsString(options.textDomain)} ),
-\tdescription: __(
-\t\t${quoteTsString(`A starter ${options.targetBlockName} variation for ${variationTitle}.`)},
-\t\t${quoteTsString(options.textDomain)},
-\t),
-\tcategory: 'design',
-\ticon: 'layout',
-\tkeywords: [
-\t\t__( ${quoteTsString('variation')}, ${quoteTsString(options.textDomain)} ),
-\t\t__( ${quoteTsString(variationTitle)}, ${quoteTsString(options.textDomain)} ),
-\t],
-\tattributes: ${attributesConstName},
-\tinnerBlocks: ${innerBlocksConstName},
-\tisActive: ['className'],
-\tscope: ['block', 'inserter', 'transform'],
+  name: ${quoteTsString(options.variationSlug)},
+${buildCoreVariationTranslationProperty({
+  indentation: '  ',
+  message: variationTitle,
+  propertyName: 'title',
+  textDomain: options.textDomain,
+})}
+${buildCoreVariationTranslationProperty({
+  indentation: '  ',
+  message: `A starter ${options.targetBlockName} variation for ${variationTitle}.`,
+  propertyName: 'description',
+  textDomain: options.textDomain,
+})}
+  category: 'design',
+  icon: 'layout',
+${buildCoreVariationKeywordsSource({
+  textDomain: options.textDomain,
+  variationTitle,
+})}
+  attributes: ${attributesConstName},
+  innerBlocks: ${innerBlocksConstName},
+  isActive: ['className'],
+  scope: ['block', 'inserter', 'transform'],
 } satisfies BlockVariation<${attributesTypeName}>;
 `;
 }
@@ -451,12 +540,18 @@ function buildCoreVariationIndexSource(refs: readonly CoreVariationModuleRef[]):
 				ref.targetBlockName,
 				ref.variationSlug,
 			);
-			return `import { ${blockConstName} as CORE_VARIATION_BLOCK_${index}, ${variationConstName} as coreVariationEntry${index} } from '${buildCoreVariationImportPath(ref)}';`;
+			return `import {
+  ${blockConstName} as CORE_VARIATION_BLOCK_${index},
+  ${variationConstName} as coreVariationEntry${index},
+} from '${buildCoreVariationImportPath(ref)}';`;
 		})
 		.join('\n');
   const entryLines = refs
 		.map((_, index) => {
-			return `\t{ blockName: CORE_VARIATION_BLOCK_${index}, variation: coreVariationEntry${index} },`;
+			return `  {
+    blockName: CORE_VARIATION_BLOCK_${index},
+    variation: coreVariationEntry${index},
+  },`;
 		})
 		.join('\n');
 
@@ -467,9 +562,9 @@ ${entryLines}
 ] as const;
 
 export function registerWorkspaceCoreVariations() {
-\tfor (const { blockName, variation } of WORKSPACE_CORE_VARIATIONS) {
-\t\tregisterBlockVariation(blockName, variation);
-\t}
+  for (const { blockName, variation } of WORKSPACE_CORE_VARIATIONS) {
+    registerBlockVariation(blockName, variation);
+  }
 }
 
 registerWorkspaceCoreVariations();

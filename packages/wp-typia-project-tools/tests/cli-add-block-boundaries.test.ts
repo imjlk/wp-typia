@@ -18,9 +18,11 @@ test('cli-add-block delegates config generation and legacy validator repair to f
 		'utf8',
 	);
 
-	expect(addBlockSource).toContain('from "./cli-add-block-config.js"');
-	expect(addBlockSource).toContain(
-		'from "./cli-add-block-legacy-validator.js"',
+	expect(addBlockSource).toMatch(
+		/from\s+['"]\.\/cli-add-block-config\.js['"]/,
+	);
+	expect(addBlockSource).toMatch(
+		/from\s+['"]\.\/cli-add-block-legacy-validator\.js['"]/,
 	);
 	expect(addBlockSource).not.toContain('function buildConfigEntries(');
 	expect(addBlockSource).not.toContain('function buildMigrationBlocks(');
@@ -54,7 +56,7 @@ test('cli-add-block delegates config generation and legacy validator repair to f
 	expect(addBlockSource).toContain(
 		'fileSources: await snapshotWorkspaceFiles([\n\t\t\t\tpackageJsonPath,',
 	);
-	expect(addBlockSource).toContain(
-		'from "./cli-add-block-package-json.js"',
+	expect(addBlockSource).toMatch(
+		/from\s+['"]\.\/cli-add-block-package-json\.js['"]/,
 	);
 });

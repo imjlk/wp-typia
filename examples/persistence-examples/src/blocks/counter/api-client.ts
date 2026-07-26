@@ -13,8 +13,8 @@ import type {
 import { apiValidators } from './api-validators';
 
 export const getPersistenceCounterStateEndpoint = createEndpoint<
-	PersistenceCounterQuery,
-	PersistenceCounterResponse
+  PersistenceCounterQuery,
+  PersistenceCounterResponse
 >({
   authIntent: 'public',
   authMode: 'public-read',
@@ -27,15 +27,15 @@ export const getPersistenceCounterStateEndpoint = createEndpoint<
 });
 
 export function getPersistenceCounterState(
-	request: PersistenceCounterQuery,
-	options: EndpointCallOptions,
+  request: PersistenceCounterQuery,
+  options: EndpointCallOptions,
 ) {
-  return callEndpoint( getPersistenceCounterStateEndpoint, request, options );
+  return callEndpoint(getPersistenceCounterStateEndpoint, request, options);
 }
 
 export const incrementPersistenceCounterStateEndpoint = createEndpoint<
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterResponse
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterResponse
 >({
   authIntent: 'public-write-protected',
   authMode: 'public-signed-token',
@@ -48,8 +48,8 @@ export const incrementPersistenceCounterStateEndpoint = createEndpoint<
 });
 
 export function incrementPersistenceCounterState(
-	request: PersistenceCounterIncrementRequest,
-	options: EndpointCallOptions,
+  request: PersistenceCounterIncrementRequest,
+  options: EndpointCallOptions,
 ) {
   return callEndpoint(
     incrementPersistenceCounterStateEndpoint,
@@ -59,8 +59,8 @@ export function incrementPersistenceCounterState(
 }
 
 export const getPersistenceCounterBootstrapEndpoint = createEndpoint<
-	PersistenceCounterBootstrapQuery,
-	PersistenceCounterBootstrapResponse
+  PersistenceCounterBootstrapQuery,
+  PersistenceCounterBootstrapResponse
 >({
   authIntent: 'public',
   authMode: 'public-read',
@@ -73,8 +73,8 @@ export const getPersistenceCounterBootstrapEndpoint = createEndpoint<
 });
 
 export function getPersistenceCounterBootstrap(
-	request: PersistenceCounterBootstrapQuery,
-	options: EndpointCallOptions,
+  request: PersistenceCounterBootstrapQuery,
+  options: EndpointCallOptions,
 ) {
   return callEndpoint(getPersistenceCounterBootstrapEndpoint, request, options);
 }

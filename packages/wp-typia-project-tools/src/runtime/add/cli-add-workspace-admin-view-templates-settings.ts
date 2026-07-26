@@ -2,10 +2,17 @@ import { quoteTsString } from './cli-add-shared.js';
 import { type AdminViewManualSettingsRestResource } from './cli-add-workspace-admin-view-types.js';
 import { getAdminViewRelativeModuleSpecifier } from './cli-add-workspace-admin-view-templates-shared.js';
 import {
+  renderNamedTypeScriptValueImport,
+  renderNamedTypeScriptTypeImport,
+  renderTypeScriptConstDeclaration,
+  wrapLongTranslationCalls,
+} from './cli-add-workspace-admin-view-typescript-format.js';
+import {
   toCamelCase,
   toPascalCase,
   toTitleCase,
 } from '../shared/string-case.js';
+import { renderTypeScriptValue } from '../shared/ts-string-literals.js';
 
 /**
  * Builds TypeScript request, response, and form-state types for REST settings.
@@ -25,12 +32,16 @@ export function buildRestSettingsAdminViewTypesSource(
   );
   const formStateTypeName = `${pascalName}SettingsFormState`;
   const loadResultTypeName = `${pascalName}SettingsLoadResult`;
+  const restTypesImport = renderNamedTypeScriptTypeImport(
+    [
+      restResource.bodyTypeName,
+      restResource.queryTypeName,
+      restResource.responseTypeName,
+    ],
+    restTypesModule,
+  );
 
-  return `import type {
-\t${restResource.bodyTypeName},
-\t${restResource.queryTypeName},
-\t${restResource.responseTypeName},
-} from ${quoteTsString(restTypesModule)};
+  return `${restTypesImport}
 
 export type ${pascalName}SettingsRequest = ${restResource.bodyTypeName};
 export type ${pascalName}SettingsQuery = ${restResource.queryTypeName};
@@ -62,26 +73,27 @@ export function buildRestSettingsAdminViewConfigSource(
   const title = toTitleCase(adminViewSlug);
   const configName = `${camelName}SettingsConfig`;
   const formStateTypeName = `${pascalName}SettingsFormState`;
+  const typesImport = renderNamedTypeScriptTypeImport([formStateTypeName]);
   const secretPreserveOnEmpty = restResource.secretPreserveOnEmpty !== false;
   const secretFieldSource =
     restResource.secretFieldName && restResource.secretStateFieldName
       ? `\t{
-\t\tdescription: __( ${quoteTsString(
+\t\tdescription: __(${quoteTsString(
         secretPreserveOnEmpty
           ? 'Write-only secret value. Leave blank to keep the existing secret.'
           : 'Write-only secret value. Blank submissions are sent to the REST route.',
-      )}, ${quoteTsString(textDomain)} ),
+      )}, ${quoteTsString(textDomain)}),
 \t\tid: ${quoteTsString(restResource.secretFieldName)},
-\t\tlabel: __( ${quoteTsString(toTitleCase(restResource.secretFieldName))}, ${quoteTsString(textDomain)} ),
+\t\tlabel: __(${quoteTsString(toTitleCase(restResource.secretFieldName))}, ${quoteTsString(textDomain)}),
 \t\tpreserveOnEmpty: ${secretPreserveOnEmpty},
 \t\tsecretStateField: ${quoteTsString(restResource.secretStateFieldName)},
 \t\ttype: 'secret',
 \t},`
       : '';
 
-  return `import { __ } from '@wordpress/i18n';
+  const source = `import { __ } from '@wordpress/i18n';
 
-import type { ${formStateTypeName} } from './types';
+${typesImport}
 
 export type ${pascalName}SettingsFieldType = 'secret' | 'text' | 'textarea';
 
@@ -95,18 +107,18 @@ export interface ${pascalName}SettingsField {
 }
 
 export const ${configName} = {
-\tdescription: __( 'This generated settings form is backed by the ${restResource.slug} REST contract. Adjust config.ts and data.ts as the contract becomes product-specific.', ${quoteTsString(textDomain)} ),
+\tdescription: __('This generated settings form is backed by the ${restResource.slug} REST contract. Adjust config.ts and data.ts as the contract becomes product-specific.', ${quoteTsString(textDomain)}),
 \tfields: [
 \t\t{
-\t\t\tdescription: __( 'Primary settings payload for this integration.', ${quoteTsString(textDomain)} ),
+\t\t\tdescription: __('Primary settings payload for this integration.', ${quoteTsString(textDomain)}),
 \t\t\tid: 'payload',
-\t\t\tlabel: __( 'Payload', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Payload', ${quoteTsString(textDomain)}),
 \t\t\ttype: 'textarea',
 \t\t},
 \t\t{
-\t\t\tdescription: __( 'Optional operator note included with the save request.', ${quoteTsString(textDomain)} ),
+\t\t\tdescription: __('Optional operator note included with the save request.', ${quoteTsString(textDomain)}),
 \t\t\tid: 'comment',
-\t\t\tlabel: __( 'Comment', ${quoteTsString(textDomain)} ),
+\t\t\tlabel: __('Comment', ${quoteTsString(textDomain)}),
 \t\t\ttype: 'text',
 \t\t},
 ${secretFieldSource}
@@ -114,9 +126,10 @@ ${secretFieldSource}
 \tsecretFieldName: ${restResource.secretFieldName ? quoteTsString(restResource.secretFieldName) : 'undefined'},
 \tsecretPreserveOnEmpty: ${restResource.secretFieldName ? secretPreserveOnEmpty : 'undefined'},
 \tsecretStateFieldName: ${restResource.secretStateFieldName ? quoteTsString(restResource.secretStateFieldName) : 'undefined'},
-\ttitle: __( ${quoteTsString(title)}, ${quoteTsString(textDomain)} ),
+\ttitle: __(${quoteTsString(title)}, ${quoteTsString(textDomain)}),
 };
 `;
+  return wrapLongTranslationCalls(source, textDomain);
 }
 
 /**
@@ -139,15 +152,24 @@ export function buildRestSettingsAdminViewDataSource(
   const loadResultTypeName = `${pascalName}SettingsLoadResult`;
   const loadName = `load${pascalName}Settings`;
   const saveName = `save${pascalName}Settings`;
+  const typesImport = renderNamedTypeScriptTypeImport([
+    formStateTypeName,
+    loadResultTypeName,
+    `${pascalName}SettingsQuery`,
+    `${pascalName}SettingsRequest`,
+    `${pascalName}SettingsResponse`,
+  ]);
   const secretPreserveOnEmpty = restResource.secretPreserveOnEmpty !== false;
-  const initialFieldLines = [
-    "\tpayload: '',",
-    "\tcomment: '',",
-    ...(restResource.secretFieldName && !secretPreserveOnEmpty
-      ? [`\t${quoteTsString(restResource.secretFieldName)}: '',`]
-      : []),
-  ];
-  const initialFields = initialFieldLines.join('\n');
+  const initialStateSource = renderTypeScriptValue(
+    {
+      payload: '',
+      comment: '',
+      ...(restResource.secretFieldName && !secretPreserveOnEmpty
+        ? { [restResource.secretFieldName]: '' }
+        : {}),
+    },
+    60,
+  ).replace(/\n/gu, '\n  ');
   const requestBodySource = restResource.secretFieldName && secretPreserveOnEmpty
     ? `\tconst requestBody = { ...form } as Record<string, unknown>;
 \tif (requestBody[${quoteTsString(restResource.secretFieldName)}] === '') {
@@ -158,13 +180,7 @@ export function buildRestSettingsAdminViewDataSource(
 `;
 
   return `import { callManualRestContract } from ${quoteTsString(restApiModule)};
-import type {
-\t${formStateTypeName},
-\t${loadResultTypeName},
-\t${pascalName}SettingsQuery,
-\t${pascalName}SettingsRequest,
-\t${pascalName}SettingsResponse,
-} from './types';
+${typesImport}
 
 function formatValidationError(prefix: string, errors: unknown): string {
 \tif (!Array.isArray(errors) || errors.length === 0) {
@@ -175,9 +191,7 @@ function formatValidationError(prefix: string, errors: unknown): string {
 }
 
 export function createInitial${pascalName}SettingsFormState(): ${formStateTypeName} {
-\treturn {
-${initialFields}
-\t} as ${formStateTypeName};
+\treturn ${initialStateSource} as ${formStateTypeName};
 }
 
 export async function ${loadName}(): Promise<${loadResultTypeName}> {
@@ -228,6 +242,18 @@ export function buildRestSettingsAdminViewScreenSource(
   const configName = `${camelName}SettingsConfig`;
   const loadName = `load${pascalName}Settings`;
   const saveName = `save${pascalName}Settings`;
+  const typesImport = renderNamedTypeScriptTypeImport([
+    formStateTypeName,
+    responseTypeName,
+  ]);
+  const dataImport = renderNamedTypeScriptValueImport(
+    [loadName, saveName],
+    './data',
+  );
+  const responseStateSource = renderTypeScriptConstDeclaration(
+    '[response, setResponse]',
+    `useState<${responseTypeName} | null>(null)`,
+  );
 
   return `import {
 \tButton,
@@ -240,15 +266,15 @@ import { useEffect, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { ${configName} } from './config';
-import { ${loadName}, ${saveName} } from './data';
-import type { ${formStateTypeName}, ${responseTypeName} } from './types';
+${dataImport}
+${typesImport}
 
 function getFieldValue(form: ${formStateTypeName}, fieldId: string): string {
 \tconst value = (form as Record<string, unknown>)[fieldId];
 \tif (typeof value === 'string') {
 \t\treturn value;
 \t}
-\tif (value == null) {
+\tif (value === null || value === undefined) {
 \t\treturn '';
 \t}
 
@@ -267,7 +293,7 @@ function getSecretState(response: ${responseTypeName} | null): boolean | null {
 
 export function ${componentName}() {
 \tconst [form, setForm] = useState<${formStateTypeName}>({});
-\tconst [response, setResponse] = useState<${responseTypeName} | null>(null);
+${responseStateSource}
 \tconst [error, setError] = useState<string | null>(null);
 \tconst [isLoading, setIsLoading] = useState(true);
 \tconst [isSaving, setIsSaving] = useState(false);
@@ -290,7 +316,7 @@ export function ${componentName}() {
 \t\t\t\t\tsetError(
 \t\t\t\t\t\tnextError instanceof Error
 \t\t\t\t\t\t\t? nextError.message
-\t\t\t\t\t\t\t: __( 'Unable to prepare settings form.', ${quoteTsString(textDomain)} ),
+\t\t\t\t\t\t\t: __('Unable to prepare settings form.', ${quoteTsString(textDomain)}),
 \t\t\t\t\t);
 \t\t\t\t}
 \t\t\t})
@@ -325,13 +351,13 @@ export function ${componentName}() {
 \t\tvoid ${saveName}(form)
 \t\t\t.then((nextResponse) => {
 \t\t\t\tsetResponse(nextResponse);
-\t\t\t\tsetSuccessMessage(__( 'Settings saved.', ${quoteTsString(textDomain)} ));
+\t\t\t\tsetSuccessMessage(__('Settings saved.', ${quoteTsString(textDomain)}));
 \t\t\t})
 \t\t\t.catch((nextError: unknown) => {
 \t\t\t\tsetError(
 \t\t\t\t\tnextError instanceof Error
 \t\t\t\t\t\t? nextError.message
-\t\t\t\t\t\t: __( 'Unable to save settings.', ${quoteTsString(textDomain)} ),
+\t\t\t\t\t\t: __('Unable to save settings.', ${quoteTsString(textDomain)}),
 \t\t\t\t);
 \t\t\t})
 \t\t\t.finally(() => setIsSaving(false));
@@ -342,7 +368,7 @@ export function ${componentName}() {
 \t\t\t<header className="wp-typia-admin-view-screen__header">
 \t\t\t\t<div>
 \t\t\t\t\t<p className="wp-typia-admin-view-screen__eyebrow">
-\t\t\t\t\t\t{ __( 'Typed settings screen', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t{ __('Typed settings screen', ${quoteTsString(textDomain)}) }
 \t\t\t\t\t</p>
 \t\t\t\t\t<h1>{ ${configName}.title }</h1>
 \t\t\t\t\t<p>{ ${configName}.description }</p>
@@ -364,8 +390,8 @@ export function ${componentName}() {
 \t\t\t{ secretState !== null ? (
 \t\t\t\t<Notice isDismissible={ false } status="info">
 \t\t\t\t\t{ secretState
-\t\t\t\t\t\t? __( 'A secret is currently configured for this integration.', ${quoteTsString(textDomain)} )
-\t\t\t\t\t\t: __( 'No secret is currently configured for this integration.', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t\t? __('A secret is currently configured for this integration.', ${quoteTsString(textDomain)})
+\t\t\t\t\t\t: __('No secret is currently configured for this integration.', ${quoteTsString(textDomain)}) }
 \t\t\t\t</Notice>
 \t\t\t) : null }
 \t\t\t<form className="wp-typia-admin-view-screen__settings-form" onSubmit={ handleSubmit }>
@@ -395,7 +421,7 @@ export function ${componentName}() {
 \t\t\t\t\ttype="submit"
 \t\t\t\t\tvariant="primary"
 \t\t\t\t>
-\t\t\t\t\t{ __( 'Save settings', ${quoteTsString(textDomain)} ) }
+\t\t\t\t\t{ __('Save settings', ${quoteTsString(textDomain)}) }
 \t\t\t\t</Button>
 \t\t\t</form>
 \t\t</div>

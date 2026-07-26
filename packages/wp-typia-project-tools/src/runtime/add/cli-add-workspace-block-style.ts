@@ -24,7 +24,7 @@ import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
 const BLOCK_STYLES_IMPORT_LINE =
 	"import { registerWorkspaceBlockStyles } from './styles';";
 const BLOCK_STYLES_IMPORT_PATTERN =
-	/^\s*import\s*\{\s*registerWorkspaceBlockStyles\s*\}\s*from\s*["']\.\/styles["']\s*;?\s*$/mu;
+	/^[ \t]*import\s*\{\s*registerWorkspaceBlockStyles\s*\}\s*from\s*["']\.\/styles["'][ \t]*;?[ \t]*$/mu;
 const BLOCK_STYLES_CALL_LINE = 'registerWorkspaceBlockStyles();';
 const BLOCK_STYLES_CALL_PATTERN = /registerWorkspaceBlockStyles\s*\(\s*\)\s*;?/u;
 
@@ -69,8 +69,8 @@ function buildBlockStyleSource(styleSlug: string, textDomain: string): string {
   return `import { __ } from '@wordpress/i18n';
 
 export const ${styleConstName} = {
-\tname: ${quoteTsString(styleSlug)},
-\tlabel: __( ${quoteTsString(styleTitle)}, ${quoteTsString(textDomain)} ),
+  name: ${quoteTsString(styleSlug)},
+  label: __(${quoteTsString(styleTitle)}, ${quoteTsString(textDomain)}),
 } as const;
 `;
 }
@@ -80,23 +80,23 @@ function buildBlockStyleIndexSource(styleSlugs: string[]): string {
   const importLines = styleBindings
 		.map(({ constName, styleSlug }) => `import { ${constName} } from './${styleSlug}';`)
 		.join('\n');
-  const styleConstNames = styleBindings.map(({ constName }) => constName).join(
-    ',\n\t',
-  );
+  const styleConstNames = styleBindings
+		.map(({ constName }) => `  ${constName},`)
+		.join('\n');
 
   return `import { registerBlockStyle } from '@wordpress/blocks';
 import metadata from '../block.json';
 ${importLines ? `\n${importLines}` : ''}
 
 const WORKSPACE_BLOCK_STYLES = [
-\t${styleConstNames}
-\t// wp-typia add style entries
+${styleConstNames}
+  // wp-typia add style entries
 ] as const;
 
 export function registerWorkspaceBlockStyles() {
-\tfor (const style of WORKSPACE_BLOCK_STYLES) {
-\t\tregisterBlockStyle(metadata.name, style);
-\t}
+  for (const style of WORKSPACE_BLOCK_STYLES) {
+    registerBlockStyle(metadata.name, style);
+  }
 }
 `;
 }

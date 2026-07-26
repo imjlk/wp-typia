@@ -20,7 +20,7 @@ describe('@wp-typia/project-tools scaffold toolchain policy', () => {
 		cleanupScaffoldTempRoot(tempRoot);
 	});
 
-	test('npm scaffolds omit packageManager and Node helper version files', async () => {
+	test('npm scaffolds declare Node 24 without helper version files', async () => {
 		const targetDir = path.join(tempRoot, 'demo-toolchain-npm');
 
 		await scaffoldProject({
@@ -46,7 +46,7 @@ describe('@wp-typia/project-tools scaffold toolchain policy', () => {
 		};
 
 		expect(packageJson.packageManager).toBeUndefined();
-		expect(packageJson.engines).toBeUndefined();
+		expect(packageJson.engines).toEqual({ node: '>=24.0.0' });
 		expect(fs.existsSync(path.join(targetDir, '.nvmrc'))).toBe(false);
 		expect(fs.existsSync(path.join(targetDir, '.node-version'))).toBe(false);
 		expect(packageJson.devDependencies['@wp-typia/block-runtime']).toBe(
@@ -59,7 +59,7 @@ describe('@wp-typia/project-tools scaffold toolchain policy', () => {
 		expect(packageJson.devDependencies['@wp-typia/block-types']).toMatch(/^\^/);
 	});
 
-	test('non-npm scaffolds keep the exact packageManager selector but still use ranged wp-typia deps', async () => {
+	test('non-npm scaffolds keep package manager, Node 24, and ranged wp-typia deps', async () => {
 		const targetDir = path.join(tempRoot, 'demo-toolchain-bun');
 
 		await scaffoldProject({
@@ -89,7 +89,7 @@ describe('@wp-typia/project-tools scaffold toolchain policy', () => {
 		expect(packageJson.packageManager).toBe(
 			getPackageManager('bun').packageManagerField,
 		);
-		expect(packageJson.engines).toBeUndefined();
+		expect(packageJson.engines).toEqual({ node: '>=24.0.0' });
 		expect(fs.existsSync(path.join(targetDir, '.nvmrc'))).toBe(false);
 		expect(fs.existsSync(path.join(targetDir, '.node-version'))).toBe(false);
 		expect(packageJson.devDependencies['@wp-typia/api-client']).toBe(

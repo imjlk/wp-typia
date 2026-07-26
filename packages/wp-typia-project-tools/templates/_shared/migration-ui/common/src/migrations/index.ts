@@ -123,7 +123,7 @@ interface GeneratedMigrationRegistry {
     manifest: ManifestDocument;
     riskSummary: MigrationRiskSummary;
     rule: {
-      migrate(input: Record<string, unknown>): Record<string, unknown>;
+      migrate(input: Record<string, unknown>): unknown;
       unresolved?: readonly string[];
     };
   }>;

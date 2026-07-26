@@ -47,11 +47,12 @@ bun run test:coverage
 
 Quick command map:
 
-- `bun run lint:repo` = root ESLint for repo infrastructure code
-- `bun run lint:fix` = autofix pass for that same root ESLint scope
+- `bun run lint:repo` = root ESLint for JavaScript, CJS, and MJS infrastructure
+- `bun run lint:fix` = root JavaScript ESLint fixes followed by TypeScript `ttsc fix`
 - `bun run lint:all` = root ESLint + example lint + PHP checks
-- `bun run format:check` = non-mutating Prettier check for repo-owned files
-- `bun run format:write` = mutating Prettier write pass for that same repo-owned file set
+- `bun run typecheck` = non-mutating `ttsc` type, lint, unused, and TypeScript format gate
+- `bun run format:check` = non-mutating Prettier check for repo-owned non-TypeScript files
+- `bun run format:write` = `ttsc format` for TypeScript followed by Prettier for non-TypeScript files
 - `bun run maintenance-automation:validate` = verifies Dependabot and audit workflow policy
 - `bun run toolchain-policy:validate` = keeps mise, package-manager, and primary CI runtime versions aligned
 - `bun run samchon-graph:validate` = verifies the pinned project code-graph server and its TypeScript/PHP-only scope
@@ -69,18 +70,22 @@ Quick command map:
 
 Linting ownership is intentionally split:
 
-- root ESLint covers repo infrastructure code such as `scripts/**`, `tests/**`, root config files, and package-side non-example sources
-- example app source continues to live under `examples:lint` and `@wordpress/scripts`
+- `ttsc` and the root `lint.config.ts` own TypeScript/TSX type, lint, unused, and formatting diagnostics
+- root ESLint covers JavaScript, CJS, and MJS infrastructure such as `scripts/**`, root config files, and package-side non-example sources
+- example and generated-project JavaScript continues to use the `@wordpress/scripts` compatibility lane
 - `@wp-typia/api-client/internal/runtime-primitives` is the single maintained home for shared client-runtime validation/object helpers consumed by `@wp-typia/rest`; avoid reintroducing local helper copies in either package
 
 Formatting ownership is also explicit:
 
-- the repo root uses `eslint 9.39.4` together with `@eslint/js 9.39.4` and `@typescript-eslint` `8.58.2`
-- the repo root uses `Prettier 3.8.2` for repo-owned docs, config, workflow, and policy files
-- example apps and built-in scaffold package manifests stay aligned on the same Prettier baseline when they declare a direct formatter dependency
-- package and example source formatting continues to be owned by their package-local tooling such as `@wordpress/scripts`
+- the repo root uses TypeScript `7.0.2`, `ttsc`/`@ttsc/lint` `0.22.0`, ESLint `9.39.4`, and `@eslint/js` `9.39.4`
+- `ttsc` formats TypeScript/TSX at 80 columns, two spaces, semicolons, single quotes, trailing commas, and LF endings
+- the repo root uses Prettier `3.8.2` for repo-owned non-TypeScript docs, config, workflow, and policy files
+- example apps and built-in scaffold package manifests stay aligned on compatible `ttsc`/`@ttsc/lint` and Prettier ranges when they declare direct formatter dependencies
+- package, example, and generated-project TypeScript formatting is owned by `ttsc`; `@wordpress/scripts` remains the compatibility lint lane for WordPress JavaScript
 - the current example block workspaces keep a local `eslint` 8 pin so the `@wordpress/scripts` lint lane stays stable while the repo root uses ESLint 9 for infrastructure code
-- those example `lint:js` scripts route through `scripts/run-wp-scripts-lint-js-compat.mjs` so CI keeps the WordPress defaults while resolving the example-local ESLint 8 binary
+- example and generated `lint:js` scripts route through `run-wp-scripts-lint-js-compat.mjs`; examples resolve their explicit ESLint 8 pin, while generated projects resolve the ESLint bundled with `@wordpress/scripts`
+- the compatibility wrapper preloads `register-typescript6.cjs`, redirecting legacy WordPress ESLint Compiler API consumers to the exact `@typescript/typescript6@6.0.2` island without widening ESLint into TS/TSX
+- generated projects declare React 18 and its types directly so TS7 JSX resolution does not depend on package-manager hoisting
 - GitHub Actions now runs both `bun run formatting-policy:validate` and `bun run format:check` in the main lint job
 
 See [`docs/formatting-toolchain-policy.md`](https://imjlk.github.io/wp-typia/maintainers/formatting-toolchain-policy/) for the exact scope and rationale.
@@ -153,8 +158,9 @@ same PR.
 
 Generated project Webpack defaults are currently regression-covered against:
 
-- `typia` 12.x
-- `@typia/unplugin` 12.x
+- `typia` 13.x
+- TypeScript 7.x with `ttsc` 0.22.x
+- `@ttsc/unplugin` 0.22.x
 - `@wordpress/scripts` 30.x with Webpack 5
 
 The generated Webpack helpers now fail fast outside that matrix so broken
@@ -227,20 +233,25 @@ Validation uses planned publish truth, not just source truth:
 
 - `@wp-typia/rest` keeps `workspace:*` in source so local development stays ergonomic
 - the coupling validator only materializes the sanctioned `@wp-typia/rest -> @wp-typia/api-client` workspace edge against the planned next version before checking the release lane
-- caret-coupled dependents still need a manifest update plus a pending changeset in the same PR when an upstream change falls outside the current lane
-- the `wp-typia -> @wp-typia/project-tools` exact pin may stay on the current source version during a changeset PR, because the release PR/versioning step rewrites that exact dependency to the published next version
+- caret-coupled dependents still need a pending changeset in the same PR when an upstream change falls outside the current lane
+- source dependency ranges may stay on the currently installable workspace versions during a changeset PR; the Sampo release/versioning step rewrites caret and exact runtime dependencies to the planned published versions
 
 ## TypeScript runtime dependency audit
 
-`typescript` is **not** a blanket runtime dependency across the repo.
+TypeScript is **not** a blanket runtime dependency across the repo.
 
-- `@wp-typia/block-runtime` keeps `typescript` in `dependencies` because the published metadata parser/analysis/core paths use the TypeScript compiler API at runtime
-- `@wp-typia/project-tools` keeps `typescript` in `dependencies` because the published workspace inventory helpers used by `add`, `doctor`, `migrations`, and workspace block selection parse `scripts/block-config.ts` through the TypeScript compiler API
-- `wp-typia`, `@wp-typia/rest`, `@wp-typia/api-client`, and `@wp-typia/block-types` do **not** need `typescript` in `dependencies`; they stay build/test-only consumers
+- TypeScript 7 is the primary compiler for repository builds and checks, but it does not expose the JavaScript Compiler API
+- `@wp-typia/block-runtime` keeps `@typescript/typescript6` in `dependencies` because the published metadata parser/analysis/core paths use the TypeScript Compiler API at runtime
+- `@wp-typia/project-tools` keeps `@typescript/typescript6` in `dependencies` because the published workspace inventory helpers used by `add`, `doctor`, migrations, and workspace block selection parse `scripts/block-config.ts` through the Compiler API
+- `apps/docs` aliases its local `typescript` dependency to `@typescript/typescript6` so TypeDoc and Astro run in the same isolated Compiler API-compatible island
+- `wp-typia`, `@wp-typia/rest`, `@wp-typia/api-client`, and `@wp-typia/block-types` do **not** need a Compiler API package in `dependencies`; they stay build/test-only TypeScript consumers
 
 This is enforced by `bun run typescript-runtime:validate` in local CI and GitHub Actions.
 
-If you want to move `typescript` out of `dependencies` for `@wp-typia/block-runtime` or `@wp-typia/project-tools`, first remove the runtime compiler-API usage itself. A dependency-only manifest edit without that refactor is not safe.
+If you want to move `@typescript/typescript6` out of `dependencies` for
+`@wp-typia/block-runtime` or `@wp-typia/project-tools`, first remove the
+runtime Compiler API usage itself. A dependency-only manifest edit without
+that refactor is not safe.
 
 ## Published package footprint
 
@@ -248,7 +259,7 @@ Published package size is intentional, but it still needs regular review.
 
 - `wp-typia` should publish only the runtime assets needed by the CLI (for example `bin/wp-typia.js`, generated `bin/` routing helpers, and `dist/`) plus standard npm metadata such as `package.json`, `README.md`, and `LICENSE`. Repo-only inputs and removed Bunli/OpenTUI artifacts should stay out of the published file list.
 - Gunshi runtime assets should resolve from `dist/` in the packed CLI tarball. Avoid publishing repo-specific absolute-path asset trees or stale Bunli output directories.
-- `@wp-typia/project-tools` still ships `templates/` and keeps `typescript` in `dependencies` intentionally, because published scaffolding and workspace inventory paths rely on those runtime inputs today.
+- `@wp-typia/project-tools` still ships `templates/` and keeps `@typescript/typescript6` in `dependencies` intentionally, because published scaffolding and workspace inventory paths rely on those runtime inputs today.
 
 When you change package metadata or build output layout, verify the packed surface directly with `npm pack --dry-run --json ./packages/<name>` before opening the PR.
 

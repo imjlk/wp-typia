@@ -5,6 +5,10 @@ import {
 } from './cli-add-workspace-rest-source-utils.js';
 import { buildRestResourceEndpointManifest } from './rest-resource-artifacts.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
+import {
+  renderNamedTypeScriptImport,
+  renderTypeScriptValue,
+} from '../shared/ts-string-literals.js';
 
 /**
  * Build a generated REST resource config entry for `scripts/block-config.ts`.
@@ -56,7 +60,7 @@ export function buildRestResourceConfigEntry(options: {
 			: []),
 		`\t\tphpFile: ${quoteTsString(`inc/rest/${options.restResourceSlug}.php`)},`,
 		'\t\trestManifest: defineEndpointManifest(',
-		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
+		indentMultiline(`${renderTypeScriptValue(manifest)},`, '\t\t\t'),
 		'\t\t),',
 		...(options.routePattern
 			? [`\t\troutePattern: ${quoteTsString(options.routePattern)},`]
@@ -86,11 +90,11 @@ export function buildRestResourceTypesSource(
     `export type ${pascalCase}Status = 'draft' | 'published';`,
     '',
     `export interface ${pascalCase}Record {`,
-    "\tid: number & tags.Type< 'uint32' >;",
-    '\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
-    '\tcontent?: string & tags.MaxLength< 2000 >;',
-    `\tstatus: ${pascalCase}Status;`,
-    '\tupdatedAt: string;',
+    "  id: number & tags.Type< 'uint32' >;",
+    '  title: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+    '  content?: string & tags.MaxLength< 2000 >;',
+    `  status: ${pascalCase}Status;`,
+    '  updatedAt: string;',
     '}',
   ];
 
@@ -98,16 +102,16 @@ export function buildRestResourceTypesSource(
     lines.push(
       '',
       `export interface ${pascalCase}ListQuery {`,
-      "\tpage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Default< 1 >;",
-      "\tperPage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Maximum< 50 > & tags.Default< 10 >;",
-      '\tsearch?: string & tags.MaxLength< 120 >;',
+      "  page?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Default< 1 >;",
+      "  perPage?: number & tags.Type< 'uint32' > & tags.Minimum< 1 > & tags.Maximum< 50 > & tags.Default< 10 >;",
+      '  search?: string & tags.MaxLength< 120 >;',
       '}',
       '',
       `export interface ${pascalCase}ListResponse {`,
-      `\titems: ${pascalCase}Record[];`,
-      "\tpage: number & tags.Type< 'uint32' >;",
-      "\tperPage: number & tags.Type< 'uint32' >;",
-      "\ttotal: number & tags.Type< 'uint32' >;",
+      `  items: ${pascalCase}Record[];`,
+      "  page: number & tags.Type< 'uint32' >;",
+      "  perPage: number & tags.Type< 'uint32' >;",
+      "  total: number & tags.Type< 'uint32' >;",
       '}',
     );
   }
@@ -116,7 +120,7 @@ export function buildRestResourceTypesSource(
     lines.push(
       '',
       `export interface ${pascalCase}ReadQuery {`,
-      "\tid: number & tags.Type< 'uint32' >;",
+      "  id: number & tags.Type< 'uint32' >;",
       '}',
       '',
       `export type ${pascalCase}ReadResponse = ${pascalCase}Record;`,
@@ -127,9 +131,9 @@ export function buildRestResourceTypesSource(
     lines.push(
       '',
       `export interface ${pascalCase}CreateRequest {`,
-      '\ttitle: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
-      '\tcontent?: string & tags.MaxLength< 2000 >;',
-      `\tstatus?: ${pascalCase}Status;`,
+      '  title: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+      '  content?: string & tags.MaxLength< 2000 >;',
+      `  status?: ${pascalCase}Status;`,
       '}',
       '',
       `export type ${pascalCase}CreateResponse = ${pascalCase}Record;`,
@@ -140,13 +144,13 @@ export function buildRestResourceTypesSource(
     lines.push(
       '',
       `export interface ${pascalCase}UpdateQuery {`,
-      "\tid: number & tags.Type< 'uint32' >;",
+      "  id: number & tags.Type< 'uint32' >;",
       '}',
       '',
       `export interface ${pascalCase}UpdateRequest {`,
-      '\ttitle?: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
-      '\tcontent?: string & tags.MaxLength< 2000 >;',
-      `\tstatus?: ${pascalCase}Status;`,
+      '  title?: string & tags.MinLength< 1 > & tags.MaxLength< 120 >;',
+      '  content?: string & tags.MaxLength< 2000 >;',
+      `  status?: ${pascalCase}Status;`,
       '}',
       '',
       `export type ${pascalCase}UpdateResponse = ${pascalCase}Record;`,
@@ -157,12 +161,12 @@ export function buildRestResourceTypesSource(
     lines.push(
       '',
       `export interface ${pascalCase}DeleteQuery {`,
-      "\tid: number & tags.Type< 'uint32' >;",
+      "  id: number & tags.Type< 'uint32' >;",
       '}',
       '',
       `export interface ${pascalCase}DeleteResponse {`,
-      '\tdeleted: true;',
-      "\tid: number & tags.Type< 'uint32' >;",
+      '  deleted: true;',
+      "  id: number & tags.Type< 'uint32' >;",
       '}',
     );
   }
@@ -195,9 +199,18 @@ export function buildRestResourceValidatorsSource(
     validatorDeclarations.push(
       `const ${validateIdentifier} = typia.createValidate< ${typeName} >();`,
     );
-    validatorEntries.push(
-      `\t${propertyName}: ( input: unknown ) => toValidationResult< ${typeName} >( ${validateIdentifier}( input ) ),`,
-    );
+    const validationCall =
+      `    toValidationResult< ${typeName} >(${validateIdentifier}(input)),`;
+    validatorEntries.push(`  ${propertyName}: ( input: unknown ) =>`);
+    if (validationCall.length <= 80) {
+      validatorEntries.push(validationCall);
+    } else {
+      validatorEntries.push(
+        `    toValidationResult< ${typeName} >(`,
+        `      ${validateIdentifier}(input),`,
+        '    ),',
+      );
+    }
   };
 
   if (methods.includes('list')) {
@@ -262,7 +275,7 @@ export function buildRestResourceValidatorsSource(
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
-\t${Array.from(importedTypes).sort().join(',\n\t')},
+  ${Array.from(importedTypes).sort().join(',\n  ')},
 } from './api-types';
 
 ${validatorDeclarations.join('\n')}
@@ -296,13 +309,13 @@ export function buildRestResourceApiSource(
     typeImports.add(`${pascalCase}ListQuery`);
     clientEndpointImports.push(`list${pascalCase}ResourcesEndpoint`);
     exportedBindings.push(`export const restResourceListEndpoint = {
-\t...list${pascalCase}ResourcesEndpoint,
-\tbuildRequestOptions: ( request: ${pascalCase}ListQuery ) =>
-\t\tresolveEndpointRouteOptions( list${pascalCase}ResourcesEndpoint, request ),
+  ...list${pascalCase}ResourcesEndpoint,
+  buildRequestOptions: ( request: ${pascalCase}ListQuery ) =>
+    resolveEndpointRouteOptions(list${pascalCase}ResourcesEndpoint, request),
 };
 
 export function listResource( request: ${pascalCase}ListQuery ) {
-\treturn callEndpoint( restResourceListEndpoint, request );
+  return callEndpoint( restResourceListEndpoint, request );
 }`);
   }
 
@@ -310,13 +323,13 @@ export function listResource( request: ${pascalCase}ListQuery ) {
     typeImports.add(`${pascalCase}ReadQuery`);
     clientEndpointImports.push(`read${pascalCase}ResourceEndpoint`);
     exportedBindings.push(`export const restResourceReadEndpoint = {
-\t...read${pascalCase}ResourceEndpoint,
-\tbuildRequestOptions: ( request: ${pascalCase}ReadQuery ) =>
-\t\tresolveEndpointRouteOptions( read${pascalCase}ResourceEndpoint, request ),
+  ...read${pascalCase}ResourceEndpoint,
+  buildRequestOptions: ( request: ${pascalCase}ReadQuery ) =>
+    resolveEndpointRouteOptions(read${pascalCase}ResourceEndpoint, request),
 };
 
 export function readResource( request: ${pascalCase}ReadQuery ) {
-\treturn callEndpoint( restResourceReadEndpoint, request );
+  return callEndpoint( restResourceReadEndpoint, request );
 }`);
   }
 
@@ -324,22 +337,25 @@ export function readResource( request: ${pascalCase}ReadQuery ) {
     typeImports.add(`${pascalCase}CreateRequest`);
     clientEndpointImports.push(`create${pascalCase}ResourceEndpoint`);
     exportedBindings.push(`export const restResourceCreateEndpoint = {
-\t...create${pascalCase}ResourceEndpoint,
-\tbuildRequestOptions: ( request: ${pascalCase}CreateRequest ) => {
-\t\tconst nonce = resolveRestNonce();
-\t\treturn {
-\t\t\t...resolveEndpointRouteOptions( create${pascalCase}ResourceEndpoint, request ),
-\t\t\theaders: nonce
-\t\t\t\t? {
-\t\t\t\t\t'X-WP-Nonce': nonce,
-\t\t\t\t}
-\t\t\t\t: undefined,
-\t\t};
-\t},
+  ...create${pascalCase}ResourceEndpoint,
+  buildRequestOptions: ( request: ${pascalCase}CreateRequest ) => {
+    const nonce = resolveRestNonce();
+    return {
+      ...resolveEndpointRouteOptions(
+        create${pascalCase}ResourceEndpoint,
+        request,
+      ),
+      headers: nonce
+        ? {
+            'X-WP-Nonce': nonce,
+          }
+        : undefined,
+    };
+  },
 };
 
 export function createResource( request: ${pascalCase}CreateRequest ) {
-\treturn callEndpoint( restResourceCreateEndpoint, request );
+  return callEndpoint( restResourceCreateEndpoint, request );
 }`);
   }
 
@@ -348,28 +364,31 @@ export function createResource( request: ${pascalCase}CreateRequest ) {
     typeImports.add(`${pascalCase}UpdateRequest`);
     clientEndpointImports.push(`update${pascalCase}ResourceEndpoint`);
     exportedBindings.push(`export const restResourceUpdateEndpoint = {
-\t...update${pascalCase}ResourceEndpoint,
-\tbuildRequestOptions: ( request: {
-\t\tbody: ${pascalCase}UpdateRequest;
-\t\tquery: ${pascalCase}UpdateQuery;
-\t} ) => {
-\t\tconst nonce = resolveRestNonce();
-\t\treturn {
-\t\t\t...resolveEndpointRouteOptions( update${pascalCase}ResourceEndpoint, request ),
-\t\t\theaders: nonce
-\t\t\t\t? {
-\t\t\t\t\t'X-WP-Nonce': nonce,
-\t\t\t\t}
-\t\t\t\t: undefined,
-\t\t};
-\t},
+  ...update${pascalCase}ResourceEndpoint,
+  buildRequestOptions: ( request: {
+    body: ${pascalCase}UpdateRequest;
+    query: ${pascalCase}UpdateQuery;
+  } ) => {
+    const nonce = resolveRestNonce();
+    return {
+      ...resolveEndpointRouteOptions(
+        update${pascalCase}ResourceEndpoint,
+        request,
+      ),
+      headers: nonce
+        ? {
+            'X-WP-Nonce': nonce,
+          }
+        : undefined,
+    };
+  },
 };
 
 export function updateResource( request: {
-\tbody: ${pascalCase}UpdateRequest;
-\tquery: ${pascalCase}UpdateQuery;
+  body: ${pascalCase}UpdateRequest;
+  query: ${pascalCase}UpdateQuery;
 } ) {
-\treturn callEndpoint( restResourceUpdateEndpoint, request );
+  return callEndpoint( restResourceUpdateEndpoint, request );
 }`);
   }
 
@@ -377,56 +396,62 @@ export function updateResource( request: {
     typeImports.add(`${pascalCase}DeleteQuery`);
     clientEndpointImports.push(`delete${pascalCase}ResourceEndpoint`);
     exportedBindings.push(`export const restResourceDeleteEndpoint = {
-\t...delete${pascalCase}ResourceEndpoint,
-\tbuildRequestOptions: ( request: ${pascalCase}DeleteQuery ) => {
-\t\tconst nonce = resolveRestNonce();
-\t\treturn {
-\t\t\t...resolveEndpointRouteOptions( delete${pascalCase}ResourceEndpoint, request ),
-\t\t\theaders: nonce
-\t\t\t\t? {
-\t\t\t\t\t'X-WP-Nonce': nonce,
-\t\t\t\t}
-\t\t\t\t: undefined,
-\t\t};
-\t},
+  ...delete${pascalCase}ResourceEndpoint,
+  buildRequestOptions: ( request: ${pascalCase}DeleteQuery ) => {
+    const nonce = resolveRestNonce();
+    return {
+      ...resolveEndpointRouteOptions(
+        delete${pascalCase}ResourceEndpoint,
+        request,
+      ),
+      headers: nonce
+        ? {
+            'X-WP-Nonce': nonce,
+          }
+        : undefined,
+    };
+  },
 };
 
 export function deleteResource( request: ${pascalCase}DeleteQuery ) {
-\treturn callEndpoint( restResourceDeleteEndpoint, request );
+  return callEndpoint( restResourceDeleteEndpoint, request );
 }`);
   }
 
   const resolveRestNonceSource =
 		writeMethods.length > 0 ? `${formatResolveRestNonceSource()}\n\n` : '';
+  const typeImportSource = renderNamedTypeScriptImport(
+    Array.from(typeImports).sort(),
+    './api-types',
+    { typeOnly: true },
+  );
+  const clientImportSource = renderNamedTypeScriptImport(
+    clientEndpointImports.sort(),
+    './api-client',
+  );
 
-  return `import {
-\tcallEndpoint,
-\tresolveRestRouteUrl,
-} from '@wp-typia/rest';
+  return `import { callEndpoint, resolveRestRouteUrl } from '@wp-typia/rest';
 
-import type {
-\t${Array.from(typeImports).sort().join(',\n\t')},
-} from './api-types';
-import {
-\t${clientEndpointImports.sort().join(',\n\t')},
-} from './api-client';
-${resolveRestNonceSource}
-function resolveEndpointRouteOptions<TRequest>(
-\tendpoint: {
-\t\tbuildRequestOptions?: ( request: TRequest ) => {
-\t\t\tpath?: string;
-\t\t\turl?: string;
-\t\t};
-\t\tpath: string;
-\t},
-\trequest: TRequest
+${typeImportSource}
+${clientImportSource}
+${resolveRestNonceSource}function resolveEndpointRouteOptions<TRequest>(
+  endpoint: {
+    buildRequestOptions?: ( request: TRequest ) => {
+      path?: string;
+      url?: string;
+    };
+    path: string;
+  },
+  request: TRequest,
 ) {
-\tconst requestOptions = endpoint.buildRequestOptions?.( request ) ?? {};
-\treturn {
-\t\t...requestOptions,
-\t\tpath: undefined,
-\t\turl: requestOptions.url ?? resolveRestRouteUrl( requestOptions.path ?? endpoint.path ),
-\t};
+  const requestOptions = endpoint.buildRequestOptions?.( request ) ?? {};
+  return {
+    ...requestOptions,
+    path: undefined,
+    url:
+      requestOptions.url ??
+      resolveRestRouteUrl( requestOptions.path ?? endpoint.path ),
+  };
 }
 
 ${exportedBindings.join('\n\n')}
@@ -454,20 +479,20 @@ export function buildRestResourceDataSource(
     typeImports.add(`${pascalCase}ListResponse`);
     endpointImports.push('restResourceListEndpoint');
     exportedBindings.push(`export type Use${pascalCase}ListQueryOptions<
-\tSelected = ${pascalCase}ListResponse,
+  Selected = ${pascalCase}ListResponse,
 > = UseEndpointQueryOptions<
-\t${pascalCase}ListQuery,
-\t${pascalCase}ListResponse,
-\tSelected
+  ${pascalCase}ListQuery,
+  ${pascalCase}ListResponse,
+  Selected
 >;
 
 export function use${pascalCase}ListQuery<
-\tSelected = ${pascalCase}ListResponse,
+  Selected = ${pascalCase}ListResponse,
 >(
-\trequest: ${pascalCase}ListQuery,
-\toptions: Use${pascalCase}ListQueryOptions< Selected > = {}
+  request: ${pascalCase}ListQuery,
+  options: Use${pascalCase}ListQueryOptions< Selected > = {},
 ) {
-\treturn useEndpointQuery( restResourceListEndpoint, request, options );
+  return useEndpointQuery( restResourceListEndpoint, request, options );
 }`);
   }
 
@@ -476,20 +501,20 @@ export function use${pascalCase}ListQuery<
     typeImports.add(`${pascalCase}ReadResponse`);
     endpointImports.push('restResourceReadEndpoint');
     exportedBindings.push(`export type Use${pascalCase}ReadQueryOptions<
-\tSelected = ${pascalCase}ReadResponse,
+  Selected = ${pascalCase}ReadResponse,
 > = UseEndpointQueryOptions<
-\t${pascalCase}ReadQuery,
-\t${pascalCase}ReadResponse,
-\tSelected
+  ${pascalCase}ReadQuery,
+  ${pascalCase}ReadResponse,
+  Selected
 >;
 
 export function use${pascalCase}ReadQuery<
-\tSelected = ${pascalCase}ReadResponse,
+  Selected = ${pascalCase}ReadResponse,
 >(
-\trequest: ${pascalCase}ReadQuery,
-\toptions: Use${pascalCase}ReadQueryOptions< Selected > = {}
+  request: ${pascalCase}ReadQuery,
+  options: Use${pascalCase}ReadQueryOptions< Selected > = {},
 ) {
-\treturn useEndpointQuery( restResourceReadEndpoint, request, options );
+  return useEndpointQuery( restResourceReadEndpoint, request, options );
 }`);
   }
 
@@ -498,15 +523,15 @@ export function use${pascalCase}ReadQuery<
     typeImports.add(`${pascalCase}CreateResponse`);
     endpointImports.push('restResourceCreateEndpoint');
     exportedBindings.push(`export type UseCreate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
-\t${pascalCase}CreateRequest,
-\t${pascalCase}CreateResponse,
-\tunknown
+  ${pascalCase}CreateRequest,
+  ${pascalCase}CreateResponse,
+  unknown
 >;
 
 export function useCreate${pascalCase}ResourceMutation(
-\toptions: UseCreate${pascalCase}ResourceMutationOptions = {}
+  options: UseCreate${pascalCase}ResourceMutationOptions = {},
 ) {
-\treturn useEndpointMutation( restResourceCreateEndpoint, options );
+  return useEndpointMutation( restResourceCreateEndpoint, options );
 }`);
   }
 
@@ -516,18 +541,18 @@ export function useCreate${pascalCase}ResourceMutation(
     typeImports.add(`${pascalCase}UpdateResponse`);
     endpointImports.push('restResourceUpdateEndpoint');
     exportedBindings.push(`export type UseUpdate${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
-\t{
-\t\tbody: ${pascalCase}UpdateRequest;
-\t\tquery: ${pascalCase}UpdateQuery;
-\t},
-\t${pascalCase}UpdateResponse,
-\tunknown
+  {
+    body: ${pascalCase}UpdateRequest;
+    query: ${pascalCase}UpdateQuery;
+  },
+  ${pascalCase}UpdateResponse,
+  unknown
 >;
 
 export function useUpdate${pascalCase}ResourceMutation(
-\toptions: UseUpdate${pascalCase}ResourceMutationOptions = {}
+  options: UseUpdate${pascalCase}ResourceMutationOptions = {},
 ) {
-\treturn useEndpointMutation( restResourceUpdateEndpoint, options );
+  return useEndpointMutation( restResourceUpdateEndpoint, options );
 }`);
   }
 
@@ -536,31 +561,36 @@ export function useUpdate${pascalCase}ResourceMutation(
     typeImports.add(`${pascalCase}DeleteResponse`);
     endpointImports.push('restResourceDeleteEndpoint');
     exportedBindings.push(`export type UseDelete${pascalCase}ResourceMutationOptions = UseEndpointMutationOptions<
-\t${pascalCase}DeleteQuery,
-\t${pascalCase}DeleteResponse,
-\tunknown
+  ${pascalCase}DeleteQuery,
+  ${pascalCase}DeleteResponse,
+  unknown
 >;
 
 export function useDelete${pascalCase}ResourceMutation(
-\toptions: UseDelete${pascalCase}ResourceMutationOptions = {}
+  options: UseDelete${pascalCase}ResourceMutationOptions = {},
 ) {
-\treturn useEndpointMutation( restResourceDeleteEndpoint, options );
+  return useEndpointMutation( restResourceDeleteEndpoint, options );
 }`);
   }
+  const typeImportSource = renderNamedTypeScriptImport(
+    Array.from(typeImports).sort(),
+    './api-types',
+    { typeOnly: true },
+  );
+  const endpointImportSource = renderNamedTypeScriptImport(
+    endpointImports.sort(),
+    './api',
+  );
 
   return `import {
-\tuseEndpointMutation,
-\tuseEndpointQuery,
-\ttype UseEndpointMutationOptions,
-\ttype UseEndpointQueryOptions,
+  useEndpointMutation,
+  useEndpointQuery,
+  type UseEndpointMutationOptions,
+  type UseEndpointQueryOptions,
 } from '@wp-typia/rest/react';
 
-import type {
-\t${Array.from(typeImports).sort().join(',\n\t')},
-} from './api-types';
-import {
-\t${endpointImports.sort().join(',\n\t')},
-} from './api';
+${typeImportSource}
+${endpointImportSource}
 
 ${exportedBindings.join('\n\n')}
 `;

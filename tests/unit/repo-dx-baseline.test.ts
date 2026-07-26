@@ -67,9 +67,11 @@ describe('repository DX baseline', () => {
       'node scripts/run-clean-examples-build.mjs',
     );
     expect(scripts['lint:repo']).toBe('eslint . --max-warnings=0');
-    expect(scripts['lint:fix']).toBe('eslint . --fix --max-warnings=0');
+    expect(scripts['lint:fix']).toBe(
+      'eslint . --fix --max-warnings=0 && ttsc fix --singleThreaded',
+    );
     expect(scripts['format:write']).toBe(
-      'node scripts/check-repo-format.mjs --write',
+      'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write',
     );
   });
 
@@ -527,7 +529,7 @@ describe('repository DX baseline', () => {
       '[External Template-Layer Composition RFC](https://imjlk.github.io/wp-typia/architecture/external-template-layer-composition/)',
     );
     expect(readme).toContain(
-      'Root ESLint covers repository infrastructure code',
+      'Root ESLint covers JavaScript, CJS, and MJS infrastructure',
     );
     expect(readme).toContain(
       '[Core Data Adapter Boundary](https://imjlk.github.io/wp-typia/maintainers/core-data-adapter-boundary/)',
@@ -581,12 +583,14 @@ describe('repository DX baseline', () => {
     expect(contributing).toContain('## TypeScript runtime dependency audit');
     expect(contributing).toContain('`bun run typescript-runtime:validate`');
     expect(contributing).toContain(
-      '`@wp-typia/block-runtime` keeps `typescript` in `dependencies`',
+      '`@wp-typia/block-runtime` keeps `@typescript/typescript6` in `dependencies`',
     );
     expect(contributing).toContain(
-      '`@wp-typia/project-tools` keeps `typescript` in `dependencies`',
+      '`@wp-typia/project-tools` keeps `@typescript/typescript6` in `dependencies`',
     );
-    expect(contributing).toContain('`typia` 12.x');
+    expect(contributing).toContain('`typia` 13.x');
+    expect(contributing).toContain('`ttsc` 0.22.x');
+    expect(contributing).toContain('`@ttsc/unplugin` 0.22.x');
     expect(contributing).toContain('`@wordpress/scripts` 30.x');
     expect(cliReadme).toMatch(
       /https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/[^/]+\/UPGRADE\.md/,

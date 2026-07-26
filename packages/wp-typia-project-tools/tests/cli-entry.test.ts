@@ -194,12 +194,16 @@ test('cli scaffold flow keeps orchestration separate from file and emission help
     'utf8',
   );
 
-  expect(cliScaffold).toContain('from "./cli-scaffold-emission.js"');
-  expect(cliScaffold).toContain('from "./cli-scaffold-files.js"');
-  expect(cliScaffold).toContain('from "./cli-scaffold-output.js"');
-  expect(cliScaffold).toContain('from "./cli-scaffold-validation.js"');
-  expect(cliScaffold).not.toContain('from "node:fs"');
-  expect(cliScaffold).not.toContain('from "./temp-roots.js"');
+  expect(cliScaffold).toMatch(
+    /from\s+['"]\.\/cli-scaffold-emission\.js['"]/,
+  );
+  expect(cliScaffold).toMatch(/from\s+['"]\.\/cli-scaffold-files\.js['"]/);
+  expect(cliScaffold).toMatch(/from\s+['"]\.\/cli-scaffold-output\.js['"]/);
+  expect(cliScaffold).toMatch(
+    /from\s+['"]\.\/cli-scaffold-validation\.js['"]/,
+  );
+  expect(cliScaffold).not.toMatch(/from\s+['"]node:fs['"]/);
+  expect(cliScaffold).not.toMatch(/from\s+['"]\.\/temp-roots\.js['"]/);
   expect(cliScaffold).not.toContain('readJsonFile');
   expect(scaffoldFiles).toContain('readGeneratedPackageScripts');
   expect(scaffoldEmission).toContain('scaffoldProject');

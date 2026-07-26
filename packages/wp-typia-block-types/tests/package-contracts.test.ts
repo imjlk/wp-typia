@@ -4,7 +4,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -159,6 +161,11 @@ describe('@wp-typia/block-types export contracts', () => {
 
 		withPublishedConsumer(
 			(projectRoot) => {
+				symlinkSync(
+					realpathSync(resolve(packageRoot, '../../node_modules/typescript')),
+					resolve(projectRoot, 'node_modules', 'typescript'),
+					'junction',
+				);
 				writeFileSync(
 					resolve(projectRoot, 'consumer.ts'),
 					[
@@ -400,16 +407,38 @@ describe('@wp-typia/block-types export contracts', () => {
 			'utf8',
 		);
 
-		expect(builtIndexJs).toContain('export * from "./block-editor/index.js";');
-		expect(builtIndexJs).toContain('export * from "./blocks/index.js";');
-		expect(builtIndexDts).toContain('export * from "./block-editor/index.js";');
-		expect(builtIndexDts).toContain('export * from "./blocks/index.js";');
-		expect(builtBlockEditorIndexJs).toContain('export * from "./alignment.js";');
-		expect(builtBlockEditorIndexJs).toContain('export * from "./style-attributes.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./bindings.js";');
-		expect(builtBlocksIndexJs).not.toContain('export * from "./registration.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./supports.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./compatibility.js";');
-		expect(builtBlocksIndexJs).toContain('export * from "./variations.js";');
+		expect(builtIndexJs).toMatch(
+			/export \* from ['"]\.\/block-editor\/index\.js['"];/u,
+		);
+		expect(builtIndexJs).toMatch(
+			/export \* from ['"]\.\/blocks\/index\.js['"];/u,
+		);
+		expect(builtIndexDts).toMatch(
+			/export \* from ['"]\.\/block-editor\/index\.js['"];/u,
+		);
+		expect(builtIndexDts).toMatch(
+			/export \* from ['"]\.\/blocks\/index\.js['"];/u,
+		);
+		expect(builtBlockEditorIndexJs).toMatch(
+			/export \* from ['"]\.\/alignment\.js['"];/u,
+		);
+		expect(builtBlockEditorIndexJs).toMatch(
+			/export \* from ['"]\.\/style-attributes\.js['"];/u,
+		);
+		expect(builtBlocksIndexJs).toMatch(
+			/export \* from ['"]\.\/bindings\.js['"];/u,
+		);
+		expect(builtBlocksIndexJs).not.toMatch(
+			/export \* from ['"]\.\/registration\.js['"];/u,
+		);
+		expect(builtBlocksIndexJs).toMatch(
+			/export \* from ['"]\.\/supports\.js['"];/u,
+		);
+		expect(builtBlocksIndexJs).toMatch(
+			/export \* from ['"]\.\/compatibility\.js['"];/u,
+		);
+		expect(builtBlocksIndexJs).toMatch(
+			/export \* from ['"]\.\/variations\.js['"];/u,
+		);
 	});
 });

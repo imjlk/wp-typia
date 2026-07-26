@@ -72,16 +72,28 @@ describe('typia.llm internal helper', () => {
         '../../../persistence-examples/src/blocks/counter/api-types',
     });
 
-    expect(source).toContain('import typia from "typia";');
+    expect(source).toContain("import typia from 'typia';");
     expect(source).toContain('export interface CounterRestToolController');
     expect(source).toContain(
-      'getPersistenceCounterState(input: PersistenceCounterQuery): PersistenceCounterResponse;',
+      [
+        '  getPersistenceCounterState(',
+        '    input: PersistenceCounterQuery,',
+        '  ): PersistenceCounterResponse;',
+      ].join('\n'),
     );
     expect(source).toContain(
-      'incrementPersistenceCounterState(input: PersistenceCounterIncrementRequest): PersistenceCounterResponse;',
+      [
+        '  incrementPersistenceCounterState(',
+        '    input: PersistenceCounterIncrementRequest,',
+        '  ): PersistenceCounterResponse;',
+      ].join('\n'),
     );
     expect(source).toContain(
-      'getPersistenceCounterBootstrap(input: PersistenceCounterBootstrapQuery): PersistenceCounterBootstrapResponse;',
+      [
+        '  getPersistenceCounterBootstrap(',
+        '    input: PersistenceCounterBootstrapQuery,',
+        '  ): PersistenceCounterBootstrapResponse;',
+      ].join('\n'),
     );
     expect(source).toContain('REST path: GET /persistence-examples/v1/counter');
     expect(source).toContain(
@@ -97,10 +109,10 @@ describe('typia.llm internal helper', () => {
     );
     expect(source).toContain('@tag Counter');
     expect(source).toContain(
-      'export const counterLlmApplication =\n\ttypia.llm.application<CounterRestToolController>();',
+      'export const counterLlmApplication =\n  typia.llm.application<CounterRestToolController>();',
     );
     expect(source).toContain(
-      'export const counterResponseStructuredOutput =\n\ttypia.llm.structuredOutput<PersistenceCounterResponse>();',
+      'export const counterResponseStructuredOutput =\n  typia.llm.structuredOutput<PersistenceCounterResponse>();',
     );
   });
 

@@ -77,7 +77,7 @@ const SYNC_INSTALL_MARKERS = [
   '.pnp.loader.mjs',
 ] as const;
 const LOCAL_SYNC_TOOL_PATTERN =
-  /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
+  /(^|[\s;&|()])(?:ttsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
 const CAPTURED_SYNC_DRIFT_LINE_LIMIT =
@@ -495,7 +495,7 @@ function assertSyncDependenciesInstalled(
 
   throw createCliDiagnosticCodeError(
     CLI_DIAGNOSTIC_CODES.DEPENDENCIES_NOT_INSTALLED,
-    `Project dependencies have not been installed yet. Run \`${formatInstallCommand(project.packageManager)}\` from the project root before \`wp-typia sync\`. The generated sync scripts rely on local tools such as \`tsx\`.`,
+    `Project dependencies have not been installed yet. Run \`${formatInstallCommand(project.packageManager)}\` from the project root before \`wp-typia sync\`. The generated sync scripts rely on local tools such as \`ttsx\`.`,
   );
 }
 

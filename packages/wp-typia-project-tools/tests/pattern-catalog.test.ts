@@ -24,8 +24,8 @@ describe('pattern catalog validation', () => {
 			'utf8',
 		);
 
-		expect(catalogSource).toContain(
-			'from "./pattern-catalog-section-roles.js"',
+		expect(catalogSource).toMatch(
+			/from\s+['"]\.\/pattern-catalog-section-roles\.js['"]/,
 		);
 		expect(catalogSource).not.toContain('validateBlockPatternContentNesting');
 		expect(sectionRolesSource).toContain('validateBlockPatternContentNesting');

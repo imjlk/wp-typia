@@ -13,6 +13,24 @@ It does not replace per-package `CHANGELOG.md` files.
 
 ## Recent upgrade checkpoints
 
+### Node.js 24, TypeScript 7, typia 13, and ttsc are now the baseline
+
+Published packages and newly generated projects now require Node.js 24 or
+newer. Upgrade local development, CI, and deployment runtimes before updating
+the package family.
+
+Generated TypeScript workflows now use `ttsc` and `ttsx`:
+
+- replace direct `tsc`, `tspc`, and `ts-patch` build or typecheck commands with
+  `ttsc`
+- replace transform-dependent `tsx` commands with `ttsx`
+- upgrade `typia` to 13.x and use `@ttsc/unplugin` for Webpack integration
+- remove `@typia/unplugin`, `ts-patch`, and other superseded transformer wiring
+
+TypeScript 7 does not expose the JavaScript Compiler API. Custom tooling that
+imports `typescript` at runtime should use the isolated
+`@typescript/typescript6` compatibility package instead.
+
 ### CLI shape moved to explicit `create` and `add` commands
 
 Recent releases standardized the CLI around explicit top-level verbs:
@@ -74,4 +92,6 @@ When upgrading maintainers or generated project docs, verify:
 2. Multi-block plugin guidance points to the workspace template package.
 3. Runtime helper imports use `@wp-typia/block-runtime/*`.
 4. Removed package shells are not suggested for new installs.
-5. Release/process changes still match [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+5. Local, CI, and deployment runtimes use Node.js 24 or newer.
+6. Generated TypeScript commands use `ttsc`/`ttsx` with typia 13.
+7. Release/process changes still match [`CONTRIBUTING.md`](./CONTRIBUTING.md).

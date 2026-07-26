@@ -9,6 +9,10 @@ import {
 } from './cli-add-workspace-rest-source-utils.js';
 import { buildManualRestContractEndpointManifest } from './rest-resource-artifacts.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
+import {
+  renderNamedTypeScriptImport,
+  renderTypeScriptValue,
+} from '../shared/ts-string-literals.js';
 
 /**
  * Build the `REST_RESOURCES` config entry appended for a manual REST contract.
@@ -80,7 +84,7 @@ export function buildManualRestContractConfigEntry(options: {
 			: []),
 		`\t\tqueryTypeName: ${quoteTsString(options.queryTypeName)},`,
 		'\t\trestManifest: defineEndpointManifest(',
-		indentMultiline(JSON.stringify(manifest, null, '\t'), '\t\t\t'),
+		indentMultiline(`${renderTypeScriptValue(manifest)},`, '\t\t\t'),
 		'\t\t),',
 		`\t\tresponseTypeName: ${quoteTsString(options.responseTypeName)},`,
 		...(options.secretFieldName
@@ -131,15 +135,15 @@ export function buildManualRestContractTypesSource(options: {
 		pathParameterNames.length > 0
 			? pathParameterNames.map(
 					(parameterName) =>
-						`\t${parameterName}: string & tags.MinLength< 1 >;`,
+						`  ${parameterName}: string & tags.MinLength< 1 >;`,
 				)
-			: ['\tid?: string & tags.MinLength< 1 >;'];
+			: ['  id?: string & tags.MinLength< 1 >;'];
   const lines = [
     "import type { tags } from '@wp-typia/block-runtime/typia-tags';",
     '',
     `export interface ${options.queryTypeName} {`,
     ...queryFields,
-    ...(pathParameterNames.includes('preview') ? [] : ['\tpreview?: boolean;']),
+    ...(pathParameterNames.includes('preview') ? [] : ['  preview?: boolean;']),
     '}',
   ];
 
@@ -148,18 +152,18 @@ export function buildManualRestContractTypesSource(options: {
     const secretLines =
 			options.secretFieldName && options.secretStateFieldName
         ? [
-            `\t${options.secretFieldName}?: string${secretPreserveOnEmpty ? ' & tags.MinLength< 1 >' : ''} & tags.MaxLength< 4096 > & tags.Secret< ${quoteTsString(options.secretStateFieldName)} >${secretPreserveOnEmpty ? ' & tags.PreserveOnEmpty< true >' : ''};`,
+            `  ${options.secretFieldName}?: string${secretPreserveOnEmpty ? ' & tags.MinLength< 1 >' : ''} & tags.MaxLength< 4096 > & tags.Secret< ${quoteTsString(options.secretStateFieldName)} >${secretPreserveOnEmpty ? ' & tags.PreserveOnEmpty< true >' : ''};`,
             secretPreserveOnEmpty
-              ? `\t// ${options.secretFieldName} is write-only: omit or submit an empty value to preserve the stored secret, and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`
-              : `\t// ${options.secretFieldName} is write-only: persist it server-side and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`,
+              ? `  // ${options.secretFieldName} is write-only: omit or submit an empty value to preserve the stored secret, and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`
+              : `  // ${options.secretFieldName} is write-only: persist it server-side and expose ${options.secretStateFieldName} in responses instead of returning the raw value.`,
           ]
         : [];
     lines.push(
       '',
       `export interface ${options.bodyTypeName} {`,
       ...secretLines,
-      '\tpayload: string & tags.MinLength< 1 >;',
-      '\tcomment?: string & tags.MaxLength< 500 >;',
+      '  payload: string & tags.MinLength< 1 >;',
+      '  comment?: string & tags.MaxLength< 500 >;',
       '}',
     );
   }
@@ -169,14 +173,14 @@ export function buildManualRestContractTypesSource(options: {
 		`export interface ${options.responseTypeName} {`,
 		...(options.secretStateFieldName
 			? [
-					`\t${options.secretStateFieldName}: boolean;`,
-					`\t// Raw secret fields such as ${options.secretFieldName ?? 'the request secret'} must never be returned in this response.`,
+					`  ${options.secretStateFieldName}: boolean;`,
+					`  // Raw secret fields such as ${options.secretFieldName ?? 'the request secret'} must never be returned in this response.`,
 				]
 			: []),
-		'\tid: string & tags.MinLength< 1 >;',
-		"\tstatus: 'ok' | 'error';",
-		'\tmessage?: string;',
-		'\tupdatedAt?: string;',
+		'  id: string & tags.MinLength< 1 >;',
+		"  status: 'ok' | 'error';",
+		'  message?: string;',
+		'  updatedAt?: string;',
 		'}',
 		'',
 		`// ${title} is a manual REST contract: edit these types to match the external route owner.`,
@@ -212,20 +216,23 @@ export function buildManualRestContractValidatorsSource(options: {
 		`const validateResponse = typia.createValidate< ${options.responseTypeName} >();`,
 	];
   const validatorEntries = [
-		`\tquery: ( input: unknown ) => toValidationResult< ${options.queryTypeName} >( validateQuery( input ) ),`,
+		`  query: ( input: unknown ) =>`,
+		`    toValidationResult< ${options.queryTypeName} >(validateQuery(input)),`,
 		...(options.bodyTypeName
 			? [
-					`\trequest: ( input: unknown ) => toValidationResult< ${options.bodyTypeName} >( validateRequest( input ) ),`,
+					'  request: ( input: unknown ) =>',
+					`    toValidationResult< ${options.bodyTypeName} >(validateRequest(input)),`,
 				]
 			: []),
-		`\tresponse: ( input: unknown ) => toValidationResult< ${options.responseTypeName} >( validateResponse( input ) ),`,
+		'  response: ( input: unknown ) =>',
+		`    toValidationResult< ${options.responseTypeName} >(validateResponse(input)),`,
 	];
 
   return `import typia from 'typia';
 
 import { toValidationResult } from '@wp-typia/rest';
 import type {
-\t${importedTypes.join(',\n\t')},
+  ${importedTypes.join(',\n  ')},
 } from './api-types';
 
 ${validatorDeclarations.join('\n')}
@@ -254,8 +261,8 @@ export function buildManualRestContractApiSource(options: {
     : options.queryTypeName;
   const requestTypeSource = options.bodyTypeName
 		? `export interface ${requestTypeName} {
-\tbody: ${options.bodyTypeName};
-\tquery: ${options.queryTypeName};
+  body: ${options.bodyTypeName};
+  query: ${options.queryTypeName};
 }
 
 `
@@ -263,15 +270,15 @@ export function buildManualRestContractApiSource(options: {
   const typeImports = options.bodyTypeName
     ? [options.bodyTypeName, options.queryTypeName]
     : [options.queryTypeName];
+  const typeImportSource = renderNamedTypeScriptImport(
+    typeImports.sort(),
+    './api-types',
+    { typeOnly: true },
+  );
 
-  return `import {
-\tcallEndpoint,
-\tresolveRestRouteUrl,
-} from '@wp-typia/rest';
+  return `import { callEndpoint, resolveRestRouteUrl } from '@wp-typia/rest';
 
-import type {
-\t${typeImports.sort().join(',\n\t')},
-} from './api-types';
+${typeImportSource}
 import { ${operationId}Endpoint } from './api-client';
 
 export * from './api-client';
@@ -279,34 +286,36 @@ export * from './api-client';
 ${requestTypeSource}${formatResolveRestNonceSource()}
 
 function resolveEndpointRouteOptions(request: ${requestTypeName}) {
-\tconst requestOptions = ${operationId}Endpoint.buildRequestOptions?.(request) ?? {};
-\tconst nonce = resolveRestNonce();
-\tconst requestHeaders = (
-\t\trequestOptions as { headers?: Record<string, string> }
-\t).headers;
+  const requestOptions = ${operationId}Endpoint.buildRequestOptions?.(
+    request,
+  ) ?? {};
+  const nonce = resolveRestNonce();
+  const requestHeaders = (
+    requestOptions as { headers?: Record<string, string> }
+  ).headers;
 
-\treturn {
-\t\t...requestOptions,
-\t\theaders: nonce
-\t\t\t? {
-\t\t\t\t\t...(requestHeaders ?? {}),
-\t\t\t\t\t'X-WP-Nonce': nonce,
-\t\t\t\t}
-\t\t\t: requestHeaders,
-\t\tpath: undefined,
-\t\turl:
-\t\t\trequestOptions.url ??
-\t\t\tresolveRestRouteUrl(requestOptions.path ?? ${operationId}Endpoint.path),
-\t};
+  return {
+    ...requestOptions,
+    headers: nonce
+      ? {
+          ...(requestHeaders ?? {}),
+          'X-WP-Nonce': nonce,
+        }
+      : requestHeaders,
+    path: undefined,
+    url:
+      requestOptions.url ??
+      resolveRestRouteUrl(requestOptions.path ?? ${operationId}Endpoint.path),
+  };
 }
 
 export const manualRestContractEndpoint = {
-\t...${operationId}Endpoint,
-\tbuildRequestOptions: resolveEndpointRouteOptions,
+  ...${operationId}Endpoint,
+  buildRequestOptions: resolveEndpointRouteOptions,
 };
 
 export function callManualRestContract(request: ${requestTypeName}) {
-\treturn callEndpoint(manualRestContractEndpoint, request);
+  return callEndpoint(manualRestContractEndpoint, request);
 }
 `;
 }

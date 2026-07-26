@@ -6,7 +6,7 @@ Welcome to the basic block tutorial for `wp-typia`. This hands-on guide walks th
 
 ## Prerequisites
 
-- Node.js 20+ installed
+- Node.js 24+ installed
 - WordPress development environment
 - Basic knowledge of TypeScript and React
 
@@ -310,7 +310,7 @@ Update `src/style.scss`:
 
 ## Step 8: Add a Validator Test
 
-The basic template does not scaffold a dedicated unit test runner, so we'll use Node.js' built-in test runner together with `tsx`. This works on the supported Node.js 20+ baseline.
+The basic template does not scaffold a dedicated unit test runner, so we'll use Node.js' built-in test runner together with `ttsx`. This works on the supported Node.js 24+ baseline.
 
 Create `src/validators.test.ts`:
 
@@ -351,7 +351,7 @@ describe('MyTypiaBlock validators', () => {
 Run it with:
 
 ```bash
-node --import tsx --test src/validators.test.ts
+ttsx src/validators.test.ts
 ```
 
 ## Step 9: Build for Production

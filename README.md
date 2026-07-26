@@ -415,9 +415,9 @@ bun run ci:local
 ```
 
 - `bun run lint:repo` checks the root ESLint scope for repo-owned infrastructure files
-- `bun run lint:fix` applies autofixes in that same root ESLint scope
-- `bun run format:check` runs the non-mutating Prettier gate for repo-owned docs, config, and policy files
-- `bun run format:write` applies that same repo-owned Prettier scope
+- `bun run lint:fix` applies JavaScript ESLint fixes followed by TypeScript `ttsc fix`
+- `bun run format:check` runs the non-mutating Prettier gate for repo-owned non-TypeScript files
+- `bun run format:write` runs `ttsc format` for TypeScript and Prettier for repo-owned non-TypeScript files
 - `bun run test:repo:fast` runs the no-build source and policy lane for lightweight local feedback
 - `bun run ci:local` keeps the non-E2E maintainer preflight aligned with CI
 
@@ -502,14 +502,17 @@ maintainer lint baseline without forcing a local source build through mise.
 Generated-project smoke jobs separately provision PHP 8.0 and syntax-check every
 emitted PHP file against the scaffold's declared `Requires PHP: 8.0` floor.
 
-Root ESLint covers repository infrastructure code such as `scripts/**`,
-`tests/**`, root config files, and package-side non-example sources. Example app
-source stays under the existing `examples:lint` workflow powered by
-`@wordpress/scripts`.
+`ttsc` and `@ttsc/lint` own TypeScript/TSX type, lint, unused, and formatting
+diagnostics. Root ESLint covers JavaScript, CJS, and MJS infrastructure such as
+`scripts/**`, root config files, and package-side non-example sources. Example
+JavaScript stays under the existing `examples:lint` compatibility workflow
+powered by `@wordpress/scripts`.
 
-Repository-owned docs/config/workflow files use a shared `Prettier 3.8.2`
-baseline. `bun run format:check` and `bun run formatting-policy:validate` are
-part of both the maintainer preflight and the GitHub Actions lint gate. See the
+TypeScript/TSX uses the shared `ttsc` formatter contract. Repository-owned
+non-TypeScript docs/config/workflow files use a shared `Prettier 3.8.2`
+baseline. `bun run typecheck`, `bun run format:check`, and
+`bun run formatting-policy:validate` are part of both the maintainer preflight
+and the GitHub Actions lint gate. See the
 [Formatting Toolchain Policy](https://imjlk.github.io/wp-typia/maintainers/formatting-toolchain-policy/) for the
 explicit scope and rationale.
 
@@ -541,21 +544,22 @@ E2E in the broader lanes.
 
 Command map:
 
-| Command                                   | What it targets                                   |
-| ----------------------------------------- | ------------------------------------------------- |
-| `bun run lint:repo`                       | Root ESLint for repo infrastructure code          |
-| `bun run lint:all`                        | Root ESLint, example linting, and PHP checks      |
-| `bun run format:check`                    | Non-mutating Prettier check for repo-owned files  |
-| `bun run formatting-policy:validate`      | Validates the documented formatter/toolchain gate |
-| `bun run maintenance-automation:validate` | Validates Dependabot and audit workflow policy    |
-| `bun run test:repo:fast`                  | No-build source and policy feedback lane          |
-| `bun run test:repo`                       | Root unit and CLI test aggregation                |
-| `bun run test:all`                        | Legacy alias for `test:repo` (still no E2E)       |
-| `bun run ci:local`                        | Fast maintainer preflight without E2E/wp-env      |
-| `bun run build`                           | Product packages and the repo-local reference app |
-| `bun run examples:build`                  | Reference app only                                |
-| `bun run --filter wp-typia test`          | Canonical CLI package checks                      |
-| `bun run examples:test:e2e`               | Playwright against the reference app              |
+| Command                                   | What it targets                                    |
+| ----------------------------------------- | -------------------------------------------------- |
+| `bun run lint:repo`                       | Root ESLint for JavaScript/CJS/MJS infrastructure  |
+| `bun run lint:all`                        | Root ESLint, example linting, and PHP checks       |
+| `bun run typecheck`                       | `ttsc` type, lint, unused, and TS format gate      |
+| `bun run format:check`                    | Prettier check for repo-owned non-TypeScript files |
+| `bun run formatting-policy:validate`      | Validates the documented formatter/toolchain gate  |
+| `bun run maintenance-automation:validate` | Validates Dependabot and audit workflow policy     |
+| `bun run test:repo:fast`                  | No-build source and policy feedback lane           |
+| `bun run test:repo`                       | Root unit and CLI test aggregation                 |
+| `bun run test:all`                        | Legacy alias for `test:repo` (still no E2E)        |
+| `bun run ci:local`                        | Fast maintainer preflight without E2E/wp-env       |
+| `bun run build`                           | Product packages and the repo-local reference app  |
+| `bun run examples:build`                  | Reference app only                                 |
+| `bun run --filter wp-typia test`          | Canonical CLI package checks                       |
+| `bun run examples:test:e2e`               | Playwright against the reference app               |
 
 ## License
 

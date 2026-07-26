@@ -12,6 +12,16 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   exampleWpScriptsEslintVersion: '8.57.1',
   exampleWpScriptsLintJsScript:
     'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
+  generatedWpScriptsLintJsScript:
+    'node scripts/run-wp-scripts-lint-js-compat.mjs',
+  generatedReactDomTypesVersion: '^18.3.7',
+  generatedReactDomVersion: '^18.3.1',
+  generatedReactTypesVersion: '^18.3.28',
+  generatedReactVersion: '^18.3.1',
+  typescript6Version: '6.0.2',
+  wpScriptsLintCompatRegisterPath: 'scripts/register-typescript6.cjs',
+  wpScriptsLintCompatWrapperPath: 'scripts/run-wp-scripts-lint-js-compat.mjs',
+  wpScriptsLintExtensions: 'js,jsx,cjs,mjs',
   prettierVersion: '3.8.2',
   rootFormatWriteScript:
     'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write',
@@ -22,8 +32,8 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootFormatCheckScript: 'node scripts/check-repo-format.mjs',
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
-  ttscLintVersion: '0.21.0',
-  ttscVersion: '0.21.0',
+  ttscLintVersion: '0.22.0',
+  ttscVersion: '0.22.0',
   generatedPackageManifestPaths: Object.freeze([
     'packages/create-workspace-template/package.json.mustache',
     'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
@@ -32,6 +42,12 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     'packages/wp-typia-project-tools/templates/_shared/compound/core/package.json.mustache',
     'packages/wp-typia-project-tools/templates/_shared/compound/persistence/package.json.mustache',
     'packages/wp-typia-project-tools/templates/query-loop/package.json.mustache',
+    'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/package.json.mustache',
+  ]),
+  generatedWpScriptsLintCompatTemplateRoots: Object.freeze([
+    'packages/create-workspace-template',
+    'packages/wp-typia-project-tools/templates/_shared/base',
+    'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates',
   ]),
   workspaceExamplePackagePaths: Object.freeze([
     'examples/api-contract-adapter-poc/package.json',
@@ -414,6 +430,90 @@ function validateGeneratedTemplateManifest(
       `${relativePath} must declare devDependencies["@ttsc/lint"]="${expectedTtscLintRange}", found ${JSON.stringify(manifest.devDependencies?.['@ttsc/lint'] ?? null)}.`,
     );
   }
+
+  if (
+    manifest.devDependencies?.['@typescript/typescript6'] !==
+    policy.typescript6Version
+  ) {
+    errors.push(
+      `${relativePath} must declare devDependencies["@typescript/typescript6"]="${policy.typescript6Version}", found ${JSON.stringify(manifest.devDependencies?.['@typescript/typescript6'] ?? null)}.`,
+    );
+  }
+
+  for (const [dependencyName, expectedVersion] of [
+    ['@types/react', policy.generatedReactTypesVersion],
+    ['@types/react-dom', policy.generatedReactDomTypesVersion],
+    ['react', policy.generatedReactVersion],
+    ['react-dom', policy.generatedReactDomVersion],
+  ]) {
+    if (manifest.devDependencies?.[dependencyName] !== expectedVersion) {
+      errors.push(
+        `${relativePath} must declare devDependencies[${JSON.stringify(dependencyName)}]=${JSON.stringify(expectedVersion)}, found ${JSON.stringify(manifest.devDependencies?.[dependencyName] ?? null)}.`,
+      );
+    }
+  }
+
+  if (manifest.scripts?.['lint:js'] !== policy.generatedWpScriptsLintJsScript) {
+    errors.push(
+      `${relativePath} must keep scripts["lint:js"]="${policy.generatedWpScriptsLintJsScript}", found ${JSON.stringify(manifest.scripts?.['lint:js'] ?? null)}.`,
+    );
+  }
+}
+
+function validateWpScriptsLintCompatSources(
+  repoRoot,
+  wrapperRelativePath,
+  registerRelativePath,
+  policy,
+  errors,
+) {
+  const wrapperPath = path.join(repoRoot, wrapperRelativePath);
+  const registerPath = path.join(repoRoot, registerRelativePath);
+
+  if (!fs.existsSync(wrapperPath)) {
+    errors.push(
+      `${wrapperRelativePath} must exist for the WordPress JavaScript lint compatibility lane.`,
+    );
+    return;
+  }
+  if (!fs.existsSync(registerPath)) {
+    errors.push(
+      `${registerRelativePath} must exist so WordPress ESLint loads the isolated TypeScript 6 compiler API.`,
+    );
+    return;
+  }
+
+  const wrapperSource = fs.readFileSync(wrapperPath, 'utf8');
+  const registerSource = fs.readFileSync(registerPath, 'utf8');
+  const extensionsPattern = new RegExp(
+    `(?:export\\s+)?const\\s+DEFAULT_LINT_EXTENSIONS\\s*=\\s*['"]${policy.wpScriptsLintExtensions}['"]`,
+  );
+
+  if (!extensionsPattern.test(wrapperSource)) {
+    errors.push(
+      `${wrapperRelativePath} must keep DEFAULT_LINT_EXTENSIONS="${policy.wpScriptsLintExtensions}" so ESLint excludes TypeScript and covers CJS/MJS.`,
+    );
+  }
+  if (
+    !wrapperSource.includes(
+      "const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs'",
+    ) ||
+    !wrapperSource.includes("'--require'")
+  ) {
+    errors.push(
+      `${wrapperRelativePath} must preload register-typescript6.cjs before invoking WordPress ESLint.`,
+    );
+  }
+  if (
+    !/projectRequire\.resolve\(\s*['"]@typescript\/typescript6['"]\s*\)/u.test(
+      registerSource,
+    ) ||
+    !/request\s*===\s*['"]typescript['"]/u.test(registerSource)
+  ) {
+    errors.push(
+      `${registerRelativePath} must redirect TypeScript consumers to @typescript/typescript6.`,
+    );
+  }
 }
 
 function getLintJobBlock(workflowSource) {
@@ -479,6 +579,14 @@ export function validateFormattingToolchainPolicy(
   if (devDependencies['@ttsc/lint'] !== policy.ttscLintVersion) {
     errors.push(
       `package.json must declare devDependencies["@ttsc/lint"]="${policy.ttscLintVersion}", found ${JSON.stringify(devDependencies['@ttsc/lint'] ?? null)}.`,
+    );
+  }
+
+  if (
+    devDependencies['@typescript/typescript6'] !== policy.typescript6Version
+  ) {
+    errors.push(
+      `package.json must declare devDependencies["@typescript/typescript6"]="${policy.typescript6Version}", found ${JSON.stringify(devDependencies['@typescript/typescript6'] ?? null)}.`,
     );
   }
 
@@ -637,10 +745,31 @@ export function validateFormattingToolchainPolicy(
     }
   }
 
+  validateWpScriptsLintCompatSources(
+    repoRoot,
+    policy.wpScriptsLintCompatWrapperPath,
+    policy.wpScriptsLintCompatRegisterPath,
+    policy,
+    errors,
+  );
+
   for (const relativePath of policy.generatedPackageManifestPaths) {
     validateGeneratedTemplateManifest(
       relativePath,
       readRelativeText(repoRoot, relativePath),
+      policy,
+      errors,
+    );
+  }
+
+  for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {
+    validateWpScriptsLintCompatSources(
+      repoRoot,
+      path.join(
+        templateRoot,
+        'scripts/run-wp-scripts-lint-js-compat.mjs.mustache',
+      ),
+      path.join(templateRoot, 'scripts/register-typescript6.cjs.mustache'),
       policy,
       errors,
     );

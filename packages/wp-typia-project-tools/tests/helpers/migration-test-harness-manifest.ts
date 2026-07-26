@@ -147,7 +147,24 @@ export function createUnionManifestAttribute(
   };
 }
 
-export const HELPERS_SOURCE = `export type RenameMap = Record<string, string>;
+export const HELPERS_SOURCE = `export type {
+\tManifestAttribute,
+\tManifestDocument,
+} from '@wp-typia/block-runtime/migration-types';
+
+export interface MigrationRiskBucket {
+\tcount: number;
+\titems: string[];
+}
+
+export interface MigrationRiskSummary {
+\tadditive: MigrationRiskBucket;
+\trename: MigrationRiskBucket;
+\tsemanticTransform: MigrationRiskBucket;
+\tunionBreaking: MigrationRiskBucket;
+}
+
+export type RenameMap = Record<string, string>;
 export type TransformMap = Record<string, (legacyValue: unknown, legacyInput: Record<string, unknown>) => unknown>;
 
 function getValueAtPath(input: Record<string, unknown>, path: string): unknown {
@@ -189,7 +206,7 @@ export function resolveMigrationValue(
 \tinput: Record<string, unknown>,
 \trenameMap: RenameMap,
 \ttransforms: TransformMap,
-) {
+): unknown {
 \tconst sourcePath = renameMap[currentKey] ?? fallbackPath;
 \tconst legacyValue = getValueAtPath(input, sourcePath);
 \tconst transformedValue = transforms[currentKey] ? transforms[currentKey](legacyValue, input) : legacyValue;
@@ -203,7 +220,7 @@ export function resolveMigrationAttribute(
 \tinput: Record<string, unknown>,
 \trenameMap: RenameMap,
 \ttransforms: TransformMap,
-) {
+): unknown {
 \tconst sourcePath = renameMap[currentPath] ?? fallbackPath;
 \tif (attribute?.ts?.kind === "object") {
 \t\treturn Object.fromEntries(
