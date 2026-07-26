@@ -393,7 +393,7 @@ describe('repository DX baseline', () => {
     const ttscPluginCache = [
       'uses: actions/cache@v6',
       'path: node_modules/.cache/ttsc/plugins',
-      "key: ttsc-source-plugins-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}",
+      "key: ttsc-source-plugins-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}",
     ];
     for (const cacheContract of ttscPluginCache) {
       expect(prepareJob).toContain(cacheContract);
