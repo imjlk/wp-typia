@@ -64,6 +64,7 @@ const MANUAL_REST_API_NAMED_EXPORT_PATTERN =
 
 function normalizeAdminViewTypeScriptSource(source: string): string {
   return source
+    .replace(/\r\n?/gu, '\n')
     .replace(/^[ \t]+/gmu, (indentation) =>
       indentation.replace(/\t/gu, '  '),
     )
@@ -464,6 +465,26 @@ export async function scaffoldAdminViewWorkspace(options: {
           manualSettingsRestResource,
         );
       }
+      let adminViewDataSource: string;
+      if (manualSettingsRestResource) {
+        adminViewDataSource = buildRestSettingsAdminViewDataSource(
+          adminViewSlug,
+          manualSettingsRestResource,
+        );
+      } else if (coreDataSource) {
+        adminViewDataSource = buildCoreDataAdminViewDataSource(
+          adminViewSlug,
+          coreDataSource,
+        );
+      } else if (restResource) {
+        adminViewDataSource = buildRestAdminViewDataSource(
+          adminViewSlug,
+          restResource,
+        );
+      } else {
+        adminViewDataSource =
+          buildDefaultAdminViewDataSource(adminViewSlug);
+      }
       await fsp.writeFile(
         path.join(adminViewDir, 'types.ts'),
         normalizeAdminViewTypeScriptSource(
@@ -500,18 +521,7 @@ export async function scaffoldAdminViewWorkspace(options: {
       );
       await fsp.writeFile(
         path.join(adminViewDir, 'data.ts'),
-        normalizeAdminViewTypeScriptSource(
-          manualSettingsRestResource
-            ? buildRestSettingsAdminViewDataSource(
-                adminViewSlug,
-                manualSettingsRestResource,
-              )
-            : coreDataSource
-            ? buildCoreDataAdminViewDataSource(adminViewSlug, coreDataSource)
-            : restResource
-              ? buildRestAdminViewDataSource(adminViewSlug, restResource)
-              : buildDefaultAdminViewDataSource(adminViewSlug),
-        ),
+        normalizeAdminViewTypeScriptSource(adminViewDataSource),
         'utf8',
       );
       await fsp.writeFile(

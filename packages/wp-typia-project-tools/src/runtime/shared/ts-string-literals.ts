@@ -43,6 +43,7 @@ export function quoteTypeScriptString(value: string): string {
       default:
         if (
           code < 0x20 ||
+          (code >= 0x7f && code <= 0x9f) ||
           code === 0x2028 ||
           code === 0x2029 ||
           (code >= 0xd800 && code <= 0xdfff)
@@ -155,7 +156,7 @@ export function renderTypeScriptValue(
         'TypeScript value rendering requires finite numbers.',
       );
     }
-    return String(value);
+    return Object.is(value, -0) ? '-0' : String(value);
   }
   if (Array.isArray(value)) {
     if (value.length === 0) {

@@ -649,7 +649,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound-item/save.tsx': 'ad030c7483974d40',
     'src/blocks/demo-compound-item/validators.ts': 'dc2339e1f385b488',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
-    'src/blocks/demo-compound/children.ts': 'f38bf8f884b06dfe',
+    'src/blocks/demo-compound/children.ts': 'f8d50660204c3e32',
     'src/blocks/demo-compound/edit.tsx': '0cd6f57e52f3f375',
     'src/blocks/demo-compound/hooks.ts': '35d4b1ace23be502',
     'src/blocks/demo-compound/index.tsx': 'e41dfb0b954670a5',

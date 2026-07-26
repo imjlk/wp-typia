@@ -252,6 +252,11 @@ export function installMigrationCompilerFixture(projectDir: string) {
   ] as const;
 
   for (const { source, target } of packageLinks) {
+    if (!fs.existsSync(source)) {
+      throw new Error(
+        `Migration fixture dependency is missing at ${source}. Run the repository install before executing migration tests.`,
+      );
+    }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     if (!fs.existsSync(target)) {
       fs.symlinkSync(fs.realpathSync(source), target, 'junction');
@@ -322,7 +327,7 @@ export function typecheckMigrationProject(
   }
 
   let checkConfigPath: string | undefined;
-  if (checkInputs) {
+  if (checkInputs && checkInputs.length > 0) {
     checkConfigPath = path.join(projectDir, 'tsconfig.migration-check.json');
     writeJson(checkConfigPath, {
       extends: './tsconfig.json',

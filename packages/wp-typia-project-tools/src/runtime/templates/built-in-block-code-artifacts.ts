@@ -46,6 +46,7 @@ import { assertScaffoldTemplateCodeIdentifiers } from './scaffold-template-asser
 import { renderMustacheTemplateString } from './template-render.js';
 import {
   quoteTypeScriptString,
+  renderNamedTypeScriptImport,
   renderTypeScriptStringArray,
 } from '../shared/ts-string-literals.js';
 
@@ -105,12 +106,31 @@ function renderCodeTemplate(
   assertScaffoldTemplateCodeIdentifiers(variables);
   const queryLoop =
     getScaffoldTemplateVariableGroups(variables).queryLoop;
-  const validationTypesImport =
-    `import type { ${variables.pascalCase}Attributes, ${variables.pascalCase}ValidationResult } from './types';`;
-  const childValidationTypesImport =
-    `import type { ${variables.pascalCase}ItemAttributes, ${variables.pascalCase}ItemValidationResult } from './types';`;
-  const persistenceTypesImport =
-    `import type { ${variables.pascalCase}ClientState, ${variables.pascalCase}Context, ${variables.pascalCase}State } from './types';`;
+  const validationTypesImport = renderNamedTypeScriptImport(
+    [
+      `${variables.pascalCase}Attributes`,
+      `${variables.pascalCase}ValidationResult`,
+    ],
+    './types',
+    { typeOnly: true },
+  );
+  const childValidationTypesImport = renderNamedTypeScriptImport(
+    [
+      `${variables.pascalCase}ItemAttributes`,
+      `${variables.pascalCase}ItemValidationResult`,
+    ],
+    './types',
+    { typeOnly: true },
+  );
+  const persistenceTypesImport = renderNamedTypeScriptImport(
+    [
+      `${variables.pascalCase}ClientState`,
+      `${variables.pascalCase}Context`,
+      `${variables.pascalCase}State`,
+    ],
+    './types',
+    { typeOnly: true },
+  );
   const persistenceEditorFieldLabels = [
     ['buttonLabel', 'Button Label'],
     ['resourceKey', 'Resource Key'],
@@ -132,10 +152,7 @@ function renderCodeTemplate(
     .join('\n');
   const rendered = renderMustacheTemplateString(template, {
     ...variables,
-    childValidationTypesImport:
-      childValidationTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
-        ? childValidationTypesImport
-        : `import type {\n  ${variables.pascalCase}ItemAttributes,\n  ${variables.pascalCase}ItemValidationResult,\n} from './types';`,
+    childValidationTypesImport,
     descriptionTsLiteral: quoteTypeScriptString(variables.description),
     persistenceEditorFieldLabels: renderedPersistenceEditorFieldLabels,
     persistenceSanitizeAttributesCall: renderTypeScriptCallLine({
@@ -160,10 +177,7 @@ function renderCodeTemplate(
       0,
       RESOURCE_KEY_PREFIX_MAX_LENGTH,
     ),
-    persistenceTypesImport:
-      persistenceTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
-        ? persistenceTypesImport
-        : `import type {\n  ${variables.pascalCase}ClientState,\n  ${variables.pascalCase}Context,\n  ${variables.pascalCase}State,\n} from './types';`,
+    persistenceTypesImport,
     titleTsLiteral: quoteTypeScriptString(variables.title),
     persistenceValidateAttributesCall: renderTypeScriptCallLine({
       arguments: ['nextAttributes'],
@@ -172,10 +186,7 @@ function renderCodeTemplate(
       prefix: 'return ',
       suffix: ';',
     }),
-    validationTypesImport:
-      validationTypesImport.length <= TYPESCRIPT_PRINT_WIDTH
-        ? validationTypesImport
-        : `import type {\n  ${variables.pascalCase}Attributes,\n  ${variables.pascalCase}ValidationResult,\n} from './types';`,
+    validationTypesImport,
   });
   return rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 }

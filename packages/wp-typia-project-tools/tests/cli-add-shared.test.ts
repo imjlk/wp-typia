@@ -319,6 +319,9 @@ test('TypeScript string quoting follows the generated single-quote policy', () =
     quoteTsString("apostrophe ' slash \\\nline\t\u2028"),
   ).toBe(`'apostrophe \\' slash \\\\\\nline\\t\\u2028'`);
   expect(quoteTsString('\u0000\u0001')).toBe(`'\\u0000\\u0001'`);
+  expect(quoteTsString('\u007f\u0080\u009f')).toBe(
+    `'\\u007f\\u0080\\u009f'`,
+  );
 });
 
 test('TypeScript value rendering preserves JSON data with formatter-safe literals', () => {
@@ -340,6 +343,7 @@ test('TypeScript value rendering preserves JSON data with formatter-safe literal
   expect(() => renderTypeScriptValue(Number.NaN)).toThrow(
     'TypeScript value rendering requires finite numbers.',
   );
+  expect(renderTypeScriptValue(-0)).toBe('-0');
 });
 
 test('shared add collision helper allows missing filesystem paths and inventory entries', () => {

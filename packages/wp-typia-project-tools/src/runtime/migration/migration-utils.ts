@@ -8,6 +8,7 @@ import {
   parsePackageManagerField,
   type PackageManagerId,
 } from '../shared/package-managers.js';
+import { quoteTypeScriptString } from '../shared/ts-string-literals.js';
 import type {
   JsonValue,
   ManifestAttribute,
@@ -333,7 +334,7 @@ export function renderObjectKey(key: string): string {
   const value = String(key);
   return /^[$A-Z_a-z][$\w]*$/u.test(value)
     ? value
-    : `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+    : quoteTypeScriptString(value);
 }
 
 export function isNumber(value: unknown): value is number {

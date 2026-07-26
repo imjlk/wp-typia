@@ -60,47 +60,61 @@ export function buildManualRestContractConfigEntry(options: {
   });
 
   return [
-		'\t{',
-		`\t\tapiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
-		`\t\tauth: ${quoteTsString(options.auth)},`,
-		...(options.bodyTypeName
-			? [`\t\tbodyTypeName: ${quoteTsString(options.bodyTypeName)},`]
-			: []),
-		`\t\tclientFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-client.ts`)},`,
-		...(options.controllerClass
-			? [`\t\tcontrollerClass: ${quoteTsString(options.controllerClass)},`]
-			: []),
-		...(options.controllerExtends
-			? [`\t\tcontrollerExtends: ${quoteTsString(options.controllerExtends)},`]
-			: []),
-		`\t\tmethod: ${quoteTsString(options.method)},`,
-		'\t\tmethods: [],',
-		"\t\tmode: 'manual',",
-		`\t\tnamespace: ${quoteTsString(options.namespace)},`,
-		`\t\topenApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
-		`\t\tpathPattern: ${quoteTsString(options.pathPattern)},`,
-		...(options.permissionCallback
-			? [`\t\tpermissionCallback: ${quoteTsString(options.permissionCallback)},`]
-			: []),
-		`\t\tqueryTypeName: ${quoteTsString(options.queryTypeName)},`,
-		'\t\trestManifest: defineEndpointManifest(',
-		indentMultiline(`${renderTypeScriptValue(manifest)},`, '\t\t\t'),
-		'\t\t),',
-		`\t\tresponseTypeName: ${quoteTsString(options.responseTypeName)},`,
-		...(options.secretFieldName
-			? [`\t\tsecretFieldName: ${quoteTsString(options.secretFieldName)},`]
-			: []),
-		...(options.secretPreserveOnEmpty !== undefined
-			? [`\t\tsecretPreserveOnEmpty: ${options.secretPreserveOnEmpty},`]
-			: []),
-		...(options.secretStateFieldName
-			? [`\t\tsecretStateFieldName: ${quoteTsString(options.secretStateFieldName)},`]
-			: []),
-		`\t\tslug: ${quoteTsString(options.restResourceSlug)},`,
-		`\t\ttypesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
-		`\t\tvalidatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
-		'\t},',
-	].join('\n');
+    '  {',
+    `    apiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
+    `    auth: ${quoteTsString(options.auth)},`,
+    ...(options.bodyTypeName
+      ? [
+          `    bodyTypeName: ${quoteTsString(options.bodyTypeName)},`,
+        ]
+      : []),
+    `    clientFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-client.ts`)},`,
+    ...(options.controllerClass
+      ? [
+          `    controllerClass: ${quoteTsString(options.controllerClass)},`,
+        ]
+      : []),
+    ...(options.controllerExtends
+      ? [
+          `    controllerExtends: ${quoteTsString(options.controllerExtends)},`,
+        ]
+      : []),
+    `    method: ${quoteTsString(options.method)},`,
+    '    methods: [],',
+    "    mode: 'manual',",
+    `    namespace: ${quoteTsString(options.namespace)},`,
+    `    openApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
+    `    pathPattern: ${quoteTsString(options.pathPattern)},`,
+    ...(options.permissionCallback
+      ? [
+          `    permissionCallback: ${quoteTsString(options.permissionCallback)},`,
+        ]
+      : []),
+    `    queryTypeName: ${quoteTsString(options.queryTypeName)},`,
+    '    restManifest: defineEndpointManifest(',
+    indentMultiline(`${renderTypeScriptValue(manifest)},`, '      '),
+    '    ),',
+    `    responseTypeName: ${quoteTsString(options.responseTypeName)},`,
+    ...(options.secretFieldName
+      ? [
+          `    secretFieldName: ${quoteTsString(options.secretFieldName)},`,
+        ]
+      : []),
+    ...(options.secretPreserveOnEmpty !== undefined
+      ? [
+          `    secretPreserveOnEmpty: ${options.secretPreserveOnEmpty},`,
+        ]
+      : []),
+    ...(options.secretStateFieldName
+      ? [
+          `    secretStateFieldName: ${quoteTsString(options.secretStateFieldName)},`,
+        ]
+      : []),
+    `    slug: ${quoteTsString(options.restResourceSlug)},`,
+    `    typesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
+    `    validatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
+    '  },',
+  ].join('\n');
 }
 
 /**

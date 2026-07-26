@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { renderMigrationRuleFile } from '../src/runtime/migration/migration-render-diff-rule.js';
+import { renderObjectKey } from '../src/runtime/migration/migration-utils.js';
 
 const sourceRoot = resolve(
   import.meta.dir,
@@ -90,4 +91,9 @@ test('migration rules use a record fallback when sourceType is missing', () => {
     'export function migrate(input: Record<string, unknown>): ' +
       'Record<string, unknown>',
   );
+});
+
+test('migration object keys remain valid TypeScript string literals', () => {
+  expect(renderObjectKey('plainKey')).toBe('plainKey');
+  expect(renderObjectKey("line\n'quoted'")).toBe(`'line\\n\\'quoted\\''`);
 });

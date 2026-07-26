@@ -42,34 +42,42 @@ export function buildRestResourceConfigEntry(options: {
   );
 
   return [
-		'\t{',
-		`\t\tapiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
-		...(options.controllerClass
-			? [`\t\tcontrollerClass: ${quoteTsString(options.controllerClass)},`]
-			: []),
-		...(options.controllerExtends
-			? [`\t\tcontrollerExtends: ${quoteTsString(options.controllerExtends)},`]
-			: []),
-		`\t\tclientFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-client.ts`)},`,
-		`\t\tdataFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/data.ts`)},`,
-		`\t\tmethods: [ ${options.methods.map((method) => quoteTsString(method)).join(', ')} ],`,
-		`\t\tnamespace: ${quoteTsString(options.namespace)},`,
-		`\t\topenApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
-		...(options.permissionCallback
-			? [`\t\tpermissionCallback: ${quoteTsString(options.permissionCallback)},`]
-			: []),
-		`\t\tphpFile: ${quoteTsString(`inc/rest/${options.restResourceSlug}.php`)},`,
-		'\t\trestManifest: defineEndpointManifest(',
-		indentMultiline(`${renderTypeScriptValue(manifest)},`, '\t\t\t'),
-		'\t\t),',
-		...(options.routePattern
-			? [`\t\troutePattern: ${quoteTsString(options.routePattern)},`]
-			: []),
-		`\t\tslug: ${quoteTsString(options.restResourceSlug)},`,
-		`\t\ttypesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
-		`\t\tvalidatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
-		'\t},',
-	].join('\n');
+    '  {',
+    `    apiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.ts`)},`,
+    ...(options.controllerClass
+      ? [
+          `    controllerClass: ${quoteTsString(options.controllerClass)},`,
+        ]
+      : []),
+    ...(options.controllerExtends
+      ? [
+          `    controllerExtends: ${quoteTsString(options.controllerExtends)},`,
+        ]
+      : []),
+    `    clientFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-client.ts`)},`,
+    `    dataFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/data.ts`)},`,
+    `    methods: [${options.methods.map((method) => quoteTsString(method)).join(', ')}],`,
+    `    namespace: ${quoteTsString(options.namespace)},`,
+    `    openApiFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api.openapi.json`)},`,
+    ...(options.permissionCallback
+      ? [
+          `    permissionCallback: ${quoteTsString(options.permissionCallback)},`,
+        ]
+      : []),
+    `    phpFile: ${quoteTsString(`inc/rest/${options.restResourceSlug}.php`)},`,
+    '    restManifest: defineEndpointManifest(',
+    indentMultiline(`${renderTypeScriptValue(manifest)},`, '      '),
+    '    ),',
+    ...(options.routePattern
+      ? [
+          `    routePattern: ${quoteTsString(options.routePattern)},`,
+        ]
+      : []),
+    `    slug: ${quoteTsString(options.restResourceSlug)},`,
+    `    typesFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-types.ts`)},`,
+    `    validatorsFile: ${quoteTsString(`src/rest/${options.restResourceSlug}/api-validators.ts`)},`,
+    '  },',
+  ].join('\n');
 }
 
 /**

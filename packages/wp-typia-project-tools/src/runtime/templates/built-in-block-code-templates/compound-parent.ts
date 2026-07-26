@@ -240,7 +240,8 @@ export type CompoundInnerBlocksPropsOptions = CompoundInnerBlocksConfig & {
 };
 
 export const ROOT_INNER_BLOCKS_PRESET_ID = '{{compoundInnerBlocksPreset}}';
-export const ROOT_INNER_BLOCKS_PRESET_DESCRIPTION = '{{compoundInnerBlocksPresetDescription}}';
+export const ROOT_INNER_BLOCKS_PRESET_DESCRIPTION =
+  '{{compoundInnerBlocksPresetDescription}}';
 
 const BASE_INNER_BLOCKS_CONFIG: Omit<
   CompoundInnerBlocksConfig,
