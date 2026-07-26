@@ -26,6 +26,8 @@ import {
 import { scaffoldProject } from '../src/runtime/index.js';
 
 const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;
+const sharedWebpackEntryLoopSource =
+  `\tfor (const [entryName, candidates] of [\n\t\t['bindings/index', ['src/bindings/index.ts', 'src/bindings/index.js']],\n\t\t[\n\t\t\t'editor-plugins/index',\n\t\t\t['src/editor-plugins/index.ts', 'src/editor-plugins/index.js'],\n\t\t],\n\t\t[\n\t\t\t'admin-views/index',\n\t\t\t['src/admin-views/index.ts', 'src/admin-views/index.js'],\n\t\t],\n\t]) {\n\t\tfor (const relativePath of candidates) {\n\t\t\tconst entryPath = path.resolve(process.cwd(), relativePath);\n\t\t\tif (!fs.existsSync(entryPath)) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tentries.push([entryName, entryPath]);\n\t\t\tbreak;\n\t\t}\n\t}`;
 
 const legacyValidatorToolkitSource = [
   "import { parseManifestDefaultsDocument } from '@wp-typia/block-runtime/defaults';",
@@ -6149,7 +6151,7 @@ test('admin view workflow accepts formatted shared webpack entries', async () =>
     webpackConfigPath,
     replaceFixtureSource(
       fs.readFileSync(webpackConfigPath, 'utf8'),
-      `\tfor ( const [ entryName, candidates ] of [\n\t\t[\n\t\t\t'bindings/index',\n\t\t\t[ 'src/bindings/index.ts', 'src/bindings/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'editor-plugins/index',\n\t\t\t[ 'src/editor-plugins/index.ts', 'src/editor-plugins/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'admin-views/index',\n\t\t\t[ 'src/admin-views/index.ts', 'src/admin-views/index.js' ],\n\t\t],\n\t] ) {\n\t\tfor ( const relativePath of candidates ) {\n\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tentries.push( [ entryName, entryPath ] );\n\t\t\tbreak;\n\t\t}\n\t}`,
+      sharedWebpackEntryLoopSource,
       `\tfor ( const [ entryName, candidates ] of [\n\t\t[\n\t\t\t\"bindings/index\",\n\t\t\t[\n\t\t\t\t\"src/bindings/index.ts\",\n\t\t\t\t\"src/bindings/index.js\",\n\t\t\t],\n\t\t],\n\t\t[ \"editor-plugins/index\", [\n\t\t\t\"src/editor-plugins/index.ts\",\n\t\t\t\"src/editor-plugins/index.js\",\n\t\t] ],\n\t] ) {\n\t\tfor ( const relativePath of candidates ) {\n\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tentries.push( [ entryName, entryPath ] );\n\t\t\tbreak;\n\t\t}\n\t}`,
       'formatted admin view webpack entries',
     ),
@@ -7044,7 +7046,7 @@ test('editor plugin workflow repairs legacy workspace build config hooks', async
     webpackConfigPath,
     replaceFixtureSource(
       fs.readFileSync(webpackConfigPath, 'utf8'),
-      `\tfor ( const [ entryName, candidates ] of [\n\t\t[\n\t\t\t'bindings/index',\n\t\t\t[ 'src/bindings/index.ts', 'src/bindings/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'editor-plugins/index',\n\t\t\t[ 'src/editor-plugins/index.ts', 'src/editor-plugins/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'admin-views/index',\n\t\t\t[ 'src/admin-views/index.ts', 'src/admin-views/index.js' ],\n\t\t],\n\t] ) {\n\t\tfor ( const relativePath of candidates ) {\n\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tentries.push( [ entryName, entryPath ] );\n\t\t\tbreak;\n\t\t}\n\t}`,
+      sharedWebpackEntryLoopSource,
       `\tfor ( const relativePath of [ 'src/bindings/index.ts', 'src/bindings/index.js' ] ) {\n\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\tcontinue;\n\t\t}\n\n\t\tentries.push( [ 'bindings/index', entryPath ] );\n\t\tbreak;\n\t}`,
       'legacy editor plugin webpack entries',
     ),
@@ -7112,7 +7114,7 @@ test('editor plugin workflow repairs formatted legacy workspace build config hoo
     webpackConfigPath,
     replaceFixtureSource(
       fs.readFileSync(webpackConfigPath, 'utf8'),
-      `\tfor ( const [ entryName, candidates ] of [\n\t\t[\n\t\t\t'bindings/index',\n\t\t\t[ 'src/bindings/index.ts', 'src/bindings/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'editor-plugins/index',\n\t\t\t[ 'src/editor-plugins/index.ts', 'src/editor-plugins/index.js' ],\n\t\t],\n\t\t[\n\t\t\t'admin-views/index',\n\t\t\t[ 'src/admin-views/index.ts', 'src/admin-views/index.js' ],\n\t\t],\n\t] ) {\n\t\tfor ( const relativePath of candidates ) {\n\t\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\n\t\t\tentries.push( [ entryName, entryPath ] );\n\t\t\tbreak;\n\t\t}\n\t}`,
+      sharedWebpackEntryLoopSource,
       `\tfor ( const relativePath of [\n\t\t\"src/bindings/index.ts\",\n\t\t\"src/bindings/index.js\",\n\t] ) {\n\t\tconst entryPath = path.resolve( process.cwd(), relativePath );\n\t\tif ( ! fs.existsSync( entryPath ) ) {\n\t\t\tcontinue;\n\t\t}\n\n\t\tentries.push( [ \"bindings/index\", entryPath ] );\n\t\tbreak;\n\t}`,
       'formatted legacy editor plugin webpack entries',
     ),

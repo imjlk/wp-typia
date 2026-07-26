@@ -242,9 +242,13 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			const tarballEntries = run(tarCommand, ["-tf", tarballPath])
 				.trim()
 				.split("\n");
-			if (!tarballEntries.includes("package/lint.config.ts.mustache")) {
+			const missingEntries = [
+				"package/lint.config.ts.mustache",
+				"package/prettier.config.mjs.mustache",
+			].filter((entry) => !tarballEntries.includes(entry));
+			if (missingEntries.length > 0) {
 				throw new Error(
-					"Packed create-workspace-template tarball is missing package/lint.config.ts.mustache.",
+					`Packed create-workspace-template tarball is missing: ${missingEntries.join(", ")}.`,
 				);
 			}
 		}

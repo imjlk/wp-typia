@@ -7,6 +7,25 @@ import ts from '@typescript/typescript6';
 
 const TTSC_LINT_VERSION = '0.22.0';
 const TYPIA_VERSION = '13.2.0';
+const QUERY_LOOP_PACKAGE_MANIFEST_PATH =
+  'packages/wp-typia-project-tools/templates/query-loop/package.json.mustache';
+const GENERATED_PACKAGE_MANIFEST_PATHS = Object.freeze([
+  'packages/create-workspace-template/package.json.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/persistence/core/package.json.mustache',
+  'packages/wp-typia-project-tools/templates/interactivity/package.json.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/compound/core/package.json.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/compound/persistence/package.json.mustache',
+  QUERY_LOOP_PACKAGE_MANIFEST_PATH,
+  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/package.json.mustache',
+]);
+// Query-loop templates have no CSS or SCSS sources, so they intentionally omit
+// the generated WordPress style-lint script.
+const GENERATED_WP_SCRIPTS_STYLE_LINT_MANIFEST_PATHS = Object.freeze(
+  GENERATED_PACKAGE_MANIFEST_PATHS.filter(
+    (relativePath) => relativePath !== QUERY_LOOP_PACKAGE_MANIFEST_PATH,
+  ),
+);
 
 export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   eslintJsVersion: '9.39.4',
@@ -17,15 +36,37 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
   generatedWpScriptsLintJsScript:
     'node scripts/run-wp-scripts-lint-js-compat.mjs',
+  generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input',
   generatedReactDomTypesVersion: '^18.3.7',
   generatedReactDomVersion: '^18.3.1',
   generatedReactTypesVersion: '^18.3.28',
   generatedReactVersion: '^18.3.1',
+  generatedTypeScriptImportResolverVersion: '^4.4.5',
   typescript6Version: '6.0.2',
   wpScriptsLintCompatRegisterPath: 'scripts/register-typescript6.cjs',
   wpScriptsLintCompatWrapperPath: 'scripts/run-wp-scripts-lint-js-compat.mjs',
   wpScriptsLintExtensions: 'js,jsx,cjs,mjs',
   prettierVersion: '3.8.2',
+  generatedPrettierConfigPath: 'prettier.config.mjs',
+  generatedPrettierConfig: Object.freeze({
+    useTabs: true,
+    tabWidth: 4,
+    printWidth: 80,
+    singleQuote: true,
+    trailingComma: 'es5',
+    bracketSameLine: false,
+    bracketSpacing: true,
+    semi: true,
+    arrowParens: 'always',
+    overrides: Object.freeze([
+      Object.freeze({
+        files: '*.{css,sass,scss}',
+        options: Object.freeze({
+          singleQuote: false,
+        }),
+      }),
+    ]),
+  }),
   rootFormatWriteScript:
     'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write',
   rootLintFixScript:
@@ -42,16 +83,9 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,
     [`typia@${TYPIA_VERSION}`]: `patches/typia@${TYPIA_VERSION}.patch`,
   }),
-  generatedPackageManifestPaths: Object.freeze([
-    'packages/create-workspace-template/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/_shared/persistence/core/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/interactivity/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/_shared/compound/core/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/_shared/compound/persistence/package.json.mustache',
-    'packages/wp-typia-project-tools/templates/query-loop/package.json.mustache',
-    'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/package.json.mustache',
-  ]),
+  generatedPackageManifestPaths: GENERATED_PACKAGE_MANIFEST_PATHS,
+  generatedWpScriptsStyleLintManifestPaths:
+    GENERATED_WP_SCRIPTS_STYLE_LINT_MANIFEST_PATHS,
   generatedWpScriptsLintCompatTemplateRoots: Object.freeze([
     'packages/create-workspace-template',
     'packages/wp-typia-project-tools/templates/_shared/base',
@@ -475,6 +509,15 @@ function validateGeneratedTemplateManifest(
     );
   }
 
+  if (
+    manifest.devDependencies?.['eslint-import-resolver-typescript'] !==
+    policy.generatedTypeScriptImportResolverVersion
+  ) {
+    errors.push(
+      `${relativePath} must declare devDependencies["eslint-import-resolver-typescript"]="${policy.generatedTypeScriptImportResolverVersion}" so npm-installed WordPress ESLint does not mistake the TypeScript compiler for an import resolver, found ${JSON.stringify(manifest.devDependencies?.['eslint-import-resolver-typescript'] ?? null)}.`,
+    );
+  }
+
   for (const [dependencyName, expectedVersion] of [
     ['@types/react', policy.generatedReactTypesVersion],
     ['@types/react-dom', policy.generatedReactDomTypesVersion],
@@ -491,6 +534,23 @@ function validateGeneratedTemplateManifest(
   if (manifest.scripts?.['lint:js'] !== policy.generatedWpScriptsLintJsScript) {
     errors.push(
       `${relativePath} must keep scripts["lint:js"]="${policy.generatedWpScriptsLintJsScript}", found ${JSON.stringify(manifest.scripts?.['lint:js'] ?? null)}.`,
+    );
+  }
+
+  return manifest;
+}
+
+function validateGeneratedStyleLintManifest(
+  relativePath,
+  manifest,
+  policy,
+  errors,
+) {
+  if (
+    manifest.scripts?.['lint:css'] !== policy.generatedWpScriptsLintCssScript
+  ) {
+    errors.push(
+      `${relativePath} must keep scripts["lint:css"]="${policy.generatedWpScriptsLintCssScript}" so empty workspaces remain lintable, found ${JSON.stringify(manifest.scripts?.['lint:css'] ?? null)}.`,
     );
   }
 }
@@ -547,6 +607,37 @@ function validateWpScriptsLintCompatSources(
   ) {
     errors.push(
       `${registerRelativePath} must redirect TypeScript consumers to @typescript/typescript6.`,
+    );
+  }
+}
+
+function validateGeneratedPrettierConfig(
+  repoRoot,
+  relativePath,
+  policy,
+  errors,
+) {
+  const configPath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(configPath)) {
+    errors.push(
+      `${relativePath} must exist so generated JavaScript formatting agrees with WordPress ESLint.`,
+    );
+    return;
+  }
+
+  try {
+    const actualConfig = readTsDefaultObjectConfig(
+      fs.readFileSync(configPath, 'utf8'),
+      relativePath,
+    );
+    if (!deepEqualJson(actualConfig, policy.generatedPrettierConfig)) {
+      errors.push(
+        `${relativePath} must match the generated WordPress JavaScript Prettier policy; found ${JSON.stringify(actualConfig)}, expected ${JSON.stringify(policy.generatedPrettierConfig)}.`,
+      );
+    }
+  } catch (error) {
+    errors.push(
+      `${relativePath} must export a static generated WordPress JavaScript Prettier config: ${error instanceof Error ? error.message : String(error)}.`,
     );
   }
 }
@@ -826,13 +917,30 @@ export function validateFormattingToolchainPolicy(
     errors,
   );
 
+  const generatedManifests = new Map();
   for (const relativePath of policy.generatedPackageManifestPaths) {
-    validateGeneratedTemplateManifest(
-      relativePath,
-      readRelativeText(repoRoot, relativePath),
-      policy,
-      errors,
-    );
+    try {
+      const sourceText = readRelativeText(repoRoot, relativePath);
+      const manifest = validateGeneratedTemplateManifest(
+        relativePath,
+        sourceText,
+        policy,
+        errors,
+      );
+      generatedManifests.set(relativePath, manifest);
+    } catch (error) {
+      errors.push(
+        `${relativePath} must be a readable valid JSON generated package manifest: ${error instanceof Error ? error.message : String(error)}.`,
+      );
+    }
+  }
+
+  for (const relativePath of policy.generatedWpScriptsStyleLintManifestPaths) {
+    const manifest = generatedManifests.get(relativePath);
+    if (!manifest) {
+      continue;
+    }
+    validateGeneratedStyleLintManifest(relativePath, manifest, policy, errors);
   }
 
   for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {
@@ -843,6 +951,12 @@ export function validateFormattingToolchainPolicy(
         'scripts/run-wp-scripts-lint-js-compat.mjs.mustache',
       ),
       path.join(templateRoot, 'scripts/register-typescript6.cjs.mustache'),
+      policy,
+      errors,
+    );
+    validateGeneratedPrettierConfig(
+      repoRoot,
+      path.join(templateRoot, `${policy.generatedPrettierConfigPath}.mustache`),
       policy,
       errors,
     );

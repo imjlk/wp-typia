@@ -10,15 +10,35 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   exampleWpScriptsEslintVersion: '8.57.1';
   exampleWpScriptsLintJsScript: 'node ../../scripts/run-wp-scripts-lint-js-compat.mjs';
   generatedWpScriptsLintJsScript: 'node scripts/run-wp-scripts-lint-js-compat.mjs';
+  generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input';
   generatedReactDomTypesVersion: '^18.3.7';
   generatedReactDomVersion: '^18.3.1';
   generatedReactTypesVersion: '^18.3.28';
   generatedReactVersion: '^18.3.1';
+  generatedTypeScriptImportResolverVersion: '^4.4.5';
   typescript6Version: '6.0.2';
   wpScriptsLintCompatRegisterPath: 'scripts/register-typescript6.cjs';
   wpScriptsLintCompatWrapperPath: 'scripts/run-wp-scripts-lint-js-compat.mjs';
   wpScriptsLintExtensions: 'js,jsx,cjs,mjs';
   prettierVersion: '3.8.2';
+  generatedPrettierConfigPath: 'prettier.config.mjs';
+  generatedPrettierConfig: Readonly<{
+    useTabs: true;
+    tabWidth: 4;
+    printWidth: 80;
+    singleQuote: true;
+    trailingComma: 'es5';
+    bracketSameLine: false;
+    bracketSpacing: true;
+    semi: true;
+    arrowParens: 'always';
+    overrides: readonly Readonly<{
+      files: '*.{css,sass,scss}';
+      options: Readonly<{
+        singleQuote: false;
+      }>;
+    }>[];
+  }>;
   rootFormatCheckScript: 'node scripts/check-repo-format.mjs';
   rootFormatWriteScript: 'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write';
   rootLintFixScript: 'eslint . --fix --max-warnings=0 && ttsc fix --singleThreaded';
@@ -33,6 +53,7 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
     'typia@13.2.0': 'patches/typia@13.2.0.patch';
   }>;
   generatedPackageManifestPaths: readonly string[];
+  generatedWpScriptsStyleLintManifestPaths: readonly string[];
   generatedWpScriptsLintCompatTemplateRoots: readonly string[];
   workspaceExamplePackagePaths: readonly string[];
   wpScriptsExamplePackagePaths: readonly string[];

@@ -60,6 +60,7 @@ function addGeneratedLintBoundary(
     '@types/react': '^18.3.28',
     '@types/react-dom': '^18.3.7',
     '@typescript/typescript6': '6.0.2',
+    'eslint-import-resolver-typescript': '^4.4.5',
     react: '^18.3.1',
     'react-dom': '^18.3.1',
   };
@@ -77,6 +78,7 @@ function addGeneratedLintBoundary(
     'scripts/run-wp-scripts-lint-js-compat.mjs',
     '#!/usr/bin/env node\n',
   );
+  writeFixtureFile(projectDir, 'prettier.config.mjs', 'export default {};\n');
   return packageJson;
 }
 

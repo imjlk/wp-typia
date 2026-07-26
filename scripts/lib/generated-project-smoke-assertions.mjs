@@ -253,15 +253,33 @@ export function assertGeneratedPackageBoundary(projectDir) {
   const allowWorkspaceCliHelperScripts =
     isOfficialWorkspaceTemplatePackage(packageJson);
   const expectedLintScript = 'node scripts/run-wp-scripts-lint-js-compat.mjs';
+  const expectedLintCssScript =
+    'wp-scripts lint-style --allow-empty-input';
 
   if (packageJson.scripts?.['lint:js'] !== expectedLintScript) {
     throw new Error(
       `Expected generated project lint:js to use "${expectedLintScript}", found ${JSON.stringify(packageJson.scripts?.['lint:js'] ?? null)}`,
     );
   }
+  if (
+    typeof packageJson.scripts?.['lint:css'] === 'string' &&
+    packageJson.scripts['lint:css'] !== expectedLintCssScript
+  ) {
+    throw new Error(
+      `Expected generated project lint:css to use "${expectedLintCssScript}", found ${JSON.stringify(packageJson.scripts['lint:css'])}`,
+    );
+  }
   if (packageJson.devDependencies?.['@typescript/typescript6'] !== '6.0.2') {
     throw new Error(
       `Expected generated project to pin @typescript/typescript6@6.0.2 for WordPress ESLint, found ${JSON.stringify(packageJson.devDependencies?.['@typescript/typescript6'] ?? null)}`,
+    );
+  }
+  if (
+    packageJson.devDependencies?.['eslint-import-resolver-typescript'] !==
+    '^4.4.5'
+  ) {
+    throw new Error(
+      `Expected generated project to declare eslint-import-resolver-typescript@^4.4.5 for npm-installed WordPress ESLint, found ${JSON.stringify(packageJson.devDependencies?.['eslint-import-resolver-typescript'] ?? null)}`,
     );
   }
   for (const [dependencyName, expectedVersion] of [
@@ -277,6 +295,7 @@ export function assertGeneratedPackageBoundary(projectDir) {
     }
   }
   for (const relativePath of [
+    'prettier.config.mjs',
     'scripts/register-typescript6.cjs',
     'scripts/run-wp-scripts-lint-js-compat.mjs',
   ]) {

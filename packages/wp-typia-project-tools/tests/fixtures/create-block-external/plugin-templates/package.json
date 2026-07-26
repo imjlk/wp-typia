@@ -6,6 +6,7 @@
   "type": "module",
   "files": [
     "package.json.mustache",
+    "prettier.config.mjs.mustache",
     "tsconfig.json.mustache",
     "webpack.config.js.mustache",
     "scripts/",

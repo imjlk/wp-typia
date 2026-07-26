@@ -107,10 +107,29 @@ if (request === 'typescript') {}
   );
 
   for (const relativePath of policy.generatedPackageManifestPaths) {
-    writeText(
-      path.join(repoRoot, relativePath),
-      `{\n  "scripts": {\n    "lint:js": "${policy.generatedWpScriptsLintJsScript}"\n  },\n  "devDependencies": {\n    "@ttsc/lint": "^${policy.ttscLintVersion}",\n    "@typescript/typescript6": "${policy.typescript6Version}",\n    "@types/react": "${policy.generatedReactTypesVersion}",\n    "@types/react-dom": "${policy.generatedReactDomTypesVersion}",\n    "prettier": "${policy.prettierVersion}",\n    "react": "${policy.generatedReactVersion}",\n    "react-dom": "${policy.generatedReactDomVersion}",\n    "ttsc": "^${policy.ttscVersion}"\n  }\n}\n`,
-    );
+    const scripts: Record<string, string> = {
+      'lint:js': policy.generatedWpScriptsLintJsScript,
+    };
+    if (
+      policy.generatedWpScriptsStyleLintManifestPaths.includes(relativePath)
+    ) {
+      scripts['lint:css'] = policy.generatedWpScriptsLintCssScript;
+    }
+    writeJson(path.join(repoRoot, relativePath), {
+      scripts,
+      devDependencies: {
+        '@ttsc/lint': `^${policy.ttscLintVersion}`,
+        '@typescript/typescript6': policy.typescript6Version,
+        '@types/react': policy.generatedReactTypesVersion,
+        '@types/react-dom': policy.generatedReactDomTypesVersion,
+        'eslint-import-resolver-typescript':
+          policy.generatedTypeScriptImportResolverVersion,
+        prettier: policy.prettierVersion,
+        react: policy.generatedReactVersion,
+        'react-dom': policy.generatedReactDomVersion,
+        ttsc: `^${policy.ttscVersion}`,
+      },
+    });
   }
 
   for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {
@@ -134,6 +153,14 @@ const args = ['--require', TYPESCRIPT6_REGISTER_FILE];
       `const typescript6Entry = projectRequire.resolve('@typescript/typescript6');
 if (request === 'typescript') {}
 `,
+    );
+    writeText(
+      path.join(
+        repoRoot,
+        templateRoot,
+        `${policy.generatedPrettierConfigPath}.mustache`,
+      ),
+      `export default ${JSON.stringify(policy.generatedPrettierConfig)};\n`,
     );
   }
 
@@ -511,6 +538,32 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
     );
   });
 
+  test('reports unreadable and malformed generated manifests without throwing', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const missingManifestPath =
+      'packages/create-workspace-template/package.json.mustache';
+    const malformedManifestPath =
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache';
+    fs.rmSync(path.join(repoRoot, missingManifestPath));
+    writeText(path.join(repoRoot, malformedManifestPath), '{ invalid json\n');
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    for (const relativePath of [
+      missingManifestPath,
+      malformedManifestPath,
+    ]) {
+      expect(
+        result.errors.some((error) =>
+          error.startsWith(
+            `${relativePath} must be a readable valid JSON generated package manifest:`,
+          ),
+        ),
+      ).toBe(true);
+    }
+  });
+
   test('fails when example or generated manifests reintroduce TypeScript ESLint', () => {
     const repoRoot = createFormattingPolicyRepo();
     const exampleManifestPath = path.join(
@@ -682,6 +735,67 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
     );
     expect(result.errors).toContain(
       'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must declare devDependencies["react-dom"]="^18.3.1", found null.',
+    );
+  });
+
+  test('fails when a generated template relies on a transitive TypeScript import resolver', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const templateManifestPath = path.join(
+      repoRoot,
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
+    );
+    const templateManifest = JSON.parse(
+      fs.readFileSync(templateManifestPath, 'utf8'),
+    );
+    delete templateManifest.devDependencies[
+      'eslint-import-resolver-typescript'
+    ];
+    writeJson(templateManifestPath, templateManifest);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must declare devDependencies["eslint-import-resolver-typescript"]="^4.4.5" so npm-installed WordPress ESLint does not mistake the TypeScript compiler for an import resolver, found null.',
+    );
+  });
+
+  test('fails when generated JavaScript formatting drifts from WordPress ESLint', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const configPath = path.join(
+      repoRoot,
+      'packages/wp-typia-project-tools/templates/_shared/base/prettier.config.mjs.mustache',
+    );
+    writeText(configPath, 'export default { useTabs: false };\n');
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+    const errors = result.errors.join('\n');
+
+    expect(result.valid).toBe(false);
+    expect(errors).toContain(
+      'packages/wp-typia-project-tools/templates/_shared/base/prettier.config.mjs.mustache must match the generated WordPress JavaScript Prettier policy;',
+    );
+    expect(errors).toContain('found {"useTabs":false}');
+    expect(errors).toContain('expected {"useTabs":true');
+  });
+
+  test('fails when generated style lint rejects an empty workspace', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const templateManifestPath = path.join(
+      repoRoot,
+      'packages/create-workspace-template/package.json.mustache',
+    );
+    const templateManifest = JSON.parse(
+      fs.readFileSync(templateManifestPath, 'utf8'),
+    );
+    templateManifest.scripts['lint:css'] = 'wp-scripts lint-style';
+    writeJson(templateManifestPath, templateManifest);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/package.json.mustache must keep scripts["lint:css"]="wp-scripts lint-style --allow-empty-input" so empty workspaces remain lintable, found "wp-scripts lint-style".',
     );
   });
 

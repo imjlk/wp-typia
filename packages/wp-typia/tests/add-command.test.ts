@@ -174,20 +174,20 @@ describe('wp-typia add command bridge', () => {
     expect(generatedInteractivityRuntime).toContain(
       'callbacks: signalBoardStore.callbacks,',
     );
-    expect(generatedSave).toContain(
-      "const clickActionDirective = signalBoardStore.directive.action('handleClick');",
+    expect(generatedSave).toMatch(
+      /const clickActionDirective =\s+signalBoardStore\.directive\.action\('handleClick'\);/u,
     );
-    expect(generatedSave).toContain(
-      'const visibilityHiddenDirective = signalBoardStore.directive.negate(',
+    expect(generatedSave).toMatch(
+      /const visibilityHiddenDirective =\s+signalBoardStore\.directive\.negate\(/u,
     );
     expect(generatedSave).toContain(
       "signalBoardStore.directive.state('isVisible')",
     );
-    expect(generatedSave).toContain(
-      "const clampedClicksDirective = signalBoardStore.directive.state('clampedClicks');",
+    expect(generatedSave).toMatch(
+      /const clampedClicksDirective =\s+signalBoardStore\.directive\.state\('clampedClicks'\);/u,
     );
-    expect(generatedSave).toContain(
-      "const resetActionDirective = signalBoardStore.directive.action('reset');",
+    expect(generatedSave).toMatch(
+      /const resetActionDirective =\s+signalBoardStore\.directive\.action\('reset'\);/u,
     );
     expect(generatedSave).toContain(
       "'data-wp-interactive': signalBoardStore.directive.interactive,",

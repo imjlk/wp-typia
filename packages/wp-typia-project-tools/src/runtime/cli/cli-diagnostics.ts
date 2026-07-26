@@ -287,7 +287,23 @@ export class CliDiagnosticError extends Error {
  * Narrow an unknown error to the shared CLI diagnostic error shape.
  */
 export function isCliDiagnosticError(error: unknown): error is CliDiagnosticError {
-  return error instanceof CliDiagnosticError;
+  if (error instanceof CliDiagnosticError) {
+    return true;
+  }
+
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as Partial<CliDiagnosticError>;
+  return (
+    candidate.name === 'CliDiagnosticError' &&
+    isCliDiagnosticCode(candidate.code) &&
+    typeof candidate.command === 'string' &&
+    Array.isArray(candidate.detailLines) &&
+    candidate.detailLines.every((line) => typeof line === 'string') &&
+    typeof candidate.summary === 'string'
+  );
 }
 
 function isCliDiagnosticCode(value: unknown): value is CliDiagnosticCode {

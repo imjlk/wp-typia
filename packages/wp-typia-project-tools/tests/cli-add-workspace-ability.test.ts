@@ -428,7 +428,7 @@ function demo_space_enqueue_workflow_abilities() {
 		const customWebpackTuple = [
 			'\t\t[',
 			"\t\t\t'custom-tools/index',",
-			"\t\t\t[ 'src/custom-tools/index.ts', 'src/custom-tools/index.js' ],",
+			"\t\t\t['src/custom-tools/index.ts', 'src/custom-tools/index.js'],",
 			'\t\t],',
 			'',
 		].join('\n');
@@ -437,7 +437,7 @@ function demo_space_enqueue_workflow_abilities() {
 			`$1${customBuildEntry}`,
 		);
 		const seededWebpackSource = initialWebpackSource.replace(
-			/(\t\t\[\n\t\t\t'editor-plugins\/index',\n\t\t\t\[ 'src\/editor-plugins\/index\.ts', 'src\/editor-plugins\/index\.js' \],\n\t\t\],\n)/u,
+			/(\t\t\[\n\t\t\t'editor-plugins\/index',\n\t\t\t\['src\/editor-plugins\/index\.ts', 'src\/editor-plugins\/index\.js'\],\n\t\t\],\n)/u,
 			`$1${customWebpackTuple}`,
 		);
 

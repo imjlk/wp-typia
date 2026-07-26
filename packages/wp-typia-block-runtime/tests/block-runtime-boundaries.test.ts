@@ -113,8 +113,8 @@ test('schema-core and metadata-parser keep helper clusters in dedicated modules'
     'utf8',
   );
 
-  expect(schemaCoreSource).toContain('from "./schema-core-projection.js"');
-  expect(schemaCoreSource).toContain('from "./schema-core-documents.js"');
+  expect(schemaCoreSource).toContain("from './schema-core-projection.js'");
+  expect(schemaCoreSource).toContain("from './schema-core-documents.js'");
   expect(schemaCoreSource).not.toContain(
     'function projectSchemaObjectForAiStructuredOutput(',
   );
@@ -157,8 +157,8 @@ test('schema-core and metadata-parser keep helper clusters in dedicated modules'
     'export function buildEndpointOpenApiDocument(',
   );
 
-  expect(metadataParserSource).toContain('from "./metadata-parser-tags.js"');
-  expect(metadataParserSource).toContain('from "./metadata-parser-symbols.js"');
+  expect(metadataParserSource).toContain("from './metadata-parser-tags.js'");
+  expect(metadataParserSource).toContain("from './metadata-parser-symbols.js'");
   expect(metadataParserSource).not.toContain(
     'function mergePrimitiveIntersection(',
   );

@@ -2052,7 +2052,7 @@ test('official workspace template scaffolds through the local npm template resol
     'npm run wp-typia:add -- block counter-card --template basic',
   );
   expect(buildWorkspaceSource).toContain('--blocks-manifest');
-  expect(buildWorkspaceSource).toContain('if ( blockSlugs.length === 0 )');
+  expect(buildWorkspaceSource).toContain('if (blockSlugs.length === 0)');
   expect(bootstrapSource).toContain('wp_register_block_metadata_collection');
   expect(bootstrapSource).toContain(
     'wp_register_block_types_from_metadata_collection',

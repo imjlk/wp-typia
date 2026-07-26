@@ -4,45 +4,43 @@ import wpEnvUtils from './wp-env-utils.cjs';
 
 const { runWpCli } = wpEnvUtils;
 
-const baseUrl = process.argv[ 2 ] ?? 'http://localhost:8889';
-const timeoutMs = Number.parseInt( process.argv[ 3 ] ?? '180000', 10 );
-const wpEnvConfig = process.argv[ 4 ] ?? '.wp-env.test.json';
+const baseUrl = process.argv[2] ?? 'http://localhost:8889';
+const timeoutMs = Number.parseInt(process.argv[3] ?? '180000', 10);
+const wpEnvConfig = process.argv[4] ?? '.wp-env.test.json';
 const intervalMs = 2000;
 
-if ( ! Number.isFinite( timeoutMs ) || timeoutMs <= 0 ) {
+if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
 	throw new Error(
 		`Invalid timeoutMs: ${
-			process.argv[ 3 ] ?? '180000'
+			process.argv[3] ?? '180000'
 		}. Expected a positive integer.`
 	);
 }
 
 const deadline = Date.now() + timeoutMs;
-const loginUrl = new URL( '/wp-login.php', baseUrl ).toString();
+const loginUrl = new URL('/wp-login.php', baseUrl).toString();
 
-function looksReady( html ) {
+function looksReady(html) {
+	return html.includes('id="loginform"') || html.includes('id="wpadminbar"');
+}
+
+function looksLikeInstall(html) {
 	return (
-		html.includes( 'id="loginform"' ) || html.includes( 'id="wpadminbar"' )
+		html.includes('install.php') ||
+		(html.includes('WordPress') && html.includes('Installation'))
 	);
 }
 
-function looksLikeInstall( html ) {
-	return (
-		html.includes( 'install.php' ) ||
-		( html.includes( 'WordPress' ) && html.includes( 'Installation' ) )
-	);
-}
-
-function ensureWordPressInstalled( configPath ) {
+function ensureWordPressInstalled(configPath) {
 	try {
-		runWpCli( [ 'core', 'is-installed' ], { configPath } );
+		runWpCli(['core', 'is-installed'], { configPath });
 		return false;
 	} catch {
 		runWpCli(
 			[
 				'core',
 				'install',
-				`--url=${ baseUrl }`,
+				`--url=${baseUrl}`,
 				`--title={{slug}}`,
 				'--admin_user=admin',
 				'--admin_password=password',
@@ -59,32 +57,31 @@ async function main() {
 	let lastStatus = 'not-started';
 	let installAttempted = false;
 
-	while ( Date.now() < deadline ) {
+	while (Date.now() < deadline) {
 		try {
-			const response = await fetch( loginUrl, {
+			const response = await fetch(loginUrl, {
 				redirect: 'follow',
 				headers: {
 					'cache-control': 'no-cache',
 				},
-			} );
+			});
 			const body = await response.text();
 
-			if ( response.ok && looksReady( body ) ) {
-				console.log( `✅ wp-env ready at ${ loginUrl }` );
+			if (response.ok && looksReady(body)) {
+				console.log(`✅ wp-env ready at ${loginUrl}`);
 				return;
 			}
 
-			if ( looksLikeInstall( body ) ) {
+			if (looksLikeInstall(body)) {
 				lastStatus = 'install-screen';
-				if ( ! installAttempted ) {
+				if (!installAttempted) {
 					try {
-						const installed =
-							ensureWordPressInstalled( wpEnvConfig );
+						const installed = ensureWordPressInstalled(wpEnvConfig);
 						installAttempted = installed;
 						lastStatus = installed
 							? 'auto-installed'
 							: 'install-screen';
-					} catch ( error ) {
+					} catch (error) {
 						installAttempted = false;
 						lastStatus =
 							error instanceof Error
@@ -93,20 +90,20 @@ async function main() {
 					}
 				}
 			} else {
-				lastStatus = `http-${ response.status }`;
+				lastStatus = `http-${response.status}`;
 			}
-		} catch ( error ) {
+		} catch (error) {
 			lastStatus =
 				error instanceof Error
 					? error.message
 					: 'unknown-network-error';
 		}
 
-		await new Promise( ( resolve ) => setTimeout( resolve, intervalMs ) );
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
 	}
 
 	throw new Error(
-		`Timed out waiting for wp-env login readiness at ${ loginUrl } (last status: ${ lastStatus })`
+		`Timed out waiting for wp-env login readiness at ${loginUrl} (last status: ${lastStatus})`
 	);
 }
 
