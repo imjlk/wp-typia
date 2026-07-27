@@ -417,6 +417,7 @@ describe('repository DX baseline', () => {
     );
     expect(prepareJob).toContain('name: ttsc-source-plugins');
     expect(prepareJob).toContain('path: .ttsc-cache/plugins/');
+    expect(prepareJob).toContain('include-hidden-files: true');
     expect(prepareJob).toContain('compression-level: 0');
     for (const packagePath of [
       'wp-typia-api-client/dist/',

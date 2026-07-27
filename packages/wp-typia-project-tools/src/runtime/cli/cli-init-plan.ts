@@ -424,6 +424,7 @@ export function getInitPlan(
   const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
     resolvedProjectDir,
     packageManager,
+    packageManagerFieldChange?.requiredValue,
   );
   const rawPlannedFiles: InitFilePlan[] =
 		layout.kind === 'generated-project' || layout.kind === 'official-workspace'

@@ -32,10 +32,19 @@ function renderYarnNodeModulesConfig(source: string): string {
   return `${source}${source.length === 0 || source.endsWith('\n') ? '' : lineEnding}nodeLinker: node-modules${lineEnding}`;
 }
 
+function isYarnBerryPackageManager(value: unknown): boolean {
+  return typeof value === 'string' && /^yarn@(?:[2-9]|[1-9]\d+)\./u.test(value);
+}
+
 function usesYarnBerryPnpByDefault(
   projectDir: string,
   yarnRcExists: boolean,
+  plannedPackageManager: string | undefined,
 ): boolean {
+  if (isYarnBerryPackageManager(plannedPackageManager)) {
+    return true;
+  }
+
   if (yarnRcExists || fs.existsSync(path.join(projectDir, '.yarn'))) {
     return true;
   }
@@ -44,11 +53,7 @@ function usesYarnBerryPnpByDefault(
     const packageJson = JSON.parse(
       fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
     ) as { packageManager?: unknown };
-    return /^yarn@(?:[2-9]|[1-9]\d+)\./u.test(
-      typeof packageJson.packageManager === 'string'
-        ? packageJson.packageManager
-        : '',
-    );
+    return isYarnBerryPackageManager(packageJson.packageManager);
   } catch {
     return false;
   }
@@ -66,6 +71,7 @@ function usesYarnBerryPnpByDefault(
 export function getYarnPnpNodeModulesConfig(
   projectDir: string,
   packageManager: PackageManagerId,
+  plannedPackageManager?: string,
 ): YarnPnpNodeModulesConfig | undefined {
   if (packageManager !== 'yarn') {
     return undefined;
@@ -78,7 +84,11 @@ export function getYarnPnpNodeModulesConfig(
   const pnpConfigured =
     nodeLinker === 'pnp' ||
     (nodeLinker === undefined &&
-      usesYarnBerryPnpByDefault(projectDir, yarnRcExists));
+      usesYarnBerryPnpByDefault(
+        projectDir,
+        yarnRcExists,
+        plannedPackageManager,
+      ));
   const pnpInstalled = YARN_PNP_MARKERS.some((filename) =>
     fs.existsSync(path.join(projectDir, filename)),
   );

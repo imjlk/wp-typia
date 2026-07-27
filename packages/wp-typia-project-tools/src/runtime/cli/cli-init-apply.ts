@@ -161,6 +161,7 @@ export async function applyInitPlan(
   const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
     previewPlan.projectDir,
     previewPlan.packageManager,
+    previewPlan.packageChanges.packageManagerField?.requiredValue,
   );
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
