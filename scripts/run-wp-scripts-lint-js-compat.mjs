@@ -77,6 +77,19 @@ export function hasExplicitLintTargets(args) {
   return false;
 }
 
+export function insertPrettierRuleOverride(args) {
+  const optionSeparatorIndex = args.indexOf('--');
+  if (optionSeparatorIndex === -1) {
+    return [...args, ...PRETTIER_RULE_OVERRIDE];
+  }
+
+  return [
+    ...args.slice(0, optionSeparatorIndex),
+    ...PRETTIER_RULE_OVERRIDE,
+    ...args.slice(optionSeparatorIndex),
+  ];
+}
+
 function hasProjectFile(projectDir, fileName) {
   return fs.existsSync(path.join(projectDir, fileName));
 }
@@ -160,8 +173,7 @@ export function runWpScriptsLintJsCompat({
       ...defaultConfigArgs,
       ...defaultIgnoreArgs,
       ...defaultExtArgs,
-      ...args,
-      ...PRETTIER_RULE_OVERRIDE,
+      ...insertPrettierRuleOverride(args),
       ...defaultFilesArgs,
     ],
     {

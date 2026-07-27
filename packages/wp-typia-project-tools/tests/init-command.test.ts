@@ -388,6 +388,38 @@ describe('wp-typia init', () => {
 		expect(fs.existsSync(path.join(projectDir, '.pnp.cjs'))).toBe(true);
 	});
 
+	test('switches an implicit Yarn Berry PnP retrofit to node-modules before its first install', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-yarn-berry-default-pnp');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitYarnBerryDefaultPnpAttributes',
+			packageJson: {
+				packageManager: 'yarn@3.2.4',
+			},
+		});
+		fs.writeFileSync(
+			path.join(projectDir, '.yarnrc.yml'),
+			'yarnPath: .yarn/releases/yarn-3.2.4.cjs\nchecksumBehavior: update\n',
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+		const applied = await applyInitPlan(projectDir);
+
+		expect(preview.packageManager).toBe('yarn');
+		expect(preview.plannedFiles).toContainEqual({
+			action: 'update',
+			path: '.yarnrc.yml',
+			purpose:
+				"Switch Yarn Plug'n'Play to node-modules so the generated @ttsc/lint compatibility hook only writes mutable dependency files.",
+		});
+		expect(applied.status).toBe('applied');
+		expect(
+			fs.readFileSync(path.join(projectDir, '.yarnrc.yml'), 'utf8'),
+		).toBe(
+			'yarnPath: .yarn/releases/yarn-3.2.4.cjs\nchecksumBehavior: update\nnodeLinker: node-modules\n',
+		);
+	});
+
 	test('removes the Typia 12 plugin and migrates its Webpack import during retrofit', async () => {
 		const projectDir = path.join(tempRoot, 'retrofit-typia-12-plugin');
 		scaffoldRetrofitProject(projectDir, {

@@ -40,6 +40,8 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   exampleWpScriptsEslintVersion: '8.57.1',
   exampleWpScriptsLintJsScript:
     'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
+  exampleWpScriptsLintScript:
+    'bun run lint:ts && bun run lint:js && bun run lint:css && bun run format:check',
   exampleWpScriptsFormatScript:
     'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
   examplePrettierCheckScript:
@@ -1034,6 +1036,11 @@ export function validateFormattingToolchainPolicy(
     if (exampleScripts['lint:js'] !== policy.exampleWpScriptsLintJsScript) {
       errors.push(
         `${relativePath} must keep scripts["lint:js"]="${policy.exampleWpScriptsLintJsScript}", found ${JSON.stringify(exampleScripts['lint:js'] ?? null)}.`,
+      );
+    }
+    if (exampleScripts.lint !== policy.exampleWpScriptsLintScript) {
+      errors.push(
+        `${relativePath} must keep scripts.lint="${policy.exampleWpScriptsLintScript}" so JavaScript formatting is checked after the WordPress ESLint prettier rule is disabled, found ${JSON.stringify(exampleScripts.lint ?? null)}.`,
       );
     }
     if (exampleScripts.format !== policy.exampleWpScriptsFormatScript) {

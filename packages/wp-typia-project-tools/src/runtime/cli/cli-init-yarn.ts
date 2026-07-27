@@ -32,14 +32,36 @@ function renderYarnNodeModulesConfig(source: string): string {
   return `${source}${source.length === 0 || source.endsWith('\n') ? '' : lineEnding}nodeLinker: node-modules${lineEnding}`;
 }
 
+function usesYarnBerryPnpByDefault(
+  projectDir: string,
+  yarnRcExists: boolean,
+): boolean {
+  if (yarnRcExists || fs.existsSync(path.join(projectDir, '.yarn'))) {
+    return true;
+  }
+
+  try {
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+    ) as { packageManager?: unknown };
+    return /^yarn@(?:[2-9]|[1-9]\d+)\./u.test(
+      typeof packageJson.packageManager === 'string'
+        ? packageJson.packageManager
+        : '',
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Plan the minimal Yarn configuration change that makes generated postinstall
  * compatibility hooks safe for an already-installed Plug'n'Play project.
  *
  * Yarn PnP resolves package files from read-only zip archives. The generated
  * @ttsc/lint hook deliberately patches a pinned formatter source, so retrofit
- * projects switch only an observed PnP installation to Yarn's mutable
- * node-modules linker before the next install runs that hook.
+ * projects switch observed and implicit Yarn Berry PnP installations to
+ * Yarn's mutable node-modules linker before the next install runs that hook.
  */
 export function getYarnPnpNodeModulesConfig(
   projectDir: string,
@@ -52,7 +74,11 @@ export function getYarnPnpNodeModulesConfig(
   const yarnRcPath = path.join(projectDir, '.yarnrc.yml');
   const yarnRcExists = fs.existsSync(yarnRcPath);
   const currentSource = yarnRcExists ? fs.readFileSync(yarnRcPath, 'utf8') : '';
-  const pnpConfigured = getYarnNodeLinker(currentSource) === 'pnp';
+  const nodeLinker = getYarnNodeLinker(currentSource);
+  const pnpConfigured =
+    nodeLinker === 'pnp' ||
+    (nodeLinker === undefined &&
+      usesYarnBerryPnpByDefault(projectDir, yarnRcExists));
   const pnpInstalled = YARN_PNP_MARKERS.some((filename) =>
     fs.existsSync(path.join(projectDir, filename)),
   );

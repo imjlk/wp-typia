@@ -93,6 +93,7 @@ function createFormattingPolicyRepo() {
     examplePackageJson.scripts = {
       format: policy.exampleWpScriptsFormatScript,
       'format:check': policy.examplePrettierCheckScript,
+      lint: policy.exampleWpScriptsLintScript,
       'lint:js': policy.exampleWpScriptsLintJsScript,
     };
     writeJson(examplePackagePath, examplePackageJson);
@@ -716,6 +717,27 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
     );
     expect(result.errors).toContain(
       `examples/my-typia-block/package.json must keep scripts["lint:js"]="${FORMATTING_TOOLCHAIN_POLICY.exampleWpScriptsLintJsScript}", found "wp-scripts lint-js".`,
+    );
+  });
+
+  test('fails when WordPress example lint skips the direct JavaScript format check', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const exampleManifestPath = path.join(
+      repoRoot,
+      'examples/my-typia-block/package.json',
+    );
+    const examplePackageJson = JSON.parse(
+      fs.readFileSync(exampleManifestPath, 'utf8'),
+    );
+    examplePackageJson.scripts.lint =
+      'bun run lint:ts && bun run lint:js && bun run lint:css';
+    writeJson(exampleManifestPath, examplePackageJson);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      `examples/my-typia-block/package.json must keep scripts.lint="${FORMATTING_TOOLCHAIN_POLICY.exampleWpScriptsLintScript}" so JavaScript formatting is checked after the WordPress ESLint prettier rule is disabled, found "bun run lint:ts && bun run lint:js && bun run lint:css".`,
     );
   });
 

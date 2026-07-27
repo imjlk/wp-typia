@@ -9,6 +9,7 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   eslintConfigPrettierVersion: '10.1.8';
   exampleWpScriptsEslintVersion: '8.57.1';
   exampleWpScriptsLintJsScript: 'node ../../scripts/run-wp-scripts-lint-js-compat.mjs';
+  exampleWpScriptsLintScript: 'bun run lint:ts && bun run lint:js && bun run lint:css && bun run format:check';
   exampleWpScriptsFormatScript: 'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
   examplePrettierCheckScript: 'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
   generatedWpScriptsLintJsScript: 'node scripts/run-wp-scripts-lint-js-compat.mjs';

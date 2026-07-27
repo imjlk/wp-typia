@@ -19,7 +19,7 @@
     "lint:ts": "ttsc --noEmit",
     "lint:js": "node ../../scripts/run-wp-scripts-lint-js-compat.mjs",
     "lint:css": "wp-scripts lint-style",
-    "lint": "bun run lint:ts && bun run lint:js && bun run lint:css",
+    "lint": "bun run lint:ts && bun run lint:js && bun run lint:css && bun run format:check",
     "format": "ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\" \"*.{cjs,js,mjs}\" \"scripts/**/*.{cjs,js,mjs}\"",
     "format:check": "prettier --check --no-error-on-unmatched-pattern \"*.{cjs,js,mjs}\" \"scripts/**/*.{cjs,js,mjs}\""
   },

@@ -7,6 +7,7 @@ import {
   LINT_CONFIG_FILES,
   TYPESCRIPT6_REGISTER_FILE,
   hasExplicitLintTargets,
+  insertPrettierRuleOverride,
 } from '../../scripts/run-wp-scripts-lint-js-compat.mjs';
 
 describe('run-wp-scripts-lint-js-compat', () => {
@@ -54,5 +55,14 @@ describe('run-wp-scripts-lint-js-compat', () => {
     expect(
       hasExplicitLintTargets(['--cache-location=.cache/eslint']),
     ).toBe(false);
+  });
+
+  test('keeps the Prettier override before an explicit ESLint option separator', () => {
+    expect(insertPrettierRuleOverride(['--', 'src/index.js'])).toEqual([
+      '--rule',
+      'prettier/prettier: off',
+      '--',
+      'src/index.js',
+    ]);
   });
 });
