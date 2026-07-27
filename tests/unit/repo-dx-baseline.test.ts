@@ -487,6 +487,7 @@ describe('repository DX baseline', () => {
     expect(generatedSmokeJob).not.toContain('always() &&');
     expect(generatedSmokeJob).toContain("needs.build.result == 'success'");
     expect(generatedSmokeJob).not.toContain('publish-install-smoke');
+    expect(buildJob).toContain('bun run --filter wp-typia build');
     expect(buildJob).toContain('name: generated-smoke-package-dist');
     for (const packageDir of [
       'wp-typia-api-client',

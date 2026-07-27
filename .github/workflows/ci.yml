@@ -286,6 +286,7 @@ jobs:
       - name: Build packages and example
         run: |
           bun run packages:build
+          bun run --filter wp-typia build
           bun run examples:build
 
       - name: Upload generated smoke package artifacts
