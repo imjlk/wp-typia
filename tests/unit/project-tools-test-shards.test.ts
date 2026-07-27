@@ -32,6 +32,10 @@ const migrationInitTestSource = fs.readFileSync(
   path.join(testsRoot, 'migration-init.test.ts'),
   'utf8',
 );
+const scaffoldBasicTestSource = fs.readFileSync(
+  path.join(testsRoot, 'scaffold-basic.test.ts'),
+  'utf8',
+);
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -104,6 +108,25 @@ describe('Project Tools test shard manifest', () => {
     );
     expect(generatedTypecheckTest.trimEnd()).toEndWith(
       '}, { timeout: GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS });',
+    );
+    expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
+  });
+
+  test('keeps generated interactivity typechecks on the cold-build timeout', () => {
+    expect(scaffoldBasicTestSource).toContain(
+      'const GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedTypecheckTest =
+      scaffoldBasicTestSource.match(
+        /test\(\n\s*'scaffoldProject creates an interactivity template with typed validation wiring'[\s\S]*?(?=\n\s*test\()/,
+      )?.[0] ?? '';
+
+    expect(generatedTypecheckTest).toContain(
+      'typecheckGeneratedProject(targetDir);',
+    );
+    expect(generatedTypecheckTest.trimEnd()).toEndWith(
+      '{ timeout: GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS },\n  );',
     );
     expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
   });

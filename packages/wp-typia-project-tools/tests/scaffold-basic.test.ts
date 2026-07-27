@@ -14,6 +14,8 @@ import {
 import { scaffoldProject } from '../src/runtime/index.js';
 import { applyMigrationUiCapability } from '../src/runtime/migration-ui-capability.js';
 
+const GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS = 300_000;
+
 describe('@wp-typia/project-tools scaffold core', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-scaffold-basic-');
 
@@ -1118,7 +1120,7 @@ demoInteractivityStore.createContext({
       ]);
       typecheckGeneratedProject(targetDir);
     },
-    { timeout: 30_000 },
+    { timeout: GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS },
   );
 
   test('scaffoldProject supports the optional local wp-env preset without adding test files', async () => {
