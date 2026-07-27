@@ -147,6 +147,12 @@ export function renderTypeScriptConstCall(
 
 const TYPESCRIPT_IDENTIFIER_PATTERN = /^[$A-Z_a-z][$\w]*$/u;
 
+export function renderTypeScriptPropertyKey(name: string): string {
+  return TYPESCRIPT_IDENTIFIER_PATTERN.test(name)
+    ? name
+    : quoteTypeScriptString(name);
+}
+
 function indentTypeScriptValue(value: string, spaces: number): string {
   const indentation = ' '.repeat(spaces);
   return value
@@ -217,9 +223,7 @@ export function renderTypeScriptValue(
             'TypeScript value rendering does not accept undefined properties.',
           );
         }
-        const renderedKey = TYPESCRIPT_IDENTIFIER_PATTERN.test(key)
-          ? key
-          : quoteTypeScriptString(key);
+        const renderedKey = renderTypeScriptPropertyKey(key);
         const renderedValue = renderTypeScriptValue(entry, maxInlineLength);
         const [firstLine = '', ...remainingLines] = renderedValue.split('\n');
         const lines = [

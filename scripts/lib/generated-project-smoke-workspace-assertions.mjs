@@ -162,7 +162,7 @@ export function assertWorkspaceEditorPluginArtifacts(
 
 	const dataSource = fs.readFileSync(dataPath, "utf8");
 	const surfaceSource = fs.readFileSync(surfacePath, "utf8");
-	if (!dataSource.includes(`EDITOR_PLUGIN_SLOT = "${normalizedSlot}"`)) {
+	if (!dataSource.includes(`EDITOR_PLUGIN_SLOT = '${normalizedSlot}'`)) {
 		throw new Error(
 			`Expected ${dataPath} to pin the ${normalizedSlot} editor plugin slot.`,
 		);

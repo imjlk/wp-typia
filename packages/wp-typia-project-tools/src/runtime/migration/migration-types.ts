@@ -9,6 +9,7 @@ import type {
   JsonValue,
   ManifestAttribute,
   ManifestDocument,
+  MigrationRiskSummary,
 } from '@wp-typia/block-runtime/migration-types';
 
 export type {
@@ -22,6 +23,8 @@ export type {
   ManifestTypiaMetadata,
   ManifestUnionMetadata,
   ManifestWpMetadata,
+  MigrationRiskBucket,
+  MigrationRiskSummary,
 } from '@wp-typia/block-runtime/migration-types';
 
 export interface ManifestSummaryAttribute {
@@ -173,18 +176,6 @@ export interface MigrationDiff {
   fromVersion: string;
   summary: MigrationDiffSummary;
   toVersion: string;
-}
-
-export interface MigrationRiskBucket {
-  count: number;
-  items: string[];
-}
-
-export interface MigrationRiskSummary {
-  additive: MigrationRiskBucket;
-  rename: MigrationRiskBucket;
-  semanticTransform: MigrationRiskBucket;
-  unionBreaking: MigrationRiskBucket;
 }
 
 export interface MigrationFuzzMapping {

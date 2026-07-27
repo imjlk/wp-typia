@@ -18,6 +18,10 @@ import {
   readJsonFileSync,
   safeJsonParse,
 } from '../shared/json-utils.js';
+import {
+  quoteTypeScriptString,
+  renderTypeScriptPropertyKey,
+} from '../shared/ts-string-literals.js';
 import type {
   ResolvedTemplateSource,
   SeedSource,
@@ -311,7 +315,7 @@ export async function normalizeWpTypiaTemplateSeed(
 
 function renderTypeScriptLiteral(value: unknown): string {
   if (typeof value === 'string') {
-    return JSON.stringify(value);
+    return quoteTypeScriptString(value);
   }
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
@@ -373,7 +377,7 @@ function buildRemoteTypesSource(
     Record<string, unknown>
   >;
   const lines = [
-    'import { tags } from "typia";',
+    "import { tags } from 'typia';",
     '',
     `export interface ${context.pascalCase}Attributes {`,
   ];
@@ -386,7 +390,7 @@ function buildRemoteTypesSource(
         ? `(${baseType})`
         : baseType;
     const renderedType = [baseTypeWithGrouping, ...tagList].join(' & ');
-    lines.push(`  ${JSON.stringify(name)}?: ${renderedType};`);
+    lines.push(`  ${renderTypeScriptPropertyKey(name)}?: ${renderedType};`);
   }
 
   lines.push('}', '');

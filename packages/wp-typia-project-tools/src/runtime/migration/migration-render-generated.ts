@@ -77,7 +77,12 @@ export function renderMigrationRegistryFile(
     currentManifestWrapperFile === null ? " with { type: 'json' }" : '';
   const imports = [
     `import rawCurrentManifest from ${quoteTypeScriptString(currentManifestImport)}${currentManifestImportAttributes};`,
-    `import type { ManifestDocument, MigrationRiskSummary } from ${quoteTypeScriptString(normalizeImportPath(path.relative(getGeneratedDir(block, state), path.join(state.projectDir, 'src', 'migrations', 'helpers.ts')), true))};`,
+    [
+      'import type {',
+      '  ManifestDocument,',
+      '  MigrationRiskSummary,',
+      "} from '@wp-typia/block-runtime/migration-types';",
+    ].join('\n'),
     ...(hasNamedCurrentType
       ? [
           `import type { ${currentTypeName} } from ${quoteTypeScriptString(normalizeImportPath(path.relative(generatedDir, path.join(state.projectDir, block.typesFile)), true))};`,

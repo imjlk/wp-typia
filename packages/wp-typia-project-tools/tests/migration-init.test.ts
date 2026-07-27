@@ -174,9 +174,15 @@ test('migrate init keeps generated registry imports compatible with legacy-root 
 		path.join(projectDir, 'src', 'migrations', 'generated', 'registry.ts'),
 		'utf8',
   );
-  expect(registrySource).toContain(
-    "import rawCurrentManifest from '../../../typia.manifest.json' with { type: 'json' };",
-  );
+	expect(registrySource).toContain(
+		"import rawCurrentManifest from '../../../typia.manifest.json' with { type: 'json' };",
+	);
+	expect(registrySource).toContain('import type {\n  ManifestDocument,');
+	expect(registrySource).toContain(
+		"  MigrationRiskSummary,\n} from '@wp-typia/block-runtime/migration-types';",
+	);
+	expect(registrySource).not.toContain('interface MigrationRiskSummary {');
+	expect(registrySource).not.toContain("from '../../helpers'");
 	expect(registrySource).toContain(
 		'currentManifest: parseManifestDocument<ManifestDocument>(rawCurrentManifest),',
 	);

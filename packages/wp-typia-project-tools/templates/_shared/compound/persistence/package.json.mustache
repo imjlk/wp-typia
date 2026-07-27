@@ -23,7 +23,7 @@
     "lint:js": "node scripts/run-wp-scripts-lint-js-compat.mjs",
     "lint:css": "wp-scripts lint-style --allow-empty-input",
     "lint": "bun run lint:ts && bun run lint:js && bun run lint:css",
-    "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{cjs,css,js,json,md,mjs,scss,yaml,yml}\""
+    "format": "ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\""
   },
 	"devDependencies": {
 		"@wp-typia/block-runtime": "{{blockRuntimePackageVersion}}",

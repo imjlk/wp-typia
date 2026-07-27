@@ -87,6 +87,7 @@ function createFormattingPolicyRepo() {
     );
     examplePackageJson.devDependencies.eslint = policy.exampleWpScriptsEslintVersion;
     examplePackageJson.scripts = {
+      format: policy.exampleWpScriptsFormatScript,
       'lint:js': policy.exampleWpScriptsLintJsScript,
     };
     writeJson(examplePackagePath, examplePackageJson);
@@ -108,6 +109,7 @@ if (request === 'typescript') {}
 
   for (const relativePath of policy.generatedPackageManifestPaths) {
     const scripts: Record<string, string> = {
+      format: policy.generatedWpScriptsFormatScript,
       'lint:js': policy.generatedWpScriptsLintJsScript,
       postinstall: policy.generatedTtscLintCompatScript,
     };
@@ -847,6 +849,27 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
     );
     expect(errors).toContain('found {"useTabs":false}');
     expect(errors).toContain('expected {"useTabs":true');
+  });
+
+  test('fails when generated format scripts let Prettier rewrite JavaScript', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const templateManifestPath = path.join(
+      repoRoot,
+      'packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache',
+    );
+    const templateManifest = JSON.parse(
+      fs.readFileSync(templateManifestPath, 'utf8'),
+    );
+    templateManifest.scripts.format =
+      'ttsc format --singleThreaded && prettier --write "**/*.{js,json}"';
+    writeJson(templateManifestPath, templateManifest);
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      `packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must keep scripts.format="${FORMATTING_TOOLCHAIN_POLICY.generatedWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found "ttsc format --singleThreaded && prettier --write \\"**/*.{js,json}\\"".`,
+    );
   });
 
   test('fails when generated style lint rejects an empty workspace', () => {

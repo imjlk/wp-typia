@@ -102,6 +102,15 @@ test('generated project smoke script supports a reference example lane', () => {
     join(repoRoot, 'scripts', 'lib', 'generated-project-smoke-assertions.mjs'),
     'utf8',
   );
+  const workspaceAssertionHelper = fs.readFileSync(
+    join(
+      repoRoot,
+      'scripts',
+      'lib',
+      'generated-project-smoke-workspace-assertions.mjs',
+    ),
+    'utf8',
+  );
   const coreHelper = fs.readFileSync(
     join(repoRoot, 'scripts', 'lib', 'generated-project-smoke-core.mjs'),
     'utf8',
@@ -130,7 +139,14 @@ test('generated project smoke script supports a reference example lane', () => {
   );
   expect(exampleHelper).toContain('devDependencies["bun-types"]');
   expect(exampleHelper).toContain('devDependencies["@types/node"]');
+  expect(exampleHelper).toContain(
+    'path.join(workspaceRoot, "types", "assets.d.ts")',
+  );
+  expect(exampleHelper).toContain('"../../types/assets.d.ts"');
   expect(assertionHelper).toContain('assertExampleProjectScaffold');
+  expect(workspaceAssertionHelper).toContain(
+    "EDITOR_PLUGIN_SLOT = '${normalizedSlot}'",
+  );
   expect(assertionHelper).toContain('collectProjectFilePaths');
   expect(assertionHelper).toContain('PHP lint failed for');
   expect(assertionHelper).toContain('${filePath}');
@@ -154,6 +170,37 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(exampleHelper).toContain(
     'path.resolve(repoRoot, "examples", exampleProject)',
   );
+});
+
+test('reference example workspaces retain shared asset module declarations', async () => {
+  const workspaceRoot = fs.mkdtempSync(
+    join(os.tmpdir(), 'wp-typia-reference-assets-'),
+  );
+  const projectDir = join(workspaceRoot, 'examples', 'reference-example');
+  tempDirs.push(workspaceRoot);
+  fs.mkdirSync(projectDir, { recursive: true });
+  fs.writeFileSync(
+    join(projectDir, 'tsconfig.json'),
+    `${JSON.stringify({ extends: '../../tsconfig.json' }, null, 2)}\n`,
+    'utf8',
+  );
+
+  const helper = await import(
+    new URL(
+      '../../scripts/lib/generated-project-smoke-example.mjs',
+      import.meta.url,
+    ).href,
+  );
+  helper.prepareExampleWorkspaceRoot(workspaceRoot);
+  helper.rewriteCopiedExampleTsconfig(projectDir);
+
+  expect(
+    fs.readFileSync(join(workspaceRoot, 'types', 'assets.d.ts'), 'utf8'),
+  ).toBe(fs.readFileSync(join(repoRoot, 'types', 'assets.d.ts'), 'utf8'));
+  const tsconfig = JSON.parse(
+    fs.readFileSync(join(projectDir, 'tsconfig.json'), 'utf8'),
+  ) as { include?: string[] };
+  expect(tsconfig.include).toContain('../../types/assets.d.ts');
 });
 
 test('CI generated smoke matrix includes the checked-in example lanes', () => {

@@ -39,8 +39,12 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   exampleWpScriptsEslintVersion: '8.57.1',
   exampleWpScriptsLintJsScript:
     'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
+  exampleWpScriptsFormatScript:
+    'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"',
   generatedWpScriptsLintJsScript:
     'node scripts/run-wp-scripts-lint-js-compat.mjs',
+  generatedWpScriptsFormatScript:
+    'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"',
   generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input',
   generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs',
   generatedTtscLintCompatCanonicalTemplateRoot:
@@ -553,6 +557,11 @@ function validateGeneratedTemplateManifest(
       `${relativePath} must keep scripts["lint:js"]="${policy.generatedWpScriptsLintJsScript}", found ${JSON.stringify(manifest.scripts?.['lint:js'] ?? null)}.`,
     );
   }
+  if (manifest.scripts?.format !== policy.generatedWpScriptsFormatScript) {
+    errors.push(
+      `${relativePath} must keep scripts.format="${policy.generatedWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found ${JSON.stringify(manifest.scripts?.format ?? null)}.`,
+    );
+  }
 
   return manifest;
 }
@@ -671,7 +680,7 @@ function validateGeneratedTtscLintCompatSource(
     },
     {
       description: 'the atomic rename into the installed package',
-      pattern: /^\s*fs\.renameSync\(temporaryPath, sourcePath\);$/mu,
+      pattern: /^\s*fs\.renameSync\(\s*temporaryPath,\s*sourcePath\s*\);$/mu,
     },
   ]) {
     if (!pattern.test(source)) {
@@ -978,6 +987,11 @@ export function validateFormattingToolchainPolicy(
     if (exampleScripts['lint:js'] !== policy.exampleWpScriptsLintJsScript) {
       errors.push(
         `${relativePath} must keep scripts["lint:js"]="${policy.exampleWpScriptsLintJsScript}", found ${JSON.stringify(exampleScripts['lint:js'] ?? null)}.`,
+      );
+    }
+    if (exampleScripts.format !== policy.exampleWpScriptsFormatScript) {
+      errors.push(
+        `${relativePath} must keep scripts.format="${policy.exampleWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found ${JSON.stringify(exampleScripts.format ?? null)}.`,
       );
     }
 

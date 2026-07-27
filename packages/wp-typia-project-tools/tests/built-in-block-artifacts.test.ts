@@ -627,7 +627,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
   },
   persistence: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': '33c0a9b47345459d',
+    'src/edit.tsx': 'daee524b53c70327',
     'src/hooks.ts': 'e95dea31e16a6ec7',
     'src/index.tsx': 'b18acd5e44a4c395',
     'src/interactivity.ts': '80a54fdedd633e62',
@@ -650,10 +650,10 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound-item/validators.ts': 'dc2339e1f385b488',
     'src/blocks/demo-compound/block-metadata.ts': '50956333a97a824a',
     'src/blocks/demo-compound/children.ts': 'f8d50660204c3e32',
-    'src/blocks/demo-compound/edit.tsx': '0cd6f57e52f3f375',
+    'src/blocks/demo-compound/edit.tsx': '92a0bfc9f42d58c4',
     'src/blocks/demo-compound/hooks.ts': '35d4b1ace23be502',
     'src/blocks/demo-compound/index.tsx': 'e41dfb0b954670a5',
-    'src/blocks/demo-compound/interactivity.ts': 'e088bb3facaeaefe',
+    'src/blocks/demo-compound/interactivity.ts': '410af411505e7cae',
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
@@ -868,6 +868,62 @@ describe('built-in block artifacts', () => {
         `generateResourceKey('${expectedPrefix}')`,
       );
       expect(interactivitySource).toContain(`store('${longSlug}', {`);
+    }
+  });
+
+  test('generated TS7 sources keep safe selector casts and width-stable imports', () => {
+    for (const templateId of ['persistence', 'compound'] as const) {
+      const { codeArtifacts } = buildArtifacts(templateId);
+      const editSource = codeArtifacts.find(
+        (artifact) =>
+          artifact.relativePath.endsWith('/edit.tsx') ||
+          artifact.relativePath === 'src/edit.tsx',
+      )?.source;
+
+      expect(editSource).toContain(
+        'select(blockEditorStore) as unknown as {',
+      );
+    }
+
+    const { codeArtifacts: compoundArtifacts } = buildArtifacts('compound');
+    const compoundInteractivitySource = compoundArtifacts.find(
+      (artifact) =>
+        artifact.relativePath ===
+        'src/blocks/demo-compound/interactivity.ts',
+    )?.source;
+    expect(compoundInteractivitySource).toContain(
+      "import type { DemoCompoundWriteStateRequest } from './api-types';",
+    );
+    expect(compoundInteractivitySource).toContain('const request = {');
+    expect(compoundInteractivitySource).toContain(
+      "as DemoCompoundWriteStateRequest['publicWriteRequestId'];",
+    );
+
+    const answers = {
+      ...buildAnswers('interactivity'),
+      slug: 'smoke-interactivity-pnpm',
+    };
+    const spec = createBuiltInBlockSpec({
+      answers,
+      templateId: 'interactivity',
+    });
+    const variables = buildTemplateVariablesFromBlockSpec(spec);
+    const codeArtifacts = buildBuiltInCodeArtifacts({
+      templateId: 'interactivity',
+      variables,
+    });
+
+    for (const relativePath of [
+      'src/interactivity-store.ts',
+      'src/interactivity.ts',
+    ]) {
+      const source = codeArtifacts.find(
+        (artifact) => artifact.relativePath === relativePath,
+      )?.source;
+
+      expect(source).toContain(
+        "import type { SmokeInteractivityPnpmContext, SmokeInteractivityPnpmState } from './types';",
+      );
     }
   });
 

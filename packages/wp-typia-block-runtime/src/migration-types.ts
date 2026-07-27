@@ -79,3 +79,15 @@ export interface ManifestDocument {
   manifestVersion?: number | null;
   sourceType?: string | null;
 }
+
+export interface MigrationRiskBucket {
+  count: number;
+  items: string[];
+}
+
+export interface MigrationRiskSummary {
+  additive: MigrationRiskBucket;
+  rename: MigrationRiskBucket;
+  semanticTransform: MigrationRiskBucket;
+  unionBreaking: MigrationRiskBucket;
+}

@@ -35,7 +35,7 @@ export default function Edit({
   const blocks = useSelect(
     (select) =>
       (
-        select(blockEditorStore) as {
+        select(blockEditorStore) as unknown as {
           getBlocks: () => readonly PersistentBlockIdentityNode[];
         }
       ).getBlocks(),

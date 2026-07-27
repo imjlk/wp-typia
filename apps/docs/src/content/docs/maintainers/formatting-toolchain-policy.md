@@ -68,9 +68,9 @@ docs, or policy files:
   repo-owned non-TypeScript Prettier write pass
 
 `lint:repo` remains JavaScript-only. Example and generated package scripts use
-the same ownership split: `ttsc` handles TypeScript/TSX, Prettier handles
-non-TypeScript files, and `@wordpress/scripts` owns the WordPress JavaScript
-compatibility lane.
+the same ownership split: `ttsc` handles TypeScript/TSX,
+`@wordpress/scripts` ESLint handles and fixes JavaScript/CJS/MJS, and Prettier
+handles JSON, Markdown, styles, and other non-TypeScript, non-JavaScript files.
 
 ## Example apps and built-in templates
 
@@ -79,10 +79,14 @@ Example apps and built-in scaffold package manifests stay aligned on
 development dependencies. Generated manifests pin `@ttsc/lint` to exact
 `0.22.0` while its compatibility hook targets that source.
 
-Their formatter scripts run `ttsc format` for TypeScript/TSX and then Prettier
-over JSON, Markdown, styles, and other non-TypeScript inputs. Generated
-TypeScript is expected to be clean on first emission rather than relying on a
-consumer-side write pass.
+Their formatter scripts run `ttsc format` for TypeScript/TSX, the WordPress
+ESLint compatibility wrapper with `--fix` for JavaScript/CJS/MJS, and then
+Prettier over JSON, Markdown, styles, and other non-TypeScript inputs.
+Generated TypeScript and JavaScript are expected to be clean on first emission
+rather than relying on a consumer-side write pass.
+Their generated Prettier config keeps WordPress JavaScript's four-space tabs
+and its default punctuation spacing, so emitted wrappers and webpack config do
+not require a consumer-side JavaScript rewrite before linting.
 
 The repo-root ESLint 9 upgrade does not automatically move example apps onto the
 same lane. Example block workspaces still defer to `@wordpress/scripts` for

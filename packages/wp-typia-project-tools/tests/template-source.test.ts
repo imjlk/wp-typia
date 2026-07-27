@@ -1038,7 +1038,8 @@ test('local create-block subset paths scaffold into a pnpm-ready wp-typia projec
     'pnpm run sync --check && wp-scripts build --experimental-modules',
   );
   expect(generatedTypes).toContain('export interface DemoRemoteAttributes');
-  expect(generatedTypes).toContain('"content"?: string & tags.Default<"">');
+  expect(generatedTypes).toContain("import { tags } from 'typia';");
+  expect(generatedTypes).toContain("content?: string & tags.Default<''>;");
   expect(generatedIndex).toContain('import metadata from "./block.json";');
   expect(generatedBlockJson.name).toBe('create-block/demo-remote');
   expect(generatedBlockJson.title).toBe('Demo Remote');
@@ -1132,10 +1133,10 @@ test('local official external template configs scaffold with the default variant
     packageJson.dependencies?.['@wp-typia/project-tools'],
   ).toBeUndefined();
   expect(generatedTypes).toContain(
-    '"variantLabel"?: string & tags.Default<"standard">',
+    "variantLabel?: string & tags.Default<'standard'>;",
   );
   expect(generatedTypes).toContain(
-    '"transformedLabel"?: string & tags.Default<"standard-transformed">',
+    "transformedLabel?: string & tags.Default<'standard-transformed'>;",
   );
   expect(generatedEdit).toContain('template-standard');
   expect(generatedEdit).toContain('standard-transformed');
@@ -1575,10 +1576,10 @@ test('local official external template configs honor --variant overrides', async
   expect(result.selectedVariant).toBe('hero');
   expect(fs.existsSync(path.join(targetDir, 'src', 'assets'))).toBe(false);
   expect(generatedTypes).toContain(
-    '"variantLabel"?: string & tags.Default<"hero">',
+    "variantLabel?: string & tags.Default<'hero'>;",
   );
   expect(generatedTypes).toContain(
-    '"transformedLabel"?: string & tags.Default<"hero-transformed">',
+    "transformedLabel?: string & tags.Default<'hero-transformed'>;",
   );
   expect(generatedEdit).toContain('template-hero');
   expect(generatedBlockJson.supports.multiple).toBe(true);
@@ -2052,7 +2053,9 @@ test('official workspace template scaffolds through the local npm template resol
     'npm run wp-typia:add -- block counter-card --template basic',
   );
   expect(buildWorkspaceSource).toContain('--blocks-manifest');
-  expect(buildWorkspaceSource).toContain('if (blockSlugs.length === 0)');
+  expect(buildWorkspaceSource).toContain(
+    'if (blockSlugs.length === 0 && !hasSharedEntries)',
+  );
   expect(bootstrapSource).toContain('wp_register_block_metadata_collection');
   expect(bootstrapSource).toContain(
     'wp_register_block_types_from_metadata_collection',
@@ -2474,7 +2477,7 @@ test('npm package template specs can scaffold through the registry resolver', as
     );
     expect(result.selectedVariant).toBe('hero');
     expect(generatedTypes).toContain(
-      '"variantLabel"?: string & tags.Default<"hero">',
+      "variantLabel?: string & tags.Default<'hero'>;",
     );
     expect(
       fs.existsSync(path.join(targetDir, 'assets', 'remote-note.txt')),

@@ -36,6 +36,7 @@ import {
 import type { WorkspaceInventory } from '../src/runtime/workspace-inventory.js';
 import {
   renderTypeScriptCallLine,
+  renderTypeScriptPropertyKey,
   renderTypeScriptValue,
 } from '../src/runtime/shared/ts-string-literals.js';
 
@@ -357,6 +358,10 @@ test('TypeScript string quoting follows the generated single-quote policy', () =
 });
 
 test('TypeScript value rendering preserves JSON data with formatter-safe literals', () => {
+  expect(renderTypeScriptPropertyKey('valid_key$')).toBe('valid_key$');
+  expect(renderTypeScriptPropertyKey('non-identifier')).toBe(
+    "'non-identifier'",
+  );
   expect(
     renderTypeScriptValue({
       enabled: true,

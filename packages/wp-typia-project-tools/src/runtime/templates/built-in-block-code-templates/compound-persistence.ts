@@ -45,7 +45,7 @@ export default function Edit({
   const blocks = useSelect(
     (select) =>
       (
-        select(blockEditorStore) as {
+        select(blockEditorStore) as unknown as {
           getBlocks: () => readonly PersistentBlockIdentityNode[];
         }
       ).getBlocks(),
@@ -220,6 +220,7 @@ export const COMPOUND_PERSISTENCE_PARENT_INTERACTIVITY_TEMPLATE = `import { getC
 import { generatePublicWriteRequestId } from '@wp-typia/block-runtime/identifiers';
 
 import { fetchBootstrap, fetchState, writeState } from './api';
+import type { {{pascalCase}}WriteStateRequest } from './api-types';
 import type {
   {{pascalCase}}ClientState,
   {{pascalCase}}Context,
@@ -425,7 +426,8 @@ const { actions, state } = store('{{slugKebabCase}}', {
     async increment() {
       const context = getContext<{{pascalCase}}Context>();
       const clientState = getClientState(context);
-      if (context.postId <= 0 || !context.resourceKey) {
+      const resourceKey = context.resourceKey;
+      if (context.postId <= 0 || !resourceKey) {
         return;
       }
       if (!context.bootstrapReady) {
@@ -458,29 +460,26 @@ const { actions, state } = store('{{slugKebabCase}}', {
       context.error = '';
 
       try {
-        const result = await writeState(
-          {
-            delta: 1,
-            postId: context.postId,
-            publicWriteRequestId:
-              context.persistencePolicy === 'public'
-                ? generatePublicWriteRequestId()
-                : undefined,
-            publicWriteToken:
-              context.persistencePolicy === 'public' &&
-              clientState.writeToken.length > 0
-                ? clientState.writeToken
-                : undefined,
-            resourceKey: context.resourceKey,
-          },
-          {
-            restNonce:
-              clientState.writeNonce.length > 0
-                ? clientState.writeNonce
-                : undefined,
-            transportTarget: 'frontend',
-          },
-        );
+        const request = {
+          delta: 1,
+          postId: context.postId,
+          resourceKey,
+        } as {{pascalCase}}WriteStateRequest;
+        if ({{isPublicPersistencePolicy}}) {
+          request.publicWriteRequestId =
+            generatePublicWriteRequestId() as {{pascalCase}}WriteStateRequest['publicWriteRequestId'];
+          if (clientState.writeToken.length > 0) {
+            request.publicWriteToken =
+              clientState.writeToken as {{pascalCase}}WriteStateRequest['publicWriteToken'];
+          }
+        }
+        const result = await writeState(request, {
+          restNonce:
+            clientState.writeNonce.length > 0
+              ? clientState.writeNonce
+              : undefined,
+          transportTarget: 'frontend',
+        });
         if (!result.isValid || !result.data) {
           context.error =
             result.errors[0]?.expected ?? 'Unable to update counter';
