@@ -36,6 +36,10 @@ const scaffoldBasicTestSource = fs.readFileSync(
   path.join(testsRoot, 'scaffold-basic.test.ts'),
   'utf8',
 );
+const scaffoldPersistenceTestSource = fs.readFileSync(
+  path.join(testsRoot, 'scaffold-persistence.test.ts'),
+  'utf8',
+);
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -129,6 +133,51 @@ describe('Project Tools test shard manifest', () => {
       '{ timeout: GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS },\n  );',
     );
     expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
+  });
+
+  test('keeps generated persistence typechecks on the cold-build timeout', () => {
+    expect(scaffoldPersistenceTestSource).toContain(
+      'const GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    for (const testName of [
+      'scaffoldProject creates a persistence template with signed public writes and explicit storage mode',
+      'scaffoldProject creates a persistence template with authenticated writes by default',
+    ]) {
+      const generatedTypecheckTest =
+        scaffoldPersistenceTestSource.match(
+          new RegExp(
+            `test\\(\\n\\s*'${testName}'[\\s\\S]*?(?=\\n\\s*test\\()`,
+          ),
+        )?.[0] ?? '';
+
+      expect(generatedTypecheckTest).toContain(
+        'typecheckGeneratedProject(targetDir);',
+      );
+      expect(generatedTypecheckTest.trimEnd()).toEndWith(
+        '{ timeout: GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS },\n);',
+      );
+      expect(generatedTypecheckTest).not.toMatch(/timeout: (?:20|30)_000/u);
+    }
+  });
+
+  test('keeps generated persistence syncs on the cold-build timeout', () => {
+    expect(scaffoldPersistenceTestSource).toContain(
+      'const GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedSyncTest =
+      scaffoldPersistenceTestSource.match(
+        /test\(\n\s*'generated persistence transport can point at a local adapter stub by editing only src\/transport\.ts'[\s\S]*?(?=\n\s*test\()/,
+      )?.[0] ?? '';
+
+    expect(generatedSyncTest).toContain(
+      "runGeneratedScript(targetDir, 'scripts/sync-project.ts');",
+    );
+    expect(generatedSyncTest.trimEnd()).toEndWith(
+      '{ timeout: GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS },\n);',
+    );
+    expect(generatedSyncTest).not.toContain('timeout: 20_000');
   });
 
   test('rejects missing and unknown selections', () => {

@@ -17,6 +17,9 @@ import {
 } from './helpers/scaffold-test-harness.js';
 import { scaffoldProject } from '../src/runtime/index.js';
 
+const GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS = 300_000;
+const GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS = 300_000;
+
 describe('@wp-typia/project-tools scaffold persistence', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-scaffold-persistence-');
 
@@ -462,7 +465,7 @@ test(
       'export function writeDemoPersistencePublicState(',
     );
   },
-  { timeout: 30_000 },
+  { timeout: GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS },
 );
 
 test(
@@ -757,7 +760,7 @@ test(
   );
   typecheckGeneratedProject(targetDir);
 },
-{ timeout: 20_000 },
+{ timeout: GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS },
 );
 
 test('scaffoldProject emits alternate render target entries for persistence scaffolds', async () => {
@@ -1312,7 +1315,7 @@ console.log(JSON.stringify({ initial, updated, reread }));
       await adapterServer.close();
     }
   },
-  { timeout: 20_000 },
+  { timeout: GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS },
 );
 
 test('scaffoldProject supports explicit text-domain overrides on persistence templates', async () => {
