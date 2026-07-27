@@ -139,10 +139,10 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});
@@ -177,10 +177,10 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});
@@ -245,13 +245,37 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.8.0',
 			wpTypiaPackageVersion: '^0.8.0',
 		});
+	});
+
+	test('keeps the TS7 toolchain baseline when an older generated project is installed', async () => {
+		const createPackageRoot = path.join(
+			createTempDir('wp-typia-legacy-toolchain-root-'),
+			'missing-create-root',
+		);
+		const module = await importPackageVersionsModule({
+			createPackageRoot,
+			installedPackageManifests: {
+				'@ttsc/lint': { version: '0.22.0' },
+				'@ttsc/unplugin': { version: '0.22.0' },
+				ttsc: { version: '0.22.0' },
+				typescript: { version: '6.0.2' },
+				typia: { version: '12.2.0' },
+			},
+		});
+
+		const versions = module.getPackageVersions();
+		expect(versions.ttscLintPackageVersion).toBe('0.23.0');
+		expect(versions.ttscPackageVersion).toBe('^0.23.0');
+		expect(versions.ttscUnpluginPackageVersion).toBe('^0.23.0');
+		expect(versions.typescriptPackageVersion).toBe('^7.0.2');
+		expect(versions.typiaPackageVersion).toBe('^13.2.0');
 	});
 
 	test('prefers the installed wp-typia manifest when it differs from the create package version', async () => {
@@ -306,16 +330,16 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});
 	});
 
-	test('defaults missing version data to ^0.0.0 and caches the computed result', async () => {
+	test('keeps canonical toolchain defaults while caching missing package metadata', async () => {
 		const createPackageRoot = path.join(
 			createTempDir('wp-typia-empty-create-root-'),
 			'empty-create-root',
@@ -336,10 +360,10 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});
@@ -387,10 +411,10 @@ describe('package version helpers', () => {
 			ttscLintPackageVersion: '0.23.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
-			typiaPackageVersion: '^0.0.0',
+			typiaPackageVersion: '^13.2.0',
 			ttscUnpluginPackageVersion: '^0.23.0',
 			typiaUnpluginPackageVersion: '^0.23.0',
-			typescriptPackageVersion: '^0.0.0',
+			typescriptPackageVersion: '^7.0.2',
 			wpTypiaPackageExactVersion: '0.0.0',
 			wpTypiaPackageVersion: '^0.0.0',
 		});

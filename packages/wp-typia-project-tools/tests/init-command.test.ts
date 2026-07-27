@@ -504,6 +504,71 @@ describe('wp-typia init', () => {
 		expect(webpackSource).not.toContain('@typia/unplugin/webpack');
 	});
 
+	test('upgrades an existing project to the canonical TS7 toolchain', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-ts7-toolchain');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitTs7ToolchainAttributes',
+			packageJson: {
+				devDependencies: {
+					'@ttsc/lint': '0.22.0',
+					'@ttsc/unplugin': '^0.22.0',
+					ttsc: '^0.22.0',
+					typescript: '^6.0.2',
+					typia: '^12.2.0',
+				},
+			},
+		});
+
+		const preview = getInitPlan(projectDir);
+		const applied = await applyInitPlan(projectDir);
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+		) as { devDependencies?: Record<string, string> };
+
+		expect(preview.packageChanges.addDevDependencies).toEqual(
+			expect.arrayContaining([
+				{
+					action: 'update',
+					currentValue: '0.22.0',
+					name: '@ttsc/lint',
+					requiredValue: '0.23.0',
+				},
+				{
+					action: 'update',
+					currentValue: '^0.22.0',
+					name: '@ttsc/unplugin',
+					requiredValue: '^0.23.0',
+				},
+				{
+					action: 'update',
+					currentValue: '^0.22.0',
+					name: 'ttsc',
+					requiredValue: '^0.23.0',
+				},
+				{
+					action: 'update',
+					currentValue: '^6.0.2',
+					name: 'typescript',
+					requiredValue: '^7.0.2',
+				},
+				{
+					action: 'update',
+					currentValue: '^12.2.0',
+					name: 'typia',
+					requiredValue: '^13.2.0',
+				},
+			]),
+		);
+		expect(applied.status).toBe('applied');
+		expect(packageJson.devDependencies).toMatchObject({
+			'@ttsc/lint': '0.23.0',
+			'@ttsc/unplugin': '^0.23.0',
+			ttsc: '^0.23.0',
+			typescript: '^7.0.2',
+			typia: '^13.2.0',
+		});
+	});
+
 	test('plan presentation helpers keep summary, changes, and next steps stable', () => {
 		const changes = buildInitPlanChangeSummary(
 			{

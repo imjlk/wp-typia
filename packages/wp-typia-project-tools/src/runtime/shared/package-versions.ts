@@ -44,9 +44,16 @@ interface PackageManifestLocation {
 const require = createRequire(import.meta.url);
 const DEFAULT_VERSION_RANGE = '^0.0.0';
 const DEFAULT_EXACT_VERSION = '0.0.0';
+/**
+ * Canonical generated-project toolchain. These intentionally do not fall back
+ * to packages installed by the target project: `wp-typia init --apply` must
+ * upgrade a legacy project rather than preserve its pre-TS7 toolchain.
+ */
 const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
 const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
 const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
+const DEFAULT_TYPESCRIPT_PACKAGE_VERSION = '^7.0.2';
+const DEFAULT_TYPIA_PACKAGE_VERSION = '^13.2.0';
 /**
  * Explicit fallback ranges for managed WordPress-facing workspace dependencies.
  *
@@ -308,16 +315,6 @@ export function getPackageVersions(): PackageVersions {
     resolveInstalledPackageManifestLocation('@wp-typia/block-types');
   const installedRestManifestLocation =
     resolveInstalledPackageManifestLocation('@wp-typia/rest');
-  const installedTtscManifestLocation =
-    resolveInstalledPackageManifestLocation('ttsc');
-  const installedTtscLintManifestLocation =
-    resolveInstalledPackageManifestLocation('@ttsc/lint');
-  const installedTtscUnpluginManifestLocation =
-    resolveInstalledPackageManifestLocation('@ttsc/unplugin');
-  const installedTypiaManifestLocation =
-    resolveInstalledPackageManifestLocation('typia');
-  const installedTypescriptManifestLocation =
-    resolveInstalledPackageManifestLocation('typescript');
   const installedWpTypiaManifestLocation =
     resolveInstalledPackageManifestLocation('wp-typia');
   const cacheKey = composePackageVersionsCacheKey([
@@ -331,11 +328,6 @@ export function getPackageVersions(): PackageVersions {
     installedBlockRuntimeManifestLocation,
     installedBlockTypesManifestLocation,
     installedRestManifestLocation,
-    installedTtscManifestLocation,
-    installedTtscLintManifestLocation,
-    installedTtscUnpluginManifestLocation,
-    installedTypiaManifestLocation,
-    installedTypescriptManifestLocation,
     installedWpTypiaManifestLocation,
   ]);
 
@@ -369,13 +361,13 @@ export function getPackageVersions(): PackageVersions {
   const ttscPackageVersion = normalizeVersionRangeWithFallback(
     monorepoManifest.dependencies?.ttsc ??
       monorepoManifest.devDependencies?.ttsc ??
-      readPackageManifest(installedTtscManifestLocation)?.version,
+      createManifest.devDependencies?.ttsc,
     DEFAULT_TTSC_PACKAGE_VERSION,
   );
   const ttscUnpluginPackageVersion = normalizeVersionRangeWithFallback(
     monorepoManifest.dependencies?.['@ttsc/unplugin'] ??
       monorepoManifest.devDependencies?.['@ttsc/unplugin'] ??
-      readPackageManifest(installedTtscUnpluginManifestLocation)?.version,
+      createManifest.devDependencies?.['@ttsc/unplugin'],
     DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION,
   );
   const versions = {
@@ -399,7 +391,7 @@ export function getPackageVersions(): PackageVersions {
     ttscLintPackageVersion: normalizeExactVersionWithFallback(
       monorepoManifest.dependencies?.['@ttsc/lint'] ??
         monorepoManifest.devDependencies?.['@ttsc/lint'] ??
-        readPackageManifest(installedTtscLintManifestLocation)?.version,
+        createManifest.devDependencies?.['@ttsc/lint'],
       DEFAULT_TTSC_LINT_PACKAGE_VERSION,
     ),
     ttscPackageVersion,
@@ -408,17 +400,16 @@ export function getPackageVersions(): PackageVersions {
     typiaPackageVersion: normalizeVersionRangeWithFallback(
       monorepoManifest.dependencies?.typia ??
         monorepoManifest.devDependencies?.typia ??
-        createManifest.dependencies?.typia ??
-        readPackageManifest(installedTypiaManifestLocation)?.version,
-      DEFAULT_VERSION_RANGE,
+        createManifest.dependencies?.typia,
+      DEFAULT_TYPIA_PACKAGE_VERSION,
     ),
     typiaUnpluginPackageVersion: ttscUnpluginPackageVersion,
     typescriptPackageVersion: normalizeVersionRangeWithFallback(
       monorepoManifest.dependencies?.typescript ??
         monorepoManifest.devDependencies?.typescript ??
         createManifest.dependencies?.typescript ??
-        readPackageManifest(installedTypescriptManifestLocation)?.version,
-      DEFAULT_VERSION_RANGE,
+        createManifest.devDependencies?.typescript,
+      DEFAULT_TYPESCRIPT_PACKAGE_VERSION,
     ),
     wpTypiaPackageExactVersion: normalizeExactVersion(wpTypiaManifest.version),
     wpTypiaPackageVersion: normalizeVersionRange(wpTypiaManifest.version),
