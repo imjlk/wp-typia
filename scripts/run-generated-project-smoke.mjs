@@ -25,6 +25,7 @@ import {
   assertPhpMajorMinorVersion,
   lintGeneratedProjectPhp,
 } from './lib/generated-project-smoke-php.mjs';
+import { createCiPhaseTimer } from './lib/ci-phase-timing.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -326,63 +327,76 @@ function main() {
   );
   const projectDir = path.join(tempRoot, projectName);
   let primaryError = null;
+  const phaseTimer = createCiPhaseTimer({
+    title: `Generated project smoke: ${projectName}`,
+  });
 
   try {
-    ensureCanonicalCliReady();
+    phaseTimer.measureSync('prepare canonical CLI', ensureCanonicalCliReady);
 
     if (exampleProject) {
-      runExampleProjectSmoke({
-        exampleProject,
-        packageManager,
-        phpVersion,
-        projectDir,
-        runtime,
+      phaseTimer.measureSync('run checked-in example smoke', () => {
+        runExampleProjectSmoke({
+          exampleProject,
+          packageManager,
+          phpVersion,
+          projectDir,
+          runtime,
+        });
       });
       return;
     }
 
-    run(runtime, [
-      entryPath,
-      projectDir,
-      '--template',
-      template,
-      ...(variant ? ['--variant', variant] : []),
-      ...(namespace ? ['--namespace', namespace] : []),
-      ...(textDomain ? ['--text-domain', textDomain] : []),
-      ...(phpPrefix ? ['--php-prefix', phpPrefix] : []),
-      ...(dataStorage ? ['--data-storage', dataStorage] : []),
-      ...(persistencePolicy ? ['--persistence-policy', persistencePolicy] : []),
-      ...(withMigrationUi ? ['--with-migration-ui'] : []),
-      '--yes',
-      '--no-install',
-      '--package-manager',
-      packageManager,
-    ]);
+    phaseTimer.measureSync('scaffold project', () => {
+      run(runtime, [
+        entryPath,
+        projectDir,
+        '--template',
+        template,
+        ...(variant ? ['--variant', variant] : []),
+        ...(namespace ? ['--namespace', namespace] : []),
+        ...(textDomain ? ['--text-domain', textDomain] : []),
+        ...(phpPrefix ? ['--php-prefix', phpPrefix] : []),
+        ...(dataStorage ? ['--data-storage', dataStorage] : []),
+        ...(persistencePolicy
+          ? ['--persistence-policy', persistencePolicy]
+          : []),
+        ...(withMigrationUi ? ['--with-migration-ui'] : []),
+        '--yes',
+        '--no-install',
+        '--package-manager',
+        packageManager,
+      ]);
+    });
 
     const packageJsonPath = path.join(projectDir, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     assertScaffoldPackageManagerField(packageJson, packageManager);
 
-    rewriteWorkspaceDependencies(projectDir, packageManager);
-    ensureCorepackPackageManager(packageManager);
+    phaseTimer.measureSync('install project dependencies', () => {
+      rewriteWorkspaceDependencies(projectDir, packageManager);
+      ensureCorepackPackageManager(packageManager);
 
-    const [installCommand, installArgs] = getInstallCommand(packageManager);
-    run(installCommand, installArgs, {
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        ...(packageManager === 'yarn'
-          ? { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' }
-          : {}),
-      },
+      const [installCommand, installArgs] = getInstallCommand(packageManager);
+      run(installCommand, installArgs, {
+        cwd: projectDir,
+        env: {
+          ...process.env,
+          ...(packageManager === 'yarn'
+            ? { YARN_ENABLE_IMMUTABLE_INSTALLS: 'false' }
+            : {}),
+        },
+      });
     });
 
-    if (
-      ['basic', 'interactivity', 'persistence', 'compound'].includes(template)
-    ) {
-      runFreshScaffoldSyncCheck(projectDir, packageManager, packageJson);
-    }
-    runScaffoldRefreshScripts(projectDir, packageManager, packageJson);
+    phaseTimer.measureSync('synchronize generated artifacts', () => {
+      if (
+        ['basic', 'interactivity', 'persistence', 'compound'].includes(template)
+      ) {
+        runFreshScaffoldSyncCheck(projectDir, packageManager, packageJson);
+      }
+      runScaffoldRefreshScripts(projectDir, packageManager, packageJson);
+    });
 
     if (addBlockName) {
       if (!addTemplate) {
@@ -512,44 +526,54 @@ function main() {
     }
 
     const [buildCommand, buildArgs] = getRunCommand(packageManager);
-    run(buildCommand, buildArgs, { cwd: projectDir });
+    phaseTimer.measureSync('build project', () => {
+      run(buildCommand, buildArgs, { cwd: projectDir });
+    });
     if (typeof packageJson.scripts?.lint === 'string') {
       const [lintCommand, lintArgs] = getRunScriptCommand(
         packageManager,
         'lint',
       );
-      run(lintCommand, lintArgs, { cwd: projectDir });
+      phaseTimer.measureSync('lint project', () => {
+        run(lintCommand, lintArgs, { cwd: projectDir });
+      });
     }
     if (typeof packageJson.scripts?.['format:check'] === 'string') {
       const [formatCheckCommand, formatCheckArgs] = getRunScriptCommand(
         packageManager,
         'format:check',
       );
-      run(formatCheckCommand, formatCheckArgs, { cwd: projectDir });
+      phaseTimer.measureSync('check project formatting', () => {
+        run(formatCheckCommand, formatCheckArgs, { cwd: projectDir });
+      });
     }
-    lintGeneratedProjectPhp(projectDir, phpVersion);
+    phaseTimer.measureSync('lint generated PHP', () => {
+      lintGeneratedProjectPhp(projectDir, phpVersion);
+    });
 
-    assertGeneratedProjectScaffold({
-      addBindingSourceName,
-      addBlockName,
-      addEditorPluginName,
-      addEditorPluginSlot: addEditorPluginName
-        ? (addEditorPluginSlot ?? 'sidebar')
-        : undefined,
-      addHookedBlockAnchor,
-      addHookedBlockPosition,
-      addHookedBlockSlug,
-      addPatternName,
-      addTemplate,
-      addVariationBlock,
-      addVariationName,
-      dataStorage,
-      namespace,
-      packageJson,
-      persistencePolicy,
-      projectDir,
-      projectName,
-      template,
+    phaseTimer.measureSync('verify generated artifacts', () => {
+      assertGeneratedProjectScaffold({
+        addBindingSourceName,
+        addBlockName,
+        addEditorPluginName,
+        addEditorPluginSlot: addEditorPluginName
+          ? (addEditorPluginSlot ?? 'sidebar')
+          : undefined,
+        addHookedBlockAnchor,
+        addHookedBlockPosition,
+        addHookedBlockSlug,
+        addPatternName,
+        addTemplate,
+        addVariationBlock,
+        addVariationName,
+        dataStorage,
+        namespace,
+        packageJson,
+        persistencePolicy,
+        projectDir,
+        projectName,
+        template,
+      });
     });
   } catch (error) {
     primaryError = error;
@@ -569,6 +593,7 @@ function main() {
         process.exitCode = 1;
       }
     }
+    phaseTimer.flush();
   }
 }
 

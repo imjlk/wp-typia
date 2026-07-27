@@ -270,14 +270,10 @@ jobs:
     needs:
       - lint
       - test-core
-      - test-project-tools
-      - test-project-tools-coverage
     if: |
       always() &&
       needs.lint.result == 'success' &&
-      needs.test-core.result == 'success' &&
-      needs.test-project-tools.result == 'success' &&
-      (needs.test-project-tools-coverage.result == 'success' || needs.test-project-tools-coverage.result == 'skipped')
+      needs.test-core.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -290,13 +286,20 @@ jobs:
       - name: Build packages and example
         run: |
           bun run packages:build
+          bun run --filter wp-typia build
           bun run examples:build
 
-      - name: Upload CLI artifact
+      - name: Upload generated smoke package artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: wp-typia-project-tools-dist
-          path: packages/wp-typia-project-tools/dist/
+          name: generated-smoke-package-dist
+          path: |
+            packages/wp-typia-api-client/dist/
+            packages/wp-typia-block-runtime/dist/
+            packages/wp-typia-block-types/dist/
+            packages/wp-typia-project-tools/dist/
+            packages/wp-typia-rest/dist/
+            packages/wp-typia/dist/
           retention-days: 7
 
       - name: Upload reference app build artifact
@@ -326,14 +329,10 @@ jobs:
     needs:
       - lint
       - test-core
-      - test-project-tools
-      - test-project-tools-coverage
     if: |
       always() &&
       needs.lint.result == 'success' &&
-      needs.test-core.result == 'success' &&
-      needs.test-project-tools.result == 'success' &&
-      (needs.test-project-tools-coverage.result == 'success' || needs.test-project-tools-coverage.result == 'skipped')
+      needs.test-core.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -350,13 +349,10 @@ jobs:
   generated-smoke:
     name: Generated Project Smoke (${{ matrix.project_name || matrix.example_project }})
     runs-on: ubuntu-latest
-    needs: [build, publish-install-smoke]
-    # Project Tools Coverage is push-only. Keep its skipped PR ancestor from
-    # suppressing this post-build gate without overriding workflow cancellation.
+    needs: [build]
     if: |
       !cancelled() &&
-      needs.build.result == 'success' &&
-      needs.publish-install-smoke.result == 'success'
+      needs.build.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -465,11 +461,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           ttsc-cache-scope: generated
 
-      - name: Download CLI artifact
+      - name: Download generated smoke package artifacts
         uses: actions/download-artifact@v8
         with:
-          name: wp-typia-project-tools-dist
-          path: packages/wp-typia-project-tools/dist
+          name: generated-smoke-package-dist
+          path: packages
 
       - name: Enable Corepack
         run: corepack enable
@@ -618,6 +614,68 @@ jobs:
         if: always()
         continue-on-error: true
         run: bun run examples:wp-env:stop:test
+
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test-core
+      - prepare-project-tools
+      - test-project-tools
+      - test-project-tools-coverage
+      - docs-build-check
+      - build
+      - publish-install-smoke
+      - generated-smoke
+      - e2e
+    if: always()
+    env:
+      BUILD_RESULT: ${{ needs.build.result }}
+      DOCS_RESULT: ${{ needs.docs-build-check.result }}
+      E2E_RESULT: ${{ needs.e2e.result }}
+      GENERATED_SMOKE_RESULT: ${{ needs.generated-smoke.result }}
+      LINT_RESULT: ${{ needs.lint.result }}
+      PREPARE_PROJECT_TOOLS_RESULT: ${{ needs.prepare-project-tools.result }}
+      PROJECT_TOOLS_COVERAGE_RESULT: ${{ needs.test-project-tools-coverage.result }}
+      PROJECT_TOOLS_RESULT: ${{ needs.test-project-tools.result }}
+      PUBLISH_INSTALL_SMOKE_RESULT: ${{ needs.publish-install-smoke.result }}
+      TEST_CORE_RESULT: ${{ needs.test-core.result }}
+    steps:
+      - name: Verify all CI gates
+        shell: bash
+        run: |
+          require_success() {
+            local gate_name="$1"
+            local gate_result="$2"
+            if [[ "$gate_result" != "success" ]]; then
+              echo "::error title=CI gate failed::${gate_name} concluded ${gate_result}"
+              return 1
+            fi
+          }
+
+          require_success "Lint and Type Check" "$LINT_RESULT"
+          require_success "Unit Tests (Core)" "$TEST_CORE_RESULT"
+          require_success "Prepare Project Tools Workspace" "$PREPARE_PROJECT_TOOLS_RESULT"
+          require_success "Project Tools" "$PROJECT_TOOLS_RESULT"
+          require_success "Build CLI and Example" "$BUILD_RESULT"
+          require_success "Published Install Smoke" "$PUBLISH_INSTALL_SMOKE_RESULT"
+          require_success "Generated Project Smoke" "$GENERATED_SMOKE_RESULT"
+          require_success "E2E Tests" "$E2E_RESULT"
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            require_success "Docs Build Check" "$DOCS_RESULT"
+            if [[ "$PROJECT_TOOLS_COVERAGE_RESULT" != "skipped" ]]; then
+              echo "::error title=CI gate failed::Project Tools Coverage concluded ${PROJECT_TOOLS_COVERAGE_RESULT}; expected skipped on pull_request"
+              exit 1
+            fi
+          else
+            require_success "Project Tools Coverage" "$PROJECT_TOOLS_COVERAGE_RESULT"
+            if [[ "$DOCS_RESULT" != "skipped" ]]; then
+              echo "::error title=CI gate failed::Docs Build Check concluded ${DOCS_RESULT}; expected skipped on push"
+              exit 1
+            fi
+          fi
 
   deploy-docs:
     name: Deploy Documentation
