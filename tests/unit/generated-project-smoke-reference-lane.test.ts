@@ -202,8 +202,9 @@ test('reference example workspaces retain shared asset module declarations', asy
   ).toBe(fs.readFileSync(join(repoRoot, 'types', 'assets.d.ts'), 'utf8'));
   const tsconfig = JSON.parse(
     fs.readFileSync(join(projectDir, 'tsconfig.json'), 'utf8'),
-  ) as { include?: string[] };
+  ) as { compilerOptions?: { rootDir?: string }; include?: string[] };
   expect(tsconfig.include).toContain('../../types/assets.d.ts');
+  expect(tsconfig.compilerOptions?.rootDir).toBe('../..');
 });
 
 test('CI generated smoke matrix includes the checked-in example lanes', () => {

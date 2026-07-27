@@ -58,6 +58,7 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 			module: "esnext",
 			moduleResolution: "bundler",
 			noEmit: true,
+			rootDir: "../..",
 			skipLibCheck: true,
 			strict: true,
 			target: "es2022",

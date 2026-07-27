@@ -622,7 +622,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
     'src/save.tsx': '9e3f69db9ff3ed24',
-    'src/style.scss': '7d77511799b41826',
+    'src/style.scss': '075e8e21b63876e2',
     'src/validators.ts': 'f02f2f0d77bdbfe8',
   },
   persistence: {
