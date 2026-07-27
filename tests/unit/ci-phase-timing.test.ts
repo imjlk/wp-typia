@@ -71,6 +71,38 @@ describe('CI phase timing', () => {
     expect(summary.match(/phase timings/g)).toHaveLength(1);
   });
 
+  test('keeps timing output best-effort', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ci-phase-timing-'));
+    tempDirs.push(tempDir);
+    const output: string[] = [];
+    const timer = createCiPhaseTimer({
+      now: () => 0,
+      output: { write: (message: string) => output.push(message) },
+      summaryPath: tempDir,
+      title: 'Generated smoke',
+    });
+
+    expect(timer.measureSync('build', () => 'built')).toBe('built');
+    expect(() => timer.flush()).not.toThrow();
+    expect(output.join('')).toContain(
+      '[ci-timing] Warning: failed to write phase summary',
+    );
+
+    const timerWithBrokenOutput = createCiPhaseTimer({
+      now: () => 0,
+      output: {
+        write: () => {
+          throw new Error('closed output');
+        },
+      },
+      summaryPath: '',
+      title: 'Generated smoke',
+    });
+    expect(timerWithBrokenOutput.measureSync('build', () => 'built')).toBe(
+      'built',
+    );
+  });
+
   test('formats durations consistently', () => {
     expect(formatCiPhaseDuration(0)).toBe('0.00s');
     expect(formatCiPhaseDuration(12_345)).toBe('12.35s');
@@ -85,6 +117,12 @@ describe('CI phase timing', () => {
       path.join(repoRoot, 'scripts', 'run-publish-install-smoke.mjs'),
       'utf8',
     );
+    const expectMeasuredPhase = (source: string, phase: string) => {
+      expect(
+        source.includes(`measureSync('${phase}'`) ||
+          source.includes(`measureSync("${phase}"`),
+      ).toBe(true);
+    };
 
     for (const phase of [
       'install project dependencies',
@@ -93,7 +131,7 @@ describe('CI phase timing', () => {
       'lint project',
       'check project formatting',
     ]) {
-      expect(generatedSmoke).toContain(`measureSync('${phase}'`);
+      expectMeasuredPhase(generatedSmoke, phase);
     }
     for (const phase of [
       'build workspace packages',
@@ -104,7 +142,7 @@ describe('CI phase timing', () => {
       'install and typecheck admin-view scaffold',
       'install and typecheck compound scaffold',
     ]) {
-      expect(publishInstallSmoke).toContain(`measureSync("${phase}"`);
+      expectMeasuredPhase(publishInstallSmoke, phase);
     }
   });
 });

@@ -23,6 +23,14 @@ export function createCiPhaseTimer({
   const phases = [];
   let flushed = false;
 
+  function writeOutput(message) {
+    try {
+      output.write(message);
+    } catch {
+      // Timing diagnostics must never change the result of the measured work.
+    }
+  }
+
   function measureSync(name, callback) {
     const startedAt = now();
     let outcome = 'passed';
@@ -34,7 +42,7 @@ export function createCiPhaseTimer({
     } finally {
       const durationMs = Math.max(0, now() - startedAt);
       phases.push({ durationMs, name, outcome });
-      output.write(
+      writeOutput(
         `[ci-timing] ${title} / ${name}: ${formatCiPhaseDuration(durationMs)} (${outcome})\n`,
       );
     }
@@ -50,25 +58,31 @@ export function createCiPhaseTimer({
       return;
     }
 
-    fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
-    const rows = phases
-      .map(
-        ({ durationMs, name, outcome }) =>
-          `| ${escapeMarkdownCell(name)} | ${formatCiPhaseDuration(durationMs)} | ${outcome} |`,
-      )
-      .join('\n');
-    fs.appendFileSync(
-      summaryPath,
-      [
-        `### ${escapeMarkdownCell(title)} phase timings`,
-        '',
-        '| Phase | Duration | Result |',
-        '| --- | ---: | --- |',
-        rows,
-        '',
-      ].join('\n'),
-      'utf8',
-    );
+    try {
+      fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
+      const rows = phases
+        .map(
+          ({ durationMs, name, outcome }) =>
+            `| ${escapeMarkdownCell(name)} | ${formatCiPhaseDuration(durationMs)} | ${outcome} |`,
+        )
+        .join('\n');
+      fs.appendFileSync(
+        summaryPath,
+        [
+          `### ${escapeMarkdownCell(title)} phase timings`,
+          '',
+          '| Phase | Duration | Result |',
+          '| --- | ---: | --- |',
+          rows,
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+    } catch (error) {
+      writeOutput(
+        `[ci-timing] Warning: failed to write phase summary for ${title}: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+    }
   }
 
   return {
