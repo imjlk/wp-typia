@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -1137,17 +1137,17 @@ frontendRead: frontendRead.requestOptions,
   );
 });
 
-test(
-  'generated persistence transport can point at a local adapter stub by editing only src/transport.ts',
-  async () => {
-    const targetDir = path.join(
-      tempRoot,
-      'demo-persistence-adapter-transport',
-    );
-    const adapterServer = await startLocalCounterStubServer();
+describe('generated persistence adapter transport', () => {
+  const targetDir = path.join(
+    tempRoot,
+    'demo-persistence-adapter-transport',
+  );
+  let adapterServer:
+    | Awaited<ReturnType<typeof startLocalCounterStubServer>>
+    | undefined;
 
-    try {
-      await scaffoldProject({
+  beforeAll(async () => {
+    await scaffoldProject({
         projectDir: targetDir,
         templateId: 'persistence',
         dataStorageMode: 'custom-table',
@@ -1165,11 +1165,24 @@ test(
         persistencePolicy: 'public',
       });
 
-      runGeneratedScript(targetDir, 'scripts/sync-project.ts');
-      replaceGeneratedTransportBaseUrls(
-        path.join(targetDir, 'src', 'transport.ts'),
-        adapterServer.url,
-      );
+    runGeneratedScript(targetDir, 'scripts/sync-project.ts');
+    adapterServer = await startLocalCounterStubServer();
+    replaceGeneratedTransportBaseUrls(
+      path.join(targetDir, 'src', 'transport.ts'),
+      adapterServer.url,
+    );
+  }, GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await adapterServer?.close();
+  });
+
+  test(
+    'can point at a local adapter stub by editing only src/transport.ts',
+    async () => {
+      if (!adapterServer) {
+        throw new Error('Adapter server did not start during test setup.');
+      }
 
       const integrationResult = (await runGeneratedJsonScriptAsync(
         targetDir,
@@ -1305,18 +1318,16 @@ console.log(JSON.stringify({ initial, updated, reread }));
         resourceKey: 'demo',
         storage: 'custom-table',
       });
-      expect(integrationResult.reread).toEqual({
-        count: 2,
-        postId: 7,
-        resourceKey: 'demo',
-        storage: 'custom-table',
-      });
-    } finally {
-      await adapterServer.close();
-    }
+    expect(integrationResult.reread).toEqual({
+      count: 2,
+      postId: 7,
+      resourceKey: 'demo',
+      storage: 'custom-table',
+    });
   },
-  { timeout: GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS },
-);
+  { timeout: 20_000 },
+  );
+});
 
 test('scaffoldProject supports explicit text-domain overrides on persistence templates', async () => {
   const targetDir = path.join(tempRoot, 'demo-persistence-text-domain');

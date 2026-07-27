@@ -161,23 +161,39 @@ describe('Project Tools test shard manifest', () => {
     }
   });
 
-  test('keeps generated persistence syncs on the cold-build timeout', () => {
+  test('isolates the generated persistence cold sync from its fast adapter integration', () => {
     expect(scaffoldPersistenceTestSource).toContain(
       'const GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS = 300_000;',
     );
 
-    const generatedSyncTest =
+    const adapterIntegration =
       scaffoldPersistenceTestSource.match(
-        /test\(\n\s*'generated persistence transport can point at a local adapter stub by editing only src\/transport\.ts'[\s\S]*?(?=\n\s*test\()/,
+        /describe\('generated persistence adapter transport',[\s\S]*?(?=\n\s*test\('scaffoldProject supports explicit text-domain overrides)/,
       )?.[0] ?? '';
 
-    expect(generatedSyncTest).toContain(
+    const adapterSetup =
+      adapterIntegration.match(
+        /beforeAll\(async \(\) => \{[\s\S]*?(?=\n\n  afterAll)/,
+      )?.[0] ?? '';
+    expect(adapterSetup).toContain(
+      'beforeAll(async () => {',
+    );
+    expect(adapterSetup).toContain(
       "runGeneratedScript(targetDir, 'scripts/sync-project.ts');",
     );
-    expect(generatedSyncTest.trimEnd()).toEndWith(
-      '{ timeout: GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS },\n);',
+    expect(adapterSetup).toContain(
+      '}, GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS);',
     );
-    expect(generatedSyncTest).not.toContain('timeout: 20_000');
+
+    const adapterTest =
+      adapterIntegration.match(
+        /test\(\n\s*'can point at a local adapter stub by editing only src\/transport\.ts'[\s\S]*?(?=\n  \);\n\}\);)/,
+      )?.[0] ?? '';
+    expect(adapterTest).toContain(
+      "'can point at a local adapter stub by editing only src/transport.ts'",
+    );
+    expect(adapterTest).toContain('{ timeout: 20_000 },');
+    expect(adapterTest).not.toContain('scripts/sync-project.ts');
   });
 
   test('rejects missing and unknown selections', () => {
