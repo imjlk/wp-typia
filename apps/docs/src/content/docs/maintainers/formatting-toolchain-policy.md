@@ -7,7 +7,7 @@ title: 'Formatting Toolchain Policy'
 ## Current baseline
 
 - the repository root owns TypeScript `7.0.2`
-- the repository root owns `ttsc` and `@ttsc/lint` at `0.22.0`
+- the repository root owns `ttsc` and `@ttsc/lint` at `0.23.0`
 - the repository root owns `eslint` at `9.39.4`
 - the repository root owns `@eslint/js` at `9.39.4`
 - the repository root owns `prettier` at `3.8.2`
@@ -77,9 +77,9 @@ checks so a formatter write cannot invalidate their exact generated output.
 ## Example apps and built-in templates
 
 Example apps and built-in scaffold package manifests stay aligned on
-`ttsc` `0.22.0` and `prettier` `3.8.2` ranges when they declare those direct
+`ttsc` `0.23.0` and `prettier` `3.8.2` ranges when they declare those direct
 development dependencies. Generated manifests pin `@ttsc/lint` to exact
-`0.22.0` while its compatibility hook targets that source.
+`0.23.0` while its compatibility hook targets that source.
 
 Their formatter scripts run `ttsc format` for TypeScript/TSX, the WordPress
 ESLint compatibility wrapper with `--fix` for JavaScript/CJS/MJS correctness,
@@ -132,7 +132,7 @@ The root Bun workspace carries two exact-version build-tool patches:
   `ttsc-typia` build and transform hosts. Without the patch, TypeScript CLI
   options forwarded by `ttsc`, such as `--strict`, do not reach the tsgo
   program used by the typia transform.
-- `@ttsc/lint@0.22.0` avoids asking the TypeScript-Go shim for a declaration
+- `@ttsc/lint@0.23.0` avoids asking the TypeScript-Go shim for a declaration
   type-parameter list when formatting mapped-type and `infer` type parameters.
   Without the patch, trailing-comma formatting can panic on those nodes.
 
@@ -140,11 +140,11 @@ The Bun `patchedDependencies` mappings belong only to the root development and
 build toolchain. Published packages and generated projects do not inherit
 them; publish-install smoke must pass against registry typia and ttsc packages.
 
-Registry `@ttsc/lint@0.22.0` still reproduces the mapped/`infer` panic outside
+Registry `@ttsc/lint@0.23.0` still reproduces the mapped/`infer` panic outside
 the root. Generated projects therefore include
 `scripts/apply-ttsc-lint-compat.mjs` and run it from `postinstall`. The script:
 
-- requires exact `@ttsc/lint@0.22.0`
+- requires exact `@ttsc/lint@0.23.0`
 - verifies the expected unpatched or already-patched source before writing
 - atomically applies only the mapped/`infer` parent guard used by the root
   patch, so pnpm-style content-addressed stores are not modified through a

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from '@typescript/typescript6';
 
-const TTSC_LINT_VERSION = '0.22.0';
+const TTSC_LINT_VERSION = '0.23.0';
 const TYPIA_VERSION = '13.2.0';
 const TTSC_LINT_FORMAT = Object.freeze({
   severity: 'error',
@@ -115,7 +115,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
   ttscLintVersion: TTSC_LINT_VERSION,
-  ttscVersion: '0.22.0',
+  ttscVersion: '0.23.0',
   typiaVersion: TYPIA_VERSION,
   compatibilityPatches: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,

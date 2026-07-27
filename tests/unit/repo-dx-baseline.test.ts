@@ -623,8 +623,8 @@ describe('repository DX baseline', () => {
       '`@wp-typia/project-tools` keeps `@typescript/typescript6` in `dependencies`',
     );
     expect(contributing).toContain('`typia` 13.x');
-    expect(contributing).toContain('`ttsc` 0.22.x');
-    expect(contributing).toContain('`@ttsc/unplugin` 0.22.x');
+    expect(contributing).toContain('`ttsc` 0.23.x');
+    expect(contributing).toContain('`@ttsc/unplugin` 0.23.x');
     expect(contributing).toContain('`@wordpress/scripts` 30.x');
     expect(cliReadme).toMatch(
       /https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/[^/]+\/UPGRADE\.md/,

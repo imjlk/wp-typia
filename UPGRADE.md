@@ -29,7 +29,7 @@ Generated TypeScript workflows now use `ttsc` and `ttsx`:
 
 `wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
 migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
-and retrofitted projects pin `@ttsc/lint@0.22.0` and run the generated
+and retrofitted projects pin `@ttsc/lint@0.23.0` and run the generated
 `scripts/apply-ttsc-lint-compat.mjs` install hook until an unpatched upstream
 release passes the mapped/`infer` formatter regression. The hook affects only
 the development compiler plugin; it is not a WordPress runtime dependency.

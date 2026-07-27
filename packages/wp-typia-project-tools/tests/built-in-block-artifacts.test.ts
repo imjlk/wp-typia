@@ -925,6 +925,36 @@ describe('built-in block artifacts', () => {
         "import type {\n  SmokeInteractivityPnpmContext,\n  SmokeInteractivityPnpmState,\n} from './types';",
       );
     }
+
+    const longAnswers = {
+      ...buildAnswers('interactivity'),
+      slug: 'smoke-interactivity-ttsc023-pnpm',
+      textDomain: 'smoke-interactivity-ttsc023-pnpm',
+    };
+    const longSpec = createBuiltInBlockSpec({
+      answers: longAnswers,
+      templateId: 'interactivity',
+    });
+    const longVariables = buildTemplateVariablesFromBlockSpec(longSpec);
+    const longCodeArtifacts = buildBuiltInCodeArtifacts({
+      templateId: 'interactivity',
+      variables: longVariables,
+    });
+    const longEditSource = longCodeArtifacts.find(
+      (artifact) => artifact.relativePath === 'src/edit.tsx',
+    )?.source;
+    const longSaveSource = longCodeArtifacts.find(
+      (artifact) => artifact.relativePath === 'src/save.tsx',
+    )?.source;
+
+    expect(longEditSource).toContain(
+      "interactiveMode: __(\n        'Interactive Mode',\n        'smoke-interactivity-ttsc023-pnpm',\n      ),",
+    );
+    for (const source of [longEditSource, longSaveSource]) {
+      expect(source).toContain(
+        "const clicksDirective = smokeInteractivityTtsc023PnpmStore.directive.state(\n    'clicks',\n  );",
+      );
+    }
   });
 
   test('built-in template trees no longer ship structural Mustache files', () => {

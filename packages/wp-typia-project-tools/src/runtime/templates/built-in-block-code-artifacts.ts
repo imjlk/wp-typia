@@ -78,6 +78,23 @@ interface BuiltInCodeTemplateSpec {
 // resourceKey is MaxLength<100>; generated scoped ids add "-" plus 9 characters.
 const RESOURCE_KEY_PREFIX_MAX_LENGTH = 90;
 
+function renderEditorFieldLabels(
+  fieldLabels: ReadonlyArray<readonly [string, string]>,
+  textDomain: string,
+): string {
+  return fieldLabels
+    .map(([propertyName, label]) =>
+      renderTypeScriptCallLine({
+        args: [quoteTypeScriptString(label), quoteTypeScriptString(textDomain)],
+        callee: '__',
+        indentation: '      ',
+        prefix: `${propertyName}: `,
+        suffix: ',',
+      }),
+    )
+    .join('\n');
+}
+
 function renderCodeTemplate(
 	template: string,
 	variables: ScaffoldTemplateVariables,
@@ -120,24 +137,34 @@ function renderCodeTemplate(
     ['resourceKey', 'Resource Key'],
     ['showCount', 'Show Count'],
   ] as const;
-  const renderedPersistenceEditorFieldLabels = persistenceEditorFieldLabels
-    .map(([propertyName, label]) =>
-      renderTypeScriptCallLine({
-        args: [
-          quoteTypeScriptString(label),
-          quoteTypeScriptString(variables.textDomain),
-        ],
-        callee: '__',
-        indentation: '      ',
-        prefix: `${propertyName}: `,
-        suffix: ',',
-      }),
-    )
-    .join('\n');
+  const interactivityEditorFieldLabels = [
+    ['alignment', 'Alignment'],
+    ['animation', 'Animation'],
+    ['interactiveMode', 'Interactive Mode'],
+    ['isVisible', 'Visible'],
+    ['showCounter', 'Show Counter'],
+  ] as const;
+  const renderedPersistenceEditorFieldLabels = renderEditorFieldLabels(
+    persistenceEditorFieldLabels,
+    variables.textDomain,
+  );
+  const renderedInteractivityEditorFieldLabels = renderEditorFieldLabels(
+    interactivityEditorFieldLabels,
+    variables.textDomain,
+  );
+  const renderedInteractivityClicksDirective = renderTypeScriptCallLine({
+    args: [quoteTypeScriptString('clicks')],
+    callee: `${variables.slugCamelCase}Store.directive.state`,
+    indentation: '  ',
+    prefix: 'const clicksDirective = ',
+    suffix: ';',
+  });
   const rendered = renderMustacheTemplateString(template, {
     ...variables,
     childValidationTypesImport,
     descriptionTsLiteral: quoteTypeScriptString(variables.description),
+    interactivityClicksDirective: renderedInteractivityClicksDirective,
+    interactivityEditorFieldLabels: renderedInteractivityEditorFieldLabels,
     interactivityTypesImport,
     persistenceEditorFieldLabels: renderedPersistenceEditorFieldLabels,
     persistenceSanitizeAttributesCall: renderTypeScriptCallLine({

@@ -44,9 +44,9 @@ interface PackageManifestLocation {
 const require = createRequire(import.meta.url);
 const DEFAULT_VERSION_RANGE = '^0.0.0';
 const DEFAULT_EXACT_VERSION = '0.0.0';
-const DEFAULT_TTSC_PACKAGE_VERSION = '^0.22.0';
-const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.22.0';
-const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.22.0';
+const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
+const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
+const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
 /**
  * Explicit fallback ranges for managed WordPress-facing workspace dependencies.
  *

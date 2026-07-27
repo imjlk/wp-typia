@@ -37,11 +37,7 @@ export default function Edit({
   const editorFields = useEditorFields(currentManifest, {
     manual: ['content', 'clickCount', 'maxClicks'],
     labels: {
-      alignment: __('Alignment', '{{textDomain}}'),
-      animation: __('Animation', '{{textDomain}}'),
-      interactiveMode: __('Interactive Mode', '{{textDomain}}'),
-      isVisible: __('Visible', '{{textDomain}}'),
-      showCounter: __('Show Counter', '{{textDomain}}'),
+{{interactivityEditorFieldLabels}}
     },
   });
   const { errorMessages, isValid } = useTypiaValidation(
@@ -106,7 +102,7 @@ export default function Edit({
   });
   const previewContentStyle = { textAlign: alignmentValue };
   const progressBarStyle = { width: \`\${(clickCount / maxClicks) * 100}%\` };
-  const clicksDirective = {{slugCamelCase}}Store.directive.state('clicks');
+{{interactivityClicksDirective}}
   const isAnimatingDirective =
     {{slugCamelCase}}Store.directive.state('isAnimating');
   const progressDirective =
@@ -319,7 +315,7 @@ export default function Save({
     {{slugCamelCase}}Store.directive.negate(
       {{slugCamelCase}}Store.directive.state('isVisible'),
     );
-  const clicksDirective = {{slugCamelCase}}Store.directive.state('clicks');
+{{interactivityClicksDirective}}
   const clampedClicksDirective =
     {{slugCamelCase}}Store.directive.state('clampedClicks');
   const isAnimatingDirective =

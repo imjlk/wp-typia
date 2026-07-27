@@ -260,7 +260,7 @@ describe('validateFormattingToolchainPolicy', () => {
     delete packageJson.patchedDependencies['typia@13.2.0'];
     packageJson.patchedDependencies['typia@13.2.1'] =
       'patches/typia@13.2.1.patch';
-    packageJson.patchedDependencies['@ttsc/lint@0.22.0'] =
+    packageJson.patchedDependencies['@ttsc/lint@0.23.0'] =
       'patches/lint.patch';
     writeJson(packageJsonPath, packageJson);
 
@@ -274,7 +274,7 @@ describe('validateFormattingToolchainPolicy', () => {
       'package.json must declare patchedDependencies["typia@13.2.0"]="patches/typia@13.2.0.patch", found null.',
     );
     expect(result.errors).toContain(
-      'package.json must declare patchedDependencies["@ttsc/lint@0.22.0"]="patches/@ttsc%2Flint@0.22.0.patch", found "patches/lint.patch".',
+      'package.json must declare patchedDependencies["@ttsc/lint@0.23.0"]="patches/@ttsc%2Flint@0.23.0.patch", found "patches/lint.patch".',
     );
     expect(result.errors).toContain(
       'package.json must not declare undocumented compatibility patch "typia@13.2.1".',
@@ -317,7 +317,7 @@ describe('validateFormattingToolchainPolicy', () => {
       'packages/create-workspace-template/package.json.mustache',
     );
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    manifest.devDependencies['@ttsc/lint'] = '^0.22.0';
+    manifest.devDependencies['@ttsc/lint'] = '^0.23.0';
     delete manifest.scripts.postinstall;
     writeJson(manifestPath, manifest);
     fs.rmSync(
@@ -332,7 +332,7 @@ describe('validateFormattingToolchainPolicy', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@ttsc/lint"]="0.22.0" while the generated compatibility hook targets that exact source, found "^0.22.0".',
+      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@ttsc/lint"]="0.23.0" while the generated compatibility hook targets that exact source, found "^0.23.0".',
     );
     expect(result.errors).toContain(
       'packages/create-workspace-template/package.json.mustache must keep scripts.postinstall="node scripts/apply-ttsc-lint-compat.mjs", found null.',
