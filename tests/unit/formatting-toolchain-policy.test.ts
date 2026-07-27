@@ -84,6 +84,17 @@ function createFormattingPolicyRepo() {
     });
   }
 
+  for (const relativePath of policy.workspaceExampleLintConfigPaths) {
+    writeText(
+      path.join(repoRoot, relativePath),
+      `export default ${JSON.stringify(
+        policy.workspaceExampleTtscLintConfig,
+        null,
+        2,
+      )};\n`,
+    );
+  }
+
   for (const relativePath of policy.wpScriptsExamplePackagePaths) {
     const examplePackagePath = path.join(repoRoot, relativePath);
     const examplePackageJson = JSON.parse(
@@ -467,6 +478,19 @@ export default {
         ),
       ),
     ).toBe(true);
+  });
+
+  test('fails when an independently runnable example lacks its ttsc lint config', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const relativePath = 'examples/my-typia-block/lint.config.ts';
+    fs.rmSync(path.join(repoRoot, relativePath));
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      `${relativePath} must exist so the example remains independently runnable with @ttsc/lint.`,
+    );
   });
 
   test('rejects malformed ttsc lint config syntax', () => {

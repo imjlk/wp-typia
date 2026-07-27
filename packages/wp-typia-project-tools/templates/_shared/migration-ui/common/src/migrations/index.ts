@@ -674,7 +674,7 @@ function resolveMigrationState(
       }
       const preview = createPreview({
         after: migratedValidation.isValid
-          ? (migrated as Record<string, unknown>)
+          ? (migrated as unknown as Record<string, unknown>)
           : null,
         before: attributes,
         currentManifest: getCurrentManifestDocument(target),

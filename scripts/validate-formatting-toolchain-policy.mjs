@@ -8,6 +8,23 @@ import ts from '@typescript/typescript6';
 
 const TTSC_LINT_VERSION = '0.22.0';
 const TYPIA_VERSION = '13.2.0';
+const TTSC_LINT_FORMAT = Object.freeze({
+  severity: 'error',
+  printWidth: 80,
+  tabWidth: 2,
+  useTabs: false,
+  semi: true,
+  singleQuote: true,
+  trailingComma: 'all',
+  endOfLine: 'lf',
+  sortImports: false,
+  jsDoc: false,
+});
+const TTSC_LINT_RULES = Object.freeze({
+  'no-var': 'error',
+  'prefer-const': 'error',
+  eqeqeq: 'error',
+});
 const QUERY_LOOP_PACKAGE_MANIFEST_PATH =
   'packages/wp-typia-project-tools/templates/query-loop/package.json.mustache';
 const GENERATED_PACKAGE_MANIFEST_PATHS = Object.freeze([
@@ -125,6 +142,12 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     'examples/persistence-examples/package.json',
     'examples/compound-patterns/package.json',
   ]),
+  workspaceExampleLintConfigPaths: Object.freeze([
+    'examples/api-contract-adapter-poc/lint.config.ts',
+    'examples/my-typia-block/lint.config.ts',
+    'examples/persistence-examples/lint.config.ts',
+    'examples/compound-patterns/lint.config.ts',
+  ]),
   wpScriptsExamplePackagePaths: Object.freeze([
     'examples/my-typia-block/package.json',
     'examples/persistence-examples/package.json',
@@ -143,23 +166,13 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
       '**/node_modules/**',
       '**/vendor/**',
     ]),
-    format: Object.freeze({
-      severity: 'error',
-      printWidth: 80,
-      tabWidth: 2,
-      useTabs: false,
-      semi: true,
-      singleQuote: true,
-      trailingComma: 'all',
-      endOfLine: 'lf',
-      sortImports: false,
-      jsDoc: false,
-    }),
-    rules: Object.freeze({
-      'no-var': 'error',
-      'prefer-const': 'error',
-      eqeqeq: 'error',
-    }),
+    format: TTSC_LINT_FORMAT,
+    rules: TTSC_LINT_RULES,
+  }),
+  workspaceExampleTtscLintConfig: Object.freeze({
+    ignores: Object.freeze(['build/**', 'node_modules/**']),
+    format: TTSC_LINT_FORMAT,
+    rules: TTSC_LINT_RULES,
   }),
 });
 
@@ -1014,6 +1027,32 @@ export function validateFormattingToolchainPolicy(
     ) {
       errors.push(
         `${relativePath} must declare devDependencies["@ttsc/lint"]="${expectedTtscLintRange}", found ${JSON.stringify(examplePackageJson.devDependencies?.['@ttsc/lint'] ?? null)}.`,
+      );
+    }
+  }
+
+  for (const relativePath of policy.workspaceExampleLintConfigPaths) {
+    const configPath = path.join(repoRoot, relativePath);
+    if (!fs.existsSync(configPath)) {
+      errors.push(
+        `${relativePath} must exist so the example remains independently runnable with @ttsc/lint.`,
+      );
+      continue;
+    }
+
+    try {
+      const lintConfig = readTsDefaultObjectConfig(
+        fs.readFileSync(configPath, 'utf8'),
+        relativePath,
+      );
+      if (!deepEqualJson(lintConfig, policy.workspaceExampleTtscLintConfig)) {
+        errors.push(
+          `${relativePath} must export the documented example @ttsc/lint configuration; found ${JSON.stringify(lintConfig)}.`,
+        );
+      }
+    } catch (error) {
+      errors.push(
+        `${relativePath} must export a statically readable example @ttsc/lint configuration: ${error instanceof Error ? error.message : String(error)}.`,
       );
     }
   }

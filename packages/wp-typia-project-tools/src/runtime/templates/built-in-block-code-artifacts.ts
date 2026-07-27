@@ -110,6 +110,11 @@ function renderCodeTemplate(
     './types',
     { typeOnly: true },
   );
+  const interactivityTypesImport = renderNamedTypeScriptImport(
+    [`${variables.pascalCase}Context`, `${variables.pascalCase}State`],
+    './types',
+    { typeOnly: true },
+  );
   const persistenceEditorFieldLabels = [
     ['buttonLabel', 'Button Label'],
     ['resourceKey', 'Resource Key'],
@@ -133,6 +138,7 @@ function renderCodeTemplate(
     ...variables,
     childValidationTypesImport,
     descriptionTsLiteral: quoteTypeScriptString(variables.description),
+    interactivityTypesImport,
     persistenceEditorFieldLabels: renderedPersistenceEditorFieldLabels,
     persistenceSanitizeAttributesCall: renderTypeScriptCallLine({
       args: ['nextAttributes'],

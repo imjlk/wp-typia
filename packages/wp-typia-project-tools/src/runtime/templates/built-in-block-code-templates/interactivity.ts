@@ -478,7 +478,7 @@ const registration = buildScaffoldBlockRegistration(
 registerScaffoldBlockType(registration.name, registration.settings);
 `;
 
-export const INTERACTIVITY_STORE_TEMPLATE = `import type { {{pascalCase}}Context, {{pascalCase}}State } from './types';
+export const INTERACTIVITY_STORE_TEMPLATE = `{{interactivityTypesImport}}
 
 type InteractivityActionShape = object;
 type InteractivityCallbackShape = object;
@@ -627,7 +627,7 @@ import {
   {{slugCamelCase}}Store,
   type {{pascalCase}}StoreActions,
 } from './interactivity-store';
-import type { {{pascalCase}}Context, {{pascalCase}}State } from './types';
+{{interactivityTypesImport}}
 
 function getBlockContext() {
   return getContext<{{pascalCase}}Context>();

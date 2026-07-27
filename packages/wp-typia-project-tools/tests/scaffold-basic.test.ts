@@ -446,6 +446,10 @@ describe('@wp-typia/project-tools scaffold core', () => {
         path.join(targetDir, 'src', 'migrations', 'config.ts'),
         'utf8',
       );
+      const migrationIndex = fs.readFileSync(
+        path.join(targetDir, 'src', 'migrations', 'index.ts'),
+        'utf8',
+      );
 
       expect(packageJson.dependencies['@wordpress/api-fetch']).toBe('^7.42.0');
       expect(
@@ -467,6 +471,9 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedIndex).not.toContain('as NonNullable<BlockConfiguration');
       expect(migrationConfig).toContain("key: 'demo-migration-ui'");
       expect(migrationConfig).toContain("blockJsonFile: 'src/block.json'");
+      expect(migrationIndex).toContain(
+        'migrated as unknown as Record<string, unknown>',
+      );
       expect(
         fs.existsSync(
           path.join(targetDir, 'src', 'admin', 'migration-dashboard.tsx'),

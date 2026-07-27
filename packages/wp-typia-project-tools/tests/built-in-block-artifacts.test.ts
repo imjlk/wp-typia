@@ -659,7 +659,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
     'src/blocks/demo-compound/render.php': '945ae15d97cb040d',
     'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
-    'src/blocks/demo-compound/style.scss': '41a7a2bbf5cd2a34',
+    'src/blocks/demo-compound/style.scss': '5a079051191f8cb7',
     'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',
     'src/hooks.ts': 'e95dea31e16a6ec7',
   },
@@ -922,7 +922,7 @@ describe('built-in block artifacts', () => {
       )?.source;
 
       expect(source).toContain(
-        "import type { SmokeInteractivityPnpmContext, SmokeInteractivityPnpmState } from './types';",
+        "import type {\n  SmokeInteractivityPnpmContext,\n  SmokeInteractivityPnpmState,\n} from './types';",
       );
     }
   });
