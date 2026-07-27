@@ -276,7 +276,7 @@ describe('wp-typia init', () => {
 		expect(plan.commandMode).toBe('apply');
 		expect(plan.packageManager).toBe('pnpm');
 		expect(plan.notes).toContain(
-			'Apply mode writes package.json and generated helper files with rollback-on-failure protection.',
+			'Apply mode writes package.json, generated helper files, and any package-manager configuration updates with rollback-on-failure protection.',
 		);
 		expect(packageJson.packageManager).toBe('pnpm@8.3.1');
 		expect(packageJson.devDependencies?.['@types/wordpress__blocks']).toBe(
@@ -343,6 +343,49 @@ describe('wp-typia init', () => {
 		expect(packageJson.scripts?.postinstall).toBe(
 			'node scripts/apply-ttsc-lint-compat.mjs',
 		);
+	});
+
+	test("switches detected Yarn Plug'n'Play retrofits to mutable node_modules without replacing other Yarn settings", async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-yarn-pnp');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitYarnPnpAttributes',
+		});
+		fs.writeFileSync(path.join(projectDir, '.pnp.cjs'), 'module.exports = {};\n');
+		fs.writeFileSync(
+			path.join(projectDir, '.yarnrc.yml'),
+			[
+				'yarnPath: .yarn/releases/yarn-3.2.4.cjs',
+				'nodeLinker: pnp # keep the rest of this configuration',
+				'checksumBehavior: update',
+				'',
+			].join('\n'),
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+		const applied = await applyInitPlan(projectDir);
+		const yarnRcSource = fs.readFileSync(
+			path.join(projectDir, '.yarnrc.yml'),
+			'utf8',
+		);
+
+		expect(preview.packageManager).toBe('yarn');
+		expect(preview.plannedFiles).toContainEqual({
+			action: 'update',
+			path: '.yarnrc.yml',
+			purpose:
+				"Switch Yarn Plug'n'Play to node-modules so the generated @ttsc/lint compatibility hook only writes mutable dependency files.",
+		});
+		expect(applied.status).toBe('applied');
+		expect(yarnRcSource).toBe(
+			[
+				'yarnPath: .yarn/releases/yarn-3.2.4.cjs',
+				'nodeLinker: node-modules # keep the rest of this configuration',
+				'checksumBehavior: update',
+				'',
+			].join('\n'),
+		);
+		expect(fs.existsSync(path.join(projectDir, '.pnp.cjs'))).toBe(true);
 	});
 
 	test('removes the Typia 12 plugin and migrates its Webpack import during retrofit', async () => {
@@ -487,7 +530,7 @@ describe('wp-typia init', () => {
 
 		try {
 			await expect(applyInitPlan(projectDir)).rejects.toThrow(
-				/restored the previous package\.json\/helper-file snapshot/i,
+				/restored the previous package\.json\/helper-file\/package-manager snapshot/i,
 			);
 			expect(fs.readFileSync(packageJsonPath, 'utf8')).toBe(
 				originalPackageJsonSource,

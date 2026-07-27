@@ -18,6 +18,7 @@ import {
 } from './cli-init-package-json.js';
 import { createRetrofitPlan, getInitPlan } from './cli-init-plan.js';
 import { buildRetrofitHelperFiles } from './cli-init-templates.js';
+import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import {
   collectRetrofitWebpackChanges,
   type RetrofitWebpackChange,
@@ -57,6 +58,7 @@ async function writeRetrofitFiles(options: {
   packageJson: ProjectPackageJson;
   projectDir: string;
   webpackChanges: RetrofitWebpackChange[];
+  yarnPnpNodeModulesConfig: ReturnType<typeof getYarnPnpNodeModulesConfig>;
 }): Promise<void> {
   const helperFiles = buildRetrofitHelperFiles(options.blockTargets);
   const scriptsDir = path.join(options.projectDir, 'scripts');
@@ -82,13 +84,20 @@ async function writeRetrofitFiles(options: {
       'utf8',
     );
   }
+  if (options.yarnPnpNodeModulesConfig) {
+    await fsp.writeFile(
+      options.yarnPnpNodeModulesConfig.path,
+      options.yarnPnpNodeModulesConfig.source,
+      'utf8',
+    );
+  }
 }
 
 function buildApplyFailureError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   return createCliDiagnosticCodeError(
     CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-    `Unable to apply the retrofit init plan safely. The command restored the previous package.json/helper-file snapshot. ${message}`,
+    `Unable to apply the retrofit init plan safely. The command restored the previous package.json/helper-file/package-manager snapshot. ${message}`,
     error instanceof Error ? { cause: error } : undefined,
   );
 }
@@ -149,6 +158,10 @@ export async function applyInitPlan(
   });
   const helperFiles = buildRetrofitHelperFiles(previewPlan.blockTargets);
   const webpackChanges = collectRetrofitWebpackChanges(previewPlan.projectDir);
+  const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
+    previewPlan.projectDir,
+    previewPlan.packageManager,
+  );
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
 		...Object.keys(helperFiles).map((relativePath) =>
@@ -157,6 +170,7 @@ export async function applyInitPlan(
 		...webpackChanges.map((change) =>
 			path.join(previewPlan.projectDir, change.path),
 		),
+		...(yarnPnpNodeModulesConfig ? [yarnPnpNodeModulesConfig.path] : []),
 	];
   const mutationSnapshot = await createRetrofitMutationSnapshot(
     previewPlan.projectDir,
@@ -169,6 +183,7 @@ export async function applyInitPlan(
       packageJson: nextPackageJson,
       projectDir: previewPlan.projectDir,
       webpackChanges,
+      yarnPnpNodeModulesConfig,
     });
   } catch (error) {
     await rollbackWorkspaceMutation(mutationSnapshot);

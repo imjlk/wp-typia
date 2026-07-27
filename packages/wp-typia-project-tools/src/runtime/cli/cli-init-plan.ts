@@ -23,6 +23,7 @@ import {
   readProjectPackageJson,
   resolveInitPackageManager,
 } from './cli-init-package-json.js';
+import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
 import {
   buildInitPlanChangeSummary,
@@ -420,10 +421,17 @@ export function getInitPlan(
       persistExplicitOverride: typeof options.packageManager === 'string',
     },
   );
+  const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
+    resolvedProjectDir,
+    packageManager,
+  );
   const rawPlannedFiles: InitFilePlan[] =
 		layout.kind === 'generated-project' || layout.kind === 'official-workspace'
       ? []
       : buildPlannedFiles(resolvedProjectDir, layout.kind);
+  if (yarnPnpNodeModulesConfig) {
+    rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
+  }
   rawPlannedFiles.push(
     ...webpackChanges.map((change) => ({
       action: 'update' as const,
@@ -442,7 +450,8 @@ export function getInitPlan(
 		scriptChanges.length === 0 &&
 		!obsoleteTypiaUnplugin &&
 		webpackChanges.length === 0 &&
-		packageManagerFieldChange === undefined
+		packageManagerFieldChange === undefined &&
+		yarnPnpNodeModulesConfig === undefined
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;

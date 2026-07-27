@@ -97,7 +97,7 @@ export const SUPPORTED_RETROFIT_LAYOUT_NOTE =
 	'Supported retrofit layouts currently mirror the migration bootstrap detector: `src/block.json` + `src/types.ts` + `src/save.tsx`, legacy root `block.json` + `src/types.ts` + `src/save.tsx`, or multi-block `src/blocks/*/block.json` workspaces.';
 
 export const RETROFIT_APPLY_PREVIEW_NOTE =
-	'If you rerun with `wp-typia init --apply`, package.json and generated helper files are snapshotted and rolled back automatically if a write fails.';
+	'If you rerun with `wp-typia init --apply`, package.json, generated helper files, and any package-manager configuration updates are snapshotted and rolled back automatically if a write fails.';
 
 export const RETROFIT_ROLLBACK_NOTE =
-	'Apply mode writes package.json and generated helper files with rollback-on-failure protection.';
+	'Apply mode writes package.json, generated helper files, and any package-manager configuration updates with rollback-on-failure protection.';

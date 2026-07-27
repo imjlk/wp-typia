@@ -130,9 +130,17 @@ the root. Generated projects therefore include
 - atomically applies only the mapped/`infer` parent guard used by the root
   patch, so pnpm-style content-addressed stores are not modified through a
   shared file inode
-- works after npm, Bun, pnpm, or Yarn installs without adding a runtime
-  dependency
+- works after npm, Bun, pnpm, or Yarn node-modules installs without adding a
+  runtime dependency
 - fails closed when the package version or source layout changes
+
+Yarn Plug'n'Play stores package sources in read-only archives, so the hook
+cannot safely run through that linker. New Yarn scaffolds already set
+`nodeLinker: node-modules`; when `wp-typia init --apply` detects an existing
+PnP install, it updates only that top-level `.yarnrc.yml` setting before the
+next install. Other Yarn settings and comments stay intact, and the next
+postinstall writes the private mutable copy under `node_modules` rather than a
+shared archive.
 
 This is a generated development-tool compatibility hook, not a WordPress
 runtime dependency. Generated-project smoke owns the create, install, doctor,
