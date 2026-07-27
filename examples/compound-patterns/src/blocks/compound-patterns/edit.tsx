@@ -1,9 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import {
-	InspectorControls,
-	InnerBlocks,
-	RichText,
-	useBlockProps,
+  InspectorControls,
+  InnerBlocks,
+  RichText,
+  useBlockProps,
 } from '@wordpress/block-editor';
 import { PanelBody, ToggleControl } from '@wordpress/components';
 
@@ -11,34 +11,34 @@ import type { CompoundPatternsAttributes } from './types';
 
 const CHILD_BLOCK_NAME = 'create-block/compound-patterns-item';
 const DEFAULT_TEMPLATE: Parameters< typeof InnerBlocks >[ 0 ][ 'template' ] = [
-	[
-		CHILD_BLOCK_NAME,
-		{
-			body: 'Add supporting details for the first internal item.',
-			title: 'First Item',
-		},
-	],
-	[
-		CHILD_BLOCK_NAME,
-		{
-			body: 'Add supporting details for the second internal item.',
-			title: 'Second Item',
-		},
-	],
+  [
+    CHILD_BLOCK_NAME,
+    {
+      body: 'Add supporting details for the first internal item.',
+      title: 'First Item',
+    },
+  ],
+  [
+    CHILD_BLOCK_NAME,
+    {
+      body: 'Add supporting details for the second internal item.',
+      title: 'Second Item',
+    },
+  ],
 ];
 
 export default function Edit( {
 	attributes,
 	setAttributes,
 }: {
-	attributes: CompoundPatternsAttributes;
-	setAttributes: ( attrs: Partial< CompoundPatternsAttributes > ) => void;
+  attributes: CompoundPatternsAttributes;
+  setAttributes: ( attrs: Partial< CompoundPatternsAttributes > ) => void;
 } ) {
-	const blockProps = useBlockProps( {
-		className: 'wp-block-compound-patterns',
-	} );
+  const blockProps = useBlockProps({
+    className: 'wp-block-compound-patterns',
+  });
 
-	return (
+  return (
 		<>
 			<InspectorControls>
 				<PanelBody
@@ -47,7 +47,7 @@ export default function Edit( {
 					<ToggleControl
 						label={ __(
 							'Show dividers between items',
-							'compound_patterns'
+							'compound_patterns',
 						) }
 						checked={ attributes.showDividers ?? true }
 						onChange={ ( value ) =>
@@ -64,7 +64,7 @@ export default function Edit( {
 					onChange={ ( heading ) => setAttributes( { heading } ) }
 					placeholder={ __(
 						'Compound Patterns',
-						'compound_patterns'
+						'compound_patterns',
 					) }
 				/>
 				<RichText
@@ -74,7 +74,7 @@ export default function Edit( {
 					onChange={ ( intro ) => setAttributes( { intro } ) }
 					placeholder={ __(
 						'Add and reorder internal items inside this compound block.',
-						'compound_patterns'
+						'compound_patterns',
 					) }
 				/>
 				<div className="wp-block-compound-patterns__items">

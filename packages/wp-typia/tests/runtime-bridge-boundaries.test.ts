@@ -108,7 +108,9 @@ test('runtime bridge delegates command, output, and sync helpers to focused modu
   expect(createSource).toContain('runScaffoldFlow');
   expect(doctorSource).toContain('export async function executeDoctorCommand(');
   expect(initSource).toContain('export async function executeInitCommand(');
-  expect(migrateSource).toContain('export async function executeMigrateCommand(');
+  expect(migrateSource).toContain(
+    'export async function executeMigrateCommand(',
+  );
   expect(migrateSource).not.toContain('console.log');
   expect(sharedSource).toContain('export async function wrapCliCommandError(');
   expect(templatesSource).toContain(
@@ -127,9 +129,7 @@ test('runtime bridge delegates command, output, and sync helpers to focused modu
     'export function buildCreateCompletionPayload(',
   );
   expect(outputSource).not.toContain('function buildAddCompletionPayload(');
-  expect(outputPrintSource).toContain(
-    'export function printCompletionPayload(',
-  );
+  expect(outputPrintSource).toContain('export function printCompletionPayload(');
   expect(outputPrintSource).toContain(
     "export { printBlock } from '../print-block';",
   );
@@ -139,7 +139,9 @@ test('runtime bridge delegates command, output, and sync helpers to focused modu
   expect(outputCreateSource).toContain(
     'export function buildCreateDryRunPayload(',
   );
-  expect(outputAddSource).toContain('export function buildAddCompletionPayload(');
+  expect(outputAddSource).toContain(
+    'export function buildAddCompletionPayload(',
+  );
   expect(outputAddSource).toContain('export function buildAddDryRunPayload(');
   expect(outputInitSource).toContain(
     'export function buildInitCompletionPayload(',

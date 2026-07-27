@@ -1,137 +1,137 @@
 export interface WorkspaceBlockConfig {
-	slug: string;
-	attributeTypeName: string;
-	typesFile: string;
-	apiTypesFile?: string;
-	openApiFile?: string;
-	restManifest?: ReturnType<
-		typeof import( '@wp-typia/block-runtime/metadata-core' ).defineEndpointManifest
-	>;
+  slug: string;
+  attributeTypeName: string;
+  typesFile: string;
+  apiTypesFile?: string;
+  openApiFile?: string;
+  restManifest?: ReturnType<
+    typeof import('@wp-typia/block-runtime/metadata-core').defineEndpointManifest
+  >;
 }
 
 export interface WorkspaceVariationConfig {
-	block: string;
-	file: string;
-	slug: string;
+  block: string;
+  file: string;
+  slug: string;
 }
 
 export interface WorkspaceBlockStyleConfig {
-	block: string;
-	file: string;
-	slug: string;
+  block: string;
+  file: string;
+  slug: string;
 }
 
 export interface WorkspaceBlockTransformConfig {
-	block: string;
-	file: string;
-	from: string;
-	slug: string;
-	to: string;
+  block: string;
+  file: string;
+  from: string;
+  slug: string;
+  to: string;
 }
 
 export interface WorkspacePatternConfig {
-	file: string;
-	slug: string;
+  file: string;
+  slug: string;
 }
 
 export interface WorkspaceBindingSourceConfig {
-	attribute?: string;
-	block?: string;
-	editorFile: string;
-	metaPath?: string;
-	postMeta?: string;
-	serverFile: string;
-	slug: string;
+  attribute?: string;
+  block?: string;
+  editorFile: string;
+  metaPath?: string;
+  postMeta?: string;
+  serverFile: string;
+  slug: string;
 }
 
 export interface WorkspaceRestResourceBaseConfig {
-	apiFile: string;
-	auth?: 'authenticated' | 'public' | 'public-write-protected';
-	bodyTypeName?: string;
-	clientFile: string;
-	controllerClass?: string;
-	controllerExtends?: string;
-	namespace: string;
-	openApiFile: string;
-	permissionCallback?: string;
-	restManifest?: ReturnType<
-		typeof import( '@wp-typia/block-runtime/metadata-core' ).defineEndpointManifest
-	>;
-	slug: string;
-	typesFile: string;
-	validatorsFile: string;
+  apiFile: string;
+  auth?: 'authenticated' | 'public' | 'public-write-protected';
+  bodyTypeName?: string;
+  clientFile: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  namespace: string;
+  openApiFile: string;
+  permissionCallback?: string;
+  restManifest?: ReturnType<
+    typeof import('@wp-typia/block-runtime/metadata-core').defineEndpointManifest
+  >;
+  slug: string;
+  typesFile: string;
+  validatorsFile: string;
 }
 
 export interface GeneratedWorkspaceRestResourceConfig extends WorkspaceRestResourceBaseConfig {
-	dataFile: string;
-	methods: Array< 'list' | 'read' | 'create' | 'update' | 'delete' >;
-	mode?: 'generated';
-	phpFile: string;
-	routePattern?: string;
+  dataFile: string;
+  methods: Array<'list' | 'read' | 'create' | 'update' | 'delete'>;
+  mode?: 'generated';
+  phpFile: string;
+  routePattern?: string;
 }
 
 export interface ManualWorkspaceRestResourceConfig extends WorkspaceRestResourceBaseConfig {
-	method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
-	methods: [];
-	mode: 'manual';
-	pathPattern: string;
-	queryTypeName: string;
-	responseTypeName: string;
+  method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
+  methods: [];
+  mode: 'manual';
+  pathPattern: string;
+  queryTypeName: string;
+  responseTypeName: string;
 }
 
 export type WorkspaceRestResourceConfig =
-	| GeneratedWorkspaceRestResourceConfig
-	| ManualWorkspaceRestResourceConfig;
+  | GeneratedWorkspaceRestResourceConfig
+  | ManualWorkspaceRestResourceConfig;
 
 export interface WorkspacePostMetaConfig {
-	metaKey: string;
-	phpFile: string;
-	postType: string;
-	schemaFile: string;
-	showInRest: boolean;
-	slug: string;
-	sourceTypeName: string;
-	typesFile: string;
+  metaKey: string;
+  phpFile: string;
+  postType: string;
+  schemaFile: string;
+  showInRest: boolean;
+  slug: string;
+  sourceTypeName: string;
+  typesFile: string;
 }
 
 export interface WorkspaceEditorPluginConfig {
-	file: string;
-	slug: string;
-	slot: string;
+  file: string;
+  slug: string;
+  slot: string;
 }
 
 export const BLOCKS: WorkspaceBlockConfig[] = [
-	// wp-typia add block entries
+  // wp-typia add block entries
 ];
 
 export const VARIATIONS: WorkspaceVariationConfig[] = [
-	// wp-typia add variation entries
+  // wp-typia add variation entries
 ];
 
 export const BLOCK_STYLES: WorkspaceBlockStyleConfig[] = [
-	// wp-typia add style entries
+  // wp-typia add style entries
 ];
 
 export const BLOCK_TRANSFORMS: WorkspaceBlockTransformConfig[] = [
-	// wp-typia add transform entries
+  // wp-typia add transform entries
 ];
 
 export const PATTERNS: WorkspacePatternConfig[] = [
-	// wp-typia add pattern entries
+  // wp-typia add pattern entries
 ];
 
 export const BINDING_SOURCES: WorkspaceBindingSourceConfig[] = [
-	// wp-typia add binding-source entries
+  // wp-typia add binding-source entries
 ];
 
 export const REST_RESOURCES: WorkspaceRestResourceConfig[] = [
-	// wp-typia add rest-resource entries
+  // wp-typia add rest-resource entries
 ];
 
 export const POST_META: WorkspacePostMetaConfig[] = [
-	// wp-typia add post-meta entries
+  // wp-typia add post-meta entries
 ];
 
 export const EDITOR_PLUGINS: WorkspaceEditorPluginConfig[] = [
-	// wp-typia add editor-plugin entries
+  // wp-typia add editor-plugin entries
 ];

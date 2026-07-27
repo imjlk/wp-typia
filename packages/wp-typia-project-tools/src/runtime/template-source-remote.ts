@@ -1,1 +1,1 @@
-export * from "./templates/template-source-remote.js";
+export * from './templates/template-source-remote.js';

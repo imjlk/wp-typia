@@ -200,7 +200,9 @@ const typedSupports = defineSupports({
     textAlign: ['left', 'center'],
   },
 });
-const typedSupportManifest = getDefinedSupportsCompatibilityManifest(typedSupports);
+const typedSupportManifest = getDefinedSupportsCompatibilityManifest(
+  typedSupports,
+);
 const derivedSupportAttrs: SupportAttributes<typeof typedSupports> = {
   backgroundColor: 'primary',
   fontSize: 'large',
@@ -435,8 +437,7 @@ const blockConfiguration = {
   },
   save: DemoSave,
   title: 'Demo Smoke Block',
-} satisfies BlockConfiguration<DemoRegistrationAttributes> &
-  import('@wordpress/blocks').BlockConfiguration<DemoRegistrationAttributes>;
+} satisfies BlockConfiguration<DemoRegistrationAttributes>;
 const registeredBlock: RegisterBlockTypeResult<DemoRegistrationAttributes> =
   registerScaffoldBlockType<DemoRegistrationAttributes>(
     'demo/smoke',

@@ -3,13 +3,13 @@ import { generatePublicWriteRequestId } from '@wp-typia/block-runtime/identifier
 
 import { fetchCounter, fetchCounterBootstrap, incrementCounter } from './api';
 import type {
-	PersistenceCounterClientState,
-	PersistenceCounterContext,
-	PersistenceCounterState,
+  PersistenceCounterClientState,
+  PersistenceCounterContext,
+  PersistenceCounterState,
 } from './types';
 
 function hasExpiredPublicWriteToken( expiresAt?: number ): boolean {
-	return (
+  return (
 		typeof expiresAt === 'number' &&
 		expiresAt > 0 &&
 		Date.now() >= expiresAt * 1000
@@ -17,51 +17,51 @@ function hasExpiredPublicWriteToken( expiresAt?: number ): boolean {
 }
 
 function getWriteBlockedMessage(): string {
-	return 'Public writes are temporarily unavailable.';
+  return 'Public writes are temporarily unavailable.';
 }
 
 const BOOTSTRAP_MAX_ATTEMPTS = 3;
 const BOOTSTRAP_RETRY_DELAYS_MS = [ 250, 500 ];
 
 async function waitForBootstrapRetry( delayMs: number ): Promise< void > {
-	await new Promise( ( resolve ) => {
-		setTimeout( resolve, delayMs );
-	} );
+  await new Promise(( resolve ) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function getClientState(
-	context: PersistenceCounterContext
+	context: PersistenceCounterContext,
 ): PersistenceCounterClientState {
-	if ( context.client ) {
-		return context.client;
-	}
+  if ( context.client ) {
+    return context.client;
+  }
 
-	context.client = {
-		bootstrapError: '',
-		writeExpiry: 0,
-		writeToken: '',
-	};
+  context.client = {
+    bootstrapError: '',
+    writeExpiry: 0,
+    writeToken: '',
+  };
 
-	return context.client;
+  return context.client;
 }
 
 function clearBootstrapError(
 	context: PersistenceCounterContext,
-	clientState: PersistenceCounterClientState
+	clientState: PersistenceCounterClientState,
 ) {
-	if ( context.error === clientState.bootstrapError ) {
-		context.error = '';
-	}
-	clientState.bootstrapError = '';
+  if ( context.error === clientState.bootstrapError ) {
+    context.error = '';
+  }
+  clientState.bootstrapError = '';
 }
 
 function setBootstrapError(
 	context: PersistenceCounterContext,
 	clientState: PersistenceCounterClientState,
-	message: string
+	message: string,
 ) {
-	clientState.bootstrapError = message;
-	context.error = message;
+  clientState.bootstrapError = message;
+  context.error = message;
 }
 
 const { actions, state } = store( 'persistenceExamplesCounter', {
@@ -134,7 +134,7 @@ const { actions, state } = store( 'persistenceExamplesCounter', {
 							'Unable to initialize write access';
 						if ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
 							await waitForBootstrapRetry(
-								BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
+								BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750,
 							);
 							continue;
 						}
@@ -166,7 +166,7 @@ const { actions, state } = store( 'persistenceExamplesCounter', {
 							: 'Unknown bootstrap error';
 					if ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
 						await waitForBootstrapRetry(
-							BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
+							BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750,
 						);
 						continue;
 					}

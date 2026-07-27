@@ -11,7 +11,7 @@ title: 'Package Manifest Policy'
 
 The repository baseline is:
 
-- `engines.node`: `>=20.0.0`
+- `engines.node`: `>=24.0.0`
 - `engines.npm`: `>=10.0.0`
 - `engines.bun`: `>=1.3.11`
 

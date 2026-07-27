@@ -1,19 +1,19 @@
 /** Installed-size limits enforced for one published package. */
 export interface PublishPackageFootprintBudget {
-	maxFileCount: number;
-	maxUnpackedBytes: number;
+  maxFileCount: number;
+  maxUnpackedBytes: number;
 }
 
 /** Package-name keyed footprint policy for the complete release set. */
 export interface PublishPackageFootprintBudgetMap {
-	readonly "@wp-typia/api-client": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/block-runtime": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/block-types": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/create-workspace-template": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/dataviews": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/project-tools": Readonly<PublishPackageFootprintBudget>;
-	readonly "@wp-typia/rest": Readonly<PublishPackageFootprintBudget>;
-	readonly "wp-typia": Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/api-client': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/block-runtime': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/block-types': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/create-workspace-template': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/dataviews': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/project-tools': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/rest': Readonly<PublishPackageFootprintBudget>;
+  readonly 'wp-typia': Readonly<PublishPackageFootprintBudget>;
 }
 
 /** Name of a package covered by the publish footprint policy. */
@@ -27,22 +27,22 @@ export type PublishPackageChainEntry = readonly [
 
 /** npm pack metadata fields consumed by footprint validation. */
 export interface PublishPackagePackMetadata {
-	entryCount?: unknown;
-	name?: unknown;
-	size?: unknown;
-	unpackedSize?: unknown;
-	[key: string]: unknown;
+  entryCount?: unknown;
+  name?: unknown;
+  size?: unknown;
+  unpackedSize?: unknown;
+  [key: string]: unknown;
 }
 
 /** Normalized footprint measurements, policy, and validation errors. */
 export interface PublishPackageFootprintValidationResult {
-	budget: Readonly<PublishPackageFootprintBudget> | null;
-	compressedBytes: number | null;
-	errors: string[];
-	fileCount: number | null;
-	packageName: string;
-	unpackedBytes: number | null;
-	valid: boolean;
+  budget: Readonly<PublishPackageFootprintBudget> | null;
+  compressedBytes: number | null;
+  errors: string[];
+  fileCount: number | null;
+  packageName: string;
+  unpackedBytes: number | null;
+  valid: boolean;
 }
 
 /** Ordered workspace packages consumed by the packed-install release smoke. */

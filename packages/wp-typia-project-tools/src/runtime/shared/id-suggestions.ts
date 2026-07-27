@@ -4,41 +4,44 @@ export interface SuggestCloseIdOptions {
 	 *
 	 * Defaults to `2`, matching the create-template typo guard.
 	 */
-	maxDistance?: number;
+  maxDistance?: number;
 	/**
 	 * Normalizes user input and candidates before comparing them.
 	 *
 	 * Defaults to trimming and lowercasing for CLI id-like values.
 	 */
-	normalize?: (value: string) => string;
+  normalize?: (value: string) => string;
 }
 
 function normalizeCloseId(value: string): string {
-	return value.trim().toLowerCase();
+  return value.trim().toLowerCase();
 }
 
 function getEditDistance(left: string, right: string): number {
-	const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
-	const current = new Array<number>(right.length + 1);
+  const previous = Array.from(
+    { length: right.length + 1 },
+    (_, index) => index,
+  );
+  const current = new Array<number>(right.length + 1);
 
-	for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
-		current[0] = leftIndex + 1;
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    current[0] = leftIndex + 1;
 
-		for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
-			const substitutionCost = left[leftIndex] === right[rightIndex] ? 0 : 1;
-			current[rightIndex + 1] = Math.min(
-				current[rightIndex] + 1,
-				previous[rightIndex + 1] + 1,
-				previous[rightIndex] + substitutionCost,
-			);
-		}
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex] === right[rightIndex] ? 0 : 1;
+      current[rightIndex + 1] = Math.min(
+        current[rightIndex] + 1,
+        previous[rightIndex + 1] + 1,
+        previous[rightIndex] + substitutionCost,
+      );
+    }
 
-		for (let index = 0; index < current.length; index += 1) {
-			previous[index] = current[index] as number;
-		}
-	}
+    for (let index = 0; index < current.length; index += 1) {
+      previous[index] = current[index] as number;
+    }
+  }
 
-	return previous[right.length] as number;
+  return previous[right.length] as number;
 }
 
 /**
@@ -52,30 +55,30 @@ export function suggestCloseId<const TCandidate extends string>(
 	candidates: readonly TCandidate[],
 	options: SuggestCloseIdOptions = {},
 ): TCandidate | null {
-	const normalize = options.normalize ?? normalizeCloseId;
-	const normalizedInput = normalize(input);
-	if (normalizedInput.length === 0) {
-		return null;
-	}
+  const normalize = options.normalize ?? normalizeCloseId;
+  const normalizedInput = normalize(input);
+  if (normalizedInput.length === 0) {
+    return null;
+  }
 
-	const maxDistance = options.maxDistance ?? 2;
-	if (maxDistance < 0) {
-		return null;
-	}
+  const maxDistance = options.maxDistance ?? 2;
+  if (maxDistance < 0) {
+    return null;
+  }
 
-	let bestCandidate: { distance: number; id: TCandidate } | null = null;
+  let bestCandidate: { distance: number; id: TCandidate } | null = null;
 
-	for (const candidateId of candidates) {
-		const distance = getEditDistance(normalizedInput, normalize(candidateId));
-		if (bestCandidate === null || distance < bestCandidate.distance) {
-			bestCandidate = {
-				distance,
-				id: candidateId,
-			};
-		}
-	}
+  for (const candidateId of candidates) {
+    const distance = getEditDistance(normalizedInput, normalize(candidateId));
+    if (bestCandidate === null || distance < bestCandidate.distance) {
+      bestCandidate = {
+        distance,
+        id: candidateId,
+      };
+    }
+  }
 
-	return bestCandidate && bestCandidate.distance <= maxDistance
-		? bestCandidate.id
-		: null;
+  return bestCandidate && bestCandidate.distance <= maxDistance
+    ? bestCandidate.id
+    : null;
 }

@@ -1,157 +1,171 @@
 /* eslint-disable no-console */
 import {
-	defineEndpointManifest,
-	runSyncBlockMetadata,
-	syncEndpointClient,
-	syncRestOpenApi,
-	syncTypeSchemas,
+  defineEndpointManifest,
+  runSyncBlockMetadata,
+  syncEndpointClient,
+  syncRestOpenApi,
+  syncTypeSchemas,
 } from '@wp-typia/block-runtime/metadata-core';
 
-function parseCliOptions( argv: string[] ) {
-	const options = {
-		check: false,
-	};
+function parseCliOptions(argv: string[]) {
+  const options = {
+    check: false,
+  };
 
-	for ( const argument of argv ) {
-		if ( argument === '--check' ) {
-			options.check = true;
-			continue;
-		}
+  for (const argument of argv) {
+    if (argument === '--check') {
+      options.check = true;
+      continue;
+    }
 
-		throw new Error( `Unknown sync-rest flag: ${ argument }` );
-	}
+    throw new Error(`Unknown sync-rest flag: ${argument}`);
+  }
 
-	return options;
+  return options;
 }
 
 async function assertTypeArtifactsCurrent() {
-	const report = await runSyncBlockMetadata( {
-		blockJsonFile: 'src/block.json',
-		jsonSchemaFile: 'src/typia.schema.json',
-		manifestFile: 'src/typia.manifest.json',
-		openApiFile: 'src/typia.openapi.json',
-		sourceTypeName: '{{pascalCase}}Attributes',
-		typesFile: 'src/types.ts',
-	}, {
-		check: true,
-	} );
+  const report = await runSyncBlockMetadata(
+    {
+      blockJsonFile: 'src/block.json',
+      jsonSchemaFile: 'src/typia.schema.json',
+      manifestFile: 'src/typia.manifest.json',
+      openApiFile: 'src/typia.openapi.json',
+      sourceTypeName: '{{pascalCase}}Attributes',
+      typesFile: 'src/types.ts',
+    },
+    {
+      check: true,
+    },
+  );
 
-	if ( report.failure?.code === 'stale-generated-artifact' ) {
-		throw new Error(
-			`${ report.failure.message }\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`
-		);
-	}
+  if (report.failure?.code === 'stale-generated-artifact') {
+    throw new Error(
+      `${report.failure.message}\nRun \`sync\` or \`sync-types\` first to refresh type-derived artifacts before rerunning \`sync-rest\`.`,
+    );
+  }
 
-	if ( report.failure ) {
-		throw new Error(
-			`Type-derived artifact preflight failed before sync-rest.\n${ report.failure.message }`
-		);
-	}
+  if (report.failure) {
+    throw new Error(
+      `Type-derived artifact preflight failed before sync-rest.\n${report.failure.message}`,
+    );
+  }
 }
 
-const REST_ENDPOINT_MANIFEST = defineEndpointManifest( {
-	contracts: {
-		'state-query': {
-			sourceTypeName: '{{pascalCase}}StateQuery',
-		},
-		'bootstrap-query': {
-			sourceTypeName: '{{pascalCase}}BootstrapQuery',
-		},
-		'write-state-request': {
-			sourceTypeName: '{{pascalCase}}WriteStateRequest',
-		},
-		'bootstrap-response': {
-			sourceTypeName: '{{pascalCase}}BootstrapResponse',
-		},
-		'state-response': {
-			sourceTypeName: '{{pascalCase}}StateResponse',
-		},
-	},
-	endpoints: [
-		{
-			auth: 'public',
-			method: 'GET',
-			operationId: 'get{{pascalCase}}State',
-			path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
-			queryContract: 'state-query',
-			responseContract: 'state-response',
-			summary: 'Read the current persisted state.',
-			tags: [ {{titleJson}} ],
-		},
-		{
-			auth: '{{restWriteAuthIntent}}',
-			bodyContract: 'write-state-request',
-			method: 'POST',
-			operationId: 'write{{pascalCase}}State',
-			path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
-			responseContract: 'state-response',
-			summary: 'Write the current persisted state.',
-			tags: [ {{titleJson}} ],
-			wordpressAuth: {
-				mechanism: '{{restWriteAuthMechanism}}',
-			},
-		},
-		{
-			auth: 'public',
-			method: 'GET',
-			operationId: 'get{{pascalCase}}Bootstrap',
-			path: '/{{namespace}}/v1/{{slugKebabCase}}/bootstrap',
-			queryContract: 'bootstrap-query',
-			responseContract: 'bootstrap-response',
-			summary: 'Read fresh session bootstrap state for the current viewer.',
-			tags: [ {{titleJson}} ],
-		},
-	],
-	info: {
-		title: {{titleJson}} + ' REST API',
-		version: '1.0.0',
-	},
-} );
+const REST_ENDPOINT_MANIFEST = defineEndpointManifest({
+  contracts: {
+    'state-query': {
+      sourceTypeName: '{{pascalCase}}StateQuery',
+    },
+    'bootstrap-query': {
+      sourceTypeName: '{{pascalCase}}BootstrapQuery',
+    },
+    'write-state-request': {
+      sourceTypeName: '{{pascalCase}}WriteStateRequest',
+    },
+    'bootstrap-response': {
+      sourceTypeName: '{{pascalCase}}BootstrapResponse',
+    },
+    'state-response': {
+      sourceTypeName: '{{pascalCase}}StateResponse',
+    },
+  },
+  endpoints: [
+    {
+      auth: 'public',
+      method: 'GET',
+      operationId: 'get{{pascalCase}}State',
+      path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
+      queryContract: 'state-query',
+      responseContract: 'state-response',
+      summary: 'Read the current persisted state.',
+      tags: [{{titleTsLiteral}}],
+    },
+    {
+      auth: '{{restWriteAuthIntent}}',
+      bodyContract: 'write-state-request',
+      method: 'POST',
+      operationId: 'write{{pascalCase}}State',
+      path: '/{{namespace}}/v1/{{slugKebabCase}}/state',
+      responseContract: 'state-response',
+      summary: 'Write the current persisted state.',
+      tags: [{{titleTsLiteral}}],
+      wordpressAuth: {
+        mechanism: '{{restWriteAuthMechanism}}',
+      },
+    },
+    {
+      auth: 'public',
+      method: 'GET',
+      operationId: 'get{{pascalCase}}Bootstrap',
+      path: '/{{namespace}}/v1/{{slugKebabCase}}/bootstrap',
+      queryContract: 'bootstrap-query',
+      responseContract: 'bootstrap-response',
+      summary: 'Read fresh session bootstrap state for the current viewer.',
+      tags: [{{titleTsLiteral}}],
+    },
+  ],
+  info: {
+    title: {{titleTsLiteral}} + ' REST API',
+    version: '1.0.0',
+  },
+});
 
 async function main() {
-	const options = parseCliOptions( process.argv.slice( 2 ) );
+  const options = parseCliOptions(process.argv.slice(2));
 
-	await assertTypeArtifactsCurrent();
+  await assertTypeArtifactsCurrent();
 
-	for ( const [ baseName, contract ] of Object.entries( REST_ENDPOINT_MANIFEST.contracts ) ) {
-		await syncTypeSchemas( {
-			jsonSchemaFile: `src/api-schemas/${ baseName }.schema.json`,
-			openApiFile: `src/api-schemas/${ baseName }.openapi.json`,
-			openApiInfo: {
-				title: `${ contract.sourceTypeName }`,
-				version: '1.0.0',
-			},
-			sourceTypeName: contract.sourceTypeName,
-			typesFile: 'src/api-types.ts',
-		}, {
-			check: options.check,
-		} );
-	}
+  for (const [baseName, contract] of Object.entries(
+    REST_ENDPOINT_MANIFEST.contracts,
+  )) {
+    await syncTypeSchemas(
+      {
+        jsonSchemaFile: `src/api-schemas/${baseName}.schema.json`,
+        openApiFile: `src/api-schemas/${baseName}.openapi.json`,
+        openApiInfo: {
+          title: `${contract.sourceTypeName}`,
+          version: '1.0.0',
+        },
+        sourceTypeName: contract.sourceTypeName,
+        typesFile: 'src/api-types.ts',
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-	await syncRestOpenApi( {
-		manifest: REST_ENDPOINT_MANIFEST,
-		openApiFile: 'src/api.openapi.json',
-		typesFile: 'src/api-types.ts',
-	}, {
-		check: options.check,
-	} );
+  await syncRestOpenApi(
+    {
+      manifest: REST_ENDPOINT_MANIFEST,
+      openApiFile: 'src/api.openapi.json',
+      typesFile: 'src/api-types.ts',
+    },
+    {
+      check: options.check,
+    },
+  );
 
-	await syncEndpointClient( {
-		clientFile: 'src/api-client.ts',
-		manifest: REST_ENDPOINT_MANIFEST,
-		typesFile: 'src/api-types.ts',
-	}, {
-		check: options.check,
-	} );
+  await syncEndpointClient(
+    {
+      clientFile: 'src/api-client.ts',
+      manifest: REST_ENDPOINT_MANIFEST,
+      typesFile: 'src/api-types.ts',
+    },
+    {
+      check: options.check,
+    },
+  );
 
-	console.log(
-		options.check
-			? '✅ REST schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date with the TypeScript contracts!'
-			: '✅ REST schemas, portable API clients, and endpoint-aware OpenAPI documents were generated from TypeScript contracts!'
-	);
+  console.log(
+    options.check
+      ? '✅ REST schemas, portable API clients, and endpoint-aware OpenAPI documents are already up to date with the TypeScript contracts!'
+      : '✅ REST schemas, portable API clients, and endpoint-aware OpenAPI documents were generated from TypeScript contracts!',
+  );
 }
 
-main().catch( ( error ) => {
-	console.error( '❌ REST contract sync failed:', error );
-	process.exit( 1 );
-} );
+main().catch((error) => {
+  console.error('❌ REST contract sync failed:', error);
+  process.exit(1);
+});

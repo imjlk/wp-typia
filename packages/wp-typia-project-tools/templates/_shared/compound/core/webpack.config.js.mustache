@@ -1,8 +1,8 @@
-const fs = require( 'fs' );
-const path = require( 'path' );
-const defaultConfig = require( '@wordpress/scripts/config/webpack.config' );
+const fs = require('fs');
+const path = require('path');
+const defaultConfig = require('@wordpress/scripts/config/webpack.config');
 
-const STATIC_METADATA_FILENAMES = new Set( [
+const STATIC_METADATA_FILENAMES = new Set([
 	'block.json',
 	'render.php',
 	'typia.openapi.json',
@@ -10,30 +10,30 @@ const STATIC_METADATA_FILENAMES = new Set( [
 	'typia-migration-registry.php',
 	'typia.schema.json',
 	'typia-validator.php',
-] );
+]);
 
-function isMetadataAsset( filename ) {
+function isMetadataAsset(filename) {
 	return (
-		STATIC_METADATA_FILENAMES.has( filename ) ||
-		filename.endsWith( '.schema.json' ) ||
-		filename.endsWith( '.openapi.json' )
+		STATIC_METADATA_FILENAMES.has(filename) ||
+		filename.endsWith('.schema.json') ||
+		filename.endsWith('.openapi.json')
 	);
 }
 
 function getBlockDirs() {
-	const blocksRoot = path.resolve( process.cwd(), 'src/blocks' );
+	const blocksRoot = path.resolve(process.cwd(), 'src/blocks');
 
-	if ( ! fs.existsSync( blocksRoot ) ) {
+	if (!fs.existsSync(blocksRoot)) {
 		return [];
 	}
 
 	return fs
-		.readdirSync( blocksRoot, { withFileTypes: true } )
-		.filter( ( entry ) => entry.isDirectory() )
-		.map( ( entry ) => ( {
-			dir: path.join( blocksRoot, entry.name ),
+		.readdirSync(blocksRoot, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => ({
+			dir: path.join(blocksRoot, entry.name),
 			slug: entry.name,
-		} ) );
+		}));
 }
 
 function getMetadataEntries() {
@@ -43,44 +43,44 @@ function getMetadataEntries() {
 		'typia-migration-registry.php'
 	);
 
-	if ( fs.existsSync( rootMigrationRegistryPath ) ) {
-		entries.push( {
+	if (fs.existsSync(rootMigrationRegistryPath)) {
+		entries.push({
 			inputPath: rootMigrationRegistryPath,
 			outputPath: 'typia-migration-registry.php',
-		} );
+		});
 	}
 
-	for ( const blockDir of getBlockDirs() ) {
-		for ( const inputPath of findMetadataFiles( blockDir.dir ) ) {
-			entries.push( {
+	for (const blockDir of getBlockDirs()) {
+		for (const inputPath of findMetadataFiles(blockDir.dir)) {
+			entries.push({
 				inputPath,
 				outputPath: path.join(
 					'blocks',
 					blockDir.slug,
-					path.relative( blockDir.dir, inputPath )
+					path.relative(blockDir.dir, inputPath)
 				),
-			} );
+			});
 		}
 	}
 
 	return entries;
 }
 
-function findMetadataFiles( directory ) {
+function findMetadataFiles(directory) {
 	const metadataFiles = [];
 
-	for ( const entry of fs.readdirSync( directory, {
+	for (const entry of fs.readdirSync(directory, {
 		withFileTypes: true,
-	} ) ) {
-		const entryPath = path.join( directory, entry.name );
+	})) {
+		const entryPath = path.join(directory, entry.name);
 
-		if ( entry.isDirectory() ) {
-			metadataFiles.push( ...findMetadataFiles( entryPath ) );
+		if (entry.isDirectory()) {
+			metadataFiles.push(...findMetadataFiles(entryPath));
 			continue;
 		}
 
-		if ( entry.isFile() && isMetadataAsset( entry.name ) ) {
-			metadataFiles.push( entryPath );
+		if (entry.isFile() && isMetadataAsset(entry.name)) {
+			metadataFiles.push(entryPath);
 		}
 	}
 
@@ -89,54 +89,52 @@ function findMetadataFiles( directory ) {
 
 function getEditorEntries() {
 	return Object.fromEntries(
-		getBlockDirs().map( ( blockDir ) => [
-			`blocks/${ blockDir.slug }/index`,
-			path.join( blockDir.dir, 'index.tsx' ),
-		] )
+		getBlockDirs().map((blockDir) => [
+			`blocks/${blockDir.slug}/index`,
+			path.join(blockDir.dir, 'index.tsx'),
+		])
 	);
 }
 
 function getOptionalModuleEntries() {
 	const entries = [];
 
-	for ( const blockDir of getBlockDirs() ) {
-		for ( const filename of [
+	for (const blockDir of getBlockDirs()) {
+		for (const filename of [
 			'interactivity.ts',
 			'interactivity.js',
 			'view.ts',
 			'view.js',
-		] ) {
-			const entryPath = path.join( blockDir.dir, filename );
-			if ( ! fs.existsSync( entryPath ) ) {
+		]) {
+			const entryPath = path.join(blockDir.dir, filename);
+			if (!fs.existsSync(entryPath)) {
 				continue;
 			}
 
-			entries.push( [
-				`blocks/${ blockDir.slug }/${ filename.replace(
-					/\.[^.]+$/,
-					''
-				) }`,
+			entries.push([
+				`blocks/${blockDir.slug}/${filename.replace(/\.[^.]+$/, '')}`,
 				entryPath,
-			] );
+			]);
 		}
 	}
 
-	return Object.fromEntries( entries );
+	return Object.fromEntries(entries);
 }
 
 module.exports = async () => {
-	const { createTypiaWebpackConfig } = await import( '@wp-typia/block-runtime/blocks' );
+	const { createTypiaWebpackConfig } =
+		await import('@wp-typia/block-runtime/blocks');
 
-	return createTypiaWebpackConfig( {
+	return createTypiaWebpackConfig({
 		defaultConfig,
 		fs,
 		path,
 		getArtifactEntries: getMetadataEntries,
 		getEditorEntries,
 		getOptionalModuleEntries,
-		importTypiaWebpackPlugin: () => import( '@typia/unplugin/webpack' ),
+		importTypiaWebpackPlugin: () => import('@ttsc/unplugin/webpack'),
 		moduleEntriesMode: 'replace',
 		nonModuleEntriesMode: 'replace',
 		projectRoot: process.cwd(),
-	} );
+	});
 };

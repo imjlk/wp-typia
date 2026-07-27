@@ -498,7 +498,9 @@ async function ensureLocalSkillsGitignore(
   if (nextContent.length > 0 && !nextContent.endsWith('\n')) {
     nextContent += lineEnding;
   }
-  nextContent += missingEntries.map((entry) => `${entry}${lineEnding}`).join('');
+  nextContent += missingEntries.map((entry) => `${entry}${lineEnding}`).join(
+    '',
+  );
 
   await fsp.writeFile(gitignorePath, nextContent, 'utf8');
 
@@ -536,7 +538,9 @@ export async function syncSkills(
   const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
   const cacheKey = stalenessCacheKey(skillName, isGlobal, cwd, canonicalBase);
   const previousState = readState(cacheKey, runtime);
-  const gitignore = isGlobal ? undefined : await ensureLocalSkillsGitignore(cwd);
+  const gitignore = isGlobal
+    ? undefined
+    : await ensureLocalSkillsGitignore(cwd);
 
   if (
     !options.force &&

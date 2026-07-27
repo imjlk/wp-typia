@@ -5,7 +5,20 @@
  * Generated projects can import `tags` from this module when they need
  * wp-typia-only tags such as `Secret`, `Source`, or `Selector`.
  */
+import './typia-tags-augmentation.js';
 import type { tags as TypiaTags } from 'typia';
+import type {
+  WpTypiaPreserveOnEmpty,
+  WpTypiaPreserveOnEmptyValue,
+  WpTypiaSecret,
+  WpTypiaSecretValue,
+  WpTypiaSelector,
+  WpTypiaSelectorValue,
+  WpTypiaSource,
+  WpTypiaSourceValue,
+  WpTypiaWriteOnly,
+  WpTypiaWriteOnlyValue,
+} from './typia-tag-shapes.js';
 
 export namespace tags {
   export type Default<Value extends boolean | bigint | number | string> =
@@ -49,49 +62,17 @@ export namespace tags {
       | 'double',
   > = TypiaTags.Type<Value>;
 
-  export type Secret<MaskedStateField extends string> = {
-    readonly __wpTypiaSecret?: MaskedStateField;
-  };
+  export type Secret<MaskedStateField extends WpTypiaSecretValue> =
+    WpTypiaSecret<MaskedStateField>;
 
-  export type PreserveOnEmpty<Value extends boolean> = {
-    readonly __wpTypiaPreserveOnEmpty?: Value;
-  };
+  export type PreserveOnEmpty<Value extends WpTypiaPreserveOnEmptyValue> =
+    WpTypiaPreserveOnEmpty<Value>;
 
-  export type Source<Value extends 'html' | 'text' | 'rich-text'> = {
-    readonly __wpTypiaSource?: Value;
-  };
+  export type Source<Value extends WpTypiaSourceValue> = WpTypiaSource<Value>;
 
-  export type Selector<Value extends string> = {
-    readonly __wpTypiaSelector?: Value;
-  };
+  export type Selector<Value extends WpTypiaSelectorValue> =
+    WpTypiaSelector<Value>;
 
-  export type WriteOnly<Value extends true> = {
-    readonly __wpTypiaWriteOnly?: Value;
-  };
+  export type WriteOnly<Value extends WpTypiaWriteOnlyValue> =
+    WpTypiaWriteOnly<Value>;
 }
-
-declare module 'typia' {
-  export namespace tags {
-    export type Secret<MaskedStateField extends string> = {
-      readonly __wpTypiaSecret?: MaskedStateField;
-    };
-
-    export type PreserveOnEmpty<Value extends boolean> = {
-      readonly __wpTypiaPreserveOnEmpty?: Value;
-    };
-
-    export type Source<Value extends 'html' | 'text' | 'rich-text'> = {
-      readonly __wpTypiaSource?: Value;
-    };
-
-    export type Selector<Value extends string> = {
-      readonly __wpTypiaSelector?: Value;
-    };
-
-    export type WriteOnly<Value extends true> = {
-      readonly __wpTypiaWriteOnly?: Value;
-    };
-  }
-}
-
-export {};

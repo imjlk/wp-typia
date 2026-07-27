@@ -76,9 +76,11 @@ function createSupportedWebpackProjectRoot() {
     path.join(projectRoot, 'package.json'),
     JSON.stringify({ name: 'webpack-project', private: true }, null, 2),
   );
-  writeMockPackage(projectRoot, 'typia', '12.0.1');
-  writeMockPackage(projectRoot, '@typia/unplugin', '12.0.1');
-  writeMockPackage(projectRoot, '@wordpress/scripts', '30.22.0');
+  writeMockPackage(projectRoot, 'typia', '13.2.0');
+  writeMockPackage(projectRoot, 'ttsc', '0.23.0');
+  writeMockPackage(projectRoot, 'typescript', '7.0.2');
+  writeMockPackage(projectRoot, '@ttsc/unplugin', '0.23.0');
+  writeMockPackage(projectRoot, '@wordpress/scripts', '30.23.0');
   writeMockPackage(projectRoot, 'webpack', '5.106.0');
 
   return projectRoot;

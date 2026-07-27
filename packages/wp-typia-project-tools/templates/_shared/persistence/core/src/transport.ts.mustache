@@ -1,29 +1,26 @@
-import {
-	type EndpointCallOptions,
-	resolveRestRouteUrl,
-} from '@wp-typia/rest';
+import { type EndpointCallOptions, resolveRestRouteUrl } from '@wp-typia/rest';
 
 export type PersistenceTransportTarget = 'editor' | 'frontend';
 export type PersistenceTransportOperation = 'read' | 'write';
 
 export interface PersistenceTransportOptions {
-	restNonce?: string;
-	transportTarget?: PersistenceTransportTarget;
+  restNonce?: string;
+  transportTarget?: PersistenceTransportTarget;
 }
 
 interface EndpointWithPath {
-	path: string;
+  path: string;
 }
 
 type PersistenceTransportResolver = (
-	endpoint: EndpointWithPath,
-	request?: unknown,
-	options?: PersistenceTransportOptions
+  endpoint: EndpointWithPath,
+  request?: unknown,
+  options?: PersistenceTransportOptions,
 ) => EndpointCallOptions;
 
 interface PersistenceTransportTargetResolvers {
-	read: PersistenceTransportResolver;
-	write: PersistenceTransportResolver;
+  read: PersistenceTransportResolver;
+  write: PersistenceTransportResolver;
 }
 
 // Replace any of these base URLs to route a given target through a contract-compatible proxy or BFF.
@@ -32,223 +29,228 @@ const EDITOR_WRITE_BASE_URL: string | undefined = undefined;
 const FRONTEND_READ_BASE_URL: string | undefined = undefined;
 const FRONTEND_WRITE_BASE_URL: string | undefined = undefined;
 
-function resolveEndpointUrl(
-	endpointPath: string,
-	baseUrl?: string
-): string {
-	if ( typeof baseUrl === 'string' && baseUrl.trim().length > 0 ) {
-		const origin =
-			typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-		const resolvedBaseUrl = new URL( baseUrl.trim(), origin );
-		const [ pathWithQuery, hash = '' ] = endpointPath.split( '#', 2 );
-		const [ rawPath, rawQuery = '' ] = pathWithQuery.split( '?', 2 );
-		const normalizedEndpointPath = rawPath.replace( /^\/+/, '' );
+function resolveEndpointUrl(endpointPath: string, baseUrl?: string): string {
+  if (typeof baseUrl === 'string' && baseUrl.trim().length > 0) {
+    const origin =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'http://localhost';
+    const resolvedBaseUrl = new URL(baseUrl.trim(), origin);
+    const [pathWithQuery, hash = ''] = endpointPath.split('#', 2);
+    const [rawPath, rawQuery = ''] = pathWithQuery.split('?', 2);
+    const normalizedEndpointPath = rawPath.replace(/^\/+/, '');
 
-		if ( resolvedBaseUrl.searchParams.has( 'rest_route' ) ) {
-			const restRouteBase = resolvedBaseUrl.searchParams.get( 'rest_route' ) ?? '/';
-			const normalizedRestRouteBase = restRouteBase
-				.replace( /^\/+/, '' )
-				.replace( /\/+$/, '' );
-			const nextRestRoute = normalizedRestRouteBase.length > 0
-				? `/${ normalizedRestRouteBase }/${ normalizedEndpointPath }`
-				: `/${ normalizedEndpointPath }`;
-			resolvedBaseUrl.searchParams.set( 'rest_route', nextRestRoute );
-		} else {
-			const basePath = resolvedBaseUrl.pathname.endsWith( '/' )
-				? resolvedBaseUrl.pathname
-				: `${ resolvedBaseUrl.pathname }/`;
-			resolvedBaseUrl.pathname = `${ basePath }${ normalizedEndpointPath }`;
-		}
+    if (resolvedBaseUrl.searchParams.has('rest_route')) {
+      const restRouteBase =
+        resolvedBaseUrl.searchParams.get('rest_route') ?? '/';
+      const normalizedRestRouteBase = restRouteBase
+        .replace(/^\/+/, '')
+        .replace(/\/+$/, '');
+      const nextRestRoute =
+        normalizedRestRouteBase.length > 0
+          ? `/${normalizedRestRouteBase}/${normalizedEndpointPath}`
+          : `/${normalizedEndpointPath}`;
+      resolvedBaseUrl.searchParams.set('rest_route', nextRestRoute);
+    } else {
+      const basePath = resolvedBaseUrl.pathname.endsWith('/')
+        ? resolvedBaseUrl.pathname
+        : `${resolvedBaseUrl.pathname}/`;
+      resolvedBaseUrl.pathname = `${basePath}${normalizedEndpointPath}`;
+    }
 
-		for ( const [ key, value ] of new URLSearchParams( rawQuery ) ) {
-			resolvedBaseUrl.searchParams.append( key, value );
-		}
+    for (const [key, value] of new URLSearchParams(rawQuery)) {
+      resolvedBaseUrl.searchParams.append(key, value);
+    }
 
-		if ( hash ) {
-			resolvedBaseUrl.hash = hash;
-		}
+    if (hash) {
+      resolvedBaseUrl.hash = hash;
+    }
 
-		return resolvedBaseUrl.toString();
-	}
+    return resolvedBaseUrl.toString();
+  }
 
-	return resolveRestRouteUrl( endpointPath );
+  return resolveRestRouteUrl(endpointPath);
 }
 
-function isPlainObject(
-	value: unknown
-): value is Record< string, unknown > {
-	if ( Object.prototype.toString.call( value ) !== '[object Object]' ) {
-		return false;
-	}
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (Object.prototype.toString.call(value) !== '[object Object]') {
+    return false;
+  }
 
-	const prototype = Object.getPrototypeOf( value );
-	return prototype === null || prototype === Object.prototype;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === null || prototype === Object.prototype;
 }
 
-function encodeRequestQuery( request: unknown ): string {
-	if ( request === undefined || request === null ) {
-		return '';
-	}
+function encodeRequestQuery(request: unknown): string {
+  if (request === undefined || request === null) {
+    return '';
+  }
 
-	if ( request instanceof URLSearchParams ) {
-		return request.toString();
-	}
+  if (request instanceof URLSearchParams) {
+    return request.toString();
+  }
 
-	if ( ! isPlainObject( request ) ) {
-		throw new Error(
-			'Persistence transport read requests must be plain objects or URLSearchParams.'
-		);
-	}
+  if (!isPlainObject(request)) {
+    throw new Error(
+      'Persistence transport read requests must be plain objects or URLSearchParams.',
+    );
+  }
 
-	const params = new URLSearchParams();
+  const params = new URLSearchParams();
 
-	for ( const [ key, value ] of Object.entries( request ) ) {
-		if ( value === undefined || value === null ) {
-			continue;
-		}
+  for (const [key, value] of Object.entries(request)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
 
-		if ( Array.isArray( value ) ) {
-			for ( const item of value ) {
-				params.append( key, String( item ) );
-			}
-			continue;
-		}
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        params.append(key, String(item));
+      }
+      continue;
+    }
 
-		params.set( key, String( value ) );
-	}
+    params.set(key, String(value));
+  }
 
-	return params.toString();
+  return params.toString();
 }
 
-function joinUrlWithQuery(
-	url: string,
-	query: string
-): string {
-	if ( ! query ) {
-		return url;
-	}
+function joinUrlWithQuery(url: string, query: string): string {
+  if (!query) {
+    return url;
+  }
 
-	const nextUrl = new URL(
-		url,
-		typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-	);
+  const nextUrl = new URL(
+    url,
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+  );
 
-	for ( const [ key, value ] of new URLSearchParams( query ) ) {
-		nextUrl.searchParams.append( key, value );
-	}
+  for (const [key, value] of new URLSearchParams(query)) {
+    nextUrl.searchParams.append(key, value);
+  }
 
-	return nextUrl.toString();
+  return nextUrl.toString();
 }
 
-export function resolveRestNonce( fallback?: string ): string | undefined {
-	if ( typeof fallback === 'string' && fallback.length > 0 ) {
-		return fallback;
-	}
+export function resolveRestNonce(fallback?: string): string | undefined {
+  if (typeof fallback === 'string' && fallback.length > 0) {
+    return fallback;
+  }
 
-	if ( typeof window === 'undefined' ) {
-		return undefined;
-	}
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
 
-	const wpApiSettings = ( window as typeof window & {
-		wpApiSettings?: { nonce?: string };
-	} ).wpApiSettings;
+  const wpApiSettings = (
+    window as typeof window & {
+      wpApiSettings?: { nonce?: string };
+    }
+  ).wpApiSettings;
 
-	return typeof wpApiSettings?.nonce === 'string' && wpApiSettings.nonce.length > 0
-		? wpApiSettings.nonce
-		: undefined;
+  return typeof wpApiSettings?.nonce === 'string' &&
+    wpApiSettings.nonce.length > 0
+    ? wpApiSettings.nonce
+    : undefined;
 }
 
-function buildCallOptions( {
-	baseUrl,
-	endpoint,
-	includeRestNonce,
-	operation,
-	options,
-	request,
+function buildCallOptions({
+  baseUrl,
+  endpoint,
+  includeRestNonce,
+  operation,
+  options,
+  request,
 }: {
-	baseUrl?: string;
-	endpoint: EndpointWithPath;
-	includeRestNonce: boolean;
-	operation: PersistenceTransportOperation;
-	options?: PersistenceTransportOptions;
-	request?: unknown;
-} ): EndpointCallOptions {
-	const nonce = includeRestNonce ? resolveRestNonce( options?.restNonce ) : undefined;
-	const requestOptions: EndpointCallOptions['requestOptions'] = {};
+  baseUrl?: string;
+  endpoint: EndpointWithPath;
+  includeRestNonce: boolean;
+  operation: PersistenceTransportOperation;
+  options?: PersistenceTransportOptions;
+  request?: unknown;
+}): EndpointCallOptions {
+  const nonce = includeRestNonce
+    ? resolveRestNonce(options?.restNonce)
+    : undefined;
+  const requestOptions: EndpointCallOptions['requestOptions'] = {};
 
-	if ( nonce ) {
-		requestOptions.headers = {
-			'X-WP-Nonce': nonce,
-		};
-	}
+  if (nonce) {
+    requestOptions.headers = {
+      'X-WP-Nonce': nonce,
+    };
+  }
 
-	if ( typeof baseUrl === 'string' && baseUrl.trim().length > 0 ) {
-		const endpointUrl = resolveEndpointUrl( endpoint.path, baseUrl );
-		requestOptions.url =
-			operation === 'read'
-				? joinUrlWithQuery( endpointUrl, encodeRequestQuery( request ) )
-				: endpointUrl;
-	}
+  if (typeof baseUrl === 'string' && baseUrl.trim().length > 0) {
+    const endpointUrl = resolveEndpointUrl(endpoint.path, baseUrl);
+    requestOptions.url =
+      operation === 'read'
+        ? joinUrlWithQuery(endpointUrl, encodeRequestQuery(request))
+        : endpointUrl;
+  }
 
-	return Object.keys( requestOptions ).length > 0
-		? {
-				requestOptions,
-			}
-		: {};
+  return Object.keys(requestOptions).length > 0
+    ? {
+        requestOptions,
+      }
+    : {};
 }
 
 export const persistenceTransportTargets: Record<
-	PersistenceTransportTarget,
-	PersistenceTransportTargetResolvers
+  PersistenceTransportTarget,
+  PersistenceTransportTargetResolvers
 > = {
-	editor: {
-		read: ( endpoint, request, options ) =>
-			buildCallOptions( {
-				baseUrl: EDITOR_READ_BASE_URL,
-				endpoint,
-				includeRestNonce: {{isAuthenticatedPersistencePolicy}},
-				operation: 'read',
-				options,
-				request,
-			} ),
-		write: ( endpoint, request, options ) =>
-			buildCallOptions( {
-				baseUrl: EDITOR_WRITE_BASE_URL,
-				endpoint,
-				includeRestNonce: {{isAuthenticatedPersistencePolicy}},
-				operation: 'write',
-				options,
-				request,
-			} ),
-	},
-	frontend: {
-		read: ( endpoint, request, options ) =>
-			buildCallOptions( {
-				baseUrl: FRONTEND_READ_BASE_URL,
-				endpoint,
-				includeRestNonce: false,
-				operation: 'read',
-				options,
-				request,
-			} ),
-		write: ( endpoint, request, options ) =>
-			buildCallOptions( {
-				baseUrl: FRONTEND_WRITE_BASE_URL,
-				endpoint,
-				includeRestNonce: {{isAuthenticatedPersistencePolicy}},
-				operation: 'write',
-				options,
-				request,
-			} ),
-	},
+  editor: {
+    read: (endpoint, request, options) =>
+      buildCallOptions({
+        baseUrl: EDITOR_READ_BASE_URL,
+        endpoint,
+        includeRestNonce: {{isAuthenticatedPersistencePolicy}},
+        operation: 'read',
+        options,
+        request,
+      }),
+    write: (endpoint, request, options) =>
+      buildCallOptions({
+        baseUrl: EDITOR_WRITE_BASE_URL,
+        endpoint,
+        includeRestNonce: {{isAuthenticatedPersistencePolicy}},
+        operation: 'write',
+        options,
+        request,
+      }),
+  },
+  frontend: {
+    read: (endpoint, request, options) =>
+      buildCallOptions({
+        baseUrl: FRONTEND_READ_BASE_URL,
+        endpoint,
+        includeRestNonce: false,
+        operation: 'read',
+        options,
+        request,
+      }),
+    write: (endpoint, request, options) =>
+      buildCallOptions({
+        baseUrl: FRONTEND_WRITE_BASE_URL,
+        endpoint,
+        includeRestNonce: {{isAuthenticatedPersistencePolicy}},
+        operation: 'write',
+        options,
+        request,
+      }),
+  },
 };
 
 export function resolveTransportCallOptions(
-	target: PersistenceTransportTarget,
-	operation: PersistenceTransportOperation,
-	endpoint: EndpointWithPath,
-	request?: unknown,
-	options?: PersistenceTransportOptions
+  target: PersistenceTransportTarget,
+  operation: PersistenceTransportOperation,
+  endpoint: EndpointWithPath,
+  request?: unknown,
+  options?: PersistenceTransportOptions,
 ): EndpointCallOptions {
-	return persistenceTransportTargets[ target ][ operation ]( endpoint, request, options );
+  return persistenceTransportTargets[target][operation](
+    endpoint,
+    request,
+    options,
+  );
 }

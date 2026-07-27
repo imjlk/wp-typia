@@ -1,21 +1,32 @@
-import type { ScaffoldCompatibilityPolicy } from "../templates/scaffold-compatibility.js";
-import { renderScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
-import { quoteTsString } from "./cli-add-shared.js";
+import type { ScaffoldCompatibilityPolicy } from '../templates/scaffold-compatibility.js';
+import { renderScaffoldCompatibilityConfig } from '../templates/scaffold-compatibility.js';
+import { quoteTsString } from './cli-add-shared.js';
 import {
-	ABILITY_REGISTRY_END_MARKER,
-	ABILITY_REGISTRY_START_MARKER,
-} from "./cli-add-workspace-ability-types.js";
-import { quotePhpString } from "../shared/php-utils.js";
-import { toPascalCase, toTitleCase } from "../shared/string-case.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  ABILITY_REGISTRY_END_MARKER,
+  ABILITY_REGISTRY_START_MARKER,
+} from './cli-add-workspace-ability-types.js';
+import { quotePhpString } from '../shared/php-utils.js';
+import { toPascalCase, toTitleCase } from '../shared/string-case.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
+
+function renderNamedTypeClause(
+  prefix: string,
+  typeNames: readonly string[],
+  suffix: string,
+): string {
+  const compact = `${prefix}{ ${typeNames.join(', ')} }${suffix}`;
+  return compact.length <= 80
+    ? compact
+    : `${prefix}{\n${typeNames.map((typeName) => `  ${typeName},`).join('\n')}\n}${suffix}`;
+}
 
 function toAbilityCategorySlug(workspaceNamespace: string): string {
-	const normalizedNamespace = workspaceNamespace
-		.replace(/[^a-z0-9-]+/gu, "-")
-		.replace(/-{2,}/gu, "-")
-		.replace(/^-|-$/gu, "");
+  const normalizedNamespace = workspaceNamespace
+		.replace(/[^a-z0-9-]+/gu, '-')
+		.replace(/-{2,}/gu, '-')
+		.replace(/^-|-$/gu, '');
 
-	return `${normalizedNamespace || "workspace"}-workflows`;
+  return `${normalizedNamespace || 'workspace'}-workflows`;
 }
 
 /**
@@ -25,25 +36,25 @@ export function buildAbilityConfigEntry(
 	abilitySlug: string,
 	compatibilityPolicy: ScaffoldCompatibilityPolicy,
 ): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return [
-		"\t{",
-		`\t\tclientFile: ${quoteTsString(`src/abilities/${abilitySlug}/client.ts`)},`,
-		`\t\tcompatibility: ${renderScaffoldCompatibilityConfig(
-			compatibilityPolicy,
-		)},`,
-		`\t\tconfigFile: ${quoteTsString(`src/abilities/${abilitySlug}/ability.config.json`)},`,
-		`\t\tdataFile: ${quoteTsString(`src/abilities/${abilitySlug}/data.ts`)},`,
-		`\t\tinputSchemaFile: ${quoteTsString(`src/abilities/${abilitySlug}/input.schema.json`)},`,
-		`\t\tinputTypeName: ${quoteTsString(`${pascalCase}AbilityInput`)},`,
-		`\t\toutputSchemaFile: ${quoteTsString(`src/abilities/${abilitySlug}/output.schema.json`)},`,
-		`\t\toutputTypeName: ${quoteTsString(`${pascalCase}AbilityOutput`)},`,
-		`\t\tphpFile: ${quoteTsString(`inc/abilities/${abilitySlug}.php`)},`,
-		`\t\tslug: ${quoteTsString(abilitySlug)},`,
-		`\t\ttypesFile: ${quoteTsString(`src/abilities/${abilitySlug}/types.ts`)},`,
-		"\t},",
-	].join("\n");
+  return [
+    '  {',
+    `    clientFile: ${quoteTsString(`src/abilities/${abilitySlug}/client.ts`)},`,
+    `    compatibility: ${renderScaffoldCompatibilityConfig(
+      compatibilityPolicy,
+    )},`,
+    `    configFile: ${quoteTsString(`src/abilities/${abilitySlug}/ability.config.json`)},`,
+    `    dataFile: ${quoteTsString(`src/abilities/${abilitySlug}/data.ts`)},`,
+    `    inputSchemaFile: ${quoteTsString(`src/abilities/${abilitySlug}/input.schema.json`)},`,
+    `    inputTypeName: ${quoteTsString(`${pascalCase}AbilityInput`)},`,
+    `    outputSchemaFile: ${quoteTsString(`src/abilities/${abilitySlug}/output.schema.json`)},`,
+    `    outputTypeName: ${quoteTsString(`${pascalCase}AbilityOutput`)},`,
+    `    phpFile: ${quoteTsString(`inc/abilities/${abilitySlug}.php`)},`,
+    `    slug: ${quoteTsString(abilitySlug)},`,
+    `    typesFile: ${quoteTsString(`src/abilities/${abilitySlug}/types.ts`)},`,
+    '  },',
+  ].join('\n');
 }
 
 /**
@@ -53,9 +64,9 @@ export function buildAbilityConfigSource(
 	abilitySlug: string,
 	workspaceNamespace: string,
 ): string {
-	const abilityTitle = toTitleCase(abilitySlug);
+  const abilityTitle = toTitleCase(abilitySlug);
 
-	return `${JSON.stringify(
+  return `${JSON.stringify(
 		{
 			abilityId: `${workspaceNamespace}/${abilitySlug}`,
 			category: {
@@ -86,18 +97,18 @@ export function buildAbilityConfigSource(
  * Build the starter TypeScript input and output contracts for an ability.
  */
 export function buildAbilityTypesSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return `export interface ${pascalCase}AbilityInput {
-\tcontextId: number;
-\tnote?: string;
+  return `export interface ${pascalCase}AbilityInput {
+  contextId: number;
+  note?: string;
 }
 
 export interface ${pascalCase}AbilityOutput {
-\tprocessedContextId: number;
-\treceivedNote?: string;
-\tstatus: 'ready';
-\tsummary: string;
+  processedContextId: number;
+  receivedNote?: string;
+  status: 'ready';
+  summary: string;
 }
 `;
 }
@@ -106,30 +117,44 @@ export interface ${pascalCase}AbilityOutput {
  * Build the typed client helper module that wraps the WordPress Abilities API.
  */
 export function buildAbilityDataSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
-	const abilityConstBase = abilitySlug
-		.toUpperCase()
-		.replace(/[^A-Z0-9]+/gu, "_")
-		.replace(/_{2,}/gu, "_")
-		.replace(/^_|_$/gu, "");
+  const pascalCase = toPascalCase(abilitySlug);
+  const abilityTypeNames = [
+    `${pascalCase}AbilityInput`,
+    `${pascalCase}AbilityOutput`,
+  ];
+  const abilityTypeImport = renderNamedTypeClause(
+    'import type ',
+    abilityTypeNames,
+    " from './types';",
+  );
+  const abilityTypeExport = renderNamedTypeClause(
+    'export type ',
+    abilityTypeNames,
+    ';',
+  );
+  const abilityConstBase = abilitySlug
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/gu, '_')
+    .replace(/_{2,}/gu, '_')
+    .replace(/^_|_$/gu, '');
 
-	return `import {
-\texecuteAbility,
-\tgetAbilities,
-\tgetAbility as getRegisteredAbility,
+  return `import {
+  executeAbility,
+  getAbilities,
+  getAbility as getRegisteredAbility,
 } from '@wordpress/abilities';
 import '@wordpress/core-abilities';
 
 import abilityConfig from './ability.config.json';
 
-import type { ${pascalCase}AbilityInput, ${pascalCase}AbilityOutput } from './types';
+${abilityTypeImport}
 
 interface WordPressAbilityDefinition {
-\tcategory?: string;
-\tdescription?: string;
-\tlabel?: string;
-\tmeta?: Record<string, unknown>;
-\tname?: string;
+  category?: string;
+  description?: string;
+  label?: string;
+  meta?: Record<string, unknown>;
+  name?: string;
 }
 
 export const ${abilityConstBase}_ABILITY = abilityConfig;
@@ -139,70 +164,67 @@ export const ${abilityConstBase}_ABILITY_META = abilityConfig.meta;
 const ABILITY_DISCOVERY_POLL_INTERVAL_MS = 50;
 const ABILITY_DISCOVERY_TIMEOUT_MS = 5000;
 
-export type {
-\t${pascalCase}AbilityInput,
-\t${pascalCase}AbilityOutput,
-};
+${abilityTypeExport}
 
-function sleep( milliseconds: number ): Promise< void > {
-\treturn new Promise( ( resolve ) => {
-\t\tsetTimeout( resolve, milliseconds );
-\t} );
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
-async function waitFor${pascalCase}AbilityRegistration(): Promise< void > {
-\tconst deadline = Date.now() + ABILITY_DISCOVERY_TIMEOUT_MS;
-\twhile ( ! getRegisteredAbility( ${abilityConstBase}_ABILITY_ID ) ) {
-\t\tif ( Date.now() >= deadline ) {
-\t\t\treturn;
-\t\t}
+async function waitFor${pascalCase}AbilityRegistration(): Promise<void> {
+  const deadline = Date.now() + ABILITY_DISCOVERY_TIMEOUT_MS;
+  while (!getRegisteredAbility(${abilityConstBase}_ABILITY_ID)) {
+    if (Date.now() >= deadline) {
+      return;
+    }
 
-\t\tawait sleep( ABILITY_DISCOVERY_POLL_INTERVAL_MS );
-\t}
+    await sleep(ABILITY_DISCOVERY_POLL_INTERVAL_MS);
+  }
 }
 
-export async function list${pascalCase}CategoryAbilities(): Promise< WordPressAbilityDefinition[] > {
-\tawait waitFor${pascalCase}AbilityRegistration();
+export async function list${pascalCase}CategoryAbilities(): Promise<WordPressAbilityDefinition[]> {
+  await waitFor${pascalCase}AbilityRegistration();
 
-\treturn getAbilities( {
-\t\tcategory: ${abilityConstBase}_ABILITY_CATEGORY.slug,
-\t} ) as WordPressAbilityDefinition[];
+  return getAbilities({
+    category: ${abilityConstBase}_ABILITY_CATEGORY.slug,
+  }) as WordPressAbilityDefinition[];
 }
 
 export async function get${pascalCase}Ability(): Promise<
-\t| WordPressAbilityDefinition
-\t| undefined
+  | WordPressAbilityDefinition
+  | undefined
 > {
-\tawait waitFor${pascalCase}AbilityRegistration();
+  await waitFor${pascalCase}AbilityRegistration();
 
-\treturn getRegisteredAbility( ${abilityConstBase}_ABILITY_ID ) as
-\t\t| WordPressAbilityDefinition
-\t\t| undefined;
+  return getRegisteredAbility(${abilityConstBase}_ABILITY_ID) as
+    | WordPressAbilityDefinition
+    | undefined;
 }
 
-export async function require${pascalCase}Ability(): Promise< WordPressAbilityDefinition > {
-\tconst ability = await get${pascalCase}Ability();
-\tif ( ability ) {
-\t\treturn ability;
-\t}
+export async function require${pascalCase}Ability(): Promise<WordPressAbilityDefinition> {
+  const ability = await get${pascalCase}Ability();
+  if (ability) {
+    return ability;
+  }
 
-\tthrow new Error(
-\t\t[
-\t\t\t\`Ability "\${ ${abilityConstBase}_ABILITY_ID }" is not available yet.\`,
-\t\t\t'Load the WordPress core abilities integration on this screen and confirm the server-side registration succeeded.',
-\t\t].join( ' ' )
-\t);
+  throw new Error(
+    [
+      \`Ability "\${${abilityConstBase}_ABILITY_ID}" is not available yet.\`,
+      'Load the WordPress core abilities integration on this screen and confirm the server-side registration succeeded.',
+    ].join(' '),
+  );
 }
 
 export async function run${pascalCase}Ability(
-\tinput: ${pascalCase}AbilityInput
-): Promise< ${pascalCase}AbilityOutput > {
-\tawait waitFor${pascalCase}AbilityRegistration();
+  input: ${pascalCase}AbilityInput,
+): Promise<${pascalCase}AbilityOutput> {
+  await waitFor${pascalCase}AbilityRegistration();
 
-\treturn ( await executeAbility(
-\t\t${abilityConstBase}_ABILITY_ID,
-\t\tinput
-\t) ) as ${pascalCase}AbilityOutput;
+  return (await executeAbility(
+    ${abilityConstBase}_ABILITY_ID,
+    input,
+  )) as ${pascalCase}AbilityOutput;
 }
 `;
 }
@@ -211,9 +233,9 @@ export async function run${pascalCase}Ability(
  * Build the re-export shim for the generated ability client helpers.
  */
 export function buildAbilityClientSource(abilitySlug: string): string {
-	const pascalCase = toPascalCase(abilitySlug);
+  const pascalCase = toPascalCase(abilitySlug);
 
-	return `/**
+  return `/**
  * Re-export the typed ${pascalCase} ability client helpers.
  *
  * The helper methods load the WordPress core abilities integration and wait for
@@ -227,113 +249,110 @@ export * from './data';
  * Build the schema sync script that keeps generated ability JSON artifacts current.
  */
 export function buildAbilitySyncScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import { syncTypeSchemas } from '@wp-typia/block-runtime/metadata-core';
 
-import {
-\tABILITIES,
-\ttype WorkspaceAbilityConfig,
-} from './block-config';
+import { ABILITIES, type WorkspaceAbilityConfig } from './block-config';
 
-function parseCliOptions( argv: string[] ) {
-\tconst options = {
-\t\tcheck: false,
-\t};
+function parseCliOptions(argv: string[]) {
+  const options = {
+    check: false,
+  };
 
-\tfor ( const argument of argv ) {
-\t\tif ( argument === '--check' ) {
-\t\t\toptions.check = true;
-\t\t\tcontinue;
-\t\t}
+  for (const argument of argv) {
+    if (argument === '--check') {
+      options.check = true;
+      continue;
+    }
 
-\t\tthrow new Error( \`Unknown sync-abilities flag: \${ argument }\` );
-\t}
+    throw new Error(\`Unknown sync-abilities flag: \${argument}\`);
+  }
 
-\treturn options;
+  return options;
 }
 
 function isWorkspaceAbility(
-\tability: WorkspaceAbilityConfig
+  ability: WorkspaceAbilityConfig,
 ): ability is WorkspaceAbilityConfig & {
-\tclientFile: string;
-\tconfigFile: string;
-\tdataFile: string;
-\tinputSchemaFile: string;
-\tinputTypeName: string;
-\toutputSchemaFile: string;
-\toutputTypeName: string;
-\tphpFile: string;
-\ttypesFile: string;
+  clientFile: string;
+  configFile: string;
+  dataFile: string;
+  inputSchemaFile: string;
+  inputTypeName: string;
+  outputSchemaFile: string;
+  outputTypeName: string;
+  phpFile: string;
+  typesFile: string;
 } {
-\treturn (
-\t\ttypeof ability.clientFile === 'string' &&
-\t\ttypeof ability.configFile === 'string' &&
-\t\ttypeof ability.dataFile === 'string' &&
-\t\ttypeof ability.inputSchemaFile === 'string' &&
-\t\ttypeof ability.inputTypeName === 'string' &&
-\t\ttypeof ability.outputSchemaFile === 'string' &&
-\t\ttypeof ability.outputTypeName === 'string' &&
-\t\ttypeof ability.phpFile === 'string' &&
-\t\ttypeof ability.typesFile === 'string'
-\t);
+  return (
+    typeof ability.clientFile === 'string' &&
+    typeof ability.configFile === 'string' &&
+    typeof ability.dataFile === 'string' &&
+    typeof ability.inputSchemaFile === 'string' &&
+    typeof ability.inputTypeName === 'string' &&
+    typeof ability.outputSchemaFile === 'string' &&
+    typeof ability.outputTypeName === 'string' &&
+    typeof ability.phpFile === 'string' &&
+    typeof ability.typesFile === 'string'
+  );
 }
 
 async function main() {
-\tconst options = parseCliOptions( process.argv.slice( 2 ) );
-\tconst abilities = ABILITIES.filter( isWorkspaceAbility );
+  const options = parseCliOptions(process.argv.slice(2));
+  const abilities = ABILITIES.filter(isWorkspaceAbility);
 
-\tif ( ABILITIES.length > 0 && abilities.length === 0 ) {
-\t\tconsole.warn(
-\t\t\t'⚠️ Ability inventory entries exist, but none include the required typed schema files. Check scripts/block-config.ts before relying on sync-abilities.'
-\t\t);
-\t}
+  if (ABILITIES.length > 0 && abilities.length === 0) {
+    console.warn(
+      '⚠️ Ability inventory entries exist, but none include the required typed schema files. Check scripts/block-config.ts before relying on sync-abilities.',
+    );
+  }
 
-\tif ( abilities.length === 0 ) {
-\t\tconsole.log(
-\t\t\toptions.check
-\t\t\t\t? 'ℹ️ No typed workflow abilities are registered yet. "sync-abilities --check" is already clean.'
-\t\t\t\t: 'ℹ️ No typed workflow abilities are registered yet.'
-\t\t);
-\t\treturn;
-\t}
+  if (abilities.length === 0) {
+    console.log(
+      options.check
+        ? 'ℹ️ No typed workflow abilities are registered yet. "sync-abilities --check" is already clean.'
+        : 'ℹ️ No typed workflow abilities are registered yet.',
+    );
+    return;
+  }
 
-\tfor ( const ability of abilities ) {
-\t\tawait syncTypeSchemas(
-\t\t\t{
-\t\t\t\tjsonSchemaFile: ability.inputSchemaFile,
-\t\t\t\tprojectRoot: process.cwd(),
-\t\t\t\tsourceTypeName: ability.inputTypeName,
-\t\t\t\ttypesFile: ability.typesFile,
-\t\t\t},
-\t\t\t{
-\t\t\t\tcheck: options.check,
-\t\t\t}
-\t\t);
+  for (const ability of abilities) {
+    await syncTypeSchemas(
+      {
+        jsonSchemaFile: ability.inputSchemaFile,
+        projectRoot: process.cwd(),
+        sourceTypeName: ability.inputTypeName,
+        typesFile: ability.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
 
-\t\tawait syncTypeSchemas(
-\t\t\t{
-\t\t\t\tjsonSchemaFile: ability.outputSchemaFile,
-\t\t\t\tprojectRoot: process.cwd(),
-\t\t\t\tsourceTypeName: ability.outputTypeName,
-\t\t\t\ttypesFile: ability.typesFile,
-\t\t\t},
-\t\t\t{
-\t\t\t\tcheck: options.check,
-\t\t\t}
-\t\t);
-\t}
+    await syncTypeSchemas(
+      {
+        jsonSchemaFile: ability.outputSchemaFile,
+        projectRoot: process.cwd(),
+        sourceTypeName: ability.outputTypeName,
+        typesFile: ability.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
+  }
 
-\tconsole.log(
-\t\toptions.check
-\t\t\t? '✅ Ability input and output schemas are already up to date for all registered workflow abilities!'
-\t\t\t: '✅ Ability input and output schemas generated for all registered workflow abilities!'
-\t);
+  console.log(
+    options.check
+      ? '✅ Ability input and output schemas are already up to date for all registered workflow abilities!'
+      : '✅ Ability input and output schemas generated for all registered workflow abilities!',
+  );
 }
 
-main().catch( ( error ) => {
-\tconsole.error( '❌ Ability schema sync failed:', error );
-\tprocess.exit( 1 );
-} );
+main().catch((error) => {
+  console.error('❌ Ability schema sync failed:', error);
+  process.exit(1);
+});
 `;
 }
 
@@ -344,17 +363,17 @@ export function buildAbilityPhpSource(
 	abilitySlug: string,
 	workspace: WorkspaceProject,
 ): string {
-	const abilityTitle = toTitleCase(abilitySlug);
-	const abilityPhpId = abilitySlug.replace(/-/g, "_");
-	const categoryRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability_category`;
-	const abilityRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability`;
-	const configLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_config`;
-	const schemaLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_schema`;
-	const permissionFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_can_execute_ability`;
-	const executeFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_execute_ability`;
-	const metaFactoryFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_build_ability_meta`;
+  const abilityTitle = toTitleCase(abilitySlug);
+  const abilityPhpId = abilitySlug.replace(/-/g, '_');
+  const categoryRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability_category`;
+  const abilityRegisterFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_register_ability`;
+  const configLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_config`;
+  const schemaLoaderFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_load_ability_schema`;
+  const permissionFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_can_execute_ability`;
+  const executeFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_execute_ability`;
+  const metaFactoryFunctionName = `${workspace.workspace.phpPrefix}_${abilityPhpId}_build_ability_meta`;
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }
@@ -524,16 +543,16 @@ add_action( 'wp_abilities_api_init', '${abilityRegisterFunctionName}' );
  * Build the generated abilities index section managed by `wp-typia add ability`.
  */
 export function buildAbilityRegistrySource(abilitySlugs: string[]): string {
-	const exportLines = abilitySlugs
+  const exportLines = abilitySlugs
 		.map((abilitySlug) => `export * from './${abilitySlug}/client';`)
-		.join("\n");
+		.join('\n');
 
-	return [
+  return [
 		ABILITY_REGISTRY_START_MARKER,
 		exportLines,
 		ABILITY_REGISTRY_END_MARKER,
 	]
 		.filter((line) => line.length > 0)
-		.join("\n")
-		.concat("\n");
+		.join('\n')
+		.concat('\n');
 }

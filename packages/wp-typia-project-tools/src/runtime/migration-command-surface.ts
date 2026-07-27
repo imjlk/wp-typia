@@ -1,1 +1,1 @@
-export * from "./migration/migration-command-surface.js";
+export * from './migration/migration-command-surface.js';

@@ -52,7 +52,7 @@ test('sync fails early with install guidance when local dependencies are missing
   const projectDir = writeSyncFixture({
     name: 'demo-sync-no-install',
     scripts: {
-      sync: 'tsx scripts/sync-project.ts',
+      sync: 'ttsx scripts/sync-project.ts',
     },
   });
 
@@ -63,7 +63,7 @@ test('sync fails early with install guidance when local dependencies are missing
   expect(error).toBeInstanceOf(Error);
   expect((error as Error).message).toContain('npm install');
   expect((error as Error).message).toContain('wp-typia sync');
-  expect((error as Error).message).toContain('tsx');
+  expect((error as Error).message).toContain('ttsx');
 });
 
 test('malformed package JSON carries a stable invalid-argument code', async () => {
@@ -85,7 +85,7 @@ test('dry-run sync previews commands without requiring installed dependencies', 
   const projectDir = writeSyncFixture({
     name: 'demo-sync-dry-run-preview',
     scripts: {
-      sync: 'tsx scripts/sync-project.ts',
+      sync: 'ttsx scripts/sync-project.ts',
     },
   });
 
@@ -616,7 +616,7 @@ test('sync check exposes generated artifact drift with project-relative paths', 
       "console.error(`- ${path.join(process.cwd(), '..', 'private-schema.php')} (stale)`);",
       "console.error('❌ Project sync failed: Error: Sync script failed: scripts/sync-types-to-block-json.ts');",
       "console.error('    at runSyncScript (sync-project.ts:78:9)');",
-      "for (let index = 0; index < 41; index += 1) console.error(`diagnostic note ${index}`);",
+      'for (let index = 0; index < 41; index += 1) console.error(`diagnostic note ${index}`);',
       "console.error(`- ${path.join(process.cwd(), 'src', 'far.php')} (unreadable: EACCES)`);",
       'process.exit(1);',
     ].join('\n'),
@@ -747,7 +747,7 @@ test('sync preserves early artifact drift before bounded output tails', async ()
       "import path from 'node:path';",
       "console.error('- DATABASE_URL (missing)');",
       "console.error('Generated artifacts are missing or stale:');",
-      "for (let index = 0; index < 20; index += 1) console.error(`- Dependency ${index} (1.2.3)`);",
+      'for (let index = 0; index < 20; index += 1) console.error(`- Dependency ${index} (1.2.3)`);',
       "console.error('- package.json (outdated)');",
       "console.error(`- ${path.join(process.cwd(), 'src', 'early.json')} (stale)`);",
       "console.error(`- ${path.join(process.cwd(), 'src', 'locked.php')} (unreadable: EACCES)`);",
@@ -840,7 +840,7 @@ test('sync drift diagnostics cap the structured artifact list', async () => {
     [
       "import path from 'node:path';",
       "console.error('Generated WordPress AI artifacts are missing or stale:');",
-      "for (let index = 0; index < 25; index += 1) {",
+      'for (let index = 0; index < 25; index += 1) {',
       "  console.error(`- ${path.join(process.cwd(), 'src', `artifact-${index}.php`)} (stale)`);",
       '}',
       'process.exit(1);',

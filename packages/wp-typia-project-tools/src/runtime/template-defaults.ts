@@ -1,1 +1,1 @@
-export * from "./templates/template-defaults.js";
+export * from './templates/template-defaults.js';

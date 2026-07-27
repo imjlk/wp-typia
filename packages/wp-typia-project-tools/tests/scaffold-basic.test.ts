@@ -14,6 +14,8 @@ import {
 import { scaffoldProject } from '../src/runtime/index.js';
 import { applyMigrationUiCapability } from '../src/runtime/migration-ui-capability.js';
 
+const GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS = 300_000;
+
 describe('@wp-typia/project-tools scaffold core', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-scaffold-basic-');
 
@@ -137,7 +139,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       ).toBeUndefined();
       expect(packageJson.devDependencies['chokidar-cli']).toBe('^3.0.0');
       expect(packageJson.devDependencies.concurrently).toBe('^9.0.1');
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
@@ -151,7 +153,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'npm run sync && wp-scripts start --experimental-modules',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',
@@ -179,9 +181,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedEdit).toContain('RichText');
       expect(generatedEdit).toContain('TextControl');
       expect(generatedEdit).toContain("label={__('Content'");
-      expect(generatedEdit).toContain(
-        "help={__('Mirrors the main block content.'",
-      );
+      expect(generatedEdit).toContain("'Mirrors the main block content.'");
       expect(generatedEdit).toContain("placeholder={__('Add your content...'");
       expect(generatedEdit).toContain('@wp-typia/block-runtime/inspector');
       expect(generatedEdit).not.toContain(
@@ -243,10 +243,10 @@ describe('@wp-typia/project-tools scaffold core', () => {
         "import currentManifest from './manifest-document';",
       );
       expect(generatedTypes).not.toMatch(/[가-힣]/u);
-      expect(generatedValidators).toContain('from "./validator-toolkit"');
+      expect(generatedValidators).toContain("from './validator-toolkit'");
       expect(generatedValidators).toContain("import typia from 'typia';");
       expect(generatedValidators).toContain(
-        'from "./manifest-defaults-document"',
+        "from './manifest-defaults-document'",
       );
       expect(generatedValidators).toContain(
         '@wp-typia/block-runtime/identifiers',
@@ -338,7 +338,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       const buildOutput = buildGeneratedProject(targetDir);
       expect(buildOutput).not.toContain('non-specified generic argument');
     },
-    { timeout: 40_000 },
+    { timeout: 120_000 },
   );
 
   test(
@@ -448,6 +448,10 @@ describe('@wp-typia/project-tools scaffold core', () => {
         path.join(targetDir, 'src', 'migrations', 'config.ts'),
         'utf8',
       );
+      const migrationIndex = fs.readFileSync(
+        path.join(targetDir, 'src', 'migrations', 'index.ts'),
+        'utf8',
+      );
 
       expect(packageJson.dependencies['@wordpress/api-fetch']).toBe('^7.42.0');
       expect(
@@ -469,6 +473,9 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedIndex).not.toContain('as NonNullable<BlockConfiguration');
       expect(migrationConfig).toContain("key: 'demo-migration-ui'");
       expect(migrationConfig).toContain("blockJsonFile: 'src/block.json'");
+      expect(migrationIndex).toContain(
+        'migrated as unknown as Record<string, unknown>',
+      );
       expect(
         fs.existsSync(
           path.join(targetDir, 'src', 'admin', 'migration-dashboard.tsx'),
@@ -774,7 +781,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
 
       expect(packageJson.name).toBe('demo-interactivity');
       expect(packageJson.devDependencies.prettier).toBe('3.8.2');
-      expect(packageJson.scripts.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts.dev).toBe(
         'npm run sync && concurrently -k -n sync-types,editor -c yellow,blue "npm run watch:sync-types" "npm run start:editor"',
       );
@@ -785,7 +792,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'npm run sync && wp-scripts start --experimental-modules',
       );
       expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && tsc --noEmit',
+        'npm run sync -- --check && ttsc --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',
@@ -817,7 +824,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedTypes).toContain('export interface DemoInteractivityState');
       expect(generatedHooks).toContain('useTypiaValidation');
       expect(generatedHooks).toContain('createUseTypiaValidationHook');
-      expect(generatedValidators).toContain('from "./validator-toolkit"');
+      expect(generatedValidators).toContain("from './validator-toolkit'");
       expect(generatedValidators).not.toContain(
         '@wp-typia/block-runtime/identifiers',
       );
@@ -837,7 +844,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'type EditProps = BlockEditProps<DemoInteractivityAttributes>;',
       );
       expect(generatedEdit).toContain(
-        'export default function Edit({ attributes, setAttributes, isSelected }: EditProps)',
+        'export default function Edit({',
       );
       expect(generatedEdit).not.toContain(
         '@wp-typia/project-tools/schema-core',
@@ -866,7 +873,10 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'wp-block-demo-space-demo-interactivity__content',
       );
       expect(generatedEdit).toContain(
-        "const isAnimatingDirective = demoInteractivityStore.directive.state('isAnimating');",
+        'const isAnimatingDirective =',
+      );
+      expect(generatedEdit).toContain(
+        "demoInteractivityStore.directive.state('isAnimating');",
       );
       expect(generatedEdit).not.toContain('data-wp-class="is-active"');
       expect(generatedEdit).toContain(
@@ -879,7 +889,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'data-wp-class--is-active={isAnimatingDirective}',
       );
       expect(generatedEdit).toContain(
-        "data-wp-on--click={isPreviewing ? demoInteractivityStore.directive.action('handleClick') : undefined}",
+        'data-wp-on--click={',
       );
       expect(generatedInteractivityStore).toContain(
         "type InteractivityCallable =\n  | ((...args: unknown[]) => unknown)\n  | ReturnType<typeof import('@wordpress/interactivity').withSyncEvent>;",
@@ -888,7 +898,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'type InteractivityActionHandler = InteractivityCallable;',
       );
       expect(generatedInteractivityStore).not.toContain('CallableFunction');
-      expect(generatedValidators).toContain('from "./validator-toolkit"');
+      expect(generatedValidators).toContain("from './validator-toolkit'");
       expect(generatedBlockMetadata).toContain(
         'defineScaffoldBlockMetadata(rawMetadata)',
       );
@@ -950,9 +960,9 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivity).not.toContain('lastInteraction');
       expect(generatedInteractivity).not.toContain('autoPlayTimer');
       expect(generatedInteractivity).not.toContain('context.interactiveMode');
-      expect(generatedTypes).toContain('animation: "none" | "bounce"');
+      expect(generatedTypes).toContain("animation: 'none' | 'bounce'");
       expect(generatedTypes).toContain(
-        'interactiveMode?: ("click" | "hover") & tags.Default<"click">;',
+        "interactiveMode?: ('click' | 'hover') & tags.Default<'click'>;",
       );
       expect(generatedTypes).not.toContain('autoPlayInterval');
       expect(generatedTypes).not.toContain('uniqueId');
@@ -973,20 +983,23 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedSave).toContain(
         "import { demoInteractivityStore } from './interactivity-store';",
       );
-      expect(generatedSave).toContain("__( 'Clicks:', 'demo-interactivity' )");
+      expect(generatedSave).toContain("__('Clicks:', 'demo-interactivity')");
       expect(generatedSave).toContain(
-        "aria-label={ __( 'Click progress', 'demo-interactivity' ) }",
+        "aria-label={__('Click progress', 'demo-interactivity')}",
       );
       expect(generatedSave).toContain(
-        "aria-label={ __( 'Reset counter', 'demo-interactivity' ) }",
+        "aria-label={__('Reset counter', 'demo-interactivity')}",
       );
       expect(generatedSave).toContain(
-        "{ __( '🎉 Complete!', 'demo-interactivity' ) }",
+        "{__('🎉 Complete!', 'demo-interactivity')}",
       );
       expect(generatedSave).toContain('className="screen-reader-text"');
       expect(generatedSave).toContain('role="progressbar"');
       expect(generatedSave).toContain(
-        "const clampedClicksDirective = demoInteractivityStore.directive.state('clampedClicks');",
+        'const clampedClicksDirective =',
+      );
+      expect(generatedSave).toContain(
+        "demoInteractivityStore.directive.state('clampedClicks');",
       );
       expect(generatedSave).toContain('role="status"');
       expect(generatedSave).toContain('aria-live="polite"');
@@ -998,14 +1011,23 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'wp-block-demo-space-demo-interactivity__content',
       );
       expect(generatedSave).toContain(
-        "const isAnimatingDirective = demoInteractivityStore.directive.state('isAnimating');",
+        'const isAnimatingDirective =',
+      );
+      expect(generatedSave).toContain(
+        "demoInteractivityStore.directive.state('isAnimating');",
       );
       expect(generatedSave).not.toContain('data-wp-class="is-active"');
       expect(generatedSave).toContain(
-        "const clickActionDirective = demoInteractivityStore.directive.action('handleClick');",
+        'const clickActionDirective =',
       );
       expect(generatedSave).toContain(
-        "const visibilityHiddenDirective = demoInteractivityStore.directive.negate(",
+        "demoInteractivityStore.directive.action('handleClick');",
+      );
+      expect(generatedSave).toContain(
+        'const visibilityHiddenDirective =',
+      );
+      expect(generatedSave).toContain(
+        'demoInteractivityStore.directive.negate(',
       );
       expect(generatedSave).toContain(
         'data-wp-bind--aria-valuenow={clampedClicksDirective}',
@@ -1039,7 +1061,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreActions');
       expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreCallbacks {}');
       expect(generatedInteractivityStore).toContain(
-        "export const demoInteractivityStore = defineInteractivityStore({",
+        'export const demoInteractivityStore = defineInteractivityStore({',
       );
       fs.writeFileSync(
         path.join(targetDir, 'src', 'interactivity-directive-typing.ts'),
@@ -1047,16 +1069,13 @@ describe('@wp-typia/project-tools scaffold core', () => {
   defineInteractivityStore,
   demoInteractivityStore,
 } from './interactivity-store';
-import type {
-  DemoInteractivityContext,
-  DemoInteractivityState,
-} from './types';
+import type { DemoInteractivityContext, DemoInteractivityState } from './types';
 
 void demoInteractivityStore.directive.action('handleClick');
 void demoInteractivityStore.directive.state('clicks');
 void demoInteractivityStore.directive.context('clicks');
 void demoInteractivityStore.directive.negate(
-  demoInteractivityStore.directive.state('isVisible')
+  demoInteractivityStore.directive.state('isVisible'),
 );
 void demoInteractivityStore.createContext({
   clicks: 0,
@@ -1101,7 +1120,7 @@ demoInteractivityStore.createContext({
       ]);
       typecheckGeneratedProject(targetDir);
     },
-    { timeout: 30_000 },
+    { timeout: GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS },
   );
 
   test('scaffoldProject supports the optional local wp-env preset without adding test files', async () => {

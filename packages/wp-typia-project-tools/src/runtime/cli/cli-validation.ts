@@ -1,9 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 import {
-	CLI_DIAGNOSTIC_CODES,
-	createCliDiagnosticCodeError,
-} from "./cli-diagnostics.js";
+  CLI_DIAGNOSTIC_CODES,
+  createCliDiagnosticCodeError,
+} from './cli-diagnostics.js';
 
 /**
  * Normalize one optional CLI string flag by trimming whitespace and collapsing
@@ -13,21 +13,21 @@ import {
  * @returns The trimmed string when present, otherwise `undefined`.
  */
 export function normalizeOptionalCliString(value?: string): string | undefined {
-	if (typeof value !== "string") {
-		return undefined;
-	}
+  if (typeof value !== 'string') {
+    return undefined;
+  }
 
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function looksLikeLocalCliPath(value: string): boolean {
-	return (
+  return (
 		path.isAbsolute(value) ||
-		value.startsWith("./") ||
-		value.startsWith("../") ||
-		value.startsWith(".\\") ||
-		value.startsWith("..\\")
+		value.startsWith('./') ||
+		value.startsWith('../') ||
+		value.startsWith('.\\') ||
+		value.startsWith('..\\')
 	);
 }
 
@@ -48,24 +48,24 @@ function looksLikeLocalCliPath(value: string): boolean {
  * @throws When a local-looking path resolves to a missing filesystem entry.
  */
 export function resolveLocalCliPathOption(options: {
-	cwd: string;
-	label: string;
-	value?: string;
+  cwd: string;
+  label: string;
+  value?: string;
 }): string | undefined {
-	const normalizedValue = normalizeOptionalCliString(options.value);
-	if (!normalizedValue || !looksLikeLocalCliPath(normalizedValue)) {
-		return normalizedValue;
-	}
+  const normalizedValue = normalizeOptionalCliString(options.value);
+  if (!normalizedValue || !looksLikeLocalCliPath(normalizedValue)) {
+    return normalizedValue;
+  }
 
-	const resolvedPath = path.resolve(options.cwd, normalizedValue);
-	if (!fs.existsSync(resolvedPath)) {
-		throw createCliDiagnosticCodeError(
-			CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-			`\`${options.label}\` path does not exist: ${resolvedPath}. Check the path relative to ${options.cwd}.`,
-		);
-	}
+  const resolvedPath = path.resolve(options.cwd, normalizedValue);
+  if (!fs.existsSync(resolvedPath)) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      `\`${options.label}\` path does not exist: ${resolvedPath}. Check the path relative to ${options.cwd}.`,
+    );
+  }
 
-	return resolvedPath;
+  return resolvedPath;
 }
 
 /**
@@ -77,15 +77,15 @@ export function resolveLocalCliPathOption(options: {
  * @throws When `externalLayerId` is provided without `externalLayerSource`.
  */
 export function assertExternalLayerCompositionOptions(options: {
-	externalLayerId?: string;
-	externalLayerSource?: string;
+  externalLayerId?: string;
+  externalLayerSource?: string;
 }): void {
-	if (options.externalLayerId && !options.externalLayerSource) {
-		throw createCliDiagnosticCodeError(
-			CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-			"externalLayerId requires externalLayerSource when composing built-in template layers.",
-		);
-	}
+  if (options.externalLayerId && !options.externalLayerSource) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'externalLayerId requires externalLayerSource when composing built-in template layers.',
+    );
+  }
 }
 
 /**
@@ -98,10 +98,10 @@ export function assertExternalLayerCompositionOptions(options: {
  * @returns The canonical user-facing error message.
  */
 export function createBuiltInVariantErrorMessage(options: {
-	templateId: string;
-	variant: string;
+  templateId: string;
+  variant: string;
 }): string {
-	return `--variant is only supported for official external template configs. Received variant "${options.variant}" for built-in template "${options.templateId}".`;
+  return `--variant is only supported for official external template configs. Received variant "${options.variant}" for built-in template "${options.templateId}".`;
 }
 
 /**
@@ -113,18 +113,18 @@ export function createBuiltInVariantErrorMessage(options: {
  * @throws When a built-in template receives any explicit `--variant` value.
  */
 export function assertBuiltInTemplateVariantAllowed(options: {
-	templateId: string;
-	variant?: string;
+  templateId: string;
+  variant?: string;
 }): void {
-	if (!options.variant) {
-		return;
-	}
+  if (!options.variant) {
+    return;
+  }
 
-	throw createCliDiagnosticCodeError(
-		CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-		createBuiltInVariantErrorMessage({
-			templateId: options.templateId,
-			variant: options.variant,
-		}),
-	);
+  throw createCliDiagnosticCodeError(
+    CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+    createBuiltInVariantErrorMessage({
+      templateId: options.templateId,
+      variant: options.variant,
+    }),
+  );
 }

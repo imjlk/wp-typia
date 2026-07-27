@@ -4,4 +4,4 @@
  * path while sharing the canonical implementation with block-runtime.
  * @module
  */
-export * from "@wp-typia/block-runtime/schema-core";
+export * from '@wp-typia/block-runtime/schema-core';

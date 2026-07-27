@@ -1,1 +1,1 @@
-export * from "./templates/scaffold.js";
+export * from './templates/scaffold.js';

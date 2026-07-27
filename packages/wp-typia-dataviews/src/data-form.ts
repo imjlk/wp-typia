@@ -7,7 +7,7 @@ import type {
   DataViewsConfigField,
   DataViewsFieldId,
   DataViewsRecord,
-} from "./types.js";
+} from './types.js';
 
 export function createDataFormConfig<TItem extends object = DataViewsRecord>(
   fields: readonly DataViewsConfigField<TItem>[],
@@ -41,7 +41,12 @@ function normalizeDataFormFields<TItem extends object>(
   const normalizedFields: DataFormField<TItem>[] = [];
 
   for (const field of fields) {
-    const normalizedField = normalizeDataFormField(field, fieldMap, layout, includeReadOnly);
+    const normalizedField = normalizeDataFormField(
+      field,
+      fieldMap,
+      layout,
+      includeReadOnly,
+    );
 
     if (normalizedField !== undefined) {
       normalizedFields.push(normalizedField);
@@ -57,15 +62,20 @@ function normalizeDataFormField<TItem extends object>(
   layout: DataFormFieldLayout<TItem> | undefined,
   includeReadOnly: boolean,
 ): DataFormField<TItem> | undefined {
-  if (typeof field === "string") {
-    return normalizeDataFormFieldObject({ id: field }, fieldMap, layout, includeReadOnly);
+  if (typeof field === 'string') {
+    return normalizeDataFormFieldObject(
+      { id: field },
+      fieldMap,
+      layout,
+      includeReadOnly,
+    );
   }
 
   return normalizeDataFormFieldObject(field, fieldMap, layout, includeReadOnly);
 }
 
 function normalizeDataFormFieldObject<TItem extends object>(
-  field: Partial<DataFormField<TItem>> & Pick<DataFormField<TItem>, "id">,
+  field: Partial<DataFormField<TItem>> & Pick<DataFormField<TItem>, 'id'>,
   fieldMap: ReadonlyMap<DataViewsFieldId<TItem>, DataViewsConfigField<TItem>>,
   layout: DataFormFieldLayout<TItem> | undefined,
   includeReadOnly: boolean,

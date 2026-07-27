@@ -1,26 +1,26 @@
 import {
-	useEndpointMutation,
-	useEndpointQuery,
-	type UseEndpointMutationOptions,
-	type UseEndpointQueryOptions,
+  useEndpointMutation,
+  useEndpointQuery,
+  type UseEndpointMutationOptions,
+  type UseEndpointQueryOptions,
 } from '@wp-typia/rest/react';
 
 import type {
-	PersistenceCounterBootstrapQuery,
-	PersistenceCounterBootstrapResponse,
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterQuery,
-	PersistenceCounterResponse,
+  PersistenceCounterBootstrapQuery,
+  PersistenceCounterBootstrapResponse,
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterQuery,
+  PersistenceCounterResponse,
 } from './api-types';
 import {
-	counterBootstrapEndpoint,
-	counterEndpoint,
-	incrementCounterEndpoint,
+  counterBootstrapEndpoint,
+  counterEndpoint,
+  incrementCounterEndpoint,
 } from './api';
 
-interface CounterMutationContext< Context > {
-	previous: PersistenceCounterResponse | undefined;
-	userContext: Context | undefined;
+interface CounterMutationContext<Context> {
+  previous: PersistenceCounterResponse | undefined;
+  userContext: Context | undefined;
 }
 
 export type UsePersistenceCounterQueryOptions<
@@ -48,15 +48,15 @@ export interface UseIncrementCounterMutationOptions< Context = unknown >
 		>,
 		'invalidate' | 'onError' | 'onMutate'
 	> {
-	onError?: (
+  onError?: (
 		error: unknown,
 		request: PersistenceCounterIncrementRequest,
 		client: import('@wp-typia/rest/react').EndpointDataClient,
-		context: Context | undefined
+		context: Context | undefined,
 	) => void | Promise< void >;
-	onMutate?: (
+  onMutate?: (
 		request: PersistenceCounterIncrementRequest,
-		client: import('@wp-typia/rest/react').EndpointDataClient
+		client: import('@wp-typia/rest/react').EndpointDataClient,
 	) => Context | Promise< Context >;
 }
 
@@ -64,26 +64,26 @@ export function usePersistenceCounterQuery<
 	Selected = PersistenceCounterResponse,
 >(
 	request: PersistenceCounterQuery,
-	options: UsePersistenceCounterQueryOptions< Selected > = {}
+	options: UsePersistenceCounterQueryOptions< Selected > = {},
 ) {
-	return useEndpointQuery( counterEndpoint, request, options );
+  return useEndpointQuery( counterEndpoint, request, options );
 }
 
 export function usePersistenceCounterBootstrapQuery<
 	Selected = PersistenceCounterBootstrapResponse,
 >(
 	request: PersistenceCounterBootstrapQuery,
-	options: UsePersistenceCounterBootstrapQueryOptions< Selected > = {}
+	options: UsePersistenceCounterBootstrapQueryOptions< Selected > = {},
 ) {
-	return useEndpointQuery( counterBootstrapEndpoint, request, options );
+  return useEndpointQuery( counterBootstrapEndpoint, request, options );
 }
 
 export function useIncrementCounterMutation< Context = unknown >(
-	options: UseIncrementCounterMutationOptions< Context > = {}
+	options: UseIncrementCounterMutationOptions< Context > = {},
 ) {
-	const { onError, onMutate, ...mutationOptions } = options;
+  const { onError, onMutate, ...mutationOptions } = options;
 
-	return useEndpointMutation( incrementCounterEndpoint, {
+  return useEndpointMutation( incrementCounterEndpoint, {
 		...mutationOptions,
 		invalidate: ( _data, request ) => ( {
 			endpoint: counterEndpoint,
@@ -100,7 +100,7 @@ export function useIncrementCounterMutation< Context = unknown >(
 						postId: request.postId,
 						resourceKey: request.resourceKey,
 					},
-					context.previous
+					context.previous,
 				);
 			}
 
@@ -123,7 +123,7 @@ export function useIncrementCounterMutation< Context = unknown >(
 						...current,
 						count: Math.max(
 							0,
-							current.count + ( request.delta ?? 1 )
+							current.count + ( request.delta ?? 1 ),
 						),
 					};
 				} );

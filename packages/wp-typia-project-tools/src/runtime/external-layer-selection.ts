@@ -1,1 +1,1 @@
-export * from "./templates/external-layer-selection.js";
+export * from './templates/external-layer-selection.js';

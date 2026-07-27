@@ -1,1 +1,1 @@
-export * from "./workspace/workspace-inventory-mutations.js";
+export * from './workspace/workspace-inventory-mutations.js';

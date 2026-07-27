@@ -1,15 +1,15 @@
 /* eslint-disable no-console */
-import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { createRequire } from "node:module";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { promisify } from "node:util";
+import { execFile } from 'node:child_process';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
-import type { ILlmFunction, ILlmStructuredOutput } from "typia";
-import { BLOCKS } from "../../persistence-examples/scripts/block-config";
-import type { EndpointManifestDefinition } from "../../../packages/wp-typia-block-runtime/src/metadata-core";
-import type { OpenApiDocument } from "@wp-typia/project-tools/schema-core";
+import type { ILlmFunction, ILlmStructuredOutput } from 'typia';
+import { BLOCKS } from '../../persistence-examples/scripts/block-config';
+import type { EndpointManifestDefinition } from '../../../packages/wp-typia-block-runtime/src/metadata-core';
+import type { OpenApiDocument } from '@wp-typia/project-tools/schema-core';
 import {
   buildTypiaLlmEndpointMethodDescriptors,
   projectTypiaLlmStructuredOutputArtifact,
@@ -19,13 +19,13 @@ import {
   type ProjectedTypiaLlmApplicationArtifact,
   type ProjectedTypiaLlmStructuredOutputArtifact,
   type TypiaLlmEndpointMethodDescriptor,
-} from "@wp-typia/project-tools/typia-llm";
+} from '@wp-typia/project-tools/typia-llm';
 
 export type {
   ProjectedTypiaLlmApplicationArtifact,
   ProjectedTypiaLlmStructuredOutputArtifact,
   ProjectedTypiaLlmStructuredOutputArtifact as ProjectedTypiaStructuredOutputArtifact,
-} from "@wp-typia/project-tools/typia-llm";
+} from '@wp-typia/project-tools/typia-llm';
 
 const execFileAsync = promisify(execFile);
 
@@ -39,12 +39,12 @@ interface GeneratedArtifactFile {
 }
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const EXAMPLE_ROOT = path.resolve(SCRIPT_DIR, "..");
+const EXAMPLE_ROOT = path.resolve(SCRIPT_DIR, '..');
 const COUNTER_BLOCK = (() => {
-  const block = BLOCKS.find((candidate) => candidate.slug === "counter");
+  const block = BLOCKS.find((candidate) => candidate.slug === 'counter');
   if (!block) {
     throw new Error(
-      "Unable to locate the persistence counter block configuration."
+      'Unable to locate the persistence counter block configuration.',
     );
   }
 
@@ -53,72 +53,72 @@ const COUNTER_BLOCK = (() => {
 const COUNTER_LLM_MANIFEST: EndpointManifestDefinition = {
   ...COUNTER_BLOCK.restManifest,
   endpoints: COUNTER_BLOCK.restManifest.endpoints.filter(
-    (endpoint) => endpoint.operationId !== "getPersistenceCounterBootstrap"
+    (endpoint) => endpoint.operationId !== 'getPersistenceCounterBootstrap',
   ),
 };
 
-const GENERATED_DIR = path.join(EXAMPLE_ROOT, "src", "typia-llm");
+const GENERATED_DIR = path.join(EXAMPLE_ROOT, 'src', 'typia-llm');
 const GENERATED_SOURCE_FILE = path.join(
   GENERATED_DIR,
-  "counter.llm.generated.ts"
+  'counter.llm.generated.ts',
 );
 const GENERATED_APPLICATION_FILE = path.join(
   GENERATED_DIR,
-  "counter.llm.application.json"
+  'counter.llm.application.json',
 );
 const GENERATED_STRUCTURED_OUTPUT_FILE = path.join(
   GENERATED_DIR,
-  "counter-response.structured-output.json"
+  'counter-response.structured-output.json',
 );
-const COMPILED_OUTPUT_DIR = path.join(EXAMPLE_ROOT, ".typia-llm-dist");
-const TSCONFIG_FILE = path.join(EXAMPLE_ROOT, "tsconfig.typia-llm.json");
+const COMPILED_OUTPUT_DIR = path.join(EXAMPLE_ROOT, '.typia-llm-dist');
+const TSCONFIG_FILE = path.join(EXAMPLE_ROOT, 'tsconfig.typia-llm.json');
 export const COUNTER_LLM_GENERATED_SOURCE_RELATIVE_PATH = path.relative(
   EXAMPLE_ROOT,
-  GENERATED_SOURCE_FILE
+  GENERATED_SOURCE_FILE,
 );
 export const COUNTER_LLM_APPLICATION_RELATIVE_PATH = path.relative(
   EXAMPLE_ROOT,
-  GENERATED_APPLICATION_FILE
+  GENERATED_APPLICATION_FILE,
 );
 export const COUNTER_LLM_STRUCTURED_OUTPUT_RELATIVE_PATH = path.relative(
   EXAMPLE_ROOT,
-  GENERATED_STRUCTURED_OUTPUT_FILE
+  GENERATED_STRUCTURED_OUTPUT_FILE,
 );
 
 function getCounterApiTypesFile(): string {
   return path.resolve(
     EXAMPLE_ROOT,
-    "..",
-    "persistence-examples",
-    "src",
-    "blocks",
-    "counter",
-    "api-types.ts"
+    '..',
+    'persistence-examples',
+    'src',
+    'blocks',
+    'counter',
+    'api-types.ts',
   );
 }
 
 function getCounterAiSchemaFile(): string {
   return path.resolve(
     EXAMPLE_ROOT,
-    "..",
-    "persistence-examples",
-    "src",
-    "blocks",
-    "counter",
-    "wordpress-ai",
-    "counter-response.ai.schema.json"
+    '..',
+    'persistence-examples',
+    'src',
+    'blocks',
+    'counter',
+    'wordpress-ai',
+    'counter-response.ai.schema.json',
   );
 }
 
 function getCounterOpenApiFile(): string {
   return path.resolve(
     EXAMPLE_ROOT,
-    "..",
-    "persistence-examples",
-    "src",
-    "blocks",
-    "counter",
-    "api.openapi.json"
+    '..',
+    'persistence-examples',
+    'src',
+    'blocks',
+    'counter',
+    'api.openapi.json',
   );
 }
 
@@ -126,10 +126,10 @@ function toPosixRelativePath(fromFile: string, targetFile: string): string {
   const relative = path
     .relative(path.dirname(fromFile), targetFile)
     .split(path.sep)
-    .join("/");
-  return relative.startsWith(".")
-    ? relative.replace(/\.ts$/, "")
-    : `./${relative.replace(/\.ts$/, "")}`;
+    .join('/');
+  return relative.startsWith('.')
+    ? relative.replace(/\.ts$/, '')
+    : `./${relative.replace(/\.ts$/, '')}`;
 }
 
 function parseCliOptions(argv: string[]): SyncTypiaLlmCliOptions {
@@ -138,7 +138,7 @@ function parseCliOptions(argv: string[]): SyncTypiaLlmCliOptions {
   };
 
   for (const argument of argv) {
-    if (argument === "--check") {
+    if (argument === '--check') {
       options.check = true;
       continue;
     }
@@ -150,20 +150,20 @@ function parseCliOptions(argv: string[]): SyncTypiaLlmCliOptions {
 }
 
 function normalizeGeneratedArtifactContentForComparison(
-  content: string
+  content: string,
 ): string {
-  return content.replace(/\r\n?/g, "\n");
+  return content.replace(/\r\n?/g, '\n');
 }
 
 async function reconcileGeneratedArtifacts(
   artifacts: readonly GeneratedArtifactFile[],
-  options: SyncTypiaLlmCliOptions
+  options: SyncTypiaLlmCliOptions,
 ) {
   if (options.check !== true) {
     await mkdir(GENERATED_DIR, { recursive: true });
 
     for (const artifact of artifacts) {
-      await writeFile(artifact.path, artifact.content, "utf8");
+      await writeFile(artifact.path, artifact.content, 'utf8');
     }
 
     return;
@@ -173,7 +173,7 @@ async function reconcileGeneratedArtifacts(
 
   for (const artifact of artifacts) {
     try {
-      const current = await readFile(artifact.path, "utf8");
+      const current = await readFile(artifact.path, 'utf8');
       if (
         normalizeGeneratedArtifactContentForComparison(current) !==
         normalizeGeneratedArtifactContentForComparison(artifact.content)
@@ -183,9 +183,9 @@ async function reconcileGeneratedArtifacts(
     } catch (error) {
       if (
         error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "ENOENT"
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
       ) {
         issues.push(`- ${artifact.path} (missing)`);
         continue;
@@ -197,14 +197,14 @@ async function reconcileGeneratedArtifacts(
 
   if (issues.length > 0) {
     throw new Error(
-      `Generated artifacts are missing or stale:\n${issues.join("\n")}`
+      `Generated artifacts are missing or stale:\n${issues.join('\n')}`,
     );
   }
 }
 
 async function readCounterOpenApiDocument(): Promise<OpenApiDocument> {
   return JSON.parse(
-    await readFile(getCounterOpenApiFile(), "utf8")
+    await readFile(getCounterOpenApiFile(), 'utf8'),
   ) as OpenApiDocument;
 }
 
@@ -221,10 +221,23 @@ async function importCompiledModule(moduleFile: string): Promise<{
 
 async function compileGeneratedModule() {
   const require = createRequire(import.meta.url);
-  const tspcBin = require.resolve("ts-patch/bin/tspc.js");
+  const ttscPackageJsonPath = require.resolve('ttsc/package.json');
+  const ttscManifest = JSON.parse(
+    await readFile(ttscPackageJsonPath, 'utf8'),
+  ) as {
+    bin?: string | Record<string, string>;
+  };
+  const ttscBinEntry =
+    typeof ttscManifest.bin === 'string'
+      ? ttscManifest.bin
+      : ttscManifest.bin?.ttsc;
+  if (typeof ttscBinEntry !== 'string' || ttscBinEntry.length === 0) {
+    throw new Error('Unable to locate the ttsc CLI entry point.');
+  }
+  const ttscBin = path.resolve(path.dirname(ttscPackageJsonPath), ttscBinEntry);
 
   await rm(COMPILED_OUTPUT_DIR, { force: true, recursive: true });
-  await execFileAsync("node", [tspcBin, "-p", TSCONFIG_FILE], {
+  await execFileAsync('node', [ttscBin, '-p', TSCONFIG_FILE], {
     cwd: EXAMPLE_ROOT,
     env: process.env,
   });
@@ -233,31 +246,31 @@ async function compileGeneratedModule() {
 function getCompiledModuleFile(): string {
   return path.join(
     COMPILED_OUTPUT_DIR,
-    "api-contract-adapter-poc",
-    "src",
-    "typia-llm",
-    "counter.llm.generated.js"
+    'api-contract-adapter-poc',
+    'src',
+    'typia-llm',
+    'counter.llm.generated.js',
   );
 }
 
 export function buildCounterTypiaLlmMethodDescriptors(
-  manifest: EndpointManifestDefinition = COUNTER_LLM_MANIFEST
+  manifest: EndpointManifestDefinition = COUNTER_LLM_MANIFEST,
 ): TypiaLlmEndpointMethodDescriptor[] {
   return buildTypiaLlmEndpointMethodDescriptors(manifest);
 }
 
 export function renderCounterTypiaLlmGeneratedSource(
-  manifest: EndpointManifestDefinition = COUNTER_LLM_MANIFEST
+  manifest: EndpointManifestDefinition = COUNTER_LLM_MANIFEST,
 ): string {
   return renderTypiaLlmModule({
-    applicationExportName: "counterLlmApplication",
-    interfaceName: "CounterRestToolController",
+    applicationExportName: 'counterLlmApplication',
+    interfaceName: 'CounterRestToolController',
     manifest,
-    structuredOutputExportName: "counterResponseStructuredOutput",
-    structuredOutputTypeName: "PersistenceCounterResponse",
+    structuredOutputExportName: 'counterResponseStructuredOutput',
+    structuredOutputTypeName: 'PersistenceCounterResponse',
     typesImportPath: toPosixRelativePath(
       GENERATED_SOURCE_FILE,
-      getCounterApiTypesFile()
+      getCounterApiTypesFile(),
     ),
   });
 }
@@ -278,10 +291,10 @@ export async function buildCounterTypiaLlmArtifacts(): Promise<{
         generatedFrom: {
           baselineOpenApiPath: path.relative(
             EXAMPLE_ROOT,
-            getCounterOpenApiFile()
+            getCounterOpenApiFile(),
           ),
           blockSlug: COUNTER_BLOCK.slug,
-          manifestSource: "endpoint-manifest+typescript",
+          manifestSource: 'endpoint-manifest+typescript',
         },
         openApiProjection: {
           openApiDocument,
@@ -291,7 +304,7 @@ export async function buildCounterTypiaLlmArtifacts(): Promise<{
         generatedFrom: {
           aiSchemaPath: path.relative(EXAMPLE_ROOT, getCounterAiSchemaFile()),
           blockSlug: COUNTER_BLOCK.slug,
-          outputTypeName: "PersistenceCounterResponse",
+          outputTypeName: 'PersistenceCounterResponse',
         },
         structuredOutput: compiledModule.counterResponseStructuredOutput,
       }),
@@ -302,19 +315,19 @@ export async function buildCounterTypiaLlmArtifacts(): Promise<{
 }
 
 export async function syncCounterTypiaLlmArtifacts(
-  options: SyncTypiaLlmCliOptions = { check: false }
+  options: SyncTypiaLlmCliOptions = { check: false },
 ) {
   await syncTypiaLlmAdapterModule({
-    applicationExportName: "counterLlmApplication",
+    applicationExportName: 'counterLlmApplication',
     check: options.check,
     generatedSourceFile: GENERATED_SOURCE_FILE,
-    interfaceName: "CounterRestToolController",
+    interfaceName: 'CounterRestToolController',
     manifest: COUNTER_LLM_MANIFEST,
-    structuredOutputExportName: "counterResponseStructuredOutput",
-    structuredOutputTypeName: "PersistenceCounterResponse",
+    structuredOutputExportName: 'counterResponseStructuredOutput',
+    structuredOutputTypeName: 'PersistenceCounterResponse',
     typesImportPath: toPosixRelativePath(
       GENERATED_SOURCE_FILE,
-      getCounterApiTypesFile()
+      getCounterApiTypesFile(),
     ),
   });
 
@@ -324,15 +337,15 @@ export async function syncCounterTypiaLlmArtifacts(
   await reconcileGeneratedArtifacts(
     [
       {
-        content: JSON.stringify(applicationArtifact, null, 2) + "\n",
+        content: JSON.stringify(applicationArtifact, null, 2) + '\n',
         path: GENERATED_APPLICATION_FILE,
       },
       {
-        content: JSON.stringify(structuredOutputArtifact, null, 2) + "\n",
+        content: JSON.stringify(structuredOutputArtifact, null, 2) + '\n',
         path: GENERATED_STRUCTURED_OUTPUT_FILE,
       },
     ],
-    options
+    options,
   );
 }
 
@@ -347,12 +360,12 @@ if (entrypoint === import.meta.url) {
       await syncCounterTypiaLlmArtifacts(options);
       console.log(
         options.check
-          ? "✅ typia.llm artifacts are already up to date!"
-          : "✅ typia.llm artifacts generated from the REST manifest and Typia contracts!"
+          ? '✅ typia.llm artifacts are already up to date!'
+          : '✅ typia.llm artifacts generated from the REST manifest and Typia contracts!',
       );
     })
     .catch((error) => {
-      console.error("❌ typia.llm sync failed:", error);
+      console.error('❌ typia.llm sync failed:', error);
       process.exit(1);
     });
 }

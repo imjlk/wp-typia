@@ -1,1 +1,1 @@
-export * from "./templates/starter-manifests.js";
+export * from './templates/starter-manifests.js';

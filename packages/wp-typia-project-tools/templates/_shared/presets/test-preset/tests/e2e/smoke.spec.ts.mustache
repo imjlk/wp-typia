@@ -1,34 +1,36 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from '@playwright/test';
 
-const BLOCK_NAME = "{{namespace}}/{{slugKebabCase}}";
-const BLOCK_TITLE = "{{title}}";
+const BLOCK_NAME = '{{namespace}}/{{slugKebabCase}}';
+const BLOCK_TITLE = '{{title}}';
 
-test("registers the scaffolded block in the WordPress editor", async ({ page }) => {
-	await page.goto("/wp-login.php");
-	await page.getByLabel("Username or Email Address").fill("admin");
-	await page.getByLabel("Password").fill("password");
-	await page.getByRole("button", { name: "Log In" }).click();
+test('registers the scaffolded block in the WordPress editor', async ({
+  page,
+}) => {
+  await page.goto('/wp-login.php');
+  await page.getByLabel('Username or Email Address').fill('admin');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Log In' }).click();
 
-	await page.goto("/wp-admin/post-new.php");
-	await page.waitForLoadState("networkidle");
+  await page.goto('/wp-admin/post-new.php');
+  await page.waitForLoadState('networkidle');
 
-	await page.waitForFunction(
-		(blockName) => Boolean(window.wp?.blocks?.getBlockType(blockName)),
-		BLOCK_NAME,
-	);
+  await page.waitForFunction(
+    (blockName) => Boolean(window.wp?.blocks?.getBlockType(blockName)),
+    BLOCK_NAME,
+  );
 
-	const registeredBlock = await page.evaluate((blockName) => {
-		const block = window.wp?.blocks?.getBlockType(blockName);
-		return block
-			? {
-					name: block.name,
-					title: block.title,
-				}
-			: null;
-	}, BLOCK_NAME);
+  const registeredBlock = await page.evaluate((blockName) => {
+    const block = window.wp?.blocks?.getBlockType(blockName);
+    return block
+      ? {
+          name: block.name,
+          title: block.title,
+        }
+      : null;
+  }, BLOCK_NAME);
 
-	expect(registeredBlock).toEqual({
-		name: BLOCK_NAME,
-		title: BLOCK_TITLE,
-	});
+  expect(registeredBlock).toEqual({
+    name: BLOCK_NAME,
+    title: BLOCK_TITLE,
+  });
 });

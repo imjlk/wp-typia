@@ -313,7 +313,7 @@ export interface BlockAttributes {
         typesFile: 'src/types.ts',
       }),
     ).rejects.toThrow(
-      `Type '"attribute"' does not satisfy the constraint '"html" | "text" | "rich-text"'`,
+      /Type '"attribute"' does not satisfy the constraint '(?:WpTypiaSourceValue|"html" \| "text" \| "rich-text")'\./u,
     );
   });
 

@@ -1,5 +1,8 @@
 import path from 'node:path';
-import { buildInitCompletionPayload, printCompletionPayload } from './runtime-bridge-output';
+import {
+  buildInitCompletionPayload,
+  printCompletionPayload,
+} from './runtime-bridge-output';
 import type { PrintLine } from './print-line';
 import {
   shouldWrapCliCommandError,

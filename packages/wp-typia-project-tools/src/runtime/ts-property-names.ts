@@ -1,1 +1,1 @@
-export * from "./shared/ts-property-names.js";
+export * from './shared/ts-property-names.js';

@@ -4,8 +4,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { hasPhpBinary } from '../helpers/file-fixtures';
 import {
-	ensureExampleShowcaseSynced,
-	getExampleShowcaseDir,
+  ensureExampleShowcaseSynced,
+  getExampleShowcaseDir,
 } from './helpers/example-showcase';
 
 ensureExampleShowcaseSynced();
@@ -75,7 +75,9 @@ function matchesContractFormat(format: string, value: string): boolean {
     case 'uri':
       return /^https?:\/\/\S+$/.test(value);
     case 'ipv4':
-      return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(value);
+      return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(
+        value,
+      );
     case 'ipv6':
       return /^[0-9a-f:]+$/i.test(value) && value.includes(':');
     case 'date-time':
@@ -90,7 +92,9 @@ function matchesContractTypeTag(typeTag: string, value: number): boolean {
     case 'uint32':
       return Number.isInteger(value) && value >= 0 && value <= 4294967295;
     case 'int32':
-      return Number.isInteger(value) && value >= -2147483648 && value <= 2147483647;
+      return Number.isInteger(
+        value,
+      ) && value >= -2147483648 && value <= 2147483647;
     case 'uint64':
       return Number.isInteger(value) && value >= 0;
     case 'float':
@@ -112,23 +116,26 @@ function matchesContractMultipleOf(value: number, multipleOf: number): boolean {
 
   const remainder = value % multipleOf;
   const epsilon = 1e-9;
-  return Math.abs(remainder) < epsilon || Math.abs(Math.abs(multipleOf) - Math.abs(remainder)) < epsilon;
+  return (
+    Math.abs(remainder) < epsilon ||
+    Math.abs(Math.abs(multipleOf) - Math.abs(remainder)) < epsilon
+  );
 }
 
 function loadExampleContract() {
-	const testTemplateDir = getExampleShowcaseDir();
-	const blockJson = JSON.parse(
-		fs.readFileSync(path.join(testTemplateDir, 'block.json'), 'utf8')
-	) as BlockJsonContract;
-	const manifest = JSON.parse(
-		fs.readFileSync(path.join(testTemplateDir, 'typia.manifest.json'), 'utf8')
-	) as ContractManifest;
+  const testTemplateDir = getExampleShowcaseDir();
+  const blockJson = JSON.parse(
+    fs.readFileSync(path.join(testTemplateDir, 'block.json'), 'utf8'),
+  ) as BlockJsonContract;
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(testTemplateDir, 'typia.manifest.json'), 'utf8'),
+  ) as ContractManifest;
 
-	return { blockJson, manifest };
+  return { blockJson, manifest };
 }
 
 function loadPhpValidatorPath() {
-	return path.join(getExampleShowcaseDir(), 'typia-validator.php');
+  return path.join(getExampleShowcaseDir(), 'typia-validator.php');
 }
 
 function escapePhpSingleQuotedString(value: string): string {
@@ -141,7 +148,9 @@ function validatePayload(
 ): ValidationResult {
   const errors: string[] = [];
 
-  for (const [attributeName, attribute] of Object.entries(manifest.attributes)) {
+  for (const [attributeName, attribute] of Object.entries(
+    manifest.attributes,
+  )) {
     const value = payload[attributeName];
 
     if (value === undefined) {
@@ -177,66 +186,101 @@ function validatePayload(
     }
 
     if (attribute.wp.enum && !attribute.wp.enum.includes(value)) {
-      errors.push(`${attributeName} must be one of ${attribute.wp.enum.join(', ')}`);
+      errors.push(
+        `${attributeName} must be one of ${attribute.wp.enum.join(', ')}`,
+      );
     }
 
     if (typeof value === 'string') {
       if (attribute.typia.constraints.minLength !== null && value.length < attribute.typia.constraints.minLength) {
-        errors.push(`${attributeName} must be at least ${attribute.typia.constraints.minLength} characters`);
+        errors.push(
+          `${attributeName} must be at least ${attribute.typia.constraints.minLength} characters`,
+        );
       }
 
       if (attribute.typia.constraints.maxLength !== null && value.length > attribute.typia.constraints.maxLength) {
-        errors.push(`${attributeName} must be at most ${attribute.typia.constraints.maxLength} characters`);
+        errors.push(
+          `${attributeName} must be at most ${attribute.typia.constraints.maxLength} characters`,
+        );
       }
 
       if (attribute.typia.constraints.pattern !== null) {
         const regex = new RegExp(attribute.typia.constraints.pattern);
         if (!regex.test(value)) {
-          errors.push(`${attributeName} does not match ${attribute.typia.constraints.pattern}`);
+          errors.push(
+            `${attributeName} does not match ${attribute.typia.constraints.pattern}`,
+          );
         }
       }
 
-      if (attribute.typia.constraints.format !== null && !matchesContractFormat(attribute.typia.constraints.format, value)) {
-        errors.push(`${attributeName} must match format ${attribute.typia.constraints.format}`);
+      if (attribute.typia.constraints.format !== null && !matchesContractFormat(
+        attribute.typia.constraints.format,
+        value,
+      )) {
+        errors.push(
+          `${attributeName} must match format ${attribute.typia.constraints.format}`,
+        );
       }
     }
 
     if (typeof value === 'number') {
       if (attribute.typia.constraints.minimum !== null && value < attribute.typia.constraints.minimum) {
-        errors.push(`${attributeName} must be >= ${attribute.typia.constraints.minimum}`);
+        errors.push(
+          `${attributeName} must be >= ${attribute.typia.constraints.minimum}`,
+        );
       }
 
       if (attribute.typia.constraints.maximum !== null && value > attribute.typia.constraints.maximum) {
-        errors.push(`${attributeName} must be <= ${attribute.typia.constraints.maximum}`);
+        errors.push(
+          `${attributeName} must be <= ${attribute.typia.constraints.maximum}`,
+        );
       }
 
       if (attribute.typia.constraints.exclusiveMinimum !== null && value <= attribute.typia.constraints.exclusiveMinimum) {
-        errors.push(`${attributeName} must be > ${attribute.typia.constraints.exclusiveMinimum}`);
+        errors.push(
+          `${attributeName} must be > ${attribute.typia.constraints.exclusiveMinimum}`,
+        );
       }
 
       if (attribute.typia.constraints.exclusiveMaximum !== null && value >= attribute.typia.constraints.exclusiveMaximum) {
-        errors.push(`${attributeName} must be < ${attribute.typia.constraints.exclusiveMaximum}`);
+        errors.push(
+          `${attributeName} must be < ${attribute.typia.constraints.exclusiveMaximum}`,
+        );
       }
 
       if (
         attribute.typia.constraints.multipleOf !== null &&
-        !matchesContractMultipleOf(value, attribute.typia.constraints.multipleOf)
+        !matchesContractMultipleOf(
+          value,
+          attribute.typia.constraints.multipleOf,
+        )
       ) {
-        errors.push(`${attributeName} must be a multiple of ${attribute.typia.constraints.multipleOf}`);
+        errors.push(
+          `${attributeName} must be a multiple of ${attribute.typia.constraints.multipleOf}`,
+        );
       }
 
-      if (attribute.typia.constraints.typeTag !== null && !matchesContractTypeTag(attribute.typia.constraints.typeTag, value)) {
-        errors.push(`${attributeName} must be a ${attribute.typia.constraints.typeTag}`);
+      if (attribute.typia.constraints.typeTag !== null && !matchesContractTypeTag(
+        attribute.typia.constraints.typeTag,
+        value,
+      )) {
+        errors.push(
+          `${attributeName} must be a ${attribute.typia.constraints.typeTag}`,
+        );
       }
     }
 
     if (Array.isArray(value)) {
       if (attribute.typia.constraints.minItems !== null && value.length < attribute.typia.constraints.minItems) {
-        errors.push(`${attributeName} must have at least ${attribute.typia.constraints.minItems} items`);
+        errors.push(
+          `${attributeName} must have at least ${attribute.typia.constraints.minItems} items`,
+        );
       }
 
       if (attribute.typia.constraints.maxItems !== null && value.length > attribute.typia.constraints.maxItems) {
-        errors.push(`${attributeName} must have at most ${attribute.typia.constraints.maxItems} items`);
+        errors.push(
+          `${attributeName} must have at most ${attribute.typia.constraints.maxItems} items`,
+        );
       }
     }
   }
@@ -255,17 +299,27 @@ function runPhpValidator<T extends Record<string, unknown> | unknown[]>(
   const encodedPayload = escapePhpSingleQuotedString(JSON.stringify(payload));
   const phpSource = `if (!defined('ABSPATH')) { define('ABSPATH', '/tmp/wp-typia-test/'); } $validator = require '${escapePhpSingleQuotedString(validatorPath)}'; $payload = json_decode('${encodedPayload}', true); echo json_encode($validator->${method}($payload), JSON_UNESCAPED_SLASHES);`;
 
-  return JSON.parse(execFileSync('php', ['-r', phpSource], { encoding: 'utf8' })) as T;
+  return JSON.parse(
+    execFileSync('php', ['-r', phpSource], { encoding: 'utf8' }),
+  ) as T;
 }
 
 describe('Typia block attribute contract', () => {
   test('keeps block.json defaults aligned with typia.manifest defaults', () => {
     const { blockJson, manifest } = loadExampleContract();
 
-    expect(blockJson.attributes.version.default).toBe(manifest.attributes.version.typia.defaultValue);
-    expect(blockJson.attributes.content.default).toBe(manifest.attributes.content.typia.defaultValue);
-    expect(blockJson.attributes.alignment.default).toBe(manifest.attributes.alignment.typia.defaultValue);
-    expect(blockJson.attributes.isVisible.default).toBe(manifest.attributes.isVisible.typia.defaultValue);
+    expect(blockJson.attributes.version.default).toBe(
+      manifest.attributes.version.typia.defaultValue,
+    );
+    expect(blockJson.attributes.content.default).toBe(
+      manifest.attributes.content.typia.defaultValue,
+    );
+    expect(blockJson.attributes.alignment.default).toBe(
+      manifest.attributes.alignment.typia.defaultValue,
+    );
+    expect(blockJson.attributes.isVisible.default).toBe(
+      manifest.attributes.isVisible.typia.defaultValue,
+    );
   });
 
   test('generates a php validator that applies defaults and passes lint', () => {
@@ -276,9 +330,12 @@ describe('Typia block attribute contract', () => {
     const validatorPath = loadPhpValidatorPath();
     execFileSync('php', ['-l', validatorPath], { stdio: 'ignore' });
 
-    const normalized = runPhpValidator<Record<string, unknown>>('apply_defaults', {
-      content: 'Hello Typia',
-    });
+    const normalized = runPhpValidator<Record<string, unknown>>(
+      'apply_defaults',
+      {
+        content: 'Hello Typia',
+      },
+    );
 
     expect(normalized.version).toBe(1);
     expect(normalized.alignment).toBe('left');
@@ -311,7 +368,9 @@ describe('Typia block attribute contract', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('content must be string');
-    expect(result.errors).toContain('alignment must be one of left, center, right, justify');
+    expect(result.errors).toContain(
+      'alignment must be one of left, center, right, justify',
+    );
   });
 
   test('rejects manifest-only format and length constraint violations', () => {
@@ -334,18 +393,23 @@ describe('Typia block attribute contract', () => {
       return;
     }
 
-    const result = runPhpValidator<{ errors: string[]; valid: boolean }>('validate', {
-      id: 'not-a-uuid',
-      version: -1,
-      content: null,
-      alignment: 'invalid',
-    });
+    const result = runPhpValidator<{ errors: string[]; valid: boolean }>(
+      'validate',
+      {
+        id: 'not-a-uuid',
+        version: -1,
+        content: null,
+        alignment: 'invalid',
+      },
+    );
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain('id must match format uuid');
     expect(result.errors).toContain('version must be a uint32');
     expect(result.errors).toContain('content must be string');
-    expect(result.errors).toContain('alignment must be one of left, center, right, justify');
+    expect(result.errors).toContain(
+      'alignment must be one of left, center, right, justify',
+    );
   });
 
   test('contract helper models additive format, number, and array constraints', () => {
@@ -371,7 +435,12 @@ describe('Typia block attribute contract', () => {
             hasDefault: false,
           },
           ts: { kind: 'string', required: true },
-          wp: { defaultValue: null, enum: null, hasDefault: false, type: 'string' },
+          wp: {
+            defaultValue: null,
+            enum: null,
+            hasDefault: false,
+            type: 'string',
+          },
         },
         opacity: {
           typia: {
@@ -393,7 +462,12 @@ describe('Typia block attribute contract', () => {
             hasDefault: false,
           },
           ts: { kind: 'number', required: true },
-          wp: { defaultValue: null, enum: null, hasDefault: false, type: 'number' },
+          wp: {
+            defaultValue: null,
+            enum: null,
+            hasDefault: false,
+            type: 'number',
+          },
         },
         slides: {
           typia: {
@@ -415,7 +489,12 @@ describe('Typia block attribute contract', () => {
             hasDefault: false,
           },
           ts: { kind: 'array', required: true },
-          wp: { defaultValue: null, enum: null, hasDefault: false, type: 'array' },
+          wp: {
+            defaultValue: null,
+            enum: null,
+            hasDefault: false,
+            type: 'array',
+          },
         },
       },
     };

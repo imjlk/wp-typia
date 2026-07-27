@@ -91,7 +91,11 @@ export function buildAdminViewConfigSource(
   }
 
   if (isAdminViewCoreDataSource(source)) {
-    return buildCoreDataAdminViewConfigSource(adminViewSlug, textDomain, source);
+    return buildCoreDataAdminViewConfigSource(
+      adminViewSlug,
+      textDomain,
+      source,
+    );
   }
 
   return buildDefaultAdminViewConfigSource(adminViewSlug, textDomain);

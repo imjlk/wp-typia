@@ -214,7 +214,10 @@ function resolveOpenApiRequestBodySchema(
   operation: OpenApiOperation,
   document: OpenApiDocument,
 ): JsonSchemaObject | null {
-  const requestBody = resolveOpenApiSchemaObject(document, operation.requestBody);
+  const requestBody = resolveOpenApiSchemaObject(
+    document,
+    operation.requestBody,
+  );
   const content = isJsonSchemaObject(requestBody.content)
     ? requestBody.content
     : null;

@@ -1,13 +1,41 @@
 import { describe, expect, test } from 'bun:test';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import {
+  DEFAULT_LINT_EXTENSIONS,
   LINT_CONFIG_FILES,
+  TYPESCRIPT6_REGISTER_FILE,
   hasExplicitLintTargets,
+  insertPrettierRuleOverride,
 } from '../../scripts/run-wp-scripts-lint-js-compat.mjs';
 
 describe('run-wp-scripts-lint-js-compat', () => {
   test('tracks supported project config filenames for the wp-scripts compat lane', () => {
     expect(LINT_CONFIG_FILES).toContain('.eslintrc.cjs');
+    expect(DEFAULT_LINT_EXTENSIONS).toBe('js,jsx,cjs,mjs');
+    expect(TYPESCRIPT6_REGISTER_FILE).toBe('register-typescript6.cjs');
+  });
+
+  test('preloads the TypeScript 6 compatibility island', () => {
+    const repoRoot = path.resolve(import.meta.dir, '../..');
+    const result = spawnSync(
+      'node',
+      [
+        '--require',
+        path.join(repoRoot, 'scripts', TYPESCRIPT6_REGISTER_FILE),
+        '-e',
+        "process.stdout.write(String(require.resolve('typescript') === require.resolve('@typescript/typescript6')))",
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toBe('true');
   });
 
   test('treats bare positional args as explicit lint targets', () => {
@@ -27,5 +55,14 @@ describe('run-wp-scripts-lint-js-compat', () => {
     expect(
       hasExplicitLintTargets(['--cache-location=.cache/eslint']),
     ).toBe(false);
+  });
+
+  test('keeps the Prettier override before an explicit ESLint option separator', () => {
+    expect(insertPrettierRuleOverride(['--', 'src/index.js'])).toEqual([
+      '--rule',
+      'prettier/prettier: off',
+      '--',
+      'src/index.js',
+    ]);
   });
 });

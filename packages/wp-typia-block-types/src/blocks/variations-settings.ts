@@ -1,20 +1,20 @@
-import type { WordPressCompatibilitySettings } from "./compatibility.js";
-import type { BlockAttributes } from "./shared/block-attributes.js";
+import type { WordPressCompatibilitySettings } from './compatibility.js';
+import type { BlockAttributes } from './shared/block-attributes.js';
 import type {
   BlockVariationDefinition,
   DefineVariationInlineOptions,
   DefineVariationOptions,
   StripDefineVariationOptions,
-} from "./variations.js";
+} from './variations.js';
 
 const DEFINE_VARIATION_INLINE_OPTION_KEYS = new Set<string>([
-  "allowMissingIsActive",
-  "logger",
-  "minVersion",
-  "minWordPress",
-  "onDiagnostic",
-  "requireIsActive",
-  "strict",
+  'allowMissingIsActive',
+  'logger',
+  'minVersion',
+  'minWordPress',
+  'onDiagnostic',
+  'requireIsActive',
+  'strict',
 ]);
 
 export interface ResolvedDefineVariationSettings {
@@ -24,8 +24,8 @@ export interface ResolvedDefineVariationSettings {
     readonly requireIsActive: boolean;
     readonly strict: boolean;
   };
-  readonly logger: DefineVariationOptions["logger"];
-  readonly onDiagnostic: DefineVariationOptions["onDiagnostic"];
+  readonly logger: DefineVariationOptions['logger'];
+  readonly onDiagnostic: DefineVariationOptions['onDiagnostic'];
 }
 
 export function splitDefineVariationInput<

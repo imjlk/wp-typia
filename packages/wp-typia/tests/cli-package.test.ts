@@ -292,7 +292,7 @@ describe('wp-typia package', () => {
         parsed.data?.plan?.packageChanges?.scripts?.map(
           (script) => script.name,
         ),
-      ).toEqual(['sync', 'sync-types', 'typecheck']);
+      ).toEqual(['postinstall', 'sync', 'sync-types', 'typecheck']);
       expect(parsed.data?.projectDir).toBe(fs.realpathSync(fixtureRoot));
       expect(parsed.data?.packageManager).toBe('npm');
       expect(parsed.data?.files).toEqual(
@@ -390,9 +390,9 @@ describe('wp-typia package', () => {
       );
       expect(parsed.data?.completion?.title).toContain('Applied retrofit init');
       expect(packageJson.packageManager).toBe('pnpm@8.3.1');
-      expect(packageJson.scripts?.sync).toBe('tsx scripts/sync-project.ts');
+      expect(packageJson.scripts?.sync).toBe('ttsx scripts/sync-project.ts');
       expect(packageJson.scripts?.typecheck).toBe(
-        'pnpm run sync --check && tsc --noEmit',
+        'pnpm run sync --check && ttsc --noEmit',
       );
       expect(
         fs.existsSync(path.join(fixtureRoot, 'scripts', 'block-config.ts')),

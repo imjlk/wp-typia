@@ -1,1 +1,1 @@
-export * from "./templates/block-generator-service.js";
+export * from './templates/block-generator-service.js';

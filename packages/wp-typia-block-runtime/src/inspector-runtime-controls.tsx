@@ -1,96 +1,102 @@
-import React, {
-	useCallback,
-	useEffect,
-	useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from 'react';
 
 import type {
 	EditorFieldDescriptor,
-} from "./editor.js";
+} from './editor.js';
 import {
-	getFieldValue,
-	toBooleanValue,
-	toNumberValue,
-	toSelectOptions,
-	toStringValue,
-} from "./inspector-runtime-model.js";
+  getFieldValue,
+  toBooleanValue,
+  toNumberValue,
+  toSelectOptions,
+  toStringValue,
+} from './inspector-runtime-model.js';
 import type {
-	FieldControlProps,
-	FieldControlRenderContext,
-	InspectorComponentMap,
-	InspectorFromManifestProps,
-	InspectorSelectOption,
-	PanelBodyLikeProps,
-	RangeControlLikeProps,
-	SelectControlLikeProps,
-	TextControlLikeProps,
-	TextareaControlLikeProps,
-	ToggleControlLikeProps,
-} from "./inspector-runtime-types.js";
+  FieldControlProps,
+  FieldControlRenderContext,
+  InspectorComponentMap,
+  InspectorFromManifestProps,
+  InspectorSelectOption,
+  PanelBodyLikeProps,
+  RangeControlLikeProps,
+  SelectControlLikeProps,
+  TextControlLikeProps,
+  TextareaControlLikeProps,
+  ToggleControlLikeProps,
+} from './inspector-runtime-types.js';
 
 type UnknownRecord = Record<string, unknown>;
 
 function asComponent<TProps>(
 	value: unknown,
 ): React.ElementType<TProps> | undefined {
-	if (
-		typeof value === "function" ||
-		(value !== null && typeof value === "object")
+  if (
+		typeof value === 'function' ||
+		(value !== null && typeof value === 'object')
 	) {
-		return value as React.ElementType<TProps>;
-	}
+    return value as React.ElementType<TProps>;
+  }
 
-	return undefined;
+  return undefined;
 }
 
 function FallbackPanelBody({ children }: PanelBodyLikeProps) {
-	return <>{children}</>;
+  return <>{children}</>;
 }
 
 function getGlobalInspectorComponents(): InspectorComponentMap {
-	const globalScope = globalThis as {
-		window?: { wp?: { components?: UnknownRecord } };
-		wp?: { components?: UnknownRecord };
-	};
-	const componentRegistry =
+  const globalScope = globalThis as {
+    window?: { wp?: { components?: UnknownRecord } };
+    wp?: { components?: UnknownRecord };
+  };
+  const componentRegistry =
 		globalScope.wp?.components ?? globalScope.window?.wp?.components ?? {};
 
-	return {
-		PanelBody: asComponent<PanelBodyLikeProps>(componentRegistry.PanelBody),
-		RangeControl: asComponent<RangeControlLikeProps>(componentRegistry.RangeControl),
-		SelectControl: asComponent<SelectControlLikeProps>(componentRegistry.SelectControl),
-		TextControl: asComponent<TextControlLikeProps>(componentRegistry.TextControl),
-		TextareaControl: asComponent<TextareaControlLikeProps>(componentRegistry.TextareaControl),
-		ToggleControl: asComponent<ToggleControlLikeProps>(componentRegistry.ToggleControl),
-	};
+  return {
+    PanelBody: asComponent<PanelBodyLikeProps>(componentRegistry.PanelBody),
+    RangeControl: asComponent<RangeControlLikeProps>(
+      componentRegistry.RangeControl,
+    ),
+    SelectControl: asComponent<SelectControlLikeProps>(
+      componentRegistry.SelectControl,
+    ),
+    TextControl: asComponent<TextControlLikeProps>(
+      componentRegistry.TextControl,
+    ),
+    TextareaControl: asComponent<TextareaControlLikeProps>(
+      componentRegistry.TextareaControl,
+    ),
+    ToggleControl: asComponent<ToggleControlLikeProps>(
+      componentRegistry.ToggleControl,
+    ),
+  };
 }
 
 function resolveInspectorComponents(
 	components?: InspectorComponentMap,
 ): InspectorComponentMap {
-	return {
-		...getGlobalInspectorComponents(),
-		...(components ?? {}),
-	};
+  return {
+    ...getGlobalInspectorComponents(),
+    ...(components ?? {}),
+  };
 }
 
 function getFieldControlContext(
 	field: EditorFieldDescriptor,
-	props: Omit<FieldControlProps, "components" | "field">,
+	props: Omit<FieldControlProps, 'components' | 'field'>,
 	resolvedComponents: InspectorComponentMap,
 ): FieldControlRenderContext {
-	return {
-		components: resolvedComponents,
-		field,
-		help: props.help,
-		label: props.label ?? field.label,
-		max: props.max ?? field.maximum ?? undefined,
-		min: props.min ?? field.minimum ?? undefined,
-		onChange: props.onChange,
-		options: props.options,
-		step: props.step ?? field.step ?? undefined,
-		value: props.value,
-	};
+  return {
+    components: resolvedComponents,
+    field,
+    help: props.help,
+    label: props.label ?? field.label,
+    max: props.max ?? field.maximum ?? undefined,
+    min: props.min ?? field.minimum ?? undefined,
+    onChange: props.onChange,
+    options: props.options,
+    step: props.step ?? field.step ?? undefined,
+    value: props.value,
+  };
 }
 
 function parseSelectValue(
@@ -98,39 +104,39 @@ function parseSelectValue(
 	value: string,
 	overrideOptions?: readonly InspectorSelectOption[],
 ): string | number | boolean {
-	const matchedOption = field.options.find(
-		(option) => String(option.value) === value,
-	);
-	if (matchedOption) {
-		return matchedOption.value;
-	}
+  const matchedOption = field.options.find(
+    (option) => String(option.value) === value,
+  );
+  if (matchedOption) {
+    return matchedOption.value;
+  }
 
-	if (overrideOptions?.some((option) => option.value === value)) {
-		return value;
-	}
+  if (overrideOptions?.some((option) => option.value === value)) {
+    return value;
+  }
 
-	return value;
+  return value;
 }
 
 function formatNumberDraft(value: unknown): string {
-	return String(toNumberValue(value, 0));
+  return String(toNumberValue(value, 0));
 }
 
 function parseNumberDraft(value: string): number | undefined {
-	const trimmed = value.trim();
-	if (trimmed.length === 0) {
-		return undefined;
-	}
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
 
-	const parsed = Number(trimmed);
-	return Number.isFinite(parsed) ? parsed : undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 interface NumberFieldControlProps {
-	context: FieldControlRenderContext;
-	onChange: (value: unknown) => void;
-	TextControl: React.ElementType<TextControlLikeProps>;
-	value: unknown;
+  context: FieldControlRenderContext;
+  onChange: (value: unknown) => void;
+  TextControl: React.ElementType<TextControlLikeProps>;
+  value: unknown;
 }
 
 function NumberFieldControl({
@@ -139,25 +145,25 @@ function NumberFieldControl({
 	value,
 	TextControl,
 }: NumberFieldControlProps) {
-	const committedDraft = formatNumberDraft(value);
-	const [draft, setDraft] = useState(committedDraft);
+  const committedDraft = formatNumberDraft(value);
+  const [draft, setDraft] = useState(committedDraft);
 
-	useEffect(() => {
-		setDraft(committedDraft);
-	}, [committedDraft]);
+  useEffect(() => {
+    setDraft(committedDraft);
+  }, [committedDraft]);
 
-	const commitDraft = useCallback(() => {
-		const parsed = parseNumberDraft(draft);
-		if (parsed === undefined) {
-			setDraft(committedDraft);
-			return;
-		}
+  const commitDraft = useCallback(() => {
+    const parsed = parseNumberDraft(draft);
+    if (parsed === undefined) {
+      setDraft(committedDraft);
+      return;
+    }
 
-		onChange(parsed);
-		setDraft(String(parsed));
-	}, [committedDraft, draft, onChange]);
+    onChange(parsed);
+    setDraft(String(parsed));
+  }, [committedDraft, draft, onChange]);
 
-	return (
+  return (
 		<TextControl
 			help={context.help}
 			label={context.label}
@@ -180,7 +186,7 @@ function NumberFieldControl({
  * @category React
  */
 export function FieldControl(props: FieldControlProps) {
-	const {
+  const {
 		components,
 		field,
 		help,
@@ -194,38 +200,38 @@ export function FieldControl(props: FieldControlProps) {
 		step,
 		value,
 	} = props;
-	const resolvedComponents = resolveInspectorComponents(components);
-	const context = getFieldControlContext(
-		field,
-		{
-			help,
-			label,
-			max,
-			min,
-			onChange,
-			options,
-			step,
-			value,
-		},
-		resolvedComponents,
-	);
+  const resolvedComponents = resolveInspectorComponents(components);
+  const context = getFieldControlContext(
+    field,
+    {
+      help,
+      label,
+      max,
+      min,
+      onChange,
+      options,
+      step,
+      value,
+    },
+    resolvedComponents,
+  );
 
-	if (render) {
-		return <>{render(context)}</>;
-	}
+  if (render) {
+    return <>{render(context)}</>;
+  }
 
-	if (!field.supported) {
-		return renderUnsupported ? <>{renderUnsupported(context)}</> : null;
-	}
+  if (!field.supported) {
+    return renderUnsupported ? <>{renderUnsupported(context)}</> : null;
+  }
 
-	switch (field.control) {
-		case "toggle": {
-			const ToggleControl = resolvedComponents.ToggleControl;
-			if (!ToggleControl) {
-				return null;
-			}
+  switch (field.control) {
+    case 'toggle': {
+      const ToggleControl = resolvedComponents.ToggleControl;
+      if (!ToggleControl) {
+        return null;
+      }
 
-			return (
+      return (
 				<ToggleControl
 					checked={toBooleanValue(value, false)}
 					help={context.help}
@@ -235,17 +241,17 @@ export function FieldControl(props: FieldControlProps) {
 					}}
 				/>
 			);
-		}
-		case "select": {
-			const SelectControl = resolvedComponents.SelectControl;
-			if (!SelectControl) {
-				return null;
-			}
+    }
+    case 'select': {
+      const SelectControl = resolvedComponents.SelectControl;
+      if (!SelectControl) {
+        return null;
+      }
 
-			const selectOptions =
+      const selectOptions =
 				context.options ?? toSelectOptions(field.options);
 
-			return (
+      return (
 				<SelectControl
 					help={context.help}
 					label={context.label}
@@ -253,24 +259,24 @@ export function FieldControl(props: FieldControlProps) {
 						onChange(parseSelectValue(field, nextValue, context.options));
 					}}
 					options={selectOptions}
-					value={String(value ?? "")}
+					value={String(value ?? '')}
 				/>
 			);
-		}
-		case "range": {
-			const RangeControl = resolvedComponents.RangeControl;
-			if (!RangeControl) {
-				return null;
-			}
+    }
+    case 'range': {
+      const RangeControl = resolvedComponents.RangeControl;
+      if (!RangeControl) {
+        return null;
+      }
 
-			return (
+      return (
 				<RangeControl
 					help={context.help}
 					label={context.label}
 					max={context.max}
 					min={context.min}
 					onChange={(nextValue) => {
-						if (typeof nextValue === "number" && Number.isFinite(nextValue)) {
+						if (typeof nextValue === 'number' && Number.isFinite(nextValue)) {
 							onChange(nextValue);
 						}
 					}}
@@ -278,14 +284,14 @@ export function FieldControl(props: FieldControlProps) {
 					value={toNumberValue(value, 0)}
 				/>
 			);
-		}
-		case "number": {
-			const TextControl = resolvedComponents.TextControl;
-			if (!TextControl) {
-				return null;
-			}
+    }
+    case 'number': {
+      const TextControl = resolvedComponents.TextControl;
+      if (!TextControl) {
+        return null;
+      }
 
-			return (
+      return (
 				<NumberFieldControl
 					context={context}
 					onChange={onChange}
@@ -293,44 +299,44 @@ export function FieldControl(props: FieldControlProps) {
 					value={value}
 				/>
 			);
-		}
-		case "textarea": {
-			const TextareaControl = resolvedComponents.TextareaControl;
-			if (!TextareaControl) {
-				return null;
-			}
+    }
+    case 'textarea': {
+      const TextareaControl = resolvedComponents.TextareaControl;
+      if (!TextareaControl) {
+        return null;
+      }
 
-			return (
+      return (
 				<TextareaControl
 					help={context.help}
 					label={context.label}
 					onChange={(nextValue) => {
 						onChange(nextValue);
 					}}
-					value={toStringValue(value, "")}
+					value={toStringValue(value, '')}
 				/>
 			);
-		}
-		case "text": {
-			const TextControl = resolvedComponents.TextControl;
-			if (!TextControl) {
-				return null;
-			}
+    }
+    case 'text': {
+      const TextControl = resolvedComponents.TextControl;
+      if (!TextControl) {
+        return null;
+      }
 
-			return (
+      return (
 				<TextControl
 					help={context.help}
 					label={context.label}
 					onChange={(nextValue) => {
 						onChange(nextValue);
 					}}
-					value={toStringValue(value, "")}
+					value={toStringValue(value, '')}
 				/>
 			);
-		}
-		default:
-			return renderUnsupported ? <>{renderUnsupported(context)}</> : null;
-	}
+    }
+    default:
+      return renderUnsupported ? <>{renderUnsupported(context)}</> : null;
+  }
 }
 
 /**
@@ -343,7 +349,7 @@ export function FieldControl(props: FieldControlProps) {
 export function InspectorFromManifest<T extends object>(
 	props: InspectorFromManifestProps<T>,
 ) {
-	const {
+  const {
 		attributes,
 		children,
 		components,
@@ -354,9 +360,9 @@ export function InspectorFromManifest<T extends object>(
 		paths,
 		title,
 	} = props;
-	const resolvedComponents = resolveInspectorComponents(components);
-	const PanelBody = resolvedComponents.PanelBody ?? FallbackPanelBody;
-	const fieldControls = paths
+  const resolvedComponents = resolveInspectorComponents(components);
+  const PanelBody = resolvedComponents.PanelBody ?? FallbackPanelBody;
+  const fieldControls = paths
 		.map((path) => {
 			const field = fieldLookup.getField(path);
 			if (!field) {
@@ -387,7 +393,7 @@ export function InspectorFromManifest<T extends object>(
 		})
 		.filter(Boolean);
 
-	return (
+  return (
 		<PanelBody initialOpen={initialOpen} title={title}>
 			{fieldControls}
 			{children}

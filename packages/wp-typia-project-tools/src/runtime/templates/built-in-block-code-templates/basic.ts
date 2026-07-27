@@ -46,9 +46,11 @@ function Edit({ attributes, setAttributes }: EditProps) {
   const classNameField = editorFields.getField('className');
   const { errorMessages, isValid } = useTypiaValidation(
     attributes,
-    validate{{pascalCase}}Attributes
+    validate{{pascalCase}}Attributes,
   );
-  const validateEditorUpdate = (nextAttributes: {{pascalCase}}Attributes) => {
+  const validateEditorUpdate = (
+    nextAttributes: {{pascalCase}}Attributes,
+  ) => {
     try {
       return {
         data: sanitize{{pascalCase}}Attributes(nextAttributes),
@@ -62,7 +64,7 @@ function Edit({ attributes, setAttributes }: EditProps) {
   const { updateField } = useTypedAttributeUpdater(
     attributes,
     setAttributes,
-    validateEditorUpdate
+    validateEditorUpdate,
   );
 
   return (
@@ -79,19 +81,30 @@ function Edit({ attributes, setAttributes }: EditProps) {
             label={__('Content', '{{textDomain}}')}
             value={attributes.content || ''}
             onChange={(value) => updateField('content', value)}
-            help={__('Mirrors the main block content.', '{{textDomain}}')}
+            help={__(
+              'Mirrors the main block content.',
+              '{{textDomain}}',
+            )}
           />
 
           <TextControl
-            label={classNameField?.label || __('CSS Class', '{{textDomain}}')}
+            label={
+              classNameField?.label || __('CSS Class', '{{textDomain}}')
+            }
             value={attributes.className || ''}
             onChange={(value) => updateField('className', value)}
-            help={__('Add an optional CSS class name.', '{{textDomain}}')}
+            help={__(
+              'Add an optional CSS class name.',
+              '{{textDomain}}',
+            )}
           />
         </InspectorFromManifest>
 
         {!isValid && (
-          <PanelBody title={__('Validation Errors', '{{textDomain}}')} initialOpen>
+          <PanelBody
+            title={__('Validation Errors', '{{textDomain}}')}
+            initialOpen
+          >
             {errorMessages.map((error, index) => (
               <div key={index} style={validationErrorItemStyle}>
                 • {error}
@@ -113,7 +126,9 @@ function Edit({ attributes, setAttributes }: EditProps) {
         {!isValid && (
           <Notice status="error" isDismissible={false}>
             <p>
-              <strong>{__('Validation Errors', '{{textDomain}}')}</strong>
+              <strong>
+                {__('Validation Errors', '{{textDomain}}')}
+              </strong>
             </p>
             <ul style={validationListStyle}>
               {errorMessages.map((error, index) => (
@@ -198,7 +213,9 @@ const scaffoldSupports = {
 
 // Register the block
 const registration = buildScaffoldBlockRegistration(
-  parseScaffoldBlockMetadata<BlockConfiguration<{{pascalCase}}Attributes>>(metadata),
+  parseScaffoldBlockMetadata<
+    BlockConfiguration<{{pascalCase}}Attributes>
+  >(metadata),
   {
     supports: scaffoldSupports,
     example: {
@@ -206,35 +223,39 @@ const registration = buildScaffoldBlockRegistration(
     },
     edit: Edit,
     save: Save,
-  }
+  },
 );
 
 registerScaffoldBlockType(registration.name, registration.settings);
 `;
 
 export const BASIC_VALIDATORS_TEMPLATE = `import typia from 'typia';
-import currentManifest from "./manifest-defaults-document";
-import { {{pascalCase}}Attributes, {{pascalCase}}ValidationResult } from "./types";
-import { generateBlockId } from "@wp-typia/block-runtime/identifiers";
-import { createTemplateValidatorToolkit } from "./validator-toolkit";
+import currentManifest from './manifest-defaults-document';
+{{validationTypesImport}}
+import { generateBlockId } from '@wp-typia/block-runtime/identifiers';
+import { createTemplateValidatorToolkit } from './validator-toolkit';
 
-const scaffoldValidators = createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
-  assert: typia.createAssert<{{pascalCase}}Attributes>(),
-  clone: typia.misc.createClone<{{pascalCase}}Attributes>() as (
-    value: {{pascalCase}}Attributes,
-  ) => {{pascalCase}}Attributes,
-  is: typia.createIs<{{pascalCase}}Attributes>(),
-  manifest: currentManifest,
-  prune: typia.misc.createPrune<{{pascalCase}}Attributes>(),
-  random: typia.createRandom<{{pascalCase}}Attributes>() as (
-    ...args: unknown[]
-  ) => {{pascalCase}}Attributes,
-  finalize: (normalized) => ({
-    ...normalized,
-    id: normalized.id && normalized.id.length > 0 ? normalized.id : generateBlockId(),
-  }),
-  validate: typia.createValidate<{{pascalCase}}Attributes>(),
-});
+const scaffoldValidators =
+  createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
+    assert: typia.createAssert<{{pascalCase}}Attributes>(),
+    clone: typia.plain.createClone<{{pascalCase}}Attributes>() as (
+      value: {{pascalCase}}Attributes,
+    ) => {{pascalCase}}Attributes,
+    is: typia.createIs<{{pascalCase}}Attributes>(),
+    manifest: currentManifest,
+    prune: typia.plain.createPrune<{{pascalCase}}Attributes>(),
+    random: typia.createRandom<{{pascalCase}}Attributes>() as (
+      ...args: unknown[]
+    ) => {{pascalCase}}Attributes,
+    finalize: (normalized) => ({
+      ...normalized,
+      id:
+        normalized.id && normalized.id.length > 0
+          ? normalized.id
+          : generateBlockId(),
+    }),
+    validate: typia.createValidate<{{pascalCase}}Attributes>(),
+  });
 
 export const validate{{pascalCase}}Attributes =
   scaffoldValidators.validateAttributes as (

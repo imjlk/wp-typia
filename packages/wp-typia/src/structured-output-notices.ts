@@ -32,9 +32,7 @@ export function createAIAgentStructuredOutputNotice(
   }
 
   const agentLabel =
-    detection.aiAgents.length > 0
-      ? detection.aiAgents.join(', ')
-      : 'AI agent';
+    detection.aiAgents.length > 0 ? detection.aiAgents.join(', ') : 'AI agent';
   const envLabel =
     detection.aiAgentEnvVars.length > 0
       ? ` via ${detection.aiAgentEnvVars.join(', ')}`

@@ -1,31 +1,31 @@
 import type {
   WordPressCompatibilitySettings,
   WordPressVersion,
-} from "./compatibility.js";
+} from './compatibility.js';
 import type {
   BindingSourceDefinition,
   BindingSourceVersionGates,
   DefineBindingSourceInlineOptions,
   DefineBindingSourceOptions,
   StripDefineBindingSourceOptions,
-} from "./bindings-core.js";
-import { isObjectRecord } from "./shared/object-utils.js";
+} from './bindings-core.js';
+import { isObjectRecord } from './shared/object-utils.js';
 
 export const DEFINE_BINDING_SOURCE_INLINE_OPTION_KEYS = new Set<string>([
-  "allowUnknownFutureKeys",
-  "editor",
-  "fieldsList",
-  "logger",
-  "minVersion",
-  "minWordPress",
-  "minWordPressEditor",
-  "minWordPressFieldsList",
-  "minWordPressServer",
-  "minWordPressSupportedAttributesFilter",
-  "onDiagnostic",
-  "server",
-  "strict",
-  "supportedAttributesFilter",
+  'allowUnknownFutureKeys',
+  'editor',
+  'fieldsList',
+  'logger',
+  'minVersion',
+  'minWordPress',
+  'minWordPressEditor',
+  'minWordPressFieldsList',
+  'minWordPressServer',
+  'minWordPressSupportedAttributesFilter',
+  'onDiagnostic',
+  'server',
+  'strict',
+  'supportedAttributesFilter',
 ]);
 
 export interface ResolvedDefineBindingSourceSettings {
@@ -38,8 +38,8 @@ export interface ResolvedDefineBindingSourceSettings {
     readonly supportedAttributesFilter: boolean;
   };
   readonly gates: BindingSourceVersionGates;
-  readonly logger: DefineBindingSourceOptions["logger"];
-  readonly onDiagnostic: DefineBindingSourceOptions["onDiagnostic"];
+  readonly logger: DefineBindingSourceOptions['logger'];
+  readonly onDiagnostic: DefineBindingSourceOptions['onDiagnostic'];
   readonly strict: boolean;
 }
 
@@ -91,9 +91,9 @@ export function resolveMinWordPress(
     : {};
   const minVersion =
     options.minVersion ??
-    (typeof optionMinWordPress === "string" ? optionMinWordPress : undefined) ??
+    (typeof optionMinWordPress === 'string' ? optionMinWordPress : undefined) ??
     inlineOptions.minVersion ??
-    (typeof inlineMinWordPress === "string" ? inlineMinWordPress : undefined);
+    (typeof inlineMinWordPress === 'string' ? inlineMinWordPress : undefined);
   const compatibility: WordPressCompatibilitySettings = {
     strict: options.strict ?? inlineOptions.strict ?? true,
   };

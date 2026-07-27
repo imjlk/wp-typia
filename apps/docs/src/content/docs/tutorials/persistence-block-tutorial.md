@@ -6,7 +6,7 @@ This tutorial walks through creating a WordPress block with server-side persiste
 
 ## Prerequisites
 
-- Node.js 20+ installed
+- Node.js 24+ installed
 - WordPress development environment (wp-env or local server)
 - Basic knowledge of TypeScript, React, and WordPress REST API
 - Familiarity with the [Basic Block Tutorial](./basic-block-tutorial.md)

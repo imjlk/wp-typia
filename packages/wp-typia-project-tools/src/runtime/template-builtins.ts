@@ -1,1 +1,1 @@
-export * from "./templates/template-builtins.js";
+export * from './templates/template-builtins.js';

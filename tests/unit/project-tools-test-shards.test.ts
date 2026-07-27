@@ -24,6 +24,22 @@ const packageManifest = JSON.parse(
     'utf8',
   ),
 ) as { scripts?: Record<string, string> };
+const workspaceAddTestSource = fs.readFileSync(
+  path.join(testsRoot, 'workspace-add.test.ts'),
+  'utf8',
+);
+const migrationInitTestSource = fs.readFileSync(
+  path.join(testsRoot, 'migration-init.test.ts'),
+  'utf8',
+);
+const scaffoldBasicTestSource = fs.readFileSync(
+  path.join(testsRoot, 'scaffold-basic.test.ts'),
+  'utf8',
+);
+const scaffoldPersistenceTestSource = fs.readFileSync(
+  path.join(testsRoot, 'scaffold-persistence.test.ts'),
+  'utf8',
+);
 
 describe('Project Tools test shard manifest', () => {
   test('resolves all shards in declaration order', () => {
@@ -55,6 +71,129 @@ describe('Project Tools test shard manifest', () => {
     );
 
     expect(packageTestFiles).toEqual(expectedTestFiles);
+  });
+
+  test('keeps generated workspace builds on the cold-build timeout', () => {
+    expect(workspaceAddTestSource).toContain(
+      'const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedBuildTests = Array.from(
+      workspaceAddTestSource.matchAll(
+        /(?:^|\n)test\([\s\S]*?(?=\ntest\(|\s*$)/g,
+      ),
+      (match) => match[0],
+    ).filter((testSource) =>
+      testSource.includes(
+        "runCli('npm', ['run', 'build'], { cwd: targetDir });",
+      ),
+    );
+
+    expect(generatedBuildTests).toHaveLength(12);
+    for (const testSource of generatedBuildTests) {
+      expect(testSource.trimEnd()).toEndWith(
+        '}, GENERATED_PROJECT_BUILD_TIMEOUT_MS);',
+      );
+    }
+  });
+
+  test('keeps generated migration typechecks on the cold-build timeout', () => {
+    expect(migrationInitTestSource).toContain(
+      'const GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedTypecheckTest =
+      migrationInitTestSource.match(
+        /test\('migrate init keeps deprecated generation compatible[\s\S]*?(?=\ntest\()/,
+      )?.[0] ?? '';
+
+    expect(generatedTypecheckTest).toContain(
+      'typecheckMigrationProject(projectDir, {',
+    );
+    expect(generatedTypecheckTest.trimEnd()).toEndWith(
+      '}, { timeout: GENERATED_PROJECT_TYPECHECK_TIMEOUT_MS });',
+    );
+    expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
+  });
+
+  test('keeps generated interactivity typechecks on the cold-build timeout', () => {
+    expect(scaffoldBasicTestSource).toContain(
+      'const GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    const generatedTypecheckTest =
+      scaffoldBasicTestSource.match(
+        /test\(\n\s*'scaffoldProject creates an interactivity template with typed validation wiring'[\s\S]*?(?=\n\s*test\()/,
+      )?.[0] ?? '';
+
+    expect(generatedTypecheckTest).toContain(
+      'typecheckGeneratedProject(targetDir);',
+    );
+    expect(generatedTypecheckTest.trimEnd()).toEndWith(
+      '{ timeout: GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS },\n  );',
+    );
+    expect(generatedTypecheckTest).not.toContain('timeout: 30_000');
+  });
+
+  test('keeps generated persistence typechecks on the cold-build timeout', () => {
+    expect(scaffoldPersistenceTestSource).toContain(
+      'const GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS = 300_000;',
+    );
+
+    for (const testName of [
+      'scaffoldProject creates a persistence template with signed public writes and explicit storage mode',
+      'scaffoldProject creates a persistence template with authenticated writes by default',
+    ]) {
+      const generatedTypecheckTest =
+        scaffoldPersistenceTestSource.match(
+          new RegExp(
+            `test\\(\\n\\s*'${testName}'[\\s\\S]*?(?=\\n\\s*test\\()`,
+          ),
+        )?.[0] ?? '';
+
+      expect(generatedTypecheckTest).toContain(
+        'typecheckGeneratedProject(targetDir);',
+      );
+      expect(generatedTypecheckTest.trimEnd()).toEndWith(
+        '{ timeout: GENERATED_PERSISTENCE_TYPECHECK_TIMEOUT_MS },\n);',
+      );
+      expect(generatedTypecheckTest).not.toMatch(/timeout: (?:20|30)_000/u);
+    }
+  });
+
+  test('isolates the generated persistence cold sync from its fast adapter integration', () => {
+    expect(scaffoldPersistenceTestSource).toContain(
+      'const GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS = 300_000;',
+    );
+
+    const adapterIntegration =
+      scaffoldPersistenceTestSource.match(
+        /describe\('generated persistence adapter transport',[\s\S]*?(?=\n\s*test\('scaffoldProject supports explicit text-domain overrides)/,
+      )?.[0] ?? '';
+
+    const adapterSetup =
+      adapterIntegration.match(
+        /beforeAll\(async \(\) => \{[\s\S]*?(?=\n\n  afterAll)/,
+      )?.[0] ?? '';
+    expect(adapterSetup).toContain(
+      'beforeAll(async () => {',
+    );
+    expect(adapterSetup).toContain(
+      "runGeneratedScript(targetDir, 'scripts/sync-project.ts');",
+    );
+    expect(adapterSetup).toContain(
+      '}, GENERATED_PERSISTENCE_SYNC_TIMEOUT_MS);',
+    );
+
+    const adapterTest =
+      adapterIntegration.match(
+        /test\(\n\s*'can point at a local adapter stub by editing only src\/transport\.ts'[\s\S]*?(?=\n  \);\n\}\);)/,
+      )?.[0] ?? '';
+    expect(adapterTest).toContain(
+      "'can point at a local adapter stub by editing only src/transport.ts'",
+    );
+    expect(adapterTest).toContain('{ timeout: 20_000 },');
+    expect(adapterTest).not.toContain('scripts/sync-project.ts');
   });
 
   test('rejects missing and unknown selections', () => {

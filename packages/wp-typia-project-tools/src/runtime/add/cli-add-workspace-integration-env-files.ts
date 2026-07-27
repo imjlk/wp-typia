@@ -1,7 +1,7 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
-import { readOptionalUtf8File } from "../shared/fs-async.js";
+import { readOptionalUtf8File } from '../shared/fs-async.js';
 
 /**
  * Append only missing lines to an existing text file, preserving any existing
@@ -15,20 +15,20 @@ export async function appendMissingLines(
 	filePath: string,
 	lines: readonly string[],
 ): Promise<void> {
-	const current = (await readOptionalUtf8File(filePath)) ?? "";
-	const existingLines = new Set(current.split(/\r?\n/u));
-	const missingLines = lines.filter((line) => !existingLines.has(line));
-	if (missingLines.length === 0) {
-		return;
-	}
+  const current = (await readOptionalUtf8File(filePath)) ?? '';
+  const existingLines = new Set(current.split(/\r?\n/u));
+  const missingLines = lines.filter((line) => !existingLines.has(line));
+  if (missingLines.length === 0) {
+    return;
+  }
 
-	const separator = current.length === 0 || current.endsWith("\n") ? "" : "\n";
-	await fsp.mkdir(path.dirname(filePath), { recursive: true });
-	await fsp.writeFile(
-		filePath,
-		`${current}${separator}${missingLines.join("\n")}\n`,
-		"utf8",
-	);
+  const separator = current.length === 0 || current.endsWith('\n') ? '' : '\n';
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  await fsp.writeFile(
+    filePath,
+    `${current}${separator}${missingLines.join('\n')}\n`,
+    'utf8',
+  );
 }
 
 /**
@@ -46,22 +46,22 @@ export async function writeFileIfAbsent({
 	source,
 	warnings,
 }: {
-	filePath: string;
-	source: string;
-	warnings: string[];
+  filePath: string;
+  source: string;
+  warnings: string[];
 }): Promise<void> {
-	await fsp.mkdir(path.dirname(filePath), { recursive: true });
-	try {
-		await fsp.writeFile(filePath, source, { encoding: "utf8", flag: "wx" });
-	} catch (error) {
-		if ((error as { code?: string }).code === "EEXIST") {
-			warnings.push(
-				`Preserved existing ${path.basename(filePath)}; review it manually if you need different local integration settings.`,
-			);
-			return;
-		}
-		throw error;
-	}
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  try {
+    await fsp.writeFile(filePath, source, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if ((error as { code?: string }).code === 'EEXIST') {
+      warnings.push(
+        `Preserved existing ${path.basename(filePath)}; review it manually if you need different local integration settings.`,
+      );
+      return;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -76,15 +76,15 @@ export async function writeNewScaffoldFile(
 	filePath: string,
 	source: string,
 ): Promise<void> {
-	await fsp.mkdir(path.dirname(filePath), { recursive: true });
-	try {
-		await fsp.writeFile(filePath, source, { encoding: "utf8", flag: "wx" });
-	} catch (error) {
-		if ((error as { code?: string }).code === "EEXIST") {
-			throw new Error(
-				`An integration environment scaffold already exists at ${filePath}. Choose a different name.`,
-			);
-		}
-		throw error;
-	}
+  await fsp.mkdir(path.dirname(filePath), { recursive: true });
+  try {
+    await fsp.writeFile(filePath, source, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if ((error as { code?: string }).code === 'EEXIST') {
+      throw new Error(
+        `An integration environment scaffold already exists at ${filePath}. Choose a different name.`,
+      );
+    }
+    throw error;
+  }
 }

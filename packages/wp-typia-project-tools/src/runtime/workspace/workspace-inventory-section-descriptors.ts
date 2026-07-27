@@ -1,66 +1,66 @@
 import {
-	MANUAL_REST_CONTRACT_AUTH_IDS,
-	MANUAL_REST_CONTRACT_HTTP_METHOD_IDS,
-	REST_RESOURCE_METHOD_IDS,
-} from "../add/cli-add-shared.js";
+  MANUAL_REST_CONTRACT_AUTH_IDS,
+  MANUAL_REST_CONTRACT_HTTP_METHOD_IDS,
+  REST_RESOURCE_METHOD_IDS,
+} from '../add/cli-add-shared.js';
 import {
-	ABILITY_CONFIG_ENTRY_MARKER,
-	ABILITIES_CONST_SECTION,
-	ABILITIES_INTERFACE_SECTION,
-	ADMIN_VIEW_CONFIG_ENTRY_MARKER,
-	ADMIN_VIEWS_CONST_SECTION,
-	ADMIN_VIEWS_INTERFACE_SECTION,
-	AI_FEATURES_CONST_SECTION,
-	AI_FEATURES_INTERFACE_SECTION,
-	AI_FEATURE_CONFIG_ENTRY_MARKER,
-	BINDING_SOURCES_CONST_SECTION,
-	BINDING_SOURCES_INTERFACE_SECTION,
-	BINDING_SOURCE_CONFIG_ENTRY_MARKER,
-	BLOCK_CONFIG_ENTRY_MARKER,
-	BLOCK_STYLES_CONST_SECTION,
-	BLOCK_STYLES_INTERFACE_SECTION,
-	BLOCK_STYLE_CONFIG_ENTRY_MARKER,
-	BLOCK_TRANSFORMS_CONST_SECTION,
-	BLOCK_TRANSFORMS_INTERFACE_SECTION,
-	BLOCK_TRANSFORM_CONFIG_ENTRY_MARKER,
-	CONTRACTS_CONST_SECTION,
-	CONTRACTS_INTERFACE_SECTION,
-	CONTRACT_CONFIG_ENTRY_MARKER,
-	EDITOR_PLUGINS_CONST_SECTION,
-	EDITOR_PLUGINS_INTERFACE_SECTION,
-	EDITOR_PLUGIN_CONFIG_ENTRY_MARKER,
-	PATTERNS_CONST_SECTION,
-	PATTERNS_INTERFACE_SECTION,
-	PATTERN_CONFIG_ENTRY_MARKER,
-	POST_META_CONFIG_ENTRY_MARKER,
-	POST_META_CONST_SECTION,
-	POST_META_INTERFACE_SECTION,
-	REST_RESOURCES_CONST_SECTION,
-	REST_RESOURCES_INTERFACE_SECTION,
-	REST_RESOURCE_CONFIG_ENTRY_MARKER,
-	VARIATIONS_CONST_SECTION,
-	VARIATIONS_INTERFACE_SECTION,
-	VARIATION_CONFIG_ENTRY_MARKER,
-} from "./workspace-inventory-templates.js";
+  ABILITY_CONFIG_ENTRY_MARKER,
+  ABILITIES_CONST_SECTION,
+  ABILITIES_INTERFACE_SECTION,
+  ADMIN_VIEW_CONFIG_ENTRY_MARKER,
+  ADMIN_VIEWS_CONST_SECTION,
+  ADMIN_VIEWS_INTERFACE_SECTION,
+  AI_FEATURES_CONST_SECTION,
+  AI_FEATURES_INTERFACE_SECTION,
+  AI_FEATURE_CONFIG_ENTRY_MARKER,
+  BINDING_SOURCES_CONST_SECTION,
+  BINDING_SOURCES_INTERFACE_SECTION,
+  BINDING_SOURCE_CONFIG_ENTRY_MARKER,
+  BLOCK_CONFIG_ENTRY_MARKER,
+  BLOCK_STYLES_CONST_SECTION,
+  BLOCK_STYLES_INTERFACE_SECTION,
+  BLOCK_STYLE_CONFIG_ENTRY_MARKER,
+  BLOCK_TRANSFORMS_CONST_SECTION,
+  BLOCK_TRANSFORMS_INTERFACE_SECTION,
+  BLOCK_TRANSFORM_CONFIG_ENTRY_MARKER,
+  CONTRACTS_CONST_SECTION,
+  CONTRACTS_INTERFACE_SECTION,
+  CONTRACT_CONFIG_ENTRY_MARKER,
+  EDITOR_PLUGINS_CONST_SECTION,
+  EDITOR_PLUGINS_INTERFACE_SECTION,
+  EDITOR_PLUGIN_CONFIG_ENTRY_MARKER,
+  PATTERNS_CONST_SECTION,
+  PATTERNS_INTERFACE_SECTION,
+  PATTERN_CONFIG_ENTRY_MARKER,
+  POST_META_CONFIG_ENTRY_MARKER,
+  POST_META_CONST_SECTION,
+  POST_META_INTERFACE_SECTION,
+  REST_RESOURCES_CONST_SECTION,
+  REST_RESOURCES_INTERFACE_SECTION,
+  REST_RESOURCE_CONFIG_ENTRY_MARKER,
+  VARIATIONS_CONST_SECTION,
+  VARIATIONS_INTERFACE_SECTION,
+  VARIATION_CONFIG_ENTRY_MARKER,
+} from './workspace-inventory-templates.js';
 import {
-	defineInventoryEntryParser,
-	type InventorySectionDescriptor,
-} from "./workspace-inventory-parser-validation.js";
+  defineInventoryEntryParser,
+  type InventorySectionDescriptor,
+} from './workspace-inventory-parser-validation.js';
 import type {
-	WorkspaceAbilityInventoryEntry,
-	WorkspaceAdminViewInventoryEntry,
-	WorkspaceAiFeatureInventoryEntry,
-	WorkspaceBindingSourceInventoryEntry,
-	WorkspaceBlockInventoryEntry,
-	WorkspaceBlockStyleInventoryEntry,
-	WorkspaceBlockTransformInventoryEntry,
-	WorkspaceContractInventoryEntry,
-	WorkspaceEditorPluginInventoryEntry,
-	WorkspacePatternInventoryEntry,
-	WorkspacePostMetaInventoryEntry,
-	WorkspaceRestResourceInventoryEntry,
-	WorkspaceVariationInventoryEntry,
-} from "./workspace-inventory-types.js";
+  WorkspaceAbilityInventoryEntry,
+  WorkspaceAdminViewInventoryEntry,
+  WorkspaceAiFeatureInventoryEntry,
+  WorkspaceBindingSourceInventoryEntry,
+  WorkspaceBlockInventoryEntry,
+  WorkspaceBlockStyleInventoryEntry,
+  WorkspaceBlockTransformInventoryEntry,
+  WorkspaceContractInventoryEntry,
+  WorkspaceEditorPluginInventoryEntry,
+  WorkspacePatternInventoryEntry,
+  WorkspacePostMetaInventoryEntry,
+  WorkspaceRestResourceInventoryEntry,
+  WorkspaceVariationInventoryEntry,
+} from './workspace-inventory-types.js';
 
 /**
  * Descriptor for the required `BLOCKS` inventory section.
@@ -71,25 +71,25 @@ import type {
  * knowledge.
  */
 export const BLOCK_INVENTORY_SECTION: InventorySectionDescriptor = {
-	append: {
-		marker: BLOCK_CONFIG_ENTRY_MARKER,
-		optionKey: "blockEntries",
-	},
-	parse: {
-		entriesKey: "blocks",
-		entry: defineInventoryEntryParser<WorkspaceBlockInventoryEntry>()({
-			entryName: "BLOCKS",
-			fields: [
-				{ key: "apiTypesFile" },
-				{ key: "attributeTypeName" },
-				{ key: "openApiFile" },
-				{ key: "slug", required: true },
-				{ key: "typesFile", required: true },
-			],
-		}),
-		exportName: "BLOCKS",
-		required: true,
-	},
+  append: {
+    marker: BLOCK_CONFIG_ENTRY_MARKER,
+    optionKey: 'blockEntries',
+  },
+  parse: {
+    entriesKey: 'blocks',
+    entry: defineInventoryEntryParser<WorkspaceBlockInventoryEntry>()({
+      entryName: 'BLOCKS',
+      fields: [
+        { key: 'apiTypesFile' },
+        { key: 'attributeTypeName' },
+        { key: 'openApiFile' },
+        { key: 'slug', required: true },
+        { key: 'typesFile', required: true },
+      ],
+    }),
+    exportName: 'BLOCKS',
+    required: true,
+  },
 };
 
 /**
@@ -104,227 +104,227 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 	{
 		append: {
 			marker: VARIATION_CONFIG_ENTRY_MARKER,
-			optionKey: "variationEntries",
+			optionKey: 'variationEntries',
 		},
 		interface: {
-			name: "WorkspaceVariationConfig",
+			name: 'WorkspaceVariationConfig',
 			section: VARIATIONS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "variations",
+			entriesKey: 'variations',
 			entry: defineInventoryEntryParser<WorkspaceVariationInventoryEntry>()({
-				entryName: "VARIATIONS",
+				entryName: 'VARIATIONS',
 				fields: [
-					{ key: "block", required: true },
-					{ key: "file", required: true },
-					{ key: "slug", required: true },
+					{ key: 'block', required: true },
+					{ key: 'file', required: true },
+					{ key: 'slug', required: true },
 				],
 			}),
-			hasSectionKey: "hasVariationsSection",
+			hasSectionKey: 'hasVariationsSection',
 		},
 		value: {
-			name: "VARIATIONS",
+			name: 'VARIATIONS',
 			section: VARIATIONS_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: BLOCK_STYLE_CONFIG_ENTRY_MARKER,
-			optionKey: "blockStyleEntries",
+			optionKey: 'blockStyleEntries',
 		},
 		interface: {
-			name: "WorkspaceBlockStyleConfig",
+			name: 'WorkspaceBlockStyleConfig',
 			section: BLOCK_STYLES_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "blockStyles",
+			entriesKey: 'blockStyles',
 			entry: defineInventoryEntryParser<WorkspaceBlockStyleInventoryEntry>()({
-				entryName: "BLOCK_STYLES",
+				entryName: 'BLOCK_STYLES',
 				fields: [
-					{ key: "block", required: true },
-					{ key: "file", required: true },
-					{ key: "slug", required: true },
+					{ key: 'block', required: true },
+					{ key: 'file', required: true },
+					{ key: 'slug', required: true },
 				],
 			}),
-			hasSectionKey: "hasBlockStylesSection",
+			hasSectionKey: 'hasBlockStylesSection',
 		},
 		value: {
-			name: "BLOCK_STYLES",
+			name: 'BLOCK_STYLES',
 			section: BLOCK_STYLES_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: BLOCK_TRANSFORM_CONFIG_ENTRY_MARKER,
-			optionKey: "blockTransformEntries",
+			optionKey: 'blockTransformEntries',
 		},
 		interface: {
-			name: "WorkspaceBlockTransformConfig",
+			name: 'WorkspaceBlockTransformConfig',
 			section: BLOCK_TRANSFORMS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "blockTransforms",
+			entriesKey: 'blockTransforms',
 			entry:
 				defineInventoryEntryParser<WorkspaceBlockTransformInventoryEntry>()({
-					entryName: "BLOCK_TRANSFORMS",
+					entryName: 'BLOCK_TRANSFORMS',
 					fields: [
-						{ key: "block", required: true },
-						{ key: "file", required: true },
-						{ key: "from", required: true },
-						{ key: "slug", required: true },
-						{ key: "to", required: true },
+						{ key: 'block', required: true },
+						{ key: 'file', required: true },
+						{ key: 'from', required: true },
+						{ key: 'slug', required: true },
+						{ key: 'to', required: true },
 					],
 				}),
-			hasSectionKey: "hasBlockTransformsSection",
+			hasSectionKey: 'hasBlockTransformsSection',
 		},
 		value: {
-			name: "BLOCK_TRANSFORMS",
+			name: 'BLOCK_TRANSFORMS',
 			section: BLOCK_TRANSFORMS_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: PATTERN_CONFIG_ENTRY_MARKER,
-			optionKey: "patternEntries",
+			optionKey: 'patternEntries',
 		},
 		interface: {
-			name: "WorkspacePatternConfig",
+			name: 'WorkspacePatternConfig',
 			section: PATTERNS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "patterns",
+			entriesKey: 'patterns',
 			entry: defineInventoryEntryParser<WorkspacePatternInventoryEntry>()({
-				entryName: "PATTERNS",
+				entryName: 'PATTERNS',
 				fields: [
-					{ key: "contentFile" },
-					{ key: "file" },
-					{ key: "scope" },
-					{ key: "sectionRole" },
-					{ key: "slug", required: true },
-					{ key: "tags", kind: "stringArray" },
-					{ key: "thumbnailUrl" },
-					{ key: "title" },
+					{ key: 'contentFile' },
+					{ key: 'file' },
+					{ key: 'scope' },
+					{ key: 'sectionRole' },
+					{ key: 'slug', required: true },
+					{ key: 'tags', kind: 'stringArray' },
+					{ key: 'thumbnailUrl' },
+					{ key: 'title' },
 				],
 			}),
-			hasSectionKey: "hasPatternsSection",
+			hasSectionKey: 'hasPatternsSection',
 		},
 		value: {
-			name: "PATTERNS",
+			name: 'PATTERNS',
 			section: PATTERNS_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: BINDING_SOURCE_CONFIG_ENTRY_MARKER,
-			optionKey: "bindingSourceEntries",
+			optionKey: 'bindingSourceEntries',
 		},
 		interface: {
-			name: "WorkspaceBindingSourceConfig",
+			name: 'WorkspaceBindingSourceConfig',
 			section: BINDING_SOURCES_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "bindingSources",
+			entriesKey: 'bindingSources',
 			entry: defineInventoryEntryParser<WorkspaceBindingSourceInventoryEntry>()(
 				{
-					entryName: "BINDING_SOURCES",
+					entryName: 'BINDING_SOURCES',
 					fields: [
-						{ key: "attribute" },
-						{ key: "block" },
-						{ key: "editorFile", required: true },
-						{ key: "metaPath" },
-						{ key: "postMeta" },
-						{ key: "serverFile", required: true },
-						{ key: "slug", required: true },
+						{ key: 'attribute' },
+						{ key: 'block' },
+						{ key: 'editorFile', required: true },
+						{ key: 'metaPath' },
+						{ key: 'postMeta' },
+						{ key: 'serverFile', required: true },
+						{ key: 'slug', required: true },
 					],
 				},
 			),
-			hasSectionKey: "hasBindingSourcesSection",
+			hasSectionKey: 'hasBindingSourcesSection',
 		},
 		value: {
-			name: "BINDING_SOURCES",
+			name: 'BINDING_SOURCES',
 			section: BINDING_SOURCES_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: CONTRACT_CONFIG_ENTRY_MARKER,
-			optionKey: "contractEntries",
+			optionKey: 'contractEntries',
 		},
 		interface: {
-			name: "WorkspaceContractConfig",
+			name: 'WorkspaceContractConfig',
 			section: CONTRACTS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "contracts",
+			entriesKey: 'contracts',
 			entry: defineInventoryEntryParser<WorkspaceContractInventoryEntry>()({
-				entryName: "CONTRACTS",
+				entryName: 'CONTRACTS',
 				fields: [
-					{ key: "schemaFile", required: true },
-					{ key: "slug", required: true },
-					{ key: "sourceTypeName", required: true },
-					{ key: "typesFile", required: true },
+					{ key: 'schemaFile', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'sourceTypeName', required: true },
+					{ key: 'typesFile', required: true },
 				],
 			}),
-			hasSectionKey: "hasContractsSection",
+			hasSectionKey: 'hasContractsSection',
 		},
 		value: {
-			name: "CONTRACTS",
+			name: 'CONTRACTS',
 			section: CONTRACTS_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: REST_RESOURCE_CONFIG_ENTRY_MARKER,
-			optionKey: "restResourceEntries",
+			optionKey: 'restResourceEntries',
 		},
 		interface: {
-			name: "WorkspaceRestResourceConfig",
+			name: 'WorkspaceRestResourceConfig',
 			section: REST_RESOURCES_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "restResources",
+			entriesKey: 'restResources',
 			entry: defineInventoryEntryParser<WorkspaceRestResourceInventoryEntry>()({
-				entryName: "REST_RESOURCES",
+				entryName: 'REST_RESOURCES',
 				fields: [
-					{ key: "apiFile", required: true },
+					{ key: 'apiFile', required: true },
 					{
-						key: "auth",
+						key: 'auth',
 						validate: (value, context) => {
 							if (
-								typeof value === "string" &&
+								typeof value === 'string' &&
 								!(MANUAL_REST_CONTRACT_AUTH_IDS as readonly string[]).includes(
 									value,
 								)
 							) {
 								throw new Error(
-									`${context.entryName}[${context.elementIndex}].${context.key} must be one of: ${MANUAL_REST_CONTRACT_AUTH_IDS.join(", ")}.`,
+									`${context.entryName}[${context.elementIndex}].${context.key} must be one of: ${MANUAL_REST_CONTRACT_AUTH_IDS.join(', ')}.`,
 								);
 							}
 						},
 					},
-					{ key: "bodyTypeName" },
-					{ key: "clientFile", required: true },
-					{ key: "controllerClass" },
-					{ key: "controllerExtends" },
-					{ key: "dataFile" },
+					{ key: 'bodyTypeName' },
+					{ key: 'clientFile', required: true },
+					{ key: 'controllerClass' },
+					{ key: 'controllerExtends' },
+					{ key: 'dataFile' },
 					{
-						key: "method",
+						key: 'method',
 						validate: (value, context) => {
 							if (
-								typeof value === "string" &&
+								typeof value === 'string' &&
 								!(
 									MANUAL_REST_CONTRACT_HTTP_METHOD_IDS as readonly string[]
 								).includes(value)
 							) {
 								throw new Error(
-									`${context.entryName}[${context.elementIndex}].${context.key} must be one of: ${MANUAL_REST_CONTRACT_HTTP_METHOD_IDS.join(", ")}.`,
+									`${context.entryName}[${context.elementIndex}].${context.key} must be one of: ${MANUAL_REST_CONTRACT_HTTP_METHOD_IDS.join(', ')}.`,
 								);
 							}
 						},
 					},
 					{
-						key: "methods",
-						kind: "stringArray",
+						key: 'methods',
+						kind: 'stringArray',
 						required: true,
 						validate: (value, context) => {
 							const methods = Array.isArray(value) ? value : [];
@@ -336,18 +336,18 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 							);
 							if (invalidMethods.length > 0) {
 								throw new Error(
-									`${context.entryName}[${context.elementIndex}].${context.key} includes unsupported values: ${invalidMethods.join(", ")}.`,
+									`${context.entryName}[${context.elementIndex}].${context.key} includes unsupported values: ${invalidMethods.join(', ')}.`,
 								);
 							}
 						},
 					},
 					{
-						key: "mode",
+						key: 'mode',
 						validate: (value, context) => {
 							if (
-								typeof value === "string" &&
-								value !== "generated" &&
-								value !== "manual"
+								typeof value === 'string' &&
+								value !== 'generated' &&
+								value !== 'manual'
 							) {
 								throw new Error(
 									`${context.entryName}[${context.elementIndex}].${context.key} must be generated or manual.`,
@@ -355,178 +355,178 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 							}
 						},
 					},
-					{ key: "namespace", required: true },
-					{ key: "openApiFile", required: true },
-					{ key: "pathPattern" },
-					{ key: "permissionCallback" },
-					{ key: "phpFile" },
-					{ key: "queryTypeName" },
-					{ key: "responseTypeName" },
-					{ key: "routePattern" },
-					{ key: "secretFieldName" },
-					{ key: "secretPreserveOnEmpty", kind: "boolean" },
-					{ key: "secretStateFieldName" },
-					{ key: "slug", required: true },
-					{ key: "typesFile", required: true },
-					{ key: "validatorsFile", required: true },
+					{ key: 'namespace', required: true },
+					{ key: 'openApiFile', required: true },
+					{ key: 'pathPattern' },
+					{ key: 'permissionCallback' },
+					{ key: 'phpFile' },
+					{ key: 'queryTypeName' },
+					{ key: 'responseTypeName' },
+					{ key: 'routePattern' },
+					{ key: 'secretFieldName' },
+					{ key: 'secretPreserveOnEmpty', kind: 'boolean' },
+					{ key: 'secretStateFieldName' },
+					{ key: 'slug', required: true },
+					{ key: 'typesFile', required: true },
+					{ key: 'validatorsFile', required: true },
 				],
 			}),
-			hasSectionKey: "hasRestResourcesSection",
+			hasSectionKey: 'hasRestResourcesSection',
 		},
 		value: {
-			name: "REST_RESOURCES",
+			name: 'REST_RESOURCES',
 			section: REST_RESOURCES_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: POST_META_CONFIG_ENTRY_MARKER,
-			optionKey: "postMetaEntries",
+			optionKey: 'postMetaEntries',
 		},
 		interface: {
-			name: "WorkspacePostMetaConfig",
+			name: 'WorkspacePostMetaConfig',
 			section: POST_META_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "postMeta",
+			entriesKey: 'postMeta',
 			entry: defineInventoryEntryParser<WorkspacePostMetaInventoryEntry>()({
-				entryName: "POST_META",
+				entryName: 'POST_META',
 				fields: [
-					{ key: "metaKey", required: true },
-					{ key: "phpFile", required: true },
-					{ key: "postType", required: true },
-					{ key: "schemaFile", required: true },
-					{ key: "showInRest", kind: "boolean", required: true },
-					{ key: "slug", required: true },
-					{ key: "sourceTypeName", required: true },
-					{ key: "typesFile", required: true },
+					{ key: 'metaKey', required: true },
+					{ key: 'phpFile', required: true },
+					{ key: 'postType', required: true },
+					{ key: 'schemaFile', required: true },
+					{ key: 'showInRest', kind: 'boolean', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'sourceTypeName', required: true },
+					{ key: 'typesFile', required: true },
 				],
 			}),
-			hasSectionKey: "hasPostMetaSection",
+			hasSectionKey: 'hasPostMetaSection',
 		},
 		value: {
-			name: "POST_META",
+			name: 'POST_META',
 			section: POST_META_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: ABILITY_CONFIG_ENTRY_MARKER,
-			optionKey: "abilityEntries",
+			optionKey: 'abilityEntries',
 		},
 		interface: {
-			name: "WorkspaceAbilityConfig",
+			name: 'WorkspaceAbilityConfig',
 			section: ABILITIES_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "abilities",
+			entriesKey: 'abilities',
 			entry: defineInventoryEntryParser<WorkspaceAbilityInventoryEntry>()({
-				entryName: "ABILITIES",
+				entryName: 'ABILITIES',
 				fields: [
-					{ key: "clientFile", required: true },
-					{ key: "compatibility", kind: "compatibilityConfig" },
-					{ key: "configFile", required: true },
-					{ key: "dataFile", required: true },
-					{ key: "inputSchemaFile", required: true },
-					{ key: "inputTypeName", required: true },
-					{ key: "outputSchemaFile", required: true },
-					{ key: "outputTypeName", required: true },
-					{ key: "phpFile", required: true },
-					{ key: "slug", required: true },
-					{ key: "typesFile", required: true },
+					{ key: 'clientFile', required: true },
+					{ key: 'compatibility', kind: 'compatibilityConfig' },
+					{ key: 'configFile', required: true },
+					{ key: 'dataFile', required: true },
+					{ key: 'inputSchemaFile', required: true },
+					{ key: 'inputTypeName', required: true },
+					{ key: 'outputSchemaFile', required: true },
+					{ key: 'outputTypeName', required: true },
+					{ key: 'phpFile', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'typesFile', required: true },
 				],
 			}),
-			hasSectionKey: "hasAbilitiesSection",
+			hasSectionKey: 'hasAbilitiesSection',
 		},
 		value: {
-			name: "ABILITIES",
+			name: 'ABILITIES',
 			section: ABILITIES_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: AI_FEATURE_CONFIG_ENTRY_MARKER,
-			optionKey: "aiFeatureEntries",
+			optionKey: 'aiFeatureEntries',
 		},
 		interface: {
-			name: "WorkspaceAiFeatureConfig",
+			name: 'WorkspaceAiFeatureConfig',
 			section: AI_FEATURES_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "aiFeatures",
+			entriesKey: 'aiFeatures',
 			entry: defineInventoryEntryParser<WorkspaceAiFeatureInventoryEntry>()({
-				entryName: "AI_FEATURES",
+				entryName: 'AI_FEATURES',
 				fields: [
-					{ key: "aiSchemaFile", required: true },
-					{ key: "apiFile", required: true },
-					{ key: "clientFile", required: true },
-					{ key: "compatibility", kind: "compatibilityConfig" },
-					{ key: "dataFile", required: true },
-					{ key: "namespace", required: true },
-					{ key: "openApiFile", required: true },
-					{ key: "phpFile", required: true },
-					{ key: "slug", required: true },
-					{ key: "typesFile", required: true },
-					{ key: "validatorsFile", required: true },
+					{ key: 'aiSchemaFile', required: true },
+					{ key: 'apiFile', required: true },
+					{ key: 'clientFile', required: true },
+					{ key: 'compatibility', kind: 'compatibilityConfig' },
+					{ key: 'dataFile', required: true },
+					{ key: 'namespace', required: true },
+					{ key: 'openApiFile', required: true },
+					{ key: 'phpFile', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'typesFile', required: true },
+					{ key: 'validatorsFile', required: true },
 				],
 			}),
-			hasSectionKey: "hasAiFeaturesSection",
+			hasSectionKey: 'hasAiFeaturesSection',
 		},
 		value: {
-			name: "AI_FEATURES",
+			name: 'AI_FEATURES',
 			section: AI_FEATURES_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: ADMIN_VIEW_CONFIG_ENTRY_MARKER,
-			optionKey: "adminViewEntries",
+			optionKey: 'adminViewEntries',
 		},
 		interface: {
-			name: "WorkspaceAdminViewConfig",
+			name: 'WorkspaceAdminViewConfig',
 			section: ADMIN_VIEWS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "adminViews",
+			entriesKey: 'adminViews',
 			entry: defineInventoryEntryParser<WorkspaceAdminViewInventoryEntry>()({
-				entryName: "ADMIN_VIEWS",
+				entryName: 'ADMIN_VIEWS',
 				fields: [
-					{ key: "file", required: true },
-					{ key: "phpFile", required: true },
-					{ key: "slug", required: true },
-					{ key: "source" },
+					{ key: 'file', required: true },
+					{ key: 'phpFile', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'source' },
 				],
 			}),
-			hasSectionKey: "hasAdminViewsSection",
+			hasSectionKey: 'hasAdminViewsSection',
 		},
 		value: {
-			name: "ADMIN_VIEWS",
+			name: 'ADMIN_VIEWS',
 			section: ADMIN_VIEWS_CONST_SECTION,
 		},
 	},
 	{
 		append: {
 			marker: EDITOR_PLUGIN_CONFIG_ENTRY_MARKER,
-			optionKey: "editorPluginEntries",
+			optionKey: 'editorPluginEntries',
 		},
 		interface: {
-			name: "WorkspaceEditorPluginConfig",
+			name: 'WorkspaceEditorPluginConfig',
 			section: EDITOR_PLUGINS_INTERFACE_SECTION,
 		},
 		parse: {
-			entriesKey: "editorPlugins",
+			entriesKey: 'editorPlugins',
 			entry: defineInventoryEntryParser<WorkspaceEditorPluginInventoryEntry>()({
-				entryName: "EDITOR_PLUGINS",
+				entryName: 'EDITOR_PLUGINS',
 				fields: [
-					{ key: "file", required: true },
-					{ key: "slug", required: true },
-					{ key: "slot", required: true },
+					{ key: 'file', required: true },
+					{ key: 'slug', required: true },
+					{ key: 'slot', required: true },
 				],
 			}),
-			hasSectionKey: "hasEditorPluginsSection",
+			hasSectionKey: 'hasEditorPluginsSection',
 		},
 		value: {
-			name: "EDITOR_PLUGINS",
+			name: 'EDITOR_PLUGINS',
 			section: EDITOR_PLUGINS_CONST_SECTION,
 		},
 	},

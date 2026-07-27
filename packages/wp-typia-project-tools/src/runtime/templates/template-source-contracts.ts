@@ -1,9 +1,9 @@
-import type { UnknownRecord } from '../shared/object-utils.js'
+import type { UnknownRecord } from '../shared/object-utils.js';
 
 export type TemplateSourceFormat =
   | 'wp-typia'
   | 'create-block-external'
-  | 'create-block-subset'
+  | 'create-block-subset';
 
 /**
  * Public template variables exposed to external template seeds before wp-typia
@@ -98,4 +98,4 @@ export interface SeedSource {
 export type RemoteTemplateLocator =
   | { kind: 'github'; locator: GitHubTemplateLocator }
   | { kind: 'npm'; locator: NpmTemplateLocator }
-  | { kind: 'path'; templatePath: string }
+  | { kind: 'path'; templatePath: string };

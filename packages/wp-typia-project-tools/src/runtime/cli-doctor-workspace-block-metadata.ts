@@ -1,1 +1,1 @@
-export * from "./doctor/cli-doctor-workspace-block-metadata.js";
+export * from './doctor/cli-doctor-workspace-block-metadata.js';

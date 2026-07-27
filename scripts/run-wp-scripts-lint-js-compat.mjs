@@ -16,6 +16,10 @@ export const LINT_CONFIG_FILES = [
   '.eslintrc',
 ];
 
+export const DEFAULT_LINT_EXTENSIONS = 'js,jsx,cjs,mjs';
+export const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off'];
+export const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
+
 const LINT_OPTIONS_WITH_VALUES = new Set([
   '-c',
   '--cache-location',
@@ -73,6 +77,19 @@ export function hasExplicitLintTargets(args) {
   return false;
 }
 
+export function insertPrettierRuleOverride(args) {
+  const optionSeparatorIndex = args.indexOf('--');
+  if (optionSeparatorIndex === -1) {
+    return [...args, ...PRETTIER_RULE_OVERRIDE];
+  }
+
+  return [
+    ...args.slice(0, optionSeparatorIndex),
+    ...PRETTIER_RULE_OVERRIDE,
+    ...args.slice(optionSeparatorIndex),
+  ];
+}
+
 function hasProjectFile(projectDir, fileName) {
   return fs.existsSync(path.join(projectDir, fileName));
 }
@@ -81,6 +98,18 @@ function hasPackageProp(projectRequire, propertyName) {
   try {
     const packageJson = projectRequire('./package.json');
     return Object.prototype.hasOwnProperty.call(packageJson, propertyName);
+  } catch {
+    return false;
+  }
+}
+
+function hasPackageDependency(projectRequire, dependencyName) {
+  try {
+    const packageJson = projectRequire('./package.json');
+    return ['dependencies', 'devDependencies'].some(
+      (field) =>
+        typeof packageJson[field]?.[dependencyName] === 'string',
+    );
   } catch {
     return false;
   }
@@ -101,7 +130,10 @@ export function runWpScriptsLintJsCompat({
     '@wordpress/scripts/package.json',
   );
   const wpScriptsDir = path.dirname(wpScriptsPackageJsonPath);
-  const eslintPackageJsonPath = projectRequire.resolve('eslint/package.json');
+  const eslintRequire = hasPackageDependency(projectRequire, 'eslint')
+    ? projectRequire
+    : createRequire(wpScriptsPackageJsonPath);
+  const eslintPackageJsonPath = eslintRequire.resolve('eslint/package.json');
   const eslintPackageJson = JSON.parse(
     fs.readFileSync(eslintPackageJsonPath, 'utf8'),
   );
@@ -125,17 +157,23 @@ export function runWpScriptsLintJsCompat({
       : ['--ignore-path', path.join(wpScriptsDir, 'config', '.eslintignore')];
   const defaultExtArgs = hasArg(args, '--ext')
     ? []
-    : ['--ext', 'js,jsx,ts,tsx'];
+    : ['--ext', DEFAULT_LINT_EXTENSIONS];
   const defaultFilesArgs = hasExplicitLintTargets(args) ? [] : ['.'];
+  const registerTypescript6Path = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    TYPESCRIPT6_REGISTER_FILE,
+  );
 
   const result = spawnSync(
     process.execPath,
     [
+      '--require',
+      registerTypescript6Path,
       eslintBinPath,
       ...defaultConfigArgs,
       ...defaultIgnoreArgs,
       ...defaultExtArgs,
-      ...args,
+      ...insertPrettierRuleOverride(args),
       ...defaultFilesArgs,
     ],
     {

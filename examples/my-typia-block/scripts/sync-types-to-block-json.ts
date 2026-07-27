@@ -4,127 +4,125 @@ import { runSyncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';
 type SyncTypesReportMode = 'human' | 'json';
 
 interface SyncTypesCliOptions {
-	check: boolean;
-	failOnLossy: boolean;
-	report: SyncTypesReportMode;
-	strict: boolean;
+  check: boolean;
+  failOnLossy: boolean;
+  report: SyncTypesReportMode;
+  strict: boolean;
 }
 
 function parseCliOptions( argv: string[] ): SyncTypesCliOptions {
-	const options: SyncTypesCliOptions = {
-		check: false,
-		failOnLossy: false,
-		report: 'human',
-		strict: false,
-	};
+  const options: SyncTypesCliOptions = {
+    check: false,
+    failOnLossy: false,
+    report: 'human',
+    strict: false,
+  };
 
-	for ( let index = 0; index < argv.length; index += 1 ) {
-		const argument = argv[ index ];
+  for ( let index = 0; index < argv.length; index += 1 ) {
+    const argument = argv[ index ];
 
-		if ( argument === '--strict' ) {
-			options.strict = true;
-			continue;
-		}
+    if ( argument === '--strict' ) {
+      options.strict = true;
+      continue;
+    }
 
-		if ( argument === '--fail-on-lossy' ) {
-			options.failOnLossy = true;
-			continue;
-		}
+    if ( argument === '--fail-on-lossy' ) {
+      options.failOnLossy = true;
+      continue;
+    }
 
-		if ( argument === '--check' ) {
-			options.check = true;
-			continue;
-		}
+    if ( argument === '--check' ) {
+      options.check = true;
+      continue;
+    }
 
-		if ( argument === '--report' ) {
-			const reportMode = argv[ index + 1 ];
-			if ( reportMode !== 'json' ) {
-				throw new Error(
-					'The `--report` flag currently supports only `json`.'
-				);
-			}
-			options.report = reportMode;
-			index += 1;
-			continue;
-		}
+    if ( argument === '--report' ) {
+      const reportMode = argv[ index + 1 ];
+      if ( reportMode !== 'json' ) {
+        throw new Error('The `--report` flag currently supports only `json`.');
+      }
+      options.report = reportMode;
+      index += 1;
+      continue;
+    }
 
-		throw new Error( `Unknown sync-types flag: ${ argument }` );
-	}
+    throw new Error( `Unknown sync-types flag: ${ argument }` );
+  }
 
-	return options;
+  return options;
 }
 
 function printHumanReport(
 	options: SyncTypesCliOptions,
-	report: Awaited< ReturnType< typeof runSyncBlockMetadata > >
+	report: Awaited< ReturnType< typeof runSyncBlockMetadata > >,
 ) {
-	if ( report.failure ) {
-		console.error( '❌ Type sync failed:', report.failure.message );
-		return;
-	}
+  if ( report.failure ) {
+    console.error( '❌ Type sync failed:', report.failure.message );
+    return;
+  }
 
-	console.log(
-		options.check
-			? '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json are already up to date with the TypeScript types!'
-			: '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json were generated from TypeScript types!'
-	);
-	console.log( '📝 Generated attributes:', report.attributeNames );
+  console.log(
+    options.check
+      ? '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json are already up to date with the TypeScript types!'
+      : '✅ block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json were generated from TypeScript types!',
+  );
+  console.log( '📝 Generated attributes:', report.attributeNames );
 
-	if ( report.lossyProjectionWarnings.length > 0 ) {
-		console.warn(
-			'⚠️ Some Typia constraints were preserved only in typia.manifest.json:'
-		);
-		for ( const warning of report.lossyProjectionWarnings ) {
-			console.warn( `   - ${ warning }` );
-		}
-	}
+  if ( report.lossyProjectionWarnings.length > 0 ) {
+    console.warn(
+      '⚠️ Some Typia constraints were preserved only in typia.manifest.json:',
+    );
+    for ( const warning of report.lossyProjectionWarnings ) {
+      console.warn( `   - ${ warning }` );
+    }
+  }
 
-	if ( report.phpGenerationWarnings.length > 0 ) {
-		console.warn(
-			'⚠️ Some Typia constraints are not yet enforced by typia-validator.php:'
-		);
-		for ( const warning of report.phpGenerationWarnings ) {
-			console.warn( `   - ${ warning }` );
-		}
-	}
+  if ( report.phpGenerationWarnings.length > 0 ) {
+    console.warn(
+      '⚠️ Some Typia constraints are not yet enforced by typia-validator.php:',
+    );
+    for ( const warning of report.phpGenerationWarnings ) {
+      console.warn( `   - ${ warning }` );
+    }
+  }
 
-	if ( report.status === 'error' ) {
-		console.error(
-			'❌ Type sync completed with warnings treated as errors because of the selected flags.'
-		);
-	}
+  if ( report.status === 'error' ) {
+    console.error(
+      '❌ Type sync completed with warnings treated as errors because of the selected flags.',
+    );
+  }
 }
 
 async function main() {
-	const options = parseCliOptions( process.argv.slice( 2 ) );
-	const report = await runSyncBlockMetadata(
-		{
-			blockJsonFile: 'block.json',
-			jsonSchemaFile: 'typia.schema.json',
-			manifestFile: 'typia.manifest.json',
-			openApiFile: 'typia.openapi.json',
-			sourceTypeName: 'MyTypiaBlockAttributes',
-			typesFile: 'src/types.ts',
-		},
-		{
-			check: options.check,
-			failOnLossy: options.failOnLossy,
-			strict: options.strict,
-		}
-	);
+  const options = parseCliOptions( process.argv.slice( 2 ) );
+  const report = await runSyncBlockMetadata(
+    {
+      blockJsonFile: 'block.json',
+      jsonSchemaFile: 'typia.schema.json',
+      manifestFile: 'typia.manifest.json',
+      openApiFile: 'typia.openapi.json',
+      sourceTypeName: 'MyTypiaBlockAttributes',
+      typesFile: 'src/types.ts',
+    },
+    {
+      check: options.check,
+      failOnLossy: options.failOnLossy,
+      strict: options.strict,
+    },
+  );
 
-	if ( options.report === 'json' ) {
-		process.stdout.write( `${ JSON.stringify( report, null, 2 ) }\n` );
-	} else {
-		printHumanReport( options, report );
-	}
+  if ( options.report === 'json' ) {
+    process.stdout.write( `${ JSON.stringify( report, null, 2 ) }\n` );
+  } else {
+    printHumanReport( options, report );
+  }
 
-	if ( report.status === 'error' ) {
-		process.exitCode = 1;
-	}
+  if ( report.status === 'error' ) {
+    process.exitCode = 1;
+  }
 }
 
-main().catch( ( error ) => {
-	console.error( '❌ Type sync failed:', error );
-	process.exit( 1 );
-} );
+main().catch(( error ) => {
+  console.error('❌ Type sync failed:', error);
+  process.exit(1);
+});

@@ -3,15 +3,15 @@ import {
   type WordPressBlockApiCompatibilityFeature,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
-} from "./compatibility.js";
-import { resolveDefineVariationSettings } from "./variations-settings.js";
-import type { DefineVariationOptions } from "./variations.js";
+} from './compatibility.js';
+import { resolveDefineVariationSettings } from './variations-settings.js';
+import type { DefineVariationOptions } from './variations.js';
 
 export function collectBlockVariationCompatibilityFeatures(): readonly WordPressBlockApiCompatibilityFeature[] {
   return [
     {
-      area: "blockVariations",
-      feature: "editorRegistration",
+      area: 'blockVariations',
+      feature: 'editorRegistration',
     },
   ];
 }

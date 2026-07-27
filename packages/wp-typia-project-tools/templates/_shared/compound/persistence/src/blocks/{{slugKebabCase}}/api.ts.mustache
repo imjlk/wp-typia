@@ -1,81 +1,92 @@
 import {
-	callEndpoint,
+  callEndpoint,
+  type ApiEndpoint as RestApiEndpoint,
 } from '@wp-typia/rest';
 
 import {
-	type {{pascalCase}}BootstrapQuery,
-	type {{pascalCase}}StateQuery,
-	type {{pascalCase}}WriteStateRequest,
+  type {{pascalCase}}BootstrapQuery,
+  type {{pascalCase}}StateQuery,
+  type {{pascalCase}}WriteStateRequest,
 } from './api-types';
 import {
-	get{{pascalCase}}BootstrapEndpoint,
-	get{{pascalCase}}StateEndpoint,
-	write{{pascalCase}}StateEndpoint,
+  get{{pascalCase}}BootstrapEndpoint,
+  get{{pascalCase}}StateEndpoint,
+  write{{pascalCase}}StateEndpoint,
 } from './api-client';
 import {
-	resolveTransportCallOptions,
-	type PersistenceTransportOptions,
+  resolveTransportCallOptions,
+  type PersistenceTransportOptions,
 } from './transport';
 
-export const bootstrapEndpoint = {
-	...get{{pascalCase}}BootstrapEndpoint,
-};
+function createRestEndpoint<Req, Res>(endpoint: {
+  method: RestApiEndpoint<Req, Res>['method'];
+  path: string;
+  validateRequest: RestApiEndpoint<Req, Res>['validateRequest'];
+  validateResponse: RestApiEndpoint<Req, Res>['validateResponse'];
+}): RestApiEndpoint<Req, Res> {
+  // Strip generator-only helper fields so the runtime client only sees the
+  // canonical RestApiEndpoint surface it expects.
+  return {
+    method: endpoint.method,
+    path: endpoint.path,
+    validateRequest: endpoint.validateRequest,
+    validateResponse: endpoint.validateResponse,
+  };
+}
 
-export const stateEndpoint = {
-	...get{{pascalCase}}StateEndpoint,
-};
+{{bootstrapEndpointDeclaration}}
 
-export const writeStateEndpoint = {
-	...write{{pascalCase}}StateEndpoint,
-};
+{{stateEndpointDeclaration}}
+
+{{writeStateEndpointDeclaration}}
 
 export function fetchState(
-	request: {{pascalCase}}StateQuery,
-	options: PersistenceTransportOptions = {}
+  request: {{pascalCase}}StateQuery,
+  options: PersistenceTransportOptions = {},
 ) {
-	return callEndpoint(
-		stateEndpoint,
-		request,
-		resolveTransportCallOptions(
-			options.transportTarget ?? 'frontend',
-			'read',
-			stateEndpoint,
-			request,
-			options
-		)
-	);
+  return callEndpoint(
+    stateEndpoint,
+    request,
+    resolveTransportCallOptions(
+      options.transportTarget ?? 'frontend',
+      'read',
+      stateEndpoint,
+      request,
+      options,
+    ),
+  );
 }
 
 export function fetchBootstrap(
-	request: {{pascalCase}}BootstrapQuery,
-	options: PersistenceTransportOptions = {}
+  request: {{pascalCase}}BootstrapQuery,
+  options: PersistenceTransportOptions = {},
 ) {
-	return callEndpoint(
-		bootstrapEndpoint,
-		request,
-		resolveTransportCallOptions(
-			options.transportTarget ?? 'frontend',
-			'read',
-			bootstrapEndpoint,
-			request,
-			options
-		)
-	);
+  return callEndpoint(
+    bootstrapEndpoint,
+    request,
+    resolveTransportCallOptions(
+      options.transportTarget ?? 'frontend',
+      'read',
+      bootstrapEndpoint,
+      request,
+      options,
+    ),
+  );
 }
 
 export function writeState(
-	request: {{pascalCase}}WriteStateRequest,
-	options: PersistenceTransportOptions = {}
+  request: {{pascalCase}}WriteStateRequest,
+  options: PersistenceTransportOptions = {},
 ) {
-	return callEndpoint(
-		writeStateEndpoint,
-		request,
-		resolveTransportCallOptions(
-			options.transportTarget ?? 'frontend',
-			'write',
-			writeStateEndpoint,
-			request,
-			options
-		)
-	);
+  return callEndpoint(
+    writeStateEndpoint,
+    request,
+    resolveTransportCallOptions(
+      options.transportTarget ?? 'frontend',
+      'write',
+      writeStateEndpoint,
+      request,
+      options,
+    ),
+  );
 }

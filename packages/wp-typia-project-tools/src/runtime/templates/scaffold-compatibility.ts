@@ -20,6 +20,7 @@ import {
   parseVersionFloorParts,
   pickHigherVersionFloor,
 } from '../shared/version-floor.js';
+import { renderTypeScriptValue } from '../shared/ts-string-literals.js';
 
 /**
  * WordPress plugin header version floors emitted by scaffold templates.
@@ -95,7 +96,9 @@ export const DEFAULT_SCAFFOLD_COMPATIBILITY: ScaffoldPluginHeaderCompatibility =
 export function isScaffoldWordPressTargetVersion(
   value: string,
 ): value is ScaffoldWordPressTargetVersion {
-  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(value);
+  return (SCAFFOLD_WORDPRESS_TARGET_VERSIONS as readonly string[]).includes(
+    value,
+  );
 }
 
 /**
@@ -315,11 +318,11 @@ export function createScaffoldCompatibilityConfig(
  */
 export function renderScaffoldCompatibilityConfig(
   policy: ScaffoldCompatibilityPolicy,
-  indent = '\t\t',
+  indent = '    ',
 ): string {
   const config = createScaffoldCompatibilityConfig(policy);
 
-  return JSON.stringify(config, null, '\t')
+  return renderTypeScriptValue(config, 60)
     .split('\n')
     .map((line, index) => (index === 0 ? line : `${indent}${line}`))
     .join('\n');

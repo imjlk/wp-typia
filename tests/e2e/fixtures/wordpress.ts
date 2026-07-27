@@ -1,4 +1,10 @@
-import { test as base, expect, Page, FrameLocator, Browser } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  Page,
+  FrameLocator,
+  Browser,
+} from '@playwright/test';
 
 const WORDPRESS_EDITOR_READY_TIMEOUT_MS = 20_000;
 const WORDPRESS_BLOCK_REGISTRATION_TIMEOUT_MS = 20_000;
@@ -70,10 +76,13 @@ export class WordPressPage {
   }
 
   async login(username = 'admin', password = 'password') {
-    await this.page.goto('/wp-login.php?redirect_to=%2Fwp-admin%2Fpost-new.php', {
-      timeout: WORDPRESS_NAVIGATION_TIMEOUT_MS,
-      waitUntil: 'domcontentloaded',
-    });
+    await this.page.goto(
+      '/wp-login.php?redirect_to=%2Fwp-admin%2Fpost-new.php',
+      {
+        timeout: WORDPRESS_NAVIGATION_TIMEOUT_MS,
+        waitUntil: 'domcontentloaded',
+      },
+    );
 
     if (this.page.url().includes('/wp-login.php')) {
       await this.page.fill('#user_login', username);
@@ -101,7 +110,9 @@ export class WordPressPage {
     }
     await this.waitForEditorReady();
 
-    const titleInput = this.getEditorCanvas().getByRole('textbox', { name: 'Add title' });
+    const titleInput = this.getEditorCanvas().getByRole('textbox', {
+      name: 'Add title',
+    });
     await titleInput.fill(title);
   }
 
@@ -130,7 +141,9 @@ export class WordPressPage {
         WORDPRESS_BLOCK_REGISTRATION_TIMEOUT_MS,
       ));
     if (!blockTypeReadyAfterReload) {
-      throw new Error(`Timed out waiting for block type "${block.name}" to register.`);
+      throw new Error(
+        `Timed out waiting for block type "${block.name}" to register.`,
+      );
     }
 
     await this.dismissWelcomeGuideIfPresent();
@@ -162,7 +175,9 @@ export class WordPressPage {
       }
 
       await searchInput.fill(block.title);
-      await this.page.getByRole('option', { name: block.title }).first().click({ timeout: 5_000 });
+      await this.page.getByRole('option', { name: block.title }).first().click({
+        timeout: 5_000,
+      });
 
       await this.waitForBlockInEditor(block.name, 5_000);
       inserted = true;
@@ -178,7 +193,9 @@ export class WordPressPage {
   }
 
   async openBlockSettingsSidebar() {
-    const closeInserterButton = this.page.getByRole('button', { name: /Close Block Inserter/i });
+    const closeInserterButton = this.page.getByRole('button', {
+      name: /Close Block Inserter/i,
+    });
     if (await closeInserterButton.isVisible().catch(() => false)) {
       await closeInserterButton.click();
     }
@@ -192,7 +209,9 @@ export class WordPressPage {
       return;
     }
 
-    const settingsButton = this.page.getByRole('button', { name: /^Settings$/i });
+    const settingsButton = this.page.getByRole('button', {
+      name: /^Settings$/i,
+    });
     await settingsButton.click();
 
     await this.page.waitForFunction(() => {
@@ -275,7 +294,9 @@ export class WordPressPage {
     if (!loggedIn) {
       const targetBrowser = browser ?? this.page.context().browser();
       if (!targetBrowser) {
-        throw new Error('A browser instance is required to open a logged-out preview.');
+        throw new Error(
+          'A browser instance is required to open a logged-out preview.',
+        );
       }
 
       const isolatedContext = await targetBrowser.newContext();
@@ -325,10 +346,12 @@ export class WordPressPage {
 
   private async waitForEditorReady(timeout = WORDPRESS_EDITOR_READY_TIMEOUT_MS) {
     const waitForTitleInput = async () => {
-      await this.getEditorCanvas().getByRole('textbox', { name: 'Add title' }).waitFor({
-        state: 'visible',
-        timeout,
-      });
+      await this.getEditorCanvas().getByRole('textbox', { name: 'Add title' }).waitFor(
+        {
+          state: 'visible',
+          timeout,
+        },
+      );
     };
 
     await this.dismissWelcomeGuideIfPresent();
@@ -355,7 +378,9 @@ export class WordPressPage {
         .getByRole('button', { name: 'Close' })
         .click({ force: true })
         .catch(() => {});
-      await welcomeGuideDialog.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+      await welcomeGuideDialog.waitFor({ state: 'hidden', timeout: 3_000 }).catch(
+        () => {},
+      );
     }
   }
 
@@ -425,18 +450,24 @@ export class WordPressPage {
   }
 
   private async waitForExampleBlockPersistenceKey(timeout = 30_000) {
-    await this.page.waitForFunction((blockType) => {
-      const wp = (window as any).wp;
-      const blocks = wp?.data?.select('core/block-editor')?.getBlocks?.() ?? [];
-      const exampleBlock = blocks.find((candidate: any) => candidate.name === blockType);
+    await this.page.waitForFunction(
+      (blockType) => {
+        const wp = (window as any).wp;
+        const blocks = wp?.data?.select('core/block-editor')?.getBlocks?.() ?? [];
+        const exampleBlock = blocks.find(
+          (candidate: any) => candidate.name === blockType,
+        );
 
-      if (!exampleBlock) {
-        return true;
-      }
+        if (!exampleBlock) {
+          return true;
+        }
 
-      const id = exampleBlock.attributes?.id;
-      return typeof id === 'undefined' || (typeof id === 'string' && id.length > 0);
-    }, EXAMPLE_BLOCK.name, { timeout });
+        const id = exampleBlock.attributes?.id;
+        return typeof id === 'undefined' || (typeof id === 'string' && id.length > 0);
+      },
+      EXAMPLE_BLOCK.name,
+      { timeout },
+    );
   }
 
   private async waitForBlockTypeRegistered(
@@ -444,10 +475,14 @@ export class WordPressPage {
     timeout = WORDPRESS_BLOCK_REGISTRATION_TIMEOUT_MS,
   ) {
     try {
-      await this.page.waitForFunction((type) => {
-        const wp = (window as any).wp;
-        return Boolean(wp?.blocks?.getBlockType?.(type));
-      }, blockType, { timeout });
+      await this.page.waitForFunction(
+        (type) => {
+          const wp = (window as any).wp;
+          return Boolean(wp?.blocks?.getBlockType?.(type));
+        },
+        blockType,
+        { timeout },
+      );
       return true;
     } catch {
       return false;

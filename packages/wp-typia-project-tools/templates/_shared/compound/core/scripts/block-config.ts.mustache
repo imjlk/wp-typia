@@ -1,35 +1,35 @@
 import {
-	defineBlockNesting,
-	defineInnerBlocksTemplates,
+  defineBlockNesting,
+  defineInnerBlocksTemplates,
 } from '@wp-typia/block-runtime/metadata-core';
 
-export const BLOCK_NESTING = defineBlockNesting( {
-	// Add parent, ancestor, and allowedBlocks relationships here.
-} );
+export const BLOCK_NESTING = defineBlockNesting({
+  // Add parent, ancestor, and allowedBlocks relationships here.
+});
 
-export const BLOCK_TEMPLATES = defineInnerBlocksTemplates( {
-	// Add default InnerBlocks templates here.
-} );
+export const BLOCK_TEMPLATES = defineInnerBlocksTemplates({
+  // Add default InnerBlocks templates here.
+});
 
 export interface WorkspacePatternConfig {
-	file: string;
-	slug: string;
+  file: string;
+  slug: string;
 }
 
 export const BLOCKS = [
-	{
-		attributeTypeName: '{{pascalCase}}Attributes',
-		slug: '{{slugKebabCase}}',
-		typesFile: 'src/blocks/{{slugKebabCase}}/types.ts',
-	},
-	{
-		slug: '{{slugKebabCase}}-item',
-		attributeTypeName: '{{pascalCase}}ItemAttributes',
-		typesFile: 'src/blocks/{{slugKebabCase}}-item/types.ts',
-	},
-	// add-child: insert new block config entries here
+  {
+    attributeTypeName: '{{pascalCase}}Attributes',
+    slug: '{{slugKebabCase}}',
+    typesFile: 'src/blocks/{{slugKebabCase}}/types.ts',
+  },
+  {
+    slug: '{{slugKebabCase}}-item',
+    attributeTypeName: '{{pascalCase}}ItemAttributes',
+    typesFile: 'src/blocks/{{slugKebabCase}}-item/types.ts',
+  },
+  // add-child: insert new block config entries here
 ] as const;
 
 export const PATTERNS: WorkspacePatternConfig[] = [
-	// wp-typia add pattern entries
+  // wp-typia add pattern entries
 ];

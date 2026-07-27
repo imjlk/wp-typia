@@ -1,5 +1,5 @@
-import fs from "node:fs";
-import { promises as fsp } from "node:fs";
+import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 
 /**
  * JSON helpers shared by project-tools runtime modules.
@@ -28,7 +28,7 @@ import { promises as fsp } from "node:fs";
  * @returns A deep-cloned copy created with `JSON.parse(JSON.stringify(...))`.
  */
 export function cloneJsonValue<T>(value: T): T {
-	return JSON.parse(JSON.stringify(value)) as T;
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 /**
@@ -38,8 +38,8 @@ export function cloneJsonValue<T>(value: T): T {
  * @returns The first property indentation, or two spaces for compact/empty JSON.
  */
 export function detectJsonIndent(source: string): string | number {
-	const indentMatch = /\n([ \t]+)"/u.exec(source);
-	return indentMatch?.[1] ?? 2;
+  const indentMatch = /\n([ \t]+)"/u.exec(source);
+  return indentMatch?.[1] ?? 2;
 }
 
 /**
@@ -47,14 +47,14 @@ export function detectJsonIndent(source: string): string | number {
  */
 export interface SafeJsonParseOptions {
 	/** Human-readable operation label included in parse failures. */
-	context?: string;
+  context?: string;
 	/** Source file path included in parse failures when available. */
-	filePath?: string;
+  filePath?: string;
 }
 
 function formatJsonParseTarget({ context, filePath }: SafeJsonParseOptions): string {
-	const operation = context?.trim() || "JSON";
-	return filePath ? `${operation} at ${filePath}` : operation;
+  const operation = context?.trim() || 'JSON';
+  return filePath ? `${operation} at ${filePath}` : operation;
 }
 
 /**
@@ -69,15 +69,15 @@ export function safeJsonParse<T = unknown>(
 	source: string,
 	options: SafeJsonParseOptions = {},
 ): T {
-	try {
-		return JSON.parse(source) as T;
-	} catch (error) {
-		throw new Error(
+  try {
+    return JSON.parse(source) as T;
+  } catch (error) {
+    throw new Error(
 			`Failed to parse ${formatJsonParseTarget(options)}: ${
 				error instanceof Error ? error.message : String(error)
 			}`,
 		);
-	}
+  }
 }
 
 /**
@@ -90,12 +90,12 @@ export function safeJsonParse<T = unknown>(
  */
 export function readJsonFileSync<T = unknown>(
 	filePath: string,
-	options: Omit<SafeJsonParseOptions, "filePath"> = {},
+	options: Omit<SafeJsonParseOptions, 'filePath'> = {},
 ): T {
-	return safeJsonParse<T>(fs.readFileSync(filePath, "utf8"), {
-		...options,
-		filePath,
-	});
+  return safeJsonParse<T>(fs.readFileSync(filePath, 'utf8'), {
+    ...options,
+    filePath,
+  });
 }
 
 /**
@@ -108,10 +108,10 @@ export function readJsonFileSync<T = unknown>(
  */
 export async function readJsonFile<T = unknown>(
 	filePath: string,
-	options: Omit<SafeJsonParseOptions, "filePath"> = {},
+	options: Omit<SafeJsonParseOptions, 'filePath'> = {},
 ): Promise<T> {
-	return safeJsonParse<T>(await fsp.readFile(filePath, "utf8"), {
-		...options,
-		filePath,
-	});
+  return safeJsonParse<T>(await fsp.readFile(filePath, 'utf8'), {
+    ...options,
+    filePath,
+  });
 }

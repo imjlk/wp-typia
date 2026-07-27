@@ -1,1 +1,1 @@
-export * from "./workspace/workspace-inventory-parser.js";
+export * from './workspace/workspace-inventory-parser.js';

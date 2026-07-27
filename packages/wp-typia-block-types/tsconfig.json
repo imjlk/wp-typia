@@ -1,11 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
+    "paths": {},
     "rootDir": "./src",
-    "plugins": [],
     "types": []
   },
   "include": [

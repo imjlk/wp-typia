@@ -7,14 +7,14 @@ export default function Edit( {
 	attributes,
 	setAttributes,
 }: {
-	attributes: CompoundPatternsItemAttributes;
-	setAttributes: ( attrs: Partial< CompoundPatternsItemAttributes > ) => void;
+  attributes: CompoundPatternsItemAttributes;
+  setAttributes: ( attrs: Partial< CompoundPatternsItemAttributes > ) => void;
 } ) {
-	return (
+  return (
 		<div
-			{ ...useBlockProps( {
-				className: 'wp-block-compound-patterns-item',
-			} ) }
+			{ ...useBlockProps({
+        className: 'wp-block-compound-patterns-item',
+      }) }
 		>
 			<RichText
 				tagName="h4"
@@ -23,7 +23,7 @@ export default function Edit( {
 				onChange={ ( title ) => setAttributes( { title } ) }
 				placeholder={ __(
 					'Compound Patterns Item',
-					'compound_patterns'
+					'compound_patterns',
 				) }
 			/>
 			<RichText
@@ -33,7 +33,7 @@ export default function Edit( {
 				onChange={ ( body ) => setAttributes( { body } ) }
 				placeholder={ __(
 					'Add supporting details for this internal item.',
-					'compound_patterns'
+					'compound_patterns',
 				) }
 			/>
 		</div>

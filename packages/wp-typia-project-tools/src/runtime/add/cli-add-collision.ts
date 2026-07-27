@@ -1,50 +1,50 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
 import type {
 	WorkspaceInventory,
-} from "../workspace/workspace-inventory.js";
+} from '../workspace/workspace-inventory.js';
 
 type ScaffoldFilesystemCollision = {
-	label: string;
-	relativePath: string;
+  label: string;
+  relativePath: string;
 };
 
 type ScaffoldFilesystemCollisionDescriptor<TContext> = {
-	label: string;
-	relativePath: (context: TContext) => string;
+  label: string;
+  relativePath: (context: TContext) => string;
 };
 
 type ScaffoldInventoryCollision<TEntry> = {
-	entries: readonly TEntry[];
-	exists: (entry: TEntry) => boolean;
-	message: string;
+  entries: readonly TEntry[];
+  exists: (entry: TEntry) => boolean;
+  message: string;
 };
 
 type ScaffoldInventoryCollisionDescriptor<TContext, TEntry> = {
-	entries: (inventory: WorkspaceInventory) => readonly TEntry[];
-	exists: (entry: TEntry, context: TContext) => boolean;
-	message: (context: TContext) => string;
+  entries: (inventory: WorkspaceInventory) => readonly TEntry[];
+  exists: (entry: TEntry, context: TContext) => boolean;
+  message: (context: TContext) => string;
 };
 
 type ScaffoldCollisionDescriptor<TContext, TEntry> = {
-	filesystemCollisions: readonly ScaffoldFilesystemCollisionDescriptor<TContext>[];
-	inventoryCollision?: ScaffoldInventoryCollisionDescriptor<TContext, TEntry>;
+  filesystemCollisions: readonly ScaffoldFilesystemCollisionDescriptor<TContext>[];
+  inventoryCollision?: ScaffoldInventoryCollisionDescriptor<TContext, TEntry>;
 };
 
 type BlockChildCollisionContext = {
-	blockSlug: string;
-	slug: string;
+  blockSlug: string;
+  slug: string;
 };
 
 type SlugCollisionContext = {
-	slug: string;
+  slug: string;
 };
 
 type PostMetaCollisionContext = {
-	metaKey: string;
-	postType: string;
-	slug: string;
+  metaKey: string;
+  postType: string;
+  slug: string;
 };
 
 /**
@@ -54,25 +54,25 @@ type PostMetaCollisionContext = {
  * @throws {Error} When a filesystem path or inventory entry already exists.
  */
 export function assertScaffoldDoesNotExist<TEntry>(options: {
-	projectDir: string;
-	filesystemCollisions: readonly ScaffoldFilesystemCollision[];
-	inventoryCollision?: ScaffoldInventoryCollision<TEntry>;
+  projectDir: string;
+  filesystemCollisions: readonly ScaffoldFilesystemCollision[];
+  inventoryCollision?: ScaffoldInventoryCollision<TEntry>;
 }): void {
-	for (const collision of options.filesystemCollisions) {
-		const targetPath = path.join(options.projectDir, collision.relativePath);
-		if (fs.existsSync(targetPath)) {
-			throw new Error(
-				`${collision.label} already exists at ${path.relative(options.projectDir, targetPath)}. Choose a different name.`,
-			);
-		}
-	}
+  for (const collision of options.filesystemCollisions) {
+    const targetPath = path.join(options.projectDir, collision.relativePath);
+    if (fs.existsSync(targetPath)) {
+      throw new Error(
+        `${collision.label} already exists at ${path.relative(options.projectDir, targetPath)}. Choose a different name.`,
+      );
+    }
+  }
 
-	if (
+  if (
 		options.inventoryCollision &&
 		options.inventoryCollision.entries.some(options.inventoryCollision.exists)
 	) {
-		throw new Error(options.inventoryCollision.message);
-	}
+    throw new Error(options.inventoryCollision.message);
+  }
 }
 
 /**
@@ -86,39 +86,39 @@ export function assertScaffoldDoesNotExist<TEntry>(options: {
  * @throws {Error} When any descriptor-backed target already exists.
  */
 function assertAddKindScaffoldDoesNotExist<TContext, TEntry>(options: {
-	projectDir: string;
-	inventory: WorkspaceInventory;
-	context: TContext;
-	descriptor: ScaffoldCollisionDescriptor<TContext, TEntry>;
+  projectDir: string;
+  inventory: WorkspaceInventory;
+  context: TContext;
+  descriptor: ScaffoldCollisionDescriptor<TContext, TEntry>;
 }): void {
-	const inventoryCollision = options.descriptor.inventoryCollision;
-	assertScaffoldDoesNotExist({
-		filesystemCollisions: options.descriptor.filesystemCollisions.map(
-			(collision) => ({
-				label: collision.label,
-				relativePath: collision.relativePath(options.context),
-			}),
-		),
-		inventoryCollision: inventoryCollision
-			? {
-					entries: inventoryCollision.entries(options.inventory),
-					exists: (entry) => inventoryCollision.exists(entry, options.context),
-					message: inventoryCollision.message(options.context),
-				}
-			: undefined,
-		projectDir: options.projectDir,
-	});
+  const inventoryCollision = options.descriptor.inventoryCollision;
+  assertScaffoldDoesNotExist({
+    filesystemCollisions: options.descriptor.filesystemCollisions.map(
+      (collision) => ({
+        label: collision.label,
+        relativePath: collision.relativePath(options.context),
+      }),
+    ),
+    inventoryCollision: inventoryCollision
+      ? {
+          entries: inventoryCollision.entries(options.inventory),
+          exists: (entry) => inventoryCollision.exists(entry, options.context),
+          message: inventoryCollision.message(options.context),
+        }
+      : undefined,
+    projectDir: options.projectDir,
+  });
 }
 
 const VARIATION_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	BlockChildCollisionContext,
-	WorkspaceInventory["variations"][number]
+	WorkspaceInventory['variations'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A variation",
+			label: 'A variation',
 			relativePath: ({ blockSlug, slug }) =>
-				path.join("src", "blocks", blockSlug, "variations", `${slug}.ts`),
+				path.join('src', 'blocks', blockSlug, 'variations', `${slug}.ts`),
 		},
 	],
 	inventoryCollision: {
@@ -132,13 +132,13 @@ const VARIATION_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const BLOCK_STYLE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	BlockChildCollisionContext,
-	WorkspaceInventory["blockStyles"][number]
+	WorkspaceInventory['blockStyles'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A block style",
+			label: 'A block style',
 			relativePath: ({ blockSlug, slug }) =>
-				path.join("src", "blocks", blockSlug, "styles", `${slug}.ts`),
+				path.join('src', 'blocks', blockSlug, 'styles', `${slug}.ts`),
 		},
 	],
 	inventoryCollision: {
@@ -152,13 +152,13 @@ const BLOCK_STYLE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const BLOCK_TRANSFORM_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	BlockChildCollisionContext,
-	WorkspaceInventory["blockTransforms"][number]
+	WorkspaceInventory['blockTransforms'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A block transform",
+			label: 'A block transform',
 			relativePath: ({ blockSlug, slug }) =>
-				path.join("src", "blocks", blockSlug, "transforms", `${slug}.ts`),
+				path.join('src', 'blocks', blockSlug, 'transforms', `${slug}.ts`),
 		},
 	],
 	inventoryCollision: {
@@ -172,22 +172,22 @@ const BLOCK_TRANSFORM_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const PATTERN_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["patterns"][number]
+	WorkspaceInventory['patterns'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A pattern",
-			relativePath: ({ slug }) => path.join("src", "patterns", `${slug}.php`),
+			label: 'A pattern',
+			relativePath: ({ slug }) => path.join('src', 'patterns', `${slug}.php`),
 		},
 		{
-			label: "A full pattern",
+			label: 'A full pattern',
 			relativePath: ({ slug }) =>
-				path.join("src", "patterns", "full", `${slug}.php`),
+				path.join('src', 'patterns', 'full', `${slug}.php`),
 		},
 		{
-			label: "A section pattern",
+			label: 'A section pattern',
 			relativePath: ({ slug }) =>
-				path.join("src", "patterns", "sections", `${slug}.php`),
+				path.join('src', 'patterns', 'sections', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -200,12 +200,12 @@ const PATTERN_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const BINDING_SOURCE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["bindingSources"][number]
+	WorkspaceInventory['bindingSources'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A binding source",
-			relativePath: ({ slug }) => path.join("src", "bindings", slug),
+			label: 'A binding source',
+			relativePath: ({ slug }) => path.join('src', 'bindings', slug),
 		},
 	],
 	inventoryCollision: {
@@ -218,16 +218,16 @@ const BINDING_SOURCE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const REST_RESOURCE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["restResources"][number]
+	WorkspaceInventory['restResources'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A REST resource",
-			relativePath: ({ slug }) => path.join("src", "rest", slug),
+			label: 'A REST resource',
+			relativePath: ({ slug }) => path.join('src', 'rest', slug),
 		},
 		{
-			label: "A REST resource bootstrap",
-			relativePath: ({ slug }) => path.join("inc", "rest", `${slug}.php`),
+			label: 'A REST resource bootstrap',
+			relativePath: ({ slug }) => path.join('inc', 'rest', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -240,16 +240,16 @@ const REST_RESOURCE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const POST_META_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	PostMetaCollisionContext,
-	WorkspaceInventory["postMeta"][number]
+	WorkspaceInventory['postMeta'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A post meta contract",
-			relativePath: ({ slug }) => path.join("src", "post-meta", slug),
+			label: 'A post meta contract',
+			relativePath: ({ slug }) => path.join('src', 'post-meta', slug),
 		},
 		{
-			label: "A post meta bootstrap",
-			relativePath: ({ slug }) => path.join("inc", "post-meta", `${slug}.php`),
+			label: 'A post meta bootstrap',
+			relativePath: ({ slug }) => path.join('inc', 'post-meta', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -262,17 +262,17 @@ const POST_META_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const CONTRACT_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["contracts"][number]
+	WorkspaceInventory['contracts'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "A standalone contract",
-			relativePath: ({ slug }) => path.join("src", "contracts", `${slug}.ts`),
+			label: 'A standalone contract',
+			relativePath: ({ slug }) => path.join('src', 'contracts', `${slug}.ts`),
 		},
 		{
-			label: "A standalone contract schema",
+			label: 'A standalone contract schema',
 			relativePath: ({ slug }) =>
-				path.join("src", "contracts", `${slug}.schema.json`),
+				path.join('src', 'contracts', `${slug}.schema.json`),
 		},
 	],
 	inventoryCollision: {
@@ -285,17 +285,17 @@ const CONTRACT_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const ADMIN_VIEW_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["adminViews"][number]
+	WorkspaceInventory['adminViews'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "An admin view",
-			relativePath: ({ slug }) => path.join("src", "admin-views", slug),
+			label: 'An admin view',
+			relativePath: ({ slug }) => path.join('src', 'admin-views', slug),
 		},
 		{
-			label: "An admin view bootstrap",
+			label: 'An admin view bootstrap',
 			relativePath: ({ slug }) =>
-				path.join("inc", "admin-views", `${slug}.php`),
+				path.join('inc', 'admin-views', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -308,16 +308,16 @@ const ADMIN_VIEW_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const ABILITY_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["abilities"][number]
+	WorkspaceInventory['abilities'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "An ability scaffold",
-			relativePath: ({ slug }) => path.join("src", "abilities", slug),
+			label: 'An ability scaffold',
+			relativePath: ({ slug }) => path.join('src', 'abilities', slug),
 		},
 		{
-			label: "An ability bootstrap",
-			relativePath: ({ slug }) => path.join("inc", "abilities", `${slug}.php`),
+			label: 'An ability bootstrap',
+			relativePath: ({ slug }) => path.join('inc', 'abilities', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -330,17 +330,17 @@ const ABILITY_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const AI_FEATURE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["aiFeatures"][number]
+	WorkspaceInventory['aiFeatures'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "An AI feature",
-			relativePath: ({ slug }) => path.join("src", "ai-features", slug),
+			label: 'An AI feature',
+			relativePath: ({ slug }) => path.join('src', 'ai-features', slug),
 		},
 		{
-			label: "An AI feature bootstrap",
+			label: 'An AI feature bootstrap',
 			relativePath: ({ slug }) =>
-				path.join("inc", "ai-features", `${slug}.php`),
+				path.join('inc', 'ai-features', `${slug}.php`),
 		},
 	],
 	inventoryCollision: {
@@ -353,12 +353,12 @@ const AI_FEATURE_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 
 const EDITOR_PLUGIN_COLLISION_DESCRIPTOR: ScaffoldCollisionDescriptor<
 	SlugCollisionContext,
-	WorkspaceInventory["editorPlugins"][number]
+	WorkspaceInventory['editorPlugins'][number]
 > = {
 	filesystemCollisions: [
 		{
-			label: "An editor plugin",
-			relativePath: ({ slug }) => path.join("src", "editor-plugins", slug),
+			label: 'An editor plugin',
+			relativePath: ({ slug }) => path.join('src', 'editor-plugins', slug),
 		},
 	],
 	inventoryCollision: {
@@ -384,12 +384,12 @@ export function assertVariationDoesNotExist(
 	variationSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { blockSlug, slug: variationSlug },
-		descriptor: VARIATION_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { blockSlug, slug: variationSlug },
+    descriptor: VARIATION_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -407,12 +407,12 @@ export function assertBlockStyleDoesNotExist(
 	styleSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { blockSlug, slug: styleSlug },
-		descriptor: BLOCK_STYLE_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { blockSlug, slug: styleSlug },
+    descriptor: BLOCK_STYLE_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -430,12 +430,12 @@ export function assertBlockTransformDoesNotExist(
 	transformSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { blockSlug, slug: transformSlug },
-		descriptor: BLOCK_TRANSFORM_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { blockSlug, slug: transformSlug },
+    descriptor: BLOCK_TRANSFORM_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -453,12 +453,12 @@ export function assertPatternDoesNotExist(
 	patternSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: patternSlug },
-		descriptor: PATTERN_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: patternSlug },
+    descriptor: PATTERN_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -476,12 +476,12 @@ export function assertBindingSourceDoesNotExist(
 	bindingSourceSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: bindingSourceSlug },
-		descriptor: BINDING_SOURCE_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: bindingSourceSlug },
+    descriptor: BINDING_SOURCE_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -499,12 +499,12 @@ export function assertRestResourceDoesNotExist(
 	restResourceSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: restResourceSlug },
-		descriptor: REST_RESOURCE_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: restResourceSlug },
+    descriptor: REST_RESOURCE_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -528,22 +528,22 @@ export function assertPostMetaDoesNotExist(
 	metaKey: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { metaKey, postType, slug: postMetaSlug },
-		descriptor: POST_META_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { metaKey, postType, slug: postMetaSlug },
+    descriptor: POST_META_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 
-	if (
+  if (
 		inventory.postMeta.some(
-			(entry) => entry.postType === postType && entry.metaKey === metaKey,
-		)
+      (entry) => entry.postType === postType && entry.metaKey === metaKey,
+    )
 	) {
-		throw new Error(
-			`A post meta inventory entry already registers ${metaKey} for ${postType}. Choose a different meta key or post type.`,
-		);
-	}
+    throw new Error(
+      `A post meta inventory entry already registers ${metaKey} for ${postType}. Choose a different meta key or post type.`,
+    );
+  }
 }
 
 /**
@@ -560,12 +560,12 @@ export function assertContractDoesNotExist(
 	contractSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: contractSlug },
-		descriptor: CONTRACT_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: contractSlug },
+    descriptor: CONTRACT_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -582,12 +582,12 @@ export function assertAdminViewDoesNotExist(
 	adminViewSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: adminViewSlug },
-		descriptor: ADMIN_VIEW_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: adminViewSlug },
+    descriptor: ADMIN_VIEW_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -607,12 +607,12 @@ export function assertAbilityDoesNotExist(
 	abilitySlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: abilitySlug },
-		descriptor: ABILITY_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: abilitySlug },
+    descriptor: ABILITY_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -630,12 +630,12 @@ export function assertAiFeatureDoesNotExist(
 	aiFeatureSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: aiFeatureSlug },
-		descriptor: AI_FEATURE_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: aiFeatureSlug },
+    descriptor: AI_FEATURE_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }
 
 /**
@@ -652,10 +652,10 @@ export function assertEditorPluginDoesNotExist(
 	editorPluginSlug: string,
 	inventory: WorkspaceInventory,
 ): void {
-	assertAddKindScaffoldDoesNotExist({
-		context: { slug: editorPluginSlug },
-		descriptor: EDITOR_PLUGIN_COLLISION_DESCRIPTOR,
-		inventory,
-		projectDir,
-	});
+  assertAddKindScaffoldDoesNotExist({
+    context: { slug: editorPluginSlug },
+    descriptor: EDITOR_PLUGIN_COLLISION_DESCRIPTOR,
+    inventory,
+    projectDir,
+  });
 }

@@ -1,1 +1,1 @@
-export * from "./migration/migration-generated-artifacts.js";
+export * from './migration/migration-generated-artifacts.js';

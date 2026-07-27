@@ -1,28 +1,28 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
 import {
-	assertPatternDoesNotExist,
-	assertValidGeneratedSlug,
-	getWorkspaceBootstrapPath,
-	normalizeBlockSlug,
-	rollbackWorkspaceMutation,
-	type RunAddPatternCommandOptions,
-	type WorkspaceMutationSnapshot,
-	snapshotWorkspaceFiles,
-} from "./cli-add-shared.js";
-import { ensurePatternBootstrapAnchors } from "./cli-add-workspace-pattern-anchors.js";
-import { resolvePatternCatalogOptions } from "./cli-add-workspace-pattern-options.js";
+  assertPatternDoesNotExist,
+  assertValidGeneratedSlug,
+  getWorkspaceBootstrapPath,
+  normalizeBlockSlug,
+  rollbackWorkspaceMutation,
+  type RunAddPatternCommandOptions,
+  type WorkspaceMutationSnapshot,
+  snapshotWorkspaceFiles,
+} from './cli-add-shared.js';
+import { ensurePatternBootstrapAnchors } from './cli-add-workspace-pattern-anchors.js';
+import { resolvePatternCatalogOptions } from './cli-add-workspace-pattern-options.js';
 import {
-	buildPatternConfigEntry,
-	buildPatternSource,
-} from "./cli-add-workspace-pattern-source-emitters.js";
-import type { PatternCatalogScope } from "./pattern-catalog.js";
+  buildPatternConfigEntry,
+  buildPatternSource,
+} from './cli-add-workspace-pattern-source-emitters.js';
+import type { PatternCatalogScope } from './pattern-catalog.js';
 import {
-	appendWorkspaceInventoryEntries,
-	readWorkspaceInventoryAsync,
-} from "../workspace/workspace-inventory.js";
-import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
+  appendWorkspaceInventoryEntries,
+  readWorkspaceInventoryAsync,
+} from '../workspace/workspace-inventory.js';
+import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 
 /**
  * Add one PHP block pattern shell to an official workspace project.
@@ -64,88 +64,88 @@ export async function runAddPatternCommand({
 	tags,
 	thumbnailUrl,
 }: RunAddPatternCommandOptions): Promise<{
-	contentFile: string;
-	patternSlug: string;
-	patternScope: PatternCatalogScope;
-	projectDir: string;
-	sectionRole?: string;
-	tags: string[];
-	title: string;
-	thumbnailUrl?: string;
+  contentFile: string;
+  patternSlug: string;
+  patternScope: PatternCatalogScope;
+  projectDir: string;
+  sectionRole?: string;
+  tags: string[];
+  title: string;
+  thumbnailUrl?: string;
 }> {
-	const workspace = resolveWorkspaceProject(cwd);
-	const patternSlug = assertValidGeneratedSlug(
-		"Pattern name",
-		normalizeBlockSlug(patternName),
-		"wp-typia add pattern <name>",
-	);
-	const patternCatalogOptions = resolvePatternCatalogOptions(patternSlug, {
-		catalogTitle,
-		contentFile,
-		cwd,
-		patternName,
-		patternScope,
-		sectionRole,
-		tags,
-		thumbnailUrl,
-	});
+  const workspace = resolveWorkspaceProject(cwd);
+  const patternSlug = assertValidGeneratedSlug(
+    'Pattern name',
+    normalizeBlockSlug(patternName),
+    'wp-typia add pattern <name>',
+  );
+  const patternCatalogOptions = resolvePatternCatalogOptions(patternSlug, {
+    catalogTitle,
+    contentFile,
+    cwd,
+    patternName,
+    patternScope,
+    sectionRole,
+    tags,
+    thumbnailUrl,
+  });
 
-	const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
-	assertPatternDoesNotExist(workspace.projectDir, patternSlug, inventory);
-	const contentFilePath = path.join(
-		workspace.projectDir,
-		patternCatalogOptions.contentFile,
-	);
-	if (
+  const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
+  assertPatternDoesNotExist(workspace.projectDir, patternSlug, inventory);
+  const contentFilePath = path.join(
+    workspace.projectDir,
+    patternCatalogOptions.contentFile,
+  );
+  if (
 		await fsp.stat(contentFilePath).then(
-			() => true,
-			(error) => {
-				if ((error as { code?: string }).code === "ENOENT") {
-					return false;
-				}
-				throw error;
-			},
-		)
+      () => true,
+      (error) => {
+        if ((error as { code?: string }).code === 'ENOENT') {
+          return false;
+        }
+        throw error;
+      },
+    )
 	) {
-		throw new Error(
-			`A pattern already exists at ${patternCatalogOptions.contentFile}. Choose a different name.`,
-		);
-	}
+    throw new Error(
+      `A pattern already exists at ${patternCatalogOptions.contentFile}. Choose a different name.`,
+    );
+  }
 
-	const blockConfigPath = path.join(
-		workspace.projectDir,
-		"scripts",
-		"block-config.ts",
-	);
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
-	const patternFilePath = contentFilePath;
-	const mutationSnapshot: WorkspaceMutationSnapshot = {
-		fileSources: await snapshotWorkspaceFiles([blockConfigPath, bootstrapPath]),
-		snapshotDirs: [],
-		targetPaths: [patternFilePath],
-	};
+  const blockConfigPath = path.join(
+    workspace.projectDir,
+    'scripts',
+    'block-config.ts',
+  );
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const patternFilePath = contentFilePath;
+  const mutationSnapshot: WorkspaceMutationSnapshot = {
+    fileSources: await snapshotWorkspaceFiles([blockConfigPath, bootstrapPath]),
+    snapshotDirs: [],
+    targetPaths: [patternFilePath],
+  };
 
-	try {
-		await fsp.mkdir(path.dirname(patternFilePath), { recursive: true });
-		await ensurePatternBootstrapAnchors(workspace);
-		await fsp.writeFile(
-			patternFilePath,
-			buildPatternSource(
-				patternSlug,
-				workspace.workspace.namespace,
-				patternCatalogOptions.sectionRole,
-				workspace.workspace.textDomain,
-				patternCatalogOptions.title,
-			),
-			"utf8",
-		);
-		await appendWorkspaceInventoryEntries(workspace.projectDir, {
-			patternEntries: [
-				buildPatternConfigEntry(patternSlug, patternCatalogOptions),
-			],
-		});
+  try {
+    await fsp.mkdir(path.dirname(patternFilePath), { recursive: true });
+    await ensurePatternBootstrapAnchors(workspace);
+    await fsp.writeFile(
+      patternFilePath,
+      buildPatternSource(
+        patternSlug,
+        workspace.workspace.namespace,
+        patternCatalogOptions.sectionRole,
+        workspace.workspace.textDomain,
+        patternCatalogOptions.title,
+      ),
+      'utf8',
+    );
+    await appendWorkspaceInventoryEntries(workspace.projectDir, {
+      patternEntries: [
+        buildPatternConfigEntry(patternSlug, patternCatalogOptions),
+      ],
+    });
 
-		return {
+    return {
 			contentFile: patternCatalogOptions.contentFile,
 			patternSlug,
 			patternScope: patternCatalogOptions.patternScope,
@@ -159,8 +159,8 @@ export async function runAddPatternCommand({
 				? { thumbnailUrl: patternCatalogOptions.thumbnailUrl }
 				: {}),
 		};
-	} catch (error) {
-		await rollbackWorkspaceMutation(mutationSnapshot);
-		throw error;
-	}
+  } catch (error) {
+    await rollbackWorkspaceMutation(mutationSnapshot);
+    throw error;
+  }
 }

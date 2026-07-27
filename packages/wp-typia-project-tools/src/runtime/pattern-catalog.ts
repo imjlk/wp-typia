@@ -1,1 +1,1 @@
-export * from "./add/pattern-catalog.js";
+export * from './add/pattern-catalog.js';

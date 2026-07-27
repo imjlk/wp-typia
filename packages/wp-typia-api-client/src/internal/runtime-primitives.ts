@@ -1,4 +1,4 @@
-import type { IValidation } from "@typia/interface";
+import type { IValidation } from '@typia/interface';
 
 /**
  * Describe one normalized validation failure.
@@ -6,10 +6,10 @@ import type { IValidation } from "@typia/interface";
  * @category Types
  */
 export interface ValidationError {
-	description?: string | undefined;
-	expected: string;
-	path: string;
-	value: unknown;
+  description?: string | undefined;
+  expected: string;
+  path: string;
+  value: unknown;
 }
 
 /**
@@ -18,9 +18,9 @@ export interface ValidationError {
  * @category Types
  */
 export interface ValidationResult<T> {
-	data?: T | undefined;
-	errors: ValidationError[];
-	isValid: boolean;
+  data?: T | undefined;
+  errors: ValidationError[];
+  isValid: boolean;
 }
 
 /**
@@ -42,10 +42,10 @@ export type ValidationLike<T> =
  * @category Types
  */
 export interface RawValidationError {
-	description?: string;
-	expected?: string;
-	path?: string;
-	value?: unknown;
+  description?: string;
+  expected?: string;
+  path?: string;
+  value?: unknown;
 }
 
 /**
@@ -56,12 +56,12 @@ export interface RawValidationError {
  * @category Utilities
  */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) {
-		return false;
-	}
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
 
-	const prototype = Object.getPrototypeOf(value);
-	return prototype === Object.prototype || prototype === null;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 /**
@@ -72,7 +72,7 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
  * @category Utilities
  */
 export function isFormDataLike(value: unknown): value is FormData {
-	return typeof FormData !== "undefined" && value instanceof FormData;
+  return typeof FormData !== 'undefined' && value instanceof FormData;
 }
 
 /**
@@ -83,7 +83,7 @@ export function isFormDataLike(value: unknown): value is FormData {
  * @category Validation
  */
 export function normalizePath(path: unknown): string {
-	return typeof path === "string" && path.length > 0 ? path : "(root)";
+  return typeof path === 'string' && path.length > 0 ? path : '(root)';
 }
 
 /**
@@ -94,9 +94,9 @@ export function normalizePath(path: unknown): string {
  * @category Validation
  */
 export function normalizeExpected(expected: unknown): string {
-	return typeof expected === "string" && expected.length > 0
-		? expected
-		: "unknown";
+  return typeof expected === 'string' && expected.length > 0
+    ? expected
+    : 'unknown';
 }
 
 /**
@@ -107,14 +107,14 @@ export function normalizeExpected(expected: unknown): string {
  * @category Validation
  */
 export function normalizeValidationError(error: unknown): ValidationError {
-	const raw = isPlainObject(error) ? (error as RawValidationError) : {};
+  const raw = isPlainObject(error) ? (error as RawValidationError) : {};
 
-	return {
+  return {
 		description:
-			typeof raw.description === "string" ? raw.description : undefined,
+			typeof raw.description === 'string' ? raw.description : undefined,
 		expected: normalizeExpected(raw.expected),
 		path: normalizePath(raw.path),
-		value: Object.prototype.hasOwnProperty.call(raw, "value")
+		value: Object.prototype.hasOwnProperty.call(raw, 'value')
 			? raw.value
 			: undefined,
 	};
@@ -128,11 +128,11 @@ export function normalizeValidationError(error: unknown): ValidationError {
  * @category Validation
  */
 export function isValidationResult<T>(
-	value: unknown
+	value: unknown,
 ): value is ValidationResult<T> {
-	return (
+  return (
 		isPlainObject(value) &&
-		typeof value.isValid === "boolean" &&
+		typeof value.isValid === 'boolean' &&
 		Array.isArray(value.errors)
 	);
 }
@@ -145,7 +145,7 @@ export function isValidationResult<T>(
  * @category Validation
  */
 export function toValidationResult<T>(result: unknown): ValidationResult<T> {
-	const rawResult = isPlainObject(result)
+  const rawResult = isPlainObject(result)
 		? (result as {
 				data?: unknown;
 				errors?: unknown;
@@ -153,23 +153,23 @@ export function toValidationResult<T>(result: unknown): ValidationResult<T> {
 			})
 		: {};
 
-	if (isValidationResult<T>(result)) {
-		return result;
-	}
+  if (isValidationResult<T>(result)) {
+    return result;
+  }
 
-	if (rawResult.success === true) {
-		return {
-			data: rawResult.data as T | undefined,
-			errors: [],
-			isValid: true,
-		};
-	}
+  if (rawResult.success === true) {
+    return {
+      data: rawResult.data as T | undefined,
+      errors: [],
+      isValid: true,
+    };
+  }
 
-	return {
-		data: undefined,
-		errors: Array.isArray(rawResult.errors)
-			? rawResult.errors.map(normalizeValidationError)
-			: [],
-		isValid: false,
-	};
+  return {
+    data: undefined,
+    errors: Array.isArray(rawResult.errors)
+      ? rawResult.errors.map(normalizeValidationError)
+      : [],
+    isValid: false,
+  };
 }

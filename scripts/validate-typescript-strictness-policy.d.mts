@@ -1,20 +1,20 @@
 export interface TypeScriptStrictnessPolicyResult {
-	errors: string[];
-	valid: boolean;
+  errors: string[];
+  valid: boolean;
 }
 
 export declare const TYPESCRIPT_STRICTNESS_BASELINE: Readonly<{
-	noFallthroughCasesInSwitch: true;
-	noImplicitOverride: true;
-	strict: true;
-	useUnknownInCatchVariables: true;
+  noFallthroughCasesInSwitch: true;
+  noImplicitOverride: true;
+  strict: true;
+  useUnknownInCatchVariables: true;
 }>;
 
 export declare const TYPESCRIPT_STRICTNESS_DEFERRED_FLAGS: readonly [
-	"exactOptionalPropertyTypes",
-	"noImplicitReturns",
-	"noPropertyAccessFromIndexSignature",
-	"noUncheckedIndexedAccess",
+	'exactOptionalPropertyTypes',
+	'noImplicitReturns',
+	'noPropertyAccessFromIndexSignature',
+	'noUncheckedIndexedAccess',
 ];
 
 export declare const TYPESCRIPT_STRICTNESS_POLICY_EXCEPTIONS: Readonly<
@@ -31,7 +31,7 @@ export declare function validateTypeScriptStrictnessPolicy(
 ): TypeScriptStrictnessPolicyResult;
 
 export declare function runCli(options?: {
-	cwd?: string;
-	stdout?: { write(chunk: string): unknown };
-	stderr?: { write(chunk: string): unknown };
+  cwd?: string;
+  stdout?: { write(chunk: string): unknown };
+  stderr?: { write(chunk: string): unknown };
 }): 0 | 1;

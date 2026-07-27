@@ -1,14 +1,14 @@
 name: Setup Bun Workspace
-description: Setup Bun (and optional Node), warm the Bun install cache, and install root workspace dependencies.
+description: Setup Bun and Node, warm the Bun install cache, and install root workspace dependencies.
 
 inputs:
   bun-version:
     description: Bun version to install.
     required: true
   node-version:
-    description: Optional Node.js version to install before Bun.
+    description: Node.js version to install before Bun.
     required: false
-    default: ''
+    default: '24'
   install-command:
     description: Command used to install workspace dependencies.
     required: false
@@ -17,6 +17,10 @@ inputs:
     description: Working directory for the install command.
     required: false
     default: .
+  ttsc-cache-scope:
+    description: Namespace for content-addressed ttsc source-plugin binaries.
+    required: false
+    default: workspace
 
 runs:
   using: composite
@@ -32,8 +36,22 @@ runs:
       with:
         bun-version: ${{ inputs.bun-version }}
 
+    - name: Configure ttsc source-plugin cache
+      shell: bash
+      run: |
+        echo "TTSC_CACHE_DIR=$GITHUB_WORKSPACE/.ttsc-cache" >> "$GITHUB_ENV"
+        echo "TTSC_GO_CACHE_DIR=$RUNNER_TEMP/ttsc-go-cache" >> "$GITHUB_ENV"
+
+    - name: Cache ttsc source plugins
+      uses: actions/cache@v6
+      with:
+        path: .ttsc-cache/plugins
+        key: ttsc-${{ inputs.ttsc-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock', 'patches/*.patch', '**/go.mod', '**/go.sum') }}
+        restore-keys: |
+          ttsc-${{ inputs.ttsc-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-
+
     - name: Cache Bun install cache
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.bun/install/cache
         key: bun-install-${{ runner.os }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock') }}

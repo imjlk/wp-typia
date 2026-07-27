@@ -1,92 +1,92 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
 import {
-	assertFullBlockName,
-	resolveWorkspaceTargetBlockName,
-} from "./block-targets.js";
-import { pathExists } from "../shared/fs-async.js";
+  assertFullBlockName,
+  resolveWorkspaceTargetBlockName,
+} from './block-targets.js';
+import { pathExists } from '../shared/fs-async.js';
 import {
-	assertBlockTransformDoesNotExist,
-	assertValidGeneratedSlug,
-	normalizeBlockSlug,
-	quoteTsString,
-	resolveWorkspaceBlock,
-	rollbackWorkspaceMutation,
-	type RunAddBlockTransformCommandOptions,
-	type WorkspaceMutationSnapshot,
-	snapshotWorkspaceFiles,
-} from "./cli-add-shared.js";
-import { ensureWorkspaceRegistrationSettingsCall } from "./cli-add-workspace-registration-hooks.js";
+  assertBlockTransformDoesNotExist,
+  assertValidGeneratedSlug,
+  normalizeBlockSlug,
+  quoteTsString,
+  resolveWorkspaceBlock,
+  rollbackWorkspaceMutation,
+  type RunAddBlockTransformCommandOptions,
+  type WorkspaceMutationSnapshot,
+  snapshotWorkspaceFiles,
+} from './cli-add-shared.js';
+import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-registration-hooks.js';
 import {
-	appendWorkspaceInventoryEntries,
-	readWorkspaceInventoryAsync,
-} from "../workspace/workspace-inventory.js";
-import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
-import { toSnakeCase, toTitleCase } from "../shared/string-case.js";
+  appendWorkspaceInventoryEntries,
+  readWorkspaceInventoryAsync,
+} from '../workspace/workspace-inventory.js';
+import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
+import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
 
 const BLOCK_TRANSFORMS_IMPORT_LINE =
 	"import { applyWorkspaceBlockTransforms } from './transforms';";
 const BLOCK_TRANSFORMS_IMPORT_PATTERN =
-	/^\s*import\s*\{\s*applyWorkspaceBlockTransforms\s*\}\s*from\s*["']\.\/transforms["']\s*;?\s*$/mu;
+	/^[ \t]*import\s*\{\s*applyWorkspaceBlockTransforms\s*\}\s*from\s*["']\.\/transforms["'][ \t]*;?[ \t]*$/mu;
 const BLOCK_TRANSFORMS_CALL_LINE =
-	"applyWorkspaceBlockTransforms(registration.settings);";
+	'applyWorkspaceBlockTransforms(registration.settings);';
 const BLOCK_TRANSFORMS_CALL_PATTERN =
 	/applyWorkspaceBlockTransforms\s*\(\s*registration\s*\.\s*settings\s*\)\s*;?/u;
 
 function buildWorkspaceConstName(prefix: string, slug: string): string {
-	return `workspace${prefix}_${toSnakeCase(slug)}`;
+  return `workspace${prefix}_${toSnakeCase(slug)}`;
 }
 
 function buildBlockTransformConfigEntry(options: {
-	blockSlug: string;
-	fromBlockName: string;
-	toBlockName: string;
-	transformSlug: string;
+  blockSlug: string;
+  fromBlockName: string;
+  toBlockName: string;
+  transformSlug: string;
 }): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tblock: ${quoteTsString(options.blockSlug)},`,
 		`\t\tfile: ${quoteTsString(`src/blocks/${options.blockSlug}/transforms/${options.transformSlug}.ts`)},`,
 		`\t\tfrom: ${quoteTsString(options.fromBlockName)},`,
 		`\t\tslug: ${quoteTsString(options.transformSlug)},`,
 		`\t\tto: ${quoteTsString(options.toBlockName)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 function getBlockTransformConstBindings(
 	transformSlugs: string[],
 ): Array<{ constName: string; transformSlug: string }> {
-	const seenConstNames = new Map<string, string>();
+  const seenConstNames = new Map<string, string>();
 
-	return transformSlugs.map((transformSlug) => {
-		const constName = buildWorkspaceConstName("BlockTransform", transformSlug);
-		const previousSlug = seenConstNames.get(constName);
+  return transformSlugs.map((transformSlug) => {
+    const constName = buildWorkspaceConstName('BlockTransform', transformSlug);
+    const previousSlug = seenConstNames.get(constName);
 
-		if (previousSlug && previousSlug !== transformSlug) {
-			throw new Error(
-				`Transform slugs "${previousSlug}" and "${transformSlug}" generate the same registry identifier "${constName}". Rename one of the transforms.`,
-			);
-		}
+    if (previousSlug && previousSlug !== transformSlug) {
+      throw new Error(
+        `Transform slugs "${previousSlug}" and "${transformSlug}" generate the same registry identifier "${constName}". Rename one of the transforms.`,
+      );
+    }
 
-		seenConstNames.set(constName, transformSlug);
-		return { constName, transformSlug };
-	});
+    seenConstNames.set(constName, transformSlug);
+    return { constName, transformSlug };
+  });
 }
 
 function buildBlockTransformSource(options: {
-	fromBlockName: string;
-	textDomain: string;
-	transformSlug: string;
+  fromBlockName: string;
+  textDomain: string;
+  transformSlug: string;
 }): string {
-	const transformTitle = toTitleCase(options.transformSlug);
-	const transformConstName = buildWorkspaceConstName(
-		"BlockTransform",
-		options.transformSlug,
-	);
+  const transformTitle = toTitleCase(options.transformSlug);
+  const transformConstName = buildWorkspaceConstName(
+    'BlockTransform',
+    options.transformSlug,
+  );
 
-	return `import { createBlock } from '@wordpress/blocks';
+  return `import { createBlock } from '@wordpress/blocks';
 import { __ } from '@wordpress/i18n';
 import metadata from '../block.json';
 
@@ -94,66 +94,66 @@ type TransformAttributes = Record<string, unknown>;
 type TransformInnerBlock = ReturnType<typeof createBlock>;
 
 function mapTransformAttributes(attributes: TransformAttributes): TransformAttributes {
-\tconst content = attributes.content;
+  const content = attributes.content;
 
-\treturn typeof content === 'string' ? { content } : {};
+  return typeof content === 'string' ? { content } : {};
 }
 
 export const ${transformConstName} = {
-\ttype: 'block',
-\tblocks: [${quoteTsString(options.fromBlockName)}],
-\ttitle: __( ${quoteTsString(transformTitle)}, ${quoteTsString(options.textDomain)} ),
-\ttransform: (
-\t\tattributes: TransformAttributes,
-\t\tinnerBlocks: TransformInnerBlock[] = [],
-\t) => createBlock(metadata.name, mapTransformAttributes(attributes), innerBlocks),
+  type: 'block',
+  blocks: [${quoteTsString(options.fromBlockName)}],
+  title: __(${quoteTsString(transformTitle)}, ${quoteTsString(options.textDomain)}),
+  transform: (
+    attributes: TransformAttributes,
+    innerBlocks: TransformInnerBlock[] = [],
+  ) => createBlock(metadata.name, mapTransformAttributes(attributes), innerBlocks),
 } as const;
 `;
 }
 
 function buildBlockTransformIndexSource(transformSlugs: string[]): string {
-	const transformBindings = getBlockTransformConstBindings(transformSlugs);
-	const importLines = transformBindings
+  const transformBindings = getBlockTransformConstBindings(transformSlugs);
+  const importLines = transformBindings
 		.map(
 			({ constName, transformSlug }) =>
 				`import { ${constName} } from './${transformSlug}';`,
 		)
-		.join("\n");
-	const transformConstNames = transformBindings
-		.map(({ constName }) => constName)
-		.join(",\n\t");
+		.join('\n');
+  const transformConstNames = transformBindings
+		.map(({ constName }) => `  ${constName},`)
+		.join('\n');
 
-	return `${importLines ? `${importLines}\n\n` : ""}type BlockSettingsWithTransforms = {
-\ttransforms?: {
-\t\tfrom?: unknown[];
-\t\tto?: unknown[];
-\t};
+  return `${importLines ? `${importLines}\n\n` : ''}type BlockSettingsWithTransforms = {
+  transforms?: {
+    from?: unknown[];
+    to?: unknown[];
+  };
 };
 
 const WORKSPACE_BLOCK_TRANSFORMS = [
-\t${transformConstNames}
-\t// wp-typia add transform entries
+${transformConstNames}
+  // wp-typia add transform entries
 ] as const;
 
 export function applyWorkspaceBlockTransforms(settings: BlockSettingsWithTransforms) {
-\tconst transforms = settings.transforms ?? {};
+  const transforms = settings.transforms ?? {};
 
-\tsettings.transforms = {
-\t\t...transforms,
-\t\tfrom: [...(transforms.from ?? []), ...WORKSPACE_BLOCK_TRANSFORMS],
-\t};
+  settings.transforms = {
+    ...transforms,
+    from: [...(transforms.from ?? []), ...WORKSPACE_BLOCK_TRANSFORMS],
+  };
 }
 `;
 }
 
 async function ensureBlockTransformRegistrationHook(blockIndexPath: string): Promise<void> {
-	await ensureWorkspaceRegistrationSettingsCall({
-		blockIndexPath,
-		callLine: BLOCK_TRANSFORMS_CALL_LINE,
-		callPattern: BLOCK_TRANSFORMS_CALL_PATTERN,
-		importLine: BLOCK_TRANSFORMS_IMPORT_LINE,
-		importPattern: BLOCK_TRANSFORMS_IMPORT_PATTERN,
-	});
+  await ensureWorkspaceRegistrationSettingsCall({
+    blockIndexPath,
+    callLine: BLOCK_TRANSFORMS_CALL_LINE,
+    callPattern: BLOCK_TRANSFORMS_CALL_PATTERN,
+    importLine: BLOCK_TRANSFORMS_IMPORT_LINE,
+    importPattern: BLOCK_TRANSFORMS_IMPORT_PATTERN,
+  });
 }
 
 async function writeBlockTransformRegistry(
@@ -161,21 +161,27 @@ async function writeBlockTransformRegistry(
 	blockSlug: string,
 	transformSlug: string,
 ): Promise<void> {
-	const transformsDir = path.join(projectDir, "src", "blocks", blockSlug, "transforms");
-	const transformsIndexPath = path.join(transformsDir, "index.ts");
-	await fsp.mkdir(transformsDir, { recursive: true });
+  const transformsDir = path.join(
+    projectDir,
+    'src',
+    'blocks',
+    blockSlug,
+    'transforms',
+  );
+  const transformsIndexPath = path.join(transformsDir, 'index.ts');
+  await fsp.mkdir(transformsDir, { recursive: true });
 
-	const existingTransformSlugs = (await fsp.readdir(transformsDir))
-		.filter((entry) => entry.endsWith(".ts") && entry !== "index.ts")
-		.map((entry) => entry.replace(/\.ts$/u, ""));
-	const nextTransformSlugs = Array.from(
+  const existingTransformSlugs = (await fsp.readdir(transformsDir))
+		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const nextTransformSlugs = Array.from(
 		new Set([...existingTransformSlugs, transformSlug]),
 	).sort();
-	await fsp.writeFile(
-		transformsIndexPath,
-		buildBlockTransformIndexSource(nextTransformSlugs),
-		"utf8",
-	);
+  await fsp.writeFile(
+    transformsIndexPath,
+    buildBlockTransformIndexSource(nextTransformSlugs),
+    'utf8',
+  );
 }
 
 /**
@@ -208,53 +214,59 @@ export async function runAddBlockTransformCommand({
 	toBlockName,
 	transformName,
 }: RunAddBlockTransformCommandOptions): Promise<{
-	blockSlug: string;
-	fromBlockName: string;
-	projectDir: string;
-	toBlockName: string;
-	transformSlug: string;
+  blockSlug: string;
+  fromBlockName: string;
+  projectDir: string;
+  toBlockName: string;
+  transformSlug: string;
 }> {
-	const workspace = resolveWorkspaceProject(cwd);
-	const transformSlug = assertValidGeneratedSlug(
-		"Transform name",
-		normalizeBlockSlug(transformName),
-		"wp-typia add transform <name> --from <namespace/block> --to <block-slug|namespace/block-slug>",
-	);
-	const resolvedFromBlockName = assertFullBlockName(fromBlockName, "--from");
-	const target = resolveWorkspaceTargetBlockName(
-		toBlockName,
-		workspace.workspace.namespace,
-		"--to",
-	);
+  const workspace = resolveWorkspaceProject(cwd);
+  const transformSlug = assertValidGeneratedSlug(
+    'Transform name',
+    normalizeBlockSlug(transformName),
+    'wp-typia add transform <name> --from <namespace/block> --to <block-slug|namespace/block-slug>',
+  );
+  const resolvedFromBlockName = assertFullBlockName(fromBlockName, '--from');
+  const target = resolveWorkspaceTargetBlockName(
+    toBlockName,
+    workspace.workspace.namespace,
+    '--to',
+  );
 
-	const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
-	resolveWorkspaceBlock(inventory, target.blockSlug);
-	assertBlockTransformDoesNotExist(
-		workspace.projectDir,
-		target.blockSlug,
-		transformSlug,
-		inventory,
-	);
+  const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
+  resolveWorkspaceBlock(inventory, target.blockSlug);
+  assertBlockTransformDoesNotExist(
+    workspace.projectDir,
+    target.blockSlug,
+    transformSlug,
+    inventory,
+  );
 
-	const blockConfigPath = path.join(workspace.projectDir, "scripts", "block-config.ts");
-	const blockIndexPath = path.join(
-		workspace.projectDir,
-		"src",
-		"blocks",
-		target.blockSlug,
-		"index.tsx",
-	);
-	const transformsDir = path.join(
-		workspace.projectDir,
-		"src",
-		"blocks",
-		target.blockSlug,
-		"transforms",
-	);
-	const transformFilePath = path.join(transformsDir, `${transformSlug}.ts`);
-	const transformsIndexPath = path.join(transformsDir, "index.ts");
-	const shouldRemoveTransformsDirOnRollback = !(await pathExists(transformsDir));
-	const mutationSnapshot: WorkspaceMutationSnapshot = {
+  const blockConfigPath = path.join(
+    workspace.projectDir,
+    'scripts',
+    'block-config.ts',
+  );
+  const blockIndexPath = path.join(
+    workspace.projectDir,
+    'src',
+    'blocks',
+    target.blockSlug,
+    'index.tsx',
+  );
+  const transformsDir = path.join(
+    workspace.projectDir,
+    'src',
+    'blocks',
+    target.blockSlug,
+    'transforms',
+  );
+  const transformFilePath = path.join(transformsDir, `${transformSlug}.ts`);
+  const transformsIndexPath = path.join(transformsDir, 'index.ts');
+  const shouldRemoveTransformsDirOnRollback = !(await pathExists(
+    transformsDir,
+  ));
+  const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
@@ -267,39 +279,43 @@ export async function runAddBlockTransformCommand({
 		],
 	};
 
-	try {
-		await fsp.mkdir(transformsDir, { recursive: true });
-		await fsp.writeFile(
-			transformFilePath,
-			buildBlockTransformSource({
-				fromBlockName: resolvedFromBlockName,
-				textDomain: workspace.workspace.textDomain,
-				transformSlug,
-			}),
-			"utf8",
-		);
-		await writeBlockTransformRegistry(workspace.projectDir, target.blockSlug, transformSlug);
-		await ensureBlockTransformRegistrationHook(blockIndexPath);
-		await appendWorkspaceInventoryEntries(workspace.projectDir, {
-			blockTransformEntries: [
-				buildBlockTransformConfigEntry({
-					blockSlug: target.blockSlug,
-					fromBlockName: resolvedFromBlockName,
-					toBlockName: target.blockName,
-					transformSlug,
-				}),
-			],
-		});
+  try {
+    await fsp.mkdir(transformsDir, { recursive: true });
+    await fsp.writeFile(
+      transformFilePath,
+      buildBlockTransformSource({
+        fromBlockName: resolvedFromBlockName,
+        textDomain: workspace.workspace.textDomain,
+        transformSlug,
+      }),
+      'utf8',
+    );
+    await writeBlockTransformRegistry(
+      workspace.projectDir,
+      target.blockSlug,
+      transformSlug,
+    );
+    await ensureBlockTransformRegistrationHook(blockIndexPath);
+    await appendWorkspaceInventoryEntries(workspace.projectDir, {
+      blockTransformEntries: [
+        buildBlockTransformConfigEntry({
+          blockSlug: target.blockSlug,
+          fromBlockName: resolvedFromBlockName,
+          toBlockName: target.blockName,
+          transformSlug,
+        }),
+      ],
+    });
 
-		return {
-			blockSlug: target.blockSlug,
-			fromBlockName: resolvedFromBlockName,
-			projectDir: workspace.projectDir,
-			toBlockName: target.blockName,
-			transformSlug,
-		};
-	} catch (error) {
-		await rollbackWorkspaceMutation(mutationSnapshot);
-		throw error;
-	}
+    return {
+      blockSlug: target.blockSlug,
+      fromBlockName: resolvedFromBlockName,
+      projectDir: workspace.projectDir,
+      toBlockName: target.blockName,
+      transformSlug,
+    };
+  } catch (error) {
+    await rollbackWorkspaceMutation(mutationSnapshot);
+    throw error;
+  }
 }

@@ -1,7 +1,4 @@
-import type {
-  ApiEndpoint,
-  ValidationResult,
-} from './client.js';
+import type { ApiEndpoint, ValidationResult } from './client.js';
 
 import { isPlainObject } from './internal/runtime-primitives.js';
 import type { CacheKeyResult } from './react-client-types.js';
@@ -111,7 +108,9 @@ export function createCacheKey<Req, Res>(
   endpoint: ApiEndpoint<Req, Res>,
   request: Req,
 ): CacheKeyResult<Req> {
-  const requestValidation = endpoint.validateRequest(request) as ValidationResult<Req>;
+  const requestValidation = endpoint.validateRequest(
+    request,
+  ) as ValidationResult<Req>;
   const normalizedRequest = requestValidation.isValid
     ? (requestValidation.data ?? request)
     : request;

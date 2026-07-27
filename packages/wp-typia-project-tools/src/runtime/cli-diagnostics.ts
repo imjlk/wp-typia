@@ -1,1 +1,1 @@
-export * from "./cli/cli-diagnostics.js";
+export * from './cli/cli-diagnostics.js';

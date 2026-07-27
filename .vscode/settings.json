@@ -2,12 +2,11 @@
   "eslint.useFlatConfig": true,
   "eslint.validate": [
     "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
+    "javascriptreact"
   ],
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.eslint": "explicit",
+    "source.fixAll.ttsc": "explicit"
   },
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "[json]": {
@@ -18,5 +17,11 @@
   },
   "[markdown]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "samchon.ttsc"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "samchon.ttsc"
   }
 }

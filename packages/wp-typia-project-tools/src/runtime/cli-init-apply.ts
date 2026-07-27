@@ -1,1 +1,1 @@
-export * from "./cli/cli-init-apply.js";
+export * from './cli/cli-init-apply.js';

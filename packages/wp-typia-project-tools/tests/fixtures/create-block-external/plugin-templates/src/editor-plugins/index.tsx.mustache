@@ -1,12 +1,12 @@
-import { registerPlugin } from "@wordpress/plugins";
-import { __ } from "@wordpress/i18n";
+import { registerPlugin } from '@wordpress/plugins';
+import { __ } from '@wordpress/i18n';
 
-registerPlugin("{{slug}}-inspector-tools", {
-	render() {
-		return (
-			<div className="{{slug}}-inspector-tools">
-				{__("{{title}} editor tools", "{{textDomain}}")}
-			</div>
-		);
-	},
+registerPlugin('{{slug}}-inspector-tools', {
+  render() {
+    return (
+      <div className="{{slug}}-inspector-tools">
+        {__('{{title}} editor tools', '{{textDomain}}')}
+      </div>
+    );
+  },
 });

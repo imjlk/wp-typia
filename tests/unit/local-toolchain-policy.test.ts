@@ -45,6 +45,11 @@ function createPolicyRepo() {
     '.github/workflows/ci.yml',
     `env:\n  NODE_VERSION: '24'\n  BUN_VERSION: '1.3.11'\n  PHP_VERSION: '8.1'\nsteps:\n  - run: bun run toolchain-policy:validate\n`,
   );
+  writeFile(
+    repoRoot,
+    '.github/actions/setup-bun-workspace/action.yml',
+    `name: Setup Bun Workspace\ninputs:\n  node-version:\n    required: false\n    default: '24'\nruns:\n  using: composite\n  steps: []\n`,
+  );
   for (const relativePath of Object.keys(LOCAL_TOOLCHAIN_POLICY.docs)) {
     writeFile(
       repoRoot,
@@ -109,6 +114,150 @@ describe('validateLocalToolchainPolicy', () => {
     expect(result.errors).toContain(
       'CONTRIBUTING.md must document "mise install".',
     );
+  });
+
+  test('rejects Node majors below 24 in workflows and the shared setup action', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/legacy.yml',
+      `name: Legacy Node\njobs:\n  test:\n    strategy:\n      matrix:\n        node: ['20', '24']\n`,
+    );
+    writeFile(
+      repoRoot,
+      '.github/actions/setup-bun-workspace/action.yml',
+      `name: Setup Bun Workspace\ninputs:\n  node-version:\n    required: false\n    default: '22'\nruns:\n  using: composite\n  steps: []\n`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      '.github/workflows/legacy.yml must not configure Node 20 at jobs.test.strategy.matrix.node.0; the minimum supported major is 24.',
+    );
+    expect(result.errors).toContain(
+      '.github/actions/setup-bun-workspace/action.yml must not configure Node 22 at inputs.node-version.default; the minimum supported major is 24.',
+    );
+    expect(result.errors).toContain(
+      '.github/actions/setup-bun-workspace/action.yml must default inputs.node-version to "24", found "22".',
+    );
+  });
+
+  test('ignores unrelated two-digit numbers nested below Node labels', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/node-service.yml',
+      `name: Node service
+jobs:
+  node-service:
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node:
+          timeout: 15
+    steps:
+      - run: echo node200
+`,
+    );
+
+    expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+      errors: [],
+      valid: true,
+    });
+  });
+
+  test('checks workflow input defaults and options for legacy Node majors', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/input.yml',
+      `name: Node input
+on:
+  workflow_dispatch:
+    inputs:
+      node_version:
+        default: '22'
+        options: ['22', '24']
+`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      '.github/workflows/input.yml must not configure Node 22 at on.workflow_dispatch.inputs.node_version.default; the minimum supported major is 24.',
+    );
+    expect(result.errors).toContain(
+      '.github/workflows/input.yml must not configure Node 22 at on.workflow_dispatch.inputs.node_version.options.0; the minimum supported major is 24.',
+    );
+  });
+
+  test('reports each explicit legacy Node reference once', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/legacy-label.yml',
+      `name: Legacy Node reference
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: ['node-20']
+`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+    const matchingErrors = result.errors.filter((error) =>
+      error.includes(
+        '.github/workflows/legacy-label.yml must not configure Node 20',
+      ),
+    );
+
+    expect(matchingErrors).toEqual([
+      '.github/workflows/legacy-label.yml must not configure Node 20 at jobs.test.strategy.matrix.node.0; the minimum supported major is 24.',
+    ]);
+  });
+
+  test('rejects single-digit legacy Node majors', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/ancient.yml',
+      `name: Ancient Node
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: ['8', '24']
+`,
+    );
+
+    const result = validateLocalToolchainPolicy(repoRoot);
+
+    expect(result.errors).toContain(
+      '.github/workflows/ancient.yml must not configure Node 8 at jobs.test.strategy.matrix.node.0; the minimum supported major is 24.',
+    );
+  });
+
+  test('ignores numeric workflow expression placeholders in Node contexts', () => {
+    const repoRoot = createPolicyRepo();
+    writeFile(
+      repoRoot,
+      '.github/workflows/expression.yml',
+      `name: Node expression
+jobs:
+  test:
+    strategy:
+      matrix:
+        node: \${{ fromJSON(format('["{0}"]', '24')) }}
+`,
+    );
+
+    expect(validateLocalToolchainPolicy(repoRoot)).toEqual({
+      errors: [],
+      valid: true,
+    });
   });
 
   test('reports missing workflow and documentation files without throwing', () => {

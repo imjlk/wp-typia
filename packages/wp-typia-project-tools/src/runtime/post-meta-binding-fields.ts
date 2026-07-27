@@ -1,1 +1,1 @@
-export * from "./add/post-meta-binding-fields.js";
+export * from './add/post-meta-binding-fields.js';

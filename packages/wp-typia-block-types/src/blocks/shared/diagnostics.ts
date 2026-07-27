@@ -1,4 +1,4 @@
-export type DiagnosticSeverity = "error" | "warning";
+export type DiagnosticSeverity = 'error' | 'warning';
 
 export interface DiagnosticWithMessage {
   readonly message: string;
@@ -12,7 +12,7 @@ export interface DiagnosticLogger<
 }
 
 export function getDiagnosticSeverity(strict: boolean): DiagnosticSeverity {
-  return strict ? "error" : "warning";
+  return strict ? 'error' : 'warning';
 }
 
 export function handleDiagnostics<TDiagnostic extends DiagnosticWithMessage>(
@@ -24,7 +24,7 @@ export function handleDiagnostics<TDiagnostic extends DiagnosticWithMessage>(
   },
 ): void {
   const errors = diagnostics.filter(
-    (diagnostic) => diagnostic.severity === "error",
+    (diagnostic) => diagnostic.severity === 'error',
   );
 
   if (errors.length > 0) {
@@ -32,7 +32,7 @@ export function handleDiagnostics<TDiagnostic extends DiagnosticWithMessage>(
       [
         options.failureHeading,
         ...errors.map((diagnostic) => `- ${diagnostic.message}`),
-      ].join("\n"),
+      ].join('\n'),
     );
   }
 

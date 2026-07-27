@@ -15,7 +15,7 @@ import { DEPENDENCY_FIELDS, readJson } from "./publish-package-utils.mjs";
 
 export const ENGINE_BASELINE = Object.freeze({
 	bun: ">=1.3.11",
-	node: ">=20.0.0",
+	node: ">=24.0.0",
 	npm: ">=10.0.0",
 });
 export const PACKAGE_MANAGER_BASELINE = "bun@1.3.11";

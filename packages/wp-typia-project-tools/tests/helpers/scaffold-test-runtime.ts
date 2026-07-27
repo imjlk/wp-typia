@@ -1,33 +1,44 @@
-import { spawnSync } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-import { runUtf8Command } from "../../../../tests/helpers/process-utils";
+import { runUtf8Command } from '../../../../tests/helpers/process-utils';
+import { packageRoot } from './scaffold-test-paths.js';
+
+const TTSC_TEST_CACHE_DIR = path.resolve(
+  packageRoot,
+  '..',
+  '..',
+  'node_modules',
+  '.cache',
+  'ttsc',
+);
 
 const AI_AGENT_ENV_KEYS = [
-	"AGENT",
-	"AMP_CURRENT_THREAD_ID",
-	"CLAUDE_CODE",
-	"CLAUDECODE",
-	"CODEX_CI",
-	"CODEX_SANDBOX",
-	"CODEX_THREAD_ID",
-	"CURSOR_AGENT",
-	"GEMINI_CLI",
-	"OPENCODE",
+  'AGENT',
+  'AMP_CURRENT_THREAD_ID',
+  'CLAUDE_CODE',
+  'CLAUDECODE',
+  'CODEX_CI',
+  'CODEX_SANDBOX',
+  'CODEX_THREAD_ID',
+  'CURSOR_AGENT',
+  'GEMINI_CLI',
+  'OPENCODE',
 ] as const;
 
 function buildCliTestEnv(env: NodeJS.ProcessEnv | undefined) {
-	const nextEnv = {
-		...process.env,
-		...env,
-	};
-	for (const key of AI_AGENT_ENV_KEYS) {
-		if (env?.[key] === undefined) {
-			delete nextEnv[key];
-		}
-	}
-	return nextEnv;
+  const nextEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    TTSC_CACHE_DIR: process.env.TTSC_CACHE_DIR ?? TTSC_TEST_CACHE_DIR,
+    ...env,
+  };
+  for (const key of AI_AGENT_ENV_KEYS) {
+    if (env?.[key] === undefined) {
+      delete nextEnv[key];
+    }
+  }
+  return nextEnv;
 }
 
 export function runCli(
@@ -35,34 +46,34 @@ export function runCli(
 	args: string[],
 	options: Parameters<typeof runUtf8Command>[2] = {},
 ) {
-	return runUtf8Command(command, args, {
-		...options,
-		env: buildCliTestEnv(options.env),
-	});
+  return runUtf8Command(command, args, {
+    ...options,
+    env: buildCliTestEnv(options.env),
+  });
 }
 
 export function getCommandErrorMessage(run: () => string): string {
-	try {
-		run();
-		return "";
-	} catch (error) {
-		if (typeof error === "object" && error !== null) {
-			const message =
-				"message" in error && typeof error.message === "string"
-					? error.message
-					: String(error);
-			const stdout =
-				"stdout" in error && typeof error.stdout === "string"
-					? error.stdout
-					: "";
-			const stderr =
-				"stderr" in error && typeof error.stderr === "string"
-					? error.stderr
-					: "";
-			return [message, stdout, stderr].filter(Boolean).join("\n");
-		}
-		return String(error);
-	}
+  try {
+    run();
+    return '';
+  } catch (error) {
+    if (typeof error === 'object' && error !== null) {
+      const message =
+				'message' in error && typeof error.message === 'string'
+          ? error.message
+          : String(error);
+      const stdout =
+				'stdout' in error && typeof error.stdout === 'string'
+          ? error.stdout
+          : '';
+      const stderr =
+				'stderr' in error && typeof error.stderr === 'string'
+          ? error.stderr
+          : '';
+      return [message, stdout, stderr].filter(Boolean).join('\n');
+    }
+    return String(error);
+  }
 }
 
 export function runCapturedCli(
@@ -70,41 +81,41 @@ export function runCapturedCli(
 	args: string[],
 	options: Parameters<typeof spawnSync>[2] = {},
 ) {
-	return spawnSync(command, args, {
-		...options,
-		encoding: "utf8",
-		env: buildCliTestEnv(options.env),
-	});
+  return spawnSync(command, args, {
+    ...options,
+    encoding: 'utf8',
+    env: buildCliTestEnv(options.env),
+  });
 }
 
 export function stripPhpFunction(source: string, functionName: string): string {
-	const escapedFunctionName = functionName.replace(
-		/[.*+?^${}()|[\]\\]/gu,
-		"\\$&",
-	);
-	return source.replace(
-		new RegExp(
-			`\\nfunction\\s+${escapedFunctionName}\\s*\\(\\)\\s*\\{[\\s\\S]*?\\n\\}`,
-			"u",
-		),
-		"",
-	);
+  const escapedFunctionName = functionName.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    '\\$&',
+  );
+  return source.replace(
+    new RegExp(
+      `\\nfunction\\s+${escapedFunctionName}\\s*\\(\\)\\s*\\{[\\s\\S]*?\\n\\}`,
+      'u',
+    ),
+    '',
+  );
 }
 
 export function ensureDirSymlink(targetPath: string, sourcePath: string) {
-	if (fs.existsSync(targetPath)) {
-		return;
-	}
+  if (fs.existsSync(targetPath)) {
+    return;
+  }
 
-	fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-	fs.symlinkSync(sourcePath, targetPath, "dir");
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.symlinkSync(sourcePath, targetPath, 'dir');
 }
 
 export function ensureFileSymlink(targetPath: string, sourcePath: string) {
-	if (fs.existsSync(targetPath)) {
-		return;
-	}
+  if (fs.existsSync(targetPath)) {
+    return;
+  }
 
-	fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-	fs.symlinkSync(sourcePath, targetPath, "file");
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.symlinkSync(sourcePath, targetPath, 'file');
 }

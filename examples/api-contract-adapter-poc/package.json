@@ -1,28 +1,28 @@
 {
-	"name": "api-contract-adapter-poc",
-	"private": true,
-	"version": "0.1.0",
-	"packageManager": "bun@1.3.11",
-	"description": "Non-PHP adapter proof of concept for wp-typia REST endpoint manifests",
-	"author": "imjlk",
-	"license": "GPL-2.0-or-later",
-	"scripts": {
-		"sync-typia-llm": "tsx scripts/sync-typia-llm.ts",
-		"build": "bun run typecheck",
-		"start": "tsx src/server.ts",
-		"typecheck": "bun run sync-typia-llm --check && tsc --noEmit",
-		"lint": "bun run typecheck",
-		"format": "prettier --write \"package.json\" \"scripts/**/*.ts\" \"src/**/*.{ts,json}\" \"tsconfig*.json\""
-	},
-	"devDependencies": {
-		"@wp-typia/api-client": "workspace:*",
-		"@wp-typia/block-runtime": "workspace:*",
-		"@types/node": "^24.0.0",
-		"@wp-typia/project-tools": "workspace:*",
-		"prettier": "3.8.2",
-		"ts-patch": "^3.3.0",
-		"tsx": "^4.20.5",
-		"typescript": "^5.9.2",
-		"typia": "^12.0.1"
-	}
+  "name": "api-contract-adapter-poc",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "bun@1.3.11",
+  "description": "Non-PHP adapter proof of concept for wp-typia REST endpoint manifests",
+  "author": "imjlk",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "sync-typia-llm": "ttsx scripts/sync-typia-llm.ts",
+    "build": "bun run typecheck",
+    "start": "ttsx src/server.ts",
+    "typecheck": "bun run sync-typia-llm --check && ttsc --noEmit",
+    "lint": "bun run typecheck",
+    "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"package.json\" \"src/**/*.json\" \"tsconfig*.json\""
+  },
+  "devDependencies": {
+    "@ttsc/lint": "^0.23.0",
+    "@wp-typia/api-client": "workspace:*",
+    "@wp-typia/block-runtime": "workspace:*",
+    "@types/node": "^24.0.0",
+    "@wp-typia/project-tools": "workspace:*",
+    "prettier": "3.8.2",
+    "ttsc": "^0.23.0",
+    "typescript": "^7.0.2",
+    "typia": "^13.2.0"
+  }
 }

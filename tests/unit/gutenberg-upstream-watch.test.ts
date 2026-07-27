@@ -4,26 +4,26 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
-	buildSearchQuery,
-	collectLocalDependencyPins,
-	evaluateBlocksVersionDrift,
-	extractDependencySpec,
-	parseArgs,
-	renderWatchReport,
+  buildSearchQuery,
+  collectLocalDependencyPins,
+  evaluateBlocksVersionDrift,
+  extractDependencySpec,
+  parseArgs,
+  renderWatchReport,
 } from '../../scripts/gutenberg-upstream-watch.mjs';
 
 let tempDirs: string[] = [];
 
 afterEach(() => {
-	for (const tempDir of tempDirs) {
-		fs.rmSync(tempDir, { recursive: true, force: true });
-	}
-	tempDirs = [];
+  for (const tempDir of tempDirs) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  tempDirs = [];
 });
 
 function writeText(filePath: string, value: string) {
-	fs.mkdirSync(path.dirname(filePath), { recursive: true });
-	fs.writeFileSync(filePath, value, 'utf8');
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, value, 'utf8');
 }
 
 describe('gutenberg-upstream-watch helpers', () => {

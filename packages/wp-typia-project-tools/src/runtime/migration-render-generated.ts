@@ -1,1 +1,1 @@
-export * from "./migration/migration-render-generated.js";
+export * from './migration/migration-render-generated.js';

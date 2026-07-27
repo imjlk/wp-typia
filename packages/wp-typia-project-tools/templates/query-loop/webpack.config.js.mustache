@@ -1,8 +1,8 @@
-const path = require("node:path");
-const defaultConfig = require("@wordpress/scripts/config/webpack.config");
+const path = require('node:path');
+const defaultConfig = require('@wordpress/scripts/config/webpack.config');
 
 const queryLoopEntry = {
-	index: path.resolve(process.cwd(), "src/index.ts"),
+	index: path.resolve(process.cwd(), 'src/index.ts'),
 };
 
 module.exports = Array.isArray(defaultConfig)

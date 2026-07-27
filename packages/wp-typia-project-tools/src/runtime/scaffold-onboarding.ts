@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-onboarding.js";
+export * from './templates/scaffold-onboarding.js';

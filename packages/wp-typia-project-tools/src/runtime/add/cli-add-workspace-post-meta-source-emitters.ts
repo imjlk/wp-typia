@@ -1,6 +1,6 @@
-import { quoteTsString } from "./cli-add-shared.js";
-import { quotePhpString } from "../shared/php-utils.js";
-import { toTitleCase } from "../shared/string-case.js";
+import { quoteTsString } from './cli-add-shared.js';
+import { quotePhpString } from '../shared/php-utils.js';
+import { toTitleCase } from '../shared/string-case.js';
 
 /**
  * Render one `POST_META` inventory entry for `scripts/block-config.ts`.
@@ -14,24 +14,24 @@ import { toTitleCase } from "../shared/string-case.js";
  * @returns Formatted TypeScript object literal for the `POST_META` array.
  */
 export function buildPostMetaConfigEntry(options: {
-	metaKey: string;
-	postMetaSlug: string;
-	postType: string;
-	showInRest: boolean;
-	sourceTypeName: string;
+  metaKey: string;
+  postMetaSlug: string;
+  postType: string;
+  showInRest: boolean;
+  sourceTypeName: string;
 }): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tmetaKey: ${quoteTsString(options.metaKey)},`,
 		`\t\tphpFile: ${quoteTsString(`inc/post-meta/${options.postMetaSlug}.php`)},`,
 		`\t\tpostType: ${quoteTsString(options.postType)},`,
 		`\t\tschemaFile: ${quoteTsString(`src/post-meta/${options.postMetaSlug}/meta.schema.json`)},`,
-		`\t\tshowInRest: ${options.showInRest ? "true" : "false"},`,
+		`\t\tshowInRest: ${options.showInRest ? 'true' : 'false'},`,
 		`\t\tslug: ${quoteTsString(options.postMetaSlug)},`,
 		`\t\tsourceTypeName: ${quoteTsString(options.sourceTypeName)},`,
 		`\t\ttypesFile: ${quoteTsString(`src/post-meta/${options.postMetaSlug}/types.ts`)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -45,19 +45,19 @@ export function buildPostMetaTypesSource(
 	postMetaSlug: string,
 	sourceTypeName: string,
 ): string {
-	const title = toTitleCase(postMetaSlug);
+  const title = toTitleCase(postMetaSlug);
 
-	return `/**
+  return `/**
  * ${title} is the source of truth for a generated WordPress post meta contract.
  *
  * Edit this interface, then run \`wp-typia sync-rest --check\` to verify the
  * JSON Schema artifact and PHP registration stay aligned.
  */
 export interface ${sourceTypeName} {
-\tenabled: boolean;
-\tstatus: 'draft' | 'ready';
-\tupdatedAt: string;
-\tnotes?: string;
+  enabled: boolean;
+  status: 'draft' | 'ready';
+  updatedAt: string;
+  notes?: string;
 }
 `;
 }
@@ -73,14 +73,14 @@ export interface ${sourceTypeName} {
  * @returns Generated README content for the post-meta contract directory.
  */
 export function buildPostMetaReadmeSource(options: {
-	metaKey: string;
-	postMetaSlug: string;
-	postType: string;
-	sourceTypeName: string;
+  metaKey: string;
+  postMetaSlug: string;
+  postType: string;
+  sourceTypeName: string;
 }): string {
-	const title = toTitleCase(options.postMetaSlug);
+  const title = toTitleCase(options.postMetaSlug);
 
-	return `# ${title} Post Meta Contract
+  return `# ${title} Post Meta Contract
 
 \`${options.sourceTypeName}\` in \`types.ts\` defines the shape for
 \`${options.metaKey}\` on the \`${options.postType}\` post type.
@@ -112,27 +112,27 @@ the meta key only when \`showInRest\` is enabled in \`scripts/block-config.ts\`.
  * @returns Generated PHP source for registering the post-meta contract.
  */
 export function buildPostMetaPhpSource(options: {
-	metaKey: string;
-	phpPrefix: string;
-	postMetaSlug: string;
-	postType: string;
-	showInRest: boolean;
-	textDomain: string;
+  metaKey: string;
+  phpPrefix: string;
+  postMetaSlug: string;
+  postType: string;
+  showInRest: boolean;
+  textDomain: string;
 }): string {
-	const postMetaTitle = toTitleCase(options.postMetaSlug);
-	const postMetaPhpId = options.postMetaSlug.replace(/-/gu, "_");
-	const functionPrefix = `${options.phpPrefix}_${postMetaPhpId}`;
-	const loadSchemaFunctionName = `${functionPrefix}_load_post_meta_schema`;
-	const normalizeSchemaFunctionName = `${functionPrefix}_normalize_post_meta_schema`;
-	const authFunctionName = `${functionPrefix}_can_edit_post_meta`;
-	const registerFunctionName = `${functionPrefix}_register_post_meta`;
-	const showInRestSource = options.showInRest
+  const postMetaTitle = toTitleCase(options.postMetaSlug);
+  const postMetaPhpId = options.postMetaSlug.replace(/-/gu, '_');
+  const functionPrefix = `${options.phpPrefix}_${postMetaPhpId}`;
+  const loadSchemaFunctionName = `${functionPrefix}_load_post_meta_schema`;
+  const normalizeSchemaFunctionName = `${functionPrefix}_normalize_post_meta_schema`;
+  const authFunctionName = `${functionPrefix}_can_edit_post_meta`;
+  const registerFunctionName = `${functionPrefix}_register_post_meta`;
+  const showInRestSource = options.showInRest
 		? `array(
 \t\t\t'schema' => ${loadSchemaFunctionName}(),
 \t\t)`
-		: "false";
+		: 'false';
 
-	return `<?php
+  return `<?php
 /**
  * Registers the ${postMetaTitle} post meta contract.
  *

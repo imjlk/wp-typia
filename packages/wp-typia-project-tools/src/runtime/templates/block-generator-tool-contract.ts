@@ -1,26 +1,26 @@
 import {
-	buildBuiltInBlockArtifacts,
-	stringifyBuiltInBlockJsonDocument,
-	type BuiltInBlockArtifact,
-} from "./built-in-block-artifacts.js";
+  buildBuiltInBlockArtifacts,
+  stringifyBuiltInBlockJsonDocument,
+  type BuiltInBlockArtifact,
+} from './built-in-block-artifacts.js';
 import {
-	buildBuiltInCodeArtifacts,
-	type BuiltInCodeArtifact,
-} from "./built-in-block-code-artifacts.js";
+  buildBuiltInCodeArtifacts,
+  type BuiltInCodeArtifact,
+} from './built-in-block-code-artifacts.js';
 import {
-	BlockGeneratorService,
-	type PlanBlockInput,
-	type PlanBlockResult,
-	type RenderBlockResult,
-	type ValidateBlockResult,
-} from "./block-generator-service.js";
-import type { ManifestDocument } from "../migration/migration-types.js";
+  BlockGeneratorService,
+  type PlanBlockInput,
+  type PlanBlockResult,
+  type RenderBlockResult,
+  type ValidateBlockResult,
+} from './block-generator-service.js';
+import type { ManifestDocument } from '../migration/migration-types.js';
 import {
-	getStarterManifestFiles,
-	stringifyStarterManifest,
-} from "./starter-manifests.js";
-import { listInterpolatedDirectoryOutputs } from "./template-render.js";
-import type { BuiltInTemplateId } from "./template-registry.js";
+  getStarterManifestFiles,
+  stringifyStarterManifest,
+} from './starter-manifests.js';
+import { listInterpolatedDirectoryOutputs } from './template-render.js';
+import type { BuiltInTemplateId } from './template-registry.js';
 
 /**
  * Semantic version marker for the public block generation tool contract.
@@ -38,7 +38,7 @@ export const BLOCK_GENERATION_TOOL_CONTRACT_VERSION = 1 as const;
  * - `"render"` returns the full non-mutating preview, including copied and
  *   emitted file snapshots.
  */
-export type BlockGenerationToolStage = "plan" | "validate" | "render";
+export type BlockGenerationToolStage = 'plan' | 'validate' | 'render';
 
 /**
  * Input for the staged, non-mutating block generation inspection entrypoint.
@@ -47,72 +47,72 @@ export type BlockGenerationToolStage = "plan" | "validate" | "render";
  * stop at `plan`, `validate`, or continue through the full `render` preview.
  */
 export interface InspectBlockGenerationInput extends PlanBlockInput {
-	stopAfter?: BlockGenerationToolStage;
+  stopAfter?: BlockGenerationToolStage;
 }
 
 export interface BlockGenerationTemplateCopyPreview {
-	owner: "template-copy";
-	relativePath: string;
+  owner: 'template-copy';
+  relativePath: string;
 }
 
 export interface BlockGenerationEmittedFilePreview {
-	kind: "generated-source" | "starter-manifest" | "structural";
-	owner: "emitter";
-	relativePath: string;
-	source: string;
+  kind: 'generated-source' | 'starter-manifest' | 'structural';
+  owner: 'emitter';
+  relativePath: string;
+  source: string;
 }
 
 export interface BlockGenerationStarterManifestPreview {
-	document: ManifestDocument;
-	owner: "emitter";
-	relativePath: string;
-	source: string;
+  document: ManifestDocument;
+  owner: 'emitter';
+  relativePath: string;
+  source: string;
 }
 
 export interface BlockGenerationRenderPreview {
-	copiedTemplateFiles: BlockGenerationTemplateCopyPreview[];
-	emittedFiles: BlockGenerationEmittedFilePreview[];
-	postRender: RenderBlockResult["postRender"] & {
-		installsDependencies: boolean;
-	};
-	selectedVariant: null;
-	starterManifestFiles: BlockGenerationStarterManifestPreview[];
-	template: {
-		description: string;
-		family: BuiltInTemplateId;
-		features: string[];
-		format: "wp-typia";
-	};
-	warnings: string[];
-	readmeContent: string;
-	gitignoreContent: string;
+  copiedTemplateFiles: BlockGenerationTemplateCopyPreview[];
+  emittedFiles: BlockGenerationEmittedFilePreview[];
+  postRender: RenderBlockResult['postRender'] & {
+    installsDependencies: boolean;
+  };
+  selectedVariant: null;
+  starterManifestFiles: BlockGenerationStarterManifestPreview[];
+  template: {
+    description: string;
+    family: BuiltInTemplateId;
+    features: string[];
+    format: 'wp-typia';
+  };
+  warnings: string[];
+  readmeContent: string;
+  gitignoreContent: string;
 }
 
 interface BlockGenerationInspectionBase {
-	contractVersion: typeof BLOCK_GENERATION_TOOL_CONTRACT_VERSION;
-	mutatesWorkspace: false;
-	stage: BlockGenerationToolStage;
+  contractVersion: typeof BLOCK_GENERATION_TOOL_CONTRACT_VERSION;
+  mutatesWorkspace: false;
+  stage: BlockGenerationToolStage;
 }
 
 export interface InspectBlockGenerationPlanResult
 	extends BlockGenerationInspectionBase {
-	plan: PlanBlockResult;
-	stage: "plan";
+  plan: PlanBlockResult;
+  stage: 'plan';
 }
 
 export interface InspectBlockGenerationValidateResult
 	extends BlockGenerationInspectionBase {
-	plan: PlanBlockResult;
-	stage: "validate";
-	validated: ValidateBlockResult;
+  plan: PlanBlockResult;
+  stage: 'validate';
+  validated: ValidateBlockResult;
 }
 
 export interface InspectBlockGenerationRenderResult
 	extends BlockGenerationInspectionBase {
-	plan: PlanBlockResult;
-	rendered: BlockGenerationRenderPreview;
-	stage: "render";
-	validated: ValidateBlockResult;
+  plan: PlanBlockResult;
+  rendered: BlockGenerationRenderPreview;
+  stage: 'render';
+  validated: ValidateBlockResult;
 }
 
 export type InspectBlockGenerationResult =
@@ -122,23 +122,23 @@ export type InspectBlockGenerationResult =
 
 function buildStarterManifestPreviews(
 	templateId: string,
-	variables: RenderBlockResult["variables"],
+	variables: RenderBlockResult['variables'],
 	artifacts: readonly BuiltInBlockArtifact[],
 ): BlockGenerationStarterManifestPreview[] {
-	const starterManifests = getStarterManifestFiles(templateId, variables);
-	const artifactManifests = new Map(
-		artifacts.map((artifact) => [
-			`${artifact.relativeDir}/typia.manifest.json`,
-			artifact.manifestDocument,
-		]),
-	);
+  const starterManifests = getStarterManifestFiles(templateId, variables);
+  const artifactManifests = new Map(
+    artifacts.map((artifact) => [
+      `${artifact.relativeDir}/typia.manifest.json`,
+      artifact.manifestDocument,
+    ]),
+  );
 
-	return starterManifests
+  return starterManifests
 		.map((entry) => {
 			const document = artifactManifests.get(entry.relativePath) ?? entry.document;
 			return {
 				document,
-				owner: "emitter" as const,
+				owner: 'emitter' as const,
 				relativePath: entry.relativePath,
 				source: stringifyStarterManifest(document),
 			};
@@ -149,17 +149,17 @@ function buildStarterManifestPreviews(
 function buildStructuralArtifactPreviews(
 	artifacts: readonly BuiltInBlockArtifact[],
 ): BlockGenerationEmittedFilePreview[] {
-	return artifacts
+  return artifacts
 		.flatMap((artifact) => [
 			{
-				kind: "structural" as const,
-				owner: "emitter" as const,
+				kind: 'structural' as const,
+				owner: 'emitter' as const,
 				relativePath: `${artifact.relativeDir}/block.json`,
 				source: stringifyBuiltInBlockJsonDocument(artifact.blockJsonDocument),
 			},
 			{
-				kind: "structural" as const,
-				owner: "emitter" as const,
+				kind: 'structural' as const,
+				owner: 'emitter' as const,
 				relativePath: `${artifact.relativeDir}/types.ts`,
 				source: artifact.typesSource,
 			},
@@ -170,10 +170,10 @@ function buildStructuralArtifactPreviews(
 function buildCodeArtifactPreviews(
 	codeArtifacts: readonly BuiltInCodeArtifact[],
 ): BlockGenerationEmittedFilePreview[] {
-	return codeArtifacts
+  return codeArtifacts
 		.map((artifact) => ({
-			kind: "generated-source" as const,
-			owner: "emitter" as const,
+			kind: 'generated-source' as const,
+			owner: 'emitter' as const,
 			relativePath: artifact.relativePath,
 			source: artifact.source,
 		}))
@@ -183,22 +183,22 @@ function buildCodeArtifactPreviews(
 async function buildRenderPreview(
 	rendered: RenderBlockResult,
 ): Promise<BlockGenerationRenderPreview> {
-	const artifacts = buildBuiltInBlockArtifacts({
-		templateId: rendered.spec.template.family,
-		variables: rendered.variables,
-	});
-	const codeArtifacts = buildBuiltInCodeArtifacts({
-		templateId: rendered.spec.template.family,
-		variables: rendered.variables,
-	});
-	const copiedTemplateFiles = await listInterpolatedDirectoryOutputs(
-		rendered.templateDir,
-		rendered.variables,
-	);
+  const artifacts = buildBuiltInBlockArtifacts({
+    templateId: rendered.spec.template.family,
+    variables: rendered.variables,
+  });
+  const codeArtifacts = buildBuiltInCodeArtifacts({
+    templateId: rendered.spec.template.family,
+    variables: rendered.variables,
+  });
+  const copiedTemplateFiles = await listInterpolatedDirectoryOutputs(
+    rendered.templateDir,
+    rendered.variables,
+  );
 
-	return {
+  return {
 		copiedTemplateFiles: copiedTemplateFiles.map((relativePath) => ({
-			owner: "template-copy" as const,
+			owner: 'template-copy' as const,
 			relativePath,
 		})),
 		emittedFiles: [
@@ -221,22 +221,22 @@ async function buildRenderPreview(
 			description: rendered.spec.template.description,
 			family: rendered.spec.template.family,
 			features: [...rendered.spec.template.features],
-			format: "wp-typia",
+			format: 'wp-typia',
 		},
 		warnings: [...rendered.warnings],
 	};
 }
 
 export function inspectBlockGeneration(
-	input: InspectBlockGenerationInput & { stopAfter: "plan" },
+	input: InspectBlockGenerationInput & { stopAfter: 'plan' },
 	service?: BlockGeneratorService,
 ): Promise<InspectBlockGenerationPlanResult>;
 export function inspectBlockGeneration(
-	input: InspectBlockGenerationInput & { stopAfter: "validate" },
+	input: InspectBlockGenerationInput & { stopAfter: 'validate' },
 	service?: BlockGeneratorService,
 ): Promise<InspectBlockGenerationValidateResult>;
 export function inspectBlockGeneration(
-	input: InspectBlockGenerationInput & { stopAfter?: "render" | undefined },
+	input: InspectBlockGenerationInput & { stopAfter?: 'render' | undefined },
 	service?: BlockGeneratorService,
 ): Promise<InspectBlockGenerationRenderResult>;
 /**
@@ -269,43 +269,43 @@ export function inspectBlockGeneration(
  */
 export async function inspectBlockGeneration(
 	{
-		stopAfter = "render",
+		stopAfter = 'render',
 		...planInput
 	}: InspectBlockGenerationInput,
 	service = new BlockGeneratorService(),
 ): Promise<InspectBlockGenerationResult> {
-	const plan = await service.plan(planInput);
-	if (stopAfter === "plan") {
-		return {
-			contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
-			mutatesWorkspace: false,
-			plan,
-			stage: "plan",
-		};
-	}
+  const plan = await service.plan(planInput);
+  if (stopAfter === 'plan') {
+    return {
+      contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
+      mutatesWorkspace: false,
+      plan,
+      stage: 'plan',
+    };
+  }
 
-	const validated = await service.validate({ plan });
-	if (stopAfter === "validate") {
-		return {
-			contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
-			mutatesWorkspace: false,
-			plan,
-			stage: "validate",
-			validated,
-		};
-	}
+  const validated = await service.validate({ plan });
+  if (stopAfter === 'validate') {
+    return {
+      contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
+      mutatesWorkspace: false,
+      plan,
+      stage: 'validate',
+      validated,
+    };
+  }
 
-	const rendered = await service.render({ validated });
-	try {
-		return {
-			contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
-			mutatesWorkspace: false,
-			plan,
-			rendered: await buildRenderPreview(rendered),
-			stage: "render",
-			validated,
-		};
-	} finally {
-		await rendered.cleanup?.();
-	}
+  const rendered = await service.render({ validated });
+  try {
+    return {
+      contractVersion: BLOCK_GENERATION_TOOL_CONTRACT_VERSION,
+      mutatesWorkspace: false,
+      plan,
+      rendered: await buildRenderPreview(rendered),
+      stage: 'render',
+      validated,
+    };
+  } finally {
+    await rendered.cleanup?.();
+  }
 }

@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 export interface CanonicalRuntimeImportShape {
   defaultBinding?: string;
@@ -268,9 +268,7 @@ export function hasCanonicalUnknownFlagThrow(
   if (!ts.isThrowStatement(finalStatement) || !finalStatement.expression) {
     return false;
   }
-  const errorConstruction = getSafeErrorConstruction(
-    finalStatement.expression,
-  );
+  const errorConstruction = getSafeErrorConstruction(finalStatement.expression);
   if (errorConstruction === null) return false;
   let referencesArgument = false;
   function visit(node: ts.Node): void {

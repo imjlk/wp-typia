@@ -57,8 +57,8 @@ expose package scripts for the common CLI entrypoints:
 ```json
 {
   "scripts": {
-    "sync-rest:package": "tsx scripts/sync-rest-contracts.ts --package",
-    "sync-rest:package:check": "tsx scripts/sync-rest-contracts.ts --package --check",
+    "sync-rest:package": "ttsx scripts/sync-rest-contracts.ts --package",
+    "sync-rest:package:check": "ttsx scripts/sync-rest-contracts.ts --package --check",
     "wp-typia:sync": "wp-typia sync",
     "wp-typia:doctor": "wp-typia doctor",
     "wp-typia:doctor:workspace": "wp-typia doctor --workspace-only",

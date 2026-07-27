@@ -184,12 +184,17 @@ function resolveSyncBlockMetadataFailureCode(
     message.startsWith('External or non-serializable ') ||
     message.startsWith('Conflicting ') ||
     message.startsWith('Tag "') ||
-    message.startsWith('Only object-like interface extensions are supported:') ||
+    message.startsWith(
+      'Only object-like interface extensions are supported:',
+    ) ||
     message.startsWith('Array type is missing an item type at ')
   ) {
     return 'unsupported-type-pattern';
   }
-  if (message.includes('error TS') || message.includes('TypeScript diagnostics')) {
+  if (
+    message.includes('error TS') ||
+    message.includes('TypeScript diagnostics')
+  ) {
     return 'typescript-diagnostic';
   }
 

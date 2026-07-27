@@ -1,17 +1,17 @@
-import type { TextAlignment } from "./alignment.js";
-import type { CssColorValue } from "./color.js";
+import type { TextAlignment } from './alignment.js';
+import type { CssColorValue } from './color.js';
 import type {
   AspectRatio,
   MinHeightKeyword,
   MinHeightValue,
-} from "./dimensions.js";
-import type { SpacingDimension } from "./spacing.js";
+} from './dimensions.js';
+import type { SpacingDimension } from './spacing.js';
 import type {
   FontStyle,
   TextDecoration,
   TextTransform,
   WritingMode,
-} from "./typography.js";
+} from './typography.js';
 
 export type PresetColorReference = `var:preset|color|${string}`;
 export type PresetDuotoneReference = `var:preset|duotone|${string}`;

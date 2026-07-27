@@ -1,53 +1,57 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
-import semver from "semver";
+import semver from 'semver';
 
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
-	getWorkspaceBootstrapPath,
-	patchFile,
-} from "./cli-add-shared.js";
+  ABILITY_EDITOR_ASSET,
+  ABILITY_EDITOR_SCRIPT,
+  ABILITY_SERVER_GLOB,
+  WP_ABILITIES_SCRIPT_MODULE_ID,
+  WP_CORE_ABILITIES_SCRIPT_MODULE_ID,
+} from './cli-add-workspace-ability-types.js';
 import {
-	ABILITY_EDITOR_ASSET,
-	ABILITY_EDITOR_SCRIPT,
-	ABILITY_SERVER_GLOB,
-	WP_ABILITIES_SCRIPT_MODULE_ID,
-	WP_CORE_ABILITIES_SCRIPT_MODULE_ID,
-} from "./cli-add-workspace-ability-types.js";
+  appendPhpSnippetBeforeClosingTag,
+  insertPhpSnippetBeforeWorkspaceAnchors,
+} from './cli-add-workspace-mutation.js';
+import { readJsonFile } from '../shared/json-utils.js';
 import {
-	appendPhpSnippetBeforeClosingTag,
-	insertPhpSnippetBeforeWorkspaceAnchors,
-} from "./cli-add-workspace-mutation.js";
-import { readJsonFile } from "../shared/json-utils.js";
+  DEFAULT_WORDPRESS_ABILITIES_VERSION,
+  DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION,
+} from '../shared/package-versions.js';
 import {
-	DEFAULT_WORDPRESS_ABILITIES_VERSION,
-	DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION,
-} from "../shared/package-versions.js";
+  findPhpFunctionRange,
+  hasPhpFunctionCall,
+  hasPhpFunctionDefinition,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
 import {
-	findPhpFunctionRange,
-	hasPhpFunctionCall,
-	hasPhpFunctionDefinition,
-	replacePhpFunctionDefinition,
-} from "../shared/php-utils.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  detectSourceLineEnding,
+  findExecutablePatternMatch,
+  findUncommentedPatternMatch,
+  hasExecutablePattern,
+  hasUncommentedPattern,
+} from '../shared/ts-source-masking.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 function resolveManagedDependencyVersion(
 	existingVersion: string | undefined,
 	requiredVersion: string,
 ): string {
-	if (!existingVersion) {
-		return requiredVersion;
-	}
+  if (!existingVersion) {
+    return requiredVersion;
+  }
 
-	const existingMinimum = semver.minVersion(existingVersion);
-	const requiredMinimum = semver.minVersion(requiredVersion);
-	if (!existingMinimum || !requiredMinimum) {
-		return requiredVersion;
-	}
+  const existingMinimum = semver.minVersion(existingVersion);
+  const requiredMinimum = semver.minVersion(requiredVersion);
+  if (!existingMinimum || !requiredMinimum) {
+    return requiredVersion;
+  }
 
-	return semver.gte(existingMinimum, requiredMinimum)
-		? existingVersion
-		: requiredVersion;
+  return semver.gte(existingMinimum, requiredMinimum)
+    ? existingVersion
+    : requiredVersion;
 }
 
 /**
@@ -57,12 +61,12 @@ function resolveManagedDependencyVersion(
 export async function ensureAbilityBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
 
-	await patchFile(bootstrapPath, (source) => {
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
 		const workspaceBaseName =
-			workspace.packageName.split("/").pop() ?? workspace.packageName;
+			workspace.packageName.split('/').pop() ?? workspace.packageName;
 		const loadFunctionName = `${workspace.workspace.phpPrefix}_load_workflow_abilities`;
 		const enqueueFunctionName =
 			`${workspace.workspace.phpPrefix}_enqueue_workflow_abilities`;
@@ -140,8 +144,8 @@ function ${enqueueFunctionName}() {
 			const functionRange = findPhpFunctionRange(nextSource, enqueueFunctionName);
 			const functionSource = functionRange
 				? nextSource.slice(functionRange.start, functionRange.end)
-				: "";
-			if (!hasPhpFunctionCall(functionSource, "wp_enqueue_script_module")) {
+				: '';
+			if (!hasPhpFunctionCall(functionSource, 'wp_enqueue_script_module')) {
 				const replacedSource = replacePhpFunctionDefinition(
 					nextSource,
 					enqueueFunctionName,
@@ -178,46 +182,46 @@ function ${enqueueFunctionName}() {
 export async function ensureAbilityPackageScripts(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const packageJsonPath = path.join(workspace.projectDir, "package.json");
-	const packageJson = await readJsonFile<{
+  const packageJsonPath = path.join(workspace.projectDir, 'package.json');
+  const packageJson = await readJsonFile<{
 		dependencies?: Record<string, string>;
 		scripts?: Record<string, string>;
 	}>(packageJsonPath, {
-		context: "workspace package manifest",
-	});
+    context: 'workspace package manifest',
+  });
 
-	const nextScripts = {
+  const nextScripts = {
 		...(packageJson.scripts ?? {}),
-		"sync-abilities":
-			packageJson.scripts?.["sync-abilities"] ?? "tsx scripts/sync-abilities.ts",
+		'sync-abilities':
+			packageJson.scripts?.['sync-abilities'] ?? 'ttsx scripts/sync-abilities.ts',
 	};
-	const nextDependencies = {
-		...(packageJson.dependencies ?? {}),
-		[WP_ABILITIES_SCRIPT_MODULE_ID]: resolveManagedDependencyVersion(
-			packageJson.dependencies?.[WP_ABILITIES_SCRIPT_MODULE_ID],
-			DEFAULT_WORDPRESS_ABILITIES_VERSION,
-		),
-		[WP_CORE_ABILITIES_SCRIPT_MODULE_ID]: resolveManagedDependencyVersion(
-			packageJson.dependencies?.[WP_CORE_ABILITIES_SCRIPT_MODULE_ID],
-			DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION,
-		),
-	};
+  const nextDependencies = {
+    ...(packageJson.dependencies ?? {}),
+    [WP_ABILITIES_SCRIPT_MODULE_ID]: resolveManagedDependencyVersion(
+      packageJson.dependencies?.[WP_ABILITIES_SCRIPT_MODULE_ID],
+      DEFAULT_WORDPRESS_ABILITIES_VERSION,
+    ),
+    [WP_CORE_ABILITIES_SCRIPT_MODULE_ID]: resolveManagedDependencyVersion(
+      packageJson.dependencies?.[WP_CORE_ABILITIES_SCRIPT_MODULE_ID],
+      DEFAULT_WORDPRESS_CORE_ABILITIES_VERSION,
+    ),
+  };
 
-	if (
+  if (
 		JSON.stringify(nextScripts) === JSON.stringify(packageJson.scripts ?? {}) &&
 		JSON.stringify(nextDependencies) ===
 			JSON.stringify(packageJson.dependencies ?? {})
 	) {
-		return;
-	}
+    return;
+  }
 
-	packageJson.scripts = nextScripts;
-	packageJson.dependencies = nextDependencies;
-	await fsp.writeFile(
-		packageJsonPath,
-		`${JSON.stringify(packageJson, null, "\t")}\n`,
-		"utf8",
-	);
+  packageJson.scripts = nextScripts;
+  packageJson.dependencies = nextDependencies;
+  await fsp.writeFile(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, '\t')}\n`,
+    'utf8',
+  );
 }
 
 /**
@@ -227,61 +231,95 @@ export async function ensureAbilityPackageScripts(
 export async function ensureAbilitySyncProjectAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const syncProjectScriptPath = path.join(
-		workspace.projectDir,
-		"scripts",
-		"sync-project.ts",
-	);
+  const syncProjectScriptPath = path.join(
+    workspace.projectDir,
+    'scripts',
+    'sync-project.ts',
+  );
 
-	await patchFile(syncProjectScriptPath, (source) => {
-		let nextSource = source;
-		const syncRestConst =
-			"const syncRestScriptPath = path.join( 'scripts', 'sync-rest-contracts.ts' );";
-		const syncAbilitiesConst =
-			"const syncAbilitiesScriptPath = path.join( 'scripts', 'sync-abilities.ts' );";
-		const syncRestBlockPattern =
-			/if \( fs\.existsSync\( path\.resolve\( process\.cwd\(\), syncRestScriptPath \) \) \) \{\n\s*runSyncScript\( syncRestScriptPath, options \);\n\s*\}/u;
-		const syncAbilitiesBlock = [
-			"if ( fs.existsSync( path.resolve( process.cwd(), syncAbilitiesScriptPath ) ) ) {",
-			"\trunSyncScript( syncAbilitiesScriptPath, options );",
-			"}",
-		].join("\n");
+  await patchFile(syncProjectScriptPath, (source) => {
+    let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
+    const syncRestConstPattern =
+      /^([ \t]*)const\s+syncRestScriptPath\s*=\s*path\.join\(\s*(['"])scripts\2\s*,\s*(['"])sync-rest-contracts\.ts\3\s*\);/mu;
+    const syncAbilitiesConstPattern =
+      /const\s+syncAbilitiesScriptPath\s*=\s*path\.join\(\s*(['"])scripts\1\s*,\s*(['"])sync-abilities\.ts\2\s*\);/u;
+    const syncRestBlockPattern =
+      /^([ \t]*)if\s*\(\s*fs\.existsSync\(\s*path\.resolve\(\s*process\.cwd\(\)\s*,\s*syncRestScriptPath\s*\)\s*\)\s*\)\s*\{\r?\n([ \t]*)runSyncScript\(\s*syncRestScriptPath\s*,\s*options\s*\);\r?\n[ \t]*\}/mu;
+    const syncAbilitiesCallPattern =
+      /runSyncScript\(\s*syncAbilitiesScriptPath\s*,\s*options\s*\);/u;
+    const buildSyncAbilitiesBlock = (
+      indentation: string,
+      bodyIndentation: string,
+    ): string =>
+      [
+        `${indentation}if (fs.existsSync(path.resolve(process.cwd(), syncAbilitiesScriptPath))) {`,
+        `${bodyIndentation}runSyncScript(syncAbilitiesScriptPath, options);`,
+        `${indentation}}`,
+      ].join(lineEnding);
 
-		if (!nextSource.includes(syncAbilitiesConst)) {
-			if (!nextSource.includes(syncRestConst)) {
+    if (!hasUncommentedPattern(nextSource, syncAbilitiesConstPattern)) {
+      const syncRestConstRange = findUncommentedPatternMatch(nextSource, [
+        syncRestConstPattern,
+      ]);
+      if (!syncRestConstRange) {
 				throw new Error(
 					[
 						`ensureAbilitySyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
-						"Missing the expected sync-rest script constant in scripts/sync-project.ts.",
-						"Restore the generated template or wire sync-abilities manually before retrying.",
-					].join(" "),
+						'Missing the expected sync-rest script constant in scripts/sync-project.ts.',
+						'Restore the generated template or wire sync-abilities manually before retrying.',
+					].join(' '),
 				);
-			}
-			nextSource = nextSource.replace(
-				syncRestConst,
-				`${syncRestConst}\n${syncAbilitiesConst}`,
-			);
-		}
+      }
+      const syncRestConstSource = nextSource.slice(
+        syncRestConstRange.start,
+        syncRestConstRange.end,
+      );
+      const syncRestConstMatch = syncRestConstPattern.exec(syncRestConstSource);
+      const indentation = syncRestConstMatch?.[1] ?? '';
+      const directoryQuote = syncRestConstMatch?.[2] ?? "'";
+      const fileQuote = syncRestConstMatch?.[3] ?? directoryQuote;
+      const syncAbilitiesConst =
+        `const syncAbilitiesScriptPath = path.join(` +
+        `${directoryQuote}scripts${directoryQuote}, ` +
+        `${fileQuote}sync-abilities.ts${fileQuote});`;
+      nextSource =
+        `${nextSource.slice(0, syncRestConstRange.end)}${lineEnding}` +
+        `${indentation}${syncAbilitiesConst}` +
+        nextSource.slice(syncRestConstRange.end);
+    }
 
-		if (!nextSource.includes("runSyncScript( syncAbilitiesScriptPath, options );")) {
-			if (!syncRestBlockPattern.test(nextSource)) {
+    if (!hasExecutablePattern(nextSource, syncAbilitiesCallPattern)) {
+      const syncRestBlockRange = findExecutablePatternMatch(nextSource, [
+        syncRestBlockPattern,
+      ]);
+      if (!syncRestBlockRange) {
 				throw new Error(
 					[
 						`ensureAbilitySyncProjectAnchors could not patch ${path.basename(syncProjectScriptPath)}.`,
-						"Missing the expected sync-rest invocation block in scripts/sync-project.ts.",
-						"Restore the generated template or wire sync-abilities manually before retrying.",
-					].join(" "),
+						'Missing the expected sync-rest invocation block in scripts/sync-project.ts.',
+						'Restore the generated template or wire sync-abilities manually before retrying.',
+					].join(' '),
 				);
 			}
+      const syncRestBlockSource = nextSource.slice(
+        syncRestBlockRange.start,
+        syncRestBlockRange.end,
+      );
+      const syncRestBlockMatch = syncRestBlockPattern.exec(syncRestBlockSource);
+      const indentation = syncRestBlockMatch?.[1] ?? '';
+      const bodyIndentation =
+        syncRestBlockMatch?.[2] ?? `${indentation}  `;
+      nextSource =
+        nextSource.slice(0, syncRestBlockRange.end) +
+        lineEnding +
+        lineEnding +
+        buildSyncAbilitiesBlock(indentation, bodyIndentation) +
+        nextSource.slice(syncRestBlockRange.end);
+    }
 
-			nextSource = nextSource.replace(
-				syncRestBlockPattern,
-				(match) => `${match}\n\n${syncAbilitiesBlock}`,
-			);
-		}
-
-		return nextSource;
-	});
+    return nextSource;
+  });
 }
 
 /**
@@ -290,9 +328,13 @@ export async function ensureAbilitySyncProjectAnchors(
 export async function ensureAbilityBuildScriptAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const buildScriptPath = path.join(workspace.projectDir, "scripts", "build-workspace.mjs");
+  const buildScriptPath = path.join(
+    workspace.projectDir,
+    'scripts',
+    'build-workspace.mjs',
+  );
 
-	await patchFile(buildScriptPath, (source) => {
+  await patchFile(buildScriptPath, (source) => {
 		let nextSource = source;
 		if (/['"]src\/abilities\/index\.(?:ts|js)['"]/u.test(nextSource)) {
 			return nextSource;
@@ -309,9 +351,9 @@ export async function ensureAbilityBuildScriptAnchors(
 			throw new Error(
 				[
 					`ensureAbilityBuildScriptAnchors could not patch ${path.basename(buildScriptPath)}.`,
-					"Missing the expected shared editor entries array in scripts/build-workspace.mjs.",
-					"Restore the generated template or wire abilities/index manually before retrying.",
-				].join(" "),
+					'Missing the expected shared editor entries array in scripts/build-workspace.mjs.',
+					'Restore the generated template or wire abilities/index manually before retrying.',
+				].join(' '),
 			);
 		}
 
@@ -324,13 +366,13 @@ export async function ensureAbilityBuildScriptAnchors(
 				return fullMatch;
 			}
 
-			const itemIndent = sharedEntries.match(/\n([ \t]*)['"]/u)?.[1] ?? "\t\t";
-			const trimmedEntries = sharedEntries.replace(/\s*$/u, "");
+			const itemIndent = sharedEntries.match(/\n([ \t]*)['"]/u)?.[1] ?? '\t\t';
+			const trimmedEntries = sharedEntries.replace(/\s*$/u, '');
 			const trailingWhitespace = sharedEntries.slice(trimmedEntries.length);
-			const separator = trimmedEntries.trimEnd().endsWith(",") ? "" : ",";
+			const separator = trimmedEntries.trimEnd().endsWith(',') ? '' : ',';
 			const nextEntries =
 				`${trimmedEntries}${separator}` +
-				missingAbilityEntries.map((entry) => `\n${itemIndent}${entry},`).join("") +
+				missingAbilityEntries.map((entry) => `\n${itemIndent}${entry},`).join('') +
 				trailingWhitespace;
 
 			return fullMatch.replace(sharedEntries, nextEntries);
@@ -346,9 +388,12 @@ export async function ensureAbilityBuildScriptAnchors(
 export async function ensureAbilityWebpackAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const webpackConfigPath = path.join(workspace.projectDir, "webpack.config.js");
+  const webpackConfigPath = path.join(
+    workspace.projectDir,
+    'webpack.config.js',
+  );
 
-	await patchFile(webpackConfigPath, (source) => {
+  await patchFile(webpackConfigPath, (source) => {
 		if (/['"]abilities\/index['"]/u.test(source)) {
 			return source;
 		}
@@ -384,15 +429,15 @@ export async function ensureAbilityWebpackAnchors(
 		const match = source.match(sharedEntriesPattern);
 		if (
 			!match ||
-			!match[1].includes("bindings/index") ||
-			!match[1].includes("editor-plugins/index")
+			!match[1].includes('bindings/index') ||
+			!match[1].includes('editor-plugins/index')
 		) {
 			throw new Error(
 				[
 					`ensureAbilityWebpackAnchors could not patch ${path.basename(webpackConfigPath)}.`,
-					"Missing the expected shared editor entries block in webpack.config.js.",
-					"Restore the generated template or wire abilities/index manually before retrying.",
-				].join(" "),
+					'Missing the expected shared editor entries block in webpack.config.js.',
+					'Restore the generated template or wire abilities/index manually before retrying.',
+				].join(' '),
 			);
 		}
 
@@ -401,17 +446,17 @@ export async function ensureAbilityWebpackAnchors(
 				return fullMatch;
 			}
 
-			const tupleIndent = sharedEntries.match(/\n([ \t]*)\[/u)?.[1] ?? "\t\t";
+			const tupleIndent = sharedEntries.match(/\n([ \t]*)\[/u)?.[1] ?? '\t\t';
 			const nestedIndent = `${tupleIndent}\t`;
-			const trimmedEntries = sharedEntries.replace(/\s*$/u, "");
+			const trimmedEntries = sharedEntries.replace(/\s*$/u, '');
 			const trailingWhitespace = sharedEntries.slice(trimmedEntries.length);
-			const separator = trimmedEntries.trimEnd().endsWith(",") ? "" : ",";
+			const separator = trimmedEntries.trimEnd().endsWith(',') ? '' : ',';
 			const abilityTuple = [
 				`${tupleIndent}[`,
 				`${nestedIndent}'abilities/index',`,
 				`${nestedIndent}[ 'src/abilities/index.ts', 'src/abilities/index.js' ],`,
 				`${tupleIndent}],`,
-			].join("\n");
+			].join('\n');
 			const nextEntries =
 				`${trimmedEntries}${separator}\n${abilityTuple}` + trailingWhitespace;
 

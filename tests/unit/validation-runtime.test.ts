@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
-	createAttributeUpdater,
-	createNestedAttributeUpdater,
-	createScaffoldValidatorToolkit,
-	formatValidationError,
-	formatValidationErrors,
-	mergeNestedAttributeUpdate,
-	toNestedAttributePatch,
-	toValidationResult,
-	toValidationState,
-	type ValidationResult,
+  createAttributeUpdater,
+  createNestedAttributeUpdater,
+  createScaffoldValidatorToolkit,
+  formatValidationError,
+  formatValidationErrors,
+  mergeNestedAttributeUpdate,
+  toNestedAttributePatch,
+  toValidationResult,
+  toValidationState,
+  type ValidationResult,
 } from '../../packages/wp-typia-block-runtime/src/validation';
 
 describe('runtime validation helpers', () => {
@@ -20,7 +20,7 @@ describe('runtime validation helpers', () => {
 				expected: 'string',
 				path: 'attributes.content',
 				value: 42,
-			})
+			}),
 		).toBe('attributes.content: string expected, got number');
 	});
 
@@ -37,7 +37,7 @@ describe('runtime validation helpers', () => {
 					path: 'attributes.isVisible',
 					value: 'yes',
 				},
-			])
+			]),
 		).toEqual([
 			'attributes.content: string expected, got number',
 			'attributes.isVisible: boolean expected, got string',
@@ -155,7 +155,7 @@ describe('runtime validation helpers', () => {
 				data: value,
 				errors: [],
 				isValid: true,
-			})
+			}),
 		);
 
 		expect(updateAttribute('content', 'Updated')).toBe(true);
@@ -176,7 +176,7 @@ describe('runtime validation helpers', () => {
 				},
 				errors: [],
 				isValid: true,
-			})
+			}),
 		);
 
 		expect(updateAttribute('content', 'Updated')).toBe(true);
@@ -206,7 +206,7 @@ describe('runtime validation helpers', () => {
 				},
 				errors: [],
 				isValid: true,
-			})
+			}),
 		);
 
 		expect(updateAttribute('content', 'Updated')).toBe(true);
@@ -240,7 +240,7 @@ describe('runtime validation helpers', () => {
 			(validation, key) => {
 				validationErrors.push(validation);
 				validationKeys.push(key);
-			}
+			},
 		);
 
 		expect(updateAttribute('content', 'Still invalid')).toBe(false);
@@ -266,7 +266,7 @@ describe('runtime validation helpers', () => {
 					},
 				],
 				isValid: false,
-			})
+			}),
 		);
 
 		expect(updateAttribute('content', 'Still invalid')).toBe(false);
@@ -346,7 +346,7 @@ describe('runtime validation helpers', () => {
 				data: value,
 				errors: [],
 				isValid: true,
-			})
+			}),
 		);
 
 		expect(updateAttribute('padding.top', 24)).toBe(true);
@@ -397,7 +397,7 @@ describe('runtime validation helpers', () => {
 				},
 				errors: [],
 				isValid: true,
-			})
+			}),
 		);
 
 		expect(updateAttribute('padding.top', 24)).toBe(true);
@@ -451,7 +451,7 @@ describe('runtime validation helpers', () => {
 			( validation, path ) => {
 				validationPaths.push(path);
 				expect(validation.errors[0]?.path).toBe('padding.top');
-			}
+			},
 		);
 
 		expect(updateAttribute('padding.top', -1)).toBe(false);
@@ -557,7 +557,7 @@ describe('runtime validation helpers', () => {
 			{ content: 'Hello', id: '' },
 			(patch) => {
 				patches.push(patch);
-			}
+			},
 		);
 
 		expect(updateAttribute('content', 'Updated')).toBe(true);

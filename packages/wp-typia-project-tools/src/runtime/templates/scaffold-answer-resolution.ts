@@ -14,18 +14,12 @@ import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
 } from '../cli/cli-diagnostics.js';
-import {
-  getTemplateById,
-  isBuiltInTemplateId,
-} from './template-registry.js';
+import { getTemplateById, isBuiltInTemplateId } from './template-registry.js';
 import {
   CREATE_TEMPLATE_SELECTION_HINT,
   validateExplicitCreateTemplateId,
 } from './create-template-validation.js';
-import {
-  toSnakeCase,
-  toTitleCase,
-} from '../shared/string-case.js';
+import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
 import type {
   CollectScaffoldAnswersOptions,
   ResolvePackageManagerOptions,
@@ -65,14 +59,18 @@ export function getDefaultAnswers(
   projectName: string,
   templateId: string,
 ): ScaffoldAnswers {
-  const template = isBuiltInTemplateId(templateId) ? getTemplateById(templateId) : null;
+  const template = isBuiltInTemplateId(templateId)
+    ? getTemplateById(templateId)
+    : null;
   const slugDefault = normalizeBlockSlug(projectName) || 'my-wp-typia-block';
   return {
     author: detectAuthor(),
     dataStorageMode: templateId === 'persistence' ? 'custom-table' : undefined,
     description: template?.description ?? 'A WordPress block scaffolded from a remote template',
     namespace: slugDefault,
-    persistencePolicy: templateId === 'persistence' ? 'authenticated' : undefined,
+    persistencePolicy: templateId === 'persistence'
+      ? 'authenticated'
+      : undefined,
     phpPrefix: toSnakeCase(slugDefault),
     queryPostType: templateId === 'query-loop' ? 'post' : undefined,
     slug: slugDefault,
@@ -206,7 +204,9 @@ export async function collectScaffoldAnswers({
       namespace: identifiers.namespace,
       persistencePolicy: persistencePolicy ?? defaults.persistencePolicy,
       phpPrefix: identifiers.phpPrefix,
-      queryPostType: normalizeQueryPostType(queryPostType ?? defaults.queryPostType),
+      queryPostType: normalizeQueryPostType(
+        queryPostType ?? defaults.queryPostType,
+      ),
       textDomain: identifiers.textDomain,
     };
   }

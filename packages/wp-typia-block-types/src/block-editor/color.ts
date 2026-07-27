@@ -13,8 +13,8 @@ export type CssColorValue =
 	| `hsla(${string})`
 	| `var(${string})`
 	| `color-mix(${string})`
-	| "transparent"
-	| "currentColor";
+	| 'transparent'
+	| 'currentColor';
 
 /**
  * Pipeline-compatible named-color subset for use in `types.ts`.
@@ -23,25 +23,25 @@ export type CssColorValue =
  * `typia.manifest.json`, and the generated PHP validator unchanged.
  */
 export type CssNamedColor =
-	| "transparent"
-	| "currentColor"
-	| "inherit"
-	| "initial"
-	| "unset";
+	| 'transparent'
+	| 'currentColor'
+	| 'inherit'
+	| 'initial'
+	| 'unset';
 
 export const CSS_NAMED_COLORS = [
-	"transparent",
-	"currentColor",
-	"inherit",
-	"initial",
-	"unset",
+  'transparent',
+  'currentColor',
+  'inherit',
+  'initial',
+  'unset',
 ] as const satisfies readonly CssNamedColor[];
 
 /**
  * Derived from Gutenberg duotone preset structures.
  */
 export interface DuotonePalette {
-	colors: readonly [CssColorValue, CssColorValue];
-	name?: string;
-	slug?: string;
+  colors: readonly [CssColorValue, CssColorValue];
+  name?: string;
+  slug?: string;
 }

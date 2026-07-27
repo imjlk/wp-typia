@@ -1,11 +1,11 @@
 type TtyLike = {
-	isTTY?: boolean;
+  isTTY?: boolean;
 };
 
 type RuntimeCapabilityOptions = {
-	stdin?: TtyLike | null | undefined;
-	stdout?: TtyLike | null | undefined;
-	term?: string | undefined;
+  stdin?: TtyLike | null | undefined;
+  stdout?: TtyLike | null | undefined;
+  term?: string | undefined;
 };
 
 /**
@@ -16,5 +16,5 @@ export function isInteractiveTerminal({
 	stdout = process.stdout,
 	term = process.env.TERM,
 }: RuntimeCapabilityOptions = {}): boolean {
-	return Boolean(stdin?.isTTY) && Boolean(stdout?.isTTY) && term !== "dumb";
+  return Boolean(stdin?.isTTY) && Boolean(stdout?.isTTY) && term !== 'dumb';
 }

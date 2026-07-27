@@ -1,42 +1,42 @@
 export interface ManifestAttribute {
-	typia: {
-		constraints: {
-			exclusiveMaximum: number | null;
-			exclusiveMinimum: number | null;
-			format: string | null;
-			maxLength: number | null;
-			maxItems: number | null;
-			maximum: number | null;
-			minLength: number | null;
-			minItems: number | null;
-			minimum: number | null;
-			multipleOf: number | null;
-			pattern: string | null;
-			typeTag: string | null;
-		};
-		defaultValue: unknown;
-		hasDefault: boolean;
-	};
-	ts: {
-		items: ManifestAttribute | null;
-		kind: "string" | "number" | "boolean" | "array" | "object" | "union";
-		properties: Record<string, ManifestAttribute> | null;
-		required: boolean;
-		union: {
-			branches: Record<string, ManifestAttribute>;
-			discriminator: string;
-		} | null;
-	};
-	wp: {
-		defaultValue: unknown;
-		enum: string[] | null;
-		hasDefault: boolean;
-		type: string;
-	};
+  typia: {
+    constraints: {
+      exclusiveMaximum: number | null;
+      exclusiveMinimum: number | null;
+      format: string | null;
+      maxLength: number | null;
+      maxItems: number | null;
+      maximum: number | null;
+      minLength: number | null;
+      minItems: number | null;
+      minimum: number | null;
+      multipleOf: number | null;
+      pattern: string | null;
+      typeTag: string | null;
+    };
+    defaultValue: unknown;
+    hasDefault: boolean;
+  };
+  ts: {
+    items: ManifestAttribute | null;
+    kind: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'union';
+    properties: Record<string, ManifestAttribute> | null;
+    required: boolean;
+    union: {
+      branches: Record<string, ManifestAttribute>;
+      discriminator: string;
+    } | null;
+  };
+  wp: {
+    defaultValue: unknown;
+    enum: string[] | null;
+    hasDefault: boolean;
+    type: string;
+  };
 }
 
 export function createManifestAttribute(
-	kind: "string" | "number" | "boolean" | "array" | "object",
+	kind: 'string' | 'number' | 'boolean' | 'array' | 'object',
 	{
 		defaultValue = null,
 		required = true,
@@ -45,39 +45,39 @@ export function createManifestAttribute(
 		required?: boolean;
 	} = {},
 ): ManifestAttribute {
-	return {
-		typia: {
-			constraints: {
-				exclusiveMaximum: null,
-				exclusiveMinimum: null,
-				format: null,
-				maxLength: null,
-				maxItems: null,
-				maximum: null,
-				minLength: null,
-				minItems: null,
-				minimum: null,
-				multipleOf: null,
-				pattern: null,
-				typeTag: null,
-			},
-			defaultValue,
-			hasDefault: defaultValue !== null,
-		},
-		ts: {
-			items: null,
-			kind,
-			properties: null,
-			required,
-			union: null,
-		},
-		wp: {
-			defaultValue,
-			enum: null,
-			hasDefault: defaultValue !== null,
-			type: kind,
-		},
-	};
+  return {
+    typia: {
+      constraints: {
+        exclusiveMaximum: null,
+        exclusiveMinimum: null,
+        format: null,
+        maxLength: null,
+        maxItems: null,
+        maximum: null,
+        minLength: null,
+        minItems: null,
+        minimum: null,
+        multipleOf: null,
+        pattern: null,
+        typeTag: null,
+      },
+      defaultValue,
+      hasDefault: defaultValue !== null,
+    },
+    ts: {
+      items: null,
+      kind,
+      properties: null,
+      required,
+      union: null,
+    },
+    wp: {
+      defaultValue,
+      enum: null,
+      hasDefault: defaultValue !== null,
+      type: kind,
+    },
+  };
 }
 
 export function createObjectBranchManifestAttribute(
@@ -90,64 +90,81 @@ export function createObjectBranchManifestAttribute(
 		required?: boolean;
 	} = {},
 ): ManifestAttribute {
-	const branch = createManifestAttribute("object", {
-		required,
-	});
+  const branch = createManifestAttribute('object', {
+    required,
+  });
 
-	branch.ts.properties = {
-		[discriminator]: createManifestAttribute("string", {
-			defaultValue: branchKey,
-			required: true,
-		}),
-		...properties,
-	};
+  branch.ts.properties = {
+    [discriminator]: createManifestAttribute('string', {
+      defaultValue: branchKey,
+      required: true,
+    }),
+    ...properties,
+  };
 
-	return branch;
+  return branch;
 }
 
 export function createUnionManifestAttribute(
 	discriminator: string,
 	branches: Record<string, ManifestAttribute>,
 ) {
-	return {
-		typia: {
-			constraints: {
-				exclusiveMaximum: null,
-				exclusiveMinimum: null,
-				format: null,
-				maxLength: null,
-				maxItems: null,
-				maximum: null,
-				minLength: null,
-				minItems: null,
-				minimum: null,
-				multipleOf: null,
-				pattern: null,
-				typeTag: null,
-			},
-			defaultValue: null,
-			hasDefault: false,
-		},
-		ts: {
-			items: null,
-			kind: "union",
-			properties: null,
-			required: true,
-			union: {
-				branches,
-				discriminator,
-			},
-		},
-		wp: {
-			defaultValue: null,
-			enum: null,
-			hasDefault: false,
-			type: "object",
-		},
-	};
+  return {
+    typia: {
+      constraints: {
+        exclusiveMaximum: null,
+        exclusiveMinimum: null,
+        format: null,
+        maxLength: null,
+        maxItems: null,
+        maximum: null,
+        minLength: null,
+        minItems: null,
+        minimum: null,
+        multipleOf: null,
+        pattern: null,
+        typeTag: null,
+      },
+      defaultValue: null,
+      hasDefault: false,
+    },
+    ts: {
+      items: null,
+      kind: 'union',
+      properties: null,
+      required: true,
+      union: {
+        branches,
+        discriminator,
+      },
+    },
+    wp: {
+      defaultValue: null,
+      enum: null,
+      hasDefault: false,
+      type: 'object',
+    },
+  };
 }
 
-export const HELPERS_SOURCE = `export type RenameMap = Record<string, string>;
+export const HELPERS_SOURCE = `export type {
+\tManifestAttribute,
+\tManifestDocument,
+} from '@wp-typia/block-runtime/migration-types';
+
+export interface MigrationRiskBucket {
+\tcount: number;
+\titems: string[];
+}
+
+export interface MigrationRiskSummary {
+\tadditive: MigrationRiskBucket;
+\trename: MigrationRiskBucket;
+\tsemanticTransform: MigrationRiskBucket;
+\tunionBreaking: MigrationRiskBucket;
+}
+
+export type RenameMap = Record<string, string>;
 export type TransformMap = Record<string, (legacyValue: unknown, legacyInput: Record<string, unknown>) => unknown>;
 
 function getValueAtPath(input: Record<string, unknown>, path: string): unknown {
@@ -189,7 +206,7 @@ export function resolveMigrationValue(
 \tinput: Record<string, unknown>,
 \trenameMap: RenameMap,
 \ttransforms: TransformMap,
-) {
+): unknown {
 \tconst sourcePath = renameMap[currentKey] ?? fallbackPath;
 \tconst legacyValue = getValueAtPath(input, sourcePath);
 \tconst transformedValue = transforms[currentKey] ? transforms[currentKey](legacyValue, input) : legacyValue;
@@ -203,7 +220,7 @@ export function resolveMigrationAttribute(
 \tinput: Record<string, unknown>,
 \trenameMap: RenameMap,
 \ttransforms: TransformMap,
-) {
+): unknown {
 \tconst sourcePath = renameMap[currentPath] ?? fallbackPath;
 \tif (attribute?.ts?.kind === "object") {
 \t\treturn Object.fromEntries(

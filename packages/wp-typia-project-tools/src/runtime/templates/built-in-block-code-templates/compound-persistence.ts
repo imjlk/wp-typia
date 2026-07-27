@@ -1,200 +1,217 @@
 export const COMPOUND_PERSISTENCE_PARENT_EDIT_TEMPLATE = `import type { BlockEditProps } from '@wp-typia/block-types/blocks/registration';
 import { __ } from '@wordpress/i18n';
 import {
-\tInspectorControls,
-\tInnerBlocks,
-\tRichText,
-\tstore as blockEditorStore,
-\tuseBlockProps,
+  InspectorControls,
+  InnerBlocks,
+  RichText,
+  store as blockEditorStore,
+  useBlockProps,
 } from '@wordpress/block-editor';
 import {
-\tNotice,
-\tPanelBody,
-\tTextControl,
-\tToggleControl,
+  Notice,
+  PanelBody,
+  TextControl,
+  ToggleControl,
 } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 
 import {
-\ttype PersistentBlockIdentityNode,
-\tusePersistentBlockIdentity,
+  type PersistentBlockIdentityNode,
+  usePersistentBlockIdentity,
 } from '@wp-typia/block-runtime/inspector';
-import {
-\tgetRootInnerBlocksPropsOptions,
-} from './children';
+import { getRootInnerBlocksPropsOptions } from './children';
 import { useTypiaValidation } from './hooks';
 import type { {{pascalCase}}Attributes } from './types';
 import {
-\tcreateAttributeUpdater,
-\tvalidate{{pascalCase}}Attributes,
+  createAttributeUpdater,
+  validate{{pascalCase}}Attributes,
 } from './validators';
 
-type EditProps = BlockEditProps< {{pascalCase}}Attributes >;
-type CompoundInnerBlocksProps = Parameters< typeof InnerBlocks >[ 0 ] & {
-\tdefaultBlock?: [ string, Record< string, unknown > ];
-\tdirectInsert?: boolean;
+type EditProps = BlockEditProps<{{pascalCase}}Attributes>;
+type CompoundInnerBlocksProps = Parameters<typeof InnerBlocks>[0] & {
+  defaultBlock?: [string, Record<string, unknown>];
+  directInsert?: boolean;
 };
 
 const TypedInnerBlocks = InnerBlocks as unknown as (
-\tprops: CompoundInnerBlocksProps
-) => ReturnType< typeof InnerBlocks >;
+  props: CompoundInnerBlocksProps,
+) => ReturnType<typeof InnerBlocks>;
 
-export default function Edit( {
-\tattributes,
-\tclientId,
-\tsetAttributes,
-}: EditProps ) {
-\tconst blocks = useSelect(
-\t\t( select ) =>
-\t\t\t( select( blockEditorStore ) as {
-\t\t\t\tgetBlocks: () => readonly PersistentBlockIdentityNode[];
-\t\t\t} ).getBlocks(),
-\t\t[]
-\t);
-\tusePersistentBlockIdentity( {
-\t\tattributeName: 'resourceKey',
-\t\tattributes,
-\t\tblockName: '{{namespace}}/{{slugKebabCase}}',
-\t\tblocks,
-\t\tclientId,
-\t\tprefix: '{{resourceKeyPrefix}}',
-\t\tsetAttributes,
-\t} );
-\tconst { errorMessages, isValid } = useTypiaValidation(
-\t\tattributes,
-\t\tvalidate{{pascalCase}}Attributes
-\t);
-\tconst updateAttribute = createAttributeUpdater( attributes, setAttributes );
-\tconst blockProps = useBlockProps( {
-\t\tclassName: '{{cssClassName}}',
-\t} );
-\tconst rootInnerBlocksPropsOptions = getRootInnerBlocksPropsOptions();
+export default function Edit({
+  attributes,
+  clientId,
+  setAttributes,
+}: EditProps) {
+  const blocks = useSelect(
+    (select) =>
+      (
+        select(blockEditorStore) as unknown as {
+          getBlocks: () => readonly PersistentBlockIdentityNode[];
+        }
+      ).getBlocks(),
+    [],
+  );
+  usePersistentBlockIdentity({
+    attributeName: 'resourceKey',
+    attributes,
+    blockName: '{{namespace}}/{{slugKebabCase}}',
+    blocks,
+    clientId,
+    prefix: '{{resourceKeyPrefix}}',
+    setAttributes,
+  });
+  const { errorMessages, isValid } = useTypiaValidation(
+    attributes,
+    validate{{pascalCase}}Attributes,
+  );
+  const updateAttribute = createAttributeUpdater(attributes, setAttributes);
+  const blockProps = useBlockProps({
+    className: '{{cssClassName}}',
+  });
+  const rootInnerBlocksPropsOptions = getRootInnerBlocksPropsOptions();
 
-\treturn (
-\t\t<>
-\t\t\t<InspectorControls>
-\t\t\t\t<PanelBody title={ __( 'Compound Settings', '{{textDomain}}' ) }>
-\t\t\t\t\t<ToggleControl
-\t\t\t\t\t\tlabel={ __( 'Show dividers between items', '{{textDomain}}' ) }
-\t\t\t\t\t\tchecked={ attributes.showDividers ?? true }
-\t\t\t\t\t\tonChange={ ( value ) => updateAttribute( 'showDividers', value ) }
-\t\t\t\t\t/>
-\t\t\t\t\t<ToggleControl
-\t\t\t\t\t\tlabel={ __( 'Show persisted count', '{{textDomain}}' ) }
-\t\t\t\t\t\tchecked={ attributes.showCount ?? true }
-\t\t\t\t\t\tonChange={ ( value ) => updateAttribute( 'showCount', value ) }
-\t\t\t\t\t/>
-\t\t\t\t\t<TextControl
-\t\t\t\t\t\tlabel={ __( 'Button label', '{{textDomain}}' ) }
-\t\t\t\t\t\tvalue={ attributes.buttonLabel ?? 'Persist Count' }
-\t\t\t\t\t\tonChange={ ( buttonLabel ) => updateAttribute( 'buttonLabel', buttonLabel ) }
-\t\t\t\t\t/>
-\t\t\t\t\t<TextControl
-\t\t\t\t\t\tlabel={ __( 'Resource key', '{{textDomain}}' ) }
-\t\t\t\t\t\tvalue={ attributes.resourceKey ?? '' }
-\t\t\t\t\t\tonChange={ ( resourceKey ) => updateAttribute( 'resourceKey', resourceKey ) }
-\t\t\t\t\t\thelp={ __( 'Stable key used by the persisted counter endpoint.', '{{textDomain}}' ) }
-\t\t\t\t\t/>
-\t\t\t\t\t<Notice status="info" isDismissible={ false }>
-\t\t\t\t\t\t{ __( 'Storage mode: {{dataStorageMode}}', '{{textDomain}}' ) }
-\t\t\t\t\t</Notice>
-\t\t\t\t\t<Notice status="info" isDismissible={ false }>
-\t\t\t\t\t\t{ __( 'Persistence policy: {{persistencePolicy}}', '{{textDomain}}' ) }
-\t\t\t\t\t</Notice>
-\t\t\t\t</PanelBody>
-\t\t\t\t{ ! isValid && (
-\t\t\t\t\t<PanelBody title={ __( 'Validation Errors', '{{textDomain}}' ) } initialOpen>
-\t\t\t\t\t\t{ errorMessages.map( ( error, index ) => (
-\t\t\t\t\t\t\t<Notice key={ index } status="error" isDismissible={ false }>
-\t\t\t\t\t\t\t\t{ error }
-\t\t\t\t\t\t\t</Notice>
-\t\t\t\t\t\t) ) }
-\t\t\t\t\t</PanelBody>
-\t\t\t\t) }
-\t\t\t</InspectorControls>
-\t\t\t<div { ...blockProps }>
-\t\t\t\t<RichText
-\t\t\t\t\ttagName="h3"
-\t\t\t\t\tclassName="{{cssClassName}}__heading"
-\t\t\t\t\tvalue={ attributes.heading }
-\t\t\t\t\tonChange={ ( heading ) => updateAttribute( 'heading', heading ) }
-\t\t\t\t\tplaceholder={ __( {{titleJson}}, '{{textDomain}}' ) }
-\t\t\t\t/>
-\t\t\t\t<RichText
-\t\t\t\t\ttagName="p"
-\t\t\t\t\tclassName="{{cssClassName}}__intro"
-\t\t\t\t\tvalue={ attributes.intro ?? '' }
-\t\t\t\t\tonChange={ ( intro ) => updateAttribute( 'intro', intro ) }
-\t\t\t\t\tplaceholder={ __(
-\t\t\t\t\t\t'Add and reorder internal items inside this compound block.',
-\t\t\t\t\t\t'{{textDomain}}'
-\t\t\t\t\t) }
-\t\t\t\t/>
-\t\t\t\t{ ! isValid && (
-\t\t\t\t\t<Notice status="error" isDismissible={ false }>
-\t\t\t\t\t\t<ul>
-\t\t\t\t\t\t\t{ errorMessages.map( ( error, index ) => <li key={ index }>{ error }</li> ) }
-\t\t\t\t\t\t</ul>
-\t\t\t\t\t</Notice>
-\t\t\t\t) }
-\t\t\t\t<p className="{{cssClassName}}__meta">
-\t\t\t\t\t{ __( 'Resource key:', '{{textDomain}}' ) } { attributes.resourceKey || '—' }
-\t\t\t\t</p>
-\t\t\t\t<div className="{{cssClassName}}__items">
-\t\t\t\t\t<TypedInnerBlocks { ...rootInnerBlocksPropsOptions } />
-\t\t\t\t</div>
-\t\t\t</div>
-\t\t</>
-\t);
+  return (
+    <>
+      <InspectorControls>
+        <PanelBody title={__('Compound Settings', '{{textDomain}}')}>
+          <ToggleControl
+            label={__('Show dividers between items', '{{textDomain}}')}
+            checked={attributes.showDividers ?? true}
+            onChange={(value) => updateAttribute('showDividers', value)}
+          />
+          <ToggleControl
+            label={__('Show persisted count', '{{textDomain}}')}
+            checked={attributes.showCount ?? true}
+            onChange={(value) => updateAttribute('showCount', value)}
+          />
+          <TextControl
+            label={__('Button label', '{{textDomain}}')}
+            value={attributes.buttonLabel ?? 'Persist Count'}
+            onChange={(buttonLabel) =>
+              updateAttribute('buttonLabel', buttonLabel)
+            }
+          />
+          <TextControl
+            label={__('Resource key', '{{textDomain}}')}
+            value={attributes.resourceKey ?? ''}
+            onChange={(resourceKey) =>
+              updateAttribute('resourceKey', resourceKey)
+            }
+            help={__(
+              'Stable key used by the persisted counter endpoint.',
+              '{{textDomain}}',
+            )}
+          />
+          <Notice status="info" isDismissible={false}>
+            {__(
+              'Storage mode: {{dataStorageMode}}',
+              '{{textDomain}}',
+            )}
+          </Notice>
+          <Notice status="info" isDismissible={false}>
+            {__(
+              'Persistence policy: {{persistencePolicy}}',
+              '{{textDomain}}',
+            )}
+          </Notice>
+        </PanelBody>
+        {!isValid && (
+          <PanelBody
+            title={__('Validation Errors', '{{textDomain}}')}
+            initialOpen
+          >
+            {errorMessages.map((error, index) => (
+              <Notice key={index} status="error" isDismissible={false}>
+                {error}
+              </Notice>
+            ))}
+          </PanelBody>
+        )}
+      </InspectorControls>
+      <div {...blockProps}>
+        <RichText
+          tagName="h3"
+          className="{{cssClassName}}__heading"
+          value={attributes.heading}
+          onChange={(heading) => updateAttribute('heading', heading)}
+          placeholder={__({{titleTsLiteral}}, '{{textDomain}}')}
+        />
+        <RichText
+          tagName="p"
+          className="{{cssClassName}}__intro"
+          value={attributes.intro ?? ''}
+          onChange={(intro) => updateAttribute('intro', intro)}
+          placeholder={__(
+            'Add and reorder internal items inside this compound block.',
+            '{{textDomain}}',
+          )}
+        />
+        {!isValid && (
+          <Notice status="error" isDismissible={false}>
+            <ul>
+              {errorMessages.map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+            </ul>
+          </Notice>
+        )}
+        <p className="{{cssClassName}}__meta">
+          {__('Resource key:', '{{textDomain}}')}{' '}
+          {attributes.resourceKey || '—'}
+        </p>
+        <div className="{{cssClassName}}__items">
+          <TypedInnerBlocks {...rootInnerBlocksPropsOptions} />
+        </div>
+      </div>
+    </>
+  );
 }
 `;
 
 export const COMPOUND_PERSISTENCE_PARENT_SAVE_TEMPLATE = `export default function Save() {
-\treturn null;
+  return null;
 }
 `;
 
 export const COMPOUND_PERSISTENCE_PARENT_VALIDATORS_TEMPLATE = `import typia from 'typia';
 import currentManifest from './manifest-defaults-document';
-import type {
-\t{{pascalCase}}Attributes,
-\t{{pascalCase}}ValidationResult,
-} from './types';
+{{validationTypesImport}}
 import { generateResourceKey } from '@wp-typia/block-runtime/identifiers';
 import { createTemplateValidatorToolkit } from '../../validator-toolkit';
 
-const scaffoldValidators = createTemplateValidatorToolkit< {{pascalCase}}Attributes >( {
-\tassert: typia.createAssert< {{pascalCase}}Attributes >(),
-\tclone: typia.misc.createClone< {{pascalCase}}Attributes >() as (
-\t\tvalue: {{pascalCase}}Attributes,
-\t) => {{pascalCase}}Attributes,
-\tis: typia.createIs< {{pascalCase}}Attributes >(),
-\tmanifest: currentManifest,
-\tprune: typia.misc.createPrune< {{pascalCase}}Attributes >(),
-\trandom: typia.createRandom< {{pascalCase}}Attributes >() as (
-\t\t...args: unknown[]
-\t) => {{pascalCase}}Attributes,
-\tfinalize: ( normalized ) => ( {
-\t\t...normalized,
-\t\tresourceKey:
-\t\t\tnormalized.resourceKey && normalized.resourceKey.length > 0
-\t\t\t\t? normalized.resourceKey
-\t\t\t\t: generateResourceKey( '{{resourceKeyPrefix}}' ),
-\t} ),
-\tvalidate: typia.createValidate< {{pascalCase}}Attributes >(),
-} );
+const scaffoldValidators =
+  createTemplateValidatorToolkit<{{pascalCase}}Attributes>({
+    assert: typia.createAssert<{{pascalCase}}Attributes>(),
+    clone: typia.plain.createClone<{{pascalCase}}Attributes>() as (
+      value: {{pascalCase}}Attributes,
+    ) => {{pascalCase}}Attributes,
+    is: typia.createIs<{{pascalCase}}Attributes>(),
+    manifest: currentManifest,
+    prune: typia.plain.createPrune<{{pascalCase}}Attributes>(),
+    random: typia.createRandom<{{pascalCase}}Attributes>() as (
+      ...args: unknown[]
+    ) => {{pascalCase}}Attributes,
+    finalize: (normalized) => ({
+      ...normalized,
+      resourceKey:
+        normalized.resourceKey && normalized.resourceKey.length > 0
+          ? normalized.resourceKey
+          : generateResourceKey('{{resourceKeyPrefix}}'),
+    }),
+    validate: typia.createValidate<{{pascalCase}}Attributes>(),
+  });
 
 export const validators = scaffoldValidators.validators;
 
 export const validate{{pascalCase}}Attributes =
-\tscaffoldValidators.validateAttributes as (
-\t\tattributes: unknown
-\t) => {{pascalCase}}ValidationResult;
+  scaffoldValidators.validateAttributes as (
+    attributes: unknown,
+  ) => {{pascalCase}}ValidationResult;
 
 export const sanitize{{pascalCase}}Attributes =
-\tscaffoldValidators.sanitizeAttributes as (
-\t\tattributes: Partial< {{pascalCase}}Attributes >
-\t) => {{pascalCase}}Attributes;
+  scaffoldValidators.sanitizeAttributes as (
+    attributes: Partial<{{pascalCase}}Attributes>,
+  ) => {{pascalCase}}Attributes;
 
 export const createAttributeUpdater = scaffoldValidators.createAttributeUpdater;
 `;
@@ -203,305 +220,307 @@ export const COMPOUND_PERSISTENCE_PARENT_INTERACTIVITY_TEMPLATE = `import { getC
 import { generatePublicWriteRequestId } from '@wp-typia/block-runtime/identifiers';
 
 import { fetchBootstrap, fetchState, writeState } from './api';
+import type { {{pascalCase}}WriteStateRequest } from './api-types';
 import type {
-\t{{pascalCase}}ClientState,
-\t{{pascalCase}}Context,
-\t{{pascalCase}}State,
+  {{pascalCase}}ClientState,
+  {{pascalCase}}Context,
+  {{pascalCase}}State,
 } from './types';
 
-function hasExpiredPublicWriteToken(
-\texpiresAt?: number
-): boolean {
-\treturn (
-\t\ttypeof expiresAt === 'number' &&
-\t\texpiresAt > 0 &&
-\t\tDate.now() >= expiresAt * 1000
-\t);
+function hasExpiredPublicWriteToken(expiresAt?: number): boolean {
+  return (
+    typeof expiresAt === 'number' &&
+    expiresAt > 0 &&
+    Date.now() >= expiresAt * 1000
+  );
 }
 
 function getWriteBlockedMessage(
-\tcontext: {{pascalCase}}Context
+  context: {{pascalCase}}Context,
 ): string {
-\treturn context.persistencePolicy === 'authenticated'
-\t\t? 'Sign in to persist this counter.'
-\t\t: 'Public writes are temporarily unavailable.';
+  return context.persistencePolicy === 'authenticated'
+    ? 'Sign in to persist this counter.'
+    : 'Public writes are temporarily unavailable.';
 }
 
 const BOOTSTRAP_MAX_ATTEMPTS = 3;
-const BOOTSTRAP_RETRY_DELAYS_MS = [ 250, 500 ];
+const BOOTSTRAP_RETRY_DELAYS_MS = [250, 500];
 
-async function waitForBootstrapRetry( delayMs: number ): Promise< void > {
-\tawait new Promise( ( resolve ) => {
-\t\tsetTimeout( resolve, delayMs );
-\t} );
+async function waitForBootstrapRetry(delayMs: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function getClientState(
-\tcontext: {{pascalCase}}Context
+  context: {{pascalCase}}Context,
 ): {{pascalCase}}ClientState {
-\tif ( context.client ) {
-\t\treturn context.client;
-\t}
+  if (context.client) {
+    return context.client;
+  }
 
-\tcontext.client = {
-\t\tbootstrapError: '',
-\t\twriteExpiry: 0,
-\t\twriteNonce: '',
-\t\twriteToken: '',
-\t};
+  context.client = {
+    bootstrapError: '',
+    writeExpiry: 0,
+    writeNonce: '',
+    writeToken: '',
+  };
 
-\treturn context.client;
+  return context.client;
 }
 
 function clearBootstrapError(
-\tcontext: {{pascalCase}}Context,
-\tclientState: {{pascalCase}}ClientState
+  context: {{pascalCase}}Context,
+  clientState: {{pascalCase}}ClientState,
 ): void {
-\tif ( context.error === clientState.bootstrapError ) {
-\t\tcontext.error = '';
-\t}
-\tclientState.bootstrapError = '';
+  if (context.error === clientState.bootstrapError) {
+    context.error = '';
+  }
+  clientState.bootstrapError = '';
 }
 
 function setBootstrapError(
-\tcontext: {{pascalCase}}Context,
-\tclientState: {{pascalCase}}ClientState,
-\tmessage: string
+  context: {{pascalCase}}Context,
+  clientState: {{pascalCase}}ClientState,
+  message: string,
 ): void {
-\tclientState.bootstrapError = message;
-\tcontext.error = message;
+  clientState.bootstrapError = message;
+  context.error = message;
 }
 
-const { actions, state } = store( '{{slugKebabCase}}', {
-\tstate: {
-\t\tisHydrated: false,
-\t} as {{pascalCase}}State,
+const { actions, state } = store('{{slugKebabCase}}', {
+  state: {
+    isHydrated: false,
+  } as {{pascalCase}}State,
 
-\tactions: {
-\t\tasync loadState() {
-\t\t\tconst context = getContext< {{pascalCase}}Context >();
-\t\t\tif ( context.postId <= 0 || ! context.resourceKey ) {
-\t\t\t\treturn;
-\t\t\t}
+  actions: {
+    async loadState() {
+      const context = getContext<{{pascalCase}}Context>();
+      if (context.postId <= 0 || !context.resourceKey) {
+        return;
+      }
 
-\t\t\tcontext.isLoading = true;
-\t\t\tcontext.error = '';
+      context.isLoading = true;
+      context.error = '';
 
-\t\t\ttry {
-\t\t\t\tconst result = await fetchState( {
-\t\t\t\t\tpostId: context.postId,
-\t\t\t\t\tresourceKey: context.resourceKey,
-\t\t\t\t}, {
-\t\t\t\t\ttransportTarget: 'frontend',
-\t\t\t\t} );
-\t\t\t\tif ( ! result.isValid || ! result.data ) {
-\t\t\t\t\tcontext.error = result.errors[ 0 ]?.expected ?? 'Unable to load counter';
-\t\t\t\t\treturn;
-\t\t\t\t}
-\t\t\t\tcontext.count = result.data.count;
-\t\t\t} catch ( error ) {
-\t\t\t\tcontext.error =
-\t\t\t\t\terror instanceof Error ? error.message : 'Unknown loading error';
-\t\t\t} finally {
-\t\t\t\tcontext.isLoading = false;
-\t\t\t}
-\t\t},
-\t\tasync loadBootstrap() {
-\t\t\tconst context = getContext< {{pascalCase}}Context >();
-\t\t\tconst clientState = getClientState( context );
-\t\t\tif ( context.postId <= 0 || ! context.resourceKey ) {
-\t\t\t\tcontext.bootstrapReady = true;
-\t\t\t\tcontext.canWrite = false;
-\t\t\t\tclientState.bootstrapError = '';
-\t\t\t\tclientState.writeExpiry = 0;
-\t\t\t\tclientState.writeNonce = '';
-\t\t\t\tclientState.writeToken = '';
-\t\t\t\treturn;
-\t\t\t}
+      try {
+        const result = await fetchState(
+          {
+            postId: context.postId,
+            resourceKey: context.resourceKey,
+          },
+          {
+            transportTarget: 'frontend',
+          },
+        );
+        if (!result.isValid || !result.data) {
+          context.error =
+            result.errors[0]?.expected ?? 'Unable to load counter';
+          return;
+        }
+        context.count = result.data.count;
+      } catch (error) {
+        context.error =
+          error instanceof Error ? error.message : 'Unknown loading error';
+      } finally {
+        context.isLoading = false;
+      }
+    },
+    async loadBootstrap() {
+      const context = getContext<{{pascalCase}}Context>();
+      const clientState = getClientState(context);
+      if (context.postId <= 0 || !context.resourceKey) {
+        context.bootstrapReady = true;
+        context.canWrite = false;
+        clientState.bootstrapError = '';
+        clientState.writeExpiry = 0;
+        clientState.writeNonce = '';
+        clientState.writeToken = '';
+        return;
+      }
 
-\t\t\tcontext.isBootstrapping = true;
+      context.isBootstrapping = true;
 
-\t\t\tlet bootstrapSucceeded = false;
-\t\t\tlet lastBootstrapError =
-\t\t\t\t'Unable to initialize write access';
-\t\t\tconst includePublicWriteCredentials = {{isPublicPersistencePolicy}};
-\t\t\tconst includeRestNonce = {{isAuthenticatedPersistencePolicy}};
+      let bootstrapSucceeded = false;
+      let lastBootstrapError = 'Unable to initialize write access';
+      const includePublicWriteCredentials = {{isPublicPersistencePolicy}};
+      const includeRestNonce = {{isAuthenticatedPersistencePolicy}};
 
-\t\t\tfor ( let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1 ) {
-\t\t\t\ttry {
-\t\t\t\t\tconst result = await fetchBootstrap( {
-\t\t\t\t\t\tpostId: context.postId,
-\t\t\t\t\t\tresourceKey: context.resourceKey,
-\t\t\t\t\t}, {
-\t\t\t\t\t\ttransportTarget: 'frontend',
-\t\t\t\t\t} );
-\t\t\t\t\tif ( ! result.isValid || ! result.data ) {
-\t\t\t\t\t\tlastBootstrapError =
-\t\t\t\t\t\t\tresult.errors[ 0 ]?.expected ??
-\t\t\t\t\t\t\t'Unable to initialize write access';
-\t\t\t\t\t\tif ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
-\t\t\t\t\t\t\tawait waitForBootstrapRetry(
-\t\t\t\t\t\t\t\tBOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
-\t\t\t\t\t\t\t);
-\t\t\t\t\t\t\tcontinue;
-\t\t\t\t\t\t}
-\t\t\t\t\t\tbreak;
-\t\t\t\t\t}
+      for (let attempt = 1; attempt <= BOOTSTRAP_MAX_ATTEMPTS; attempt += 1) {
+        try {
+          const result = await fetchBootstrap(
+            {
+              postId: context.postId,
+              resourceKey: context.resourceKey,
+            },
+            {
+              transportTarget: 'frontend',
+            },
+          );
+          if (!result.isValid || !result.data) {
+            lastBootstrapError =
+              result.errors[0]?.expected ?? 'Unable to initialize write access';
+            if (attempt < BOOTSTRAP_MAX_ATTEMPTS) {
+              await waitForBootstrapRetry(
+                BOOTSTRAP_RETRY_DELAYS_MS[attempt - 1] ?? 750,
+              );
+              continue;
+            }
+            break;
+          }
 
-\t\t\t\t\tclientState.writeExpiry =
-\t\t\t\t\t\tincludePublicWriteCredentials &&
-\t\t\t\t\t\t'publicWriteExpiresAt' in result.data &&
-\t\t\t\t\t\ttypeof result.data.publicWriteExpiresAt === 'number' &&
-\t\t\t\t\t\tresult.data.publicWriteExpiresAt > 0
-\t\t\t\t\t\t\t? result.data.publicWriteExpiresAt
-\t\t\t\t\t\t\t: 0;
-\t\t\t\t\tclientState.writeToken =
-\t\t\t\t\t\tincludePublicWriteCredentials &&
-\t\t\t\t\t\t'publicWriteToken' in result.data &&
-\t\t\t\t\t\ttypeof result.data.publicWriteToken === 'string' &&
-\t\t\t\t\t\tresult.data.publicWriteToken.length > 0
-\t\t\t\t\t\t\t? result.data.publicWriteToken
-\t\t\t\t\t\t\t: '';
-\t\t\t\t\tclientState.writeNonce =
-\t\t\t\t\t\tincludeRestNonce &&
-\t\t\t\t\t\t'restNonce' in result.data &&
-\t\t\t\t\t\ttypeof result.data.restNonce === 'string' &&
-\t\t\t\t\t\tresult.data.restNonce.length > 0
-\t\t\t\t\t\t\t? result.data.restNonce
-\t\t\t\t\t\t\t: '';
-\t\t\t\t\tcontext.bootstrapReady = true;
-\t\t\t\t\tcontext.canWrite =
-\t\t\t\t\t\tresult.data.canWrite === true &&
-\t\t\t\t\t\t(
-\t\t\t\t\t\t\tcontext.persistencePolicy === 'authenticated'
-\t\t\t\t\t\t\t\t? clientState.writeNonce.length > 0
-\t\t\t\t\t\t\t\t: clientState.writeToken.length > 0 &&
-\t\t\t\t\t\t\t\t\t! hasExpiredPublicWriteToken( clientState.writeExpiry )
-\t\t\t\t\t\t);
-\t\t\t\t\tclearBootstrapError( context, clientState );
-\t\t\t\t\tbootstrapSucceeded = true;
-\t\t\t\t\tbreak;
-\t\t\t\t} catch ( error ) {
-\t\t\t\t\tlastBootstrapError =
-\t\t\t\t\t\terror instanceof Error ? error.message : 'Unknown bootstrap error';
-\t\t\t\t\tif ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
-\t\t\t\t\t\tawait waitForBootstrapRetry(
-\t\t\t\t\t\t\tBOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
-\t\t\t\t\t\t);
-\t\t\t\t\t\tcontinue;
-\t\t\t\t\t}
-\t\t\t\t\tbreak;
-\t\t\t\t}
-\t\t\t}
+          clientState.writeExpiry =
+            includePublicWriteCredentials &&
+            'publicWriteExpiresAt' in result.data &&
+            typeof result.data.publicWriteExpiresAt === 'number' &&
+            result.data.publicWriteExpiresAt > 0
+              ? result.data.publicWriteExpiresAt
+              : 0;
+          clientState.writeToken =
+            includePublicWriteCredentials &&
+            'publicWriteToken' in result.data &&
+            typeof result.data.publicWriteToken === 'string' &&
+            result.data.publicWriteToken.length > 0
+              ? result.data.publicWriteToken
+              : '';
+          clientState.writeNonce =
+            includeRestNonce &&
+            'restNonce' in result.data &&
+            typeof result.data.restNonce === 'string' &&
+            result.data.restNonce.length > 0
+              ? result.data.restNonce
+              : '';
+          context.bootstrapReady = true;
+          context.canWrite =
+            result.data.canWrite === true &&
+            (context.persistencePolicy === 'authenticated'
+              ? clientState.writeNonce.length > 0
+              : clientState.writeToken.length > 0 &&
+                !hasExpiredPublicWriteToken(clientState.writeExpiry));
+          clearBootstrapError(context, clientState);
+          bootstrapSucceeded = true;
+          break;
+        } catch (error) {
+          lastBootstrapError =
+            error instanceof Error ? error.message : 'Unknown bootstrap error';
+          if (attempt < BOOTSTRAP_MAX_ATTEMPTS) {
+            await waitForBootstrapRetry(
+              BOOTSTRAP_RETRY_DELAYS_MS[attempt - 1] ?? 750,
+            );
+            continue;
+          }
+          break;
+        }
+      }
 
-\t\t\tif ( ! bootstrapSucceeded ) {
-\t\t\t\tcontext.bootstrapReady = false;
-\t\t\t\tcontext.canWrite = false;
-\t\t\t\tclientState.writeExpiry = 0;
-\t\t\t\tclientState.writeNonce = '';
-\t\t\t\tclientState.writeToken = '';
-\t\t\t\tsetBootstrapError( context, clientState, lastBootstrapError );
-\t\t\t}
-\t\t\tcontext.isBootstrapping = false;
-\t\t},
-\t\tasync increment() {
-\t\t\tconst context = getContext< {{pascalCase}}Context >();
-\t\t\tconst clientState = getClientState( context );
-\t\t\tif ( context.postId <= 0 || ! context.resourceKey ) {
-\t\t\t\treturn;
-\t\t\t}
-\t\t\tif ( ! context.bootstrapReady ) {
-\t\t\t\tawait actions.loadBootstrap();
-\t\t\t}
-\t\t\tif ( ! context.bootstrapReady ) {
-\t\t\t\tcontext.error = 'Write access is still initializing.';
-\t\t\t\treturn;
-\t\t\t}
-\t\t\tif (
-\t\t\t\tcontext.persistencePolicy === 'public' &&
-\t\t\t\thasExpiredPublicWriteToken( clientState.writeExpiry )
-\t\t\t) {
-\t\t\t\tawait actions.loadBootstrap();
-\t\t\t}
-\t\t\tif (
-\t\t\t\tcontext.persistencePolicy === 'public' &&
-\t\t\t\thasExpiredPublicWriteToken( clientState.writeExpiry )
-\t\t\t) {
-\t\t\t\tcontext.canWrite = false;
-\t\t\t\tcontext.error = getWriteBlockedMessage( context );
-\t\t\t\treturn;
-\t\t\t}
-\t\t\tif ( ! context.canWrite ) {
-\t\t\t\tcontext.error = getWriteBlockedMessage( context );
-\t\t\t\treturn;
-\t\t\t}
+      if (!bootstrapSucceeded) {
+        context.bootstrapReady = false;
+        context.canWrite = false;
+        clientState.writeExpiry = 0;
+        clientState.writeNonce = '';
+        clientState.writeToken = '';
+        setBootstrapError(context, clientState, lastBootstrapError);
+      }
+      context.isBootstrapping = false;
+    },
+    async increment() {
+      const context = getContext<{{pascalCase}}Context>();
+      const clientState = getClientState(context);
+      const resourceKey = context.resourceKey;
+      if (context.postId <= 0 || !resourceKey) {
+        return;
+      }
+      if (!context.bootstrapReady) {
+        await actions.loadBootstrap();
+      }
+      if (!context.bootstrapReady) {
+        context.error = 'Write access is still initializing.';
+        return;
+      }
+      if (
+        context.persistencePolicy === 'public' &&
+        hasExpiredPublicWriteToken(clientState.writeExpiry)
+      ) {
+        await actions.loadBootstrap();
+      }
+      if (
+        context.persistencePolicy === 'public' &&
+        hasExpiredPublicWriteToken(clientState.writeExpiry)
+      ) {
+        context.canWrite = false;
+        context.error = getWriteBlockedMessage(context);
+        return;
+      }
+      if (!context.canWrite) {
+        context.error = getWriteBlockedMessage(context);
+        return;
+      }
 
-\t\t\tcontext.isSaving = true;
-\t\t\tcontext.error = '';
+      context.isSaving = true;
+      context.error = '';
 
-\t\t\ttry {
-\t\t\t\tconst result = await writeState( {
-\t\t\t\t\tdelta: 1,
-\t\t\t\t\tpostId: context.postId,
-\t\t\t\t\tpublicWriteRequestId:
-\t\t\t\t\t\tcontext.persistencePolicy === 'public'
-\t\t\t\t\t\t\t? generatePublicWriteRequestId()
-\t\t\t\t\t\t\t: undefined,
-\t\t\t\t\tpublicWriteToken:
-\t\t\t\t\t\tcontext.persistencePolicy === 'public' &&
-\t\t\t\t\t\tclientState.writeToken.length > 0
-\t\t\t\t\t\t\t? clientState.writeToken
-\t\t\t\t\t\t\t: undefined,
-\t\t\t\t\tresourceKey: context.resourceKey,
-\t\t\t\t}, {
-\t\t\t\t\trestNonce:
-\t\t\t\t\t\tclientState.writeNonce.length > 0
-\t\t\t\t\t\t\t? clientState.writeNonce
-\t\t\t\t\t\t\t: undefined,
-\t\t\t\t\ttransportTarget: 'frontend',
-\t\t\t\t} );
-\t\t\t\tif ( ! result.isValid || ! result.data ) {
-\t\t\t\t\tcontext.error = result.errors[ 0 ]?.expected ?? 'Unable to update counter';
-\t\t\t\t\treturn;
-\t\t\t\t}
-\t\t\t\tcontext.count = result.data.count;
-\t\t\t\tcontext.storage = result.data.storage;
-\t\t\t} catch ( error ) {
-\t\t\t\tcontext.error =
-\t\t\t\t\terror instanceof Error ? error.message : 'Unknown update error';
-\t\t\t} finally {
-\t\t\t\tcontext.isSaving = false;
-\t\t\t}
-\t\t},
-\t},
+      try {
+        const request = {
+          delta: 1,
+          postId: context.postId,
+          resourceKey,
+        } as {{pascalCase}}WriteStateRequest;
+        if ({{isPublicPersistencePolicy}}) {
+          request.publicWriteRequestId =
+            generatePublicWriteRequestId() as {{pascalCase}}WriteStateRequest['publicWriteRequestId'];
+          if (clientState.writeToken.length > 0) {
+            request.publicWriteToken =
+              clientState.writeToken as {{pascalCase}}WriteStateRequest['publicWriteToken'];
+          }
+        }
+        const result = await writeState(request, {
+          restNonce:
+            clientState.writeNonce.length > 0
+              ? clientState.writeNonce
+              : undefined,
+          transportTarget: 'frontend',
+        });
+        if (!result.isValid || !result.data) {
+          context.error =
+            result.errors[0]?.expected ?? 'Unable to update counter';
+          return;
+        }
+        context.count = result.data.count;
+        context.storage = result.data.storage;
+      } catch (error) {
+        context.error =
+          error instanceof Error ? error.message : 'Unknown update error';
+      } finally {
+        context.isSaving = false;
+      }
+    },
+  },
 
-\tcallbacks: {
-\t\tinit() {
-\t\t\tconst context = getContext< {{pascalCase}}Context >();
-\t\t\tcontext.client = {
-\t\t\t\tbootstrapError: '',
-\t\t\t\twriteExpiry: 0,
-\t\t\t\twriteNonce: '',
-\t\t\t\twriteToken: '',
-\t\t\t};
-\t\t\tcontext.bootstrapReady = false;
-\t\t\tcontext.canWrite = false;
-\t\t\tcontext.count = 0;
-\t\t\tcontext.error = '';
-\t\t\tcontext.isBootstrapping = false;
-\t\t\tcontext.isLoading = false;
-\t\t\tcontext.isSaving = false;
-\t\t},
-\t\tmounted() {
-\t\t\tstate.isHydrated = true;
-\t\t\tif ( typeof document !== 'undefined' ) {
-\t\t\t\tdocument.documentElement.dataset[ '{{slugCamelCase}}Hydrated' ] = 'true';
-\t\t\t}
-\t\t\tvoid Promise.allSettled( [
-\t\t\t\tactions.loadState(),
-\t\t\t\tactions.loadBootstrap(),
-\t\t\t] );
-\t\t},
-\t},
-} );
+  callbacks: {
+    init() {
+      const context = getContext<{{pascalCase}}Context>();
+      context.client = {
+        bootstrapError: '',
+        writeExpiry: 0,
+        writeNonce: '',
+        writeToken: '',
+      };
+      context.bootstrapReady = false;
+      context.canWrite = false;
+      context.count = 0;
+      context.error = '';
+      context.isBootstrapping = false;
+      context.isLoading = false;
+      context.isSaving = false;
+    },
+    mounted() {
+      state.isHydrated = true;
+      if (typeof document !== 'undefined') {
+        document.documentElement.dataset['{{slugCamelCase}}Hydrated'] =
+          'true';
+      }
+      void Promise.allSettled([actions.loadState(), actions.loadBootstrap()]);
+    },
+  },
+});
 `;

@@ -1,1 +1,1 @@
-export * from "./templates/built-in-block-artifacts.js";
+export * from './templates/built-in-block-artifacts.js';

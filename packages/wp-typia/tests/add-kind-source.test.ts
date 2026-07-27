@@ -95,14 +95,8 @@ test('keeps add-kind formatting helpers below the execution registry', () => {
   expect(registrySource).not.toContain(
     'export function formatAddKindUsagePlaceholder',
   );
-  expect(cliErrorMessagesSource).toContain(
-    "from './add-kind-ids'",
-  );
-  expect(cliErrorMessagesSource).not.toContain(
-    "from './add-kind-registry'",
-  );
+  expect(cliErrorMessagesSource).toContain("from './add-kind-ids'");
+  expect(cliErrorMessagesSource).not.toContain("from './add-kind-registry'");
   expect(portableCliHelpSource).toContain("from '../add-kind-ids'");
-  expect(portableCliHelpSource).not.toContain(
-    "from '../add-kind-registry'",
-  );
+  expect(portableCliHelpSource).not.toContain("from '../add-kind-registry'");
 });

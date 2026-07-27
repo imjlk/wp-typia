@@ -1,25 +1,55 @@
 /** Original-source range returned from a masked-source pattern match. */
 export interface SourceRange {
-	end: number;
-	start: number;
+  end: number;
+  start: number;
 }
 
 function maskSourceSegment(segment: string): string {
-	return segment.replace(/[^\n\r]/gu, " ");
+  return segment.replace(/[^\n\r]/gu, ' ');
 }
 
 function testPattern(source: string, pattern: RegExp): boolean {
-	pattern.lastIndex = 0;
-	const matched = pattern.test(source);
-	pattern.lastIndex = 0;
-	return matched;
+  pattern.lastIndex = 0;
+  const matched = pattern.test(source);
+  pattern.lastIndex = 0;
+  return matched;
+}
+
+function findPatternMatch(
+  maskedSource: string,
+  patterns: readonly RegExp[],
+): SourceRange | undefined {
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(maskedSource);
+    pattern.lastIndex = 0;
+
+    if (match) {
+      return {
+        end: match.index + match[0].length,
+        start: match.index,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Detects the dominant newline sequence, preferring the repository LF default
+ * when a source contains equal numbers of CRLF and bare LF line endings.
+ */
+export function detectSourceLineEnding(source: string): '\n' | '\r\n' {
+  const crlfCount = source.split('\r\n').length - 1;
+  const bareLfCount = source.replace(/\r\n/gu, '').split('\n').length - 1;
+  return crlfCount > bareLfCount ? '\r\n' : '\n';
 }
 
 /**
  * Masks TypeScript comments with spaces while preserving newlines and offsets.
  */
 export function maskTypeScriptComments(source: string): string {
-	return source
+  return source
 		.replace(/\/\*[\s\S]*?\*\//gu, maskSourceSegment)
 		.replace(/\/\/[^\n\r]*/gu, maskSourceSegment);
 }
@@ -31,88 +61,88 @@ export function maskTypeScriptComments(source: string): string {
  * ambiguity are intentionally left to callers that need deeper syntax analysis.
  */
 export function maskTypeScriptCommentsAndLiterals(source: string): string {
-	let maskedSource = "";
-	let index = 0;
+  let maskedSource = '';
+  let index = 0;
 
-	while (index < source.length) {
-		const current = source[index];
-		const next = source[index + 1];
+  while (index < source.length) {
+    const current = source[index];
+    const next = source[index + 1];
 
-		if (current === "/" && next === "/") {
-			const start = index;
-			index += 2;
+    if (current === '/' && next === '/') {
+      const start = index;
+      index += 2;
 
-			while (
+      while (
 				index < source.length &&
-				source[index] !== "\n" &&
-				source[index] !== "\r"
+				source[index] !== '\n' &&
+				source[index] !== '\r'
 			) {
-				index += 1;
-			}
+        index += 1;
+      }
 
-			maskedSource += maskSourceSegment(source.slice(start, index));
-			continue;
-		}
+      maskedSource += maskSourceSegment(source.slice(start, index));
+      continue;
+    }
 
-		if (current === "/" && next === "*") {
-			const start = index;
-			index += 2;
+    if (current === '/' && next === '*') {
+      const start = index;
+      index += 2;
 
-			while (
+      while (
 				index < source.length &&
-				!(source[index] === "*" && source[index + 1] === "/")
+				!(source[index] === '*' && source[index + 1] === '/')
 			) {
-				index += 1;
-			}
+        index += 1;
+      }
 
-			index = Math.min(index + 2, source.length);
-			maskedSource += maskSourceSegment(source.slice(start, index));
-			continue;
-		}
+      index = Math.min(index + 2, source.length);
+      maskedSource += maskSourceSegment(source.slice(start, index));
+      continue;
+    }
 
-		if (current === "'" || current === '"' || current === "`") {
-			const start = index;
-			const quote = current;
-			index += 1;
+    if (current === "'" || current === '"' || current === '`') {
+      const start = index;
+      const quote = current;
+      index += 1;
 
-			while (index < source.length) {
-				const char = source[index];
+      while (index < source.length) {
+        const char = source[index];
 
-				if (char === "\\") {
-					index += 2;
-					continue;
-				}
+        if (char === '\\') {
+          index += 2;
+          continue;
+        }
 
-				index += 1;
+        index += 1;
 
-				if (char === quote) {
-					break;
-				}
-			}
+        if (char === quote) {
+          break;
+        }
+      }
 
-			maskedSource += maskSourceSegment(source.slice(start, index));
-			continue;
-		}
+      maskedSource += maskSourceSegment(source.slice(start, index));
+      continue;
+    }
 
-		maskedSource += current;
-		index += 1;
-	}
+    maskedSource += current;
+    index += 1;
+  }
 
-	return maskedSource;
+  return maskedSource;
 }
 
 /**
  * Tests for a pattern after hiding comments and quoted/template literals.
  */
 export function hasExecutablePattern(source: string, pattern: RegExp): boolean {
-	return testPattern(maskTypeScriptCommentsAndLiterals(source), pattern);
+  return testPattern(maskTypeScriptCommentsAndLiterals(source), pattern);
 }
 
 /**
  * Tests for a pattern after hiding comments while leaving literals intact.
  */
 export function hasUncommentedPattern(source: string, pattern: RegExp): boolean {
-	return testPattern(maskTypeScriptComments(source), pattern);
+  return testPattern(maskTypeScriptComments(source), pattern);
 }
 
 /**
@@ -122,20 +152,18 @@ export function findExecutablePatternMatch(
 	source: string,
 	patterns: readonly RegExp[],
 ): SourceRange | undefined {
-	const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+  return findPatternMatch(maskTypeScriptCommentsAndLiterals(source), patterns);
+}
 
-	for (const pattern of patterns) {
-		pattern.lastIndex = 0;
-		const match = pattern.exec(maskedSource);
-		pattern.lastIndex = 0;
-
-		if (match && match.index !== undefined) {
-			return {
-				end: match.index + match[0].length,
-				start: match.index,
-			};
-		}
-	}
-
-	return undefined;
+/**
+ * Finds the first comment-masked match while retaining string literal content.
+ *
+ * This is useful for imports and path declarations whose patterns need to
+ * inspect literal values without accepting a commented-out declaration.
+ */
+export function findUncommentedPatternMatch(
+  source: string,
+  patterns: readonly RegExp[],
+): SourceRange | undefined {
+  return findPatternMatch(maskTypeScriptComments(source), patterns);
 }

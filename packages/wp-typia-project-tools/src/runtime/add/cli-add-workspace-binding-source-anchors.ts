@@ -1,28 +1,25 @@
-import { promises as fsp } from "node:fs";
-import path from "node:path";
+import { promises as fsp } from 'node:fs';
+import path from 'node:path';
 
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
-	getWorkspaceBootstrapPath,
-	patchFile,
-} from "./cli-add-shared.js";
-import {
-	appendPhpSnippetBeforeClosingTag,
-	insertPhpSnippetBeforeWorkspaceAnchors,
-} from "./cli-add-workspace-mutation.js";
-import { pathExists } from "../shared/fs-async.js";
-import { hasPhpFunctionDefinition } from "../shared/php-utils.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  appendPhpSnippetBeforeClosingTag,
+  insertPhpSnippetBeforeWorkspaceAnchors,
+} from './cli-add-workspace-mutation.js';
+import { pathExists } from '../shared/fs-async.js';
+import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const BINDING_SOURCE_SERVER_GLOB = "/src/bindings/*/server.php";
-const BINDING_SOURCE_EDITOR_SCRIPT = "build/bindings/index.js";
-const BINDING_SOURCE_EDITOR_ASSET = "build/bindings/index.asset.php";
+const BINDING_SOURCE_SERVER_GLOB = '/src/bindings/*/server.php';
+const BINDING_SOURCE_EDITOR_SCRIPT = 'build/bindings/index.js';
+const BINDING_SOURCE_EDITOR_ASSET = 'build/bindings/index.asset.php';
 
 function buildBindingSourceIndexSource(bindingSourceSlugs: string[]): string {
-	const importLines = bindingSourceSlugs
+  const importLines = bindingSourceSlugs
 		.map((bindingSourceSlug) => `import './${bindingSourceSlug}/editor';`)
-		.join("\n");
+		.join('\n');
 
-	return `${importLines}${importLines ? "\n\n" : ""}// wp-typia add binding-source entries\n`;
+  return `${importLines}${importLines ? '\n\n' : ''}// wp-typia add binding-source entries\n`;
 }
 
 /**
@@ -34,11 +31,11 @@ function buildBindingSourceIndexSource(bindingSourceSlugs: string[]): string {
 export async function ensureBindingSourceBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
 
-	await patchFile(bootstrapPath, (source) => {
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
-		const workspaceBaseName = workspace.packageName.split("/").pop() ?? workspace.packageName;
+		const workspaceBaseName = workspace.packageName.split('/').pop() ?? workspace.packageName;
 		const bindingRegistrationFunctionName = `${workspace.workspace.phpPrefix}_register_binding_sources`;
 		const bindingEditorEnqueueFunctionName = `${workspace.workspace.phpPrefix}_enqueue_binding_sources_editor`;
 		const bindingRegistrationHook = `add_action( 'init', '${bindingRegistrationFunctionName}', 20 );`;
@@ -116,16 +113,16 @@ function ${bindingEditorEnqueueFunctionName}() {
 export async function resolveBindingSourceRegistryPath(
 	projectDir: string,
 ): Promise<string> {
-	const bindingsDir = path.join(projectDir, "src", "bindings");
-	for (const candidatePath of [
-		path.join(bindingsDir, "index.ts"),
-		path.join(bindingsDir, "index.js"),
-	]) {
-		if (await pathExists(candidatePath)) {
-			return candidatePath;
-		}
-	}
-	return path.join(bindingsDir, "index.ts");
+  const bindingsDir = path.join(projectDir, 'src', 'bindings');
+  for (const candidatePath of [
+    path.join(bindingsDir, 'index.ts'),
+    path.join(bindingsDir, 'index.js'),
+  ]) {
+    if (await pathExists(candidatePath)) {
+      return candidatePath;
+    }
+  }
+  return path.join(bindingsDir, 'index.ts');
 }
 
 /**
@@ -139,19 +136,19 @@ export async function writeBindingSourceRegistry(
 	projectDir: string,
 	bindingSourceSlug: string,
 ): Promise<void> {
-	const bindingsDir = path.join(projectDir, "src", "bindings");
-	const bindingsIndexPath = await resolveBindingSourceRegistryPath(projectDir);
-	await fsp.mkdir(bindingsDir, { recursive: true });
+  const bindingsDir = path.join(projectDir, 'src', 'bindings');
+  const bindingsIndexPath = await resolveBindingSourceRegistryPath(projectDir);
+  await fsp.mkdir(bindingsDir, { recursive: true });
 
-	const existingBindingSourceSlugs = (await fsp.readdir(bindingsDir, { withFileTypes: true }))
+  const existingBindingSourceSlugs = (await fsp.readdir(bindingsDir, { withFileTypes: true }))
 		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name);
-	const nextBindingSourceSlugs = Array.from(
+  const nextBindingSourceSlugs = Array.from(
 		new Set([...existingBindingSourceSlugs, bindingSourceSlug]),
 	).sort();
-	await fsp.writeFile(
-		bindingsIndexPath,
-		buildBindingSourceIndexSource(nextBindingSourceSlugs),
-		"utf8",
-	);
+  await fsp.writeFile(
+    bindingsIndexPath,
+    buildBindingSourceIndexSource(nextBindingSourceSlugs),
+    'utf8',
+  );
 }

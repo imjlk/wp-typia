@@ -1,1 +1,1 @@
-export * from "../templates/built-in-block-code-templates/interactivity.js";
+export * from '../templates/built-in-block-code-templates/interactivity.js';

@@ -1,1 +1,1 @@
-export * from "./templates/template-source-external.js";
+export * from './templates/template-source-external.js';

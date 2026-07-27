@@ -5,19 +5,19 @@
  */
 export function debounce< T extends ( ...args: any[] ) => void >(
 	func: T,
-	wait: number
+	wait: number,
 ): ( ...args: Parameters< T > ) => void {
-	let timeout: NodeJS.Timeout;
+  let timeout: NodeJS.Timeout;
 
-	return function executedFunction( ...args: Parameters< T > ) {
-		const later = () => {
-			clearTimeout( timeout );
-			func( ...args );
-		};
+  return function executedFunction( ...args: Parameters< T > ) {
+    const later = () => {
+      clearTimeout( timeout );
+      func( ...args );
+    };
 
-		clearTimeout( timeout );
-		timeout = setTimeout( later, wait );
-	};
+    clearTimeout( timeout );
+    timeout = setTimeout( later, wait );
+  };
 }
 
 /**
@@ -27,15 +27,15 @@ export function debounce< T extends ( ...args: any[] ) => void >(
  */
 export function throttle< T extends ( ...args: any[] ) => void >(
 	func: T,
-	limit: number
+	limit: number,
 ): ( ...args: Parameters< T > ) => void {
-	let inThrottle: boolean;
+  let inThrottle: boolean;
 
-	return function executedFunction( ...args: Parameters< T > ) {
-		if ( ! inThrottle ) {
-			func( ...args );
-			inThrottle = true;
-			setTimeout( () => ( inThrottle = false ), limit );
-		}
-	};
+  return function executedFunction( ...args: Parameters< T > ) {
+    if ( ! inThrottle ) {
+      func( ...args );
+      inThrottle = true;
+      setTimeout( () => ( inThrottle = false ), limit );
+    }
+  };
 }

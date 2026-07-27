@@ -1,18 +1,18 @@
-import { suggestCloseId } from "../shared/id-suggestions.js";
+import { suggestCloseId } from '../shared/id-suggestions.js';
 import {
-	PATTERN_CATALOG_SCOPE_IDS,
-	PATTERN_SECTION_ROLE_PATTERN,
-	PATTERN_TAG_PATTERN,
-	type PatternCatalogScope,
-} from "./pattern-catalog.js";
-import type { FullBlockNameDiagnostics } from "./block-targets.js";
+  PATTERN_CATALOG_SCOPE_IDS,
+  PATTERN_SECTION_ROLE_PATTERN,
+  PATTERN_TAG_PATTERN,
+  type PatternCatalogScope,
+} from './pattern-catalog.js';
+import type { FullBlockNameDiagnostics } from './block-targets.js';
 
-export { ADD_KIND_IDS } from "./cli-add-kind-ids.js";
-export type { AddKindId } from "./cli-add-kind-ids.js";
+export { ADD_KIND_IDS } from './cli-add-kind-ids.js';
+export type { AddKindId } from './cli-add-kind-ids.js';
 export {
-	PATTERN_CATALOG_SCOPE_IDS,
-	PATTERN_SECTION_ROLE_PATTERN,
-	PATTERN_TAG_PATTERN,
+  PATTERN_CATALOG_SCOPE_IDS,
+  PATTERN_SECTION_ROLE_PATTERN,
+  PATTERN_TAG_PATTERN,
 };
 export type { PatternCatalogScope };
 
@@ -21,11 +21,11 @@ export type { PatternCatalogScope };
  * `wp-typia add rest-resource --methods`.
  */
 export const REST_RESOURCE_METHOD_IDS = [
-	"list",
-	"read",
-	"create",
-	"update",
-	"delete",
+  'list',
+  'read',
+  'create',
+  'update',
+  'delete',
 ] as const;
 /**
  * Union of supported plugin-level REST resource method ids.
@@ -36,11 +36,11 @@ export type RestResourceMethodId = (typeof REST_RESOURCE_METHOD_IDS)[number];
  * Supported HTTP methods accepted by manual REST contract mode.
  */
 export const MANUAL_REST_CONTRACT_HTTP_METHOD_IDS = [
-	"DELETE",
-	"GET",
-	"PATCH",
-	"POST",
-	"PUT",
+  'DELETE',
+  'GET',
+  'PATCH',
+  'POST',
+  'PUT',
 ] as const;
 /**
  * Union of supported manual REST contract HTTP methods.
@@ -52,9 +52,9 @@ export type ManualRestContractHttpMethodId =
  * Supported auth intent values accepted by manual REST contract mode.
  */
 export const MANUAL_REST_CONTRACT_AUTH_IDS = [
-	"authenticated",
-	"public",
-	"public-write-protected",
+  'authenticated',
+  'public',
+  'public-write-protected',
 ] as const;
 /**
  * Union of supported manual REST contract auth intents.
@@ -66,7 +66,10 @@ export type ManualRestContractAuthId =
  * Canonical editor-plugin shell surface ids accepted by
  * `wp-typia add editor-plugin --slot`.
  */
-export const EDITOR_PLUGIN_SLOT_IDS = ["sidebar", "document-setting-panel"] as const;
+export const EDITOR_PLUGIN_SLOT_IDS = [
+  'sidebar',
+  'document-setting-panel',
+] as const;
 /**
  * Union of canonical editor-plugin shell surface ids.
  */
@@ -75,10 +78,10 @@ export type EditorPluginSlotId = (typeof EDITOR_PLUGIN_SLOT_IDS)[number];
  * Legacy and canonical editor-plugin slot aliases keyed by user-facing input.
  */
 export const EDITOR_PLUGIN_SLOT_ALIASES = {
-	PluginDocumentSettingPanel: "document-setting-panel",
-	PluginSidebar: "sidebar",
-	"document-setting-panel": "document-setting-panel",
-	sidebar: "sidebar",
+  PluginDocumentSettingPanel: 'document-setting-panel',
+  PluginSidebar: 'sidebar',
+  'document-setting-panel': 'document-setting-panel',
+  sidebar: 'sidebar',
 } as const satisfies Record<string, EditorPluginSlotId>;
 
 /**
@@ -90,14 +93,14 @@ export const EDITOR_PLUGIN_SLOT_ALIASES = {
 export function resolveEditorPluginSlotAlias(
 	slot: string,
 ): EditorPluginSlotId | undefined {
-	const trimmed = slot.trim();
-	if (
+  const trimmed = slot.trim();
+  if (
 		!Object.prototype.hasOwnProperty.call(EDITOR_PLUGIN_SLOT_ALIASES, trimmed)
 	) {
-		return undefined;
-	}
+    return undefined;
+  }
 
-	return EDITOR_PLUGIN_SLOT_ALIASES[
+  return EDITOR_PLUGIN_SLOT_ALIASES[
 		trimmed as keyof typeof EDITOR_PLUGIN_SLOT_ALIASES
 	];
 }
@@ -106,10 +109,7 @@ export function resolveEditorPluginSlotAlias(
  * Optional local service starter ids accepted by
  * `wp-typia add integration-env --service`.
  */
-export const INTEGRATION_ENV_SERVICE_IDS = [
-	"none",
-	"docker-compose",
-] as const;
+export const INTEGRATION_ENV_SERVICE_IDS = ['none', 'docker-compose'] as const;
 /**
  * Union of supported local service starter ids.
  */
@@ -120,10 +120,10 @@ export type IntegrationEnvServiceId =
  * Supported built-in block families accepted by `wp-typia add block --template`.
  */
 export const ADD_BLOCK_TEMPLATE_IDS = [
-	"basic",
-	"interactivity",
-	"persistence",
-	"compound",
+  'basic',
+  'interactivity',
+  'persistence',
+  'compound',
 ] as const;
 /**
  * Union of supported built-in block template ids.
@@ -140,9 +140,9 @@ export type AddBlockTemplateId = (typeof ADD_BLOCK_TEMPLATE_IDS)[number];
 export function suggestAddBlockTemplateId(
 	templateId: string,
 ): AddBlockTemplateId | null {
-	return suggestCloseId(templateId, ADD_BLOCK_TEMPLATE_IDS, {
-		maxDistance: 3,
-	});
+  return suggestCloseId(templateId, ADD_BLOCK_TEMPLATE_IDS, {
+    maxDistance: 3,
+  });
 }
 
 /**
@@ -153,9 +153,9 @@ export function suggestAddBlockTemplateId(
  * @property variationName Human-entered variation name normalized into a slug.
  */
 export interface RunAddVariationCommandOptions {
-	blockName: string;
-	cwd?: string;
-	variationName: string;
+  blockName: string;
+  cwd?: string;
+  variationName: string;
 }
 
 /**
@@ -168,10 +168,10 @@ export interface RunAddVariationCommandOptions {
  * @property variationName Human-entered variation name normalized into a slug.
  */
 export interface RunAddCoreVariationCommandOptions {
-	cwd?: string;
-	targetBlockName: string;
-	targetBlockNameDiagnostics?: string | FullBlockNameDiagnostics;
-	variationName: string;
+  cwd?: string;
+  targetBlockName: string;
+  targetBlockNameDiagnostics?: string | FullBlockNameDiagnostics;
+  variationName: string;
 }
 
 /**
@@ -184,9 +184,9 @@ export interface RunAddCoreVariationCommandOptions {
  * generated style slug.
  */
 export interface RunAddBlockStyleCommandOptions {
-	blockName: string;
-	cwd?: string;
-	styleName: string;
+  blockName: string;
+  cwd?: string;
+  styleName: string;
 }
 
 /**
@@ -202,10 +202,10 @@ export interface RunAddBlockStyleCommandOptions {
  * into the generated transform slug.
  */
 export interface RunAddBlockTransformCommandOptions {
-	cwd?: string;
-	fromBlockName: string;
-	toBlockName: string;
-	transformName: string;
+  cwd?: string;
+  fromBlockName: string;
+  toBlockName: string;
+  transformName: string;
 }
 
 /**
@@ -215,14 +215,14 @@ export interface RunAddBlockTransformCommandOptions {
  * @property patternName Human-entered pattern name normalized into a slug.
  */
 export interface RunAddPatternCommandOptions {
-	catalogTitle?: string;
-	contentFile?: string;
-	cwd?: string;
-	patternName: string;
-	patternScope?: PatternCatalogScope | string;
-	sectionRole?: string;
-	tags?: readonly string[] | string;
-	thumbnailUrl?: string;
+  catalogTitle?: string;
+  contentFile?: string;
+  cwd?: string;
+  patternName: string;
+  patternScope?: PatternCatalogScope | string;
+  sectionRole?: string;
+  tags?: readonly string[] | string;
+  thumbnailUrl?: string;
 }
 
 /**
@@ -238,12 +238,12 @@ export interface RunAddPatternCommandOptions {
  * back the binding source with `get_post_meta()`.
  */
 export interface RunAddBindingSourceCommandOptions {
-	attributeName?: string;
-	blockName?: string;
-	bindingSourceName: string;
-	cwd?: string;
-	metaPath?: string;
-	postMetaName?: string;
+  attributeName?: string;
+  blockName?: string;
+  bindingSourceName: string;
+  cwd?: string;
+  metaPath?: string;
+  postMetaName?: string;
 }
 
 /**
@@ -255,9 +255,9 @@ export interface RunAddBindingSourceCommandOptions {
  * to the PascalCase version of `contractName`.
  */
 export interface RunAddContractCommandOptions {
-	contractName: string;
-	cwd?: string;
-	typeName?: string;
+  contractName: string;
+  cwd?: string;
+  typeName?: string;
 }
 
 /**
@@ -276,12 +276,12 @@ export interface RunAddContractCommandOptions {
  * Defaults to `<PascalName>Meta`.
  */
 export interface RunAddPostMetaCommandOptions {
-	cwd?: string;
-	hideFromRest?: boolean;
-	metaKey?: string;
-	postMetaName: string;
-	postType: string;
-	typeName?: string;
+  cwd?: string;
+  hideFromRest?: boolean;
+  metaKey?: string;
+  postMetaName: string;
+  postType: string;
+  typeName?: string;
 }
 
 /**
@@ -327,26 +327,26 @@ export interface RunAddPostMetaCommandOptions {
  * `secretFieldName`. Defaults to `has<PascalSecretField>`.
  */
 export interface RunAddRestResourceCommandOptions {
-	auth?: string;
-	bodyTypeName?: string;
-	controllerClass?: string;
-	controllerExtends?: string;
-	cwd?: string;
-	manual?: boolean;
-	method?: string;
-	methods?: string;
-	namespace?: string;
-	permissionCallback?: string;
-	pathPattern?: string;
-	queryTypeName?: string;
-	restResourceName: string;
-	responseTypeName?: string;
-	routePattern?: string;
-	secretFieldName?: string;
-	secretHasValueFieldName?: string;
-	secretMaskedResponseFieldName?: string;
-	secretPreserveOnEmpty?: boolean;
-	secretStateFieldName?: string;
+  auth?: string;
+  bodyTypeName?: string;
+  controllerClass?: string;
+  controllerExtends?: string;
+  cwd?: string;
+  manual?: boolean;
+  method?: string;
+  methods?: string;
+  namespace?: string;
+  permissionCallback?: string;
+  pathPattern?: string;
+  queryTypeName?: string;
+  restResourceName: string;
+  responseTypeName?: string;
+  routePattern?: string;
+  secretFieldName?: string;
+  secretHasValueFieldName?: string;
+  secretMaskedResponseFieldName?: string;
+  secretPreserveOnEmpty?: boolean;
+  secretStateFieldName?: string;
 }
 
 /**
@@ -362,9 +362,9 @@ export interface RunAddRestResourceCommandOptions {
  * entity collection such as `core-data:postType/post`.
  */
 export interface RunAddAdminViewCommandOptions {
-	adminViewName: string;
-	cwd?: string;
-	source?: string;
+  adminViewName: string;
+  cwd?: string;
+  source?: string;
 }
 
 /**
@@ -376,8 +376,8 @@ export interface RunAddAdminViewCommandOptions {
  * normalized into the generated slug.
  */
 export interface RunAddAbilityCommandOptions {
-	abilityName: string;
-	cwd?: string;
+  abilityName: string;
+  cwd?: string;
 }
 
 /**
@@ -388,9 +388,9 @@ export interface RunAddAbilityCommandOptions {
  * @property namespace Optional REST namespace, defaulting to the workspace namespace.
  */
 export interface RunAddAiFeatureCommandOptions {
-	aiFeatureName: string;
-	cwd?: string;
-	namespace?: string;
+  aiFeatureName: string;
+  cwd?: string;
+  namespace?: string;
 }
 
 /**
@@ -402,10 +402,10 @@ export interface RunAddAiFeatureCommandOptions {
  * @property position Hook position accepted by WordPress block hooks.
  */
 export interface RunAddHookedBlockCommandOptions {
-	anchorBlockName: string;
-	blockName: string;
-	cwd?: string;
-	position: string;
+  anchorBlockName: string;
+  blockName: string;
+  cwd?: string;
+  position: string;
 }
 
 /**
@@ -418,9 +418,9 @@ export interface RunAddHookedBlockCommandOptions {
  * @property slot Optional editor shell slot. Defaults to `sidebar`.
  */
 export interface RunAddEditorPluginCommandOptions {
-	cwd?: string;
-	editorPluginName: string;
-	slot?: string;
+  cwd?: string;
+  editorPluginName: string;
+  slot?: string;
 }
 
 /**
@@ -435,11 +435,11 @@ export interface RunAddEditorPluginCommandOptions {
  * @property withWpEnv Whether to add a local `@wordpress/env` preset and scripts.
  */
 export interface RunAddIntegrationEnvCommandOptions {
-	cwd?: string;
-	integrationEnvName: string;
-	service?: string;
-	withReleaseZip?: boolean;
-	withWpEnv?: boolean;
+  cwd?: string;
+  integrationEnvName: string;
+  service?: string;
+  withReleaseZip?: boolean;
+  withWpEnv?: boolean;
 }
 
 /**
@@ -457,22 +457,22 @@ export interface RunAddIntegrationEnvCommandOptions {
  * @property templateId Optional built-in block template id.
  */
 export interface RunAddBlockCommandOptions {
-	alternateRenderTargets?: string;
-	blockName: string;
-	cwd?: string;
-	dataStorageMode?: string;
-	externalLayerId?: string;
-	externalLayerSource?: string;
-	innerBlocksPreset?: string;
-	persistencePolicy?: string;
-	selectExternalLayerId?: (
+  alternateRenderTargets?: string;
+  blockName: string;
+  cwd?: string;
+  dataStorageMode?: string;
+  externalLayerId?: string;
+  externalLayerSource?: string;
+  innerBlocksPreset?: string;
+  persistencePolicy?: string;
+  selectExternalLayerId?: (
 		options: Array<{
 			description?: string;
 			extends: string[];
 			id: string;
 		}>,
 	) => Promise<string>;
-	templateId?: string;
+  templateId?: string;
 }
 
 /**
@@ -480,14 +480,14 @@ export interface RunAddBlockCommandOptions {
  */
 export interface WorkspaceMutationSnapshot {
 	/** Snapshots of file contents taken before the mutation starts. */
-	fileSources: Array<{
+  fileSources: Array<{
 		/** Absolute file path recorded for rollback. */
-		filePath: string;
+    filePath: string;
 		/** Previous file contents, or `null` when the file did not exist. */
-		source: string | null;
-	}>;
+    source: string | null;
+  }>;
 	/** Snapshot directories created while seeding migration history. */
-	snapshotDirs: string[];
+  snapshotDirs: string[];
 	/** Files or directories created by the mutation that should be removed on rollback. */
-	targetPaths: string[];
+  targetPaths: string[];
 }

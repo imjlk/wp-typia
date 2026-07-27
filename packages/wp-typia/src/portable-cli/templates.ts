@@ -8,7 +8,10 @@ import {
 } from '@wp-typia/project-tools/cli-templates';
 import { executeTemplatesCommand } from '../runtime-bridge';
 import { withStructuredOutputNotices } from '../structured-output-notices';
-import type { PortableCliDispatchContext, PortableCliGlobalFlags } from './types';
+import type {
+  PortableCliDispatchContext,
+  PortableCliGlobalFlags,
+} from './types';
 
 function renderPortableCliTemplatesJson(
   printLine: PortableCliDispatchContext['printLine'],

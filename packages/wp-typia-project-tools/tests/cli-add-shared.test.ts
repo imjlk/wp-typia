@@ -28,9 +28,17 @@ import {
   assertValidPostMetaPostType,
   resolvePostMetaKey,
   resolveManualRestContractPathPattern,
+  resolveOptionalPhpCallbackReference,
+  resolveOptionalPhpClassReference,
   resolveRestResourceNamespace,
+  quoteTsString,
 } from '../src/runtime/cli-add-validation.js';
 import type { WorkspaceInventory } from '../src/runtime/workspace-inventory.js';
+import {
+  renderTypeScriptCallLine,
+  renderTypeScriptPropertyKey,
+  renderTypeScriptValue,
+} from '../src/runtime/shared/ts-string-literals.js';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-add-shared-'));
@@ -81,17 +89,21 @@ function createEmptyInventory(
 test('shared add runtime keeps compatibility exports around focused modules', () => {
   const sharedSource = readRuntimeSource('cli-add-shared.ts');
 
-  expect(sharedSource).toContain('export * from "./cli-add-types.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-validation.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-filesystem.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-block-json.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-collision.js";');
-  expect(sharedSource).toContain('export * from "./cli-add-help.js";');
-  expect(sharedSource).toContain('from "../templates/scaffold-identifiers.js"');
-  expect(sharedSource).not.toContain('export interface RunAddBlockCommandOptions');
+  expect(sharedSource).toContain(`export * from './cli-add-types.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-validation.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-filesystem.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-block-json.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-collision.js';`);
+  expect(sharedSource).toContain(`export * from './cli-add-help.js';`);
+  expect(sharedSource).toContain(`from '../templates/scaffold-identifiers.js'`);
+  expect(sharedSource).not.toContain(
+    'export interface RunAddBlockCommandOptions',
+  );
   expect(sharedSource).not.toContain('export function assertValidGeneratedSlug');
   expect(sharedSource).not.toContain('export async function patchFile');
-  expect(sharedSource).not.toContain('export function assertScaffoldDoesNotExist');
+  expect(sharedSource).not.toContain(
+    'export function assertScaffoldDoesNotExist',
+  );
   expect(sharedSource).not.toContain('export function formatAddHelpText');
 });
 
@@ -114,26 +126,46 @@ test('focused add runtime modules own their helper categories', () => {
 
   expect(addKindIdsSource).toContain('export const ADD_KIND_IDS');
   expect(typesSource).toContain('export interface RunAddBlockCommandOptions');
-  expect(typesSource).toContain('from "./cli-add-kind-ids.js"');
+  expect(typesSource).toContain(`from './cli-add-kind-ids.js'`);
   expect(typesSource).toContain(
-    'export type { AddKindId } from "./cli-add-kind-ids.js";',
+    `export type { AddKindId } from './cli-add-kind-ids.js';`,
   );
   expect(typesSource).not.toContain('export const ADD_KIND_IDS = [');
   expect(validationSource).toContain('export function assertValidGeneratedSlug');
-  expect(validationSource).toContain('export function assertValidTypeScriptIdentifier');
-  expect(validationSource).toContain('export function assertValidRestResourceMethods');
-  expect(validationSource).toContain('export function assertValidPostMetaPostType');
-  expect(validationSource).toContain('export function assertValidEditorPluginSlot');
-  expect(filesystemSource).toContain('export async function snapshotWorkspaceFiles');
-  expect(filesystemSource).toContain('export async function rollbackWorkspaceMutation');
+  expect(validationSource).toContain(
+    'export function assertValidTypeScriptIdentifier',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidRestResourceMethods',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidPostMetaPostType',
+  );
+  expect(validationSource).toContain(
+    'export function assertValidEditorPluginSlot',
+  );
+  expect(filesystemSource).toContain(
+    'export async function snapshotWorkspaceFiles',
+  );
+  expect(filesystemSource).toContain(
+    'export async function rollbackWorkspaceMutation',
+  );
   expect(filesystemSource).not.toContain('function isFileNotFoundError');
-  expect(blockJsonSource).toContain('export async function readWorkspaceBlockJson');
+  expect(blockJsonSource).toContain(
+    'export async function readWorkspaceBlockJson',
+  );
   expect(blockJsonSource).toContain('export function getMutableBlockHooks');
-  expect(collisionSource).toContain('function assertAddKindScaffoldDoesNotExist');
-  expect(collisionSource).toContain('export function assertScaffoldDoesNotExist');
-  expect(collisionSource).toContain('export function assertEditorPluginDoesNotExist');
+  expect(collisionSource).toContain(
+    'function assertAddKindScaffoldDoesNotExist',
+  );
+  expect(collisionSource).toContain(
+    'export function assertScaffoldDoesNotExist',
+  );
+  expect(collisionSource).toContain(
+    'export function assertEditorPluginDoesNotExist',
+  );
   expect(helpSource).toContain('export function formatAddHelpText');
-  expect(helpSource).toContain('REST_RESOURCE_METHOD_IDS.join(",")');
+  expect(helpSource).toContain(`REST_RESOURCE_METHOD_IDS.join(',')`);
 });
 
 // Filesystem mutation helpers and add help rendering stay covered by their
@@ -245,6 +277,33 @@ test('focused validation helpers normalize REST namespaces, methods, and manual 
   ).toThrow('Post meta key must not contain whitespace');
 });
 
+test('optional PHP references preserve nullish omission semantics', () => {
+  expect(
+    resolveOptionalPhpCallbackReference('Permission callback', undefined),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpCallbackReference('Permission callback', null),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpClassReference('Controller class', undefined),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpClassReference('Controller class', null),
+  ).toBeUndefined();
+  expect(
+    resolveOptionalPhpCallbackReference(
+      'Permission callback',
+      ' Demo_Controller::allow ',
+    ),
+  ).toBe('Demo_Controller::allow');
+  expect(
+    resolveOptionalPhpClassReference(
+      'Controller class',
+      ' Vendor\\Plugin\\Controller ',
+    ),
+  ).toBe('Vendor\\Plugin\\Controller');
+});
+
 test('focused validation helpers accept TypeScript identifiers and reject malformed type names', () => {
   expect(
     assertValidTypeScriptIdentifier(
@@ -283,6 +342,72 @@ test('focused validation helpers accept TypeScript identifiers and reject malfor
       `Contract type must not be a reserved TypeScript keyword, such as ${reservedName}.`,
     );
   }
+});
+
+test('TypeScript string quoting follows the generated single-quote policy', () => {
+  expect(quoteTsString('plain "double" quotes')).toBe(
+    `'plain "double" quotes'`,
+  );
+  expect(
+    quoteTsString("apostrophe ' slash \\\nline\t\u2028"),
+  ).toBe(`'apostrophe \\' slash \\\\\\nline\\t\\u2028'`);
+  expect(quoteTsString('\u0000\u0001')).toBe(`'\\u0000\\u0001'`);
+  expect(quoteTsString('\u007f\u0080\u009f')).toBe(
+    `'\\u007f\\u0080\\u009f'`,
+  );
+});
+
+test('TypeScript value rendering preserves JSON data with formatter-safe literals', () => {
+  expect(renderTypeScriptPropertyKey('valid_key$')).toBe('valid_key$');
+  expect(renderTypeScriptPropertyKey('non-identifier')).toBe(
+    "'non-identifier'",
+  );
+  expect(
+    renderTypeScriptValue({
+      enabled: true,
+      labels: ['plain', "apostrophe's"],
+      'non-identifier': {
+        count: 2,
+      },
+    }),
+  ).toBe(`{
+  enabled: true,
+  labels: ['plain', 'apostrophe\\'s'],
+  'non-identifier': {
+    count: 2,
+  },
+}`);
+  expect(() => renderTypeScriptValue(Number.NaN)).toThrow(
+    'TypeScript value rendering requires finite numbers.',
+  );
+  expect(renderTypeScriptValue(-0)).toBe('-0');
+});
+
+test('TypeScript call rendering follows the shared 80-column policy', () => {
+  expect(
+    renderTypeScriptCallLine({
+      args: ["'title'", "'demo-block'"],
+      callee: '__',
+      indentation: '  ',
+      prefix: 'title: ',
+      suffix: ',',
+    }),
+  ).toBe(`  title: __('title', 'demo-block'),`);
+  expect(
+    renderTypeScriptCallLine({
+      args: [
+        "'A deliberately long generated label that cannot fit inline'",
+        "'demo-block'",
+      ],
+      callee: '__',
+      indentation: '  ',
+      prefix: 'description: ',
+      suffix: ',',
+    }),
+  ).toBe(`  description: __(
+    'A deliberately long generated label that cannot fit inline',
+    'demo-block',
+  ),`);
 });
 
 test('shared add collision helper allows missing filesystem paths and inventory entries', () => {

@@ -21,9 +21,15 @@ import { lintGeneratedProjectPhp } from "./generated-project-smoke-php.mjs";
 
 export function prepareExampleWorkspaceRoot(workspaceRoot) {
 	const packagesLinkPath = path.join(workspaceRoot, "packages");
+	const assetTypesSourcePath = path.join(repoRoot, "types", "assets.d.ts");
+	const assetTypesTargetPath = path.join(workspaceRoot, "types", "assets.d.ts");
 
 	if (!fs.existsSync(packagesLinkPath)) {
 		fs.symlinkSync(path.join(repoRoot, "packages"), packagesLinkPath, "dir");
+	}
+	if (!fs.existsSync(assetTypesTargetPath)) {
+		fs.mkdirSync(path.dirname(assetTypesTargetPath), { recursive: true });
+		fs.copyFileSync(assetTypesSourcePath, assetTypesTargetPath);
 	}
 
 	for (const configFile of ["tsconfig.json", "tsconfig.base.json"]) {
@@ -52,13 +58,14 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 			module: "esnext",
 			moduleResolution: "bundler",
 			noEmit: true,
+			rootDir: "../..",
 			skipLibCheck: true,
 			strict: true,
 			target: "es2022",
 			types: ["bun-types", "node"],
 		},
 		exclude: ["node_modules", "build"],
-		include: ["src/**/*", "scripts/**/*"],
+		include: ["src/**/*", "scripts/**/*", "../../types/assets.d.ts"],
 	};
 
 	fs.writeFileSync(tsconfigPath, `${JSON.stringify(nextConfig, null, "\t")}\n`, "utf8");

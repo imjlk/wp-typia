@@ -5,12 +5,7 @@ import {
 
 import { WP_TYPIA_COMMAND_REGISTRY } from './command-registry';
 
-export const COMPLETION_SHELLS = [
-  'bash',
-  'fish',
-  'powershell',
-  'zsh',
-] as const;
+export const COMPLETION_SHELLS = ['bash', 'fish', 'powershell', 'zsh'] as const;
 
 export type CompletionShell = (typeof COMPLETION_SHELLS)[number];
 

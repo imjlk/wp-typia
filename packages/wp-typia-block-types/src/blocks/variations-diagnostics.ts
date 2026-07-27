@@ -1,23 +1,26 @@
-import { getDiagnosticSeverity, handleDiagnostics } from "./shared/diagnostics.js";
-import { isObjectRecord } from "./shared/object-utils.js";
-import type { BlockAttributes } from "./shared/block-attributes.js";
+import {
+  getDiagnosticSeverity,
+  handleDiagnostics,
+} from './shared/diagnostics.js';
+import { isObjectRecord } from './shared/object-utils.js';
+import type { BlockAttributes } from './shared/block-attributes.js';
 import type {
   BlockVariationAuthoringDiagnostic,
   BlockVariationDefinition,
   BlockVariationDiagnostic,
   BlockVariationRegistrationEntry,
   DefineVariationOptions,
-} from "./variations.js";
-import type { ResolvedDefineVariationSettings } from "./variations-settings.js";
+} from './variations.js';
+import type { ResolvedDefineVariationSettings } from './variations-settings.js';
 
 const STABLE_VARIATION_MARKER_ATTRIBUTES = [
-  "className",
-  "namespace",
-  "wpTypiaVariation",
+  'className',
+  'namespace',
+  'wpTypiaVariation',
 ] as const;
 
 function hasStableMarkerAttribute<TAttributes extends BlockAttributes>(
-  attributes: BlockVariationDefinition<TAttributes>["attributes"],
+  attributes: BlockVariationDefinition<TAttributes>['attributes'],
 ): boolean {
   if (!isObjectRecord(attributes)) {
     return false;
@@ -50,11 +53,11 @@ function createActiveMarker(
   return [...isActive]
     .sort()
     .map((attribute) => {
-      const value = attribute in attributes ? attributes[attribute] : "";
+      const value = attribute in attributes ? attributes[attribute] : '';
 
       return `${attribute}=${stringifyActiveMarkerValue(value)}`;
     })
-    .join("|");
+    .join('|');
 }
 
 export function createVariationDiagnostics<
@@ -62,7 +65,7 @@ export function createVariationDiagnostics<
 >(
   blockName: string,
   variation: BlockVariationDefinition<TAttributes>,
-  options: ResolvedDefineVariationSettings["diagnostics"],
+  options: ResolvedDefineVariationSettings['diagnostics'],
 ): readonly BlockVariationAuthoringDiagnostic[] {
   const diagnostics: BlockVariationAuthoringDiagnostic[] = [];
   const variationName = variation.name;
@@ -77,9 +80,9 @@ export function createVariationDiagnostics<
   ) {
     diagnostics.push({
       blockName,
-      code: "missing-is-active",
+      code: 'missing-is-active',
       message: `Block variation "${variationName}" for "${blockName}" does not declare isActive; add an active discriminator or set allowMissingIsActive.`,
-      severity: "warning",
+      severity: 'warning',
       variationName,
     });
   }
@@ -93,9 +96,9 @@ export function createVariationDiagnostics<
   ) {
     diagnostics.push({
       blockName,
-      code: "missing-stable-marker",
+      code: 'missing-stable-marker',
       message: `Block variation "${variationName}" for "${blockName}" has no stable marker attribute such as className, namespace, or wpTypiaVariation.`,
-      severity: "warning",
+      severity: 'warning',
       variationName,
     });
   }
@@ -106,9 +109,9 @@ export function createVariationDiagnostics<
         diagnostics.push({
           attribute,
           blockName,
-          code: "unknown-is-active-attribute",
+          code: 'unknown-is-active-attribute',
           message: `Block variation "${variationName}" for "${blockName}" uses isActive attribute "${attribute}" that is not present in its attributes.`,
-          severity: "warning",
+          severity: 'warning',
           variationName,
         });
       }
@@ -133,7 +136,7 @@ export function createCollectionDiagnostics(
     if (seenNames.has(nameKey)) {
       diagnostics.push({
         blockName: entry.blockName,
-        code: "duplicate-variation-name",
+        code: 'duplicate-variation-name',
         message: `Duplicate block variation name "${entry.variation.name}" for "${entry.blockName}".`,
         severity: getDiagnosticSeverity(strict),
         variationName: entry.variation.name,
@@ -148,9 +151,9 @@ export function createCollectionDiagnostics(
       if (existing) {
         diagnostics.push({
           blockName: entry.blockName,
-          code: "duplicate-active-marker",
+          code: 'duplicate-active-marker',
           message: `Block variations "${existing.variation.name}" and "${entry.variation.name}" for "${entry.blockName}" share the same isActive discriminator "${activeMarker}".`,
-          severity: "warning",
+          severity: 'warning',
           variationName: entry.variation.name,
         });
       }
@@ -163,11 +166,11 @@ export function createCollectionDiagnostics(
 
 export function handleVariationDiagnostics(
   diagnostics: readonly BlockVariationDiagnostic[],
-  onDiagnostic: DefineVariationOptions["onDiagnostic"],
-  logger: DefineVariationOptions["logger"],
+  onDiagnostic: DefineVariationOptions['onDiagnostic'],
+  logger: DefineVariationOptions['logger'],
 ): void {
   handleDiagnostics(diagnostics, onDiagnostic, {
-    failureHeading: "WordPress block variation check failed:",
+    failureHeading: 'WordPress block variation check failed:',
     logger,
   });
 }

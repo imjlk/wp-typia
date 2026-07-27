@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-apply-utils.js";
+export * from './templates/scaffold-apply-utils.js';

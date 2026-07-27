@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-registration-hooks.js";
+export * from './add/cli-add-workspace-registration-hooks.js';

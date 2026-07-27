@@ -2,60 +2,60 @@ import { getContext, store } from '@wordpress/interactivity';
 
 import { fetchLikeBootstrap, fetchLikeStatus, toggleLike } from './api';
 import type {
-	PersistenceLikeButtonClientState,
-	PersistenceLikeButtonContext,
-	PersistenceLikeButtonState,
+  PersistenceLikeButtonClientState,
+  PersistenceLikeButtonContext,
+  PersistenceLikeButtonState,
 } from './types';
 
 function getButtonLabel(
 	context: PersistenceLikeButtonContext,
-	liked: boolean
+	liked: boolean,
 ): string {
-	return liked ? context.unlikeLabel : context.likeLabel;
+  return liked ? context.unlikeLabel : context.likeLabel;
 }
 
 const BOOTSTRAP_MAX_ATTEMPTS = 3;
 const BOOTSTRAP_RETRY_DELAYS_MS = [ 250, 500 ];
 
 async function waitForBootstrapRetry( delayMs: number ): Promise< void > {
-	await new Promise( ( resolve ) => {
-		setTimeout( resolve, delayMs );
-	} );
+  await new Promise(( resolve ) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function getClientState(
-	context: PersistenceLikeButtonContext
+	context: PersistenceLikeButtonContext,
 ): PersistenceLikeButtonClientState {
-	if ( context.client ) {
-		return context.client;
-	}
+  if ( context.client ) {
+    return context.client;
+  }
 
-	context.client = {
-		bootstrapError: '',
-		liked: false,
-		writeNonce: '',
-	};
+  context.client = {
+    bootstrapError: '',
+    liked: false,
+    writeNonce: '',
+  };
 
-	return context.client;
+  return context.client;
 }
 
 function clearBootstrapError(
 	context: PersistenceLikeButtonContext,
-	clientState: PersistenceLikeButtonClientState
+	clientState: PersistenceLikeButtonClientState,
 ) {
-	if ( context.error === clientState.bootstrapError ) {
-		context.error = '';
-	}
-	clientState.bootstrapError = '';
+  if ( context.error === clientState.bootstrapError ) {
+    context.error = '';
+  }
+  clientState.bootstrapError = '';
 }
 
 function setBootstrapError(
 	context: PersistenceLikeButtonContext,
 	clientState: PersistenceLikeButtonClientState,
-	message: string
+	message: string,
 ) {
-	clientState.bootstrapError = message;
-	context.error = message;
+  clientState.bootstrapError = message;
+  context.error = message;
 }
 
 const { actions, state } = store( 'persistenceExamplesLikeButton', {
@@ -129,7 +129,7 @@ const { actions, state } = store( 'persistenceExamplesLikeButton', {
 							'Unable to initialize write access';
 						if ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
 							await waitForBootstrapRetry(
-								BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
+								BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750,
 							);
 							continue;
 						}
@@ -148,7 +148,7 @@ const { actions, state } = store( 'persistenceExamplesLikeButton', {
 					clientState.liked = result.data.likedByCurrentUser === true;
 					context.buttonLabel = getButtonLabel(
 						context,
-						clientState.liked
+						clientState.liked,
 					);
 					clearBootstrapError( context, clientState );
 					bootstrapSucceeded = true;
@@ -160,7 +160,7 @@ const { actions, state } = store( 'persistenceExamplesLikeButton', {
 							: 'Unknown bootstrap error';
 					if ( attempt < BOOTSTRAP_MAX_ATTEMPTS ) {
 						await waitForBootstrapRetry(
-							BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750
+							BOOTSTRAP_RETRY_DELAYS_MS[ attempt - 1 ] ?? 750,
 						);
 						continue;
 					}
@@ -204,7 +204,7 @@ const { actions, state } = store( 'persistenceExamplesLikeButton', {
 						postId: context.postId,
 						resourceKey: context.resourceKey,
 					},
-					clientState.writeNonce
+					clientState.writeNonce,
 				);
 				if ( ! result.isValid || ! result.data ) {
 					context.error =
@@ -216,7 +216,7 @@ const { actions, state } = store( 'persistenceExamplesLikeButton', {
 				clientState.liked = result.data.likedByCurrentUser;
 				context.buttonLabel = getButtonLabel(
 					context,
-					result.data.likedByCurrentUser
+					result.data.likedByCurrentUser,
 				);
 			} catch ( error ) {
 				context.error =

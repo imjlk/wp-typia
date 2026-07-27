@@ -1,7 +1,7 @@
-import type { BuiltInCodeArtifact } from "./built-in-block-code-artifacts.js";
-import type { ScaffoldTemplateVariables } from "./scaffold.js";
-import { assertScaffoldTemplateCodeIdentifiers } from "./scaffold-template-assertions.js";
-import { renderMustacheTemplateString } from "./template-render.js";
+import type { BuiltInCodeArtifact } from './built-in-block-code-artifacts.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
+import { assertScaffoldTemplateCodeIdentifiers } from './scaffold-template-assertions.js';
+import { renderMustacheTemplateString } from './template-render.js';
 
 /**
  * Renders a non-TypeScript artifact and normalizes the output to a trailing newline.
@@ -16,12 +16,12 @@ export function renderArtifact(
 	template: string,
 	view: Record<string, unknown>,
 ): BuiltInCodeArtifact {
-	assertScaffoldTemplateCodeIdentifiers(view);
-	const source = renderMustacheTemplateString(template, view);
-	return {
-		relativePath,
-		source: source.endsWith("\n") ? source : `${source}\n`,
-	};
+  assertScaffoldTemplateCodeIdentifiers(view);
+  const source = renderMustacheTemplateString(template, view);
+  return {
+    relativePath,
+    source: source.endsWith('\n') ? source : `${source}\n`,
+  };
 }
 
 /**
@@ -34,10 +34,10 @@ export function renderArtifact(
  */
 export function buildAlternateRenderEntryArtifact(
 	relativePath: string,
-	target: "email" | "mjml" | "plain-text" | "web",
+	target: 'email' | 'mjml' | 'plain-text' | 'web',
 	variables: ScaffoldTemplateVariables,
 ): BuiltInCodeArtifact {
-	const template = `<?php
+  const template = `<?php
 /**
  * Alternate ${target} render entry for {{title}}.
  *
@@ -53,7 +53,7 @@ require_once __DIR__ . '/render-targets.php';
 return {{phpPrefix}}_{{slugSnakeCase}}_render_target( '${target}', $attributes, $content ?? '', $block ?? null );
 `;
 
-	return renderArtifact(relativePath, template, variables);
+  return renderArtifact(relativePath, template, variables);
 }
 
 /**
@@ -63,5 +63,5 @@ return {{phpPrefix}}_{{slugSnakeCase}}_render_target( '${target}', $attributes, 
  * @returns A PHP single-quoted string literal.
  */
 export function toPhpSingleQuotedString(value: string): string {
-	return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }

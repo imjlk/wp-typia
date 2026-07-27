@@ -1,22 +1,22 @@
 import {
 	HOOKED_BLOCK_POSITION_IDS,
-} from "./hooked-blocks.js";
+} from './hooked-blocks.js';
 import {
-	ADD_BLOCK_TEMPLATE_IDS,
-	EDITOR_PLUGIN_SLOT_IDS,
-	REST_RESOURCE_METHOD_IDS,
-} from "./cli-add-types.js";
+  ADD_BLOCK_TEMPLATE_IDS,
+  EDITOR_PLUGIN_SLOT_IDS,
+  REST_RESOURCE_METHOD_IDS,
+} from './cli-add-types.js';
 import {
 	WORKSPACE_TEMPLATE_PACKAGE,
-} from "../workspace/workspace-project.js";
+} from '../workspace/workspace-project.js';
 
 /**
  * Returns help text for the canonical `wp-typia add` subcommands.
  */
 export function formatAddHelpText(): string {
-	return `Usage:
+  return `Usage:
   wp-typia add admin-view <name> [--source <rest-resource:slug|core-data:kind/name>] [--dry-run]
-  wp-typia add block <name> [--template <${ADD_BLOCK_TEMPLATE_IDS.join("|")}>] [--external-layer-source <./path|github:owner/repo/path[#ref]|npm-package>] [--external-layer-id <layer-id>] [--inner-blocks-preset <freeform|ordered|horizontal|locked-structure>] [--alternate-render-targets <email,mjml,plain-text>] [--data-storage <post-meta|custom-table>] [--persistence-policy <authenticated|public>] [--dry-run]
+  wp-typia add block <name> [--template <${ADD_BLOCK_TEMPLATE_IDS.join('|')}>] [--external-layer-source <./path|github:owner/repo/path[#ref]|npm-package>] [--external-layer-id <layer-id>] [--inner-blocks-preset <freeform|ordered|horizontal|locked-structure>] [--alternate-render-targets <email,mjml,plain-text>] [--data-storage <post-meta|custom-table>] [--persistence-policy <authenticated|public>] [--dry-run]
   wp-typia add integration-env <name> [--wp-env] [--release-zip] [--service <none|docker-compose>] [--dry-run]
   wp-typia add core-variation <block-name> <name> [--dry-run]
   wp-typia add core-variation <name> --block <namespace/block> [--dry-run]
@@ -26,13 +26,13 @@ export function formatAddHelpText(): string {
   wp-typia add pattern <name> [--scope <full|section>] [--section-role <role>] [--catalog-title <title>] [--tags <tag,...>] [--tag <tag>...] [--thumbnail-url <url>] [--dry-run]
   wp-typia add binding-source <name> [--block <block-slug|namespace/block-slug> --attribute <attribute>] [--from-post-meta|--post-meta <post-meta> [--meta-path <field>]] [--dry-run]
   wp-typia add contract <name> [--type <ExportedTypeName>] [--dry-run]
-  wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <${REST_RESOURCE_METHOD_IDS.join(",")}>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]
+  wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <${REST_RESOURCE_METHOD_IDS.join(',')}>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]
   wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--dry-run]
   wp-typia add post-meta <name> --post-type <post-type> [--type <ExportedTypeName>] [--meta-key <meta-key>] [--hide-from-rest] [--dry-run]
   wp-typia add ability <name> [--dry-run]
   wp-typia add ai-feature <name> [--namespace <vendor/v1>] [--dry-run]
-  wp-typia add hooked-block <block-slug> --anchor <anchor-block-name> --position <${HOOKED_BLOCK_POSITION_IDS.join("|")}> [--dry-run]
-  wp-typia add editor-plugin <name> [--slot <${EDITOR_PLUGIN_SLOT_IDS.join("|")}>] [--dry-run]
+  wp-typia add hooked-block <block-slug> --anchor <anchor-block-name> --position <${HOOKED_BLOCK_POSITION_IDS.join('|')}> [--dry-run]
+  wp-typia add editor-plugin <name> [--slot <${EDITOR_PLUGIN_SLOT_IDS.join('|')}>] [--dry-run]
 
 Notes:
   \`wp-typia add\` runs only inside official ${WORKSPACE_TEMPLATE_PACKAGE} workspaces scaffolded via \`wp-typia create <project-dir> --template workspace\`.

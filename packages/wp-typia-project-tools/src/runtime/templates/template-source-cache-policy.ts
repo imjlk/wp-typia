@@ -1,18 +1,18 @@
-import os from 'node:os'
-import path from 'node:path'
+import os from 'node:os';
+import path from 'node:path';
 
 /**
  * Environment variable that disables external template cache reads and writes.
  *
  * Set to `0`, `false`, `no`, or `off` to bypass the cache.
  */
-export const EXTERNAL_TEMPLATE_CACHE_ENV = 'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE'
+export const EXTERNAL_TEMPLATE_CACHE_ENV = 'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE';
 
 /**
  * Environment variable that overrides the external template cache root.
  */
 export const EXTERNAL_TEMPLATE_CACHE_DIR_ENV =
-  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_DIR'
+  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_DIR';
 
 /**
  * Environment variable that enables TTL-based external template cache pruning.
@@ -20,7 +20,7 @@ export const EXTERNAL_TEMPLATE_CACHE_DIR_ENV =
  * Unset, empty, zero, negative, and non-numeric values keep pruning disabled.
  */
 export const EXTERNAL_TEMPLATE_CACHE_TTL_DAYS_ENV =
-  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_TTL_DAYS'
+  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_TTL_DAYS';
 
 /**
  * Environment variable that overrides how often TTL pruning may scan the cache.
@@ -29,22 +29,22 @@ export const EXTERNAL_TEMPLATE_CACHE_TTL_DAYS_ENV =
  * disable scan throttling.
  */
 export const EXTERNAL_TEMPLATE_CACHE_PRUNE_INTERVAL_MS_ENV =
-  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_PRUNE_INTERVAL_MS'
+  'WP_TYPIA_EXTERNAL_TEMPLATE_CACHE_PRUNE_INTERVAL_MS';
 
 /**
  * Milliseconds in one TTL day.
  */
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Default minimum interval between full external template cache prune scans.
  */
-const DEFAULT_CACHE_PRUNE_INTERVAL_MS = 60 * 60 * 1000
+const DEFAULT_CACHE_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Normalized environment values that disable the cache.
  */
-const DISABLED_CACHE_VALUES = new Set(['0', 'false', 'no', 'off'])
+const DISABLED_CACHE_VALUES = new Set(['0', 'false', 'no', 'off']);
 
 /**
  * Checks whether remote external template source caching is enabled.
@@ -58,12 +58,12 @@ const DISABLED_CACHE_VALUES = new Set(['0', 'false', 'no', 'off'])
 export function isExternalTemplateCacheEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const rawValue = env[EXTERNAL_TEMPLATE_CACHE_ENV]
+  const rawValue = env[EXTERNAL_TEMPLATE_CACHE_ENV];
   if (rawValue === undefined) {
-    return true
+    return true;
   }
 
-  return !DISABLED_CACHE_VALUES.has(rawValue.trim().toLowerCase())
+  return !DISABLED_CACHE_VALUES.has(rawValue.trim().toLowerCase());
 }
 
 /**
@@ -79,28 +79,28 @@ export function isExternalTemplateCacheEnabled(
 export function getExternalTemplateCacheRoot(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const configuredCacheDir = env[EXTERNAL_TEMPLATE_CACHE_DIR_ENV]?.trim()
+  const configuredCacheDir = env[EXTERNAL_TEMPLATE_CACHE_DIR_ENV]?.trim();
   if (configuredCacheDir) {
-    return path.resolve(configuredCacheDir)
+    return path.resolve(configuredCacheDir);
   }
 
   return path.join(
     os.tmpdir(),
     `wp-typia-template-source-cache-${getCurrentUserCacheSegment()}`,
-  )
+  );
 }
 
 function parseExternalTemplateCacheTtlDays(value: unknown): number | null {
   if (typeof value !== 'string' && typeof value !== 'number') {
-    return null
+    return null;
   }
 
-  const ttlDays = typeof value === 'number' ? value : Number(value.trim())
+  const ttlDays = typeof value === 'number' ? value : Number(value.trim());
   if (!Number.isFinite(ttlDays) || ttlDays <= 0) {
-    return null
+    return null;
   }
 
-  return ttlDays
+  return ttlDays;
 }
 
 export function resolveExternalTemplateCacheTtlMs(
@@ -109,35 +109,35 @@ export function resolveExternalTemplateCacheTtlMs(
     ttlDays?: number
   } = {},
 ): number | null {
-  const env = options.env ?? process.env
+  const env = options.env ?? process.env;
   const ttlDays =
     options.ttlDays === undefined
       ? parseExternalTemplateCacheTtlDays(
           env[EXTERNAL_TEMPLATE_CACHE_TTL_DAYS_ENV],
         )
-      : parseExternalTemplateCacheTtlDays(options.ttlDays)
+      : parseExternalTemplateCacheTtlDays(options.ttlDays);
   if (ttlDays === null) {
-    return null
+    return null;
   }
 
-  const ttlMs = ttlDays * MILLISECONDS_PER_DAY
-  return Number.isFinite(ttlMs) ? ttlMs : null
+  const ttlMs = ttlDays * MILLISECONDS_PER_DAY;
+  return Number.isFinite(ttlMs) ? ttlMs : null;
 }
 
 function parseExternalTemplateCachePruneIntervalMs(
   value: unknown,
 ): number | null {
   if (typeof value !== 'string' && typeof value !== 'number') {
-    return null
+    return null;
   }
 
   const intervalMs =
-    typeof value === 'number' ? value : Number(value.trim())
+    typeof value === 'number' ? value : Number(value.trim());
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
-    return null
+    return null;
   }
 
-  return intervalMs
+  return intervalMs;
 }
 
 export function resolveExternalTemplateCachePruneIntervalMs(
@@ -147,16 +147,16 @@ export function resolveExternalTemplateCachePruneIntervalMs(
   } = {},
 ): number | null {
   if (options.pruneIntervalMs !== undefined) {
-    return parseExternalTemplateCachePruneIntervalMs(options.pruneIntervalMs)
+    return parseExternalTemplateCachePruneIntervalMs(options.pruneIntervalMs);
   }
 
-  const env = options.env ?? process.env
-  const envValue = env[EXTERNAL_TEMPLATE_CACHE_PRUNE_INTERVAL_MS_ENV]
+  const env = options.env ?? process.env;
+  const envValue = env[EXTERNAL_TEMPLATE_CACHE_PRUNE_INTERVAL_MS_ENV];
   if (envValue === undefined) {
-    return DEFAULT_CACHE_PRUNE_INTERVAL_MS
+    return DEFAULT_CACHE_PRUNE_INTERVAL_MS;
   }
 
-  return parseExternalTemplateCachePruneIntervalMs(envValue)
+  return parseExternalTemplateCachePruneIntervalMs(envValue);
 }
 
 export function getExternalTemplateCacheNowMs(
@@ -167,23 +167,23 @@ export function getExternalTemplateCacheNowMs(
       ? now.getTime()
       : typeof now === 'number'
         ? now
-        : Date.now()
+        : Date.now();
 
-  return Number.isFinite(nowMs) ? nowMs : Date.now()
+  return Number.isFinite(nowMs) ? nowMs : Date.now();
 }
 
 function getCurrentUserCacheSegment(): string {
   if (typeof process.getuid === 'function') {
-    return String(process.getuid())
+    return String(process.getuid());
   }
 
   try {
     const safeUsername = os
       .userInfo()
       .username.trim()
-      .replace(/[^A-Za-z0-9._-]+/gu, '-')
-    return safeUsername.length > 0 ? safeUsername : 'user'
+      .replace(/[^A-Za-z0-9._-]+/gu, '-');
+    return safeUsername.length > 0 ? safeUsername : 'user';
   } catch {
-    return 'user'
+    return 'user';
   }
 }

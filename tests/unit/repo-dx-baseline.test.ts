@@ -6,7 +6,10 @@ const repoRoot = path.resolve(import.meta.dir, '..', '..');
 
 function readJson(relativePath: string): Record<string, unknown> {
   return JSON.parse(
-    fs.readFileSync(path.join(repoRoot, relativePath), 'utf8'),
+    fs.readFileSync(
+      path.join(repoRoot, relativePath),
+      'utf8',
+    ),
   ) as Record<string, unknown>;
 }
 
@@ -63,10 +66,15 @@ describe('repository DX baseline', () => {
     expect(scripts['examples:build']).toBe(
       'node scripts/run-clean-examples-build.mjs',
     );
+    expect(scripts['test:coverage:packages']).toStartWith(
+      'bun run packages:build && bun run test:unit:coverage',
+    );
     expect(scripts['lint:repo']).toBe('eslint . --max-warnings=0');
-    expect(scripts['lint:fix']).toBe('eslint . --fix --max-warnings=0');
+    expect(scripts['lint:fix']).toBe(
+      'eslint . --fix --max-warnings=0 && ttsc fix --singleThreaded',
+    );
     expect(scripts['format:write']).toBe(
-      'node scripts/check-repo-format.mjs --write',
+      'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write',
     );
   });
 
@@ -376,12 +384,41 @@ describe('repository DX baseline', () => {
 
     const prepareJob = getWorkflowJobBlock(workflow, 'prepare-project-tools');
     const testJob = getWorkflowJobBlock(workflow, 'test-project-tools');
+    const setupAction = fs.readFileSync(
+      path.join(
+        repoRoot,
+        '.github',
+        'actions',
+        'setup-bun-workspace',
+        'action.yml',
+      ),
+      'utf8',
+    );
 
     expect(prepareJob).toContain('Prepare Project Tools Workspace');
     expect(prepareJob).toContain('timeout-minutes: 15');
     expect(prepareJob).toContain('bun run project-tools-prebuilt:prepare');
     expect(prepareJob).toContain('name: project-tools-workspace-dist');
     expect(prepareJob).toContain('bun run project-tools-prebuilt:validate');
+    const ttscPluginCache = [
+      'uses: actions/cache@v6',
+      'path: .ttsc-cache/plugins',
+      'TTSC_CACHE_DIR=$GITHUB_WORKSPACE/.ttsc-cache',
+      'TTSC_GO_CACHE_DIR=$RUNNER_TEMP/ttsc-go-cache',
+      'ttsc-cache-scope:',
+      'default: workspace',
+      "hashFiles('bun.lock', 'patches/*.patch', '**/go.mod', '**/go.sum')",
+    ];
+    for (const cacheContract of ttscPluginCache) {
+      expect(setupAction).toContain(cacheContract);
+    }
+    expect(prepareJob).toContain(
+      'run: bun x ttsc prepare --project tsconfig.json',
+    );
+    expect(prepareJob).toContain('name: ttsc-source-plugins');
+    expect(prepareJob).toContain('path: .ttsc-cache/plugins/');
+    expect(prepareJob).toContain('include-hidden-files: true');
+    expect(prepareJob).toContain('compression-level: 0');
     for (const packagePath of [
       'wp-typia-api-client/dist/',
       'wp-typia-block-types/dist/',
@@ -395,6 +432,8 @@ describe('repository DX baseline', () => {
     }
     expect(testJob).toContain('Project Tools: ${{ matrix.label }}');
     expect(testJob).toContain('needs: prepare-project-tools');
+    expect(testJob).toContain('name: ttsc-source-plugins');
+    expect(testJob).toContain('path: .ttsc-cache/plugins');
     expect(workflow).toContain('uses: ./.github/actions/setup-bun-workspace');
     expect(testJob).toContain(
       'script: test:project-tools:scaffold-core:run',
@@ -477,7 +516,7 @@ describe('repository DX baseline', () => {
     expect(createReleaseJob).toContain('--pattern SHA256SUMS');
     expect(createReleaseJob).toContain('asset_name="${asset_name#\\*}"');
     expect(createReleaseJob).toContain(
-      "asset_name=\"${asset_name%$'\\r'}\"",
+      'asset_name="${asset_name%$\'\\r\'}"',
     );
     expect(createReleaseJob).toContain(
       "if: steps.standalone_assets.outputs.complete != 'true'",
@@ -524,7 +563,7 @@ describe('repository DX baseline', () => {
       '[External Template-Layer Composition RFC](https://imjlk.github.io/wp-typia/architecture/external-template-layer-composition/)',
     );
     expect(readme).toContain(
-      'Root ESLint covers repository infrastructure code',
+      'Root ESLint covers JavaScript, CJS, and MJS infrastructure',
     );
     expect(readme).toContain(
       '[Core Data Adapter Boundary](https://imjlk.github.io/wp-typia/maintainers/core-data-adapter-boundary/)',
@@ -578,12 +617,14 @@ describe('repository DX baseline', () => {
     expect(contributing).toContain('## TypeScript runtime dependency audit');
     expect(contributing).toContain('`bun run typescript-runtime:validate`');
     expect(contributing).toContain(
-      '`@wp-typia/block-runtime` keeps `typescript` in `dependencies`',
+      '`@wp-typia/block-runtime` keeps `@typescript/typescript6` in `dependencies`',
     );
     expect(contributing).toContain(
-      '`@wp-typia/project-tools` keeps `typescript` in `dependencies`',
+      '`@wp-typia/project-tools` keeps `@typescript/typescript6` in `dependencies`',
     );
-    expect(contributing).toContain('`typia` 12.x');
+    expect(contributing).toContain('`typia` 13.x');
+    expect(contributing).toContain('`ttsc` 0.23.x');
+    expect(contributing).toContain('`@ttsc/unplugin` 0.23.x');
     expect(contributing).toContain('`@wordpress/scripts` 30.x');
     expect(cliReadme).toMatch(
       /https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/[^/]+\/UPGRADE\.md/,

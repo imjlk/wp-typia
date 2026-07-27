@@ -1,38 +1,38 @@
 import { createFetchTransport } from '@wp-typia/api-client';
 
 import {
-	getPersistenceCounterState,
-	incrementPersistenceCounterState,
+  getPersistenceCounterState,
+  incrementPersistenceCounterState,
 } from '../../persistence-examples/src/blocks/counter/api-client';
 import type {
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterQuery,
-	PersistenceCounterResponse,
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterQuery,
+  PersistenceCounterResponse,
 } from '../../persistence-examples/src/blocks/counter/api-types';
 
 export interface CounterPortableClient {
-	getCounterState: (
-		request: PersistenceCounterQuery
+  getCounterState: (
+		request: PersistenceCounterQuery,
 	) => ReturnType< typeof getPersistenceCounterState >;
-	incrementCounterState: (
-		request: PersistenceCounterIncrementRequest
+  incrementCounterState: (
+		request: PersistenceCounterIncrementRequest,
 	) => ReturnType< typeof incrementPersistenceCounterState >;
 }
 
 export function createCounterPortableClient(
-	baseUrl: string
+	baseUrl: string,
 ): CounterPortableClient {
-	const transport = createFetchTransport( {
-		baseUrl,
-	} );
+  const transport = createFetchTransport({
+    baseUrl,
+  });
 
-	return {
+  return {
 		getCounterState: ( request: PersistenceCounterQuery ) =>
 			getPersistenceCounterState( request, {
 				transport,
 			} ),
 		incrementCounterState: (
-			request: PersistenceCounterIncrementRequest
+			request: PersistenceCounterIncrementRequest,
 		) =>
 			incrementPersistenceCounterState( request, {
 				transport,
@@ -41,7 +41,7 @@ export function createCounterPortableClient(
 }
 
 export type {
-	PersistenceCounterIncrementRequest,
-	PersistenceCounterQuery,
-	PersistenceCounterResponse,
+  PersistenceCounterIncrementRequest,
+  PersistenceCounterQuery,
+  PersistenceCounterResponse,
 };

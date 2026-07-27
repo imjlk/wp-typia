@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-ability-registry.js";
+export * from './add/cli-add-workspace-ability-registry.js';

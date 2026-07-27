@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-ai-sync-script-source.js";
+export * from './add/cli-add-workspace-ai-sync-script-source.js';

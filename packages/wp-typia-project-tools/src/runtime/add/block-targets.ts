@@ -1,4 +1,4 @@
-import { normalizeBlockSlug } from "../templates/scaffold-identifiers.js";
+import { normalizeBlockSlug } from '../templates/scaffold-identifiers.js';
 
 const FULL_BLOCK_NAME_PATTERN = /^[a-z0-9-]+\/[a-z0-9-]+$/u;
 
@@ -9,33 +9,33 @@ export interface FullBlockNameDiagnostics {
 	/**
 	 * Message returned when the candidate block name is empty.
 	 */
-	empty: () => string;
+  empty: () => string;
 	/**
 	 * Message returned when the candidate is not `namespace/block-slug`.
 	 */
-	invalidFormat: () => string;
+  invalidFormat: () => string;
 }
 
 export interface WorkspaceBlockTargetName {
-	blockName: string;
-	blockSlug: string;
+  blockName: string;
+  blockSlug: string;
 }
 
 export interface WorkspaceBlockTargetDiagnostics {
-	empty: () => string;
-	emptySegment: (input: string) => string;
-	invalidFormat: (input: string) => string;
-	namespaceMismatch: (input: string, actualNamespace: string, expectedNamespace: string) => string;
+  empty: () => string;
+  emptySegment: (input: string) => string;
+  invalidFormat: (input: string) => string;
+  namespaceMismatch: (input: string, actualNamespace: string, expectedNamespace: string) => string;
 }
 
 function resolveFullBlockNameDiagnostics(
 	diagnostics: string | FullBlockNameDiagnostics,
 ): FullBlockNameDiagnostics {
-	if (typeof diagnostics !== "string") {
-		return diagnostics;
-	}
+  if (typeof diagnostics !== 'string') {
+    return diagnostics;
+  }
 
-	return {
+  return {
 		empty: () => `\`${diagnostics}\` requires a block name.`,
 		invalidFormat: () =>
 			`\`${diagnostics}\` must use <namespace/block-slug> format.`,
@@ -54,16 +54,16 @@ export function assertFullBlockName(
 	blockName: string,
 	diagnostics: string | FullBlockNameDiagnostics,
 ): string {
-	const messages = resolveFullBlockNameDiagnostics(diagnostics);
-	const trimmed = blockName.trim();
-	if (!trimmed) {
-		throw new Error(messages.empty());
-	}
-	if (!FULL_BLOCK_NAME_PATTERN.test(trimmed)) {
-		throw new Error(messages.invalidFormat());
-	}
+  const messages = resolveFullBlockNameDiagnostics(diagnostics);
+  const trimmed = blockName.trim();
+  if (!trimmed) {
+    throw new Error(messages.empty());
+  }
+  if (!FULL_BLOCK_NAME_PATTERN.test(trimmed)) {
+    throw new Error(messages.invalidFormat());
+  }
 
-	return trimmed;
+  return trimmed;
 }
 
 /**
@@ -81,32 +81,34 @@ export function resolveWorkspaceBlockTargetName(
 	namespace: string,
 	diagnostics: WorkspaceBlockTargetDiagnostics,
 ): WorkspaceBlockTargetName {
-	const trimmed = blockName.trim();
-	if (!trimmed) {
-		throw new Error(diagnostics.empty());
-	}
+  const trimmed = blockName.trim();
+  if (!trimmed) {
+    throw new Error(diagnostics.empty());
+  }
 
-	const blockNameSegments = trimmed.split("/");
-	if (blockNameSegments.length > 2) {
-		throw new Error(diagnostics.invalidFormat(trimmed));
-	}
-	if (blockNameSegments.some((segment) => segment.trim() === "")) {
-		throw new Error(diagnostics.emptySegment(trimmed));
-	}
+  const blockNameSegments = trimmed.split('/');
+  if (blockNameSegments.length > 2) {
+    throw new Error(diagnostics.invalidFormat(trimmed));
+  }
+  if (blockNameSegments.some((segment) => segment.trim() === '')) {
+    throw new Error(diagnostics.emptySegment(trimmed));
+  }
 
-	const [maybeNamespace, maybeSlug] =
+  const [maybeNamespace, maybeSlug] =
 		blockNameSegments.length === 2
-			? blockNameSegments
-			: [undefined, blockNameSegments[0]];
-	if (maybeNamespace && maybeNamespace !== namespace) {
-		throw new Error(diagnostics.namespaceMismatch(trimmed, maybeNamespace, namespace));
-	}
+      ? blockNameSegments
+      : [undefined, blockNameSegments[0]];
+  if (maybeNamespace && maybeNamespace !== namespace) {
+    throw new Error(
+      diagnostics.namespaceMismatch(trimmed, maybeNamespace, namespace),
+    );
+  }
 
-	const blockSlug = normalizeBlockSlug(maybeSlug ?? "");
-	return {
-		blockName: `${namespace}/${blockSlug}`,
-		blockSlug,
-	};
+  const blockSlug = normalizeBlockSlug(maybeSlug ?? '');
+  return {
+    blockName: `${namespace}/${blockSlug}`,
+    blockSlug,
+  };
 }
 
 /**
@@ -123,7 +125,7 @@ export function resolveWorkspaceTargetBlockName(
 	namespace: string,
 	flagName: string,
 ): WorkspaceBlockTargetName {
-	return resolveWorkspaceBlockTargetName(blockName, namespace, {
+  return resolveWorkspaceBlockTargetName(blockName, namespace, {
 		empty: () => `\`${flagName}\` requires <block-slug|namespace/block-slug>.`,
 		emptySegment: () =>
 			`\`${flagName}\` must use <block-slug|namespace/block-slug> format.`,

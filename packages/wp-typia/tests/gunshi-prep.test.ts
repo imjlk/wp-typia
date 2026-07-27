@@ -166,7 +166,7 @@ describe('wp-typia Gunshi runtime preparation', () => {
 
   test('runtime build dependency helper keeps package runtime aliases explicit', () => {
     expect(runtimeDependencyHelperSource).toContain(
-      '"@wp-typia/project-tools/cli-diagnostics"',
+      "'@wp-typia/project-tools/cli-diagnostics':",
     );
     expect(runtimeDependencyHelperSource).toContain('WP_TYPIA_EXTERNALS');
   });

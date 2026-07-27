@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from '@typescript/typescript6';
 
 /**
  * Extract the literal text for TypeScript property names this runtime supports.
@@ -10,9 +10,13 @@ import ts from "typescript";
  * @returns Identifier, string-literal, or numeric-literal text; otherwise `null`.
  */
 export function getPropertyNameText(name: ts.PropertyName): string | null {
-	if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
-		return name.text;
-	}
+  if (
+    ts.isIdentifier(name) ||
+    ts.isStringLiteral(name) ||
+    ts.isNumericLiteral(name)
+  ) {
+    return name.text;
+  }
 
-	return null;
+  return null;
 }

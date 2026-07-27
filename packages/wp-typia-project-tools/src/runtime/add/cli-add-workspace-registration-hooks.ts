@@ -1,33 +1,37 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { patchFile } from "./cli-add-shared.js";
+import { patchFile } from './cli-add-shared.js';
 import {
-	findExecutablePatternMatch,
-	hasExecutablePattern,
-	hasUncommentedPattern,
-	maskTypeScriptCommentsAndLiterals,
-	type SourceRange,
-} from "../shared/ts-source-masking.js";
+  detectSourceLineEnding,
+  findExecutablePatternMatch,
+  findUncommentedPatternMatch,
+  hasExecutablePattern,
+  hasUncommentedPattern,
+  maskTypeScriptCommentsAndLiterals,
+  type SourceRange,
+} from '../shared/ts-source-masking.js';
 
 const SCAFFOLD_REGISTRATION_SETTINGS_CALL_PATTERN =
 	/registerScaffoldBlockType\s*\(\s*registration\s*\.\s*name\s*,\s*registration\s*\.\s*settings\s*\)\s*;?/u;
+const SCAFFOLD_REGISTRATION_SETTINGS_CALL_LINE =
+	'registerScaffoldBlockType(registration.name, registration.settings);';
 
 function isIdentifierBoundary(source: string, index: number): boolean {
-	if (index < 0 || index >= source.length) {
-		return true;
-	}
+  if (index < 0 || index >= source.length) {
+    return true;
+  }
 
-	return !/[A-Za-z0-9_$]/u.test(source[index] ?? "");
+  return !/[A-Za-z0-9_$]/u.test(source[index] ?? '');
 }
 
 function skipWhitespace(source: string, index: number): number {
-	let cursor = index;
+  let cursor = index;
 
-	while (cursor < source.length && /\s/u.test(source[cursor] ?? "")) {
-		cursor += 1;
-	}
+  while (cursor < source.length && /\s/u.test(source[cursor] ?? '')) {
+    cursor += 1;
+  }
 
-	return cursor;
+  return cursor;
 }
 
 function findMatchingDelimiterEnd(
@@ -36,26 +40,26 @@ function findMatchingDelimiterEnd(
 	openDelimiter: string,
 	closeDelimiter: string,
 ): number | undefined {
-	let depth = 0;
+  let depth = 0;
 
-	for (let index = openIndex; index < source.length; index += 1) {
-		const char = source[index];
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index];
 
-		if (char === openDelimiter) {
-			depth += 1;
-			continue;
-		}
+    if (char === openDelimiter) {
+      depth += 1;
+      continue;
+    }
 
-		if (char === closeDelimiter) {
-			depth -= 1;
+    if (char === closeDelimiter) {
+      depth -= 1;
 
-			if (depth === 0) {
-				return index + 1;
-			}
-		}
-	}
+      if (depth === 0) {
+        return index + 1;
+      }
+    }
+  }
 
-	return undefined;
+  return undefined;
 }
 
 /**
@@ -71,65 +75,107 @@ export function findExecutableCallRange(
 	source: string,
 	callName: string,
 ): SourceRange | undefined {
-	const maskedSource = maskTypeScriptCommentsAndLiterals(source);
-	let searchIndex = 0;
+  const maskedSource = maskTypeScriptCommentsAndLiterals(source);
+  let searchIndex = 0;
 
-	while (searchIndex < maskedSource.length) {
-		const callNameIndex = maskedSource.indexOf(callName, searchIndex);
+  while (searchIndex < maskedSource.length) {
+    const callNameIndex = maskedSource.indexOf(callName, searchIndex);
 
-		if (callNameIndex === -1) {
-			return undefined;
-		}
+    if (callNameIndex === -1) {
+      return undefined;
+    }
 
-		const callNameEnd = callNameIndex + callName.length;
-		if (
+    const callNameEnd = callNameIndex + callName.length;
+    if (
 			!isIdentifierBoundary(maskedSource, callNameIndex - 1) ||
 			!isIdentifierBoundary(maskedSource, callNameEnd)
 		) {
-			searchIndex = callNameEnd;
-			continue;
-		}
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		let cursor = skipWhitespace(maskedSource, callNameEnd);
-		if (maskedSource[cursor] === "<") {
-			const genericEnd = findMatchingDelimiterEnd(maskedSource, cursor, "<", ">");
-			if (genericEnd === undefined) {
-				searchIndex = callNameEnd;
-				continue;
-			}
-			cursor = skipWhitespace(maskedSource, genericEnd);
-		}
+    let cursor = skipWhitespace(maskedSource, callNameEnd);
+    if (maskedSource[cursor] === '<') {
+      const genericEnd = findMatchingDelimiterEnd(
+        maskedSource,
+        cursor,
+        '<',
+        '>',
+      );
+      if (genericEnd === undefined) {
+        searchIndex = callNameEnd;
+        continue;
+      }
+      cursor = skipWhitespace(maskedSource, genericEnd);
+    }
 
-		if (maskedSource[cursor] !== "(") {
-			searchIndex = callNameEnd;
-			continue;
-		}
+    if (maskedSource[cursor] !== '(') {
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		const callEnd = findMatchingDelimiterEnd(maskedSource, cursor, "(", ")");
-		if (callEnd === undefined) {
-			searchIndex = callNameEnd;
-			continue;
-		}
+    const callEnd = findMatchingDelimiterEnd(maskedSource, cursor, '(', ')');
+    if (callEnd === undefined) {
+      searchIndex = callNameEnd;
+      continue;
+    }
 
-		let end = skipWhitespace(maskedSource, callEnd);
-		if (maskedSource[end] === ";") {
-			end += 1;
-		}
+    let end = skipWhitespace(maskedSource, callEnd);
+    if (maskedSource[end] === ';') {
+      end += 1;
+    }
 
-		return {
-			end,
-			start: callNameIndex,
-		};
-	}
+    return {
+      end,
+      start: callNameIndex,
+    };
+  }
 
-	return undefined;
+  return undefined;
 }
 
 function findBlockRegistrationCallRange(source: string): SourceRange | undefined {
-	return (
-		findExecutableCallRange(source, "registerScaffoldBlockType") ??
-		findExecutableCallRange(source, "registerBlockType")
+  return (
+		findExecutableCallRange(source, 'registerScaffoldBlockType') ??
+		findExecutableCallRange(source, 'registerBlockType')
 	);
+}
+
+function normalizeUncommentedImport(
+	source: string,
+	importPattern: RegExp,
+	importLine: string,
+): string {
+  const importRange = findUncommentedPatternMatch(source, [importPattern]);
+  if (!importRange) {
+    return source;
+  }
+
+  return (
+    source.slice(0, importRange.start) +
+    importLine +
+    source.slice(importRange.end)
+  );
+}
+
+function normalizeExecutableCall(
+	source: string,
+	callPattern: RegExp,
+	callLine: string,
+): string {
+  const callRange = findExecutablePatternMatch(source, [callPattern]);
+  if (!callRange) {
+    return source;
+  }
+
+  const matchedSource = source.slice(callRange.start, callRange.end);
+  const trailingWhitespace = matchedSource.match(/\s*$/u)?.[0] ?? '';
+  return (
+    source.slice(0, callRange.start) +
+    callLine +
+    trailingWhitespace +
+    source.slice(callRange.end)
+  );
 }
 
 /**
@@ -151,31 +197,51 @@ export async function ensureWorkspaceEntrypointCall({
 	importLine,
 	importPattern,
 }: {
-	blockIndexPath: string;
-	callLine: string;
-	callPattern: RegExp;
-	importLine: string;
-	importPattern: RegExp;
+  blockIndexPath: string;
+  callLine: string;
+  callPattern: RegExp;
+  importLine: string;
+  importPattern: RegExp;
 }): Promise<void> {
-	await patchFile(blockIndexPath, (source) => {
+  await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
-			nextSource = `${importLine}\n${nextSource}`;
+			nextSource = `${importLine}${lineEnding}${nextSource}`;
+		} else {
+			nextSource = normalizeUncommentedImport(
+				nextSource,
+				importPattern,
+				importLine,
+			);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
 			const callRange = findBlockRegistrationCallRange(nextSource);
 
 			if (callRange) {
+        const suffix = nextSource.slice(callRange.end);
+        let normalizedSuffix: string;
+        if (suffix.length === 0) {
+          normalizedSuffix = lineEnding;
+        } else if (suffix.startsWith(lineEnding)) {
+          normalizedSuffix = suffix;
+        } else {
+          normalizedSuffix = `${lineEnding}${suffix}`;
+        }
 				nextSource = [
 					nextSource.slice(0, callRange.end),
-					`\n${callLine}\n`,
-					nextSource.slice(callRange.end),
-				].join("");
+					`${lineEnding}${callLine}`,
+					normalizedSuffix,
+				].join('');
 			} else {
-				nextSource = `${nextSource.trimEnd()}\n\n${callLine}\n`;
+				nextSource =
+          `${nextSource.trimEnd()}${lineEnding}${lineEnding}` +
+          `${callLine}${lineEnding}`;
 			}
+		} else {
+			nextSource = normalizeExecutableCall(nextSource, callPattern, callLine);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
@@ -208,17 +274,24 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 	importLine,
 	importPattern,
 }: {
-	blockIndexPath: string;
-	callLine: string;
-	callPattern: RegExp;
-	importLine: string;
-	importPattern: RegExp;
+  blockIndexPath: string;
+  callLine: string;
+  callPattern: RegExp;
+  importLine: string;
+  importPattern: RegExp;
 }): Promise<void> {
-	await patchFile(blockIndexPath, (source) => {
+  await patchFile(blockIndexPath, (source) => {
 		let nextSource = source;
+    const lineEnding = detectSourceLineEnding(source);
 
 		if (!hasUncommentedPattern(nextSource, importPattern)) {
-			nextSource = `${importLine}\n${nextSource}`;
+			nextSource = `${importLine}${lineEnding}${nextSource}`;
+		} else {
+			nextSource = normalizeUncommentedImport(
+				nextSource,
+				importPattern,
+				importLine,
+			);
 		}
 
 		if (!hasExecutablePattern(nextSource, callPattern)) {
@@ -236,10 +309,18 @@ export async function ensureWorkspaceRegistrationSettingsCall({
 
 			nextSource = [
 				nextSource.slice(0, callRange.start),
-				`${callLine}\n`,
+				`${callLine}${lineEnding}`,
 				nextSource.slice(callRange.start),
-			].join("");
+			].join('');
+		} else {
+			nextSource = normalizeExecutableCall(nextSource, callPattern, callLine);
 		}
+
+		nextSource = normalizeExecutableCall(
+			nextSource,
+			SCAFFOLD_REGISTRATION_SETTINGS_CALL_PATTERN,
+			SCAFFOLD_REGISTRATION_SETTINGS_CALL_LINE,
+		);
 
 		return nextSource;
 	});

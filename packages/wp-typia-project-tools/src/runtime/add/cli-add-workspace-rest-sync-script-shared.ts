@@ -1,4 +1,6 @@
-import path from "node:path";
+import path from 'node:path';
+
+import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 
 /**
  * Build the standard sync-rest patch failure message for missing anchors.
@@ -15,33 +17,42 @@ export function getSyncRestPatchErrorMessage(
 	anchorDescription: string,
 	subject: string,
 ): string {
-	return [
+  return [
 		`${functionName} could not patch ${path.basename(syncRestScriptPath)}.`,
 		`Missing expected ${anchorDescription} anchor in scripts/sync-rest-contracts.ts.`,
 		`Restore the generated template or add the ${subject} wiring manually before retrying.`,
-	].join(" ");
+	].join(' ');
 }
 
 const BLOCK_CONFIG_IMPORT_PATTERNS = [
-	/^import\s*\{\n(?:\t[^\n]*\n)+\} from ["']\.\/block-config["'];?$/mu,
-	/^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
+  /^import\s*\{\r?\n(?:[ \t]+[^\r\n]*\r?\n)+\}\s*from\s*["']\.\/block-config["'];?$/mu,
+  /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
 ] as const;
 
 const BLOCK_CONFIG_VALUE_IMPORT_ORDER = [
-	"AI_FEATURES",
-	"BLOCKS",
-	"CONTRACTS",
-	"POST_META",
-	"REST_RESOURCES",
+  'AI_FEATURES',
+  'BLOCKS',
+  'CONTRACTS',
+  'POST_META',
+  'REST_RESOURCES',
 ] as const;
 
 const BLOCK_CONFIG_TYPE_IMPORT_ORDER = [
-	"WorkspaceAiFeatureConfig",
-	"WorkspaceBlockConfig",
-	"WorkspaceContractConfig",
-	"WorkspacePostMetaConfig",
-	"WorkspaceRestResourceConfig",
+  'WorkspaceAiFeatureConfig',
+  'WorkspaceBlockConfig',
+  'WorkspaceContractConfig',
+  'WorkspacePostMetaConfig',
+  'WorkspaceRestResourceConfig',
 ] as const;
+
+/**
+ * Match the last `console.log(options.check ? ...)` block in sync-rest.
+ *
+ * Earlier logs can belong to the no-resources guard or package export branch;
+ * generated sync loops must be inserted immediately before the final summary.
+ */
+export const FINAL_SYNC_SUMMARY_PATTERN =
+  /\r?\n[ \t]+console\.log\(\r?\n[ \t]+options\.check(?![\s\S]*\r?\n[ \t]+console\.log\(\r?\n[ \t]+options\.check)/u;
 
 /**
  * Add a required block-config value and type import to sync-rest source.
@@ -60,119 +71,122 @@ export function replaceBlockConfigImport({
 	subject,
 	syncRestScriptPath,
 }: {
-	functionName: string;
-	nextSource: string;
-	subject: {
-		configTypeName: string;
-		constName: string;
-	};
-	syncRestScriptPath: string;
+  functionName: string;
+  nextSource: string;
+  subject: {
+    configTypeName: string;
+    constName: string;
+  };
+  syncRestScriptPath: string;
 }): string {
-	const importMatch =
+  const importMatch =
 		BLOCK_CONFIG_IMPORT_PATTERNS.map((pattern) => pattern.exec(nextSource)).find(
-			Boolean,
-		) ?? null;
+      Boolean,
+    ) ?? null;
 
-	if (!importMatch) {
-		throw new Error(
-			getSyncRestPatchErrorMessage(
-				functionName,
-				syncRestScriptPath,
-				"block-config import",
-				subject.constName,
-			),
-		);
-	}
+  if (!importMatch) {
+    throw new Error(
+      getSyncRestPatchErrorMessage(
+        functionName,
+        syncRestScriptPath,
+        'block-config import',
+        subject.constName,
+      ),
+    );
+  }
 
-	const importSource = importMatch[0];
-	if (
+  const importSource = importMatch[0];
+  if (
 		importSource.includes(subject.constName) &&
 		importSource.includes(subject.configTypeName)
 	) {
-		return nextSource;
-	}
-	if (
-		!importSource.includes("BLOCKS") ||
-		!importSource.includes("WorkspaceBlockConfig")
+    return nextSource;
+  }
+  if (
+		!importSource.includes('BLOCKS') ||
+		!importSource.includes('WorkspaceBlockConfig')
 	) {
-		throw new Error(
-			getSyncRestPatchErrorMessage(
-				functionName,
-				syncRestScriptPath,
-				"BLOCKS import",
-				subject.constName,
-			),
-		);
-	}
+    throw new Error(
+      getSyncRestPatchErrorMessage(
+        functionName,
+        syncRestScriptPath,
+        'BLOCKS import',
+        subject.constName,
+      ),
+    );
+  }
 
-	const replacement = [
-		"import {",
-		...BLOCK_CONFIG_VALUE_IMPORT_ORDER.flatMap((constName) =>
-			constName === subject.constName || importSource.includes(constName)
-				? [`\t${constName},`]
-				: [],
-		),
-		...BLOCK_CONFIG_TYPE_IMPORT_ORDER.flatMap((configTypeName) =>
-			configTypeName === subject.configTypeName ||
-			importSource.includes(configTypeName)
-				? [`\ttype ${configTypeName},`]
-				: [],
-		),
-		"} from './block-config';",
-	].join("\n");
+  const replacement = [
+    'import {',
+    ...BLOCK_CONFIG_VALUE_IMPORT_ORDER.flatMap((constName) =>
+      constName === subject.constName || importSource.includes(constName)
+        ? [`  ${constName},`]
+        : [],
+    ),
+    ...BLOCK_CONFIG_TYPE_IMPORT_ORDER.flatMap((configTypeName) =>
+      configTypeName === subject.configTypeName ||
+      importSource.includes(configTypeName)
+        ? [`  type ${configTypeName},`]
+        : [],
+    ),
+    "} from './block-config';",
+  ].join(detectSourceLineEnding(nextSource));
 
-	return nextSource.replace(importSource, replacement);
+  return nextSource.replace(importSource, replacement);
 }
 
 function formatNoResourcesSubject(subjects: readonly string[]): string {
-	if (subjects.length <= 2) {
-		return subjects.join(" or ");
-	}
+  if (subjects.length <= 2) {
+    return subjects.join(' or ');
+  }
 
-	const lastSubject = subjects[subjects.length - 1];
-	return `${subjects.slice(0, -1).join(", ")}, or ${lastSubject}`;
+  const lastSubject = subjects[subjects.length - 1];
+  return `${subjects.slice(0, -1).join(', ')}, or ${lastSubject}`;
 }
 
 /**
  * Render a sync-rest guard for the selected empty resource collections.
  *
  * @param options Guard rendering options.
+ * @param options.lineEnding Newline sequence to use in the emitted block.
  * @param options.subjects Candidate guard subjects and conditions.
  * @returns TypeScript source for the no-resources guard block.
  */
 export function buildNoResourcesGuard({
+	lineEnding = '\n',
 	subjects,
 }: {
-	subjects: readonly {
-		condition: string;
-		include: boolean;
-		subject: string;
-	}[];
+  lineEnding?: '\n' | '\r\n';
+  subjects: readonly {
+    condition: string;
+    include: boolean;
+    subject: string;
+  }[];
 }): string {
-	const includedSubjects = subjects.filter((subject) => subject.include);
-	const condition = includedSubjects.map(({ condition }, index) =>
-		index === includedSubjects.length - 1 ? condition : `${condition} &&`,
-	);
-	const noResourcesSubject = formatNoResourcesSubject(
-		includedSubjects.map(({ subject }) => subject),
-	);
+  const includedSubjects = subjects.filter((subject) => subject.include);
+  const condition = includedSubjects.map(({ condition }, index) =>
+    index === includedSubjects.length - 1 ? condition : `${condition} &&`,
+  );
+  const noResourcesSubject = formatNoResourcesSubject(
+    includedSubjects.map(({ subject }) => subject),
+  );
 
-	return [
-		"if (",
-		...condition.map((line) => `\t\t${line}`),
-		"\t) {",
-		"\t\tconsole.log(",
-		"\t\t\toptions.check",
-		`\t\t\t\t? 'ℹ️ No ${noResourcesSubject} are registered yet. \`sync-rest --check\` is already clean.'`,
-		`\t\t\t\t: 'ℹ️ No ${noResourcesSubject} are registered yet.'`,
-		"\t\t);",
-		"\t\treturn;",
-		"\t}",
-	].join("\n");
+  return [
+    'if (',
+    ...condition.map((line) => `    ${line}`),
+    '  ) {',
+    '    console.log(',
+    '      options.check',
+    `        ? 'ℹ️ No ${noResourcesSubject} are registered yet. \`sync-rest --check\` is already clean.'`,
+    `        : 'ℹ️ No ${noResourcesSubject} are registered yet.',`,
+    '    );',
+    '    return;',
+    '  }',
+  ].join(lineEnding);
 }
 
 const NO_RESOURCES_GUARD_PATTERN =
-	/if \(\s*restBlocks\.length === 0(?:\s*&&\s*standaloneContracts\.length === 0)?(?:\s*&&\s*postMetaContracts\.length === 0)?(?:\s*&&\s*restResources\.length === 0)?(?:\s*&&\s*aiFeatures\.length === 0)?\s*\) \{[\s\S]*?\n\t\treturn;\n\t\}/u;
+  /if\s*\(\s*restBlocks\.length === 0(?:\s*&&\s*standaloneContracts\.length === 0)?(?:\s*&&\s*postMetaContracts\.length === 0)?(?:\s*&&\s*restResources\.length === 0)?(?:\s*&&\s*aiFeatures\.length === 0)?\s*\)\s*\{[\s\S]*?\r?\n[ \t]+return;\r?\n[ \t]*\}/u;
 
 /**
  * Replace the generated no-resources guard in sync-rest source.
@@ -192,16 +206,16 @@ export function replaceNoResourcesGuard(
 	syncRestScriptPath: string,
 	subject: string,
 ): string {
-	if (!NO_RESOURCES_GUARD_PATTERN.test(nextSource)) {
-		throw new Error(
-			getSyncRestPatchErrorMessage(
-				functionName,
-				syncRestScriptPath,
-				"no-resources guard",
-				subject,
-			),
-		);
-	}
+  if (!NO_RESOURCES_GUARD_PATTERN.test(nextSource)) {
+    throw new Error(
+      getSyncRestPatchErrorMessage(
+        functionName,
+        syncRestScriptPath,
+        'no-resources guard',
+        subject,
+      ),
+    );
+  }
 
-	return nextSource.replace(NO_RESOURCES_GUARD_PATTERN, replacement);
+  return nextSource.replace(NO_RESOURCES_GUARD_PATTERN, replacement);
 }

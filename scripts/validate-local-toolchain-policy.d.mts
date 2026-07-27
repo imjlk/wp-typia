@@ -12,12 +12,15 @@ export declare const LOCAL_TOOLCHAIN_POLICY: Readonly<{
   ciWorkflowFile: '.github/workflows/ci.yml';
   configFile: 'mise.toml';
   docs: Readonly<Record<string, readonly string[]>>;
+  minimumNodeMajor: 24;
   miseVersions: Readonly<{
     bun: '1.3.11';
     node: '24';
   }>;
   packageManager: 'bun@1.3.11';
+  setupActionFile: '.github/actions/setup-bun-workspace/action.yml';
   validateScript: 'bun scripts/validate-local-toolchain-policy.mjs';
+  workflowDirectory: '.github/workflows';
 }>;
 
 export declare function validateLocalToolchainPolicy(

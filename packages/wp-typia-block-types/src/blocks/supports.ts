@@ -3,7 +3,7 @@ import type {
   BlockVerticalAlignment,
   JustifyContent,
   TextAlignment,
-} from "../block-editor/alignment.js";
+} from '../block-editor/alignment.js';
 import type {
   BlockBorderSupportAttributes,
   BlockColorSupportAttributes,
@@ -11,16 +11,20 @@ import type {
   BlockSpacingSupportAttributes,
   BlockStyleAttributes,
   BlockTypographySupportAttributes,
-} from "../block-editor/style-attributes.js";
-import type { FlexWrap, LayoutType, Orientation } from "../block-editor/layout.js";
-import type { SpacingAxis, SpacingDimension } from "../block-editor/spacing.js";
+} from '../block-editor/style-attributes.js';
+import type {
+  FlexWrap,
+  LayoutType,
+  Orientation,
+} from '../block-editor/layout.js';
+import type { SpacingAxis, SpacingDimension } from '../block-editor/spacing.js';
 import {
   type WordPressBlockApiCompatibilityDiagnostic,
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
-} from "./compatibility.js";
-import { handleDefineSupportsDiagnostics } from "./supports-diagnostics.js";
+} from './compatibility.js';
+import { handleDefineSupportsDiagnostics } from './supports-diagnostics.js';
 import {
   BLOCK_SUPPORT_FEATURES,
   SPACING_SUPPORT_KEYS,
@@ -28,15 +32,15 @@ import {
   type BlockSupportFeature,
   type SpacingSupportKey,
   type TypographySupportKey,
-} from "./supports-features.js";
+} from './supports-features.js';
 import {
   collectBlockSupportsCompatibilityFeatures,
   createBlockSupportsCompatibilityManifest,
-} from "./supports-manifest.js";
+} from './supports-manifest.js';
 import {
   resolveDefineSupportsSettings,
   splitDefineSupportsInput,
-} from "./supports-settings.js";
+} from './supports-settings.js';
 export {
   BLOCK_SUPPORT_FEATURES,
   SPACING_SUPPORT_KEYS,
@@ -44,15 +48,11 @@ export {
   collectBlockSupportsCompatibilityFeatures,
   createBlockSupportsCompatibilityManifest,
 };
-export type {
-  BlockSupportFeature,
-  SpacingSupportKey,
-  TypographySupportKey,
-};
+export type { BlockSupportFeature, SpacingSupportKey, TypographySupportKey };
 import {
   type DiagnosticLogger,
-} from "./shared/diagnostics.js";
-import { isObjectRecord } from "./shared/object-utils.js";
+} from './shared/diagnostics.js';
+import { isObjectRecord } from './shared/object-utils.js';
 
 type BlockSupportDefaultControls<TFeature extends string> = Readonly<
   Partial<Record<TFeature, boolean>> & Record<string, boolean | undefined>
@@ -311,7 +311,7 @@ export type StripDefineSupportsOptions<TSupports> = Omit<
 >;
 
 export const DEFINED_BLOCK_SUPPORTS_METADATA: unique symbol = Symbol.for(
-  "@wp-typia/block-types/defined-supports",
+  '@wp-typia/block-types/defined-supports',
 ) as never;
 
 export type DefinedBlockSupportsMetadataKey =
@@ -338,39 +338,39 @@ export type SupportAttributes<TSupports> =
 
 export type SupportAttributesFromBlockSupports<TSupports> =
   IfSupport<
-    HasSupport<TSupports, "align">,
+    HasSupport<TSupports, 'align'>,
     BlockAlignSupportAttributes
   > &
     IfSupport<
-      HasSupport<TSupports, "allowedBlocks">,
+      HasSupport<TSupports, 'allowedBlocks'>,
       BlockAllowedBlocksSupportAttributes
     > &
-    IfSupport<HasSupport<TSupports, "layout">, BlockLayoutSupportAttributes> &
-    IfSupport<HasSupport<TSupports, "color">, BlockColorSupportAttributes> &
+    IfSupport<HasSupport<TSupports, 'layout'>, BlockLayoutSupportAttributes> &
+    IfSupport<HasSupport<TSupports, 'color'>, BlockColorSupportAttributes> &
     IfSupport<
-      HasSupport<TSupports, "typography">,
+      HasSupport<TSupports, 'typography'>,
       BlockTypographySupportAttributes
     > &
-    IfSupport<HasSupport<TSupports, "spacing">, BlockSpacingSupportAttributes> &
+    IfSupport<HasSupport<TSupports, 'spacing'>, BlockSpacingSupportAttributes> &
     IfSupport<
-      HasSupport<TSupports, "dimensions">,
+      HasSupport<TSupports, 'dimensions'>,
       BlockDimensionsSupportAttributes
     > &
-    IfSupport<HasSupport<TSupports, "border">, BlockBorderSupportAttributes> &
+    IfSupport<HasSupport<TSupports, 'border'>, BlockBorderSupportAttributes> &
     IfSupport<
-      HasSupport<TSupports, "background">,
+      HasSupport<TSupports, 'background'>,
       BlockStyleAttributeSupportAttributes
     > &
     IfSupport<
-      HasNestedSupport<TSupports, "filter", "duotone">,
+      HasNestedSupport<TSupports, 'filter', 'duotone'>,
       BlockStyleAttributeSupportAttributes
     > &
     IfSupport<
-      HasSupport<TSupports, "position">,
+      HasSupport<TSupports, 'position'>,
       BlockStyleAttributeSupportAttributes
     > &
     IfSupport<
-      HasSupport<TSupports, "shadow">,
+      HasSupport<TSupports, 'shadow'>,
       BlockStyleAttributeSupportAttributes
     >;
 

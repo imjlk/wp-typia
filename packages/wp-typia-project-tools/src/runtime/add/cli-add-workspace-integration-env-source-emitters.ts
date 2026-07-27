@@ -1,5 +1,5 @@
-import type { IntegrationEnvServiceId } from "./cli-add-shared.js";
-import { toTitleCase } from "../shared/string-case.js";
+import type { IntegrationEnvServiceId } from './cli-add-shared.js';
+import { toTitleCase } from '../shared/string-case.js';
 
 /**
  * Render the default `@wordpress/env` configuration for an integration
@@ -8,19 +8,19 @@ import { toTitleCase } from "../shared/string-case.js";
  * @returns JSON source for `.wp-env.json`.
  */
 export function buildWpEnvConfigSource(): string {
-	return `${JSON.stringify(
+  return `${JSON.stringify(
 		{
-			$schema: "https://schemas.wp.org/trunk/wp-env.json",
+			$schema: 'https://schemas.wp.org/trunk/wp-env.json',
 			core: null,
 			port: 8888,
 			testsEnvironment: false,
-			plugins: ["."],
+			plugins: ['.'],
 			config: {
 				WP_DEBUG: true,
 				WP_DEBUG_LOG: true,
 				WP_DEBUG_DISPLAY: false,
 				SCRIPT_DEBUG: true,
-				WP_ENVIRONMENT_TYPE: "local",
+				WP_ENVIRONMENT_TYPE: 'local',
 			},
 		},
 		null,
@@ -34,9 +34,9 @@ export function buildWpEnvConfigSource(): string {
  * @returns YAML source for `docker-compose.integration.yml`.
  */
 export function buildDockerComposeSource(): string {
-	return `services:
+  return `services:
   integration-service:
-    image: node:22-alpine
+    image: node:24-alpine
     working_dir: /workspace
     volumes:
       - .:/workspace
@@ -64,7 +64,7 @@ export function buildDockerComposeSource(): string {
 export function buildIntegrationSmokeScriptSource(
 	integrationEnvSlug: string,
 ): string {
-	return `import fs from "node:fs";
+  return `import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -167,7 +167,7 @@ const serviceUrl = getEnv("WP_TYPIA_SERVICE_URL", "").trim();
 
 // Extend this starter with project-specific generated REST clients or schema
 // checks as the workspace grows. For example, read JSON schemas under
-// src/rest/<resource>/api-schemas or import TS clients through a tsx-powered
+// src/rest/<resource>/api-schemas or import TS clients through a ttsx-powered
 // smoke runner when you need authenticated route coverage.
 
 await assertJsonEndpoint(
@@ -193,25 +193,25 @@ console.log("wp-typia integration smoke passed: ${integrationEnvSlug}");
  * @returns Source for entries appended to `.env.example`.
  */
 export function buildEnvExampleSource(service: IntegrationEnvServiceId): string {
-	return [
-		"# wp-typia integration smoke settings",
-		"WP_TYPIA_SMOKE_BASE_URL=http://localhost:8888",
-		"WP_TYPIA_SMOKE_USERNAME=admin",
-		"WP_TYPIA_SMOKE_PASSWORD=password",
-		"WP_TYPIA_SMOKE_TIMEOUT_MS=30000",
-		...(service === "docker-compose"
+  return [
+		'# wp-typia integration smoke settings',
+		'WP_TYPIA_SMOKE_BASE_URL=http://localhost:8888',
+		'WP_TYPIA_SMOKE_USERNAME=admin',
+		'WP_TYPIA_SMOKE_PASSWORD=password',
+		'WP_TYPIA_SMOKE_TIMEOUT_MS=30000',
+		...(service === 'docker-compose'
 			? [
-					"",
-					"# Optional docker-compose integration service starter.",
-					"WP_TYPIA_SERVICE_URL=http://localhost:3000",
+					'',
+					'# Optional docker-compose integration service starter.',
+					'WP_TYPIA_SERVICE_URL=http://localhost:3000',
 			  ]
 			: [
-					"",
-					"# Set this when your smoke test needs a project-specific service.",
-					"# WP_TYPIA_SERVICE_URL=http://localhost:3000",
+					'',
+					'# Set this when your smoke test needs a project-specific service.',
+					'# WP_TYPIA_SERVICE_URL=http://localhost:3000',
 			  ]),
-		"",
-	].join("\n");
+		'',
+	].join('\n');
 }
 
 /**
@@ -230,37 +230,37 @@ export function buildIntegrationEnvReadmeSource({
 	withReleaseZip,
 	withWpEnv,
 }: {
-	integrationEnvSlug: string;
-	service: IntegrationEnvServiceId;
-	withReleaseZip: boolean;
-	withWpEnv: boolean;
+  integrationEnvSlug: string;
+  service: IntegrationEnvServiceId;
+  withReleaseZip: boolean;
+  withWpEnv: boolean;
 }): string {
-	const title = toTitleCase(integrationEnvSlug);
-	const setupSteps = [
-		"Copy `.env.example` to `.env` and adjust the URLs or credentials for your local project.",
+  const title = toTitleCase(integrationEnvSlug);
+  const setupSteps = [
+		'Copy `.env.example` to `.env` and adjust the URLs or credentials for your local project.',
 		...(withWpEnv
 			? [
-					"Run `npm run wp-env:start` to start the generated WordPress environment.",
+					'Run `npm run wp-env:start` to start the generated WordPress environment.',
 			  ]
 			: [
-					"Point `WP_TYPIA_SMOKE_BASE_URL` at the WordPress environment you already run locally.",
+					'Point `WP_TYPIA_SMOKE_BASE_URL` at the WordPress environment you already run locally.',
 			  ]),
-		...(service === "docker-compose"
+		...(service === 'docker-compose'
 			? [
-					"Run `npm run service:start` if you want the placeholder docker-compose service available at `WP_TYPIA_SERVICE_URL`.",
+					'Run `npm run service:start` if you want the placeholder docker-compose service available at `WP_TYPIA_SERVICE_URL`.',
 			  ]
 			: [
-					"Set `WP_TYPIA_SERVICE_URL` only when your integration smoke needs a local service dependency.",
+					'Set `WP_TYPIA_SERVICE_URL` only when your integration smoke needs a local service dependency.',
 			  ]),
 		`Run \`npm run smoke:${integrationEnvSlug}\` to execute the starter smoke check.`,
 		...(withReleaseZip
 			? [
-					"Run `npm run release:zip` after smoke checks pass to build a distributable plugin zip.",
+					'Run `npm run release:zip` after smoke checks pass to build a distributable plugin zip.',
 			  ]
 			: []),
 	];
 
-	return `# ${title} Integration Environment
+  return `# ${title} Integration Environment
 
 This starter keeps local WordPress integration smoke checks opt-in and editable.
 It does not change default block scaffolds or require wp-env unless this add
@@ -268,7 +268,7 @@ workflow was run with \`--wp-env\`.
 
 ## Setup
 
-${setupSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}
+${setupSteps.map((step, index) => `${index + 1}. ${step}`).join('\n')}
 
 ## Adapting the Starter
 
@@ -280,6 +280,6 @@ ${setupSteps.map((step, index) => `${index + 1}. ${step}`).join("\n")}
   emulator containers.
 - Keep the smoke script focused on high-signal integration checks so CI and
   local debugging stay fast.
-${withReleaseZip ? "- Treat `release:zip:check` as a CI guard before packaging release artifacts.\n" : ""}
+${withReleaseZip ? '- Treat `release:zip:check` as a CI guard before packaging release artifacts.\n' : ''}
 `;
 }

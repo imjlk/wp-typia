@@ -24,17 +24,20 @@ type QueryLoopVariation = BlockVariation<QueryLoopVariationAttributes> & {
   allowedControls: string[];
 };
 
-const VARIATION_NAME = {{queryVariationNamespaceJson}};
-const DEFAULT_ALLOWED_CONTROLS = {{queryAllowedControlsJson}};
+const VARIATION_NAME = {{queryVariationNamespaceTsLiteral}};
+const DEFAULT_ALLOWED_CONTROLS = {{queryAllowedControlsTsLiteral}};
 const customQuerySeed = getQueryLoopCustomQuerySeed();
 const allowedControls = Array.from(
-  new Set([...DEFAULT_ALLOWED_CONTROLS, ...getQueryLoopCustomAllowedControls()]),
+  new Set([
+    ...DEFAULT_ALLOWED_CONTROLS,
+    ...getQueryLoopCustomAllowedControls(),
+  ]),
 );
 
 const queryLoopVariation = {
   name: VARIATION_NAME,
-  title: __({{titleJson}}, '{{textDomain}}'),
-  description: __({{descriptionJson}}, '{{textDomain}}'),
+  title: __({{titleTsLiteral}}, '{{textDomain}}'),
+  description: __({{descriptionTsLiteral}}, '{{textDomain}}'),
   scope: ['inserter'],
   isActive: ['namespace'],
   attributes: {
@@ -44,7 +47,7 @@ const queryLoopVariation = {
       order: 'desc',
       orderBy: 'date',
       perPage: 6,
-      postType: {{queryPostTypeJson}},
+      postType: {{queryPostTypeTsLiteral}},
       ...customQuerySeed,
       wpTypiaVariation: VARIATION_NAME,
     },

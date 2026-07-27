@@ -1,28 +1,28 @@
 module.exports = {
-	blockTemplatesPath: "block-templates",
-	assetsPath: "assets",
-	folderName: "seed-src",
+	blockTemplatesPath: 'block-templates',
+	assetsPath: 'assets',
+	folderName: 'seed-src',
 	defaultValues: {
 		supportsMultiple: false,
-		variantLabel: "standard",
+		variantLabel: 'standard',
 	},
 	variants: {
 		standard: {
-			variantLabel: "standard",
+			variantLabel: 'standard',
 		},
 		hero: {
 			supportsMultiple: true,
-			variantLabel: "hero",
+			variantLabel: 'hero',
 		},
 		workspace: {
-			folderName: ".",
-			pluginTemplatesPath: "plugin-templates",
-			variantLabel: "workspace",
+			folderName: '.',
+			pluginTemplatesPath: 'plugin-templates',
+			variantLabel: 'workspace',
 		},
 	},
-	transformer(view) {
+	transformer( view ) {
 		return {
-			transformedLabel: `${view.variantLabel}-transformed`,
+			transformedLabel: `${ view.variantLabel }-transformed`,
 		};
 	},
 };

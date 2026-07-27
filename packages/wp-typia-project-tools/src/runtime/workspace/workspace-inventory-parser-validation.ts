@@ -1,9 +1,9 @@
 import type {
-	WorkspaceInventoryAppendOptionKey,
-	WorkspaceInventoryEntriesKey,
-	WorkspaceInventorySectionFlagKey,
-} from "./workspace-inventory-types.js";
-import type { ScaffoldCompatibilityConfig } from "../templates/scaffold-compatibility.js";
+  WorkspaceInventoryAppendOptionKey,
+  WorkspaceInventoryEntriesKey,
+  WorkspaceInventorySectionFlagKey,
+} from './workspace-inventory-types.js';
+import type { ScaffoldCompatibilityConfig } from '../templates/scaffold-compatibility.js';
 
 /**
  * Literal value shape accepted by descriptor-driven inventory entry fields.
@@ -19,16 +19,16 @@ export type InventoryEntryFieldValue =
  * Context passed to custom field validators while parsing one inventory entry.
  */
 export type InventoryEntryFieldValidationContext = {
-	elementIndex: number;
-	entryName: string;
-	key: string;
+  elementIndex: number;
+  entryName: string;
+  key: string;
 };
 
 type InventoryEntryFieldDescriptor = {
-	key: string;
-	kind?: "boolean" | "compatibilityConfig" | "string" | "stringArray";
-	required?: boolean;
-	validate?: (
+  key: string;
+  kind?: 'boolean' | 'compatibilityConfig' | 'string' | 'stringArray';
+  required?: boolean;
+  validate?: (
 		value: InventoryEntryFieldValue,
 		context: InventoryEntryFieldValidationContext,
 	) => void;
@@ -41,8 +41,8 @@ type InventoryEntryFieldDescriptor = {
  * required flags, and custom validators accepted for each object entry.
  */
 export type InventoryEntryParserDescriptor = {
-	entryName: string;
-	fields: readonly InventoryEntryFieldDescriptor[];
+  entryName: string;
+  fields: readonly InventoryEntryFieldDescriptor[];
 };
 
 type RequiredInventoryEntryKey<T extends object> = Extract<
@@ -57,7 +57,7 @@ type TypedInventoryEntryFieldDescriptor<
 	TKey extends Extract<keyof T, string> = Extract<keyof T, string>,
 > =
 	TKey extends Extract<keyof T, string>
-		? Omit<InventoryEntryFieldDescriptor, "key" | "required"> & {
+		? Omit<InventoryEntryFieldDescriptor, 'key' | 'required'> & {
 				key: TKey;
 			} & (TKey extends RequiredInventoryEntryKey<T>
 					? { required: true }
@@ -66,16 +66,16 @@ type TypedInventoryEntryFieldDescriptor<
 
 type RequiredInventoryEntryFieldDescriptor<T extends object> = Omit<
 	InventoryEntryFieldDescriptor,
-	"key" | "required"
+	'key' | 'required'
 > & {
-	key: RequiredInventoryEntryKey<T>;
-	required: true;
+  key: RequiredInventoryEntryKey<T>;
+  required: true;
 };
 
 type MissingRequiredInventoryEntryKeys<
 	T extends object,
 	TFields extends readonly TypedInventoryEntryFieldDescriptor<T>[],
-> = Exclude<RequiredInventoryEntryKey<T>, TFields[number]["key"]>;
+> = Exclude<RequiredInventoryEntryKey<T>, TFields[number]['key']>;
 
 type RequiredInventoryEntryFieldsPresent<
 	T extends object,
@@ -112,28 +112,28 @@ type RequiredInventoryEntryFieldsMarkedRequired<
  */
 export type InventorySectionDescriptor = {
 	/** Optional marker metadata used when appending generated entries. */
-	append?: {
-		marker: string;
-		optionKey: WorkspaceInventoryAppendOptionKey;
-	};
+  append?: {
+    marker: string;
+    optionKey: WorkspaceInventoryAppendOptionKey;
+  };
 	/** Optional exported interface that backs the inventory section entries. */
-	interface?: {
-		name: string;
-		section: string;
-	};
+  interface?: {
+    name: string;
+    section: string;
+  };
 	/** Optional parser metadata for descriptor-driven inventory reads. */
-	parse?: {
-		entriesKey: WorkspaceInventoryEntriesKey;
-		entry: InventoryEntryParserDescriptor;
-		exportName?: string;
-		hasSectionKey?: WorkspaceInventorySectionFlagKey;
-		required?: boolean;
-	};
+  parse?: {
+    entriesKey: WorkspaceInventoryEntriesKey;
+    entry: InventoryEntryParserDescriptor;
+    exportName?: string;
+    hasSectionKey?: WorkspaceInventorySectionFlagKey;
+    required?: boolean;
+  };
 	/** Optional exported const array that stores the inventory section entries. */
-	value?: {
-		name: string;
-		section: string;
-	};
+  value?: {
+    name: string;
+    section: string;
+  };
 };
 
 /**
@@ -144,7 +144,7 @@ export type InventorySectionDescriptor = {
  * literal field values and run runtime validators.
  */
 export function defineInventoryEntryParser<T extends object>() {
-	return <
+  return <
 		const TFields extends readonly TypedInventoryEntryFieldDescriptor<T>[],
 	>(
 		descriptor: {
@@ -158,15 +158,15 @@ export function defineInventoryEntryParser<T extends object>() {
 function isMissingRequiredInventoryValue(
 	value: InventoryEntryFieldValue,
 ): boolean {
-	return (
-		value === undefined || (typeof value === "string" && value.length === 0)
+  return (
+		value === undefined || (typeof value === 'string' && value.length === 0)
 	);
 }
 
 function formatMissingRequiredInventoryFields(keys: readonly string[]): string {
-	return keys.length === 1
-		? `required "${keys[0]}"`
-		: `required fields ${keys.map((key) => `"${key}"`).join(", ")}`;
+  return keys.length === 1
+    ? `required "${keys[0]}"`
+    : `required fields ${keys.map((key) => `"${key}"`).join(', ')}`;
 }
 
 /**
@@ -181,7 +181,7 @@ export function assertParsedInventoryEntry<T extends object>(
 	descriptor: InventoryEntryParserDescriptor,
 	elementIndex: number,
 ): asserts entry is Record<string, InventoryEntryFieldValue> & T {
-	const missingRequiredKeys = descriptor.fields
+  const missingRequiredKeys = descriptor.fields
 		.filter(
 			(field) =>
 				field.required === true &&
@@ -189,9 +189,9 @@ export function assertParsedInventoryEntry<T extends object>(
 		)
 		.map((field) => field.key);
 
-	if (missingRequiredKeys.length > 0) {
-		throw new Error(
-			`${descriptor.entryName}[${elementIndex}] is missing ${formatMissingRequiredInventoryFields(missingRequiredKeys)} in scripts/block-config.ts.`,
-		);
-	}
+  if (missingRequiredKeys.length > 0) {
+    throw new Error(
+      `${descriptor.entryName}[${elementIndex}] is missing ${formatMissingRequiredInventoryFields(missingRequiredKeys)} in scripts/block-config.ts.`,
+    );
+  }
 }

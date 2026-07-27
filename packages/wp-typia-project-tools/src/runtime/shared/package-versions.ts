@@ -18,8 +18,17 @@ export interface PackageVersions {
   blockTypesPackageVersion: string;
   projectToolsPackageVersion: string;
   restPackageVersion: string;
+  ttscLintPackageVersion: string;
+  ttscPackageVersion: string;
+  ttscUnpluginPackageVersion: string;
+  /**
+   * @deprecated Compatibility alias for {@link ttscPackageVersion}.
+   */
   tsxPackageVersion: string;
   typiaPackageVersion: string;
+  /**
+   * @deprecated Compatibility alias for {@link ttscUnpluginPackageVersion}.
+   */
   typiaUnpluginPackageVersion: string;
   typescriptPackageVersion: string;
   wpTypiaPackageExactVersion: string;
@@ -35,8 +44,16 @@ interface PackageManifestLocation {
 const require = createRequire(import.meta.url);
 const DEFAULT_VERSION_RANGE = '^0.0.0';
 const DEFAULT_EXACT_VERSION = '0.0.0';
-const DEFAULT_TSX_PACKAGE_VERSION = '^4.20.5';
-const DEFAULT_TYPIA_UNPLUGIN_PACKAGE_VERSION = '^12.0.1';
+/**
+ * Canonical generated-project toolchain. These intentionally do not fall back
+ * to packages installed by the target project: `wp-typia init --apply` must
+ * upgrade a legacy project rather than preserve its pre-TS7 toolchain.
+ */
+const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
+const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
+const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
+const DEFAULT_TYPESCRIPT_PACKAGE_VERSION = '^7.0.2';
+const DEFAULT_TYPIA_PACKAGE_VERSION = '^13.2.0';
 /**
  * Explicit fallback ranges for managed WordPress-facing workspace dependencies.
  *
@@ -80,6 +97,14 @@ function normalizeExactVersion(value: string | undefined): string {
     return DEFAULT_EXACT_VERSION;
   }
   return trimmed.replace(/^[~^<>=]+/, '');
+}
+
+function normalizeExactVersionWithFallback(
+  value: string | undefined,
+  fallback: string,
+): string {
+  const normalized = normalizeExactVersion(value);
+  return normalized === DEFAULT_EXACT_VERSION ? fallback : normalized;
 }
 
 function normalizeVersionRangeWithFallback(
@@ -290,14 +315,6 @@ export function getPackageVersions(): PackageVersions {
     resolveInstalledPackageManifestLocation('@wp-typia/block-types');
   const installedRestManifestLocation =
     resolveInstalledPackageManifestLocation('@wp-typia/rest');
-  const installedTsxManifestLocation =
-    resolveInstalledPackageManifestLocation('tsx');
-  const installedTypiaManifestLocation =
-    resolveInstalledPackageManifestLocation('typia');
-  const installedTypiaUnpluginManifestLocation =
-    resolveInstalledPackageManifestLocation('@typia/unplugin');
-  const installedTypescriptManifestLocation =
-    resolveInstalledPackageManifestLocation('typescript');
   const installedWpTypiaManifestLocation =
     resolveInstalledPackageManifestLocation('wp-typia');
   const cacheKey = composePackageVersionsCacheKey([
@@ -311,10 +328,6 @@ export function getPackageVersions(): PackageVersions {
     installedBlockRuntimeManifestLocation,
     installedBlockTypesManifestLocation,
     installedRestManifestLocation,
-    installedTsxManifestLocation,
-    installedTypiaManifestLocation,
-    installedTypiaUnpluginManifestLocation,
-    installedTypescriptManifestLocation,
     installedWpTypiaManifestLocation,
   ]);
 
@@ -345,6 +358,18 @@ export function getPackageVersions(): PackageVersions {
   const blockTypesDependencyVersion = normalizeVersionRange(
     createManifest.dependencies?.['@wp-typia/block-types'],
   );
+  const ttscPackageVersion = normalizeVersionRangeWithFallback(
+    monorepoManifest.dependencies?.ttsc ??
+      monorepoManifest.devDependencies?.ttsc ??
+      createManifest.devDependencies?.ttsc,
+    DEFAULT_TTSC_PACKAGE_VERSION,
+  );
+  const ttscUnpluginPackageVersion = normalizeVersionRangeWithFallback(
+    monorepoManifest.dependencies?.['@ttsc/unplugin'] ??
+      monorepoManifest.devDependencies?.['@ttsc/unplugin'] ??
+      createManifest.devDependencies?.['@ttsc/unplugin'],
+    DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION,
+  );
   const versions = {
     apiClientPackageVersion: normalizeVersionRange(
       createManifest.dependencies?.['@wp-typia/api-client'] ??
@@ -363,31 +388,28 @@ export function getPackageVersions(): PackageVersions {
       createManifest.dependencies?.['@wp-typia/rest'] ??
         readPackageManifest(installedRestManifestLocation)?.version,
     ),
-    tsxPackageVersion: normalizeVersionRangeWithFallback(
-      monorepoManifest.dependencies?.tsx ??
-        monorepoManifest.devDependencies?.tsx ??
-        readPackageManifest(installedTsxManifestLocation)?.version,
-      DEFAULT_TSX_PACKAGE_VERSION,
+    ttscLintPackageVersion: normalizeExactVersionWithFallback(
+      monorepoManifest.dependencies?.['@ttsc/lint'] ??
+        monorepoManifest.devDependencies?.['@ttsc/lint'] ??
+        createManifest.devDependencies?.['@ttsc/lint'],
+      DEFAULT_TTSC_LINT_PACKAGE_VERSION,
     ),
+    ttscPackageVersion,
+    ttscUnpluginPackageVersion,
+    tsxPackageVersion: ttscPackageVersion,
     typiaPackageVersion: normalizeVersionRangeWithFallback(
       monorepoManifest.dependencies?.typia ??
         monorepoManifest.devDependencies?.typia ??
-        createManifest.dependencies?.typia ??
-        readPackageManifest(installedTypiaManifestLocation)?.version,
-      DEFAULT_VERSION_RANGE,
+        createManifest.dependencies?.typia,
+      DEFAULT_TYPIA_PACKAGE_VERSION,
     ),
-    typiaUnpluginPackageVersion: normalizeVersionRangeWithFallback(
-      monorepoManifest.dependencies?.['@typia/unplugin'] ??
-        monorepoManifest.devDependencies?.['@typia/unplugin'] ??
-        readPackageManifest(installedTypiaUnpluginManifestLocation)?.version,
-      DEFAULT_TYPIA_UNPLUGIN_PACKAGE_VERSION,
-    ),
+    typiaUnpluginPackageVersion: ttscUnpluginPackageVersion,
     typescriptPackageVersion: normalizeVersionRangeWithFallback(
       monorepoManifest.dependencies?.typescript ??
         monorepoManifest.devDependencies?.typescript ??
         createManifest.dependencies?.typescript ??
-        readPackageManifest(installedTypescriptManifestLocation)?.version,
-      DEFAULT_VERSION_RANGE,
+        createManifest.devDependencies?.typescript,
+      DEFAULT_TYPESCRIPT_PACKAGE_VERSION,
     ),
     wpTypiaPackageExactVersion: normalizeExactVersion(wpTypiaManifest.version),
     wpTypiaPackageVersion: normalizeVersionRange(wpTypiaManifest.version),

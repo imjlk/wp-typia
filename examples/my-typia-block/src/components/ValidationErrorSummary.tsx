@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 
 interface ValidationErrorSummaryProps {
-	errors: string[];
+  errors: string[];
 }
 
 /**
@@ -12,7 +12,7 @@ interface ValidationErrorSummaryProps {
 export function ValidationErrorSummary( {
 	errors,
 }: ValidationErrorSummaryProps ) {
-	return (
+  return (
 		<>
 			<p>
 				<strong>

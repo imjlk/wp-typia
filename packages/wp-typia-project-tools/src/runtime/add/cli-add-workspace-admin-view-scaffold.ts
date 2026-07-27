@@ -3,10 +3,7 @@ import path from 'node:path';
 
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
-import {
-  detectJsonIndent,
-  safeJsonParse,
-} from '../shared/json-utils.js';
+import { detectJsonIndent, safeJsonParse } from '../shared/json-utils.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -39,10 +36,7 @@ import {
   type AdminViewSource,
 } from './cli-add-workspace-admin-view-types.js';
 import { buildManualRestContractApiSource } from './cli-add-workspace-rest-manual-source-emitters.js';
-import {
-  getWorkspaceBootstrapPath,
-  patchFile,
-} from './cli-add-shared.js';
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
   appendPhpSnippetBeforeClosingTag,
   executeWorkspaceMutationPlan,
@@ -67,6 +61,15 @@ const MANUAL_REST_API_DIRECT_CALL_EXPORT_PATTERN =
   /(?:^|\n)\s*export\s+(?:(?:async\s+)?function|const|let|var)\s+callManualRestContract\b/u;
 const MANUAL_REST_API_NAMED_EXPORT_PATTERN =
   /(?:^|\n)\s*export\s*\{([^}]*)\}/gu;
+
+function normalizeAdminViewTypeScriptSource(source: string): string {
+  return source
+    .replace(/\r\n?/gu, '\n')
+    .replace(/^[ \t]+/gmu, (indentation) =>
+      indentation.replace(/\t/gu, '  '),
+    )
+    .replace(/[ \t]+$/gmu, '');
+}
 
 function hasManualRestContractCallerExport(apiSource: string): boolean {
   if (MANUAL_REST_API_DIRECT_CALL_EXPORT_PATTERN.test(apiSource)) {
@@ -426,7 +429,9 @@ export async function scaffoldAdminViewWorkspace(options: {
     adminViewSlug,
   );
   const manualSettingsRestResource =
-    isAdminViewManualSettingsRestResource(restResource) ? restResource : undefined;
+    isAdminViewManualSettingsRestResource(restResource)
+      ? restResource
+      : undefined;
   const manualSettingsRestApiPath = manualSettingsRestResource
     ? path.join(workspace.projectDir, manualSettingsRestResource.apiFile)
     : undefined;
@@ -460,69 +465,92 @@ export async function scaffoldAdminViewWorkspace(options: {
           manualSettingsRestResource,
         );
       }
+      let adminViewDataSource: string;
+      if (manualSettingsRestResource) {
+        adminViewDataSource = buildRestSettingsAdminViewDataSource(
+          adminViewSlug,
+          manualSettingsRestResource,
+        );
+      } else if (coreDataSource) {
+        adminViewDataSource = buildCoreDataAdminViewDataSource(
+          adminViewSlug,
+          coreDataSource,
+        );
+      } else if (restResource) {
+        adminViewDataSource = buildRestAdminViewDataSource(
+          adminViewSlug,
+          restResource,
+        );
+      } else {
+        adminViewDataSource =
+          buildDefaultAdminViewDataSource(adminViewSlug);
+      }
       await fsp.writeFile(
         path.join(adminViewDir, 'types.ts'),
-        manualSettingsRestResource
-          ? buildRestSettingsAdminViewTypesSource(
-              adminViewSlug,
-              manualSettingsRestResource,
-            )
-          : buildAdminViewTypesSource(adminViewSlug, restResource, coreDataSource),
+        normalizeAdminViewTypeScriptSource(
+          manualSettingsRestResource
+            ? buildRestSettingsAdminViewTypesSource(
+                adminViewSlug,
+                manualSettingsRestResource,
+              )
+            : buildAdminViewTypesSource(
+                adminViewSlug,
+                restResource,
+                coreDataSource,
+              ),
+        ),
         'utf8',
       );
       await fsp.writeFile(
         path.join(adminViewDir, 'config.ts'),
-        manualSettingsRestResource
-          ? buildRestSettingsAdminViewConfigSource(
-              adminViewSlug,
-              workspace.workspace.textDomain,
-              manualSettingsRestResource,
-            )
-          : buildAdminViewConfigSource(
-              adminViewSlug,
-              workspace.workspace.textDomain,
-              parsedSource,
-              restResource,
-            ),
+        normalizeAdminViewTypeScriptSource(
+          manualSettingsRestResource
+            ? buildRestSettingsAdminViewConfigSource(
+                adminViewSlug,
+                workspace.workspace.textDomain,
+                manualSettingsRestResource,
+              )
+            : buildAdminViewConfigSource(
+                adminViewSlug,
+                workspace.workspace.textDomain,
+                parsedSource,
+                restResource,
+              ),
+        ),
         'utf8',
       );
       await fsp.writeFile(
         path.join(adminViewDir, 'data.ts'),
-        manualSettingsRestResource
-          ? buildRestSettingsAdminViewDataSource(
-              adminViewSlug,
-              manualSettingsRestResource,
-            )
-          : coreDataSource
-          ? buildCoreDataAdminViewDataSource(adminViewSlug, coreDataSource)
-          : restResource
-            ? buildRestAdminViewDataSource(adminViewSlug, restResource)
-            : buildDefaultAdminViewDataSource(adminViewSlug),
+        normalizeAdminViewTypeScriptSource(adminViewDataSource),
         'utf8',
       );
       await fsp.writeFile(
         path.join(adminViewDir, 'Screen.tsx'),
-        manualSettingsRestResource
-          ? buildRestSettingsAdminViewScreenSource(
-              adminViewSlug,
-              workspace.workspace.textDomain,
-            )
-          : coreDataSource
-          ? buildCoreDataAdminViewScreenSource(
-              adminViewSlug,
-              workspace.workspace.textDomain,
-            )
-          : buildAdminViewScreenSource(
-              adminViewSlug,
-              workspace.workspace.textDomain,
-            ),
+        normalizeAdminViewTypeScriptSource(
+          manualSettingsRestResource
+            ? buildRestSettingsAdminViewScreenSource(
+                adminViewSlug,
+                workspace.workspace.textDomain,
+              )
+            : coreDataSource
+            ? buildCoreDataAdminViewScreenSource(
+                adminViewSlug,
+                workspace.workspace.textDomain,
+              )
+            : buildAdminViewScreenSource(
+                adminViewSlug,
+                workspace.workspace.textDomain,
+              ),
+        ),
         'utf8',
       );
       await fsp.writeFile(
         path.join(adminViewDir, 'index.tsx'),
-        buildAdminViewEntrySource(adminViewSlug, {
-          includeDataViewsStyle: !manualSettingsRestResource,
-        }),
+        normalizeAdminViewTypeScriptSource(
+          buildAdminViewEntrySource(adminViewSlug, {
+            includeDataViewsStyle: !manualSettingsRestResource,
+          }),
+        ),
         'utf8',
       );
       await fsp.writeFile(

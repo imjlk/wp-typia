@@ -1,7 +1,7 @@
 import {
 	quoteTsString,
-} from "./cli-add-shared.js";
-import { toTitleCase } from "../shared/string-case.js";
+} from './cli-add-shared.js';
+import { toTitleCase } from '../shared/string-case.js';
 
 /**
  * Render one `CONTRACTS` inventory entry for `scripts/block-config.ts`.
@@ -13,14 +13,14 @@ export function buildContractConfigEntry(
 	contractSlug: string,
 	sourceTypeName: string,
 ): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tschemaFile: ${quoteTsString(`src/contracts/${contractSlug}.schema.json`)},`,
 		`\t\tslug: ${quoteTsString(contractSlug)},`,
 		`\t\tsourceTypeName: ${quoteTsString(sourceTypeName)},`,
 		`\t\ttypesFile: ${quoteTsString(`src/contracts/${contractSlug}.ts`)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -34,9 +34,9 @@ export function buildContractTypesSource(
 	contractSlug: string,
 	sourceTypeName: string,
 ): string {
-	const title = toTitleCase(contractSlug);
+  const title = toTitleCase(contractSlug);
 
-	return `/**
+  return `/**
  * ${title} is a standalone wire contract.
  *
  * It does not register a WordPress REST route. Edit this type, then run
@@ -44,10 +44,10 @@ export function buildContractTypesSource(
  * artifact referenced from scripts/block-config.ts.
  */
 export interface ${sourceTypeName} {
-\tid: string;
-\tstatus: 'pending' | 'ready';
-\tupdatedAt: string;
-\tmessage?: string;
+  id: string;
+  status: 'pending' | 'ready';
+  updatedAt: string;
+  message?: string;
 }
 `;
 }

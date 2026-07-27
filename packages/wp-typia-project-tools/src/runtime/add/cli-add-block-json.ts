@@ -1,11 +1,11 @@
-import path from "node:path";
-import { parseScaffoldBlockMetadata } from "@wp-typia/block-runtime/blocks";
+import path from 'node:path';
+import { parseScaffoldBlockMetadata } from '@wp-typia/block-runtime/blocks';
 
 import type {
 	WorkspaceInventory,
-} from "../workspace/workspace-inventory.js";
-import { readOptionalUtf8File } from "../shared/fs-async.js";
-import { safeJsonParse } from "../shared/json-utils.js";
+} from '../workspace/workspace-inventory.js';
+import { readOptionalUtf8File } from '../shared/fs-async.js';
+import { safeJsonParse } from '../shared/json-utils.js';
 
 /**
  * Resolve an existing workspace block inventory entry by slug.
@@ -18,14 +18,14 @@ import { safeJsonParse } from "../shared/json-utils.js";
 export function resolveWorkspaceBlock(
 	inventory: WorkspaceInventory,
 	blockSlug: string,
-): WorkspaceInventory["blocks"][number] {
-	const block = inventory.blocks.find((entry) => entry.slug === blockSlug);
-	if (!block) {
-		throw new Error(
-			`Unknown workspace block "${blockSlug}". Choose one of: ${inventory.blocks.map((entry) => entry.slug).join(", ")}`,
-		);
-	}
-	return block;
+): WorkspaceInventory['blocks'][number] {
+  const block = inventory.blocks.find((entry) => entry.slug === blockSlug);
+  if (!block) {
+    throw new Error(
+      `Unknown workspace block "${blockSlug}". Choose one of: ${inventory.blocks.map((entry) => entry.slug).join(', ')}`,
+    );
+  }
+  return block;
 }
 
 /**
@@ -40,37 +40,43 @@ export async function readWorkspaceBlockJson(
 	projectDir: string,
 	blockSlug: string,
 ): Promise<{
-	blockJson: Record<string, unknown>;
-	blockJsonPath: string;
+  blockJson: Record<string, unknown>;
+  blockJsonPath: string;
 }> {
-	const blockJsonPath = path.join(projectDir, "src", "blocks", blockSlug, "block.json");
-	const source = await readOptionalUtf8File(blockJsonPath);
-	if (source === null) {
-		throw new Error(
-			`Missing ${path.relative(projectDir, blockJsonPath)} for workspace block "${blockSlug}".`,
-		);
-	}
+  const blockJsonPath = path.join(
+    projectDir,
+    'src',
+    'blocks',
+    blockSlug,
+    'block.json',
+  );
+  const source = await readOptionalUtf8File(blockJsonPath);
+  if (source === null) {
+    throw new Error(
+      `Missing ${path.relative(projectDir, blockJsonPath)} for workspace block "${blockSlug}".`,
+    );
+  }
 
-	let blockJson: Record<string, unknown>;
-	try {
-		blockJson = parseScaffoldBlockMetadata<Record<string, unknown>>(
-			safeJsonParse(source, {
-				context: "workspace block metadata",
-				filePath: blockJsonPath,
-			}),
-		);
-	} catch (error) {
-		throw new Error(
-			error instanceof Error
-				? `Failed to parse ${path.relative(projectDir, blockJsonPath)}: ${error.message}`
-				: `Failed to parse ${path.relative(projectDir, blockJsonPath)}.`,
-		);
-	}
+  let blockJson: Record<string, unknown>;
+  try {
+    blockJson = parseScaffoldBlockMetadata<Record<string, unknown>>(
+      safeJsonParse(source, {
+        context: 'workspace block metadata',
+        filePath: blockJsonPath,
+      }),
+    );
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `Failed to parse ${path.relative(projectDir, blockJsonPath)}: ${error.message}`
+        : `Failed to parse ${path.relative(projectDir, blockJsonPath)}.`,
+    );
+  }
 
-	return {
-		blockJson,
-		blockJsonPath,
-	};
+  return {
+    blockJson,
+    blockJsonPath,
+  };
 }
 
 /**
@@ -85,15 +91,19 @@ export function getMutableBlockHooks(
 	blockJson: Record<string, unknown>,
 	blockJsonRelativePath: string,
 ): Record<string, string> {
-	const blockHooks = blockJson.blockHooks;
-	if (blockHooks === undefined) {
-		const nextHooks: Record<string, string> = {};
-		blockJson.blockHooks = nextHooks;
-		return nextHooks;
-	}
-	if (!blockHooks || typeof blockHooks !== "object" || Array.isArray(blockHooks)) {
-		throw new Error(`${blockJsonRelativePath} must define blockHooks as an object when present.`);
-	}
+  const blockHooks = blockJson.blockHooks;
+  if (blockHooks === undefined) {
+    const nextHooks: Record<string, string> = {};
+    blockJson.blockHooks = nextHooks;
+    return nextHooks;
+  }
+  if (!blockHooks || typeof blockHooks !== 'object' || Array.isArray(
+    blockHooks,
+  )) {
+    throw new Error(
+      `${blockJsonRelativePath} must define blockHooks as an object when present.`,
+    );
+  }
 
-	return blockHooks as Record<string, string>;
+  return blockHooks as Record<string, string>;
 }

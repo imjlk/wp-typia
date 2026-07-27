@@ -1,21 +1,23 @@
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
-import { quoteTsString } from "../add/cli-add-shared.js";
-import type { RetrofitInitBlockTarget } from "./cli-init-types.js";
-import { updateWorkspaceInventorySource } from "../workspace/workspace-inventory.js";
+import { quoteTsString } from '../add/cli-add-shared.js';
+import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
+import type { RetrofitInitBlockTarget } from './cli-init-types.js';
+import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
 
 function buildRetrofitBlockConfigEntry(
 	target: RetrofitInitBlockTarget,
 ): string {
-	return [
-		"\t{",
+  return [
+		'\t{',
 		`\t\tslug: ${quoteTsString(target.slug)},`,
 		`\t\tattributeTypeName: ${quoteTsString(target.attributeTypeName)},`,
 		`\t\tblockJsonFile: ${quoteTsString(target.blockJsonFile)},`,
 		`\t\tmanifestFile: ${quoteTsString(target.manifestFile)},`,
 		`\t\ttypesFile: ${quoteTsString(target.typesFile)},`,
-		"\t},",
-	].join("\n");
+		'\t},',
+	].join('\n');
 }
 
 /**
@@ -27,8 +29,8 @@ function buildRetrofitBlockConfigEntry(
 export function buildRetrofitBlockConfigSource(
 	targets: RetrofitInitBlockTarget[],
 ): string {
-	const blockEntries = targets.map(buildRetrofitBlockConfigEntry).join("\n");
-	const baseSource = `export interface WorkspaceBlockConfig {
+  const blockEntries = targets.map(buildRetrofitBlockConfigEntry).join('\n');
+  const baseSource = `export interface WorkspaceBlockConfig {
 \tattributeTypeName: string;
 \tapiTypesFile?: string;
 \tblockJsonFile?: string;
@@ -46,7 +48,7 @@ ${blockEntries}
 ];
 `;
 
-	return `${updateWorkspaceInventorySource(baseSource)}\n`;
+  return `${updateWorkspaceInventorySource(baseSource)}\n`;
 }
 
 /**
@@ -55,7 +57,7 @@ ${blockEntries}
  * @returns Complete TypeScript source for the metadata sync helper.
  */
 export function buildRetrofitSyncTypesScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import path from 'node:path';
 
 import { syncBlockMetadata } from '@wp-typia/block-runtime/metadata-core';
@@ -140,7 +142,7 @@ main().catch( ( error ) => {
  * @returns Complete TypeScript source for the project sync entrypoint.
  */
 export function buildRetrofitSyncProjectScriptSource(): string {
-	return `/* eslint-disable no-console */
+  return `/* eslint-disable no-console */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -209,7 +211,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 \t\targs.push( '--check' );
 \t}
 
-\tconst result = spawnSync( 'tsx', args, {
+\tconst result = spawnSync( 'ttsx', args, {
 \t\tcwd: process.cwd(),
 \t\tenv: getSyncScriptEnv(),
 \t\tshell: process.platform === 'win32',
@@ -219,7 +221,7 @@ function runSyncScript( scriptPath: string, options: SyncCliOptions ) {
 \tif ( result.error ) {
 \t\tif ( isFileNotFoundError( result.error ) ) {
 \t\t\tthrow new Error(
-\t\t\t\t'Unable to resolve \`tsx\` for project sync. Install project dependencies or rerun the command through your package manager.'
+\t\t\t\t'Unable to resolve \`ttsx\` for project sync. Install project dependencies or rerun the command through your package manager.'
 \t\t\t);
 \t\t}
 
@@ -251,6 +253,22 @@ main().catch( ( error ) => {
 `;
 }
 
+function readRetrofitTtscLintCompatSource(): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  if (/\{\{|\}\}/u.test(source)) {
+    throw new Error(
+      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
+    );
+  }
+
+  return source;
+}
+
 /**
  * Build the helper file source map written by `wp-typia init --apply`.
  *
@@ -260,12 +278,14 @@ main().catch( ( error ) => {
 export function buildRetrofitHelperFiles(
 	blockTargets: RetrofitInitBlockTarget[],
 ): Record<string, string> {
-	return {
-		[path.join("scripts", "block-config.ts")]:
+  return {
+		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
+			readRetrofitTtscLintCompatSource(),
+		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
-		[path.join("scripts", "sync-project.ts")]:
+		[path.join('scripts', 'sync-project.ts')]:
 			buildRetrofitSyncProjectScriptSource(),
-		[path.join("scripts", "sync-types-to-block-json.ts")]:
+		[path.join('scripts', 'sync-types-to-block-json.ts')]:
 			buildRetrofitSyncTypesScriptSource(),
 	};
 }

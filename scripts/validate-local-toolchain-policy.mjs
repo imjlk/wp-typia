@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { TOML } from 'bun';
+import { TOML, YAML } from 'bun';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 export const LOCAL_TOOLCHAIN_POLICY = Object.freeze({
   ciWorkflowFile: '.github/workflows/ci.yml',
   configFile: 'mise.toml',
+  minimumNodeMajor: 24,
+  setupActionFile: '.github/actions/setup-bun-workspace/action.yml',
+  workflowDirectory: '.github/workflows',
   docs: Object.freeze({
     'CONTRIBUTING.md': Object.freeze([
       'mise install',
@@ -80,6 +83,147 @@ function readWorkflowEnv(workflowSource, variableName) {
     ),
   );
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
+function addNodeMajorMatch(matches, major, valuePath) {
+  if (
+    !matches.some((entry) => entry.major === major && entry.path === valuePath)
+  ) {
+    matches.push({ major, path: valuePath });
+  }
+}
+
+function collectNumericNodeMajors(value, nodeContext, pathSegments, matches) {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      collectNumericNodeMajors(
+        entry,
+        nodeContext,
+        [...pathSegments, String(index)],
+        matches,
+      );
+    });
+    return;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, entry] of Object.entries(value)) {
+      const normalizedKey = key.replace(/[^a-z0-9]/giu, '').toLowerCase();
+      const keyDeclaresNodeVersion =
+        normalizedKey === 'node' ||
+        normalizedKey === 'nodeversion' ||
+        normalizedKey.startsWith('nodebaseline');
+      const keyNodeVersionMatch = normalizedKey.match(/node(\d{1,2})(?=\D|$)/u);
+      const nextPath = [...pathSegments, key];
+
+      if (keyNodeVersionMatch) {
+        addNodeMajorMatch(
+          matches,
+          Number.parseInt(keyNodeVersionMatch[1], 10),
+          nextPath.join('.'),
+        );
+      }
+
+      collectNumericNodeMajors(
+        entry,
+        keyDeclaresNodeVersion ||
+          (nodeContext &&
+            (normalizedKey === 'default' || normalizedKey === 'options')),
+        nextPath,
+        matches,
+      );
+    }
+    return;
+  }
+
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return;
+  }
+
+  const source = String(value);
+  const explicitNodePattern = /node(?:\.js)?[-_ ]?(\d{1,2})(?=\D|$)/giu;
+  for (const match of source.matchAll(explicitNodePattern)) {
+    addNodeMajorMatch(
+      matches,
+      Number.parseInt(match[1], 10),
+      pathSegments.join('.'),
+    );
+  }
+
+  if (!nodeContext) {
+    return;
+  }
+
+  const versionPattern =
+    /(?:^|[^0-9{])(\d{1,2})(?:\.\d+(?:\.\d+)?)?(?=$|[^0-9}])/gu;
+  for (const match of source.matchAll(versionPattern)) {
+    addNodeMajorMatch(
+      matches,
+      Number.parseInt(match[1], 10),
+      pathSegments.join('.'),
+    );
+  }
+}
+
+function readYamlDocument(repoRoot, relativePath, errors) {
+  const source = readRequiredText(repoRoot, relativePath, errors);
+  if (source === null) {
+    return null;
+  }
+
+  try {
+    return YAML.parse(source);
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : '';
+    errors.push(`${relativePath} must contain valid YAML${detail}`);
+    return null;
+  }
+}
+
+function validateNodeWorkflowBaselines(repoRoot, policy, errors) {
+  const workflowDirectory = path.join(repoRoot, policy.workflowDirectory);
+  let workflowFiles = [];
+
+  try {
+    workflowFiles = fs
+      .readdirSync(workflowDirectory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/iu.test(entry.name))
+      .map((entry) => path.join(policy.workflowDirectory, entry.name));
+  } catch (error) {
+    const errorCode =
+      error && typeof error === 'object' && 'code' in error ? error.code : null;
+    const detail = typeof errorCode === 'string' ? ` (${errorCode})` : '';
+    errors.push(`${policy.workflowDirectory} must be readable${detail}.`);
+  }
+
+  const relativeFiles = [...workflowFiles, policy.setupActionFile];
+  for (const relativePath of relativeFiles) {
+    const document = readYamlDocument(repoRoot, relativePath, errors);
+    if (document === null) {
+      continue;
+    }
+
+    const matches = [];
+    collectNumericNodeMajors(document, false, [], matches);
+    const invalidMatches = matches.filter(
+      ({ major }) => major < policy.minimumNodeMajor,
+    );
+    for (const { major, path: valuePath } of invalidMatches) {
+      errors.push(
+        `${relativePath} must not configure Node ${major} at ${valuePath}; the minimum supported major is ${policy.minimumNodeMajor}.`,
+      );
+    }
+
+    if (relativePath === policy.setupActionFile) {
+      const defaultNodeVersion =
+        document?.inputs?.['node-version']?.default ?? null;
+      if (String(defaultNodeVersion) !== String(policy.minimumNodeMajor)) {
+        errors.push(
+          `${relativePath} must default inputs.node-version to ${JSON.stringify(String(policy.minimumNodeMajor))}, found ${JSON.stringify(defaultNodeVersion)}.`,
+        );
+      }
+    }
+  }
 }
 
 export function validateLocalToolchainPolicy(repoRoot = DEFAULT_REPO_ROOT) {
@@ -159,6 +303,8 @@ export function validateLocalToolchainPolicy(repoRoot = DEFAULT_REPO_ROOT) {
       );
     }
   }
+
+  validateNodeWorkflowBaselines(repoRoot, policy, errors);
 
   for (const [relativePath, requiredSnippets] of Object.entries(policy.docs)) {
     const source = readRequiredText(repoRoot, relativePath, errors);

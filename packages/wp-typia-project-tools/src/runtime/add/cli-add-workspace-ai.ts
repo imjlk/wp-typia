@@ -1,17 +1,17 @@
 import {
-	assertAiFeatureDoesNotExist,
-	assertValidGeneratedSlug,
-	normalizeBlockSlug,
-	resolveRestResourceNamespace,
-	type RunAddAiFeatureCommandOptions,
-} from "./cli-add-shared.js";
-import { scaffoldAiFeatureWorkspace } from "./cli-add-workspace-ai-scaffold.js";
-import { readWorkspaceInventoryAsync } from "../workspace/workspace-inventory.js";
-import { resolveWorkspaceProject } from "../workspace/workspace-project.js";
+  assertAiFeatureDoesNotExist,
+  assertValidGeneratedSlug,
+  normalizeBlockSlug,
+  resolveRestResourceNamespace,
+  type RunAddAiFeatureCommandOptions,
+} from './cli-add-shared.js';
+import { scaffoldAiFeatureWorkspace } from './cli-add-workspace-ai-scaffold.js';
+import { readWorkspaceInventoryAsync } from '../workspace/workspace-inventory.js';
+import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 import {
-	OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-	resolveScaffoldCompatibilityPolicy,
-} from "../templates/scaffold-compatibility.js";
+  OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
+  resolveScaffoldCompatibilityPolicy,
+} from '../templates/scaffold-compatibility.js';
 
 /**
  * Scaffold a workspace-level server-only AI feature endpoint and synchronize
@@ -25,39 +25,39 @@ export async function runAddAiFeatureCommand({
 	cwd = process.cwd(),
 	namespace,
 }: RunAddAiFeatureCommandOptions): Promise<{
-	aiFeatureSlug: string;
-	namespace: string;
-	projectDir: string;
-	warnings: string[];
+  aiFeatureSlug: string;
+  namespace: string;
+  projectDir: string;
+  warnings: string[];
 }> {
-	const workspace = resolveWorkspaceProject(cwd);
-	const aiFeatureSlug = assertValidGeneratedSlug(
-		"AI feature name",
-		normalizeBlockSlug(aiFeatureName),
-		"wp-typia add ai-feature <name> [--namespace <vendor/v1>]",
-	);
-	const resolvedNamespace = resolveRestResourceNamespace(
-		workspace.workspace.namespace,
-		namespace,
-	);
-	const compatibilityPolicy = resolveScaffoldCompatibilityPolicy(
-		OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
-	);
+  const workspace = resolveWorkspaceProject(cwd);
+  const aiFeatureSlug = assertValidGeneratedSlug(
+    'AI feature name',
+    normalizeBlockSlug(aiFeatureName),
+    'wp-typia add ai-feature <name> [--namespace <vendor/v1>]',
+  );
+  const resolvedNamespace = resolveRestResourceNamespace(
+    workspace.workspace.namespace,
+    namespace,
+  );
+  const compatibilityPolicy = resolveScaffoldCompatibilityPolicy(
+    OPTIONAL_WORDPRESS_AI_CLIENT_COMPATIBILITY,
+  );
 
-	const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
-	assertAiFeatureDoesNotExist(workspace.projectDir, aiFeatureSlug, inventory);
+  const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
+  assertAiFeatureDoesNotExist(workspace.projectDir, aiFeatureSlug, inventory);
 
-	const scaffoldResult = await scaffoldAiFeatureWorkspace({
-		aiFeatureSlug,
-		compatibilityPolicy,
-		namespace: resolvedNamespace,
-		workspace,
-	});
+  const scaffoldResult = await scaffoldAiFeatureWorkspace({
+    aiFeatureSlug,
+    compatibilityPolicy,
+    namespace: resolvedNamespace,
+    workspace,
+  });
 
-	return {
-		aiFeatureSlug,
-		namespace: resolvedNamespace,
-		projectDir: workspace.projectDir,
-		warnings: scaffoldResult.warnings,
-	};
+  return {
+    aiFeatureSlug,
+    namespace: resolvedNamespace,
+    projectDir: workspace.projectDir,
+    warnings: scaffoldResult.warnings,
+  };
 }

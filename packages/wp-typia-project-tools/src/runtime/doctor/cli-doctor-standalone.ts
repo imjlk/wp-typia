@@ -8,7 +8,7 @@ import {
   type SyncBlockMetadataOptions,
   type SyncBlockMetadataReport,
 } from '@wp-typia/block-runtime/metadata-core';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 import {
   formatInstallCommand,
@@ -157,9 +157,14 @@ const REQUIRED_INSTALLED_PACKAGES = [
     resolutionSpecifier: 'typescript',
   },
   {
-    diagnosticName: 'tsx',
-    packageName: 'tsx',
-    resolutionSpecifier: 'tsx/cli',
+    diagnosticName: 'ttsc/ttsx',
+    packageName: 'ttsc',
+    resolutionSpecifier: 'ttsc/package.json',
+  },
+  {
+    diagnosticName: '@ttsc/lint',
+    packageName: '@ttsc/lint',
+    resolutionSpecifier: '@ttsc/lint/package.json',
   },
   {
     diagnosticName: '@wordpress/scripts',
@@ -167,9 +172,9 @@ const REQUIRED_INSTALLED_PACKAGES = [
     resolutionSpecifier: '@wordpress/scripts/bin/wp-scripts.js',
   },
   {
-    diagnosticName: '@typia/unplugin/webpack',
-    packageName: '@typia/unplugin',
-    resolutionSpecifier: '@typia/unplugin/webpack',
+    diagnosticName: '@ttsc/unplugin/webpack',
+    packageName: '@ttsc/unplugin',
+    resolutionSpecifier: '@ttsc/unplugin/webpack',
   },
   // Resolve manifests so import-only packages such as
   // @wordpress/interactivity remain verifiable through createRequire().
@@ -266,9 +271,7 @@ function getDeclaredDependency(
 
 function getSafePackageBaseName(packageName: string): string | null {
   const match =
-    /^(?:@[a-z0-9][a-z0-9._-]*\/)?([a-z0-9][a-z0-9._-]*)$/iu.exec(
-      packageName,
-    );
+    /^(?:@[a-z0-9][a-z0-9._-]*\/)?([a-z0-9][a-z0-9._-]*)$/iu.exec(packageName);
   return match?.[1] ?? null;
 }
 
@@ -662,10 +665,14 @@ function findSyncOptionsObject(
     ) ||
     hasShadowedBinding(main, new Set(['parseCliOptions'])) ||
     !hasCanonicalRuntimeImports(sourceFile, SYNC_TYPES_RUNTIME_IMPORTS) ||
-    !hasCanonicalCheckParser(sourceFile, [
-      { flagName: '--strict', propertyName: 'strict' },
-      { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
-    ], true) ||
+    !hasCanonicalCheckParser(
+      sourceFile,
+      [
+        { flagName: '--strict', propertyName: 'strict' },
+        { flagName: '--fail-on-lossy', propertyName: 'failOnLossy' },
+      ],
+      true,
+    ) ||
     !hasTopLevelMainInvocation(
       sourceFile,
       new Set(['@wp-typia/block-runtime/metadata-core']),
@@ -836,10 +843,7 @@ function parseStandaloneSyncConfig(
   ] as const;
   const nonLiteralOptionalPath = optionalArtifactPathNames.find(
     (propertyName) => {
-      const property = getObjectPropertyAssignment(
-        optionsObject,
-        propertyName,
-      );
+      const property = getObjectPropertyAssignment(optionsObject, propertyName);
       return property && !ts.isStringLiteralLike(property.initializer);
     },
   );
@@ -856,10 +860,7 @@ function parseStandaloneSyncConfig(
     jsonSchemaFile: getObjectPropertyString(optionsObject, 'jsonSchemaFile'),
     manifestFile: getObjectPropertyString(optionsObject, 'manifestFile'),
     openApiFile: getObjectPropertyString(optionsObject, 'openApiFile'),
-    phpValidatorFile: getObjectPropertyString(
-      optionsObject,
-      'phpValidatorFile',
-    ),
+    phpValidatorFile: getObjectPropertyString(optionsObject, 'phpValidatorFile'),
   };
   const configuredPaths = [
     blockJsonFile,
@@ -1265,11 +1266,7 @@ function hasCanonicalRunnerErrorGuard(
       (hasHelperCondition &&
         hasCanonicalFileNotFoundErrorHelpers(sourceFile))) &&
     ts.isThrowStatement(finalStatement) &&
-    isResultPropertyAccess(
-      finalStatement.expression,
-      resultBinding,
-      'error',
-    )
+    isResultPropertyAccess(finalStatement.expression, resultBinding, 'error')
   );
 }
 
@@ -1301,9 +1298,7 @@ function hasCanonicalRunnerStatusGuard(
   if (!ts.isThrowStatement(finalStatement) || !finalStatement.expression) {
     return false;
   }
-  const errorConstruction = getSafeErrorConstruction(
-    finalStatement.expression,
-  );
+  const errorConstruction = getSafeErrorConstruction(finalStatement.expression);
   if (errorConstruction === null) return false;
   const message = errorConstruction.arguments![0];
   return (
@@ -1712,7 +1707,7 @@ function hasCanonicalSyncRunner(sourceFile: ts.SourceFile): boolean {
         spawnBindings.has(call.expression.text) &&
         call.arguments.length === 3 &&
         ts.isStringLiteralLike(call.arguments[0]) &&
-        call.arguments[0].text === 'tsx' &&
+        call.arguments[0].text === 'ttsx' &&
         ts.isIdentifier(call.arguments[1]) &&
         call.arguments[1].text === argsBinding &&
         ts.isObjectLiteralExpression(call.arguments[2]) &&
@@ -2382,8 +2377,7 @@ function getCanonicalSyncProjectDelegationIndex(
   );
   const scriptPathDeclaration = getDirectVariableBinding(
     statements,
-    (initializer) =>
-      isSyncScriptPathExpression(initializer, expectedScriptPath),
+    (initializer) => isSyncScriptPathExpression(initializer, expectedScriptPath),
   );
   if (!optionsDeclaration || !scriptPathDeclaration) {
     return null;
@@ -2489,10 +2483,10 @@ function getSyncProjectDelegationProblem(
     ts.ScriptKind.TS,
   );
   if (!hasCanonicalCheckParser(sourceFile)) {
-    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must parse and forward --check through the canonical tsx runner.`;
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must parse and forward --check through the canonical ttsx runner.`;
   }
   if (!hasCanonicalSyncRunner(sourceFile)) {
-    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must forward --check through the canonical tsx runner.`;
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must forward --check through the canonical ttsx runner.`;
   }
   const typeDelegationIndex = getCanonicalSyncProjectDelegationIndex(
     sourceFile,
@@ -2500,7 +2494,7 @@ function getSyncProjectDelegationProblem(
     false,
   );
   if (typeDelegationIndex === null) {
-    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_SCRIPT} through the canonical tsx runner.`;
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_SCRIPT} through the canonical ttsx runner.`;
   }
   const main = getSingleTopLevelFunction(sourceFile, 'main');
   const mainStatements = main?.body?.statements;
@@ -2530,7 +2524,7 @@ function getSyncProjectDelegationProblem(
     (restDelegationIndex === null ||
       restDelegationIndex <= typeDelegationIndex)
   ) {
-    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_REST_SCRIPT} through the canonical tsx runner after the type sync.`;
+    return `${STANDALONE_SYNC_PROJECT_SCRIPT} must delegate to ${STANDALONE_SYNC_REST_SCRIPT} through the canonical ttsx runner after the type sync.`;
   }
   const completionIndex = mainStatements.length - 1;
   const hasTypeOnlyTail =
@@ -2799,9 +2793,7 @@ function shellCommandChangesDirectory(segment: ShellCommandSegment): boolean {
     // dynamic eval body is intentionally treated as an unknown shell context.
     return (
       evaluatedWords.length > 0 &&
-      !evaluatedWords.every((word) =>
-        /^[A-Za-z_][A-Za-z0-9_]*=.*$/u.test(word),
-      )
+      !evaluatedWords.every((word) => /^[A-Za-z_][A-Za-z0-9_]*=.*$/u.test(word))
     );
   }
   return SHELL_DIRECTORY_CHANGE_COMMANDS.has(commandWord);
@@ -2972,19 +2964,19 @@ function getPackageMetadataCheck(
   const scriptRequirements = [
     {
       allowTrailingArguments: false,
-      commands: ['tsx scripts/sync-project.ts'],
+      commands: ['ttsx scripts/sync-project.ts'],
       name: 'sync',
     },
     {
       allowTrailingArguments: false,
-      commands: ['tsx scripts/sync-types-to-block-json.ts'],
+      commands: ['ttsx scripts/sync-types-to-block-json.ts'],
       name: 'sync-types',
     },
     ...(requiresRest
       ? [
           {
             allowTrailingArguments: false,
-            commands: ['tsx scripts/sync-rest-contracts.ts'],
+            commands: ['ttsx scripts/sync-rest-contracts.ts'],
             name: 'sync-rest',
           } as const,
         ]
@@ -3005,10 +2997,10 @@ function getPackageMetadataCheck(
     },
     {
       allowTrailingArguments: true,
-      commands: [syncCheckCommand, 'tsc --noEmit'],
+      commands: [syncCheckCommand, 'ttsc --noEmit'],
       name: 'typecheck',
       orderedPrerequisite: syncCheckCommand,
-      orderedTarget: 'tsc --noEmit',
+      orderedTarget: 'ttsc --noEmit',
     },
   ] as const;
   for (const requirement of scriptRequirements) {
@@ -3068,9 +3060,10 @@ function getPackageMetadataCheck(
       : []),
     ...(requiresRest ? REQUIRED_REST_RUNTIME_PACKAGES : []),
     ...(requiresRest ? REQUIRED_REST_WORDPRESS_RUNTIME_PACKAGES : []),
-    '@typia/unplugin',
+    '@ttsc/lint',
+    '@ttsc/unplugin',
     '@wordpress/scripts',
-    'tsx',
+    'ttsc',
     'typescript',
   ]) {
     if (
@@ -3418,10 +3411,12 @@ function getBootstrapCheck(
 ): DoctorCheck {
   const { requiresRest } = parsedRestConfig;
   const expectedRestRegistrations =
-    parsedRestConfig.manifest?.endpoints.map(({ method, path: endpointPath }) => ({
-      method,
-      path: endpointPath,
-    })) ?? [];
+    parsedRestConfig.manifest?.endpoints.map(
+      ({ method, path: endpointPath }) => ({
+        method,
+        path: endpointPath,
+      }),
+    ) ?? [];
   const packageBaseName = getSafePackageBaseName(project.packageName);
   if (!packageBaseName) {
     return createDoctorCheck(
@@ -3907,10 +3902,7 @@ async function getGeneratedArtifactsCheck(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const normalizedMessage = sanitizeProjectPaths(
-      message,
-      project.projectDir,
-    );
+    const normalizedMessage = sanitizeProjectPaths(message, project.projectDir);
     return createDoctorCheck(
       'Standalone generated artifacts',
       'fail',

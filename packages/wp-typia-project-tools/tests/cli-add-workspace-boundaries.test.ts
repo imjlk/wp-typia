@@ -4,6 +4,16 @@ import path from 'node:path';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime', 'add');
 
+function expectSourceToImport(source: string, moduleSpecifier: string): void {
+  const escapedModuleSpecifier = moduleSpecifier.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  );
+  expect(source).toMatch(
+    new RegExp(`from\\s+(['"])${escapedModuleSpecifier}\\1`),
+  );
+}
+
 test('cli-add-workspace delegates workspace add workflows to focused helpers', () => {
   const addWorkspaceSource = fs.readFileSync(
     path.join(runtimeRoot, 'cli-add-workspace.ts'),
@@ -265,36 +275,18 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
     'utf8',
   );
 
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-ability.js"',
-  );
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-admin-view.js"',
-  );
-  expect(addWorkspaceSource).toContain('from "./cli-add-workspace-assets.js"');
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-contract.js"',
-  );
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-integration-env.js"',
-  );
-  expect(addWorkspaceSource).toContain('from "./cli-add-workspace-rest.js"');
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-post-meta.js"',
-  );
-  expect(addWorkspaceSource).toContain('from "./cli-add-workspace-ai.js"');
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-variation.js"',
-  );
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-block-style.js"',
-  );
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-block-transform.js"',
-  );
-  expect(addWorkspaceSource).toContain(
-    'from "./cli-add-workspace-hooked-block.js"',
-  );
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-ability.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-admin-view.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-assets.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-contract.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-integration-env.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-rest.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-post-meta.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-ai.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-variation.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-block-style.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-block-transform.js');
+  expectSourceToImport(addWorkspaceSource, './cli-add-workspace-hooked-block.js');
   expect(addWorkspaceSource).toContain('runAddAbilityCommand');
   expect(addWorkspaceSource).toContain('runAddAiFeatureCommand');
   expect(addWorkspaceSource).toContain('runAddAdminViewCommand');
@@ -398,25 +390,15 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(addWorkspaceSource).not.toContain(
     'export async function runAddHookedBlockCommand(',
   );
-  expect(assetsSource).toContain(
-    'from "./cli-add-workspace-binding-source.js"',
-  );
-  expect(assetsSource).toContain(
-    'from "./cli-add-workspace-editor-plugin.js"',
-  );
-  expect(assetsSource).toContain('from "./cli-add-workspace-pattern.js"');
+  expectSourceToImport(assetsSource, './cli-add-workspace-binding-source.js');
+  expectSourceToImport(assetsSource, './cli-add-workspace-editor-plugin.js');
+  expectSourceToImport(assetsSource, './cli-add-workspace-pattern.js');
   expect(assetsSource).not.toContain('function buildPatternSource(');
   expect(assetsSource).not.toContain('function buildBindingSourceServerSource(');
   expect(assetsSource).not.toContain('function buildEditorPluginEntrySource(');
-  expect(patternSource).toContain(
-    'from "./cli-add-workspace-pattern-anchors.js"',
-  );
-  expect(patternSource).toContain(
-    'from "./cli-add-workspace-pattern-options.js"',
-  );
-  expect(patternSource).toContain(
-    'from "./cli-add-workspace-pattern-source-emitters.js"',
-  );
+  expectSourceToImport(patternSource, './cli-add-workspace-pattern-anchors.js');
+  expectSourceToImport(patternSource, './cli-add-workspace-pattern-options.js');
+  expectSourceToImport(patternSource, './cli-add-workspace-pattern-source-emitters.js');
   expect(patternSource).not.toContain('function buildPatternSource(');
   expect(patternSource).not.toContain(
     'async function ensurePatternBootstrapAnchors(',
@@ -448,15 +430,9 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   );
   expect(patternSource).not.toContain('function buildBindingSourceServerSource(');
   expect(patternSource).not.toContain('function buildEditorPluginEntrySource(');
-  expect(bindingSource).toContain(
-    'from "./cli-add-workspace-binding-source-anchors.js"',
-  );
-  expect(bindingSource).toContain(
-    'from "./cli-add-workspace-binding-source-source-emitters.js"',
-  );
-  expect(bindingSource).toContain(
-    'from "./cli-add-workspace-binding-source-types.js"',
-  );
+  expectSourceToImport(bindingSource, './cli-add-workspace-binding-source-anchors.js');
+  expectSourceToImport(bindingSource, './cli-add-workspace-binding-source-source-emitters.js');
+  expectSourceToImport(bindingSource, './cli-add-workspace-binding-source-types.js');
   expect(bindingSource).toContain(
     'export async function runAddBindingSourceCommand(',
   );
@@ -502,12 +478,8 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(bindingSourceTypesSource).toContain('export type BindingPostMetaSource');
   expect(bindingSource).not.toContain('function buildPatternSource(');
   expect(bindingSource).not.toContain('function buildEditorPluginEntrySource(');
-  expect(editorPluginSource).toContain(
-    'from "./cli-add-workspace-editor-plugin-anchors.js"',
-  );
-  expect(editorPluginSource).toContain(
-    'from "./cli-add-workspace-editor-plugin-source-emitters.js"',
-  );
+  expectSourceToImport(editorPluginSource, './cli-add-workspace-editor-plugin-anchors.js');
+  expectSourceToImport(editorPluginSource, './cli-add-workspace-editor-plugin-source-emitters.js');
   expect(editorPluginSource).toContain('await ensureEditorPluginBootstrapAnchors(');
   expect(editorPluginSource).toContain('await ensureEditorPluginBuildScriptAnchors(');
   expect(editorPluginSource).toContain('await ensureEditorPluginWebpackAnchors(');
@@ -563,11 +535,9 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(editorPluginSource).not.toContain(
     'function buildBindingSourceServerSource(',
   );
-	expect(restSource).toContain(
-		'from "./cli-add-workspace-rest-generated.js"',
-	);
-	expect(restSource).toContain('from "./cli-add-workspace-rest-manual.js"');
-	expect(restSource).toContain('from "./cli-add-workspace-rest-types.js"');
+	expectSourceToImport(restSource, './cli-add-workspace-rest-generated.js');
+	expectSourceToImport(restSource, './cli-add-workspace-rest-manual.js');
+	expectSourceToImport(restSource, './cli-add-workspace-rest-types.js');
 	expect(restSource).not.toContain('function buildRestResourceTypesSource(');
 	expect(restSource).not.toContain('function buildRestResourcePhpSource(');
 	expect(restSource).not.toContain(
@@ -581,41 +551,23 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 	expect(restGeneratedSource).toContain(
 		'export async function scaffoldGeneratedRestResource(',
 	);
-	expect(restGeneratedSource).toContain(
-		'from "./cli-add-workspace-rest-php-templates.js"',
-	);
-	expect(restGeneratedSource).toContain(
-		'from "./cli-add-workspace-rest-schema-helper-php-template.js"',
-	);
-	expect(restGeneratedSource).toContain(
-		'from "./cli-add-workspace-rest-generated-source-emitters.js"',
-	);
-	expect(restGeneratedSource).toContain(
-		'from "./cli-add-workspace-rest-bootstrap-anchors.js"',
-	);
-	expect(restGeneratedSource).toContain(
-		'from "./cli-add-workspace-rest-resource-sync-anchors.js"',
-	);
+	expectSourceToImport(restGeneratedSource, './cli-add-workspace-rest-php-templates.js');
+	expectSourceToImport(restGeneratedSource, './cli-add-workspace-rest-schema-helper-php-template.js');
+	expectSourceToImport(restGeneratedSource, './cli-add-workspace-rest-generated-source-emitters.js');
+	expectSourceToImport(restGeneratedSource, './cli-add-workspace-rest-bootstrap-anchors.js');
+	expectSourceToImport(restGeneratedSource, './cli-add-workspace-rest-resource-sync-anchors.js');
 	expect(restGeneratedSource).toContain('syncRestResourceArtifacts');
 	expect(restManualSource).toContain(
 		'export async function scaffoldManualRestContract(',
 	);
-	expect(restManualSource).toContain(
-		'from "./cli-add-workspace-rest-manual-source-emitters.js"',
-	);
-	expect(restManualSource).toContain(
-		'from "./cli-add-workspace-rest-resource-sync-anchors.js"',
-	);
+	expectSourceToImport(restManualSource, './cli-add-workspace-rest-manual-source-emitters.js');
+	expectSourceToImport(restManualSource, './cli-add-workspace-rest-resource-sync-anchors.js');
 	expect(restManualSource).toContain('syncManualRestContractArtifacts');
 	expect(restPhpTemplatesSource).toContain(
 		'export function buildRestResourcePhpSource(',
 	);
-	expect(restPhpTemplatesSource).toContain(
-		'from "./cli-add-workspace-rest-resource-php-routing-template.js"',
-	);
-	expect(restPhpTemplatesSource).toContain(
-		'from "./cli-add-workspace-rest-schema-helper-php-template.js"',
-	);
+	expectSourceToImport(restPhpTemplatesSource, './cli-add-workspace-rest-resource-php-routing-template.js');
+	expectSourceToImport(restPhpTemplatesSource, './cli-add-workspace-rest-schema-helper-php-template.js');
 	expect(restPhpTemplatesSource).not.toContain(
 		'function buildRestResourceRouteRegistrations(',
 	);
@@ -646,12 +598,8 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 	expect(restTypesSource).toContain(
 		'export interface RunAddRestResourceCommandResult',
 	);
-	expect(restSourceEmittersSource).toContain(
-		'from "./cli-add-workspace-rest-generated-source-emitters.js"',
-	);
-	expect(restSourceEmittersSource).toContain(
-		'from "./cli-add-workspace-rest-manual-source-emitters.js"',
-	);
+	expectSourceToImport(restSourceEmittersSource, './cli-add-workspace-rest-generated-source-emitters.js');
+	expectSourceToImport(restSourceEmittersSource, './cli-add-workspace-rest-manual-source-emitters.js');
 	expect(restSourceEmittersSource).not.toContain(
 		'function buildRestResourceTypesSource(',
 	);
@@ -684,15 +632,9 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 	);
 	expect(restSourceUtilsSource).not.toContain('buildRestResource');
 	expect(restSourceUtilsSource).not.toContain('buildManualRestContract');
-	expect(restAnchorsSource).toContain(
-		'from "./cli-add-workspace-rest-bootstrap-anchors.js"',
-	);
-	expect(restAnchorsSource).toContain(
-		'from "./cli-add-workspace-rest-contract-sync-anchors.js"',
-	);
-	expect(restAnchorsSource).toContain(
-		'from "./cli-add-workspace-rest-resource-sync-anchors.js"',
-	);
+	expectSourceToImport(restAnchorsSource, './cli-add-workspace-rest-bootstrap-anchors.js');
+	expectSourceToImport(restAnchorsSource, './cli-add-workspace-rest-contract-sync-anchors.js');
+	expectSourceToImport(restAnchorsSource, './cli-add-workspace-rest-resource-sync-anchors.js');
 	expect(restAnchorsSource).not.toContain(
 		'async function ensureRestResourceBootstrapAnchors(',
 	);
@@ -717,18 +659,14 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 	expect(restContractSyncAnchorsSource).toContain(
 		'async function ensureContractSyncScriptAnchors(',
 	);
-	expect(restContractSyncAnchorsSource).toContain(
-		'from "./cli-add-workspace-rest-sync-script-shared.js"',
-	);
+	expectSourceToImport(restContractSyncAnchorsSource, './cli-add-workspace-rest-sync-script-shared.js');
 	expect(restContractSyncAnchorsSource).not.toContain(
 		'async function ensureRestResourceSyncScriptAnchors(',
 	);
 	expect(restResourceSyncAnchorsSource).toContain(
 		'async function ensureRestResourceSyncScriptAnchors(',
 	);
-	expect(restResourceSyncAnchorsSource).toContain(
-		'from "./cli-add-workspace-rest-sync-script-shared.js"',
-	);
+	expectSourceToImport(restResourceSyncAnchorsSource, './cli-add-workspace-rest-sync-script-shared.js');
 	expect(restResourceSyncAnchorsSource).not.toContain(
 		'async function ensureContractSyncScriptAnchors(',
 	);
@@ -744,18 +682,10 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 	expect(restSyncScriptSharedSource).not.toContain(
 		'async function ensureRestResourceSyncScriptAnchors(',
 	);
-  expect(contractSource).toContain(
-    'from "./cli-add-workspace-rest-contract-sync-anchors.js"',
-  );
-  expect(postMetaSource).toContain(
-    'from "./cli-add-workspace-post-meta-anchors.js"',
-  );
-  expect(postMetaSource).toContain(
-    'from "./cli-add-workspace-rest-contract-sync-anchors.js"',
-  );
-  expect(postMetaSource).toContain(
-    'from "./cli-add-workspace-post-meta-source-emitters.js"',
-  );
+  expectSourceToImport(contractSource, './cli-add-workspace-rest-contract-sync-anchors.js');
+  expectSourceToImport(postMetaSource, './cli-add-workspace-post-meta-anchors.js');
+  expectSourceToImport(postMetaSource, './cli-add-workspace-rest-contract-sync-anchors.js');
+  expectSourceToImport(postMetaSource, './cli-add-workspace-post-meta-source-emitters.js');
   expect(postMetaSource).toContain(
     'export async function runAddPostMetaCommand(',
   );
@@ -775,23 +705,15 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(postMetaAnchorsSource).toContain(
     'async function ensurePostMetaSyncScriptAnchors(',
   );
-  expect(aiScaffoldSource).toContain('from "./cli-add-workspace-ai-anchors.js"');
-  expect(aiScaffoldSource).toContain(
-    'from "./cli-add-workspace-ai-source-emitters.js"',
-  );
-  expect(aiScaffoldSource).toContain(
-    'from "./cli-add-workspace-ai-sync-script-source.js"',
-  );
-  expect(aiScaffoldSource).toContain(
-    'from "./cli-add-workspace-ai-sync-rest-anchors.js"',
-  );
+  expectSourceToImport(aiScaffoldSource, './cli-add-workspace-ai-anchors.js');
+  expectSourceToImport(aiScaffoldSource, './cli-add-workspace-ai-source-emitters.js');
+  expectSourceToImport(aiScaffoldSource, './cli-add-workspace-ai-sync-script-source.js');
+  expectSourceToImport(aiScaffoldSource, './cli-add-workspace-ai-sync-rest-anchors.js');
   expect(aiScaffoldSource).not.toContain('function buildAiFeatureTypesSource(');
   expect(aiScaffoldSource).not.toContain(
     'async function ensureAiFeatureBootstrapAnchors(',
   );
-  expect(aiScaffoldSource).toContain(
-    'from "./cli-add-workspace-ai-templates.js"',
-  );
+  expectSourceToImport(aiScaffoldSource, './cli-add-workspace-ai-templates.js');
   expect(aiSource).toContain('export async function runAddAiFeatureCommand(');
   expect(aiSourceEmittersSource).toContain(
     'function buildAiFeatureTypesSource(',
@@ -800,9 +722,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(aiSourceEmittersSource).toContain(
     'function buildAiFeatureDataSource(',
   );
-  expect(aiSourceEmittersSource).toContain(
-    'from "./cli-add-workspace-ai-sync-script-source.js"',
-  );
+  expectSourceToImport(aiSourceEmittersSource, './cli-add-workspace-ai-sync-script-source.js');
   expect(aiSourceEmittersSource).not.toContain(
     'function buildAiFeatureSyncScriptSource(',
   );
@@ -810,7 +730,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
     'export function buildAiFeatureSyncScriptSource(',
   );
   expect(aiSyncScriptSource).toContain(
-    "projectWordPressAiSchema",
+    'projectWordPressAiSchema',
   );
   expect(aiSyncScriptSource).not.toContain('function buildAiFeatureApiSource(');
 	expect(aiAnchorsSource).toContain(
@@ -830,20 +750,14 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
 		'function buildAiFeatureNoResourcesGuard(',
 	);
 	expect(aiSyncRestAnchorsSource).toContain(
-		"feature.restManifest.contracts !== null",
+		'feature.restManifest.contracts !== null',
 	);
 	expect(aiSyncRestAnchorsSource).not.toContain(
 		'async function ensureAiFeatureBootstrapAnchors(',
 	);
-  expect(integrationEnvSource).toContain(
-    'from "./cli-add-workspace-integration-env-files.js"',
-  );
-  expect(integrationEnvSource).toContain(
-    'from "./cli-add-workspace-integration-env-package-json.js"',
-  );
-  expect(integrationEnvSource).toContain(
-    'from "./cli-add-workspace-integration-env-source-emitters.js"',
-  );
+  expectSourceToImport(integrationEnvSource, './cli-add-workspace-integration-env-files.js');
+  expectSourceToImport(integrationEnvSource, './cli-add-workspace-integration-env-package-json.js');
+  expectSourceToImport(integrationEnvSource, './cli-add-workspace-integration-env-source-emitters.js');
   expect(integrationEnvSource).toContain(
     'export async function runAddIntegrationEnvCommand(',
   );
@@ -953,9 +867,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(variationSource).toContain(
     'export async function runAddVariationCommand(',
   );
-  expect(variationSource).toContain(
-    'from "./cli-add-workspace-registration-hooks.js"',
-  );
+  expectSourceToImport(variationSource, './cli-add-workspace-registration-hooks.js');
   expect(variationSource).not.toContain('function buildBlockStyleSource(');
   expect(variationSource).not.toContain('function buildBlockTransformSource(');
   expect(blockStyleSource).toContain('function buildBlockStyleSource(');
@@ -965,9 +877,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(blockStyleSource).toContain(
     'export async function runAddBlockStyleCommand(',
   );
-  expect(blockStyleSource).toContain(
-    'from "./cli-add-workspace-registration-hooks.js"',
-  );
+  expectSourceToImport(blockStyleSource, './cli-add-workspace-registration-hooks.js');
   expect(blockStyleSource).not.toContain('function buildVariationSource(');
   expect(blockStyleSource).not.toContain('function buildBlockTransformSource(');
   expect(blockTransformSource).toContain('function buildBlockTransformSource(');
@@ -977,9 +887,7 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(blockTransformSource).toContain(
     'export async function runAddBlockTransformCommand(',
   );
-  expect(blockTransformSource).toContain(
-    'from "./cli-add-workspace-registration-hooks.js"',
-  );
+  expectSourceToImport(blockTransformSource, './cli-add-workspace-registration-hooks.js');
   expect(blockTransformSource).not.toContain('function buildVariationSource(');
   expect(blockTransformSource).not.toContain('function buildBlockStyleSource(');
   expect(hookedBlockSource).toContain(
@@ -997,12 +905,8 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(registrationHooksSource).toContain(
     'export async function ensureWorkspaceRegistrationSettingsCall(',
   );
-  expect(abilityScaffoldSource).toContain(
-    'from "./cli-add-workspace-ability-anchors.js"',
-  );
-  expect(abilityScaffoldSource).toContain(
-    'from "./cli-add-workspace-ability-registry.js"',
-  );
+  expectSourceToImport(abilityScaffoldSource, './cli-add-workspace-ability-anchors.js');
+  expectSourceToImport(abilityScaffoldSource, './cli-add-workspace-ability-registry.js');
   expect(abilityScaffoldSource).not.toContain(
     'async function ensureAbilityBootstrapAnchors(',
   );

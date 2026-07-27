@@ -1,9 +1,9 @@
-import { RichText, useBlockProps } from "@wordpress/block-editor";
+import { RichText, useBlockProps } from '@wordpress/block-editor';
 
 export default function Edit({ attributes, setAttributes }) {
 	return (
-		<div {...useBlockProps({ className: "template-{{variantLabel}}" })}>
-			<p>{attributes.transformedLabel || "{{transformedLabel}}"}</p>
+		<div {...useBlockProps({ className: 'template-{{variantLabel}}' })}>
+			<p>{attributes.transformedLabel || '{{transformedLabel}}'}</p>
 			<RichText
 				tagName="p"
 				value={attributes.content}

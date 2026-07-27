@@ -1,21 +1,18 @@
-import path from "node:path";
+import path from 'node:path';
 
+import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
-	getWorkspaceBootstrapPath,
-	patchFile,
-} from "./cli-add-shared.js";
-import {
-	appendPhpSnippetBeforeClosingTag,
-	insertPhpSnippetBeforeWorkspaceAnchors,
-} from "./cli-add-workspace-mutation.js";
-import { hasPhpFunctionDefinition } from "../shared/php-utils.js";
-import type { WorkspaceProject } from "../workspace/workspace-project.js";
+  appendPhpSnippetBeforeClosingTag,
+  insertPhpSnippetBeforeWorkspaceAnchors,
+} from './cli-add-workspace-mutation.js';
+import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const REST_RESOURCE_SERVER_GLOB = "/inc/rest/*.php";
-const REST_SCHEMA_HELPER_PATH = "/inc/rest-schema.php";
+const REST_RESOURCE_SERVER_GLOB = '/inc/rest/*.php';
+const REST_SCHEMA_HELPER_PATH = '/inc/rest-schema.php';
 
 function escapeRegex(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 /**
@@ -31,24 +28,28 @@ function phpFunctionBlockIncludes(
 	functionName: string,
 	needle: string,
 ): boolean {
-	const functionMatch = new RegExp(
+  const functionMatch = new RegExp(
 		`function\\s+${escapeRegex(functionName)}\\s*\\(`,
-		"u",
+		'u',
 	).exec(source);
-	if (functionMatch === null) {
-		return false;
-	}
+  if (functionMatch === null) {
+    return false;
+  }
 
-	const start = functionMatch.index;
-	const remainder = source.slice(start + 1);
-	const nextFunctionMatch = /\nfunction\s+/u.exec(remainder);
-	const nextFunction =
+  const start = functionMatch.index;
+  const remainder = source.slice(start + 1);
+  const nextFunctionMatch = /\nfunction\s+/u.exec(remainder);
+  const nextFunction =
 		nextFunctionMatch === null ? -1 : start + 1 + nextFunctionMatch.index;
-	const closingTag = source.indexOf("\n?>", start + 1);
-	const endCandidates = [nextFunction, closingTag].filter((index) => index !== -1);
-	const end = endCandidates.length > 0 ? Math.min(...endCandidates) : source.length;
+  const closingTag = source.indexOf('\n?>', start + 1);
+  const endCandidates = [nextFunction, closingTag].filter(
+    (index) => index !== -1,
+  );
+  const end = endCandidates.length > 0
+    ? Math.min(...endCandidates)
+    : source.length;
 
-	return source.slice(start, end).includes(needle);
+  return source.slice(start, end).includes(needle);
 }
 
 /**
@@ -61,9 +62,9 @@ function phpFunctionBlockIncludes(
 export async function ensureRestSchemaHelperBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
 
-	await patchFile(bootstrapPath, (source) => {
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
 		const loadFunctionName = `${workspace.workspace.phpPrefix}_load_rest_schema_helpers`;
 		const loadCall = `${loadFunctionName}();`;
@@ -92,8 +93,8 @@ ${loadCall}
 				[
 					`Unable to patch ${path.basename(bootstrapPath)} in ensureRestSchemaHelperBootstrapAnchors.`,
 					`The existing ${loadFunctionName}() definition does not include ${REST_SCHEMA_HELPER_PATH}.`,
-					"Restore the generated bootstrap shape or load inc/rest-schema.php manually before retrying.",
-				].join(" "),
+					'Restore the generated bootstrap shape or load inc/rest-schema.php manually before retrying.',
+				].join(' '),
 			);
 		} else if (!nextSource.includes(loadCall)) {
 			nextSource = appendPhpSnippetBeforeClosingTag(nextSource, loadCall);
@@ -113,9 +114,9 @@ ${loadCall}
 export async function ensureRestResourceBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
-	const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const bootstrapPath = getWorkspaceBootstrapPath(workspace);
 
-	await patchFile(bootstrapPath, (source) => {
+  await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
 		const registerFunctionName = `${workspace.workspace.phpPrefix}_register_rest_resources`;
 		const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
@@ -140,8 +141,8 @@ function ${registerFunctionName}() {
 				[
 					`Unable to patch ${path.basename(bootstrapPath)} in ensureRestResourceBootstrapAnchors.`,
 					`The existing ${registerFunctionName}() definition does not include ${REST_RESOURCE_SERVER_GLOB}.`,
-					"Restore the generated bootstrap shape or wire the REST resource loader manually before retrying.",
-				].join(" "),
+					'Restore the generated bootstrap shape or wire the REST resource loader manually before retrying.',
+				].join(' '),
 			);
 		}
 

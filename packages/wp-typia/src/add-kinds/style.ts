@@ -27,10 +27,7 @@ export const styleAddKindEntry =
     description: 'Add a Block Styles registration to an existing block',
     nameLabel: 'Style name',
     async prepareExecution(context) {
-      const name = requireAddKindName(
-        context,
-        STYLE_MISSING_NAME_MESSAGE,
-      );
+      const name = requireAddKindName(context, STYLE_MISSING_NAME_MESSAGE);
       const blockSlug = requireStrictStringFlag(
         context.flags,
         'block',

@@ -4,11 +4,7 @@ import path from 'node:path';
 
 export const packageRoot = path.resolve(import.meta.dir, '..');
 export const entryPath = path.join(packageRoot, 'bin', 'wp-typia.js');
-export const runtimeEntrypoint = path.join(
-  packageRoot,
-  'dist',
-  'cli.js',
-);
+export const runtimeEntrypoint = path.join(packageRoot, 'dist', 'cli.js');
 
 export function runCapturedCommand(
   command: string,

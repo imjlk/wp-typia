@@ -2,7 +2,7 @@ import { afterAll, expect, test } from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 
 import {
   assertFullBlockName,
@@ -19,7 +19,9 @@ import {
 import { getPropertyNameText } from '../src/runtime/ts-property-names.js';
 
 const runtimeRoot = path.join(import.meta.dir, '..', 'src', 'runtime');
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-runtime-helpers-'));
+const tempRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'wp-typia-runtime-helpers-'),
+);
 
 afterAll(() => {
   fs.rmSync(tempRoot, { force: true, recursive: true });

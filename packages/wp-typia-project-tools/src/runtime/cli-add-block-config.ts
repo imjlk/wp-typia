@@ -1,1 +1,1 @@
-export * from "./add/cli-add-block-config.js";
+export * from './add/cli-add-block-config.js';

@@ -1,11 +1,11 @@
-import fs from 'node:fs'
-import { promises as fsp } from 'node:fs'
-import { createRequire } from 'node:module'
-import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
-import semver from 'semver'
-import { x as extractTarball } from 'tar'
+import semver from 'semver';
+import { x as extractTarball } from 'tar';
 
 import {
   createExternalTemplateTimeoutError,
@@ -15,51 +15,51 @@ import {
   getExternalTemplateTimeoutMs,
   readBufferResponseWithLimit,
   readJsonResponseWithLimit,
-} from './external-template-guards.js'
+} from './external-template-guards.js';
 import {
   findReusableExternalTemplateSourceCache,
   isExternalTemplateCacheEnabled,
   resolveExternalTemplateSourceCache,
-} from './template-source-cache.js'
+} from './template-source-cache.js';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
-} from '../cli/cli-diagnostics.js'
-import { pathExists } from '../shared/fs-async.js'
-import { readJsonFile, readJsonFileSync } from '../shared/json-utils.js'
+} from '../cli/cli-diagnostics.js';
+import { pathExists } from '../shared/fs-async.js';
+import { readJsonFile, readJsonFileSync } from '../shared/json-utils.js';
 import {
   OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
   OFFICIAL_WORKSPACE_TEMPLATE_ALIAS,
   PROJECT_TOOLS_PACKAGE_ROOT,
   TEMPLATE_IDS,
-} from './template-registry.js'
-import { isPlainObject } from '../shared/object-utils.js'
-import { createManagedTempRoot } from '../shared/temp-roots.js'
+} from './template-registry.js';
+import { isPlainObject } from '../shared/object-utils.js';
+import { createManagedTempRoot } from '../shared/temp-roots.js';
 import type {
   GitHubTemplateLocator,
   NpmTemplateLocator,
   RemoteTemplateLocator,
   SeedSource,
-} from './template-source-contracts.js'
+} from './template-source-contracts.js';
 
 const USER_FACING_TEMPLATE_IDS = [
   ...TEMPLATE_IDS,
   OFFICIAL_WORKSPACE_TEMPLATE_ALIAS,
-] as const
+] as const;
 
 const GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE =
-  'github-template-cache-revision-race'
+  'github-template-cache-revision-race';
 
 type GitHubTemplateCacheRevisionRaceError = Error & {
   code: typeof GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE
-}
+};
 
 function createGitHubTemplateCacheRevisionRaceError(
   message: string,
 ): GitHubTemplateCacheRevisionRaceError {
-  const error = new Error(message) as GitHubTemplateCacheRevisionRaceError
-  error.code = GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE
-  return error
+  const error = new Error(message) as GitHubTemplateCacheRevisionRaceError;
+  error.code = GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE;
+  return error;
 }
 
 function isGitHubTemplateCacheRevisionRaceError(
@@ -71,7 +71,7 @@ function isGitHubTemplateCacheRevisionRaceError(
     'code' in error &&
     (error as { code: unknown }).code ===
       GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE
-  )
+  );
 }
 
 function getUnknownNpmTemplateMessage(templateId: string): string {
@@ -79,27 +79,27 @@ function getUnknownNpmTemplateMessage(templateId: string): string {
     `Unknown template "${templateId}". Expected one of: ${USER_FACING_TEMPLATE_IDS.join(', ')}.`,
     'Run `wp-typia templates list` to inspect available templates.',
     'If you meant an npm template package, verify the package name and configured npm registry.',
-  ].join(' ')
+  ].join(' ');
 }
 
 function readOptionalDistString(
   dist: Record<string, unknown>,
   key: string,
 ): string | null {
-  const value = dist[key]
-  return typeof value === 'string' && value.length > 0 ? value : null
+  const value = dist[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function normalizeNpmRegistryCacheKey(registryBase: string): string {
   try {
-    const url = new URL(registryBase)
-    url.username = ''
-    url.password = ''
-    url.search = ''
-    url.hash = ''
-    return url.toString().replace(/\/$/u, '')
+    const url = new URL(registryBase);
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/$/u, '');
   } catch {
-    return registryBase
+    return registryBase;
   }
 }
 
@@ -111,29 +111,29 @@ async function downloadNpmTemplateTarball(
 ): Promise<void> {
   const tarballResponse = await fetchWithExternalTemplateTimeout(tarballUrl, {
     label: `downloading npm template tarball for ${locator.raw}@${resolvedVersion}`,
-  })
+  });
   if (!tarballResponse.ok) {
     throw new Error(
       `Failed to download npm template tarball for ${locator.raw}: ${tarballResponse.status}`,
-    )
+    );
   }
 
-  const tarballPath = path.join(path.dirname(unpackDir), 'template.tgz')
-  await fsp.mkdir(unpackDir, { recursive: true })
+  const tarballPath = path.join(path.dirname(unpackDir), 'template.tgz');
+  await fsp.mkdir(unpackDir, { recursive: true });
   await fsp.writeFile(
     tarballPath,
     await readBufferResponseWithLimit(tarballResponse, {
       label: `npm template tarball for ${locator.raw}@${resolvedVersion}`,
       maxBytes: getExternalTemplateTarballMaxBytes(),
     }),
-  )
+  );
   await extractTarball({
     cwd: unpackDir,
     file: tarballPath,
     strip: 1,
-  })
-  await fsp.rm(tarballPath, { force: true })
-  await assertNoSymlinks(unpackDir)
+  });
+  await fsp.rm(tarballPath, { force: true });
+  await assertNoSymlinks(unpackDir);
 }
 
 function selectRegistryVersion(
@@ -142,45 +142,45 @@ function selectRegistryVersion(
 ): string {
   const distTags = isPlainObject(metadata['dist-tags'])
     ? metadata['dist-tags']
-    : {}
-  const versions = isPlainObject(metadata.versions) ? metadata.versions : {}
-  const versionKeys = Object.keys(versions)
+    : {};
+  const versions = isPlainObject(metadata.versions) ? metadata.versions : {};
+  const versionKeys = Object.keys(versions);
 
   if (locator.type === 'version') {
     if (!versions[locator.fetchSpec]) {
-      throw new Error(`npm template package version not found: ${locator.raw}`)
+      throw new Error(`npm template package version not found: ${locator.raw}`);
     }
-    return locator.fetchSpec
+    return locator.fetchSpec;
   }
 
   if (locator.type === 'tag') {
-    const taggedVersion = distTags[locator.fetchSpec]
+    const taggedVersion = distTags[locator.fetchSpec];
     if (typeof taggedVersion !== 'string') {
-      throw new Error(`npm template package tag not found: ${locator.raw}`)
+      throw new Error(`npm template package tag not found: ${locator.raw}`);
     }
-    return taggedVersion
+    return taggedVersion;
   }
 
-  const range = locator.fetchSpec.trim().length > 0 ? locator.fetchSpec : '*'
-  const matchedVersion = semver.maxSatisfying(versionKeys, range)
+  const range = locator.fetchSpec.trim().length > 0 ? locator.fetchSpec : '*';
+  const matchedVersion = semver.maxSatisfying(versionKeys, range);
   if (matchedVersion) {
-    return matchedVersion
+    return matchedVersion;
   }
 
   if (locator.fetchSpec.trim().length > 0) {
     throw new Error(
       `Unable to resolve npm template version for ${locator.raw}. Requested "${locator.fetchSpec}" but available versions are: ${versionKeys.join(', ') || '(none)'}.`,
-    )
+    );
   }
 
-  const latestVersion = distTags.latest
+  const latestVersion = distTags.latest;
   if (typeof latestVersion === 'string' && versions[latestVersion]) {
-    return latestVersion
+    return latestVersion;
   }
 
   throw new Error(
     `Unable to resolve a published npm template version for ${locator.raw}.`,
-  )
+  );
 }
 
 async function fetchNpmTemplateSource(
@@ -188,53 +188,53 @@ async function fetchNpmTemplateSource(
 ): Promise<SeedSource> {
   const registryBase = (
     process.env.NPM_CONFIG_REGISTRY ?? 'https://registry.npmjs.org'
-  ).replace(/\/$/, '')
-  const metadataLabel = `fetching npm template metadata for ${locator.raw}`
+  ).replace(/\/$/, '');
+  const metadataLabel = `fetching npm template metadata for ${locator.raw}`;
   const metadataResponse = await fetchWithExternalTemplateTimeout(
     `${registryBase}/${encodeURIComponent(locator.name)}`,
     {
       label: metadataLabel,
     },
-  )
+  );
   if (!metadataResponse.ok) {
     if (metadataResponse.status === 404) {
       throw createCliDiagnosticCodeError(
         CLI_DIAGNOSTIC_CODES.UNKNOWN_TEMPLATE,
         getUnknownNpmTemplateMessage(locator.raw),
-      )
+      );
     }
     throw new Error(
       `Failed to fetch npm template metadata for ${locator.raw}: ${metadataResponse.status}`,
-    )
+    );
   }
 
   const metadata = await readJsonResponseWithLimit(metadataResponse, {
     label: `npm template metadata for ${locator.raw}`,
     maxBytes: getExternalTemplateMetadataMaxBytes(),
-  })
-  const resolvedVersion = selectRegistryVersion(metadata, locator)
-  const versions = isPlainObject(metadata.versions) ? metadata.versions : {}
-  const versionMetadata = versions[resolvedVersion]
+  });
+  const resolvedVersion = selectRegistryVersion(metadata, locator);
+  const versions = isPlainObject(metadata.versions) ? metadata.versions : {};
+  const versionMetadata = versions[resolvedVersion];
   if (!isPlainObject(versionMetadata) || !isPlainObject(versionMetadata.dist)) {
     throw new Error(
       `npm template metadata is missing dist information for ${locator.raw}@${resolvedVersion}.`,
-    )
+    );
   }
 
-  const tarballUrl = versionMetadata.dist.tarball
+  const tarballUrl = versionMetadata.dist.tarball;
   if (typeof tarballUrl !== 'string' || tarballUrl.length === 0) {
     throw new Error(
       `npm template metadata is missing tarball URL for ${locator.raw}@${resolvedVersion}.`,
-    )
+    );
   }
 
   const tarballIntegrity = readOptionalDistString(
     versionMetadata.dist,
     'integrity',
-  )
-  const tarballShasum = readOptionalDistString(versionMetadata.dist, 'shasum')
+  );
+  const tarballShasum = readOptionalDistString(versionMetadata.dist, 'shasum');
   if (tarballIntegrity || tarballShasum) {
-    const registryCacheKey = normalizeNpmRegistryCacheKey(registryBase)
+    const registryCacheKey = normalizeNpmRegistryCacheKey(registryBase);
     const cachedSource = await resolveExternalTemplateSourceCache(
       {
         keyParts: [
@@ -264,37 +264,37 @@ async function fetchNpmTemplateSource(
           tarballUrl,
           unpackDir,
         ),
-    )
+    );
     if (cachedSource) {
-      await assertNoSymlinks(cachedSource.sourceDir)
+      await assertNoSymlinks(cachedSource.sourceDir);
       return {
         blockDir: cachedSource.sourceDir,
         rootDir: cachedSource.sourceDir,
-      }
+      };
     }
   }
 
   const { path: tempRoot, cleanup } = await createManagedTempRoot(
     'wp-typia-template-source-',
-  )
+  );
 
   try {
-    const unpackDir = path.join(tempRoot, 'source')
+    const unpackDir = path.join(tempRoot, 'source');
     await downloadNpmTemplateTarball(
       locator,
       resolvedVersion,
       tarballUrl,
       unpackDir,
-    )
+    );
 
     return {
       blockDir: unpackDir,
       cleanup,
       rootDir: unpackDir,
-    }
+    };
   } catch (error) {
-    await cleanup()
-    throw error
+    await cleanup();
+    throw error;
   }
 }
 
@@ -311,53 +311,53 @@ function resolveInstalledNpmTemplateSource(
   cwd: string,
 ): SeedSource | null {
   if (locator.rawSpec !== '' && locator.rawSpec !== '*') {
-    return null
+    return null;
   }
 
-  const workspacePackagesRoot = path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, '..')
+  const workspacePackagesRoot = path.resolve(PROJECT_TOOLS_PACKAGE_ROOT, '..');
   if (fs.existsSync(workspacePackagesRoot)) {
     for (const entry of fs.readdirSync(workspacePackagesRoot, {
       withFileTypes: true,
     })) {
       if (!entry.isDirectory()) {
-        continue
+        continue;
       }
 
-      const packageDir = path.join(workspacePackagesRoot, entry.name)
-      const packageJsonPath = path.join(packageDir, 'package.json')
+      const packageDir = path.join(workspacePackagesRoot, entry.name);
+      const packageJsonPath = path.join(packageDir, 'package.json');
       if (!fs.existsSync(packageJsonPath)) {
-        continue
+        continue;
       }
 
       const manifest = readJsonFileSync<{ name?: string }>(packageJsonPath, {
         context: 'workspace template package manifest',
-      })
+      });
       if (manifest.name === locator.name) {
         return {
           blockDir: packageDir,
           rootDir: packageDir,
-        }
+        };
       }
     }
   }
 
   const workspaceRequire = createRequire(
     path.join(path.resolve(cwd), '__wp_typia_template_resolver__.cjs'),
-  )
+  );
   try {
     const packageJsonPath = fs.realpathSync(
       workspaceRequire.resolve(`${locator.name}/package.json`),
-    )
-    const sourceDir = path.dirname(packageJsonPath)
+    );
+    const sourceDir = path.dirname(packageJsonPath);
     return {
       blockDir: sourceDir,
       rootDir: sourceDir,
-    }
+    };
   } catch (error) {
     const errorCode =
       typeof error === 'object' && error !== null && 'code' in error
         ? String((error as { code: unknown }).code)
-        : ''
+        : '';
     if (
       errorCode === 'MODULE_NOT_FOUND' ||
       errorCode === 'ERR_PACKAGE_PATH_NOT_EXPORTED'
@@ -368,19 +368,19 @@ function resolveInstalledNpmTemplateSource(
           basePath,
           locator.name,
           'package.json',
-        )
+        );
         if (!fs.existsSync(packageJsonPath)) {
-          continue
+          continue;
         }
-        const sourceDir = path.dirname(fs.realpathSync(packageJsonPath))
+        const sourceDir = path.dirname(fs.realpathSync(packageJsonPath));
         return {
           blockDir: sourceDir,
           rootDir: sourceDir,
-        }
+        };
       }
-      return null
+      return null;
     }
-    throw error
+    throw error;
   }
 }
 
@@ -391,18 +391,18 @@ function resolveInstalledNpmTemplateSource(
  * paths should use `isOfficialWorkspaceTemplateSeedAsync()`.
  */
 export function isOfficialWorkspaceTemplateSeed(seed: SeedSource): boolean {
-  const packageJsonPath = path.join(seed.rootDir, 'package.json')
+  const packageJsonPath = path.join(seed.rootDir, 'package.json');
   if (!fs.existsSync(packageJsonPath)) {
-    return false
+    return false;
   }
 
   try {
     const packageJson = readJsonFileSync<{ name?: string }>(packageJsonPath, {
       context: 'workspace template seed manifest',
-    })
-    return packageJson.name === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE
+    });
+    return packageJson.name === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -415,38 +415,35 @@ export function isOfficialWorkspaceTemplateSeed(seed: SeedSource): boolean {
 export async function isOfficialWorkspaceTemplateSeedAsync(
   seed: SeedSource,
 ): Promise<boolean> {
-  const packageJsonPath = path.join(seed.rootDir, 'package.json')
+  const packageJsonPath = path.join(seed.rootDir, 'package.json');
   if (!(await pathExists(packageJsonPath))) {
-    return false
+    return false;
   }
 
   try {
-    const packageJson = await readJsonFile<{ name?: string }>(
-      packageJsonPath,
-      {
-        context: 'workspace template seed manifest',
-      },
-    )
-    return packageJson.name === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE
+    const packageJson = await readJsonFile<{ name?: string }>(packageJsonPath, {
+      context: 'workspace template seed manifest',
+    });
+    return packageJson.name === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE;
   } catch {
-    return false
+    return false;
   }
 }
 
 export async function assertNoSymlinks(sourceDir: string): Promise<void> {
-  const stats = await fsp.lstat(sourceDir)
+  const stats = await fsp.lstat(sourceDir);
   if (stats.isSymbolicLink()) {
     throw new Error(
       `Template sources may not include symbolic links: ${sourceDir}`,
-    )
+    );
   }
 
   if (!stats.isDirectory()) {
-    return
+    return;
   }
 
   for (const entry of await fsp.readdir(sourceDir)) {
-    await assertNoSymlinks(path.join(sourceDir, entry))
+    await assertNoSymlinks(path.join(sourceDir, entry));
   }
 }
 
@@ -455,7 +452,7 @@ function runGitTemplateCommand(
   label: string,
   options: { captureOutput?: boolean } = {},
 ): ReturnType<typeof spawnSync> {
-  const timeoutMs = getExternalTemplateTimeoutMs()
+  const timeoutMs = getExternalTemplateTimeoutMs();
   const result = options.captureOutput
     ? spawnSync('git', args, {
         encoding: 'utf8',
@@ -465,62 +462,69 @@ function runGitTemplateCommand(
     : spawnSync('git', args, {
         stdio: 'ignore',
         timeout: timeoutMs,
-      })
+      });
   if (result.error) {
     const errorCode =
       typeof result.error === 'object' &&
       result.error !== null &&
       'code' in result.error
         ? String((result.error as { code: unknown }).code)
-        : ''
+        : '';
     if (errorCode === 'ETIMEDOUT') {
-      throw createExternalTemplateTimeoutError(label, timeoutMs)
+      throw createExternalTemplateTimeoutError(label, timeoutMs);
     }
-    throw result.error
+    throw result.error;
   }
   if (result.signal === 'SIGTERM' || result.signal === 'SIGKILL') {
-    throw createExternalTemplateTimeoutError(label, timeoutMs)
+    throw createExternalTemplateTimeoutError(label, timeoutMs);
   }
 
-  return result
+  return result;
 }
 
 function getGitHubTemplateRepositoryUrl(locator: GitHubTemplateLocator): string {
-  return `https://github.com/${locator.owner}/${locator.repo}.git`
+  return `https://github.com/${locator.owner}/${locator.repo}.git`;
 }
 
 async function resolveGitHubTemplateDirectory(
   checkoutDir: string,
   locator: GitHubTemplateLocator,
 ): Promise<string> {
-  const sourceDir = path.resolve(checkoutDir, locator.sourcePath)
-  const relativeSourceDir = path.relative(checkoutDir, sourceDir)
-  if (relativeSourceDir.startsWith('..') || path.isAbsolute(relativeSourceDir)) {
-    throw new Error('GitHub template path must stay within the cloned repository.')
+  const sourceDir = path.resolve(checkoutDir, locator.sourcePath);
+  const relativeSourceDir = path.relative(checkoutDir, sourceDir);
+  if (
+    relativeSourceDir.startsWith('..') ||
+    path.isAbsolute(relativeSourceDir)
+  ) {
+    throw new Error(
+      'GitHub template path must stay within the cloned repository.',
+    );
   }
   if (!(await pathExists(sourceDir))) {
-    throw new Error(`GitHub template path does not exist: ${locator.sourcePath}`)
+    throw new Error(
+      `GitHub template path does not exist: ${locator.sourcePath}`,
+    );
   }
-  return sourceDir
+  return sourceDir;
 }
 
 function cloneGitHubTemplateSource(
   locator: GitHubTemplateLocator,
   checkoutDir: string,
 ): void {
-  const args = ['clone', '--depth', '1']
+  const args = ['clone', '--depth', '1'];
   if (locator.ref) {
-    args.push('--branch', locator.ref)
+    args.push('--branch', locator.ref);
   }
-  args.push(getGitHubTemplateRepositoryUrl(locator), checkoutDir)
+  args.push(getGitHubTemplateRepositoryUrl(locator), checkoutDir);
   const cloneResult = runGitTemplateCommand(
     args,
     `cloning GitHub template ${locator.owner}/${locator.repo}`,
-  )
+  );
   if (cloneResult.status !== 0) {
     throw new Error(
       `Failed to clone GitHub template source ${locator.owner}/${locator.repo}.`,
-    )
+    );
   }
 }
 
@@ -529,13 +533,13 @@ function readGitHubTemplateHeadRevision(checkoutDir: string): string | null {
     ['-C', checkoutDir, 'rev-parse', 'HEAD'],
     'reading GitHub template checkout revision',
     { captureOutput: true },
-  )
+  );
   if (result.status !== 0 || typeof result.stdout !== 'string') {
-    return null
+    return null;
   }
 
-  const revision = result.stdout.trim().split(/\s+/u)[0]
-  return /^[0-9a-f]{40}$/iu.test(revision) ? revision.toLowerCase() : null
+  const revision = result.stdout.trim().split(/\s+/u)[0];
+  return /^[0-9a-f]{40}$/iu.test(revision) ? revision.toLowerCase() : null;
 }
 
 function pinGitHubTemplateCacheRevision(
@@ -543,102 +547,102 @@ function pinGitHubTemplateCacheRevision(
   checkoutDir: string,
   cacheRevision: string,
 ): void {
-  const normalizedCacheRevision = cacheRevision.toLowerCase()
+  const normalizedCacheRevision = cacheRevision.toLowerCase();
   if (readGitHubTemplateHeadRevision(checkoutDir) === normalizedCacheRevision) {
-    return
+    return;
   }
 
   const fetchResult = runGitTemplateCommand(
     ['-C', checkoutDir, 'fetch', '--depth', '1', 'origin', cacheRevision],
     `fetching GitHub template revision ${locator.owner}/${locator.repo}`,
-  )
+  );
   if (fetchResult.status !== 0) {
     throw createGitHubTemplateCacheRevisionRaceError(
       `Failed to fetch GitHub template revision ${cacheRevision} for ${locator.owner}/${locator.repo}.`,
-    )
+    );
   }
 
   const checkoutResult = runGitTemplateCommand(
     ['-C', checkoutDir, 'checkout', '--detach', cacheRevision],
     `checking out GitHub template revision ${locator.owner}/${locator.repo}`,
-  )
+  );
   if (checkoutResult.status !== 0) {
     throw createGitHubTemplateCacheRevisionRaceError(
       `Failed to check out GitHub template revision ${cacheRevision} for ${locator.owner}/${locator.repo}.`,
-    )
+    );
   }
 
   if (readGitHubTemplateHeadRevision(checkoutDir) !== normalizedCacheRevision) {
     throw createGitHubTemplateCacheRevisionRaceError(
       `GitHub template checkout did not match resolved revision ${cacheRevision} for ${locator.owner}/${locator.repo}.`,
-    )
+    );
   }
 }
 
 function getGitHubTemplateRevisionPatterns(
   locator: GitHubTemplateLocator,
 ): string[] {
-  const ref = locator.ref ?? 'HEAD'
+  const ref = locator.ref ?? 'HEAD';
   if (!locator.ref) {
-    return [ref]
+    return [ref];
   }
   if (ref.startsWith('refs/')) {
-    return [ref, `${ref}^{}`]
+    return [ref, `${ref}^{}`];
   }
-  return [ref, `refs/heads/${ref}`, `refs/tags/${ref}`, `refs/tags/${ref}^{}`]
+  return [ref, `refs/heads/${ref}`, `refs/tags/${ref}`, `refs/tags/${ref}^{}`];
 }
 
 type GitHubTemplateResolvedRevision = {
   resolvedRef: string
   revision: string
-}
+};
 
 type GitHubTemplateCacheRevisionResolution = {
   lookupUnavailable: boolean
   revision: string | null
-}
+};
 
 function pickGitHubTemplateCacheRevision(
   locator: GitHubTemplateLocator,
   revisions: readonly GitHubTemplateResolvedRevision[],
 ): string | null {
-  const ref = locator.ref ?? 'HEAD'
+  const ref = locator.ref ?? 'HEAD';
   if (!locator.ref) {
-    return revisions[0]?.revision ?? null
+    return revisions[0]?.revision ?? null;
   }
   if (!ref.startsWith('refs/')) {
     const branchRevision = revisions.find(
       (entry) => entry.resolvedRef === `refs/heads/${ref}`,
-    )
+    );
     if (branchRevision) {
-      return branchRevision.revision
+      return branchRevision.revision;
     }
 
     const peeledTagRevision = revisions.find(
       (entry) => entry.resolvedRef === `refs/tags/${ref}^{}`,
-    )
+    );
     if (peeledTagRevision) {
-      return peeledTagRevision.revision
+      return peeledTagRevision.revision;
     }
 
     const tagRevision = revisions.find(
       (entry) => entry.resolvedRef === `refs/tags/${ref}`,
-    )
+    );
     if (tagRevision) {
-      return tagRevision.revision
+      return tagRevision.revision;
     }
   }
   if (ref.startsWith('refs/tags/')) {
     const peeledRevision = revisions.find(
       (entry) => entry.resolvedRef === `${ref}^{}`,
-    )
+    );
     if (peeledRevision) {
-      return peeledRevision.revision
+      return peeledRevision.revision;
     }
   }
 
-  const exactRevision = revisions.find((entry) => entry.resolvedRef === ref)
-  return (exactRevision ?? revisions[0])?.revision ?? null
+  const exactRevision = revisions.find((entry) => entry.resolvedRef === ref);
+  return (exactRevision ?? revisions[0])?.revision ?? null;
 }
 
 /**
@@ -658,34 +662,34 @@ function resolveGitHubTemplateCacheRevision(
     ],
     `checking GitHub template revision ${locator.owner}/${locator.repo}`,
     { captureOutput: true },
-  )
+  );
   if (result.status !== 0 || typeof result.stdout !== 'string') {
     return {
       lookupUnavailable: true,
       revision: null,
-    }
+    };
   }
 
   const revisions = result.stdout
     .split('\n')
     .map((line) => {
-      const [revision, resolvedRef] = line.trim().split(/\s+/u)
+      const [revision, resolvedRef] = line.trim().split(/\s+/u);
       if (!/^[0-9a-f]{40}$/iu.test(revision) || !resolvedRef) {
-        return null
+        return null;
       }
       return {
         resolvedRef,
         revision: revision.toLowerCase(),
-      }
+      };
     })
     .filter(
       (entry): entry is GitHubTemplateResolvedRevision => entry !== null,
-    )
+    );
 
   return {
     lookupUnavailable: false,
     revision: pickGitHubTemplateCacheRevision(locator, revisions),
-  }
+  };
 }
 
 function getGitHubTemplateCacheMetadata(
@@ -698,7 +702,7 @@ function getGitHubTemplateCacheMetadata(
     ref: locator.ref,
     repo: locator.repo,
     sourcePath: locator.sourcePath,
-  }
+  };
 }
 
 async function reuseGitHubTemplateCacheByMetadata(
@@ -707,46 +711,46 @@ async function reuseGitHubTemplateCacheByMetadata(
   const cachedSource = await findReusableExternalTemplateSourceCache({
     metadata: getGitHubTemplateCacheMetadata(locator),
     namespace: 'github',
-  })
+  });
   if (!cachedSource) {
-    return null
+    return null;
   }
 
   const sourceDir = await resolveGitHubTemplateDirectory(
     cachedSource.sourceDir,
     locator,
-  )
-  await assertNoSymlinks(sourceDir)
+  );
+  await assertNoSymlinks(sourceDir);
   return {
     blockDir: sourceDir,
     rootDir: sourceDir,
-  }
+  };
 }
 
 async function resolveGitHubTemplateSource(
   locator: GitHubTemplateLocator,
 ): Promise<SeedSource> {
-  const cacheEnabled = isExternalTemplateCacheEnabled()
-  let cacheRevisionLookupUnavailable = false
-  let cacheRevision: string | null = null
+  const cacheEnabled = isExternalTemplateCacheEnabled();
+  let cacheRevisionLookupUnavailable = false;
+  let cacheRevision: string | null = null;
   if (cacheEnabled) {
     try {
-      const resolvedRevision = resolveGitHubTemplateCacheRevision(locator)
-      cacheRevision = resolvedRevision.revision
-      cacheRevisionLookupUnavailable = resolvedRevision.lookupUnavailable
+      const resolvedRevision = resolveGitHubTemplateCacheRevision(locator);
+      cacheRevision = resolvedRevision.revision;
+      cacheRevisionLookupUnavailable = resolvedRevision.lookupUnavailable;
     } catch {
-      cacheRevision = null
-      cacheRevisionLookupUnavailable = true
+      cacheRevision = null;
+      cacheRevisionLookupUnavailable = true;
     }
   }
   if (cacheEnabled && !cacheRevision && cacheRevisionLookupUnavailable) {
-    const cachedSource = await reuseGitHubTemplateCacheByMetadata(locator)
+    const cachedSource = await reuseGitHubTemplateCacheByMetadata(locator);
     if (cachedSource) {
-      return cachedSource
+      return cachedSource;
     }
   }
   if (cacheRevision) {
-    const resolvedCacheRevision = cacheRevision
+    const resolvedCacheRevision = cacheRevision;
     try {
       const cachedSource = await resolveExternalTemplateSourceCache(
         {
@@ -765,30 +769,30 @@ async function resolveGitHubTemplateSource(
           namespace: 'github',
         },
         async (checkoutDir) => {
-          cloneGitHubTemplateSource(locator, checkoutDir)
-          const sourceDir = await resolveGitHubTemplateDirectory(checkoutDir, locator)
-          await assertNoSymlinks(sourceDir)
+          cloneGitHubTemplateSource(locator, checkoutDir);
+          const sourceDir = await resolveGitHubTemplateDirectory(checkoutDir, locator);
+          await assertNoSymlinks(sourceDir);
           pinGitHubTemplateCacheRevision(
             locator,
             checkoutDir,
             resolvedCacheRevision,
-          )
+          );
         },
-      )
+      );
       if (cachedSource) {
         const sourceDir = await resolveGitHubTemplateDirectory(
           cachedSource.sourceDir,
           locator,
-        )
-        await assertNoSymlinks(sourceDir)
+        );
+        await assertNoSymlinks(sourceDir);
         return {
           blockDir: sourceDir,
           rootDir: sourceDir,
-        }
+        };
       }
     } catch (error) {
       if (!isGitHubTemplateCacheRevisionRaceError(error)) {
-        throw error
+        throw error;
       }
       // Fall back to the existing uncached clone path if revision pinning races.
     }
@@ -796,22 +800,25 @@ async function resolveGitHubTemplateSource(
 
   const { path: remoteRoot, cleanup } = await createManagedTempRoot(
     'wp-typia-template-source-',
-  )
-  const checkoutDir = path.join(remoteRoot, 'source')
+  );
+  const checkoutDir = path.join(remoteRoot, 'source');
 
   try {
-    cloneGitHubTemplateSource(locator, checkoutDir)
-    const sourceDir = await resolveGitHubTemplateDirectory(checkoutDir, locator)
-    await assertNoSymlinks(sourceDir)
+    cloneGitHubTemplateSource(locator, checkoutDir);
+    const sourceDir = await resolveGitHubTemplateDirectory(
+      checkoutDir,
+      locator,
+    );
+    await assertNoSymlinks(sourceDir);
 
     return {
       blockDir: sourceDir,
       cleanup,
       rootDir: sourceDir,
-    }
+    };
   } catch (error) {
-    await cleanup()
-    throw error
+    await cleanup();
+    throw error;
   }
 }
 
@@ -828,29 +835,29 @@ export async function resolveTemplateSeed(
   cwd: string,
 ): Promise<SeedSource> {
   if (locator.kind === 'path') {
-    const sourceDir = path.resolve(cwd, locator.templatePath)
+    const sourceDir = path.resolve(cwd, locator.templatePath);
     if (!(await pathExists(sourceDir))) {
-      throw new Error(`Template path does not exist: ${sourceDir}`)
+      throw new Error(`Template path does not exist: ${sourceDir}`);
     }
-    await assertNoSymlinks(sourceDir)
+    await assertNoSymlinks(sourceDir);
     return {
       blockDir: sourceDir,
       rootDir: sourceDir,
-    }
+    };
   }
 
   if (locator.kind === 'github') {
-    return resolveGitHubTemplateSource(locator.locator)
+    return resolveGitHubTemplateSource(locator.locator);
   }
 
   const installedSource = resolveInstalledNpmTemplateSource(
     locator.locator,
     cwd,
-  )
+  );
   if (installedSource) {
-    await assertNoSymlinks(installedSource.blockDir)
-    return installedSource
+    await assertNoSymlinks(installedSource.blockDir);
+    return installedSource;
   }
 
-  return fetchNpmTemplateSource(locator.locator)
+  return fetchNpmTemplateSource(locator.locator);
 }

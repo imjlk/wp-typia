@@ -1,1 +1,1 @@
-export * from "./add/ai-feature-capability.js";
+export * from './add/ai-feature-capability.js';

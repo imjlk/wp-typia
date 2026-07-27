@@ -1,1 +1,1 @@
-export * from "./cli/cli-init-package-json.js";
+export * from './cli/cli-init-package-json.js';

@@ -105,6 +105,127 @@ export interface ValidateBlockPatternContentNestingResult {
 const TYPESCRIPT_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 const WORDPRESS_BLOCK_COMMENT_PATTERN = /<!--([\s\S]*?)-->/gu;
 
+function quoteTypeScriptString(value: string): string {
+  let escaped = '';
+
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    const character = value[index] ?? '';
+
+    switch (character) {
+      case '\\':
+        escaped += '\\\\';
+        break;
+      case "'":
+        escaped += "\\'";
+        break;
+      case '\b':
+        escaped += '\\b';
+        break;
+      case '\f':
+        escaped += '\\f';
+        break;
+      case '\n':
+        escaped += '\\n';
+        break;
+      case '\r':
+        escaped += '\\r';
+        break;
+      case '\t':
+        escaped += '\\t';
+        break;
+      case '\v':
+        escaped += '\\v';
+        break;
+      default:
+        if (
+          code < 0x20 ||
+          code === 0x2028 ||
+          code === 0x2029 ||
+          (code >= 0xd800 && code <= 0xdfff)
+        ) {
+          escaped += `\\u${code.toString(16).padStart(4, '0')}`;
+        } else {
+          escaped += character;
+        }
+    }
+  }
+
+  return `'${escaped}'`;
+}
+
+function indentTypeScriptValue(value: string, spaces: number): string {
+  const indentation = ' '.repeat(spaces);
+  return value
+    .split('\n')
+    .map((line) => `${indentation}${line}`)
+    .join('\n');
+}
+
+function renderTypeScriptValue(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+  if (typeof value === 'string') {
+    return quoteTypeScriptString(value);
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new TypeError(
+        'TypeScript value rendering requires finite numbers.',
+      );
+    }
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '[]';
+    }
+    const renderedEntries = value.map((entry) => renderTypeScriptValue(entry));
+    const compact = `[${renderedEntries.join(', ')}]`;
+    if (
+      compact.length <= 80 &&
+      renderedEntries.every((entry) => !entry.includes('\n'))
+    ) {
+      return compact;
+    }
+    return `[\n${renderedEntries
+      .map((entry) => `${indentTypeScriptValue(entry, 2)},`)
+      .join('\n')}\n]`;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      return '{}';
+    }
+    return `{\n${entries
+      .map(([key, entry]) => {
+        if (entry === undefined) {
+          throw new TypeError(
+            'TypeScript value rendering does not accept undefined properties.',
+          );
+        }
+        const renderedKey = TYPESCRIPT_IDENTIFIER_PATTERN.test(key)
+          ? key
+          : quoteTypeScriptString(key);
+        const renderedValue = renderTypeScriptValue(entry);
+        const [firstLine = '', ...remainingLines] = renderedValue.split('\n');
+        const lines = [
+          `  ${renderedKey}: ${firstLine}`,
+          ...remainingLines.map((line) => `  ${line}`),
+        ];
+        lines[lines.length - 1] = `${lines[lines.length - 1] ?? ''},`;
+        return lines.join('\n');
+      })
+      .join('\n')}\n}`;
+  }
+
+  throw new TypeError(`Unsupported TypeScript value type: ${typeof value}.`);
+}
+
 function hasOwn(object: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
@@ -203,7 +324,9 @@ function normalizeInnerBlocksTemplate(
   context: string,
 ): NormalizedBlockInnerBlocksTemplate {
   if (!Array.isArray(value)) {
-    throw new Error(`${context} must be an array of InnerBlocks template tuples.`);
+    throw new Error(
+      `${context} must be an array of InnerBlocks template tuples.`,
+    );
   }
 
   return value.map((item, index) => {
@@ -306,7 +429,9 @@ function validateKnownBlockName(
   const isExternalBlockName =
     options.allowExternalBlockName === true &&
     knownBlockNameContext.allowExternalBlockNames &&
-    !knownBlockNameContext.knownBlockNamespaces.has(getBlockNamespace(blockName));
+    !knownBlockNameContext.knownBlockNamespaces.has(
+      getBlockNamespace(blockName),
+    );
 
   if (isExternalBlockName) {
     return;
@@ -358,7 +483,12 @@ export function validateBlockNestingContract(
   const issues: string[] = [];
 
   for (const [blockName, rule] of Object.entries(normalized)) {
-    validateKnownBlockName(issues, knownBlockNameContext, blockName, 'Contract key');
+    validateKnownBlockName(
+      issues,
+      knownBlockNameContext,
+      blockName,
+      'Contract key',
+    );
 
     for (const key of BLOCK_NESTING_RELATION_KEYS) {
       const relatedBlockNames = rule[key];
@@ -423,7 +553,9 @@ export function validateBlockNestingContract(
   }
 
   if (issues.length > 0) {
-    throw new Error(`Invalid block nesting contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`);
+    throw new Error(
+      `Invalid block nesting contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
+    );
   }
 }
 
@@ -436,7 +568,11 @@ export function getInnerBlocksTemplatesFromNesting(
 
   const templates: Record<string, BlockInnerBlocksTemplate> = {};
   for (const [blockName, rule] of Object.entries(nesting)) {
-    if (isRecord(rule) && hasOwn(rule, 'template') && rule.template !== undefined) {
+    if (
+      isRecord(rule) &&
+      hasOwn(rule, 'template') &&
+      rule.template !== undefined
+    ) {
       assertBlockName(blockName, `Block nesting contract key "${blockName}"`);
       templates[blockName] = rule.template as BlockInnerBlocksTemplate;
     }
@@ -470,7 +606,9 @@ function hasRelationshipOverlap(
   expectedBlockNames: readonly string[],
   actualBlockNames: readonly string[],
 ): boolean {
-  return expectedBlockNames.some((blockName) => actualBlockNames.includes(blockName));
+  return expectedBlockNames.some((blockName) =>
+    actualBlockNames.includes(blockName),
+  );
 }
 
 function validateInnerBlocksTemplateList(
@@ -587,7 +725,9 @@ export function validateInnerBlocksTemplates(
   );
 
   if (issues.length > 0) {
-    throw new Error(`Invalid InnerBlocks template contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`);
+    throw new Error(
+      `Invalid InnerBlocks template contract:\n${issues.map((issue) => `- ${issue}`).join('\n')}`,
+    );
   }
 }
 
@@ -764,7 +904,11 @@ function parseBlockPatternContent(
   ];
 
   for (const match of content.matchAll(WORDPRESS_BLOCK_COMMENT_PATTERN)) {
-    const comment = parseBlockPatternComment(match[1] ?? '', diagnostics, patternFile);
+    const comment = parseBlockPatternComment(
+      match[1] ?? '',
+      diagnostics,
+      patternFile,
+    );
     if (!comment) {
       continue;
     }
@@ -877,7 +1021,9 @@ function isKnownOrAllowedExternalBlockName(
 
   return (
     knownBlockNameContext.allowExternalBlockNames &&
-    !knownBlockNameContext.knownBlockNamespaces.has(getBlockNamespace(blockName))
+    !knownBlockNameContext.knownBlockNamespaces.has(
+      getBlockNamespace(blockName),
+    )
   );
 }
 
@@ -1069,22 +1215,26 @@ export function renderInnerBlocksTemplateModule(
       `renderInnerBlocksTemplateModule: exportName "${exportName}" is not a valid TypeScript identifier.`,
     );
   }
-  const serializedTemplates = JSON.stringify(templates, null, '\t');
+  const serializedTemplates = renderTypeScriptValue(templates);
 
   return [
     '/* This file is generated by wp-typia. Do not edit manually. */',
     '',
     'export type WpTypiaInnerBlocksTemplateAttributes = Record<string, unknown>;',
     'export type WpTypiaInnerBlocksTemplateItem = [',
-    '\tblockName: string,',
-    '\tattributes?: WpTypiaInnerBlocksTemplateAttributes,',
-    '\tinnerBlocks?: WpTypiaInnerBlocksTemplate,',
+    '  blockName: string,',
+    '  attributes?: WpTypiaInnerBlocksTemplateAttributes,',
+    '  innerBlocks?: WpTypiaInnerBlocksTemplate,',
     '];',
     'export type WpTypiaInnerBlocksTemplate = WpTypiaInnerBlocksTemplateItem[];',
     '',
-    `export const ${exportName} = ${serializedTemplates} satisfies Record<string, WpTypiaInnerBlocksTemplate>;`,
+    `export const ${exportName} = ${serializedTemplates} satisfies Record<`,
+    '  string,',
+    '  WpTypiaInnerBlocksTemplate',
+    '>;',
     '',
-    `export type WpTypiaInnerBlocksTemplateName = keyof typeof ${exportName};`,
+    'export type WpTypiaInnerBlocksTemplateName =',
+    `  keyof typeof ${exportName};`,
     '',
   ].join('\n');
 }

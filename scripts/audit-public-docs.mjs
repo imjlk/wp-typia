@@ -240,6 +240,29 @@ function getLabel(target) {
   return `${target.file}:${target.name}`;
 }
 
+function findReflectionById(model, reflectionId) {
+  let match = null;
+
+  function walk(node) {
+    if (!node || typeof node !== 'object' || match) {
+      return;
+    }
+    if (node.id === reflectionId) {
+      match = node;
+      return;
+    }
+
+    for (const key of ['children', 'signatures']) {
+      for (const child of node[key] ?? []) {
+        walk(child);
+      }
+    }
+  }
+
+  walk(model);
+  return match;
+}
+
 function findTargetReflection(model, target) {
   let match = null;
 
@@ -248,10 +271,16 @@ function findTargetReflection(model, target) {
       return;
     }
 
+    const belongsToTargetModule = ancestors.some(
+      (ancestor) =>
+        moduleKinds.has(ancestor.kind) &&
+        ancestor.sources?.some((source) => source.fileName === target.file),
+    );
     const isCanonical =
       node.name === target.name &&
-      node.sources?.some((source) => source.fileName === target.file) &&
-      ancestors.at(-1) !== node.name;
+      (belongsToTargetModule ||
+        node.sources?.some((source) => source.fileName === target.file)) &&
+      ancestors.at(-1)?.name !== node.name;
 
     if (isCanonical) {
       match = node;
@@ -260,13 +289,15 @@ function findTargetReflection(model, target) {
 
     for (const key of ['children', 'signatures']) {
       for (const child of node[key] ?? []) {
-        walk(child, [...ancestors, node.name]);
+        walk(child, [...ancestors, node]);
       }
     }
   }
 
   walk(model);
-  return match;
+  return typeof match?.target === 'number'
+    ? findReflectionById(model, match.target)
+    : match;
 }
 
 function validateSummaryAndCategory(comment, label, errors) {

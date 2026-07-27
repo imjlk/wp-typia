@@ -1,1 +1,1 @@
-export * from "./add/persistence-rest-artifacts.js";
+export * from './add/persistence-rest-artifacts.js';

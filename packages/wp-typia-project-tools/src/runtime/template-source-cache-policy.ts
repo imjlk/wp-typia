@@ -1,1 +1,1 @@
-export * from "./templates/template-source-cache-policy.js";
+export * from './templates/template-source-cache-policy.js';

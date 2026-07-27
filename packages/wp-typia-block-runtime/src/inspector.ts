@@ -1,1 +1,1 @@
-export * from "./inspector-runtime.js";
+export * from './inspector-runtime.js';

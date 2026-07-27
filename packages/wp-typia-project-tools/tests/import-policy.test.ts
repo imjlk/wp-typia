@@ -326,7 +326,7 @@ describe('@wp-typia/project-tools import policy', () => {
         'utf8',
       );
       expect(source.trim()).toMatch(
-        /^export \* from "\.\/(?:add|cli|doctor|migration|schema|shared|templates|workspace)\//,
+        /^export \* from ['"]\.\/(?:add|cli|doctor|migration|schema|shared|templates|workspace)\//,
       );
       return total + source.trim().split('\n').length;
     }, 0);

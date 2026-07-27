@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-editor-plugin.js";
+export * from './add/cli-add-workspace-editor-plugin.js';

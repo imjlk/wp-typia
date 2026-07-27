@@ -1,5 +1,5 @@
-import { quotePhpString } from "../shared/php-utils.js";
-import { toTitleCase } from "../shared/string-case.js";
+import { quotePhpString } from '../shared/php-utils.js';
+import { toTitleCase } from '../shared/string-case.js';
 
 /**
  * Build the generated PHP controller and hook surface for a workspace AI feature.
@@ -10,32 +10,32 @@ export function buildAiFeaturePhpSource(
 	phpPrefix: string,
 	textDomain: string,
 ): string {
-	const aiFeatureTitle = toTitleCase(aiFeatureSlug);
-	const aiFeaturePhpId = aiFeatureSlug.replace(/-/g, "_");
-	const loadSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_load_ai_feature_schema`;
-	const loadAiSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_load_ai_response_schema`;
-	const normalizeSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_sanitize_ai_feature_schema`;
-	const validatePayloadFunctionName = `${phpPrefix}_${aiFeaturePhpId}_validate_ai_feature_payload`;
-	const canManageFunctionName = `${phpPrefix}_${aiFeaturePhpId}_can_manage_ai_feature`;
-	const normalizePromptPayloadFunctionName = `${phpPrefix}_${aiFeaturePhpId}_normalize_ai_feature_prompt_payload`;
-	const buildPromptFunctionName = `${phpPrefix}_${aiFeaturePhpId}_build_ai_feature_prompt`;
-	const resolvePromptOptionsFunctionName = `${phpPrefix}_${aiFeaturePhpId}_resolve_ai_feature_prompt_options`;
-	const normalizeProviderTypeFunctionName = `${phpPrefix}_${aiFeaturePhpId}_normalize_provider_type`;
-	const buildTelemetryFunctionName = `${phpPrefix}_${aiFeaturePhpId}_build_ai_feature_telemetry`;
-	const resolveUnavailableMessageFunctionName = `${phpPrefix}_${aiFeaturePhpId}_resolve_ai_feature_unavailable_message`;
-	const isSupportedFunctionName = `${phpPrefix}_${aiFeaturePhpId}_is_ai_feature_supported`;
-	const adminNoticeFunctionName = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_admin_notice`;
-	const handlerFunctionName = `${phpPrefix}_${aiFeaturePhpId}_handle_run_ai_feature`;
-	const registerRoutesFunctionName = `${phpPrefix}_${aiFeaturePhpId}_register_ai_feature_routes`;
-	const permissionFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_permission`;
-	const promptPayloadFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt_payload`;
-	const promptFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt`;
-	const promptOptionsFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt_options`;
-	const adminNoticeMessageFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_admin_notice_message`;
-	const unavailableMessageFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_unavailable_message`;
-	const telemetryFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_telemetry`;
+  const aiFeatureTitle = toTitleCase(aiFeatureSlug);
+  const aiFeaturePhpId = aiFeatureSlug.replace(/-/g, '_');
+  const loadSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_load_ai_feature_schema`;
+  const loadAiSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_load_ai_response_schema`;
+  const normalizeSchemaFunctionName = `${phpPrefix}_${aiFeaturePhpId}_sanitize_ai_feature_schema`;
+  const validatePayloadFunctionName = `${phpPrefix}_${aiFeaturePhpId}_validate_ai_feature_payload`;
+  const canManageFunctionName = `${phpPrefix}_${aiFeaturePhpId}_can_manage_ai_feature`;
+  const normalizePromptPayloadFunctionName = `${phpPrefix}_${aiFeaturePhpId}_normalize_ai_feature_prompt_payload`;
+  const buildPromptFunctionName = `${phpPrefix}_${aiFeaturePhpId}_build_ai_feature_prompt`;
+  const resolvePromptOptionsFunctionName = `${phpPrefix}_${aiFeaturePhpId}_resolve_ai_feature_prompt_options`;
+  const normalizeProviderTypeFunctionName = `${phpPrefix}_${aiFeaturePhpId}_normalize_provider_type`;
+  const buildTelemetryFunctionName = `${phpPrefix}_${aiFeaturePhpId}_build_ai_feature_telemetry`;
+  const resolveUnavailableMessageFunctionName = `${phpPrefix}_${aiFeaturePhpId}_resolve_ai_feature_unavailable_message`;
+  const isSupportedFunctionName = `${phpPrefix}_${aiFeaturePhpId}_is_ai_feature_supported`;
+  const adminNoticeFunctionName = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_admin_notice`;
+  const handlerFunctionName = `${phpPrefix}_${aiFeaturePhpId}_handle_run_ai_feature`;
+  const registerRoutesFunctionName = `${phpPrefix}_${aiFeaturePhpId}_register_ai_feature_routes`;
+  const permissionFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_permission`;
+  const promptPayloadFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt_payload`;
+  const promptFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt`;
+  const promptOptionsFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_prompt_options`;
+  const adminNoticeMessageFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_admin_notice_message`;
+  const unavailableMessageFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_unavailable_message`;
+  const telemetryFilterHook = `${phpPrefix}_${aiFeaturePhpId}_ai_feature_telemetry`;
 
-	return `<?php
+  return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 \treturn;
 }

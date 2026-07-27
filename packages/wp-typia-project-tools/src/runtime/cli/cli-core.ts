@@ -31,83 +31,83 @@
  * template inspection flows.
  */
 export {
-	createDoctorRunSummary,
-	getDoctorChecks,
-	getDoctorExitFailureChecks,
-	getDoctorExitFailureDetailLines,
-	runDoctor,
-	type DoctorCheck,
-	type DoctorCheckScope,
-	type DoctorExitPolicy,
-	type DoctorFailureSummary,
-	type DoctorRunSummary,
-	type GetDoctorChecksOptions,
-} from "../doctor/cli-doctor.js";
+  createDoctorRunSummary,
+  getDoctorChecks,
+  getDoctorExitFailureChecks,
+  getDoctorExitFailureDetailLines,
+  runDoctor,
+  type DoctorCheck,
+  type DoctorCheckScope,
+  type DoctorExitPolicy,
+  type DoctorFailureSummary,
+  type DoctorRunSummary,
+  type GetDoctorChecksOptions,
+} from '../doctor/cli-doctor.js';
 export {
-	createCliCommandError,
-	createCliDiagnosticCodeError,
-	CliDiagnosticError,
-	CLI_DIAGNOSTIC_CODE_METADATA,
-	CLI_DIAGNOSTIC_CODES,
-	formatCliDiagnosticError,
-	formatDoctorCheckLine,
-	formatDoctorSummaryLine,
-	getCliDiagnosticCodeMetadata,
-	getDoctorFailureDetailLines,
-	getFailingDoctorChecks,
-	isCliDiagnosticError,
-} from "./cli-diagnostics.js";
+  createCliCommandError,
+  createCliDiagnosticCodeError,
+  CliDiagnosticError,
+  CLI_DIAGNOSTIC_CODE_METADATA,
+  CLI_DIAGNOSTIC_CODES,
+  formatCliDiagnosticError,
+  formatDoctorCheckLine,
+  formatDoctorSummaryLine,
+  getCliDiagnosticCodeMetadata,
+  getDoctorFailureDetailLines,
+  getFailingDoctorChecks,
+  isCliDiagnosticError,
+} from './cli-diagnostics.js';
 export type {
-	CliDiagnosticCode,
-	CliDiagnosticCodeError,
-	CliDiagnosticMessage,
-} from "./cli-diagnostics.js";
+  CliDiagnosticCode,
+  CliDiagnosticCodeError,
+  CliDiagnosticMessage,
+} from './cli-diagnostics.js';
 export {
-	EDITOR_PLUGIN_SLOT_IDS,
-	formatAddHelpText,
-	getWorkspaceBlockSelectOptions,
-	getWorkspaceBlockSelectOptionsAsync,
-	PATTERN_CATALOG_SCOPE_IDS,
-	runAddAdminViewCommand,
-	runAddAbilityCommand,
-	runAddBindingSourceCommand,
-	runAddAiFeatureCommand,
-	runAddBlockCommand,
-	runAddBlockStyleCommand,
-	runAddBlockTransformCommand,
-	runAddContractCommand,
-	runAddCoreVariationCommand,
-	runAddEditorPluginCommand,
-	runAddHookedBlockCommand,
-	runAddPatternCommand,
-	runAddPostMetaCommand,
-	runAddRestResourceCommand,
-	runAddVariationCommand,
-	seedWorkspaceMigrationProject,
-} from "../add/cli-add.js";
-export type { PatternCatalogScope } from "../add/cli-add.js";
+  EDITOR_PLUGIN_SLOT_IDS,
+  formatAddHelpText,
+  getWorkspaceBlockSelectOptions,
+  getWorkspaceBlockSelectOptionsAsync,
+  PATTERN_CATALOG_SCOPE_IDS,
+  runAddAdminViewCommand,
+  runAddAbilityCommand,
+  runAddBindingSourceCommand,
+  runAddAiFeatureCommand,
+  runAddBlockCommand,
+  runAddBlockStyleCommand,
+  runAddBlockTransformCommand,
+  runAddContractCommand,
+  runAddCoreVariationCommand,
+  runAddEditorPluginCommand,
+  runAddHookedBlockCommand,
+  runAddPatternCommand,
+  runAddPostMetaCommand,
+  runAddRestResourceCommand,
+  runAddVariationCommand,
+  seedWorkspaceMigrationProject,
+} from '../add/cli-add.js';
+export type { PatternCatalogScope } from '../add/cli-add.js';
 export {
-	COMPOUND_INNER_BLOCKS_PRESET_IDS,
-	getCompoundInnerBlocksPresetDefinition,
-} from "../add/compound-inner-blocks.js";
-export type { CompoundInnerBlocksPresetId } from "../add/compound-inner-blocks.js";
-export { HOOKED_BLOCK_POSITION_IDS } from "../add/hooked-blocks.js";
-export type { EditorPluginSlotId } from "../add/cli-add.js";
-export type { WorkspaceBlockSelectOption } from "../workspace/workspace-inventory.js";
-export type { HookedBlockPositionId } from "../add/hooked-blocks.js";
-export { formatHelpText } from "./cli-help.js";
+  COMPOUND_INNER_BLOCKS_PRESET_IDS,
+  getCompoundInnerBlocksPresetDefinition,
+} from '../add/compound-inner-blocks.js';
+export type { CompoundInnerBlocksPresetId } from '../add/compound-inner-blocks.js';
+export { HOOKED_BLOCK_POSITION_IDS } from '../add/hooked-blocks.js';
+export type { EditorPluginSlotId } from '../add/cli-add.js';
+export type { WorkspaceBlockSelectOption } from '../workspace/workspace-inventory.js';
+export type { HookedBlockPositionId } from '../add/hooked-blocks.js';
+export { formatHelpText } from './cli-help.js';
 export {
-	getNextSteps,
-	getOptionalOnboarding,
-	runScaffoldFlow,
-} from "../templates/cli-scaffold.js";
-export { createReadlinePrompt, type ReadlinePrompt } from "./cli-prompt.js";
+  getNextSteps,
+  getOptionalOnboarding,
+  runScaffoldFlow,
+} from '../templates/cli-scaffold.js';
+export { createReadlinePrompt, type ReadlinePrompt } from './cli-prompt.js';
 export {
-	formatTemplateDetails,
-	formatTemplateFeatures,
-	formatTemplateSummary,
-	getTemplateById,
-	getTemplateSelectOptions,
-	isBuiltInTemplateId,
-	listTemplates,
-} from "../templates/cli-templates.js";
+  formatTemplateDetails,
+  formatTemplateFeatures,
+  formatTemplateSummary,
+  getTemplateById,
+  getTemplateSelectOptions,
+  isBuiltInTemplateId,
+  listTemplates,
+} from '../templates/cli-templates.js';

@@ -1,8 +1,8 @@
 import { getPrimaryDevelopmentScript } from './local-dev-presets.js';
 import {
-	getCompoundExtensionWorkflowSection,
-	getInitialCommitCommands,
-	getInitialCommitNote,
+  getCompoundExtensionWorkflowSection,
+  getInitialCommitCommands,
+  getInitialCommitNote,
   getOptionalOnboardingNote,
   getOptionalOnboardingSteps,
   getQuickStartWorkflowNote,
@@ -19,44 +19,48 @@ import { getPackageVersions } from '../shared/package-versions.js';
 import type { ScaffoldTemplateVariables } from './scaffold.js';
 import { getScaffoldTemplateVariableGroups } from './scaffold-template-variable-groups.js';
 import {
-	OFFICIAL_WORKSPACE_TEMPLATE_ALIAS,
-	OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
-	isBuiltInTemplateId,
-	normalizeTemplateLookupId,
+  OFFICIAL_WORKSPACE_TEMPLATE_ALIAS,
+  OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE,
+  isBuiltInTemplateId,
+  normalizeTemplateLookupId,
 } from './template-registry.js';
 
 function formatReadmeTemplateIdentity(templateId: string): string {
-	const normalizedTemplateId = normalizeTemplateLookupId(templateId);
+  const normalizedTemplateId = normalizeTemplateLookupId(templateId);
 
-	if (normalizedTemplateId === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE) {
-		return [
+  if (normalizedTemplateId === OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE) {
+    return [
 			`- Alias: ${OFFICIAL_WORKSPACE_TEMPLATE_ALIAS}`,
 			`- Package: ${OFFICIAL_WORKSPACE_TEMPLATE_PACKAGE}`,
 			'- Type: official workspace scaffold',
 		].join('\n');
-	}
+  }
 
-	if (normalizedTemplateId === 'query-loop') {
-		return ['- Family: query-loop', '- Type: create-time core/query variation scaffold'].join(
-			'\n',
-		);
-	}
+  if (normalizedTemplateId === 'query-loop') {
+    return ['- Family: query-loop', '- Type: create-time core/query variation scaffold'].join(
+      '\n',
+    );
+  }
 
-	if (isBuiltInTemplateId(normalizedTemplateId)) {
-		return [`- Family: ${normalizedTemplateId}`, '- Type: built-in block scaffold'].join('\n');
-	}
+  if (isBuiltInTemplateId(normalizedTemplateId)) {
+    return [`- Family: ${normalizedTemplateId}`, '- Type: built-in block scaffold'].join(
+      '\n',
+    );
+  }
 
-	return [`- Template id: ${templateId}`, '- Type: custom or external scaffold'].join('\n');
+  return [`- Template id: ${templateId}`, '- Type: custom or external scaffold'].join(
+    '\n',
+  );
 }
 
 function getPackageManagerInstallGuidance(packageManager: PackageManagerId): string {
-	if (packageManager !== 'npm') {
-		return '';
-	}
+  if (packageManager !== 'npm') {
+    return '';
+  }
 
-	const installCommand = formatInstallCommand(packageManager);
+  const installCommand = formatInstallCommand(packageManager);
 
-	return [
+  return [
 		'',
 		`> npm note: the scaffold uses \`${installCommand}\` for the first install so npm does not spend the initial create flow in the audit resolver. Run \`npm audit\` separately when you want npm vulnerability output.`,
 		'> If npm prints React peer dependency noise from WordPress block-editor packages, validate with `npm run typecheck` and `npm run build` before changing WordPress package ranges.',
@@ -90,9 +94,13 @@ export function buildReadme(
   const compoundPersistenceEnabled =
     variableGroups.compound.enabled &&
     variableGroups.compound.persistenceEnabled;
-  const optionalOnboardingSteps = getOptionalOnboardingSteps(packageManager, templateId, {
-    compoundPersistenceEnabled,
-  });
+  const optionalOnboardingSteps = getOptionalOnboardingSteps(
+    packageManager,
+    templateId,
+    {
+      compoundPersistenceEnabled,
+    },
+  );
   const initialCommitCommands = getInitialCommitCommands();
   const sourceOfTruthNote = getTemplateSourceOfTruthNote(templateId, {
     compoundPersistenceEnabled,
@@ -125,10 +133,13 @@ export function buildReadme(
     templateId === 'compound'
       ? `## Compound InnerBlocks Presets\n\nThis scaffold starts with the \`${variables.compoundInnerBlocksPreset}\` preset for compound container authoring. Static nested relationships still belong in each generated \`block.json\` via \`allowedBlocks\`, \`parent\`, and \`ancestor\`, while \`src/blocks/${variables.slugKebabCase}/children.ts\` owns editor-only \`InnerBlocks\` behavior such as \`orientation\`, \`templateLock\`, \`defaultBlock\`, and \`directInsert\`.\n\n- \`freeform\`: unlocked inserter flow with the starter child template.\n- \`ordered\`: vertical ordered flow with \`templateLock="insert"\` and direct inserts.\n- \`horizontal\`: row-like nested authoring with direct inserts.\n- \`locked-structure\`: fully locked starter structure.\n\nWhen you need to change that authoring behavior later, update the preset helpers in \`src/blocks/${variables.slugKebabCase}/children.ts\` and keep fixed child constraints metadata-owned instead of duplicating them in editor props. If you need tighter wrapper ownership or sibling markup control, switch the generated edit components to \`useInnerBlocksProps\` and reuse \`getRootInnerBlocksPropsOptions()\` / \`getChildInnerBlocksPropsOptions( metadata.name )\` so the same preset behavior carries forward without rebuilding the option set by hand.`
       : '';
-  const phpRestExtensionPointsSection = getPhpRestExtensionPointsSection(templateId, {
-    compoundPersistenceEnabled,
-    slug: variables.slug,
-  });
+  const phpRestExtensionPointsSection = getPhpRestExtensionPointsSection(
+    templateId,
+    {
+      compoundPersistenceEnabled,
+      slug: variables.slug,
+    },
+  );
   const developmentScript = getPrimaryDevelopmentScript(templateId);
   const noStepsHeading =
     templateId === 'query-loop' ? 'Variation Workflow' : 'Artifact Refresh';
@@ -242,7 +253,10 @@ export function mergeTextLines(primaryContent: string, existingContent: string):
   const mergedLines: string[] = [];
   const seen = new Set<string>();
 
-  for (const line of [...normalizedPrimary.split('\n'), ...normalizedExisting.split('\n')]) {
+  for (const line of [
+    ...normalizedPrimary.split('\n'),
+    ...normalizedExisting.split('\n'),
+  ]) {
     if (line.length === 0 && mergedLines[mergedLines.length - 1] === '') {
       continue;
     }

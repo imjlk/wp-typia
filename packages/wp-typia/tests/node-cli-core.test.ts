@@ -92,7 +92,9 @@ async function captureNodeCli(
     return true;
   }) as typeof process.stderr.write;
   process.stdout.write = ((chunk: unknown, ...args: unknown[]) => {
-    stdout.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    stdout.push(
+      Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk),
+    );
     const callback = args.find(
       (arg): arg is (error?: Error | null) => void =>
         typeof arg === 'function',
@@ -666,7 +668,7 @@ describe('Gunshi CLI core routing', () => {
         'Preview only: `wp-typia init` does not write files yet.',
       );
       expect(result.stderr).toContain(
-        'package.json and generated helper files are snapshotted',
+        'package.json, generated helper files, and any package-manager configuration updates are snapshotted',
       );
       expect(result.stdout).toContain('Retrofit init plan for node-init-warning');
       expect(result.stdout).not.toContain(

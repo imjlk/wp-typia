@@ -1,6 +1,10 @@
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
+
+import { FORMATTING_TOOLCHAIN_POLICY } from './validate-formatting-toolchain-policy.mjs';
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(import.meta.dirname, '..');
@@ -41,14 +45,12 @@ const patterns = [
   'apps/docs/package.json',
   'apps/docs/tsconfig.json',
   'apps/docs/astro.config.mjs',
-  'apps/docs/src/content.config.ts',
   'examples/EXAMPLES.md',
   'packages/*/README.md',
   'package.json',
   'composer.json',
   'prettier.config.mjs',
   'eslint.config.mjs',
-  'playwright.config.ts',
   'typedoc.public.json',
   'tsdoc.json',
   'tsconfig.json',
@@ -69,3 +71,42 @@ execFileSync(
     stdio: 'inherit',
   },
 );
+
+const generatedJavaScriptTemplatePatterns = [
+  'packages/create-workspace-template/**/*.{cjs,js,mjs}.mustache',
+  'packages/wp-typia-project-tools/templates/**/*.{cjs,js,mjs}.mustache',
+  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/**/*.{cjs,js,mjs}.mustache',
+];
+const generatedPrettierConfig =
+  FORMATTING_TOOLCHAIN_POLICY.generatedPrettierConfig;
+const generatedConfigTempRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'wp-typia-prettier-config-'),
+);
+const generatedConfigPath = path.join(generatedConfigTempRoot, 'prettier.json');
+
+try {
+  fs.writeFileSync(
+    generatedConfigPath,
+    `${JSON.stringify(generatedPrettierConfig)}\n`,
+    'utf8',
+  );
+  execFileSync(
+    process.execPath,
+    [
+      prettierBin,
+      prettierMode,
+      '--no-error-on-unmatched-pattern',
+      '--config',
+      generatedConfigPath,
+      '--parser',
+      'babel',
+      ...generatedJavaScriptTemplatePatterns,
+    ],
+    {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    },
+  );
+} finally {
+  fs.rmSync(generatedConfigTempRoot, { force: true, recursive: true });
+}

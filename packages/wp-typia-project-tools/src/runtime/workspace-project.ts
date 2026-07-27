@@ -1,1 +1,1 @@
-export * from "./workspace/workspace-project.js";
+export * from './workspace/workspace-project.js';

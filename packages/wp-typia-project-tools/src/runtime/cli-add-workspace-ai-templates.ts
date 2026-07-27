@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-ai-templates.js";
+export * from './add/cli-add-workspace-ai-templates.js';

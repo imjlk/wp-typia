@@ -10,16 +10,16 @@ function assertOptionalStringPattern(
 	pattern: RegExp,
 	description: string,
 ): void {
-	const value = view[key];
-	if (typeof value === "undefined") {
-		return;
-	}
+  const value = view[key];
+  if (typeof value === 'undefined') {
+    return;
+  }
 
-	if (typeof value !== "string" || !pattern.test(value)) {
-		throw new Error(
-			`Unsafe scaffold template variable "${key}" for ${description}: ${JSON.stringify(value)}.`,
-		);
-	}
+  if (typeof value !== 'string' || !pattern.test(value)) {
+    throw new Error(
+      `Unsafe scaffold template variable "${key}" for ${description}: ${JSON.stringify(value)}.`,
+    );
+  }
 }
 
 /**
@@ -30,21 +30,71 @@ function assertOptionalStringPattern(
 export function assertScaffoldTemplateCodeIdentifiers(
 	view: Record<string, unknown>,
 ): void {
-	assertOptionalStringPattern(view, "namespace", BLOCK_SLUG_PATTERN, "block namespace");
-	assertOptionalStringPattern(view, "slug", BLOCK_SLUG_PATTERN, "block slug");
-	assertOptionalStringPattern(view, "slugKebabCase", BLOCK_SLUG_PATTERN, "block slug");
-	assertOptionalStringPattern(view, "textDomain", BLOCK_SLUG_PATTERN, "text domain");
-	assertOptionalStringPattern(view, "textdomain", BLOCK_SLUG_PATTERN, "text domain");
-	assertOptionalStringPattern(view, "queryPostType", QUERY_POST_TYPE_PATTERN, "query post type");
-	assertOptionalStringPattern(view, "phpPrefix", PHP_IDENTIFIER_PATTERN, "PHP identifier");
-	assertOptionalStringPattern(view, "slugSnakeCase", PHP_IDENTIFIER_PATTERN, "PHP identifier");
-	assertOptionalStringPattern(
-		view,
-		"phpPrefixUpper",
-		PHP_CONSTANT_IDENTIFIER_PATTERN,
-		"PHP constant identifier",
-	);
-	assertOptionalStringPattern(view, "pascalCase", JAVASCRIPT_IDENTIFIER_PATTERN, "JavaScript identifier");
-	assertOptionalStringPattern(view, "slugCamelCase", JAVASCRIPT_IDENTIFIER_PATTERN, "JavaScript identifier");
-	assertOptionalStringPattern(view, "titleCase", JAVASCRIPT_IDENTIFIER_PATTERN, "JavaScript identifier");
+  assertOptionalStringPattern(
+    view,
+    'namespace',
+    BLOCK_SLUG_PATTERN,
+    'block namespace',
+  );
+  assertOptionalStringPattern(view, 'slug', BLOCK_SLUG_PATTERN, 'block slug');
+  assertOptionalStringPattern(
+    view,
+    'slugKebabCase',
+    BLOCK_SLUG_PATTERN,
+    'block slug',
+  );
+  assertOptionalStringPattern(
+    view,
+    'textDomain',
+    BLOCK_SLUG_PATTERN,
+    'text domain',
+  );
+  assertOptionalStringPattern(
+    view,
+    'textdomain',
+    BLOCK_SLUG_PATTERN,
+    'text domain',
+  );
+  assertOptionalStringPattern(
+    view,
+    'queryPostType',
+    QUERY_POST_TYPE_PATTERN,
+    'query post type',
+  );
+  assertOptionalStringPattern(
+    view,
+    'phpPrefix',
+    PHP_IDENTIFIER_PATTERN,
+    'PHP identifier',
+  );
+  assertOptionalStringPattern(
+    view,
+    'slugSnakeCase',
+    PHP_IDENTIFIER_PATTERN,
+    'PHP identifier',
+  );
+  assertOptionalStringPattern(
+    view,
+    'phpPrefixUpper',
+    PHP_CONSTANT_IDENTIFIER_PATTERN,
+    'PHP constant identifier',
+  );
+  assertOptionalStringPattern(
+    view,
+    'pascalCase',
+    JAVASCRIPT_IDENTIFIER_PATTERN,
+    'JavaScript identifier',
+  );
+  assertOptionalStringPattern(
+    view,
+    'slugCamelCase',
+    JAVASCRIPT_IDENTIFIER_PATTERN,
+    'JavaScript identifier',
+  );
+  assertOptionalStringPattern(
+    view,
+    'titleCase',
+    JAVASCRIPT_IDENTIFIER_PATTERN,
+    'JavaScript identifier',
+  );
 }

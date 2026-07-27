@@ -1,1 +1,1 @@
-export * from "./schema/typia-llm-sync.js";
+export * from './schema/typia-llm-sync.js';

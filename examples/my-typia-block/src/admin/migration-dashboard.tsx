@@ -4,48 +4,48 @@ import { Button, Card, CardBody, Notice, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
 import {
-	type BatchMigrationResult,
-	type BlockScanResult,
-	batchMigrateScanResults,
-	generateMigrationReport,
-	scanSiteForMigrations,
+  type BatchMigrationResult,
+  type BlockScanResult,
+  batchMigrateScanResults,
+  generateMigrationReport,
+  scanSiteForMigrations,
 } from '../migration-detector';
 
 interface MigrationStats {
-	needsMigration: number;
-	riskTotals: {
-		additive: number;
-		rename: number;
-		semanticTransform: number;
-		unionBreaking: number;
-	};
-	total: number;
-	unknown: number;
-	versions: Record< string, number >;
+  needsMigration: number;
+  riskTotals: {
+    additive: number;
+    rename: number;
+    semanticTransform: number;
+    unionBreaking: number;
+  };
+  total: number;
+  unknown: number;
+  versions: Record< string, number >;
 }
 
 function formatRiskSummaryLine(
-	result: BlockScanResult[ 'analysis' ]
+	result: BlockScanResult[ 'analysis' ],
 ): string {
-	return `additive ${ result.riskSummary.additive.count }, rename ${ result.riskSummary.rename.count }, transform ${ result.riskSummary.semanticTransform.count }, union breaking ${ result.riskSummary.unionBreaking.count }`;
+  return `additive ${ result.riskSummary.additive.count }, rename ${ result.riskSummary.rename.count }, transform ${ result.riskSummary.semanticTransform.count }, union breaking ${ result.riskSummary.unionBreaking.count }`;
 }
 
 function findAnalysisForPreview(
 	results: BlockScanResult[],
 	postId: number,
-	blockPath: number[]
+	blockPath: number[],
 ): BlockScanResult[ 'analysis' ] | null {
-	return (
+  return (
 		results.find(
 			( result ) =>
 				result.postId === postId &&
-				result.blockPath.join( '.' ) === blockPath.join( '.' )
+				result.blockPath.join( '.' ) === blockPath.join( '.' ),
 		)?.analysis ?? null
 	);
 }
 
 function collectStats( results: BlockScanResult[] ): MigrationStats {
-	return results.reduce< MigrationStats >(
+  return results.reduce< MigrationStats >(
 		( accumulator, result ) => {
 			accumulator.total += 1;
 			if ( result.analysis.needsMigration ) {
@@ -79,37 +79,37 @@ function collectStats( results: BlockScanResult[] ): MigrationStats {
 			total: 0,
 			unknown: 0,
 			versions: {},
-		}
+		},
 	);
 }
 
 function downloadFile( contents: string, fileName: string, type: string ) {
-	const blob = new Blob( [ contents ], { type } );
-	const url = URL.createObjectURL( blob );
-	const link = document.createElement( 'a' );
-	link.href = url;
-	link.download = fileName;
-	link.click();
-	URL.revokeObjectURL( url );
+  const blob = new Blob( [ contents ], { type } );
+  const url = URL.createObjectURL( blob );
+  const link = document.createElement( 'a' );
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL( url );
 }
 
 function formatUnionSummary( result: BlockScanResult[ 'preview' ] ): string {
-	if ( result.unionBranches.length === 0 ) {
-		return __( 'No union branch changes', 'my-typia-block' );
-	}
+  if ( result.unionBranches.length === 0 ) {
+    return __( 'No union branch changes', 'my-typia-block' );
+  }
 
-	return result.unionBranches
+  return result.unionBranches
 		.map(
 			( branch ) =>
 				`${ branch.field }: ${ branch.legacyBranch ?? 'unknown' } → ${
 					branch.nextBranch ?? 'unknown'
-				} (${ branch.status })`
+				} (${ branch.status })`,
 		)
 		.join( ', ' );
 }
 
 function renderJsonPreview( value: unknown ) {
-	return (
+  return (
 		<pre
 			style={ {
 				background: '#f6f7f7',
@@ -125,104 +125,95 @@ function renderJsonPreview( value: unknown ) {
 }
 
 export function MigrationDashboard() {
-	const [ results, setResults ] = useState< BlockScanResult[] >( [] );
-	const [ dryRunResult, setDryRunResult ] =
+  const [ results, setResults ] = useState< BlockScanResult[] >( [] );
+  const [ dryRunResult, setDryRunResult ] =
 		useState< BatchMigrationResult | null >( null );
-	const [ isScanning, setIsScanning ] = useState( false );
-	const [ isMigrating, setIsMigrating ] = useState( false );
-	const [ error, setError ] = useState< string | null >( null );
+  const [ isScanning, setIsScanning ] = useState( false );
+  const [ isMigrating, setIsMigrating ] = useState( false );
+  const [ error, setError ] = useState< string | null >( null );
 
-	const stats = collectStats( results );
+  const stats = collectStats( results );
 
-	const runScan = async () => {
-		setIsScanning( true );
-		setError( null );
-		setDryRunResult( null );
+  const runScan = async () => {
+    setIsScanning( true );
+    setError( null );
+    setDryRunResult( null );
 
-		try {
-			setResults( await scanSiteForMigrations() );
-		} catch ( scanError ) {
-			setError(
-				scanError instanceof Error
-					? scanError.message
-					: String( scanError )
-			);
-		} finally {
-			setIsScanning( false );
-		}
-	};
+    try {
+      setResults( await scanSiteForMigrations() );
+    } catch ( scanError ) {
+      setError(
+        scanError instanceof Error ? scanError.message : String(scanError),
+      );
+    } finally {
+      setIsScanning( false );
+    }
+  };
 
-	const runDryRun = async () => {
-		setError( null );
+  const runDryRun = async () => {
+    setError( null );
 
-		try {
-			setDryRunResult(
-				await batchMigrateScanResults( results, { dryRun: true } )
-			);
-		} catch ( batchError ) {
-			setError(
-				batchError instanceof Error
-					? batchError.message
-					: String( batchError )
-			);
-		}
-	};
+    try {
+      setDryRunResult(
+        await batchMigrateScanResults( results, { dryRun: true } ),
+      );
+    } catch ( batchError ) {
+      setError(
+        batchError instanceof Error ? batchError.message : String(batchError),
+      );
+    }
+  };
 
-	const runBatchMigration = async () => {
-		if (
+  const runBatchMigration = async () => {
+    if (
 			! window.confirm(
-				__(
-					'Migrate all detected legacy blocks now?',
-					'my-typia-block'
-				)
-			)
+        __('Migrate all detected legacy blocks now?', 'my-typia-block'),
+      )
 		) {
-			return;
-		}
+      return;
+    }
 
-		setIsMigrating( true );
-		setError( null );
+    setIsMigrating( true );
+    setError( null );
 
-		try {
-			setDryRunResult(
-				await batchMigrateScanResults( results, { dryRun: false } )
-			);
-			await runScan();
-		} catch ( batchError ) {
-			setError(
-				batchError instanceof Error
-					? batchError.message
-					: String( batchError )
-			);
-		} finally {
-			setIsMigrating( false );
-		}
-	};
+    try {
+      setDryRunResult(
+        await batchMigrateScanResults( results, { dryRun: false } ),
+      );
+      await runScan();
+    } catch ( batchError ) {
+      setError(
+        batchError instanceof Error ? batchError.message : String(batchError),
+      );
+    } finally {
+      setIsMigrating( false );
+    }
+  };
 
-	const downloadReport = () => {
-		downloadFile(
-			generateMigrationReport( results ),
-			'my-typia-block-migration-report.md',
-			'text/markdown'
-		);
-	};
+  const downloadReport = () => {
+    downloadFile(
+      generateMigrationReport(results),
+      'my-typia-block-migration-report.md',
+      'text/markdown',
+    );
+  };
 
-	const downloadJson = () => {
-		downloadFile(
-			JSON.stringify(
-				{
-					dryRunResult,
-					results,
-				},
-				null,
-				2
-			),
-			'my-typia-block-migration-report.json',
-			'application/json'
-		);
-	};
+  const downloadJson = () => {
+    downloadFile(
+      JSON.stringify(
+        {
+          dryRunResult,
+          results,
+        },
+        null,
+        2,
+      ),
+      'my-typia-block-migration-report.json',
+      'application/json',
+    );
+  };
 
-	return (
+  return (
 		<div className="my-typia-block-migration-dashboard">
 			<Card>
 				<CardBody>
@@ -234,7 +225,7 @@ export function MigrationDashboard() {
 							<p style={ { margin: '4px 0 0' } }>
 								{ __(
 									'Scan posts for legacy attributes, preview field-level changes, and batch migrate to the current Typia contract.',
-									'my-typia-block'
+									'my-typia-block',
 								) }
 							</p>
 						</div>
@@ -318,28 +309,28 @@ export function MigrationDashboard() {
 										<li>
 											{ __(
 												'Detected blocks',
-												'my-typia-block'
+												'my-typia-block',
 											) }
 											: { stats.total }
 										</li>
 										<li>
 											{ __(
 												'Need migration',
-												'my-typia-block'
+												'my-typia-block',
 											) }
 											: { stats.needsMigration }
 										</li>
 										<li>
 											{ __(
 												'Unknown shape',
-												'my-typia-block'
+												'my-typia-block',
 											) }
 											: { stats.unknown }
 										</li>
 										<li>
 											{ __(
 												'Risk summary',
-												'my-typia-block'
+												'my-typia-block',
 											) }
 											: additive{ ' ' }
 											{ stats.riskTotals.additive },
@@ -359,7 +350,7 @@ export function MigrationDashboard() {
 									<strong>
 										{ __(
 											'Version distribution',
-											'my-typia-block'
+											'my-typia-block',
 										) }
 									</strong>
 									<ul
@@ -373,7 +364,7 @@ export function MigrationDashboard() {
 												<li key={ version }>
 													{ version }: { count }
 												</li>
-											)
+											),
 										) }
 									</ul>
 								</div>
@@ -382,7 +373,7 @@ export function MigrationDashboard() {
 									<strong>
 										{ __(
 											'Latest results',
-											'my-typia-block'
+											'my-typia-block',
 										) }
 									</strong>
 									<div
@@ -397,7 +388,7 @@ export function MigrationDashboard() {
 												key={ `${
 													result.postId
 												}:${ result.blockPath.join(
-													'.'
+													'.',
 												) }` }
 											>
 												<summary>
@@ -422,7 +413,7 @@ export function MigrationDashboard() {
 													}{ ' ' }
 													{ __(
 														'changed',
-														'my-typia-block'
+														'my-typia-block',
 													) }
 													{ result.preview.unresolved
 														.length > 0
@@ -445,7 +436,7 @@ export function MigrationDashboard() {
 														<strong>
 															{ __(
 																'Changed fields',
-																'my-typia-block'
+																'my-typia-block',
 															) }
 														</strong>
 														<div>
@@ -453,11 +444,11 @@ export function MigrationDashboard() {
 																.changedFields
 																.length > 0
 																? result.preview.changedFields.join(
-																		', '
+																		', ',
 																  )
 																: __(
 																		'None',
-																		'my-typia-block'
+																		'my-typia-block',
 																  ) }
 														</div>
 													</div>
@@ -465,12 +456,12 @@ export function MigrationDashboard() {
 														<strong>
 															{ __(
 																'Risk summary',
-																'my-typia-block'
+																'my-typia-block',
 															) }
 														</strong>
 														<div>
 															{ formatRiskSummaryLine(
-																result.analysis
+																result.analysis,
 															) }
 														</div>
 													</div>
@@ -478,12 +469,12 @@ export function MigrationDashboard() {
 														<strong>
 															{ __(
 																'Union branches',
-																'my-typia-block'
+																'my-typia-block',
 															) }
 														</strong>
 														<div>
 															{ formatUnionSummary(
-																result.preview
+																result.preview,
 															) }
 														</div>
 													</div>
@@ -493,12 +484,12 @@ export function MigrationDashboard() {
 															<strong>
 																{ __(
 																	'Manual review',
-																	'my-typia-block'
+																	'my-typia-block',
 																) }
 															</strong>
 															<div>
 																{ result.preview.unresolved.join(
-																	', '
+																	', ',
 																) }
 															</div>
 														</div>
@@ -510,12 +501,12 @@ export function MigrationDashboard() {
 															<strong>
 																{ __(
 																	'Validation',
-																	'my-typia-block'
+																	'my-typia-block',
 																) }
 															</strong>
 															<div>
 																{ result.preview.validationErrors.join(
-																	', '
+																	', ',
 																) }
 															</div>
 														</div>
@@ -524,23 +515,23 @@ export function MigrationDashboard() {
 														<strong>
 															{ __(
 																'Before',
-																'my-typia-block'
+																'my-typia-block',
 															) }
 														</strong>
 														{ renderJsonPreview(
 															result.preview
-																.before
+																.before,
 														) }
 													</div>
 													<div>
 														<strong>
 															{ __(
 																'After',
-																'my-typia-block'
+																'my-typia-block',
 															) }
 														</strong>
 														{ renderJsonPreview(
-															result.preview.after
+															result.preview.after,
 														) }
 													</div>
 												</div>
@@ -556,7 +547,7 @@ export function MigrationDashboard() {
 								<strong>
 									{ __(
 										'Dry-run preview',
-										'my-typia-block'
+										'my-typia-block',
 									) }
 								</strong>
 								<div
@@ -591,13 +582,13 @@ export function MigrationDashboard() {
 															findAnalysisForPreview(
 																results,
 																post.postId,
-																preview.blockPath
+																preview.blockPath,
 															);
 
 														return (
 															<div
 																key={ preview.blockPath.join(
-																	'.'
+																	'.',
 																) }
 															>
 																<div>
@@ -616,12 +607,12 @@ export function MigrationDashboard() {
 																		.length >
 																	0
 																		? ` · ${ preview.preview.changedFields.join(
-																				', '
+																				', ',
 																		  ) }`
 																		: '' }
 																	{ analysis
 																		? ` · ${ formatRiskSummaryLine(
-																				analysis
+																				analysis,
 																		  ) }`
 																		: '' }
 																	{ preview.reason
@@ -630,7 +621,7 @@ export function MigrationDashboard() {
 																</div>
 																<div>
 																	{ formatUnionSummary(
-																		preview.preview
+																		preview.preview,
 																	) }
 																</div>
 																{ renderJsonPreview(
@@ -649,11 +640,11 @@ export function MigrationDashboard() {
 																			preview
 																				.preview
 																				.validationErrors,
-																	}
+																	},
 																) }
 															</div>
 														);
-													}
+													},
 												) }
 											</div>
 										</details>

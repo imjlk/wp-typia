@@ -18,12 +18,12 @@ export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue
  * @category Types
  */
 export type AttributeKind =
-	| "string"
-	| "number"
-	| "boolean"
-	| "array"
-	| "object"
-	| "union";
+	| 'string'
+	| 'number'
+	| 'boolean'
+	| 'array'
+	| 'object'
+	| 'union';
 
 /**
  * Enumerate the `block.json` attribute kinds supported by the projection layer.
@@ -31,18 +31,18 @@ export type AttributeKind =
  * @category Types
  */
 export type WordPressAttributeKind =
-	| "string"
-	| "number"
-	| "boolean"
-	| "array"
-	| "object";
+	| 'string'
+	| 'number'
+	| 'boolean'
+	| 'array'
+	| 'object';
 
 /**
  * Enumerate supported WordPress extraction sources for string attributes.
  *
  * @category Types
  */
-export type WordPressAttributeSource = "html" | "text" | "rich-text";
+export type WordPressAttributeSource = 'html' | 'text' | 'rich-text';
 
 /**
  * Describe normalized Typia constraint data for one attribute node.
@@ -50,18 +50,18 @@ export type WordPressAttributeSource = "html" | "text" | "rich-text";
  * @category Types
  */
 export interface AttributeConstraints {
-	exclusiveMaximum: number | null;
-	exclusiveMinimum: number | null;
-	format: string | null;
-	maxLength: number | null;
-	maxItems: number | null;
-	maximum: number | null;
-	minLength: number | null;
-	minItems: number | null;
-	minimum: number | null;
-	multipleOf: number | null;
-	pattern: string | null;
-	typeTag: string | null;
+  exclusiveMaximum: number | null;
+  exclusiveMinimum: number | null;
+  format: string | null;
+  maxLength: number | null;
+  maxItems: number | null;
+  maximum: number | null;
+  minLength: number | null;
+  minItems: number | null;
+  minimum: number | null;
+  multipleOf: number | null;
+  pattern: string | null;
+  typeTag: string | null;
 }
 
 /**
@@ -70,23 +70,23 @@ export interface AttributeConstraints {
  * @category Types
  */
 export interface AttributeNode {
-	constraints: AttributeConstraints;
-	defaultValue?: JsonValue;
-	enumValues: Array<string | number | boolean> | null;
-	items?: AttributeNode;
-	kind: AttributeKind;
-	path: string;
-	properties?: Record<string, AttributeNode>;
-	required: boolean;
-	union?: AttributeUnion | null;
-	wp: {
-		preserveOnEmpty: boolean;
-		selector: string | null;
-		secret: boolean;
-		secretStateField: string | null;
-		source: WordPressAttributeSource | null;
-		writeOnly: boolean;
-	};
+  constraints: AttributeConstraints;
+  defaultValue?: JsonValue;
+  enumValues: Array<string | number | boolean> | null;
+  items?: AttributeNode;
+  kind: AttributeKind;
+  path: string;
+  properties?: Record<string, AttributeNode>;
+  required: boolean;
+  union?: AttributeUnion | null;
+  wp: {
+    preserveOnEmpty: boolean;
+    selector: string | null;
+    secret: boolean;
+    secretStateField: string | null;
+    source: WordPressAttributeSource | null;
+    writeOnly: boolean;
+  };
 }
 
 /**
@@ -95,8 +95,8 @@ export interface AttributeNode {
  * @category Types
  */
 export interface AttributeUnion {
-	branches: Record<string, AttributeNode>;
-	discriminator: string;
+  branches: Record<string, AttributeNode>;
+  discriminator: string;
 }
 
 /**
@@ -105,11 +105,11 @@ export interface AttributeUnion {
  * @category Types
  */
 export interface BlockJsonAttribute {
-	default?: JsonValue;
-	enum?: Array<string | number | boolean>;
-	selector?: string;
-	source?: WordPressAttributeSource;
-	type: WordPressAttributeKind;
+  default?: JsonValue;
+  enum?: Array<string | number | boolean>;
+  selector?: string;
+  source?: WordPressAttributeSource;
+  type: WordPressAttributeKind;
 }
 
 /**
@@ -118,30 +118,30 @@ export interface BlockJsonAttribute {
  * @category Types
  */
 export interface ManifestAttribute {
-	typia: {
-		constraints: AttributeConstraints;
-		defaultValue: JsonValue | null;
-		hasDefault: boolean;
-	};
-	ts: {
-		items: ManifestAttribute | null;
-		kind: AttributeKind;
-		properties: Record<string, ManifestAttribute> | null;
-		required: boolean;
-		union: ManifestUnion | null;
-	};
-	wp: {
-		defaultValue: JsonValue | null;
-		enum: Array<string | number | boolean> | null;
-		hasDefault: boolean;
-		preserveOnEmpty?: boolean;
-		selector?: string | null;
-		secret?: boolean;
-		secretStateField?: string | null;
-		source?: WordPressAttributeSource | null;
-		type: WordPressAttributeKind;
-		writeOnly?: boolean;
-	};
+  typia: {
+    constraints: AttributeConstraints;
+    defaultValue: JsonValue | null;
+    hasDefault: boolean;
+  };
+  ts: {
+    items: ManifestAttribute | null;
+    kind: AttributeKind;
+    properties: Record<string, ManifestAttribute> | null;
+    required: boolean;
+    union: ManifestUnion | null;
+  };
+  wp: {
+    defaultValue: JsonValue | null;
+    enum: Array<string | number | boolean> | null;
+    hasDefault: boolean;
+    preserveOnEmpty?: boolean;
+    selector?: string | null;
+    secret?: boolean;
+    secretStateField?: string | null;
+    source?: WordPressAttributeSource | null;
+    type: WordPressAttributeKind;
+    writeOnly?: boolean;
+  };
 }
 
 /**
@@ -150,8 +150,8 @@ export interface ManifestAttribute {
  * @category Types
  */
 export interface ManifestUnion {
-	branches: Record<string, ManifestAttribute>;
-	discriminator: string;
+  branches: Record<string, ManifestAttribute>;
+  discriminator: string;
 }
 
 /**
@@ -160,9 +160,9 @@ export interface ManifestUnion {
  * @category Types
  */
 export interface ManifestDocument {
-	attributes: Record<string, ManifestAttribute>;
-	manifestVersion: 2;
-	sourceType: string;
+  attributes: Record<string, ManifestAttribute>;
+  manifestVersion: 2;
+  sourceType: string;
 }
 
 /**
@@ -172,20 +172,20 @@ export interface ManifestDocument {
  * @category Schema
  */
 export function defaultAttributeConstraints(): AttributeConstraints {
-	return {
-		exclusiveMaximum: null,
-		exclusiveMinimum: null,
-		format: null,
-		maxLength: null,
-		maxItems: null,
-		maximum: null,
-		minLength: null,
-		minItems: null,
-		minimum: null,
-		multipleOf: null,
-		pattern: null,
-		typeTag: null,
-	};
+  return {
+    exclusiveMaximum: null,
+    exclusiveMinimum: null,
+    format: null,
+    maxLength: null,
+    maxItems: null,
+    maximum: null,
+    minLength: null,
+    minItems: null,
+    minimum: null,
+    multipleOf: null,
+    pattern: null,
+    typeTag: null,
+  };
 }
 
 /**
@@ -196,7 +196,7 @@ export function defaultAttributeConstraints(): AttributeConstraints {
  * @category Schema
  */
 export function getWordPressKind(node: AttributeNode): WordPressAttributeKind {
-	return node.kind === "union" ? "object" : node.kind;
+  return node.kind === 'union' ? 'object' : node.kind;
 }
 
 /**
@@ -208,22 +208,22 @@ export function getWordPressKind(node: AttributeNode): WordPressAttributeKind {
  * @category Schema
  */
 export function baseNode(kind: AttributeKind, pathLabel: string): AttributeNode {
-	return {
-		constraints: defaultAttributeConstraints(),
-		enumValues: null,
-		kind,
-		path: pathLabel,
-		required: true,
-		union: null,
-		wp: {
-			preserveOnEmpty: false,
-			selector: null,
-			secret: false,
-			secretStateField: null,
-			source: null,
-			writeOnly: false,
-		},
-	};
+  return {
+    constraints: defaultAttributeConstraints(),
+    enumValues: null,
+    kind,
+    path: pathLabel,
+    required: true,
+    union: null,
+    wp: {
+      preserveOnEmpty: false,
+      selector: null,
+      secret: false,
+      secretStateField: null,
+      source: null,
+      writeOnly: false,
+    },
+  };
 }
 
 /**
@@ -238,15 +238,15 @@ export function withRequired(
 	node: AttributeNode,
 	required: boolean,
 ): AttributeNode {
-	return {
-		...node,
-		items: node.items
-			? withRequired(node.items, node.items.required)
-			: undefined,
-		properties: node.properties ? cloneProperties(node.properties) : undefined,
-		required,
-		union: node.union ? cloneUnion(node.union) : null,
-	};
+  return {
+    ...node,
+    items: node.items
+      ? withRequired(node.items, node.items.required)
+      : undefined,
+    properties: node.properties ? cloneProperties(node.properties) : undefined,
+    required,
+    union: node.union ? cloneUnion(node.union) : null,
+  };
 }
 
 /**
@@ -257,15 +257,15 @@ export function withRequired(
  * @category Schema
  */
 export function cloneUnion(union: AttributeUnion): AttributeUnion {
-	return {
-		branches: Object.fromEntries(
-			Object.entries(union.branches).map(([key, branch]) => [
-				key,
-				withRequired(branch, branch.required),
-			]),
-		),
-		discriminator: union.discriminator,
-	};
+  return {
+    branches: Object.fromEntries(
+      Object.entries(union.branches).map(([key, branch]) => [
+        key,
+        withRequired(branch, branch.required),
+      ]),
+    ),
+    discriminator: union.discriminator,
+  };
 }
 
 /**
@@ -278,10 +278,10 @@ export function cloneUnion(union: AttributeUnion): AttributeUnion {
 export function cloneProperties(
 	properties: Record<string, AttributeNode>,
 ): Record<string, AttributeNode> {
-	return Object.fromEntries(
-		Object.entries(properties).map(([key, node]) => [
-			key,
-			withRequired(node, node.required),
-		]),
-	);
+  return Object.fromEntries(
+    Object.entries(properties).map(([key, node]) => [
+      key,
+      withRequired(node, node.required),
+    ]),
+  );
 }

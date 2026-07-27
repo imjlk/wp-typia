@@ -3,152 +3,160 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
-	formatBlockPatternContentNestingDiagnostics,
-	validateBlockPatternContentNesting,
-	syncInnerBlocksTemplateModule,
-	syncBlockMetadata,
-	validateBlockNestingContract,
-	validateInnerBlocksTemplates,
+  formatBlockPatternContentNestingDiagnostics,
+  validateBlockPatternContentNesting,
+  syncInnerBlocksTemplateModule,
+  syncBlockMetadata,
+  validateBlockNestingContract,
+  validateInnerBlocksTemplates,
 } from '@wp-typia/block-runtime/metadata-core';
 
-import { BLOCK_NESTING, BLOCK_TEMPLATES, BLOCKS, PATTERNS } from './block-config';
+import {
+  BLOCK_NESTING,
+  BLOCK_TEMPLATES,
+  BLOCKS,
+  PATTERNS,
+} from './block-config';
 
-function parseCliOptions( argv: string[] ) {
-	const options = {
-		check: false,
-	};
+function parseCliOptions(argv: string[]) {
+  const options = {
+    check: false,
+  };
 
-	for ( const argument of argv ) {
-		if ( argument === '--check' ) {
-			options.check = true;
-			continue;
-		}
+  for (const argument of argv) {
+    if (argument === '--check') {
+      options.check = true;
+      continue;
+    }
 
-		throw new Error( `Unknown sync-types flag: ${ argument }` );
-	}
+    throw new Error(`Unknown sync-types flag: ${argument}`);
+  }
 
-	return options;
+  return options;
 }
 
-function readWorkspaceBlockName( block: ( typeof BLOCKS )[ number ] ): string {
-	const blockJsonFile = path.join( 'src', 'blocks', block.slug, 'block.json' );
-	let blockJson: { name?: unknown };
-	try {
-		blockJson = JSON.parse( fs.readFileSync( blockJsonFile, 'utf8' ) ) as {
-			name?: unknown;
-		};
-	} catch ( error ) {
-		throw new Error(
-			`Failed to read block.json for block "${ block.slug }" at ${ blockJsonFile }: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
-	if ( typeof blockJson.name !== 'string' || blockJson.name.trim() === '' ) {
-		throw new Error( `${ blockJsonFile } must define a string "name".` );
-	}
+function readWorkspaceBlockName(block: (typeof BLOCKS)[number]): string {
+  const blockJsonFile = path.join('src', 'blocks', block.slug, 'block.json');
+  let blockJson: { name?: unknown };
+  try {
+    blockJson = JSON.parse(fs.readFileSync(blockJsonFile, 'utf8')) as {
+      name?: unknown;
+    };
+  } catch (error) {
+    throw new Error(
+      `Failed to read block.json for block "${block.slug}" at ${blockJsonFile}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (typeof blockJson.name !== 'string' || blockJson.name.trim() === '') {
+    throw new Error(`${blockJsonFile} must define a string "name".`);
+  }
 
-	return blockJson.name;
+  return blockJson.name;
 }
 
-function readPatternFileContent( pattern: ( typeof PATTERNS )[ number ] ): string {
-	try {
-		return fs.readFileSync( pattern.file, 'utf8' );
-	} catch ( error ) {
-		throw new Error(
-			`Failed to read pattern "${ pattern.slug }" at ${ pattern.file }: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
+function readPatternFileContent(pattern: (typeof PATTERNS)[number]): string {
+  try {
+    return fs.readFileSync(pattern.file, 'utf8');
+  } catch (error) {
+    throw new Error(
+      `Failed to read pattern "${pattern.slug}" at ${pattern.file}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
 }
 
-function validatePatternContentNesting( knownBlockNames: readonly string[] ) {
-	const diagnostics = PATTERNS.flatMap( ( pattern ) => {
-		const content = readPatternFileContent( pattern );
-		return validateBlockPatternContentNesting( content, {
-			allowExternalBlockNames: true,
-			knownBlockNames,
-			nesting: BLOCK_NESTING,
-			patternFile: pattern.file,
-		} ).diagnostics;
-	} );
-	const warnings = diagnostics.filter(
-		( diagnostic ) => diagnostic.severity === 'warning'
-	);
-	const errors = diagnostics.filter(
-		( diagnostic ) => diagnostic.severity === 'error'
-	);
+function validatePatternContentNesting(knownBlockNames: readonly string[]) {
+  const diagnostics = PATTERNS.flatMap((pattern) => {
+    const content = readPatternFileContent(pattern);
+    return validateBlockPatternContentNesting(content, {
+      allowExternalBlockNames: true,
+      knownBlockNames,
+      nesting: BLOCK_NESTING,
+      patternFile: pattern.file,
+    }).diagnostics;
+  });
+  const warnings = diagnostics.filter(
+    (diagnostic) => diagnostic.severity === 'warning',
+  );
+  const errors = diagnostics.filter(
+    (diagnostic) => diagnostic.severity === 'error',
+  );
 
-	if ( warnings.length > 0 ) {
-		console.warn(
-			`⚠️ Pattern nesting validation warnings:\n${ formatBlockPatternContentNestingDiagnostics(
-				warnings
-			) }`
-		);
-	}
+  if (warnings.length > 0) {
+    console.warn(
+      `⚠️ Pattern nesting validation warnings:\n${formatBlockPatternContentNestingDiagnostics(
+        warnings,
+      )}`,
+    );
+  }
 
-	if ( errors.length > 0 ) {
-		throw new Error(
-			`Pattern content violates block nesting contract:\n${ formatBlockPatternContentNestingDiagnostics(
-				errors
-			) }`
-		);
-	}
+  if (errors.length > 0) {
+    throw new Error(
+      `Pattern content violates block nesting contract:\n${formatBlockPatternContentNestingDiagnostics(
+        errors,
+      )}`,
+    );
+  }
 }
 
 async function main() {
-	const options = parseCliOptions( process.argv.slice( 2 ) );
-	const knownBlockNames = BLOCKS.map( readWorkspaceBlockName );
-	validateBlockNestingContract( BLOCK_NESTING, {
-		allowExternalBlockNames: true,
-		knownBlockNames,
-	} );
-	validateInnerBlocksTemplates( BLOCK_TEMPLATES, {
-		allowExternalBlockNames: true,
-		knownBlockNames,
-		nesting: BLOCK_NESTING,
-	} );
-	validatePatternContentNesting( knownBlockNames );
-	await syncInnerBlocksTemplateModule(
-		{
-			allowExternalBlockNames: true,
-			knownBlockNames,
-			nesting: BLOCK_NESTING,
-			outputFile: path.join( 'src', 'inner-blocks-templates.ts' ),
-			templates: BLOCK_TEMPLATES,
-		},
-		{
-			check: options.check,
-		}
-	);
+  const options = parseCliOptions(process.argv.slice(2));
+  const knownBlockNames = BLOCKS.map(readWorkspaceBlockName);
+  validateBlockNestingContract(BLOCK_NESTING, {
+    allowExternalBlockNames: true,
+    knownBlockNames,
+  });
+  validateInnerBlocksTemplates(BLOCK_TEMPLATES, {
+    allowExternalBlockNames: true,
+    knownBlockNames,
+    nesting: BLOCK_NESTING,
+  });
+  validatePatternContentNesting(knownBlockNames);
+  await syncInnerBlocksTemplateModule(
+    {
+      allowExternalBlockNames: true,
+      knownBlockNames,
+      nesting: BLOCK_NESTING,
+      outputFile: path.join('src', 'inner-blocks-templates.ts'),
+      templates: BLOCK_TEMPLATES,
+    },
+    {
+      check: options.check,
+    },
+  );
 
-	for ( const block of BLOCKS ) {
-		const baseDir = path.join( 'src', 'blocks', block.slug );
-		const result = await syncBlockMetadata( {
-			allowExternalBlockNames: true,
-			blockJsonFile: path.join( baseDir, 'block.json' ),
-			jsonSchemaFile: path.join( baseDir, 'typia.schema.json' ),
-			knownBlockNames,
-			manifestFile: path.join( baseDir, 'typia.manifest.json' ),
-			nesting: BLOCK_NESTING,
-			openApiFile: path.join( baseDir, 'typia.openapi.json' ),
-			sourceTypeName: block.attributeTypeName,
-			typesFile: block.typesFile,
-		}, {
-			check: options.check,
-		} );
+  for (const block of BLOCKS) {
+    const baseDir = path.join('src', 'blocks', block.slug);
+    const result = await syncBlockMetadata(
+      {
+        allowExternalBlockNames: true,
+        blockJsonFile: path.join(baseDir, 'block.json'),
+        jsonSchemaFile: path.join(baseDir, 'typia.schema.json'),
+        knownBlockNames,
+        manifestFile: path.join(baseDir, 'typia.manifest.json'),
+        nesting: BLOCK_NESTING,
+        openApiFile: path.join(baseDir, 'typia.openapi.json'),
+        sourceTypeName: block.attributeTypeName,
+        typesFile: block.typesFile,
+      },
+      {
+        check: options.check,
+      },
+    );
 
-		console.log(
-			options.check
-				? `✅ ${ block.slug }: block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json are already up to date with the TypeScript types!`
-				: `✅ ${ block.slug }: block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json were generated from TypeScript types!`
-		);
-		console.log( '📝 Generated attributes:', result.attributeNames );
-	}
+    console.log(
+      options.check
+        ? `✅ ${block.slug}: block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json are already up to date with the TypeScript types!`
+        : `✅ ${block.slug}: block.json, typia.manifest.json, typia-validator.php, typia.schema.json, and typia.openapi.json were generated from TypeScript types!`,
+    );
+    console.log('📝 Generated attributes:', result.attributeNames);
+  }
 }
 
-main().catch( ( error ) => {
-	console.error( '❌ Type sync failed:', error );
-	process.exit( 1 );
-} );
+main().catch((error) => {
+  console.error('❌ Type sync failed:', error);
+  process.exit(1);
+});

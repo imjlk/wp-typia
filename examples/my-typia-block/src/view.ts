@@ -100,7 +100,7 @@ const { actions, state } = store( 'my-typia-block', {
 						postId: context.postId,
 						resourceKey: context.id,
 					},
-					context.restNonce
+					context.restNonce,
 				);
 				if ( ! result.isValid || ! result.data ) {
 					state.error =
@@ -121,7 +121,7 @@ const { actions, state } = store( 'my-typia-block', {
 	callbacks: {
 		init() {
 			console.log(
-				'MyTypiaBlock initialized with Typia validation and Interactivity API'
+				'MyTypiaBlock initialized with Typia validation and Interactivity API',
 			);
 		},
 

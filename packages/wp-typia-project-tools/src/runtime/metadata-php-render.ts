@@ -1,1 +1,1 @@
-export * from "./schema/metadata-php-render.js";
+export * from './schema/metadata-php-render.js';

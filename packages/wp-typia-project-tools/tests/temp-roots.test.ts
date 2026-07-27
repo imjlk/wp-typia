@@ -1,15 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { afterEach, describe, expect, test } from 'bun:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
-	cleanupStaleTempRoots,
-	createManagedTempRoot,
-	getTrackedTempRoots,
-} from "../src/runtime/temp-roots.js";
+  cleanupStaleTempRoots,
+  createManagedTempRoot,
+  getTrackedTempRoots,
+} from '../src/runtime/temp-roots.js';
 
-describe("@wp-typia/project-tools temp root management", () => {
+describe('@wp-typia/project-tools temp root management', () => {
 	const testRoots: string[] = [];
 
 	afterEach(async () => {
@@ -18,13 +18,13 @@ describe("@wp-typia/project-tools temp root management", () => {
 		}
 	});
 
-	test("tracks managed temp roots until cleanup runs", async () => {
+	test('tracks managed temp roots until cleanup runs', async () => {
 		const tmpDir = await fs.promises.mkdtemp(
-			path.join(os.tmpdir(), "wp-typia-temp-roots-test-"),
+			path.join(os.tmpdir(), 'wp-typia-temp-roots-test-'),
 		);
 		testRoots.push(tmpDir);
 
-		const managed = await createManagedTempRoot("wp-typia-temp-root-", {
+		const managed = await createManagedTempRoot('wp-typia-temp-root-', {
 			tmpDir,
 		});
 
@@ -37,15 +37,15 @@ describe("@wp-typia/project-tools temp root management", () => {
 		expect(getTrackedTempRoots()).not.toContain(managed.path);
 	});
 
-	test("stale cleanup prunes old wp-typia temp roots without touching fresh or unrelated dirs", async () => {
+	test('stale cleanup prunes old wp-typia temp roots without touching fresh or unrelated dirs', async () => {
 		const tmpDir = await fs.promises.mkdtemp(
-			path.join(os.tmpdir(), "wp-typia-temp-roots-stale-"),
+			path.join(os.tmpdir(), 'wp-typia-temp-roots-stale-'),
 		);
 		testRoots.push(tmpDir);
 
-		const staleRoot = path.join(tmpDir, "wp-typia-stale-root");
-		const freshRoot = path.join(tmpDir, "wp-typia-fresh-root");
-		const unrelatedRoot = path.join(tmpDir, "unrelated-root");
+		const staleRoot = path.join(tmpDir, 'wp-typia-stale-root');
+		const freshRoot = path.join(tmpDir, 'wp-typia-fresh-root');
+		const unrelatedRoot = path.join(tmpDir, 'unrelated-root');
 		await fs.promises.mkdir(staleRoot);
 		await fs.promises.mkdir(freshRoot);
 		await fs.promises.mkdir(unrelatedRoot);
@@ -66,13 +66,13 @@ describe("@wp-typia/project-tools temp root management", () => {
 		expect(fs.existsSync(unrelatedRoot)).toBe(true);
 	});
 
-	test("documents why process-exit cleanup ignores rm failures", async () => {
+	test('documents why process-exit cleanup ignores rm failures', async () => {
 		const source = await fs.promises.readFile(
-			new URL("../src/runtime/shared/temp-roots.ts", import.meta.url),
-			"utf8",
+			new URL('../src/runtime/shared/temp-roots.ts', import.meta.url),
+			'utf8',
 		);
 
-		expect(source).toContain("Process-exit cleanup is best-effort");
-		expect(source).toContain("such as EPERM are intentionally ignored");
+		expect(source).toContain('Process-exit cleanup is best-effort');
+		expect(source).toContain('such as EPERM are intentionally ignored');
 	});
 });

@@ -5,12 +5,12 @@ import {
   type WordPressBlockApiCompatibilityManifest,
   type WordPressCompatibilitySettings,
   type WordPressVersion,
-} from "./compatibility.js";
+} from './compatibility.js';
 import type {
   BindingSourceVersionGates,
   DefineBindingSourceOptions,
-} from "./bindings-core.js";
-import { resolveDefineBindingSourceSettings } from "./bindings-settings.js";
+} from './bindings-core.js';
+import { resolveDefineBindingSourceSettings } from './bindings-settings.js';
 
 export interface BindingSourceCompatibilityFeatureSettings {
   readonly editor?: boolean;
@@ -25,20 +25,20 @@ function getFeatureMinVersion(
   fallback: WordPressVersion,
   gates: BindingSourceVersionGates,
 ): WordPressVersion {
-  if (feature.area !== "blockBindings") {
+  if (feature.area !== 'blockBindings') {
     return fallback;
   }
 
   switch (feature.feature) {
-    case "metadata.bindings":
-    case "serverRegistration":
+    case 'metadata.bindings':
+    case 'serverRegistration':
       return gates.server ?? fallback;
-    case "editorFieldsList":
+    case 'editorFieldsList':
       return gates.fieldsList ?? fallback;
-    case "editorRegistration":
-    case "editorSourceLookup":
+    case 'editorRegistration':
+    case 'editorSourceLookup':
       return gates.editor ?? fallback;
-    case "supportedAttributesFilter":
+    case 'supportedAttributesFilter':
       return gates.supportedAttributesFilter ?? gates.fieldsList ?? fallback;
     default:
       return fallback;
@@ -72,11 +72,11 @@ export function createBindingCompatibilityManifest(
     minVersion: fallback,
     strict,
     supported: evaluations.filter(
-      (evaluation) => evaluation.status === "supported",
+      (evaluation) => evaluation.status === 'supported',
     ),
-    unknown: evaluations.filter((evaluation) => evaluation.status === "unknown"),
+    unknown: evaluations.filter((evaluation) => evaluation.status === 'unknown'),
     unsupported: evaluations.filter(
-      (evaluation) => evaluation.status === "unsupported",
+      (evaluation) => evaluation.status === 'unsupported',
     ),
   };
 }
@@ -88,32 +88,32 @@ export function collectBindingSourceCompatibilityFeatures(
 
   if (settings.metadata ?? true) {
     features.push({
-      area: "blockBindings",
-      feature: "metadata.bindings",
+      area: 'blockBindings',
+      feature: 'metadata.bindings',
     });
   }
   if (settings.server ?? true) {
     features.push({
-      area: "blockBindings",
-      feature: "serverRegistration",
+      area: 'blockBindings',
+      feature: 'serverRegistration',
     });
   }
   if (settings.editor ?? true) {
     features.push({
-      area: "blockBindings",
-      feature: "editorRegistration",
+      area: 'blockBindings',
+      feature: 'editorRegistration',
     });
   }
   if (settings.fieldsList ?? false) {
     features.push({
-      area: "blockBindings",
-      feature: "editorFieldsList",
+      area: 'blockBindings',
+      feature: 'editorFieldsList',
     });
   }
   if (settings.supportedAttributesFilter ?? false) {
     features.push({
-      area: "blockBindings",
-      feature: "supportedAttributesFilter",
+      area: 'blockBindings',
+      feature: 'supportedAttributesFilter',
     });
   }
 
@@ -124,7 +124,7 @@ export function createBindingSourceCompatibilityManifest(
   settings: DefineBindingSourceOptions = {},
 ): WordPressBlockApiCompatibilityManifest {
   const resolved = resolveDefineBindingSourceSettings({}, settings, {
-    name: "wp-typia/binding-source",
+    name: 'wp-typia/binding-source',
   });
 
   return createBindingCompatibilityManifest(

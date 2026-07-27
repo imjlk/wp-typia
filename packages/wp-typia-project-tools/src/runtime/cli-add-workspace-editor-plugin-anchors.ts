@@ -1,1 +1,1 @@
-export * from "./add/cli-add-workspace-editor-plugin-anchors.js";
+export * from './add/cli-add-workspace-editor-plugin-anchors.js';

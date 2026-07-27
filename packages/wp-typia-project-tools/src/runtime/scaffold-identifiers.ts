@@ -1,1 +1,1 @@
-export * from "./templates/scaffold-identifiers.js";
+export * from './templates/scaffold-identifiers.js';

@@ -28,21 +28,22 @@ Why the split exists:
 
 ## Node runtime signaling
 
-First-party scaffolds intentionally do **not** emit `.nvmrc`, `.node-version`,
-or a package-level `engines.node` field today.
+First-party scaffolds declare `engines.node >=24.0.0` in generated
+`package.json` files. They intentionally do **not** emit `.nvmrc` or
+`.node-version`.
 
-That is an explicit choice, not an omission:
+That split is deliberate:
 
 - `.nvmrc` and `.node-version` are shell-manager-specific hints rather than
   universal package metadata
-- the scaffold already owns generated README guidance plus CLI `doctor` and
-  sync diagnostics for runtime expectations
-- adding helper files later is still allowed, but it should happen as a
+- `engines.node` is portable package metadata and gives package managers,
+  generated-project CI, and `wp-typia doctor` one Node 24 minimum to enforce
+- adding helper files later is still allowed, but should happen as a
   deliberate repository-wide policy change rather than template-by-template
   drift
 
-If we decide to add Node version helper files later, the change should update
-this document, scaffold tests, and generated README guidance in the same PR.
+If Node version helper files are added later, update this document, scaffold
+tests, and generated README guidance in the same PR.
 
 ## `@wp-typia/*` dependency strategy
 
@@ -95,8 +96,8 @@ When touching scaffolded package metadata:
 
 - keep `packageManager` exact for `bun`, `pnpm`, and `yarn`
 - keep `packageManager` omitted for `npm`
-- do not add `.nvmrc`, `.node-version`, or `engines.node` to first-party
-  scaffolds unless this policy changes explicitly
+- keep `engines.node` at `>=24.0.0`
+- do not add `.nvmrc` or `.node-version` unless this policy changes explicitly
 - keep generated `@wp-typia/*` dependencies on caret ranges sourced from
   `package-versions.ts`
 - use `clearPackageVersionsCache()` in long-lived integrations after package

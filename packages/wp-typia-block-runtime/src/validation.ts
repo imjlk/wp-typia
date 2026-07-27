@@ -139,11 +139,11 @@ export function createScaffoldValidatorToolkit<T extends object>(
     is,
     manifest,
     onValidationError = (validation, key) => {
-      console.error(
-        `Validation failed for ${String(key)}:`,
-        redactValidationErrors(validation.errors),
-      );
-    },
+    console.error(
+      `Validation failed for ${String(key)}:`,
+      redactValidationErrors(validation.errors),
+    );
+  },
     prune,
     random,
     validate,

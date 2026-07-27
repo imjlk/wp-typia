@@ -4,22 +4,22 @@
 export const SHARED_HOOKS_TEMPLATE = `import { useMemo } from '@wordpress/element';
 
 import {
-	createUseTypiaValidationHook,
-	formatValidationError,
-	formatValidationErrors,
+  createUseTypiaValidationHook,
+  formatValidationError,
+  formatValidationErrors,
 } from '@wp-typia/block-runtime/validation';
 
 export {
-	formatValidationError,
-	formatValidationErrors,
-	type TypiaValidationError,
-	type ValidationResult,
-	type ValidationState,
+  formatValidationError,
+  formatValidationErrors,
+  type TypiaValidationError,
+  type ValidationResult,
+  type ValidationState,
 } from '@wp-typia/block-runtime/validation';
 
-export const useTypiaValidation = createUseTypiaValidationHook( {
-	useMemo,
-} );
+export const useTypiaValidation = createUseTypiaValidationHook({
+  useMemo,
+});
 `;
 
 /**

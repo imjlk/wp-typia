@@ -77,7 +77,7 @@ const SYNC_INSTALL_MARKERS = [
   '.pnp.loader.mjs',
 ] as const;
 const LOCAL_SYNC_TOOL_PATTERN =
-  /(^|[\s;&|()])(?:tsx|wp-scripts)(?=($|[\s;&|()]))/u;
+  /(^|[\s;&|()])(?:ttsx|wp-scripts)(?=($|[\s;&|()]))/u;
 const CAPTURED_SYNC_OUTPUT_MAX_BUFFER = 16 * 1024 * 1024;
 const CAPTURED_SYNC_DIAGNOSTIC_ITEM_LIMIT = 20;
 const CAPTURED_SYNC_DRIFT_LINE_LIMIT =
@@ -130,9 +130,7 @@ function matchGeneratedArtifactCheckIssue(
     !artifactPath ||
     !(
       /^(?:\.{0,2}[\\/]|[A-Za-z]:[\\/]|\\\\)/u.test(artifactPath) ||
-      /(?:^|[\\/])[^\\/\s()]+\.[A-Za-z][A-Za-z0-9]{0,11}$/u.test(
-        artifactPath,
-      )
+      /(?:^|[\\/])[^\\/\s()]+\.[A-Za-z][A-Za-z0-9]{0,11}$/u.test(artifactPath)
     )
   ) {
     return undefined;
@@ -202,18 +200,14 @@ class BoundedSyncOutputCapture {
       return tail;
     }
     const preservedDiagnostics = diagnosticLines.join('\n');
-    return tail
-      ? `${tail}\n${preservedDiagnostics}`
-      : preservedDiagnostics;
+    return tail ? `${tail}\n${preservedDiagnostics}` : preservedDiagnostics;
   }
 
   private appendDiagnosticText(text: string, final: boolean): void {
     this.diagnosticPending += text;
     let newlineIndex = this.diagnosticPending.indexOf('\n');
     while (newlineIndex >= 0) {
-      this.recordDiagnosticLine(
-        this.diagnosticPending.slice(0, newlineIndex),
-      );
+      this.recordDiagnosticLine(this.diagnosticPending.slice(0, newlineIndex));
       this.diagnosticPending = this.diagnosticPending.slice(newlineIndex + 1);
       newlineIndex = this.diagnosticPending.indexOf('\n');
     }
@@ -501,7 +495,7 @@ function assertSyncDependenciesInstalled(
 
   throw createCliDiagnosticCodeError(
     CLI_DIAGNOSTIC_CODES.DEPENDENCIES_NOT_INSTALLED,
-    `Project dependencies have not been installed yet. Run \`${formatInstallCommand(project.packageManager)}\` from the project root before \`wp-typia sync\`. The generated sync scripts rely on local tools such as \`tsx\`.`,
+    `Project dependencies have not been installed yet. Run \`${formatInstallCommand(project.packageManager)}\` from the project root before \`wp-typia sync\`. The generated sync scripts rely on local tools such as \`ttsx\`.`,
   );
 }
 

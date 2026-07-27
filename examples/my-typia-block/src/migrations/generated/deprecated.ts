@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import type { BlockDeprecationList } from '@wp-typia/block-types/blocks/registration';
 
 import type { MyTypiaBlockAttributes } from '../../types';

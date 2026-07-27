@@ -27,10 +27,7 @@ export const variationAddKindEntry =
     description: 'Add a variation to an existing block',
     nameLabel: 'Variation name',
     async prepareExecution(context) {
-      const name = requireAddKindName(
-        context,
-        VARIATION_MISSING_NAME_MESSAGE,
-      );
+      const name = requireAddKindName(context, VARIATION_MISSING_NAME_MESSAGE);
       const blockSlug = requireStrictStringFlag(
         context.flags,
         'block',

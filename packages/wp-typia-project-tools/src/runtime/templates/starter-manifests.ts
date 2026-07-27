@@ -5,13 +5,13 @@
  * `types.ts`, `block.json`, and starter `typia.manifest.json` all share the
  * same attribute metadata source of truth.
  */
-import type { ManifestDocument } from "../migration/migration-types.js";
-import type { ScaffoldTemplateVariables } from "./scaffold.js";
+import type { ManifestDocument } from '../migration/migration-types.js';
+import type { ScaffoldTemplateVariables } from './scaffold.js';
 
 import {
-	buildBuiltInBlockArtifacts,
-	buildCompoundChildStarterManifestDocument as buildCompoundChildStarterManifestFromArtifacts,
-} from "./built-in-block-artifacts.js";
+  buildBuiltInBlockArtifacts,
+  buildCompoundChildStarterManifestDocument as buildCompoundChildStarterManifestFromArtifacts,
+} from './built-in-block-artifacts.js';
 
 /**
  * Builds the starter manifest used by generated compound child blocks.
@@ -21,11 +21,11 @@ export function buildCompoundChildStarterManifestDocument(
 	childTitle: string,
 	bodyPlaceholder?: string,
 ): ManifestDocument {
-	return buildCompoundChildStarterManifestFromArtifacts(
-		childTypeName,
-		childTitle,
-		bodyPlaceholder,
-	);
+  return buildCompoundChildStarterManifestFromArtifacts(
+    childTypeName,
+    childTitle,
+    bodyPlaceholder,
+  );
 }
 
 /**
@@ -36,19 +36,19 @@ export function getStarterManifestFiles(
 	templateId: string,
 	variables: ScaffoldTemplateVariables,
 ): Array<{
-	document: ManifestDocument;
-	relativePath: string;
+  document: ManifestDocument;
+  relativePath: string;
 }> {
-	if (
-		templateId !== "basic" &&
-		templateId !== "interactivity" &&
-		templateId !== "persistence" &&
-		templateId !== "compound"
+  if (
+		templateId !== 'basic' &&
+		templateId !== 'interactivity' &&
+		templateId !== 'persistence' &&
+		templateId !== 'compound'
 	) {
-		return [];
-	}
+    return [];
+  }
 
-	return buildBuiltInBlockArtifacts({
+  return buildBuiltInBlockArtifacts({
 		templateId,
 		variables,
 	}).map((artifact) => ({
@@ -62,5 +62,5 @@ export function getStarterManifestFiles(
  * convention.
  */
 export function stringifyStarterManifest(document: ManifestDocument): string {
-	return JSON.stringify(document, null, "\t");
+  return JSON.stringify(document, null, '\t');
 }

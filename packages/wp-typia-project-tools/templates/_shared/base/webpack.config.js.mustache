@@ -1,24 +1,24 @@
-const fs = require("fs");
-const path = require("path");
-const defaultConfig = require("@wordpress/scripts/config/webpack.config");
+const fs = require('fs');
+const path = require('path');
+const defaultConfig = require('@wordpress/scripts/config/webpack.config');
 
 const STATIC_ARTIFACT_FILENAMES = new Set([
-	"render.php",
-	"typia.manifest.json",
-	"typia-validator.php",
-	"typia-migration-registry.php",
+	'render.php',
+	'typia.manifest.json',
+	'typia-validator.php',
+	'typia-migration-registry.php',
 ]);
 const ROOT_GENERATED_ARTIFACT_FILENAMES = new Set([
 	...STATIC_ARTIFACT_FILENAMES,
-	"typia.schema.json",
-	"typia.openapi.json",
+	'typia.schema.json',
+	'typia.openapi.json',
 ]);
 
 function isGeneratedArtifact(filename) {
 	return (
 		STATIC_ARTIFACT_FILENAMES.has(filename) ||
-		filename.endsWith(".openapi.json") ||
-		filename.endsWith(".schema.json")
+		filename.endsWith('.openapi.json') ||
+		filename.endsWith('.schema.json')
 	);
 }
 
@@ -35,7 +35,7 @@ function getArtifactEntries() {
 		}
 	}
 
-	const srcDir = path.resolve(process.cwd(), "src");
+	const srcDir = path.resolve(process.cwd(), 'src');
 	if (!fs.existsSync(srcDir)) {
 		return entries;
 	}
@@ -53,7 +53,9 @@ function getArtifactEntries() {
 function findArtifactFiles(directory) {
 	const artifactFiles = [];
 
-	for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+	for (const entry of fs.readdirSync(directory, {
+		withFileTypes: true,
+	})) {
 		const entryPath = path.join(directory, entry.name);
 
 		if (entry.isDirectory()) {
@@ -80,12 +82,16 @@ function resolveOptionalEntry(name, candidates) {
 }
 
 module.exports = async () => {
-	const { createTypiaWebpackConfig } = await import("@wp-typia/block-runtime/blocks");
+	const { createTypiaWebpackConfig } =
+		await import('@wp-typia/block-runtime/blocks');
 	const optionalModuleEntries = Object.fromEntries(
 		[
-			resolveOptionalEntry("interactivity", ["src/interactivity.ts", "src/interactivity.js"]),
-			resolveOptionalEntry("view", ["src/view.ts", "src/view.js"]),
-		].filter(Boolean),
+			resolveOptionalEntry('interactivity', [
+				'src/interactivity.ts',
+				'src/interactivity.js',
+			]),
+			resolveOptionalEntry('view', ['src/view.ts', 'src/view.js']),
+		].filter(Boolean)
 	);
 
 	return createTypiaWebpackConfig({
@@ -94,7 +100,7 @@ module.exports = async () => {
 		path,
 		getArtifactEntries,
 		getOptionalModuleEntries: () => optionalModuleEntries,
-		importTypiaWebpackPlugin: () => import("@typia/unplugin/webpack"),
+		importTypiaWebpackPlugin: () => import('@ttsc/unplugin/webpack'),
 		projectRoot: process.cwd(),
 	});
 };

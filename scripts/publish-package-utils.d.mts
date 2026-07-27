@@ -1,25 +1,25 @@
 /** Dependency sections inspected for workspace protocol leaks. */
 export type DependencyField =
-	| "dependencies"
-	| "devDependencies"
-	| "optionalDependencies"
-	| "peerDependencies";
+	| 'dependencies'
+	| 'devDependencies'
+	| 'optionalDependencies'
+	| 'peerDependencies';
 
 /** Stable subset of npm pack --json metadata exposed to publish checks. */
 export interface NpmPackMetadata {
-	filename: string;
-	name?: string;
-	version?: string;
-	entryCount?: number;
-	size?: number;
-	unpackedSize?: number;
-	[key: string]: unknown;
+  filename: string;
+  name?: string;
+  version?: string;
+  entryCount?: number;
+  size?: number;
+  unpackedSize?: number;
+  [key: string]: unknown;
 }
 
 /** Tarball location paired with the npm metadata produced for it. */
 export interface PackedWorkspacePackage {
-	metadata: NpmPackMetadata;
-	tarballPath: string;
+  metadata: NpmPackMetadata;
+  tarballPath: string;
 }
 
 /** Absolute repository root containing the publish scripts. */
