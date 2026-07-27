@@ -40,11 +40,15 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   exampleWpScriptsLintJsScript:
     'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
   exampleWpScriptsFormatScript:
-    'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"',
+    'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+  examplePrettierCheckScript:
+    'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
   generatedWpScriptsLintJsScript:
     'node scripts/run-wp-scripts-lint-js-compat.mjs',
   generatedWpScriptsFormatScript:
-    'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"',
+    'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+  generatedPrettierCheckScript:
+    'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
   generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input',
   generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs',
   generatedTtscLintCompatCanonicalTemplateRoot:
@@ -559,7 +563,14 @@ function validateGeneratedTemplateManifest(
   }
   if (manifest.scripts?.format !== policy.generatedWpScriptsFormatScript) {
     errors.push(
-      `${relativePath} must keep scripts.format="${policy.generatedWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found ${JSON.stringify(manifest.scripts?.format ?? null)}.`,
+      `${relativePath} must keep scripts.format="${policy.generatedWpScriptsFormatScript}" so Prettier owns JS/CJS/MJS and other non-TypeScript formatting, found ${JSON.stringify(manifest.scripts?.format ?? null)}.`,
+    );
+  }
+  if (
+    manifest.scripts?.['format:check'] !== policy.generatedPrettierCheckScript
+  ) {
+    errors.push(
+      `${relativePath} must keep scripts["format:check"]="${policy.generatedPrettierCheckScript}" so generated JavaScript is checked without WordPress ESLint's conflicting prettier rule, found ${JSON.stringify(manifest.scripts?.['format:check'] ?? null)}.`,
     );
   }
 
@@ -613,6 +624,16 @@ function validateWpScriptsLintCompatSources(
   if (!extensionsPattern.test(wrapperSource)) {
     errors.push(
       `${wrapperRelativePath} must keep DEFAULT_LINT_EXTENSIONS="${policy.wpScriptsLintExtensions}" so ESLint excludes TypeScript and covers CJS/MJS.`,
+    );
+  }
+  if (
+    !wrapperSource.includes(
+      "const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off']",
+    ) ||
+    !wrapperSource.includes('...PRETTIER_RULE_OVERRIDE')
+  ) {
+    errors.push(
+      `${wrapperRelativePath} must disable WordPress ESLint's prettier/prettier rule so Prettier owns JS/CJS/MJS formatting independently.`,
     );
   }
   if (
@@ -991,7 +1012,12 @@ export function validateFormattingToolchainPolicy(
     }
     if (exampleScripts.format !== policy.exampleWpScriptsFormatScript) {
       errors.push(
-        `${relativePath} must keep scripts.format="${policy.exampleWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found ${JSON.stringify(exampleScripts.format ?? null)}.`,
+        `${relativePath} must keep scripts.format="${policy.exampleWpScriptsFormatScript}" so Prettier owns JS/CJS/MJS and other non-TypeScript formatting, found ${JSON.stringify(exampleScripts.format ?? null)}.`,
+      );
+    }
+    if (exampleScripts['format:check'] !== policy.examplePrettierCheckScript) {
+      errors.push(
+        `${relativePath} must keep scripts["format:check"]="${policy.examplePrettierCheckScript}" so JavaScript formatting is checked independently from the WordPress ESLint profile, found ${JSON.stringify(exampleScripts['format:check'] ?? null)}.`,
       );
     }
 

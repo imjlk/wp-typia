@@ -520,6 +520,13 @@ function main() {
       );
       run(lintCommand, lintArgs, { cwd: projectDir });
     }
+    if (typeof packageJson.scripts?.['format:check'] === 'string') {
+      const [formatCheckCommand, formatCheckArgs] = getRunScriptCommand(
+        packageManager,
+        'format:check',
+      );
+      run(formatCheckCommand, formatCheckArgs, { cwd: projectDir });
+    }
     lintGeneratedProjectPhp(projectDir, phpVersion);
 
     assertGeneratedProjectScaffold({

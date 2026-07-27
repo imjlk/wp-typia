@@ -384,6 +384,16 @@ describe('repository DX baseline', () => {
 
     const prepareJob = getWorkflowJobBlock(workflow, 'prepare-project-tools');
     const testJob = getWorkflowJobBlock(workflow, 'test-project-tools');
+    const setupAction = fs.readFileSync(
+      path.join(
+        repoRoot,
+        '.github',
+        'actions',
+        'setup-bun-workspace',
+        'action.yml',
+      ),
+      'utf8',
+    );
 
     expect(prepareJob).toContain('Prepare Project Tools Workspace');
     expect(prepareJob).toContain('timeout-minutes: 15');
@@ -392,11 +402,14 @@ describe('repository DX baseline', () => {
     expect(prepareJob).toContain('bun run project-tools-prebuilt:validate');
     const ttscPluginCache = [
       'uses: actions/cache@v6',
-      'path: node_modules/.cache/ttsc/plugins',
-      "key: ttsc-source-plugins-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}",
+      'path: .ttsc-cache/plugins',
+      'TTSC_CACHE_DIR=$GITHUB_WORKSPACE/.ttsc-cache',
+      'TTSC_GO_CACHE_DIR=$RUNNER_TEMP/ttsc-go-cache',
+      'ttsc-cache-scope:',
+      'default: workspace',
     ];
     for (const cacheContract of ttscPluginCache) {
-      expect(prepareJob).toContain(cacheContract);
+      expect(setupAction).toContain(cacheContract);
     }
     expect(prepareJob).toContain(
       'run: bun x ttsc prepare --project tsconfig.json',
@@ -423,9 +436,6 @@ describe('repository DX baseline', () => {
     );
     expect(testJob).toContain('uses: actions/download-artifact@v8');
     expect(testJob).toContain('path: packages');
-    for (const cacheContract of ttscPluginCache) {
-      expect(testJob).toContain(cacheContract);
-    }
     expect(testJob).toContain(
       'PROJECT_TOOLS_TEST_SCRIPT: ${{ matrix.script }}',
     );

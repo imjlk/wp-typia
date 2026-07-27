@@ -166,6 +166,9 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(smokeScript).toContain(
     'lintGeneratedProjectPhp(projectDir, phpVersion)',
   );
+  expect(smokeScript).toContain(
+    "if (typeof packageJson.scripts?.['format:check'] === 'string')",
+  );
   expect(exampleHelper).toContain('Missing "typecheck" script in');
   expect(exampleHelper).toContain(
     'path.resolve(repoRoot, "examples", exampleProject)',

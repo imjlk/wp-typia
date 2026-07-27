@@ -9,9 +9,11 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   eslintConfigPrettierVersion: '10.1.8';
   exampleWpScriptsEslintVersion: '8.57.1';
   exampleWpScriptsLintJsScript: 'node ../../scripts/run-wp-scripts-lint-js-compat.mjs';
-  exampleWpScriptsFormatScript: 'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"';
+  exampleWpScriptsFormatScript: 'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+  examplePrettierCheckScript: 'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
   generatedWpScriptsLintJsScript: 'node scripts/run-wp-scripts-lint-js-compat.mjs';
-  generatedWpScriptsFormatScript: 'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}"';
+  generatedWpScriptsFormatScript: 'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+  generatedPrettierCheckScript: 'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
   generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input';
   generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs';
   generatedTtscLintCompatCanonicalTemplateRoot: 'packages/wp-typia-project-tools/templates/_shared/base';

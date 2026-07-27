@@ -88,6 +88,7 @@ function createFormattingPolicyRepo() {
     examplePackageJson.devDependencies.eslint = policy.exampleWpScriptsEslintVersion;
     examplePackageJson.scripts = {
       format: policy.exampleWpScriptsFormatScript,
+      'format:check': policy.examplePrettierCheckScript,
       'lint:js': policy.exampleWpScriptsLintJsScript,
     };
     writeJson(examplePackagePath, examplePackageJson);
@@ -96,8 +97,9 @@ function createFormattingPolicyRepo() {
   writeText(
     path.join(repoRoot, 'scripts/run-wp-scripts-lint-js-compat.mjs'),
     `export const DEFAULT_LINT_EXTENSIONS = '${policy.wpScriptsLintExtensions}';
+export const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off'];
 export const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
-const args = ['--require', TYPESCRIPT6_REGISTER_FILE];
+const args = ['--require', TYPESCRIPT6_REGISTER_FILE, ...PRETTIER_RULE_OVERRIDE];
 `,
   );
   writeText(
@@ -110,6 +112,7 @@ if (request === 'typescript') {}
   for (const relativePath of policy.generatedPackageManifestPaths) {
     const scripts: Record<string, string> = {
       format: policy.generatedWpScriptsFormatScript,
+      'format:check': policy.generatedPrettierCheckScript,
       'lint:js': policy.generatedWpScriptsLintJsScript,
       postinstall: policy.generatedTtscLintCompatScript,
     };
@@ -160,8 +163,9 @@ fs.renameSync(temporaryPath, sourcePath);
         'scripts/run-wp-scripts-lint-js-compat.mjs.mustache',
       ),
       `const DEFAULT_LINT_EXTENSIONS = '${policy.wpScriptsLintExtensions}';
+const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off'];
 const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
-const args = ['--require', TYPESCRIPT6_REGISTER_FILE];
+const args = ['--require', TYPESCRIPT6_REGISTER_FILE, ...PRETTIER_RULE_OVERRIDE];
 `,
     );
     writeText(
@@ -868,7 +872,7 @@ export default [{ files: typedFiles, plugins: { "@typescript-eslint": tseslint }
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      `packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must keep scripts.format="${FORMATTING_TOOLCHAIN_POLICY.generatedWpScriptsFormatScript}" so ESLint owns JavaScript fixes while Prettier stays outside JS/CJS/MJS, found "ttsc format --singleThreaded && prettier --write \\"**/*.{js,json}\\"".`,
+      `packages/wp-typia-project-tools/templates/_shared/base/package.json.mustache must keep scripts.format="${FORMATTING_TOOLCHAIN_POLICY.generatedWpScriptsFormatScript}" so Prettier owns JS/CJS/MJS and other non-TypeScript formatting, found "ttsc format --singleThreaded && prettier --write \\"**/*.{js,json}\\"".`,
     );
   });
 

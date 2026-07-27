@@ -17,6 +17,7 @@ export const LINT_CONFIG_FILES = [
 ];
 
 export const DEFAULT_LINT_EXTENSIONS = 'js,jsx,cjs,mjs';
+export const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off'];
 export const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
 
 const LINT_OPTIONS_WITH_VALUES = new Set([
@@ -160,6 +161,7 @@ export function runWpScriptsLintJsCompat({
       ...defaultIgnoreArgs,
       ...defaultExtArgs,
       ...args,
+      ...PRETTIER_RULE_OVERRIDE,
       ...defaultFilesArgs,
     ],
     {

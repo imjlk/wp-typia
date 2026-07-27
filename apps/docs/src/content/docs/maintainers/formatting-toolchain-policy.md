@@ -69,8 +69,10 @@ docs, or policy files:
 
 `lint:repo` remains JavaScript-only. Example and generated package scripts use
 the same ownership split: `ttsc` handles TypeScript/TSX,
-`@wordpress/scripts` ESLint handles and fixes JavaScript/CJS/MJS, and Prettier
-handles JSON, Markdown, styles, and other non-TypeScript, non-JavaScript files.
+`@wordpress/scripts` ESLint handles JavaScript/CJS/MJS correctness, while
+Prettier owns formatting for handwritten JavaScript/CJS/MJS. Generated JSON,
+Markdown, and metadata stay under their respective generators and synchronizer
+checks so a formatter write cannot invalidate their exact generated output.
 
 ## Example apps and built-in templates
 
@@ -80,13 +82,18 @@ development dependencies. Generated manifests pin `@ttsc/lint` to exact
 `0.22.0` while its compatibility hook targets that source.
 
 Their formatter scripts run `ttsc format` for TypeScript/TSX, the WordPress
-ESLint compatibility wrapper with `--fix` for JavaScript/CJS/MJS, and then
-Prettier over JSON, Markdown, styles, and other non-TypeScript inputs.
+ESLint compatibility wrapper with `--fix` for JavaScript/CJS/MJS correctness,
+and then Prettier over their handwritten JavaScript/CJS/MJS sources; the
+existing Prettier write scope remains responsible for opted-in non-TypeScript
+inputs. `format:check` independently checks only the handwritten JavaScript
+lane in generated-project smoke, intentionally excluding emitted block and
+typia JSON artifacts.
 Generated TypeScript and JavaScript are expected to be clean on first emission
 rather than relying on a consumer-side write pass.
-Their generated Prettier config keeps WordPress JavaScript's four-space tabs
-and its default punctuation spacing, so emitted wrappers and webpack config do
-not require a consumer-side JavaScript rewrite before linting.
+The compatibility wrapper explicitly disables WordPress ESLint's embedded
+`prettier/prettier` rule: its punctuation preferences differ from the generated
+Prettier config, and enabling both would make a clean generated `.mjs` or
+`.cjs` file fail linting.
 
 The repo-root ESLint 9 upgrade does not automatically move example apps onto the
 same lane. Example block workspaces still defer to `@wordpress/scripts` for
@@ -104,6 +111,13 @@ Compiler API consumers to exact `@typescript/typescript6@6.0.2` while TS/TSX
 remain under `ttsc`. Generated manifests also declare React 18 and its type
 packages directly so TS7 JSX resolution is reproducible under npm, Bun, pnpm,
 and Yarn rather than depending on transitive hoisting.
+
+CI stores content-addressed `ttsc` source-plugin binaries outside
+`node_modules` in `.ttsc-cache/plugins`. Workspace and generated-project
+lanes use separate cache keys, while each runner's large Go-object cache stays
+in its temporary directory rather than being uploaded to every matrix job.
+This keeps cache transfer bounded while warm runs reuse the matching typia and
+`@ttsc/lint` binaries.
 
 ## Root compatibility patches
 

@@ -16,6 +16,7 @@ const LINT_CONFIG_FILES = [
 	'.eslintrc',
 ];
 const DEFAULT_LINT_EXTENSIONS = 'js,jsx,cjs,mjs';
+const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off'];
 const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs';
 const LINT_OPTIONS_WITH_VALUES = new Set([
 	'-c',
@@ -150,6 +151,7 @@ const result = spawnSync(
 		...defaultIgnoreArgs,
 		...defaultExtArgs,
 		...args,
+		...PRETTIER_RULE_OVERRIDE,
 		...defaultFilesArgs,
 	],
 	{
