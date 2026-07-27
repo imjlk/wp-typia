@@ -19,6 +19,7 @@ import {
 	formatPublishPackageFootprintReport,
 	validatePublishPackageFootprint,
 } from "./lib/publish-package-footprint.mjs";
+import { createCiPhaseTimer } from "./lib/ci-phase-timing.mjs";
 
 const GENERATED_PROJECT_OVERRIDE_PACKAGES = [
 	"@wp-typia/api-client",
@@ -199,9 +200,16 @@ function typecheckGeneratedProject(projectDir, ttscCacheDir) {
 	});
 }
 
-execFileSync("bun", ["run", "packages:build"], {
-	cwd: repoRoot,
-	stdio: "inherit",
+const phaseTimer = createCiPhaseTimer({
+	title: "Published install smoke",
+});
+process.once("exit", () => phaseTimer.flush());
+
+phaseTimer.measureSync("build workspace packages", () => {
+	execFileSync("bun", ["run", "packages:build"], {
+		cwd: repoRoot,
+		stdio: "inherit",
+	});
 });
 
 withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
@@ -215,6 +223,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	const packedManifests = new Map();
 	const footprintResults = [];
 
+	phaseTimer.measureSync("pack publishable workspaces", () => {
 	for (const [packageDir, packageName] of PUBLISH_PACKAGE_CHAIN) {
 		const { metadata, tarballPath } = packWorkspacePackageDetailed(
 			packageDir,
@@ -273,6 +282,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			}
 		}
 	}
+	});
 
 	process.stdout.write(
 		[
@@ -305,8 +315,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		),
 		private: true,
 	});
-	run(npmCommand, ["install", "--no-audit", "--no-fund"], {
-		cwd: defaultCliDir,
+	phaseTimer.measureSync("install default CLI package", () => {
+		run(npmCommand, ["install", "--no-audit", "--no-fund"], {
+			cwd: defaultCliDir,
+		});
 	});
 	assertPackagesNotInstalled(defaultCliDir, [
 		"@types/react",
@@ -327,8 +339,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		name: "wp-typia-block-types-typecheck-smoke",
 		private: true,
 	});
-	run(npmCommand, ["install", "--no-audit", "--no-fund"], {
-		cwd: blockTypesTypecheckDir,
+	phaseTimer.measureSync("install block-types typecheck fixture", () => {
+		run(npmCommand, ["install", "--no-audit", "--no-fund"], {
+			cwd: blockTypesTypecheckDir,
+		});
 	});
 	assertPackagesNotInstalled(blockTypesTypecheckDir, [
 		"@types/react",
@@ -378,23 +392,25 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		},
 		include: ["block-types-peer-free-smoke.ts"],
 	});
-	run(
-		npmCommand,
-		[
-			"exec",
-			"--",
-			"ttsc",
-			"--project",
-			"block-types-peer-free-tsconfig.json",
-		],
-		{
-			cwd: blockTypesTypecheckDir,
-			env: {
-				...process.env,
-				TTSC_CACHE_DIR: ttscCacheDir,
+	phaseTimer.measureSync("typecheck block-types fixture", () => {
+		run(
+			npmCommand,
+			[
+				"exec",
+				"--",
+				"ttsc",
+				"--project",
+				"block-types-peer-free-tsconfig.json",
+			],
+			{
+				cwd: blockTypesTypecheckDir,
+				env: {
+					...process.env,
+					TTSC_CACHE_DIR: ttscCacheDir,
+				},
 			},
-		},
-	);
+		);
+	});
 	runScript(
 		defaultCliDir,
 		process.execPath,
@@ -531,7 +547,9 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		packageManager: "bun@1.3.11",
 	});
 
-	run("bun", ["install"], { cwd: projectDir });
+	phaseTimer.measureSync("install packed workspace consumer", () => {
+		run("bun", ["install"], { cwd: projectDir });
+	});
 
 	const cliPath = getInstalledWpTypiaCliPath(projectDir);
 	const versionOutput = run(process.execPath, [cliPath, "--version", "--format", "text"], {
@@ -748,8 +766,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"src/manifest-document.ts",
 		"src/manifest-defaults-document.ts",
 	]);
-	installGeneratedProject(basicDir, tarballs);
-	typecheckGeneratedProject(basicDir, ttscCacheDir);
+	phaseTimer.measureSync("install and typecheck basic scaffold", () => {
+		installGeneratedProject(basicDir, tarballs);
+		typecheckGeneratedProject(basicDir, ttscCacheDir);
+	});
 
 	const adminViewDir = path.join(projectDir, "demo-admin-view");
 	runWpTypiaCli(projectDir, cliPath, [
@@ -799,8 +819,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"src/admin-views/snapshots/Screen.tsx",
 		"inc/admin-views/snapshots.php",
 	]);
-	installGeneratedProject(adminViewDir, tarballs);
-	typecheckGeneratedProject(adminViewDir, ttscCacheDir);
+	phaseTimer.measureSync("install and typecheck admin-view scaffold", () => {
+		installGeneratedProject(adminViewDir, tarballs);
+		typecheckGeneratedProject(adminViewDir, ttscCacheDir);
+	});
 
 	const compoundDir = path.join(projectDir, "demo-compound");
 	runWpTypiaCli(projectDir, cliPath, [
@@ -818,23 +840,25 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		"--no-install",
 	]);
 	assertScaffoldDependencyRanges(compoundDir, "devDependencies", expectedRanges);
-	installGeneratedProject(compoundDir, tarballs);
-	run(npmCommand, ["exec", "--", "ttsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
-		cwd: compoundDir,
-		env: {
-			...process.env,
-			TTSC_CACHE_DIR: ttscCacheDir,
-		},
+	phaseTimer.measureSync("install and typecheck compound scaffold", () => {
+		installGeneratedProject(compoundDir, tarballs);
+		run(npmCommand, ["exec", "--", "ttsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
+			cwd: compoundDir,
+			env: {
+				...process.env,
+				TTSC_CACHE_DIR: ttscCacheDir,
+			},
+		});
+		assertFilesExist(compoundDir, [
+			"src/blocks/demo-compound/block-metadata.ts",
+			"src/blocks/demo-compound/manifest-document.ts",
+			"src/blocks/demo-compound/manifest-defaults-document.ts",
+			"src/blocks/demo-compound-faq-item/block-metadata.ts",
+			"src/blocks/demo-compound-faq-item/manifest-document.ts",
+			"src/blocks/demo-compound-faq-item/manifest-defaults-document.ts",
+		]);
+		typecheckGeneratedProject(compoundDir, ttscCacheDir);
 	});
-	assertFilesExist(compoundDir, [
-		"src/blocks/demo-compound/block-metadata.ts",
-		"src/blocks/demo-compound/manifest-document.ts",
-		"src/blocks/demo-compound/manifest-defaults-document.ts",
-		"src/blocks/demo-compound-faq-item/block-metadata.ts",
-		"src/blocks/demo-compound-faq-item/manifest-document.ts",
-		"src/blocks/demo-compound-faq-item/manifest-defaults-document.ts",
-	]);
-	typecheckGeneratedProject(compoundDir, ttscCacheDir);
 
 	process.stdout.write(
 		`Verified published-install smoke for wp-typia ${parsed.data.version}, a ${defaultCliInstallPackageCount}-package default CLI install without WordPress registration peers, portable CLI metadata, dataviews exports, runtime wrapper exports, block-runtime metadata sync, project-tools runtime paths, and generated basic/admin-view/compound scaffold installs.\n`,

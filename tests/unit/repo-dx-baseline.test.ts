@@ -457,7 +457,7 @@ describe('repository DX baseline', () => {
     expect(workflow).not.toContain('test-project-tools-compound:');
   });
 
-  test('CI keeps post-build smoke gates enabled when push-only coverage skips on pull requests', () => {
+  test('CI parallelizes independent gates and aggregates their results', () => {
     const workflow = fs.readFileSync(
       path.join(repoRoot, '.github', 'workflows', 'ci.yml'),
       'utf8',
@@ -466,23 +466,71 @@ describe('repository DX baseline', () => {
       workflow,
       'test-project-tools-coverage',
     );
+    const buildJob = getWorkflowJobBlock(workflow, 'build');
+    const publishInstallJob = getWorkflowJobBlock(
+      workflow,
+      'publish-install-smoke',
+    );
     const generatedSmokeJob = getWorkflowJobBlock(workflow, 'generated-smoke');
     const e2eJob = getWorkflowJobBlock(workflow, 'e2e');
+    const completeJob = getWorkflowJobBlock(workflow, 'ci-complete');
 
     expect(coverageJob).toContain("if: github.event_name == 'push'");
-    expect(generatedSmokeJob).toContain(
-      'needs: [build, publish-install-smoke]',
-    );
+    for (const fastGateJob of [buildJob, publishInstallJob]) {
+      expect(fastGateJob).toContain('- lint');
+      expect(fastGateJob).toContain('- test-core');
+      expect(fastGateJob).not.toContain('- test-project-tools');
+      expect(fastGateJob).not.toContain('- test-project-tools-coverage');
+    }
+    expect(generatedSmokeJob).toContain('needs: [build]');
     expect(generatedSmokeJob).toContain('!cancelled() &&');
     expect(generatedSmokeJob).not.toContain('always() &&');
-    expect(generatedSmokeJob).toContain("needs.build.result == 'success' &&");
+    expect(generatedSmokeJob).toContain("needs.build.result == 'success'");
+    expect(generatedSmokeJob).not.toContain('publish-install-smoke');
+    expect(buildJob).toContain('name: generated-smoke-package-dist');
+    for (const packageDir of [
+      'wp-typia-api-client',
+      'wp-typia-block-runtime',
+      'wp-typia-block-types',
+      'wp-typia-project-tools',
+      'wp-typia-rest',
+      'wp-typia',
+    ]) {
+      expect(buildJob).toContain(`packages/${packageDir}/dist/`);
+    }
     expect(generatedSmokeJob).toContain(
-      "needs.publish-install-smoke.result == 'success'",
+      'name: generated-smoke-package-dist',
     );
+    expect(generatedSmokeJob).toContain('path: packages');
     expect(e2eJob).toContain('needs: [build]');
     expect(e2eJob).toContain('!cancelled() &&');
     expect(e2eJob).not.toContain('always() &&');
     expect(e2eJob).toContain("needs.build.result == 'success'");
+    expect(completeJob).toContain('name: CI Complete');
+    expect(completeJob).toContain('if: always()');
+    for (const requiredGate of [
+      '- lint',
+      '- test-core',
+      '- prepare-project-tools',
+      '- test-project-tools',
+      '- test-project-tools-coverage',
+      '- docs-build-check',
+      '- build',
+      '- publish-install-smoke',
+      '- generated-smoke',
+      '- e2e',
+    ]) {
+      expect(completeJob).toContain(requiredGate);
+    }
+    expect(completeJob).toContain(
+      'require_success "Generated Project Smoke" "$GENERATED_SMOKE_RESULT"',
+    );
+    expect(completeJob).toContain(
+      'require_success "Project Tools Coverage" "$PROJECT_TOOLS_COVERAGE_RESULT"',
+    );
+    expect(completeJob).toContain(
+      'require_success "Docs Build Check" "$DOCS_RESULT"',
+    );
   });
 
   test('GitHub releases explicitly dispatch standalone asset publishing', () => {
