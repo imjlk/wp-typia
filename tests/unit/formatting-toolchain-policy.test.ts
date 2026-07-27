@@ -9,6 +9,7 @@ import {
 } from '../../scripts/validate-formatting-toolchain-policy.mjs';
 
 let tempDirs: string[] = [];
+const sourceRepoRoot = path.resolve(import.meta.dir, '..', '..');
 
 afterEach(() => {
   for (const tempDir of tempDirs) {
@@ -61,7 +62,10 @@ function createFormattingPolicyRepo() {
   });
 
   for (const patchPath of Object.values(policy.compatibilityPatches)) {
-    writeText(path.join(repoRoot, patchPath), 'compatibility patch fixture\n');
+    writeText(
+      path.join(repoRoot, patchPath),
+      fs.readFileSync(path.join(sourceRepoRoot, patchPath), 'utf8'),
+    );
   }
 
   writeText(
@@ -275,6 +279,23 @@ describe('validateFormattingToolchainPolicy', () => {
     expect(result.errors).toContain(
       'patches/typia@13.2.0.patch must exist as the compatibility patch for "typia@13.2.0".',
     );
+  });
+
+  test('fails when a compatibility patch digest drifts', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const patchPath = 'patches/typia@13.2.0.patch';
+    fs.appendFileSync(path.join(repoRoot, patchPath), 'unexpected patch hunk\n');
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith(
+          `${patchPath} must match the expected SHA-256 compatibility patch digest for "typia@13.2.0"`,
+        ),
+      ),
+    ).toBe(true);
   });
 
   test('fails when a generated ttsc lint compatibility hook drifts', () => {

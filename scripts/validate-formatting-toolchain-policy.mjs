@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,6 +101,12 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   compatibilityPatches: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,
     [`typia@${TYPIA_VERSION}`]: `patches/typia@${TYPIA_VERSION}.patch`,
+  }),
+  compatibilityPatchSha256: Object.freeze({
+    [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
+      '4507ea67551026558bc008094e8ac89f20b275cfbe9a6261396b69e0cb4d2b24',
+    [`typia@${TYPIA_VERSION}`]:
+      '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
   generatedPackageManifestPaths: GENERATED_PACKAGE_MANIFEST_PATHS,
   generatedWpScriptsStyleLintManifestPaths:
@@ -775,6 +782,7 @@ function getLintJobBlock(workflowSource) {
 function validateCompatibilityPatches(repoRoot, packageJson, policy, errors) {
   const actualPatches = packageJson.patchedDependencies ?? {};
   const expectedPatches = policy.compatibilityPatches;
+  const expectedPatchSha256 = policy.compatibilityPatchSha256;
 
   for (const [packageId, patchPath] of Object.entries(expectedPatches)) {
     if (actualPatches[packageId] !== patchPath) {
@@ -790,6 +798,24 @@ function validateCompatibilityPatches(repoRoot, packageJson, policy, errors) {
     ) {
       errors.push(
         `${patchPath} must exist as the compatibility patch for ${JSON.stringify(packageId)}.`,
+      );
+      continue;
+    }
+
+    const expectedHash = expectedPatchSha256[packageId];
+    if (typeof expectedHash !== 'string') {
+      errors.push(
+        `${JSON.stringify(packageId)} is missing an expected SHA-256 digest in compatibilityPatchSha256.`,
+      );
+      continue;
+    }
+    const actualHash = crypto
+      .createHash('sha256')
+      .update(fs.readFileSync(absolutePatchPath))
+      .digest('hex');
+    if (actualHash !== expectedHash) {
+      errors.push(
+        `${patchPath} must match the expected SHA-256 compatibility patch digest for ${JSON.stringify(packageId)}, found ${JSON.stringify(actualHash)}.`,
       );
     }
   }

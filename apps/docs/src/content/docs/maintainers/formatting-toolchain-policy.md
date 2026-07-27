@@ -114,10 +114,12 @@ and Yarn rather than depending on transitive hoisting.
 
 CI stores content-addressed `ttsc` source-plugin binaries outside
 `node_modules` in `.ttsc-cache/plugins`. Workspace and generated-project
-lanes use separate cache keys, while each runner's large Go-object cache stays
+lanes use separate cache keys, each derived from `bun.lock`, the compatibility
+patch files, and Go module inputs. Each runner's large Go-object cache stays
 in its temporary directory rather than being uploaded to every matrix job.
-This keeps cache transfer bounded while warm runs reuse the matching typia and
-`@ttsc/lint` binaries.
+This keeps cache transfer bounded while warm runs reuse matching typia and
+`@ttsc/lint` binaries without restoring source-plugin output built from an old
+patch.
 
 ## Root compatibility patches
 
@@ -160,9 +162,9 @@ This is a generated development-tool compatibility hook, not a WordPress
 runtime dependency. Generated-project smoke owns the create, install, doctor,
 and build proof for this root-patch-free consumer path.
 
-The formatting policy validator ties each patch path to its exact package
-version and fails when the package version, mapping, or patch file changes. To
-upgrade either dependency:
+The formatting policy validator ties each patch path and SHA-256 digest to its
+exact package version and fails when the package version, mapping, file, or
+contents change. To upgrade either dependency:
 
 1. install the new unpatched version and run the ttsc compatibility regression
    tests;
