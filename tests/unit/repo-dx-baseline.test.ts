@@ -415,6 +415,9 @@ describe('repository DX baseline', () => {
     expect(prepareJob).toContain(
       'run: bun x ttsc prepare --project tsconfig.json',
     );
+    expect(prepareJob).toContain('name: ttsc-source-plugins');
+    expect(prepareJob).toContain('path: .ttsc-cache/plugins/');
+    expect(prepareJob).toContain('compression-level: 0');
     for (const packagePath of [
       'wp-typia-api-client/dist/',
       'wp-typia-block-types/dist/',
@@ -428,6 +431,8 @@ describe('repository DX baseline', () => {
     }
     expect(testJob).toContain('Project Tools: ${{ matrix.label }}');
     expect(testJob).toContain('needs: prepare-project-tools');
+    expect(testJob).toContain('name: ttsc-source-plugins');
+    expect(testJob).toContain('path: .ttsc-cache/plugins');
     expect(workflow).toContain('uses: ./.github/actions/setup-bun-workspace');
     expect(testJob).toContain(
       'script: test:project-tools:scaffold-core:run',

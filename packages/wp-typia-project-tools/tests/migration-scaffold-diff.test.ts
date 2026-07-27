@@ -21,6 +21,7 @@ import { createMigrationRiskSummary } from '../src/runtime/migration-risk.js';
 
 describe('wp-typia migrate scaffold and diff', () => {
   const tempRoot = createMigrationTempRoot('wp-typia-migration-exec-');
+  const GENERATED_MIGRATION_PROJECT_TIMEOUT_MS = 300_000;
 
   afterAll(() => {
     cleanupMigrationTempRoot(tempRoot);
@@ -70,7 +71,7 @@ test('scaffold and verify generate auto-migration artifacts for additive schema 
 	expect(verifyOutput).toContain('Verified v1 -> v3');
 	expect(verifyOutput).toContain('Migration verification passed for create-block/migration-smoke');
 	typecheckMigrationProject(projectDir);
-}, { timeout: 30_000 });
+}, { timeout: GENERATED_MIGRATION_PROJECT_TIMEOUT_MS });
 
 test('scaffold exposes renameMap and transforms helpers for rename candidates', () => {
 	const projectDir = path.join(tempRoot, 'rename-project');
@@ -109,7 +110,7 @@ test('scaffold exposes renameMap and transforms helpers for rename candidates', 
 	});
 	expect(verifyOutput).toContain('Verified v1 -> v3');
 	typecheckMigrationProject(projectDir);
-}, { timeout: 30_000 });
+}, { timeout: GENERATED_MIGRATION_PROJECT_TIMEOUT_MS });
 
 test('scaffold auto-applies nested leaf rename candidates', () => {
 	const projectDir = path.join(tempRoot, 'nested-rename-project');
@@ -182,7 +183,7 @@ test('scaffold suggests transform bodies for semantic coercion', () => {
 	);
 	expect(ruleSource).toContain('clickCount: transform suggested from clickCount');
 	typecheckMigrationProject(projectDir);
-}, { timeout: 30_000 });
+}, { timeout: GENERATED_MIGRATION_PROJECT_TIMEOUT_MS });
 
 test('union diff distinguishes additive and removal changes', () => {
 	const additiveProjectDir = path.join(tempRoot, 'union-additive-project');
@@ -276,7 +277,7 @@ test('multi-block configs load and scaffold per-target migration artifacts', () 
 	expect(phpRegistry).toContain("'multi-parent'");
 	expect(phpRegistry).toContain("'multi-parent-item'");
 	typecheckMigrationProject(projectDir);
-});
+}, { timeout: GENERATED_MIGRATION_PROJECT_TIMEOUT_MS });
 
 test('createMigrationDiff requires an explicit block key for multi-block projects', () => {
 	const projectDir = path.join(tempRoot, 'multi-block-diff-project');

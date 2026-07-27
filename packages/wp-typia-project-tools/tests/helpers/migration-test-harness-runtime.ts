@@ -359,7 +359,9 @@ export function typecheckMigrationProject(
     },
   });
 
-  const ttscCacheDir = path.join(repoRoot, 'node_modules', '.cache', 'ttsc');
+  const ttscCacheDir =
+    process.env.TTSC_CACHE_DIR ??
+    path.join(repoRoot, 'node_modules', '.cache', 'ttsc');
   fs.mkdirSync(ttscCacheDir, { recursive: true });
   const env = {
     ...process.env,

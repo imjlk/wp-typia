@@ -120,6 +120,9 @@ in its temporary directory rather than being uploaded to every matrix job.
 This keeps cache transfer bounded while warm runs reuse matching typia and
 `@ttsc/lint` binaries without restoring source-plugin output built from an old
 patch.
+On a cold run, the prepare job also shares only the completed source-plugin
+binaries with the project-tools matrix, avoiding five identical native builds
+without uploading the much larger Go-object cache.
 
 ## Root compatibility patches
 

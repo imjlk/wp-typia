@@ -144,6 +144,15 @@ jobs:
       - name: Prepare all ttsc source plugins
         run: bun x ttsc prepare --project tsconfig.json
 
+      - name: Upload prepared ttsc source plugins
+        uses: actions/upload-artifact@v7
+        with:
+          name: ttsc-source-plugins
+          path: .ttsc-cache/plugins/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
       - name: Build Project Tools workspace packages
         run: bun run project-tools-prebuilt:prepare
 
@@ -191,6 +200,12 @@ jobs:
         uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download prepared ttsc source plugins
+        uses: actions/download-artifact@v8
+        with:
+          name: ttsc-source-plugins
+          path: .ttsc-cache/plugins
 
       - name: Download prebuilt workspace
         uses: actions/download-artifact@v8

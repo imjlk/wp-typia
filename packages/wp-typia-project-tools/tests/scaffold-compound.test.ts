@@ -18,6 +18,8 @@ import { applyMigrationUiCapability } from '../src/runtime/migration-ui-capabili
 
 describe('@wp-typia/project-tools scaffold compound', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-scaffold-compound-');
+  const GENERATED_COMPOUND_SCAFFOLD_TIMEOUT_MS = 30_000;
+  const GENERATED_PROJECT_SCRIPT_TIMEOUT_MS = 300_000;
 
   afterAll(() => {
     cleanupScaffoldTempRoot(tempRoot);
@@ -1162,7 +1164,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
 
     runGeneratedScript(targetDir, 'scripts/sync-project.ts');
     runGeneratedScript(targetDir, 'scripts/sync-rest-contracts.ts');
-  }, 40_000);
+  }, GENERATED_PROJECT_SCRIPT_TIMEOUT_MS);
 
   test(
     'compound add-child workflow scaffolds a new hidden child block and keeps the default template stable',
@@ -2045,7 +2047,7 @@ describe('@wp-typia/project-tools scaffold compound', () => {
     expect(readme).toContain(
       'per-request ids, and coarse rate limiting by default',
     );
-  });
+  }, { timeout: GENERATED_COMPOUND_SCAFFOLD_TIMEOUT_MS });
 
   test('compound scaffolds honor namespace, text-domain, and php-prefix overrides', async () => {
     const targetDir = path.join(tempRoot, 'demo-compound-identifiers');
