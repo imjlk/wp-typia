@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/create-workspace-template",
-  "version": "0.18.3",
+  "version": "0.19.0",
   "description": "Official empty wp-typia workspace template package",
   "packageManager": "bun@1.3.11",
   "type": "module",

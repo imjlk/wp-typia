@@ -1,5 +1,19 @@
 # @wp-typia/project-tools
 
+## 0.25.0 — 2026-07-28
+
+### Minor changes
+
+- [fcbb14b0](https://github.com/imjlk/wp-typia/commit/fcbb14b01c68faf1c9e1b7144f356ff93fbb1897) Move the supported development and generated-project toolchain to Node.js 24,
+  TypeScript 7, typia 13, and ttsc. Generated projects now declare Node.js 24
+  or newer. — Thanks @imjlk!
+
+### Patch changes
+
+- [53a6d0a0](https://github.com/imjlk/wp-typia/commit/53a6d0a0fcd66fa6b53527b3d97bf00643026313) Keep generated admin-view workspaces on the released
+  `@wp-typia/dataviews` 0.2 range when package metadata is unavailable. — Thanks @imjlk!
+- Updated dependencies: api-client (npm)@0.5.0, block-runtime (npm)@0.8.0, block-types (npm)@0.5.0, rest (npm)@0.4.0
+
 ## 0.24.13 — 2026-07-21
 
 ### Patch changes
