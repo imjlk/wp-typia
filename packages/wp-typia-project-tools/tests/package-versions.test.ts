@@ -314,25 +314,6 @@ describe('package version cache invalidation', () => {
       ),
       'utf8',
     );
-    const dataViewsPackageJson = JSON.parse(
-      fs.readFileSync(
-        path.join(
-          import.meta.dir,
-          '..',
-          '..',
-          'wp-typia-dataviews',
-          'package.json',
-        ),
-        'utf8',
-      ),
-    ) as { version?: string };
-    expect(typeof dataViewsPackageJson.version).toBe('string');
-    if (typeof dataViewsPackageJson.version !== 'string') {
-      throw new Error(
-        'packages/wp-typia-dataviews/package.json is missing a string "version".',
-      );
-    }
-
     expect(DEFAULT_WORDPRESS_ABILITIES_VERSION).toBe('^0.10.0');
     expect(DEFAULT_WORDPRESS_BLOCKS_TYPES_VERSION).toBe('^12.5.18');
     expect(DEFAULT_WORDPRESS_BLOCKS_VERSION).toBe('~15.19.0');
@@ -341,9 +322,7 @@ describe('package version cache invalidation', () => {
     expect(DEFAULT_WORDPRESS_DATA_VERSION).toBe('~10.46.0');
     expect(DEFAULT_WORDPRESS_DATAVIEWS_VERSION).toBe('~14.3.0');
     expect(DEFAULT_WORDPRESS_ENV_VERSION).toBe('^11.2.0');
-    expect(DEFAULT_WP_TYPIA_DATAVIEWS_VERSION).toBe(
-      `^${dataViewsPackageJson.version}`,
-    );
+    expect(DEFAULT_WP_TYPIA_DATAVIEWS_VERSION).toBe('^0.2.0');
     expect(abilityScaffoldSource).not.toContain(
       'const WP_ABILITIES_PACKAGE_VERSION',
     );

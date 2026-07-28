@@ -69,7 +69,7 @@ export const DEFAULT_WORDPRESS_CORE_DATA_VERSION = '~7.46.0';
 export const DEFAULT_WORDPRESS_DATA_VERSION = '~10.46.0';
 export const DEFAULT_WORDPRESS_DATAVIEWS_VERSION = '~14.3.0';
 export const DEFAULT_WORDPRESS_ENV_VERSION = '^11.2.0';
-export const DEFAULT_WP_TYPIA_DATAVIEWS_VERSION = '^0.1.2';
+export const DEFAULT_WP_TYPIA_DATAVIEWS_VERSION = '^0.2.0';
 
 let cachedPackageVersions: {
   cacheKey: string;
