@@ -1,5 +1,17 @@
 # @wp-typia/block-runtime
 
+## 0.8.0 — 2026-07-28
+
+### Minor changes
+
+- [fcbb14b0](https://github.com/imjlk/wp-typia/commit/fcbb14b01c68faf1c9e1b7144f356ff93fbb1897) Move the supported development and generated-project toolchain to Node.js 24,
+  TypeScript 7, typia 13, and ttsc. Generated projects now declare Node.js 24
+  or newer. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: api-client (npm)@0.5.0
+
 ## 0.7.2 — 2026-07-20
 
 ### Patch changes
