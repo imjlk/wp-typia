@@ -27,6 +27,11 @@ export interface ManifestTsMetadata {
   items?: ManifestAttribute | null;
   kind: ManifestTsKind;
   properties?: Record<string, ManifestAttribute> | null;
+	/**
+	 * Marks this attribute as a recursive-type terminal emitted at the maximum
+	 * unrolling depth. Terminal objects allow any additional properties.
+	 */
+  recursiveTerminal?: boolean;
   required?: boolean;
   union?: ManifestUnionMetadata | null;
 }

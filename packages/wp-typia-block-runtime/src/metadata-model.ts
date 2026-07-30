@@ -77,6 +77,12 @@ export interface AttributeNode {
   kind: AttributeKind;
   path: string;
   properties?: Record<string, AttributeNode>;
+  /**
+   * Marks this node as a recursive-type terminal emitted when a recursive
+   * declaration reaches its maximum unrolling depth. Terminal nodes allow any
+   * additional properties so deeper data remains valid.
+   */
+  recursiveTerminal?: boolean;
   required: boolean;
   union?: AttributeUnion | null;
   wp: {
@@ -127,6 +133,7 @@ export interface ManifestAttribute {
     items: ManifestAttribute | null;
     kind: AttributeKind;
     properties: Record<string, ManifestAttribute> | null;
+    recursiveTerminal?: boolean;
     required: boolean;
     union: ManifestUnion | null;
   };

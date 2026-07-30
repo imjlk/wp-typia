@@ -93,6 +93,7 @@ export function createManifestAttribute(node: AttributeNode): ManifestAttribute 
 						]),
 				  )
 				: null,
+			...(node.recursiveTerminal ? { recursiveTerminal: true } : {}),
 			required: node.required,
 			union: node.union
 				? {

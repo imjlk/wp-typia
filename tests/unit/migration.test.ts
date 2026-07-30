@@ -47,7 +47,7 @@ export interface BlockAttributes {
     })).rejects.toThrow(/not supported/i);
   });
 
-  test('rejects recursive types', async () => {
+  test('unrolls recursive types instead of rejecting them', async () => {
     const fixtureDir = createFixture({
       'block.json': JSON.stringify({ attributes: {} }, null, 2),
       'src/types.ts': `export interface RecursiveNode {
@@ -69,12 +69,14 @@ export interface BlockAttributes {
       }, null, 2),
     });
 
-    await expect(syncBlockMetadata({
+    const result = await syncBlockMetadata({
       blockJsonFile: 'block.json',
       manifestFile: 'typia.manifest.json',
       projectRoot: fixtureDir,
       sourceTypeName: 'BlockAttributes',
       typesFile: 'src/types.ts',
-    })).rejects.toThrow(/recursive/i);
+    });
+
+    expect(result.attributeNames).toContain('tree');
   });
 });

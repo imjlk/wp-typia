@@ -264,7 +264,7 @@ describe('sync-types reporting', () => {
 		);
 	});
 
-	test('normalizes recursive types into structured failures', async () => {
+	test('unrolls recursive types to the configured depth instead of failing', async () => {
 		const fixtureDir = createTypecheckFixture(
 			[
 				'interface TreeNode {',
@@ -280,11 +280,8 @@ describe('sync-types reporting', () => {
 
 		const report = await runFixture(fixtureDir, 'BlockAttributes');
 
-		expect(report.status).toBe('error');
-		expect(report.failure?.code).toBe('recursive-type');
-		expect(report.failure?.message).toContain(
-			'Recursive types are not supported',
-		);
+		expect(report.status).not.toBe('error');
+		expect(report.failure).toBeNull();
 	});
 
 	test('normalizes TypeScript diagnostics into structured failures', async () => {
