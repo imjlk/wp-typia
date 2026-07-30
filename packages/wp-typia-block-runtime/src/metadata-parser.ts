@@ -658,6 +658,15 @@ function parseTypeReference(
     };
   }
   if (typeArguments.length > 0) {
+    const utilityResult = parseUtilityType(
+      typeName,
+      typeArguments,
+      ctx,
+      pathLabel,
+    );
+    if (utilityResult !== null) {
+      return utilityResult;
+    }
     throw new Error(
       `Generic type references are not supported at ${pathLabel}: ${typeName}`,
     );
@@ -699,4 +708,158 @@ function parseTypeReference(
   }
 
   return parseNamedDeclaration(declaration, ctx, pathLabel, true);
+}
+
+/**
+ * Supported TypeScript utility type names that the parser can resolve at the
+ * type level without instantiating a generic declaration.
+ */
+const UTILITY_TYPE_NAMES = new Set([
+  'Partial',
+  'Required',
+  'Readonly',
+  'Pick',
+  'Omit',
+  'Record',
+]);
+
+/**
+ * Extract string literal keys from a union of string literal types, e.g.
+ * `'a' | 'b'` → `['a', 'b']`. Returns `null` when the node is not a pure union
+ * of string literals.
+ */
+function extractKeyLiterals(node: ts.TypeNode): string[] | null {
+  if (ts.isLiteralTypeNode(node) && ts.isStringLiteral(node.literal)) {
+    return [node.literal.text];
+  }
+  if (ts.isUnionTypeNode(node)) {
+    const keys = node.types.map(extractKeyLiterals);
+    if (keys.every((key) => key !== null)) {
+      return keys.flat();
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve a TypeScript utility type (`Partial`, `Required`, `Readonly`, `Pick`,
+ * `Omit`, `Record`) applied to a concrete type argument into an
+ * {@link AttributeNode} tree. Returns `null` when the type name is not a
+ * recognized utility type so the caller can fall through to the unsupported
+ * generic error.
+ *
+ * @param typeName Name of the utility type (e.g. `Partial`).
+ * @param typeArguments Type argument nodes from the type reference.
+ * @param ctx Shared analysis context for symbol resolution.
+ * @param pathLabel Human-readable path label for diagnostics.
+ * @returns The resolved attribute node, or `null` if not a utility type.
+ */
+function parseUtilityType(
+  typeName: string,
+  typeArguments: readonly ts.TypeNode[],
+  ctx: AnalysisContext,
+  pathLabel: string,
+): AttributeNode | null {
+  if (!UTILITY_TYPE_NAMES.has(typeName)) {
+    return null;
+  }
+
+  // Readonly<T> is a no-op for serialization — just parse T.
+  if (typeName === 'Readonly') {
+    const [inner] = typeArguments;
+    if (inner === undefined) {
+      throw new Error(
+        `Readonly requires exactly one type argument at ${pathLabel}`,
+      );
+    }
+    return parseTypeNode(inner, ctx, pathLabel);
+  }
+
+  // Record<K, V> → object with index signature-like shape. WordPress block
+  // attributes are flat JSON, so we model Record as an object whose known
+  // keys are empty (passthrough). This keeps validation permissive.
+  if (typeName === 'Record') {
+    if (typeArguments.length < 2) {
+      throw new Error(`Record requires two type arguments at ${pathLabel}`);
+    }
+    return {
+      constraints: defaultAttributeConstraints(),
+      enumValues: null,
+      kind: 'object',
+      path: pathLabel,
+      properties: {},
+      required: true,
+      union: null,
+      wp: {
+        preserveOnEmpty: false,
+        selector: null,
+        secret: false,
+        secretStateField: null,
+        source: null,
+        writeOnly: false,
+      },
+    };
+  }
+
+  // Partial<T>, Required<T>, Pick<T, Keys>, Omit<T, Keys> all need T resolved
+  // to an object first.
+  const [sourceNode, selectorNode] = typeArguments;
+  if (sourceNode === undefined) {
+    throw new Error(
+      `${typeName} requires at least one type argument at ${pathLabel}`,
+    );
+  }
+
+  const sourceResult = parseTypeNode(sourceNode, ctx, pathLabel);
+  if (sourceResult.kind !== 'object' || !sourceResult.properties) {
+    throw new Error(
+      `${typeName} can only be applied to object types at ${pathLabel}`,
+    );
+  }
+
+  let properties = sourceResult.properties;
+
+  if (typeName === 'Pick' || typeName === 'Omit') {
+    if (selectorNode === undefined) {
+      throw new Error(
+        `${typeName} requires a key selector argument at ${pathLabel}`,
+      );
+    }
+    const keys = extractKeyLiterals(selectorNode);
+    if (keys === null) {
+      throw new Error(
+        `${typeName} selector must be a union of string literals at ${pathLabel}`,
+      );
+    }
+    const keySet = new Set(keys);
+    properties = Object.fromEntries(
+      Object.entries(properties).filter(([key]) =>
+        typeName === 'Pick' ? keySet.has(key) : !keySet.has(key),
+      ),
+    );
+  }
+
+  const result: AttributeNode = {
+    ...sourceResult,
+    path: pathLabel,
+    properties,
+  };
+
+  if (typeName === 'Partial') {
+    result.properties = Object.fromEntries(
+      Object.entries(properties).map(([key, node]) => [
+        key,
+        withRequired(node, false),
+      ]),
+    );
+  } else if (typeName === 'Required') {
+    result.properties = Object.fromEntries(
+      Object.entries(properties).map(([key, node]) => [
+        key,
+        withRequired(node, true),
+      ]),
+    );
+  }
+
+  return result;
 }
