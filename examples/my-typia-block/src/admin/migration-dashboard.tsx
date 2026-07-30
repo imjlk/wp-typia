@@ -338,6 +338,8 @@ export function MigrationDashboard() {
 											) }
 											: additive{ ' ' }
 											{ stats.riskTotals.additive },
+											removal{ ' ' }
+											{ stats.riskTotals.removal },
 											rename { stats.riskTotals.rename },
 											transform{ ' ' }
 											{

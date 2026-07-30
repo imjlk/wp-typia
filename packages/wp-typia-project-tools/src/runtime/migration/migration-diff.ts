@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import {
   flattenManifestLeafAttributes,
+  getAttributeByCurrentPath,
   getManifestDefaultValue,
   hasManifestDefault,
 } from './migration-manifest.js';
@@ -152,7 +153,19 @@ export function createMigrationDiff(
   const newLeafPaths = new Set(
     newLeafAttributes.map((leaf) => leaf.currentPath),
   );
+  const removedTopLevelKeys = new Set(removedKeys);
   for (const leaf of oldLeafAttributes) {
+    // Skip leaves whose top-level ancestor was already recorded as a removal.
+    const topLevelKey = leaf.rootPath;
+    if (removedTopLevelKeys.has(topLevelKey)) {
+      continue;
+    }
+    // Skip properties that still exist in the new manifest (e.g. a primitive
+    // changed to an object — the old leaf path disappears but the property
+    // itself was retained).
+    if (getAttributeByCurrentPath(newAttributes, leaf.currentPath) !== null) {
+      continue;
+    }
     const isTopLevel = Object.prototype.hasOwnProperty.call(
       oldAttributes,
       leaf.currentPath,
@@ -285,6 +298,15 @@ function compareManifestAttribute(
 
   if (oldAttribute.ts.kind === 'array') {
     if (!oldAttribute.ts.items || !newAttribute.ts.items) {
+      // Items metadata absent — still check for a default-value change before
+      // returning the array shape-unchanged outcome.
+      if (hasDefaultChange(oldAttribute, newAttribute)) {
+        return autoOutcome(
+          attributePath,
+          'default-change',
+          describeDefaultChange(oldAttribute, newAttribute),
+        );
+      }
       return autoOutcome(attributePath, 'copy', 'array shape unchanged');
     }
     const nested = compareManifestAttribute(
@@ -327,16 +349,21 @@ function compareManifestAttribute(
   return autoOutcome(attributePath, 'copy', 'compatible primitive field');
 }
 
+// Only auto-status outcomes reach the promotion check below.
+// Manual outcomes (type-change, stricter-constraints, union-branch-removal,
+// union-discriminator-change) are already preserved by the else branch.
+const SUBSTANTIVE_AUTO_KINDS = new Set(['union-branch-addition']);
+
 /**
  * Layer a composite attribute's own default-change outcome onto the nested
  * comparison result. When a composite (object, array, or union) attribute's
  * default value itself changes, the nested comparison returns `hydrate` or
- * `copy`, which would otherwise hide the default transition. This promotes the
- * outcome to `default-change` so it surfaces in the additive risk bucket.
+ * `copy`, which would otherwise hide the default transition.
  *
- * When the nested outcome is manual (e.g. a stricter constraint), the manual
- * result is preserved but the default-change detail is appended so the
- * information is not lost.
+ * For generic `hydrate`/`copy` outcomes the result is promoted to
+ * `default-change`. For substantive nested outcomes (e.g.
+ * `union-branch-addition`) the nested result is preserved and the default
+ * transition is appended to the detail so both signals are visible.
  */
 function mergeCompositeDefaultChange(
   oldAttribute: ManifestAttribute,
@@ -348,7 +375,10 @@ function mergeCompositeDefaultChange(
     return nestedOutcome;
   }
 
-  if (nestedOutcome.status === 'auto') {
+  if (
+    nestedOutcome.status === 'auto' &&
+    !SUBSTANTIVE_AUTO_KINDS.has(nestedOutcome.kind)
+  ) {
     return autoOutcome(
       attributePath,
       'default-change',
@@ -356,7 +386,7 @@ function mergeCompositeDefaultChange(
     );
   }
 
-  // Manual nested issue takes priority, but preserve the default-change info.
+  // Preserve the nested outcome and append the default-change detail.
   return {
     ...nestedOutcome,
     detail: `${nestedOutcome.detail ? `${nestedOutcome.detail}; ` : ''}also: ${describeDefaultChange(oldAttribute, newAttribute)}`,
