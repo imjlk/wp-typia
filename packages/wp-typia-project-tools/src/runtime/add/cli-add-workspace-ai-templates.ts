@@ -594,6 +594,13 @@ if ( ! function_exists( '${handlerFunctionName}' ) ) {
 
 if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
 \tfunction ${registerRoutesFunctionName}() {
+\t\t// Progressive enhancement: skip route registration entirely when the
+\t\t// AI Client capability is unavailable so the endpoint does not appear
+\t\t// on unsupported WordPress versions.
+\t\tif ( ! ${isSupportedFunctionName}() ) {
+\t\t\treturn;
+\t\t}
+
 \t\tregister_rest_route(
 \t\t\t${quotePhpString(namespace)},
 \t\t\t'/ai/${aiFeatureSlug}',
@@ -775,6 +782,12 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
  */
 if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
 \tfunction ${registerRoutesFunctionName}() {
+\t\t// Progressive enhancement: skip route registration when the WordPress
+\t\t// Abilities API is unavailable (WP < 7.0).
+\t\tif ( ! function_exists( 'wp_register_ability' ) ) {
+\t\t\treturn;
+\t\t}
+
 \t\tregister_rest_route(
 \t\t\t'${namespace}',
 \t\t\t'/llm-tools',
