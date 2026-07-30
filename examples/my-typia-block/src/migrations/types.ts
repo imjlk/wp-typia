@@ -79,6 +79,10 @@ export function createEmptyRiskSummary(): MigrationRiskSummary {
       count: 0,
       items: [],
     },
+    removal: {
+      count: 0,
+      items: [],
+    },
     rename: {
       count: 0,
       items: [],

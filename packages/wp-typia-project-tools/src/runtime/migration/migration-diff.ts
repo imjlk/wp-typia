@@ -4,6 +4,10 @@ import {
   getManifestDefaultValue,
   hasManifestDefault,
 } from './migration-manifest.js';
+import {
+  describeDefaultChange,
+  hasDefaultChange,
+} from './migration-diff-default.js';
 import { createRenameCandidates } from './migration-diff-rename.js';
 import {
   createTransformSuggestions,
@@ -255,6 +259,14 @@ function compareManifestAttribute(
       attributePath,
       'stricter-constraints',
       describeConstraintChange(oldAttribute, newAttribute),
+    );
+  }
+
+  if (hasDefaultChange(oldAttribute, newAttribute)) {
+    return autoOutcome(
+      attributePath,
+      'default-change',
+      describeDefaultChange(oldAttribute, newAttribute),
     );
   }
 

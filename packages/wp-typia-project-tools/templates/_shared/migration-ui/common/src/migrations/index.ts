@@ -183,6 +183,10 @@ const EMPTY_RISK_SUMMARY: MigrationRiskSummary = {
     count: 0,
     items: [],
   },
+  removal: {
+    count: 0,
+    items: [],
+  },
   rename: {
     count: 0,
     items: [],
@@ -200,7 +204,7 @@ const EMPTY_RISK_SUMMARY: MigrationRiskSummary = {
 const targets = migrationBlocks as readonly MigrationTargetRuntime[];
 
 function formatRiskSummary(riskSummary: MigrationRiskSummary): string {
-  return `additive ${riskSummary.additive.count}, rename ${riskSummary.rename.count}, transform ${riskSummary.semanticTransform.count}, union breaking ${riskSummary.unionBreaking.count}`;
+  return `additive ${riskSummary.additive.count}, removal ${riskSummary.removal.count}, rename ${riskSummary.rename.count}, transform ${riskSummary.semanticTransform.count}, union breaking ${riskSummary.unionBreaking.count}`;
 }
 
 function getTargetByBlockName(

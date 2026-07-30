@@ -33,6 +33,7 @@ function unique(items: string[]): string[] {
 export function createEmptyMigrationRiskSummary(): MigrationRiskSummary {
   return {
     additive: createRiskBucket([]),
+    removal: createRiskBucket([]),
     rename: createRiskBucket([]),
     semanticTransform: createRiskBucket([]),
     unionBreaking: createRiskBucket([]),
@@ -40,23 +41,27 @@ export function createEmptyMigrationRiskSummary(): MigrationRiskSummary {
 }
 
 export function formatMigrationRiskSummary(summary: MigrationRiskSummary): string {
-  return `additive=${summary.additive.count}, rename=${summary.rename.count}, semanticTransform=${summary.semanticTransform.count}, unionBreaking=${summary.unionBreaking.count}`;
+  return `additive=${summary.additive.count}, removal=${summary.removal.count}, rename=${summary.rename.count}, semanticTransform=${summary.semanticTransform.count}, unionBreaking=${summary.unionBreaking.count}`;
 }
 
 export function createMigrationRiskSummary(diff: MigrationDiff): MigrationRiskSummary {
   const additiveKinds = new Set([
     'add-default',
     'add-optional',
-    'drop',
     'hydrate',
     'union-branch-addition',
   ]);
 
   const additiveItems = unique(
-		diff.summary.autoItems
-			.filter((item) => additiveKinds.has(item.kind))
-			.map(formatDiffOutcome),
-	);
+    diff.summary.autoItems
+      .filter((item) => additiveKinds.has(item.kind))
+      .map(formatDiffOutcome),
+  );
+  const removalItems = unique(
+    diff.summary.autoItems
+      .filter((item) => item.kind === 'drop')
+      .map(formatDiffOutcome),
+  );
   const renameItems = unique(
     diff.summary.renameCandidates.map(formatRenameCandidate),
   );
@@ -64,13 +69,14 @@ export function createMigrationRiskSummary(diff: MigrationDiff): MigrationRiskSu
     diff.summary.transformSuggestions.map(formatTransformSuggestion),
   );
   const unionBreakingItems = unique(
-		diff.summary.manualItems
-			.filter((item) => item.kind.startsWith('union-'))
-			.map(formatDiffOutcome),
-	);
+    diff.summary.manualItems
+      .filter((item) => item.kind.startsWith('union-'))
+      .map(formatDiffOutcome),
+  );
 
   return {
     additive: createRiskBucket(additiveItems),
+    removal: createRiskBucket(removalItems),
     rename: createRiskBucket(renameItems),
     semanticTransform: createRiskBucket(semanticTransformItems),
     unionBreaking: createRiskBucket(unionBreakingItems),

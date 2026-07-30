@@ -17,6 +17,7 @@ export interface MigrationRiskBucket {
 
 export interface MigrationRiskSummary {
   additive: MigrationRiskBucket;
+  removal: MigrationRiskBucket;
   rename: MigrationRiskBucket;
   semanticTransform: MigrationRiskBucket;
   unionBreaking: MigrationRiskBucket;

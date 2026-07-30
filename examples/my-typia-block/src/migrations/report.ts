@@ -5,7 +5,7 @@ import type { BlockScanResult } from './types';
 import type { MigrationRiskSummary } from './helpers';
 
 function formatRiskSummary( riskSummary: MigrationRiskSummary ): string {
-  return `additive ${ riskSummary.additive.count }, rename ${ riskSummary.rename.count }, transform ${ riskSummary.semanticTransform.count }, union breaking ${ riskSummary.unionBreaking.count }`;
+  return `additive ${ riskSummary.additive.count }, removal ${ riskSummary.removal.count }, rename ${ riskSummary.rename.count }, transform ${ riskSummary.semanticTransform.count }, union breaking ${ riskSummary.unionBreaking.count }`;
 }
 
 /**
