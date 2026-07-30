@@ -188,6 +188,33 @@ describe('wp-typia migrate diff default and removal classification', () => {
       ).toBe(false);
     });
 
+    test('returns false for object defaults with identical keys in different order', () => {
+      expect(
+        hasDefaultChange(
+          makeAttr({ hasDefault: true, defaultValue: { a: 1, b: 2 } }),
+          makeAttr({ hasDefault: true, defaultValue: { b: 2, a: 1 } }),
+        ),
+      ).toBe(false);
+    });
+
+    test('returns true for array defaults with reordered elements', () => {
+      expect(
+        hasDefaultChange(
+          makeAttr({ hasDefault: true, defaultValue: [1, 2] }),
+          makeAttr({ hasDefault: true, defaultValue: [2, 1] }),
+        ),
+      ).toBe(true);
+    });
+
+    test('returns true for object defaults with different values', () => {
+      expect(
+        hasDefaultChange(
+          makeAttr({ hasDefault: true, defaultValue: { a: 1 } }),
+          makeAttr({ hasDefault: true, defaultValue: { a: 2 } }),
+        ),
+      ).toBe(true);
+    });
+
     test('describeDefaultChange returns default unchanged when neither has a default', () => {
       expect(describeDefaultChange(makeAttr(), makeAttr())).toBe(
         'default unchanged',

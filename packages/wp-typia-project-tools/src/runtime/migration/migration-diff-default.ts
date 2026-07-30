@@ -5,20 +5,53 @@ import {
 import type { ManifestAttribute } from './migration-types.js';
 
 /**
- * Compare two JSON-serializable default values for equality. Default values are
- * projected from the manifest, so structural deep equality via JSON stringification
- * is sufficient and mirrors how the runtime coercion layer materializes defaults.
+ * Compare two JSON-serializable default values for deep equality.
  *
- * The manifest projection emits object properties in source-declaration order and
- * both snapshots are produced by the same generator, so key insertion order is
- * deterministic across versions. This makes JSON string comparison robust here
- * even though it is normally sensitive to key ordering.
+ * Uses order-independent comparison so that object-key reordering between
+ * manifest snapshots does not falsely produce a default-change outcome.
+ * Arrays are compared element-wise in order, matching how the runtime
+ * coercion layer materializes defaults.
  */
 function areDefaultValuesEqual(
   oldValue: unknown,
   newValue: unknown,
 ): boolean {
-  return JSON.stringify(oldValue) === JSON.stringify(newValue);
+  if (oldValue === newValue) {
+    return true;
+  }
+  if (typeof oldValue !== typeof newValue) {
+    return false;
+  }
+  if (Array.isArray(oldValue) && Array.isArray(newValue)) {
+    return (
+      oldValue.length === newValue.length &&
+      oldValue.every((value, index) =>
+        areDefaultValuesEqual(value, newValue[index]),
+      )
+    );
+  }
+  if (
+    typeof oldValue === 'object' &&
+    oldValue !== null &&
+    typeof newValue === 'object' &&
+    newValue !== null &&
+    !Array.isArray(newValue)
+  ) {
+    const oldKeys = Object.keys(oldValue as Record<string, unknown>);
+    const newKeys = Object.keys(newValue as Record<string, unknown>);
+    return (
+      oldKeys.length === newKeys.length &&
+      oldKeys.every(
+        (key) =>
+          key in (newValue as Record<string, unknown>) &&
+          areDefaultValuesEqual(
+            (oldValue as Record<string, unknown>)[key],
+            (newValue as Record<string, unknown>)[key],
+          ),
+      )
+    );
+  }
+  return false;
 }
 
 /**

@@ -30,6 +30,16 @@ function unique(items: string[]): string[] {
   return [...new Set(items)];
 }
 
+/**
+ * Create a risk summary with every bucket initialized to zero items.
+ *
+ * The five buckets are: `additive` (additions, hydrations, default-value
+ * changes), `removal` (attribute drops), `rename` (detected renames),
+ * `semanticTransform` (coercion suggestions), and `unionBreaking`
+ * (discriminated-union branch removals or discriminator changes).
+ *
+ * @returns A risk summary whose buckets all carry empty item lists.
+ */
 export function createEmptyMigrationRiskSummary(): MigrationRiskSummary {
   return {
     additive: createRiskBucket([]),
@@ -40,10 +50,29 @@ export function createEmptyMigrationRiskSummary(): MigrationRiskSummary {
   };
 }
 
+/**
+ * Format a risk summary into a single-line human-readable string.
+ *
+ * @param summary Risk summary to format.
+ * @returns A comma-separated string with per-bucket counts, including
+ *   `removal` (attribute drops) distinguished from `additive`.
+ */
 export function formatMigrationRiskSummary(summary: MigrationRiskSummary): string {
   return `additive=${summary.additive.count}, removal=${summary.removal.count}, rename=${summary.rename.count}, semanticTransform=${summary.semanticTransform.count}, unionBreaking=${summary.unionBreaking.count}`;
 }
 
+/**
+ * Classify a migration diff into five risk buckets.
+ *
+ * `additive` collects low-risk auto outcomes (add-default, add-optional,
+ * default-change, hydrate, union-branch-addition). `removal` collects
+ * attribute drops (`drop` kind) separately so data-loss edges are not hidden
+ * inside additive. `rename`, `semanticTransform`, and `unionBreaking` capture
+ * their respective diff categories.
+ *
+ * @param diff Migration diff whose summary items are classified.
+ * @returns A risk summary with deduplicated items per bucket.
+ */
 export function createMigrationRiskSummary(diff: MigrationDiff): MigrationRiskSummary {
   const additiveKinds = new Set([
     'add-default',
