@@ -1,6 +1,7 @@
 ---
 npm/@wp-typia/block-runtime: minor
 npm/@wp-typia/project-tools: minor
+npm/wp-typia: minor
 ---
 
 Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
