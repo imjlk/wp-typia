@@ -160,14 +160,15 @@ describe('Gunshi dispatch parity boundaries', () => {
         cwd: tempRoot,
         env: isolatedEnv(tempRoot),
       });
-      const mcpError = parseJsonObjectFromOutput<JsonCommandError>(
-        mcpList.stderr,
+      const mcpPayload = parseJsonObjectFromOutput<{
+        groups?: Array<{ namespace?: string }>;
+      }>(mcpList.stdout);
+      // Built-in wp-typia tools are always available even without external sources.
+      expect(mcpList.status).toBe(0);
+      const wpTypiaGroup = mcpPayload.groups?.find(
+        (group) => group.namespace === 'wp-typia',
       );
-      expect(mcpList.status).toBe(1);
-      expect(mcpList.stdout).toBe('');
-      expect(mcpError.ok).toBe(false);
-      expect(mcpError.error?.command).toBe('mcp');
-      expect(mcpError.error?.code).toBe('configuration-missing');
+      expect(wpTypiaGroup).toBeDefined();
 
       const typo = runWpTypia(['docotr', '--format', 'json'], {
         cwd: tempRoot,
