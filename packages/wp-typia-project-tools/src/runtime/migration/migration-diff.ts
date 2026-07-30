@@ -144,6 +144,29 @@ export function createMigrationDiff(
     }
   }
 
+  // Detect nested property drops: leaf paths present in the old manifest but
+  // absent from the new manifest, excluding top-level removals already handled
+  // above. This catches properties removed from retained objects (e.g.
+  // settings.legacyFlag) without relying on compareObjectAttribute which only
+  // returns a single DiffOutcome.
+  const newLeafPaths = new Set(
+    newLeafAttributes.map((leaf) => leaf.currentPath),
+  );
+  for (const leaf of oldLeafAttributes) {
+    const isTopLevel = Object.prototype.hasOwnProperty.call(
+      oldAttributes,
+      leaf.currentPath,
+    );
+    if (!newLeafPaths.has(leaf.currentPath) && !isTopLevel) {
+      autoItems.push({
+        detail: 'nested property removed from current schema',
+        kind: 'drop',
+        path: leaf.currentPath,
+        status: 'auto',
+      });
+    }
+  }
+
   const renameCandidates = createRenameCandidates({
 		addedKeys,
 		isUnionRenameCompatible: (oldAttribute, newAttribute) =>
@@ -220,9 +243,9 @@ function removeOutcomesByPath(items: DiffOutcome[], pathLabel: string): void {
 }
 
 function compareManifestAttribute(
-	oldAttribute: ManifestAttribute,
-	newAttribute: ManifestAttribute,
-	attributePath: string,
+  oldAttribute: ManifestAttribute,
+  newAttribute: ManifestAttribute,
+  attributePath: string,
 ): DiffOutcome {
   if (oldAttribute.ts.kind !== newAttribute.ts.kind) {
     return manualOutcome(
@@ -233,11 +256,31 @@ function compareManifestAttribute(
   }
 
   if (oldAttribute.ts.kind === 'union') {
-    return compareUnionAttribute(oldAttribute, newAttribute, attributePath);
+    const unionOutcome = compareUnionAttribute(
+      oldAttribute,
+      newAttribute,
+      attributePath,
+    );
+    return mergeCompositeDefaultChange(
+      oldAttribute,
+      newAttribute,
+      attributePath,
+      unionOutcome,
+    );
   }
 
   if (oldAttribute.ts.kind === 'object') {
-    return compareObjectAttribute(oldAttribute, newAttribute, attributePath);
+    const objectOutcome = compareObjectAttribute(
+      oldAttribute,
+      newAttribute,
+      attributePath,
+    );
+    return mergeCompositeDefaultChange(
+      oldAttribute,
+      newAttribute,
+      attributePath,
+      objectOutcome,
+    );
   }
 
   if (oldAttribute.ts.kind === 'array') {
@@ -249,9 +292,20 @@ function compareManifestAttribute(
       newAttribute.ts.items,
       `${attributePath}[]`,
     );
-    return nested.status === 'manual'
-      ? nested
-      : autoOutcome(attributePath, 'hydrate', 'array items can be normalized');
+    const arrayOutcome =
+      nested.status === 'manual'
+        ? nested
+        : autoOutcome(
+            attributePath,
+            'hydrate',
+            'array items can be normalized',
+          );
+    return mergeCompositeDefaultChange(
+      oldAttribute,
+      newAttribute,
+      attributePath,
+      arrayOutcome,
+    );
   }
 
   if (hasStricterConstraints(oldAttribute, newAttribute)) {
@@ -273,10 +327,46 @@ function compareManifestAttribute(
   return autoOutcome(attributePath, 'copy', 'compatible primitive field');
 }
 
+/**
+ * Layer a composite attribute's own default-change outcome onto the nested
+ * comparison result. When a composite (object, array, or union) attribute's
+ * default value itself changes, the nested comparison returns `hydrate` or
+ * `copy`, which would otherwise hide the default transition. This promotes the
+ * outcome to `default-change` so it surfaces in the additive risk bucket.
+ *
+ * When the nested outcome is manual (e.g. a stricter constraint), the manual
+ * result is preserved but the default-change detail is appended so the
+ * information is not lost.
+ */
+function mergeCompositeDefaultChange(
+  oldAttribute: ManifestAttribute,
+  newAttribute: ManifestAttribute,
+  attributePath: string,
+  nestedOutcome: DiffOutcome,
+): DiffOutcome {
+  if (!hasDefaultChange(oldAttribute, newAttribute)) {
+    return nestedOutcome;
+  }
+
+  if (nestedOutcome.status === 'auto') {
+    return autoOutcome(
+      attributePath,
+      'default-change',
+      describeDefaultChange(oldAttribute, newAttribute),
+    );
+  }
+
+  // Manual nested issue takes priority, but preserve the default-change info.
+  return {
+    ...nestedOutcome,
+    detail: `${nestedOutcome.detail ? `${nestedOutcome.detail}; ` : ''}also: ${describeDefaultChange(oldAttribute, newAttribute)}`,
+  };
+}
+
 function compareObjectAttribute(
-	oldAttribute: ManifestAttribute,
-	newAttribute: ManifestAttribute,
-	attributePath: string,
+  oldAttribute: ManifestAttribute,
+  newAttribute: ManifestAttribute,
+  attributePath: string,
 ): DiffOutcome {
   const oldProperties = oldAttribute.ts.properties ?? {};
   const newProperties = newAttribute.ts.properties ?? {};
@@ -303,6 +393,10 @@ function compareObjectAttribute(
       return nested;
     }
   }
+
+  // Nested property drops are detected at the top-level diff loop via
+  // flattenManifestLeafAttributes, which can surface all removed nested paths
+  // without the single-DiffOutcome return limitation.
 
   return autoOutcome(
     attributePath,

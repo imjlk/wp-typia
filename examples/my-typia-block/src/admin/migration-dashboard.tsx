@@ -15,6 +15,7 @@ interface MigrationStats {
   needsMigration: number;
   riskTotals: {
     additive: number;
+    removal: number;
     rename: number;
     semanticTransform: number;
     unionBreaking: number;
@@ -27,7 +28,7 @@ interface MigrationStats {
 function formatRiskSummaryLine(
 	result: BlockScanResult[ 'analysis' ],
 ): string {
-  return `additive ${ result.riskSummary.additive.count }, rename ${ result.riskSummary.rename.count }, transform ${ result.riskSummary.semanticTransform.count }, union breaking ${ result.riskSummary.unionBreaking.count }`;
+  return `additive ${ result.riskSummary.additive.count }, removal ${ result.riskSummary.removal.count }, rename ${ result.riskSummary.rename.count }, transform ${ result.riskSummary.semanticTransform.count }, union breaking ${ result.riskSummary.unionBreaking.count }`;
 }
 
 function findAnalysisForPreview(
@@ -60,6 +61,8 @@ function collectStats( results: BlockScanResult[] ): MigrationStats {
 				] ?? 0 ) + 1;
 			accumulator.riskTotals.additive +=
 				result.analysis.riskSummary.additive.count;
+			accumulator.riskTotals.removal +=
+				result.analysis.riskSummary.removal.count;
 			accumulator.riskTotals.rename +=
 				result.analysis.riskSummary.rename.count;
 			accumulator.riskTotals.semanticTransform +=
@@ -72,6 +75,7 @@ function collectStats( results: BlockScanResult[] ): MigrationStats {
 			needsMigration: 0,
 			riskTotals: {
 				additive: 0,
+				removal: 0,
 				rename: 0,
 				semanticTransform: 0,
 				unionBreaking: 0,

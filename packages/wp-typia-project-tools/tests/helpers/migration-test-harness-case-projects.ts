@@ -780,3 +780,203 @@ export function createRemovalProject(projectDir: string) {
   fs.mkdirSync(localBinDir, { recursive: true });
   fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
 }
+
+/**
+ * Creates a project where a nested property inside a retained object is
+ * removed between v1 and current. The v1 snapshot has
+ * `settings.{label,legacyFlag}` while current has `settings.{label}` only.
+ * This exercises the nested property drop detection (P1-3).
+ */
+export function createNestedDropProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface NestedDropAttributes {\n\tsettings: { label: string };\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.settings?.label ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst settings = attributes.settings as Record<string, unknown> | undefined;\n\t\tconst success = typeof settings === "object" && settings !== null && typeof settings.label === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.settings.label", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { settings: { label: "Hello" } };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/nested-drop",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+
+  const currentSettings = createManifestAttribute('object', {
+    required: true,
+  });
+  currentSettings.ts.properties = {
+    label: createManifestAttribute('string', {
+      defaultValue: 'Default',
+      required: false,
+    }),
+  };
+
+  const legacySettings = createManifestAttribute('object', {
+    required: true,
+  });
+  legacySettings.ts.properties = {
+    label: createManifestAttribute('string', {
+      defaultValue: 'Default',
+      required: false,
+    }),
+    legacyFlag: createManifestAttribute('string', {
+      defaultValue: 'old',
+      required: false,
+    }),
+  };
+
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: {
+      settings: { type: 'object' },
+    },
+    name: 'create-block/nested-drop',
+    title: 'Nested Drop',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: { settings: currentSettings },
+    manifestVersion: 2,
+    sourceType: 'NestedDropAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: {
+        settings: { type: 'object' },
+      },
+      name: 'create-block/nested-drop',
+      title: 'Nested Drop',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: { settings: legacySettings },
+      manifestVersion: 2,
+      sourceType: 'NestedDropAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.settings?.label ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
+
+/**
+ * Creates a project where an object attribute's own default value changes
+ * between v1 and current. The v1 snapshot has `config` with default
+ * `{ enabled: false }` while current has `config` with default
+ * `{ enabled: true }`. This exercises composite default-change detection
+ * (P1-1).
+ */
+export function createCompositeDefaultChangeProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface CompositeDefaultAttributes {\n\tconfig: { enabled: boolean };\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.config?.enabled ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst config = attributes.config as Record<string, unknown> | undefined;\n\t\tconst success = typeof config === "object" && config !== null && typeof config.enabled === "boolean";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.config.enabled", expected: "boolean" }] };\n\t},\n\trandom() {\n\t\treturn { config: { enabled: true } };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/composite-default",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+
+  function makeConfigAttr(defaultValue: Record<string, unknown>) {
+    const attr = createManifestAttribute('object', { required: true });
+    attr.typia.defaultValue = defaultValue;
+    attr.typia.hasDefault = true;
+    attr.wp.defaultValue = defaultValue;
+    attr.wp.hasDefault = true;
+    attr.ts.properties = {
+      enabled: createManifestAttribute('boolean', {
+        defaultValue: defaultValue.enabled,
+        required: false,
+      }),
+    };
+    return attr;
+  }
+
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: {
+      config: { type: 'object' },
+    },
+    name: 'create-block/composite-default',
+    title: 'Composite Default',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: { config: makeConfigAttr({ enabled: true }) },
+    manifestVersion: 2,
+    sourceType: 'CompositeDefaultAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: {
+        config: { type: 'object' },
+      },
+      name: 'create-block/composite-default',
+      title: 'Composite Default',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: { config: makeConfigAttr({ enabled: false }) },
+      manifestVersion: 2,
+      sourceType: 'CompositeDefaultAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.config?.enabled ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
