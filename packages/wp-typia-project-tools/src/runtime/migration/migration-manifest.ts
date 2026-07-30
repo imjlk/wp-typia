@@ -73,6 +73,26 @@ export function flattenManifestAttribute(
 		);
   }
 
+  if (attribute.ts.kind === 'array' && attribute.ts.items) {
+    const itemPath = `${currentPath}[]`;
+    const itemProperties = Object.entries(
+      attribute.ts.items.ts.properties ?? {},
+    );
+    if (itemProperties.length === 0) {
+      return [{ ...context, attribute, currentPath, sourcePath }];
+    }
+    return itemProperties.flatMap(([key, property]) =>
+      flattenManifestAttribute(
+        property,
+        `${itemPath}.${key}`,
+        `${sourcePath}[].${key}`,
+        {
+          ...context,
+        },
+      ),
+    );
+  }
+
   return [{ ...context, attribute, currentPath, sourcePath }];
 }
 
@@ -80,7 +100,11 @@ export function getAttributeByCurrentPath(
 	attributes: Record<string, ManifestAttribute>,
 	currentPath: string,
 ): ManifestAttribute | null {
-  const segments = String(currentPath).split('.');
+  // Strip [] suffixes from array item path segments (e.g. `rows[].label`
+  // → ['rows', 'label']) so segment-based path traversal works correctly.
+  const segments = String(currentPath)
+    .split('.')
+    .map((segment) => segment.replace(/\[\]$/u, ''));
   const rootKey = segments.shift();
   if (!rootKey) {
     return null;
@@ -94,6 +118,14 @@ export function getAttributeByCurrentPath(
         return null;
       }
       attribute = attribute.ts.union.branches[branchKey];
+      continue;
+    }
+
+    if (attribute.ts.kind === 'array' && attribute.ts.items) {
+      // Array item paths use the `[]` suffix on the root key (e.g.
+      // `items[].label`). The root key already consumed the `items` segment,
+      // so we descend into items directly.
+      attribute = attribute.ts.items;
       continue;
     }
 
