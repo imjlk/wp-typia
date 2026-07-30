@@ -58,6 +58,7 @@ export interface SyncBlockMetadataOptions {
   jsonSchemaFile?: string;
   knownBlockNames?: readonly string[];
   manifestFile?: string;
+  maxRecursiveDepth?: number;
   nesting?: BlockNestingContract;
   openApiFile?: string;
   phpValidatorFile?: string;

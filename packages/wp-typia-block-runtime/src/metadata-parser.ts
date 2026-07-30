@@ -31,13 +31,14 @@ import {
  * Analyze one named source type from a TypeScript module.
  *
  * @param options Metadata analysis options including the project root, source
- * type name, and types file path.
+ * type name, types file path, and optional recursive type unrolling depth.
  * @returns The resolved project root plus the parsed root attribute node for
  * the requested source type.
  * @category Schema
  */
 export function analyzeSourceType(
 	options: {
+		maxRecursiveDepth?: number;
 		projectRoot?: string;
 		sourceTypeName: string;
 		typesFile: string;
@@ -46,6 +47,7 @@ export function analyzeSourceType(
   const projectRoot = path.resolve(options.projectRoot ?? process.cwd());
   const rootNodes = analyzeSourceTypes(
     {
+      maxRecursiveDepth: options.maxRecursiveDepth,
       projectRoot,
       typesFile: options.typesFile,
     },
@@ -61,8 +63,9 @@ export function analyzeSourceType(
 /**
  * Analyze multiple named source types from a TypeScript module.
  *
- * @param options Metadata analysis options including the optional project root
- * and the relative types file path to parse.
+ * @param options Metadata analysis options including the optional project root,
+ * the relative types file path to parse, and optional recursive type unrolling
+ * depth.
  * @param sourceTypeNames Exported type or interface names to resolve from the
  * configured types file.
  * @returns A record keyed by source type name with parsed attribute-node trees
@@ -71,6 +74,7 @@ export function analyzeSourceType(
  */
 export function analyzeSourceTypes(
 	options: {
+		maxRecursiveDepth?: number;
 		projectRoot?: string;
 		typesFile: string;
 	},
@@ -78,7 +82,11 @@ export function analyzeSourceTypes(
 ): Record<string, AttributeNode> {
   const projectRoot = path.resolve(options.projectRoot ?? process.cwd());
   const typesFilePath = path.resolve(projectRoot, options.typesFile);
-  const ctx = createAnalysisContext(projectRoot, typesFilePath);
+  const ctx = createAnalysisContext(
+    projectRoot,
+    typesFilePath,
+    options.maxRecursiveDepth,
+  );
   const sourceFile = ctx.program.getSourceFile(typesFilePath);
   if (sourceFile === undefined) {
     throw new Error(`Unable to load types file: ${typesFilePath}`);
@@ -135,11 +143,13 @@ export function parseNamedDeclaration(
 	required: boolean,
 ): AttributeNode {
   const recursionKey = `${declaration.getSourceFile().fileName}:${declaration.name.text}`;
-  if (ctx.recursionGuard.has(recursionKey)) {
-    throw new Error(`Recursive types are not supported: ${pathLabel}`);
+  const currentDepth = ctx.recursionDepth.get(recursionKey) ?? 0;
+
+  if (currentDepth >= ctx.maxRecursiveDepth) {
+    return createRecursiveTerminalNode(pathLabel, required);
   }
 
-  ctx.recursionGuard.add(recursionKey);
+  ctx.recursionDepth.set(recursionKey, currentDepth + 1);
   try {
     if (ts.isInterfaceDeclaration(declaration)) {
       return parseInterfaceDeclaration(declaration, ctx, pathLabel, required);
@@ -149,8 +159,41 @@ export function parseNamedDeclaration(
       required,
     );
   } finally {
-    ctx.recursionGuard.delete(recursionKey);
+    if (currentDepth === 0) {
+      ctx.recursionDepth.delete(recursionKey);
+    } else {
+      ctx.recursionDepth.set(recursionKey, currentDepth);
+    }
   }
+}
+
+/**
+ * Create a terminal leaf node for a recursive type that has reached the
+ * maximum unrolling depth. The terminal is an optional empty object so every
+ * downstream consumer (projection, PHP validator, migration, JSON Schema)
+ * treats deeper data as an opaque passthrough without further validation.
+ */
+function createRecursiveTerminalNode(
+	pathLabel: string,
+	required: boolean,
+): AttributeNode {
+  return {
+    constraints: defaultAttributeConstraints(),
+    enumValues: null,
+    kind: 'object',
+    path: `${pathLabel}.__recursive_terminal`,
+    properties: {},
+    required,
+    union: null,
+    wp: {
+      preserveOnEmpty: false,
+      selector: null,
+      secret: false,
+      secretStateField: null,
+      source: null,
+      writeOnly: false,
+    },
+  };
 }
 
 function parseInterfaceDeclaration(

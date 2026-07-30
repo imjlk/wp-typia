@@ -12,10 +12,19 @@ import ts from '@typescript/typescript6';
 export interface AnalysisContext {
   allowedExternalPackages: Set<string>;
   checker: ts.TypeChecker;
+  /**
+   * Maximum number of times a single recursive type declaration is unrolled
+   * before the parser emits a terminal leaf node.
+   */
+  maxRecursiveDepth: number;
   packageNameCache: Map<string, string | null>;
   projectRoot: string;
   program: ts.Program;
-  recursionGuard: Set<string>;
+  /**
+   * Tracks the current unrolling depth per recursive type declaration key
+   * (`${fileName}:${typeName}`). Replaces the former hard-throw presence set.
+   */
+  recursionDepth: Map<string, number>;
 }
 
 interface AnalysisProgramInputs {
@@ -68,6 +77,12 @@ class LruCache<Key, Value> {
 
 const DEFAULT_ALLOWED_EXTERNAL_PACKAGES = ['@wp-typia/block-types'] as const;
 const ANALYSIS_PROGRAM_CACHE_MAX_ENTRIES = 20;
+/**
+ * Default maximum depth to which a recursive type declaration is unrolled
+ * before the parser emits a terminal leaf node. Covers typical WordPress
+ * block tree structures (nested menus, repeater fields, taxonomies).
+ */
+const DEFAULT_MAX_RECURSIVE_DEPTH = 5;
 const TYPESCRIPT_LIB_DIRECTORY = path.dirname(ts.getDefaultLibFilePath({}));
 const RUNTIME_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SYNC_BLOCK_METADATA_FAILURE_CODE = Symbol(
@@ -382,13 +397,20 @@ function resolveAnalysisProgramInputs(
  *
  * @param projectRoot Project root used for module resolution and dependency tracking.
  * @param typesFilePath Absolute path to the source types file being analyzed.
+ * @param maxRecursiveDepth Maximum depth to unroll recursive type declarations.
  * @returns An analysis context containing the TypeScript program, checker, and recursion guards.
  * @category Schema
  */
 export function createAnalysisContext(
-	projectRoot: string,
-	typesFilePath: string,
+  projectRoot: string,
+  typesFilePath: string,
+  maxRecursiveDepth: number = DEFAULT_MAX_RECURSIVE_DEPTH,
 ): AnalysisContext {
+  if (!Number.isInteger(maxRecursiveDepth) || maxRecursiveDepth < 1) {
+    throw new Error(
+      `maxRecursiveDepth must be a positive integer, got ${maxRecursiveDepth}`,
+    );
+  }
   const analysisInputs = resolveAnalysisProgramInputs(
     projectRoot,
     typesFilePath,
@@ -406,10 +428,11 @@ export function createAnalysisContext(
       return {
         allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
         checker: cachedAnalysis.checker,
+        maxRecursiveDepth,
         packageNameCache: new Map(),
         projectRoot,
         program: cachedAnalysis.program,
-        recursionGuard: new Set<string>(),
+        recursionDepth: new Map<string, number>(),
       };
     }
   }
@@ -459,10 +482,11 @@ export function createAnalysisContext(
   return {
     allowedExternalPackages: new Set(DEFAULT_ALLOWED_EXTERNAL_PACKAGES),
     checker,
+    maxRecursiveDepth,
     packageNameCache: new Map(),
     projectRoot,
     program,
-    recursionGuard: new Set<string>(),
+    recursionDepth: new Map<string, number>(),
   };
 }
 
