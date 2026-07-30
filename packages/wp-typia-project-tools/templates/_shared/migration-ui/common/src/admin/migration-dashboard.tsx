@@ -15,6 +15,7 @@ interface MigrationStats {
   needsMigration: number;
   riskTotals: {
     additive: number;
+    removal: number;
     rename: number;
     semanticTransform: number;
     unionBreaking: number;
@@ -42,7 +43,7 @@ function formatUnionStatus(
 }
 
 function formatRiskSummaryLine(result: BlockScanResult['analysis']): string {
-  return `${__('additive', TEXT_DOMAIN)} ${result.riskSummary.additive.count}, ${__('rename', TEXT_DOMAIN)} ${result.riskSummary.rename.count}, ${__('transform', TEXT_DOMAIN)} ${result.riskSummary.semanticTransform.count}, ${__('union breaking', TEXT_DOMAIN)} ${result.riskSummary.unionBreaking.count}`;
+  return `${__('additive', TEXT_DOMAIN)} ${result.riskSummary.additive.count}, ${__('removal', TEXT_DOMAIN)} ${result.riskSummary.removal.count}, ${__('rename', TEXT_DOMAIN)} ${result.riskSummary.rename.count}, ${__('transform', TEXT_DOMAIN)} ${result.riskSummary.semanticTransform.count}, ${__('union breaking', TEXT_DOMAIN)} ${result.riskSummary.unionBreaking.count}`;
 }
 
 function collectStats(results: BlockScanResult[]): MigrationStats {
@@ -60,6 +61,8 @@ function collectStats(results: BlockScanResult[]): MigrationStats {
         1;
       accumulator.riskTotals.additive +=
         result.analysis.riskSummary.additive.count;
+      accumulator.riskTotals.removal +=
+        result.analysis.riskSummary.removal.count;
       accumulator.riskTotals.rename += result.analysis.riskSummary.rename.count;
       accumulator.riskTotals.semanticTransform +=
         result.analysis.riskSummary.semanticTransform.count;
@@ -71,6 +74,7 @@ function collectStats(results: BlockScanResult[]): MigrationStats {
       needsMigration: 0,
       riskTotals: {
         additive: 0,
+        removal: 0,
         rename: 0,
         semanticTransform: 0,
         unionBreaking: 0,

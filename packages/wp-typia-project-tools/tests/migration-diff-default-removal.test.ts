@@ -3,8 +3,10 @@ import * as path from 'node:path';
 
 import {
   cleanupMigrationTempRoot,
+  createCompositeDefaultChangeProject,
   createDefaultChangeProject,
   createMigrationTempRoot,
+  createNestedDropProject,
   createRemovalProject,
 } from './helpers/migration-test-harness.js';
 import { createMigrationDiff } from '../src/runtime/migration-diff.js';
@@ -104,6 +106,67 @@ describe('wp-typia migrate diff default and removal classification', () => {
       const empty = createEmptyMigrationRiskSummary();
       const formatted = formatMigrationRiskSummary(empty);
       expect(formatted).toContain('removal=0');
+    });
+  });
+
+  describe('composite attribute default change (P1-1)', () => {
+    test('emits a default-change outcome when an object attribute default changes', () => {
+      const projectDir = path.join(tempRoot, 'composite-default-project');
+      createCompositeDefaultChangeProject(projectDir);
+
+      const diff = createMigrationDiff(
+        loadMigrationProject(projectDir),
+        'v1',
+        'v3',
+      );
+
+      const defaultChangeItem = diff.summary.autoItems.find(
+        (item) => item.kind === 'default-change',
+      );
+      expect(defaultChangeItem).toBeDefined();
+      expect(defaultChangeItem?.path).toBe('config');
+    });
+
+    test('classifies composite default-change in the additive risk bucket', () => {
+      const projectDir = path.join(tempRoot, 'composite-default-risk');
+      createCompositeDefaultChangeProject(projectDir);
+
+      const summary = createMigrationRiskSummary(
+        createMigrationDiff(loadMigrationProject(projectDir), 'v1', 'v3'),
+      );
+
+      expect(summary.additive.count).toBeGreaterThan(0);
+      expect(summary.additive.items.some((item) => item.includes('default-change'))).toBe(true);
+    });
+  });
+
+  describe('nested property drop (P1-3)', () => {
+    test('detects a removed nested property as a drop outcome', () => {
+      const projectDir = path.join(tempRoot, 'nested-drop-project');
+      createNestedDropProject(projectDir);
+
+      const diff = createMigrationDiff(
+        loadMigrationProject(projectDir),
+        'v1',
+        'v3',
+      );
+
+      const dropItem = diff.summary.autoItems.find(
+        (item) => item.kind === 'drop' && item.path.includes('legacyFlag'),
+      );
+      expect(dropItem).toBeDefined();
+      expect(dropItem?.path).toContain('settings.legacyFlag');
+    });
+
+    test('classifies nested drops in the removal risk bucket', () => {
+      const projectDir = path.join(tempRoot, 'nested-drop-risk');
+      createNestedDropProject(projectDir);
+
+      const summary = createMigrationRiskSummary(
+        createMigrationDiff(loadMigrationProject(projectDir), 'v1', 'v3'),
+      );
+
+      expect(summary.removal.count).toBeGreaterThan(0);
     });
   });
 
