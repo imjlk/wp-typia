@@ -499,6 +499,40 @@ async function generateMcpTypes(
   );
 }
 
+export async function syncMcpSchemasFromGroups(
+  groups: MCPToolGroup[],
+  outputDir: string,
+): Promise<{
+  commandCount: number;
+  groups: MCPToolGroup[];
+  outputDir: string;
+}> {
+  await generateMcpTypes(groups, outputDir);
+
+  const registry = groups.map((group) => ({
+    namespace: group.namespace,
+    tools: group.tools.map((tool) =>
+      extractCommandMetadata(tool, group.namespace),
+    ),
+  }));
+
+  await fs.mkdir(outputDir, { recursive: true });
+  await fs.writeFile(
+    path.join(outputDir, 'registry.json'),
+    `${JSON.stringify(registry, null, 2)}\n`,
+    'utf8',
+  );
+
+  return {
+    commandCount: registry.reduce(
+      (count, group) => count + group.tools.length,
+      0,
+    ),
+    groups,
+    outputDir,
+  };
+}
+
 export async function syncMcpSchemas(
   cwd: string,
   schemaSources: WpTypiaSchemaSource[],
@@ -533,4 +567,100 @@ export async function syncMcpSchemas(
     groups,
     outputDir,
   };
+}
+
+/**
+ * Built-in wp-typia MCP tool group exposing migration diagnostics as
+ * self-describing MCP tools. AI agents can discover and invoke these via
+ * `wp-typia mcp list` / `wp-typia mcp sync` to inspect migration diffs and
+ * plan scaffold steps without memorizing CLI flags.
+ */
+export function getBuiltinWpTypiaToolGroup(): MCPToolGroup {
+  return {
+    namespace: 'wp-typia',
+    tools: [
+      {
+        description:
+          'Show the migration diff between two schema versions. Returns auto/manual items, rename candidates, and risk summary.',
+        inputSchema: {
+          additionalProperties: false,
+          properties: {
+            'block-key': {
+              description: 'Block key for multi-block projects.',
+              type: 'string',
+            },
+            'from-migration-version': {
+              description: 'Source migration version label (e.g. v1).',
+              type: 'string',
+            },
+            'to-migration-version': {
+              description: 'Target migration version label (e.g. v3).',
+              type: 'string',
+            },
+          },
+          required: ['from-migration-version'],
+          type: 'object',
+        },
+        name: 'migration-diff',
+      },
+      {
+        description:
+          'Preview migration plan for a workspace, listing which blocks need migration and their risk summaries.',
+        inputSchema: {
+          additionalProperties: false,
+          properties: {
+            'from-migration-version': {
+              description: 'Source migration version label.',
+              type: 'string',
+            },
+          },
+          type: 'object',
+        },
+        name: 'migration-plan',
+      },
+      {
+        description:
+          'Scaffold migration rule files for a specific version transition, generating rename maps, transform stubs, and verify/fuzz harnesses.',
+        inputSchema: {
+          additionalProperties: false,
+          properties: {
+            'block-key': {
+              description: 'Block key for multi-block projects.',
+              type: 'string',
+            },
+            'from-migration-version': {
+              description: 'Source migration version label.',
+              type: 'string',
+            },
+            'to-migration-version': {
+              description: 'Target migration version label.',
+              type: 'string',
+            },
+          },
+          required: ['from-migration-version'],
+          type: 'object',
+        },
+        name: 'migration-scaffold',
+      },
+    ],
+  };
+}
+
+/**
+ * Load MCP tool groups from configured schema sources plus the built-in
+ * wp-typia migration tool group.
+ */
+export async function loadMcpToolGroupsWithBuiltin(
+  cwd: string,
+  schemaSources: WpTypiaSchemaSource[],
+): Promise<MCPToolGroup[]> {
+  let external: MCPToolGroup[];
+  try {
+    external = await loadMcpToolGroups(cwd, schemaSources);
+  } catch {
+    // External schema source errors should not hide the built-in migration
+    // tools from AI agents.
+    external = [];
+  }
+  return [getBuiltinWpTypiaToolGroup(), ...external];
 }

@@ -1127,7 +1127,7 @@ process.exit(0);
     expect(jsonOutput).toContain('"commands": [');
   });
 
-  test('fails mcp list with actionable config guidance when no schema sources are configured', () => {
+  test('shows built-in wp-typia tools when no external schema sources are configured', () => {
     const result = runCapturedCommand(
       process.execPath,
       [runtimeEntrypoint, 'mcp', 'list'],
@@ -1136,13 +1136,12 @@ process.exit(0);
       },
     );
 
-    expect(result.status).toBe(1);
-    expect(`${result.stdout}${result.stderr}`).toContain(
-      'No MCP schema sources are configured.',
-    );
+    expect(result.status).toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toContain('wp-typia');
+    expect(`${result.stdout}${result.stderr}`).toContain('migration-diff');
   });
 
-  test('emits a machine-readable configuration-missing error code for mcp list', () => {
+  test('emits machine-readable JSON with built-in tools when no schema sources are configured', () => {
     const result = runCapturedCommand('node', [
       entryPath,
       'mcp',
@@ -1150,20 +1149,19 @@ process.exit(0);
       '--format',
       'json',
     ]);
-    const parsed = JSON.parse(result.stderr.trim()) as {
-      error?: { code?: string; command?: string; kind?: string };
-      ok?: boolean;
+    const parsed = JSON.parse(result.stdout.trim()) as {
+      groups?: Array<{ namespace?: string; tools?: string[] }>;
     };
 
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(parsed.ok).toBe(false);
-    expect(parsed.error?.kind).toBe('command-execution');
-    expect(parsed.error?.command).toBe('mcp');
-    expect(parsed.error?.code).toBe('configuration-missing');
+    expect(result.status).toBe(0);
+    const wpTypiaGroup = parsed.groups?.find(
+      (group) => group.namespace === 'wp-typia',
+    );
+    expect(wpTypiaGroup).toBeDefined();
+    expect(wpTypiaGroup?.tools).toContain('migration-diff');
   });
 
-  test('emits a machine-readable invalid-argument error code for malformed mcp schema sources', () => {
+  test('falls back to built-in tools when external schema sources are malformed', () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-mcp-invalid-schema-'),
     );
@@ -1211,25 +1209,16 @@ process.exit(0);
         '--format',
         'json',
       ]);
-      const parsed = JSON.parse(result.stderr.trim()) as {
-        error?: {
-          code?: string;
-          command?: string;
-          detailLines?: string[];
-          kind?: string;
-        };
-        ok?: boolean;
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        groups?: Array<{ namespace?: string }>;
       };
 
-      expect(result.status).toBe(1);
-      expect(result.stdout).toBe('');
-      expect(parsed.ok).toBe(false);
-      expect(parsed.error?.kind).toBe('command-execution');
-      expect(parsed.error?.command).toBe('mcp');
-      expect(parsed.error?.code).toBe('invalid-argument');
-      expect(parsed.error?.detailLines?.join('\n')).toContain(
-        `Schema source "${schemaPath}" must contain either one MCPToolGroup object or an array of MCP tools.`,
+      // Built-in tools are still available even when external sources fail.
+      expect(result.status).toBe(0);
+      const wpTypiaGroup = parsed.groups?.find(
+        (group) => group.namespace === 'wp-typia',
       );
+      expect(wpTypiaGroup).toBeDefined();
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });
     }
@@ -1403,13 +1392,12 @@ process.exit(0);
           tools: string[];
         }>;
       };
-      expect(parsed.groups).toEqual([
-        {
-          namespace: 'demo',
-          toolCount: 1,
-          tools: ['ping'],
-        },
-      ]);
+      // Built-in wp-typia group is always present first, then external sources.
+      expect(parsed.groups.find((g) => g.namespace === 'demo')).toEqual({
+        namespace: 'demo',
+        toolCount: 1,
+        tools: ['ping'],
+      });
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });
     }
@@ -1463,7 +1451,7 @@ process.exit(0);
           tools: string[];
         }>;
       };
-      expect(parsed.groups[0]).toEqual({
+      expect(parsed.groups.find((g) => g.namespace === 'demo')).toEqual({
         namespace: 'demo',
         toolCount: 1,
         tools: ['ping'],
