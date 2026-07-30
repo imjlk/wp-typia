@@ -158,10 +158,11 @@ export interface MigrationRiskBucket {
 }
 
 export interface MigrationRiskSummary {
-\tadditive: MigrationRiskBucket;
-\trename: MigrationRiskBucket;
-\tsemanticTransform: MigrationRiskBucket;
-\tunionBreaking: MigrationRiskBucket;
+	additive: MigrationRiskBucket;
+	removal: MigrationRiskBucket;
+	rename: MigrationRiskBucket;
+	semanticTransform: MigrationRiskBucket;
+	unionBreaking: MigrationRiskBucket;
 }
 
 export type RenameMap = Record<string, string>;

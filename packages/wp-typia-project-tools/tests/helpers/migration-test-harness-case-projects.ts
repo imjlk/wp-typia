@@ -597,3 +597,186 @@ export function createFuzzFailureProject(projectDir: string) {
   fs.mkdirSync(localBinDir, { recursive: true });
   fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
 }
+
+/**
+ * Creates a project where a string attribute's default value changes between v1
+ * and the current snapshot. The current schema keeps `label` with default
+ * "Updated" while the v1 snapshot has `label` with default "Original". This
+ * exercises the `default-change` diff kind.
+ */
+export function createDefaultChangeProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface DefaultChangeAttributes {\n\tlabel: string;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.label ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.label === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.label", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { label: "Updated" };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/default-change",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: {
+      label: { default: 'Updated', type: 'string' },
+    },
+    name: 'create-block/default-change',
+    title: 'Default Change',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: {
+      label: createManifestAttribute('string', {
+        defaultValue: 'Updated',
+        required: false,
+      }),
+    },
+    manifestVersion: 2,
+    sourceType: 'DefaultChangeAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: {
+        label: { default: 'Original', type: 'string' },
+      },
+      name: 'create-block/default-change',
+      title: 'Default Change',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: {
+        label: createManifestAttribute('string', {
+          defaultValue: 'Original',
+          required: false,
+        }),
+      },
+      manifestVersion: 2,
+      sourceType: 'DefaultChangeAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.label ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
+
+/**
+ * Creates a project where a top-level attribute is removed between the v1
+ * snapshot and the current schema. The v1 snapshot has `title` and `content`,
+ * while the current schema only has `content`. This exercises the `drop` diff
+ * kind and the `removal` risk bucket.
+ */
+export function createRemovalProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface RemovalAttributes {\n\tcontent: string;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.content ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst success = typeof attributes.content === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.content", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { content: "Hello" };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/removal-smoke",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: {
+      content: { default: 'Hello', type: 'string' },
+    },
+    name: 'create-block/removal-smoke',
+    title: 'Removal Smoke',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: {
+      content: createManifestAttribute('string', {
+        defaultValue: 'Hello',
+        required: true,
+      }),
+    },
+    manifestVersion: 2,
+    sourceType: 'RemovalAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: {
+        content: { default: 'Hello', type: 'string' },
+        title: { default: 'Old Title', type: 'string' },
+      },
+      name: 'create-block/removal-smoke',
+      title: 'Removal Smoke',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: {
+        content: createManifestAttribute('string', {
+          defaultValue: 'Hello',
+          required: true,
+        }),
+        title: createManifestAttribute('string', {
+          defaultValue: 'Old Title',
+          required: false,
+        }),
+      },
+      manifestVersion: 2,
+      sourceType: 'RemovalAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.content ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
