@@ -612,3 +612,191 @@ add_action( 'admin_notices', '${adminNoticeFunctionName}' );
 add_action( 'rest_api_init', '${registerRoutesFunctionName}' );
 `;
 }
+
+/**
+ * Build the PHP REST endpoint that exposes the typia.llm function-calling tool
+ * schemas (`*.llm.application.json`) to AI consumers at runtime.
+ *
+ * The generated PHP loads the pre-compiled JSON artifact (no `typia` runtime
+ * dependency) and serves it via a read-only REST route. An optional dispatch
+ * route maps an incoming tool-call `name` back to a registered WordPress
+ * ability execute callback, reusing the existing permission and execution
+ * pipeline instead of duplicating handler logic.
+ *
+ * @param aiFeatureSlug Kebab-case slug for the AI feature.
+ * @param namespace REST API namespace (e.g. the plugin slug).
+ * @param phpPrefix Snake-case PHP identifier prefix.
+ * @param textDomain WordPress text domain for translations.
+ * @returns The generated PHP source string.
+ */
+export function buildTypiaLlmToolEndpointPhpSource(
+  aiFeatureSlug: string,
+  namespace: string,
+  phpPrefix: string,
+  textDomain: string,
+): string {
+  const aiFeaturePhpId = aiFeatureSlug.replace(/-/g, '_');
+  const loadApplicationFunctionName = `${phpPrefix}_${aiFeaturePhpId}_load_llm_application`;
+  const registerRoutesFunctionName = `${phpPrefix}_${aiFeaturePhpId}_register_llm_tool_routes`;
+  const getToolsFunctionName = `${phpPrefix}_${aiFeaturePhpId}_get_llm_tools`;
+  const dispatchToolFunctionName = `${phpPrefix}_${aiFeaturePhpId}_dispatch_llm_tool`;
+
+  return `<?php
+if ( ! defined( 'ABSPATH' ) ) {
+\treturn;
+}
+
+/**
+ * Load the pre-compiled typia.llm application JSON artifact.
+ *
+ * The artifact is produced at build time by the wp-typia typia-llm sync
+ * pipeline and contains OpenAI-style function-calling tool schemas. This
+ * loader introduces no runtime dependency on typia — it reads static JSON.
+ */
+if ( ! function_exists( '${loadApplicationFunctionName}' ) ) {
+\tfunction ${loadApplicationFunctionName}() {
+\t\t$project_root = dirname( __DIR__, 2 );
+\t\t$artifact_path = $project_root . '/src/typia-llm/${aiFeatureSlug}.llm.application.json';
+\t\tif ( ! file_exists( $artifact_path ) || ! is_readable( $artifact_path ) ) {
+\t\t\treturn null;
+\t\t}
+
+\t\t$decoded = json_decode( file_get_contents( $artifact_path ), true );
+\t\treturn is_array( $decoded ) ? $decoded : null;
+\t}
+}
+
+/**
+ * REST handler: return the tool schemas from the compiled typia.llm artifact.
+ */
+if ( ! function_exists( '${getToolsFunctionName}' ) ) {
+\tfunction ${getToolsFunctionName}( WP_REST_Request $request ) {
+\t\t$application = ${loadApplicationFunctionName}();
+\t\tif ( $application === null ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => 'typia_llm_artifact_not_found',
+\t\t\t\t\t'message' => __( 'The typia.llm application artifact was not found. Run wp-typia sync to generate it.', '${textDomain}' ),
+\t\t\t\t\t'data'    => array( 'status' => 404 ),
+\t\t\t\t),
+\t\t\t\t404
+\t\t\t);
+\t\t}
+
+\t\t$functions = isset( $application['functions'] ) && is_array( $application['functions'] )
+\t\t\t? $application['functions']
+\t\t\t: array();
+
+\t\treturn new WP_REST_Response(
+\t\t\tarray(
+\t\t\t\t'functions' => $functions,
+\t\t\t),
+\t\t\t200
+\t\t);
+\t}
+}
+
+/**
+ * REST handler: dispatch an AI tool-call to the registered WordPress ability.
+ *
+ * The request body must contain a "name" (the operationId / tool name) and
+ * an optional "arguments" object. The handler looks up the corresponding
+ * ability via the WordPress Abilities API and invokes its execute callback,
+ * reusing the existing permission check.
+ *
+ * Individual ability execute callbacks are responsible for sanitizing and
+ * validating their own arguments, as the dispatch handler passes arguments
+ * through without modification.
+ */
+if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
+\tfunction ${dispatchToolFunctionName}( WP_REST_Request $request ) {
+\t\t$body = json_decode( $request->get_body(), true );
+\t\tif ( ! is_array( $body ) || ! isset( $body['name'] ) ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => 'invalid_tool_call',
+\t\t\t\t\t'message' => __( 'A "name" field is required in the tool-call body.', '${textDomain}' ),
+\t\t\t\t\t'data'    => array( 'status' => 400 ),
+\t\t\t\t),
+\t\t\t\t400
+\t\t\t);
+\t\t}
+
+\t\t$tool_name = sanitize_text_field( $body['name'] );
+\t\t$arguments = isset( $body['arguments'] ) && is_array( $body['arguments'] )
+\t\t\t? $body['arguments']
+\t\t\t: array();
+
+\t\tif ( ! function_exists( 'wp_get_ability' ) ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => 'abilities_api_unavailable',
+\t\t\t\t\t'message' => __( 'The WordPress Abilities API is not available.', '${textDomain}' ),
+\t\t\t\t\t'data'    => array( 'status' => 501 ),
+\t\t\t\t),
+\t\t\t\t501
+\t\t\t);
+\t\t}
+
+\t\t$ability = wp_get_ability( $tool_name );
+\t\tif ( $ability === null ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => 'ability_not_found',
+\t\t\t\t\t'message' => sprintf(
+\t\t\t\t\t\t/* translators: %s: ability/tool name */
+\t\t\t\t\t\t__( 'No ability registered for tool "%s".', '${textDomain}' ),
+\t\t\t\t\t\t$tool_name
+\t\t\t\t\t),
+\t\t\t\t\t'data'    => array( 'status' => 404 ),
+\t\t\t\t),
+\t\t\t\t404
+\t\t\t);
+\t\t}
+
+\t\t$result = wp_execute_ability( $tool_name, $arguments );
+\t\tif ( is_wp_error( $result ) ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => $result->get_error_code(),
+\t\t\t\t\t'message' => $result->get_error_message(),
+\t\t\t\t\t'data'    => array( 'status' => 500 ),
+\t\t\t\t),
+\t\t\t\t500
+\t\t\t);
+\t\t}
+
+\t\treturn new WP_REST_Response( $result, 200 );
+\t}
+}
+
+/**
+ * Register the typia.llm tool REST routes.
+ */
+if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
+\tfunction ${registerRoutesFunctionName}() {
+\t\tregister_rest_route(
+\t\t\t'${namespace}',
+\t\t\t'/llm-tools',
+\t\t\tarray(
+\t\t\t\t'methods'             => WP_REST_Server::READABLE,
+\t\t\t\t'callback'            => '${getToolsFunctionName}',
+\t\t\t\t'permission_callback' => '__return_true',
+\t\t\t)
+\t\t);
+
+\t\tregister_rest_route(
+\t\t\t'${namespace}',
+\t\t\t'/llm-tools/dispatch',
+\t\t\tarray(
+\t\t\t\t'methods'             => WP_REST_Server::CREATABLE,
+\t\t\t\t'callback'            => '${dispatchToolFunctionName}',
+\t\t\t\t'permission_callback' => '__return_true',
+\t\t\t)
+\t\t);
+\t}
+}
+
+add_action( 'rest_api_init', '${registerRoutesFunctionName}' );
+`;
+}
