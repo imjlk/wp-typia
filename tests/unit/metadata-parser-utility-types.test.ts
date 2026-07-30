@@ -142,6 +142,27 @@ export interface BlockAttributes { data: Record<string, number>; }
       const data = parsed['BlockAttributes'].properties!['data'];
       expect(data.kind).toBe('object');
       expect(data.properties).toEqual({});
+      expect(data.recursiveTerminal).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('Pick with named type alias selector resolves keys', () => {
+    const root = createUtilityTypeFixtureRoot(`
+interface Base { a: string; b: number; c: boolean; }
+type Keys = "a" | "b";
+export interface BlockAttributes { data: Pick<Base, Keys>; }
+`);
+
+    try {
+      const parsed = analyzeSourceTypes(
+        { projectRoot: root, typesFile: 'src/types.ts' },
+        ['BlockAttributes'],
+      );
+      const data = parsed['BlockAttributes'].properties!['data'];
+      const keys = Object.keys(data.properties!);
+      expect(keys.sort()).toEqual(['a', 'b']);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

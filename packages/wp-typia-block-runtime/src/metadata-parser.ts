@@ -725,17 +725,34 @@ const UTILITY_TYPE_NAMES = new Set([
 
 /**
  * Extract string literal keys from a union of string literal types, e.g.
- * `'a' | 'b'` → `['a', 'b']`. Returns `null` when the node is not a pure union
- * of string literals.
+ * `'a' | 'b'` → `['a', 'b']`. Also resolves named type aliases (e.g.
+ * `type Keys = 'a' | 'b'`) via the TypeScript checker. Returns `null` when
+ * the node is not a pure union of string literals.
  */
-function extractKeyLiterals(node: ts.TypeNode): string[] | null {
+function extractKeyLiterals(
+  node: ts.TypeNode,
+  ctx?: AnalysisContext,
+): string[] | null {
+  if (ts.isParenthesizedTypeNode(node)) {
+    return extractKeyLiterals(node.type, ctx);
+  }
   if (ts.isLiteralTypeNode(node) && ts.isStringLiteral(node.literal)) {
     return [node.literal.text];
   }
   if (ts.isUnionTypeNode(node)) {
-    const keys = node.types.map(extractKeyLiterals);
+    const keys = node.types.map((t) => extractKeyLiterals(t, ctx));
     if (keys.every((key) => key !== null)) {
       return keys.flat();
+    }
+  }
+  // Resolve named type aliases (e.g. `type Keys = 'a' | 'b'`).
+  if (ctx && ts.isTypeReferenceNode(node)) {
+    const type = ctx.checker.getTypeFromTypeNode(node);
+    if (type.isUnion() && type.types.every((t) => t.isStringLiteral())) {
+      return type.types.map((t) => t.value);
+    }
+    if (type.isStringLiteral()) {
+      return [type.value];
     }
   }
   return null;
@@ -775,9 +792,10 @@ function parseUtilityType(
     return parseTypeNode(inner, ctx, pathLabel);
   }
 
-  // Record<K, V> → object with index signature-like shape. WordPress block
-  // attributes are flat JSON, so we model Record as an object whose known
-  // keys are empty (passthrough). This keeps validation permissive.
+  // Record<K, V> → open object that allows any additional properties.
+  // WordPress block attributes are flat JSON, so we model Record as a
+  // permissive object with no declared keys. The recursiveTerminal marker
+  // signals JSON Schema generation to emit additionalProperties: true.
   if (typeName === 'Record') {
     if (typeArguments.length < 2) {
       throw new Error(`Record requires two type arguments at ${pathLabel}`);
@@ -788,6 +806,7 @@ function parseUtilityType(
       kind: 'object',
       path: pathLabel,
       properties: {},
+      recursiveTerminal: true,
       required: true,
       union: null,
       wp: {
@@ -825,7 +844,7 @@ function parseUtilityType(
         `${typeName} requires a key selector argument at ${pathLabel}`,
       );
     }
-    const keys = extractKeyLiterals(selectorNode);
+    const keys = extractKeyLiterals(selectorNode, ctx);
     if (keys === null) {
       throw new Error(
         `${typeName} selector must be a union of string literals at ${pathLabel}`,
