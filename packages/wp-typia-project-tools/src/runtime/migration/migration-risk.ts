@@ -48,6 +48,7 @@ export function createMigrationRiskSummary(diff: MigrationDiff): MigrationRiskSu
   const additiveKinds = new Set([
     'add-default',
     'add-optional',
+    'default-change',
     'hydrate',
     'union-branch-addition',
   ]);

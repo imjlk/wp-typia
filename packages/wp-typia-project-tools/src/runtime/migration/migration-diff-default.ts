@@ -8,6 +8,11 @@ import type { ManifestAttribute } from './migration-types.js';
  * Compare two JSON-serializable default values for equality. Default values are
  * projected from the manifest, so structural deep equality via JSON stringification
  * is sufficient and mirrors how the runtime coercion layer materializes defaults.
+ *
+ * The manifest projection emits object properties in source-declaration order and
+ * both snapshots are produced by the same generator, so key insertion order is
+ * deterministic across versions. This makes JSON string comparison robust here
+ * even though it is normally sensitive to key ordering.
  */
 function areDefaultValuesEqual(
   oldValue: unknown,
@@ -66,6 +71,9 @@ export function describeDefaultChange(
   }
   if (oldHasDefault && !newHasDefault) {
     return `default removed: ${JSON.stringify(getManifestDefaultValue(oldAttribute))}`;
+  }
+  if (!oldHasDefault && !newHasDefault) {
+    return 'default unchanged';
   }
 
   return `default ${JSON.stringify(getManifestDefaultValue(oldAttribute))} -> ${JSON.stringify(getManifestDefaultValue(newAttribute))}`;
