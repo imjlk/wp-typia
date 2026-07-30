@@ -221,7 +221,9 @@ export function manifestAttributeToJsonSchema(
       break;
     case 'object': {
       schema.type = 'object';
-      schema.additionalProperties = false;
+      // Recursive terminal nodes allow any additional properties so deeper
+      // recursive data remains valid past the unrolling depth limit.
+      schema.additionalProperties = attribute.ts.recursiveTerminal === true;
       const properties = attribute.ts.properties ?? {};
       schema.properties = Object.fromEntries(
         Object.entries(properties).map(([key, value]) => [

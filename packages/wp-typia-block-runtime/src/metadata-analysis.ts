@@ -83,6 +83,12 @@ const ANALYSIS_PROGRAM_CACHE_MAX_ENTRIES = 20;
  * block tree structures (nested menus, repeater fields, taxonomies).
  */
 const DEFAULT_MAX_RECURSIVE_DEPTH = 5;
+/**
+ * Hard upper bound on recursive unrolling depth. Prevents exponential
+ * expansion blowups when a recursive type has multiple recursive properties
+ * (e.g. a binary tree with both `left` and `right` children).
+ */
+const MAX_RECURSIVE_DEPTH_LIMIT = 15;
 const TYPESCRIPT_LIB_DIRECTORY = path.dirname(ts.getDefaultLibFilePath({}));
 const RUNTIME_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SYNC_BLOCK_METADATA_FAILURE_CODE = Symbol(
@@ -409,6 +415,11 @@ export function createAnalysisContext(
   if (!Number.isInteger(maxRecursiveDepth) || maxRecursiveDepth < 1) {
     throw new Error(
       `maxRecursiveDepth must be a positive integer, got ${maxRecursiveDepth}`,
+    );
+  }
+  if (maxRecursiveDepth > MAX_RECURSIVE_DEPTH_LIMIT) {
+    throw new Error(
+      `maxRecursiveDepth must not exceed ${MAX_RECURSIVE_DEPTH_LIMIT} to prevent exponential expansion of multi-branch recursive types, got ${maxRecursiveDepth}`,
     );
   }
   const analysisInputs = resolveAnalysisProgramInputs(

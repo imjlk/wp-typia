@@ -161,6 +161,8 @@ describe('metadata-parser recursive type unrolling', () => {
       expect(childrenAttr.items!.kind).toBe('object');
       // Terminal node has empty properties
       expect(childrenAttr.items!.properties).toEqual({});
+      // Terminal node is marked so JSON Schema emits additionalProperties: true
+      expect(childrenAttr.items!.recursiveTerminal).toBe(true);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -217,6 +219,44 @@ export interface BlockAttributes {
       const attrs = parsed['BlockAttributes'];
       expect(attrs.properties!['title'].kind).toBe('string');
       expect(attrs.properties!['count'].kind).toBe('number');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects maxRecursiveDepth below 1', () => {
+    const root = createRecursiveFixtureRoot(RECURSIVE_TREE_SOURCE);
+
+    try {
+      expect(() =>
+        analyzeSourceTypes(
+          {
+            maxRecursiveDepth: 0,
+            projectRoot: root,
+            typesFile: 'src/types.ts',
+          },
+          ['BlockAttributes'],
+        ),
+      ).toThrow(/positive integer/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects maxRecursiveDepth above the hard limit', () => {
+    const root = createRecursiveFixtureRoot(RECURSIVE_TREE_SOURCE);
+
+    try {
+      expect(() =>
+        analyzeSourceTypes(
+          {
+            maxRecursiveDepth: 50,
+            projectRoot: root,
+            typesFile: 'src/types.ts',
+          },
+          ['BlockAttributes'],
+        ),
+      ).toThrow(/exponential expansion/);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

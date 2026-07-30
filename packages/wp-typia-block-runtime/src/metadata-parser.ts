@@ -146,7 +146,7 @@ export function parseNamedDeclaration(
   const currentDepth = ctx.recursionDepth.get(recursionKey) ?? 0;
 
   if (currentDepth >= ctx.maxRecursiveDepth) {
-    return createRecursiveTerminalNode(pathLabel, required);
+    return createRecursiveTerminalNode(pathLabel);
   }
 
   ctx.recursionDepth.set(recursionKey, currentDepth + 1);
@@ -175,7 +175,6 @@ export function parseNamedDeclaration(
  */
 function createRecursiveTerminalNode(
 	pathLabel: string,
-	required: boolean,
 ): AttributeNode {
   return {
     constraints: defaultAttributeConstraints(),
@@ -183,7 +182,8 @@ function createRecursiveTerminalNode(
     kind: 'object',
     path: `${pathLabel}.__recursive_terminal`,
     properties: {},
-    required,
+    recursiveTerminal: true,
+    required: false,
     union: null,
     wp: {
       preserveOnEmpty: false,
