@@ -3,11 +3,13 @@ import * as path from 'node:path';
 
 import {
   cleanupMigrationTempRoot,
+  createArrayItemDropProject,
   createCompositeDefaultChangeProject,
   createDefaultChangeProject,
   createMigrationTempRoot,
   createNestedDropProject,
   createRemovalProject,
+  createTypeChangeDropProject,
 } from './helpers/migration-test-harness.js';
 import { createMigrationDiff } from '../src/runtime/migration-diff.js';
 import {
@@ -167,6 +169,42 @@ describe('wp-typia migrate diff default and removal classification', () => {
       );
 
       expect(summary.removal.count).toBeGreaterThan(0);
+    });
+
+    test('does not false-drop when a nested object changes to a primitive', () => {
+      // When settings.mode changes from { value: string } to string,
+      // the old leaf settings.mode.value should NOT be reported as a drop.
+      const projectDir = path.join(tempRoot, 'type-change-drop');
+      createTypeChangeDropProject(projectDir);
+      const diff = createMigrationDiff(
+        loadMigrationProject(projectDir),
+        'v1',
+        'v3',
+      );
+
+      const falseDrop = diff.summary.autoItems.find(
+        (item) =>
+          item.kind === 'drop' &&
+          item.path.includes('mode.value'),
+      );
+      expect(falseDrop).toBeUndefined();
+    });
+
+    test('detects array item property removals', () => {
+      const projectDir = path.join(tempRoot, 'array-item-drop');
+      createArrayItemDropProject(projectDir);
+
+      const diff = createMigrationDiff(
+        loadMigrationProject(projectDir),
+        'v1',
+        'v3',
+      );
+
+      const dropItem = diff.summary.autoItems.find(
+        (item) =>
+          item.kind === 'drop' && item.path.includes('legacy'),
+      );
+      expect(dropItem).toBeDefined();
     });
   });
 

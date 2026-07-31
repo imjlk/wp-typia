@@ -980,3 +980,189 @@ export function createCompositeDefaultChangeProject(projectDir: string) {
   fs.mkdirSync(localBinDir, { recursive: true });
   fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
 }
+
+/**
+ * Creates a project where a nested object property changes to a primitive
+ * between v1 and current (settings.mode: { value: string } → string).
+ * This verifies that old leaf paths under the changed type are not
+ * false-reported as drops.
+ */
+export function createTypeChangeDropProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface TypeChangeAttributes {\n\tsettings: { mode: string; label: string };\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.settings?.mode ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst settings = attributes.settings as Record<string, unknown> | undefined;\n\t\tconst success = typeof settings === "object" && settings !== null && typeof settings.mode === "string";\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.settings.mode", expected: "string" }] };\n\t},\n\trandom() {\n\t\treturn { settings: { mode: "auto", label: "x" } };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/type-change-drop",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+
+  const currentSettings = createManifestAttribute('object', {
+    required: true,
+  });
+  currentSettings.ts.properties = {
+    label: createManifestAttribute('string', { required: false }),
+    mode: createManifestAttribute('string', { required: false }),
+  };
+
+  const legacySettings = createManifestAttribute('object', {
+    required: true,
+  });
+  legacySettings.ts.properties = {
+    label: createManifestAttribute('string', { required: false }),
+    mode: createManifestAttribute('object', { required: false }),
+  };
+  (legacySettings.ts.properties!.mode as ManifestAttribute).ts.properties = {
+    value: createManifestAttribute('string', { required: false }),
+  };
+
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: { settings: { type: 'object' } },
+    name: 'create-block/type-change-drop',
+    title: 'Type Change Drop',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: { settings: currentSettings },
+    manifestVersion: 2,
+    sourceType: 'TypeChangeAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: { settings: { type: 'object' } },
+      name: 'create-block/type-change-drop',
+      title: 'Type Change Drop',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: { settings: legacySettings },
+      manifestVersion: 2,
+      sourceType: 'TypeChangeAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.settings?.mode?.value ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
+
+/**
+ * Creates a project where an array item property is removed between v1
+ * and current (rows: Array<{ label; legacy }> → Array<{ label }>).
+ * This verifies that array item property removals are detected as drops.
+ */
+export function createArrayItemDropProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface ArrayItemDropAttributes {\n\trows: Array<{ label: string }>;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.rows?.length ?? 0;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst rows = attributes.rows;\n\t\tconst success = Array.isArray(rows);\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.rows", expected: "array" }] };\n\t},\n\trandom() {\n\t\treturn { rows: [{ label: "x" }] };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/array-item-drop",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+
+  function makeRowsAttr(properties: Record<string, ManifestAttribute>) {
+    const arr = createManifestAttribute('array', { required: true });
+    const itemObj = createManifestAttribute('object', { required: true });
+    itemObj.ts.properties = properties;
+    arr.ts.items = itemObj;
+    return arr;
+  }
+
+  const currentRows = makeRowsAttr({
+    label: createManifestAttribute('string', { required: true }),
+  });
+  const legacyRows = makeRowsAttr({
+    label: createManifestAttribute('string', { required: true }),
+    legacy: createManifestAttribute('string', { required: false }),
+  });
+
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: { rows: { type: 'array' } },
+    name: 'create-block/array-item-drop',
+    title: 'Array Item Drop',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: { rows: currentRows },
+    manifestVersion: 2,
+    sourceType: 'ArrayItemDropAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: { rows: { type: 'array' } },
+      name: 'create-block/array-item-drop',
+      title: 'Array Item Drop',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: { rows: legacyRows },
+      manifestVersion: 2,
+      sourceType: 'ArrayItemDropAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.rows?.length ?? 0;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}

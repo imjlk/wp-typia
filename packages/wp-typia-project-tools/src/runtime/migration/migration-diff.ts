@@ -160,10 +160,14 @@ export function createMigrationDiff(
     if (removedTopLevelKeys.has(topLevelKey)) {
       continue;
     }
-    // Skip properties that still exist in the new manifest (e.g. a primitive
-    // changed to an object — the old leaf path disappears but the property
-    // itself was retained).
-    if (getAttributeByCurrentPath(newAttributes, leaf.currentPath) !== null) {
+    // Skip properties that still exist in the new manifest, either at the
+    // exact leaf path or at an ancestor path (e.g. when settings.mode changes
+    // from an object to a primitive, settings.mode.value disappears but
+    // settings.mode itself was retained — not dropped).
+    if (
+      getAttributeByCurrentPath(newAttributes, leaf.currentPath) !== null ||
+      isParentRetainedAsPrimitive(newAttributes, leaf.currentPath)
+    ) {
       continue;
     }
     const isTopLevel = Object.prototype.hasOwnProperty.call(
@@ -236,6 +240,36 @@ export function createMigrationDiff(
     },
     toVersion,
   };
+}
+
+/**
+ * Check whether the immediate parent of a leaf path exists in the new manifest
+ * as a primitive type (string, number, boolean). This prevents false drops when
+ * a nested object changes to a primitive (e.g. `settings.mode: { value: string }`
+ * → `settings.mode: string`). The old leaf `settings.mode.value` disappears, but
+ * `settings.mode` itself was retained — its type just changed.
+ *
+ * Only primitive parents trigger the skip: objects and arrays in the new
+ * manifest mean the leaf was genuinely removed from a retained container.
+ */
+function isParentRetainedAsPrimitive(
+  newAttributes: Record<string, ManifestAttribute>,
+  leafPath: string,
+): boolean {
+  const segments = leafPath.split('.').map((s) => s.replace(/\[\]$/u, ''));
+  if (segments.length < 2) {
+    return false;
+  }
+  const parentPath = segments.slice(0, -1).join('.');
+  const parentAttr = getAttributeByCurrentPath(newAttributes, parentPath);
+  if (parentAttr === null) {
+    return false;
+  }
+  return (
+    parentAttr.ts.kind === 'string' ||
+    parentAttr.ts.kind === 'number' ||
+    parentAttr.ts.kind === 'boolean'
+  );
 }
 
 function removeOutcomeByPath(items: DiffOutcome[], pathLabel: string, kind: string): void {
