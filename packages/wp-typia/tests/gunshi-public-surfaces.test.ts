@@ -4,8 +4,6 @@ import path from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
-import { CLI_DIAGNOSTIC_CODES } from '@wp-typia/project-tools/cli-diagnostics';
-
 import { detectAIAgents } from '../src/ai-agent-detection';
 import {
   prefersStructuredCliArgv,
@@ -501,7 +499,7 @@ describe('Gunshi public CLI surfaces', () => {
     }
   });
 
-  test('rejects malformed MCP schema sources with diagnostic codes', async () => {
+  test('gracefully skips malformed MCP schema sources', async () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'wp-typia-mcp-invalid-'),
     );
@@ -512,20 +510,16 @@ describe('Gunshi public CLI surfaces', () => {
       fs.writeFileSync(malformedJsonPath, '{ nope', 'utf8');
       writeJson(invalidShapePath, [{ name: 1 }]);
 
-      await expect(
-        loadMcpToolGroups(tempRoot, [
-          { namespace: 'bad', path: malformedJsonPath },
-        ]),
-      ).rejects.toMatchObject({
-        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-      });
-      await expect(
-        loadMcpToolGroups(tempRoot, [
-          { namespace: 'bad', path: invalidShapePath },
-        ]),
-      ).rejects.toMatchObject({
-        code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
-      });
+      // Malformed sources are skipped (not thrown) so valid groups survive.
+      const result1 = await loadMcpToolGroups(tempRoot, [
+        { namespace: 'bad', path: malformedJsonPath },
+      ]);
+      expect(result1).toEqual([]);
+
+      const result2 = await loadMcpToolGroups(tempRoot, [
+        { namespace: 'bad', path: invalidShapePath },
+      ]);
+      expect(result2).toEqual([]);
     } finally {
       fs.rmSync(tempRoot, { force: true, recursive: true });
     }
