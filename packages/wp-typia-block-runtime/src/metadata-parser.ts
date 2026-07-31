@@ -658,14 +658,29 @@ function parseTypeReference(
     };
   }
   if (typeArguments.length > 0) {
-    const utilityResult = parseUtilityType(
-      typeName,
-      typeArguments,
-      ctx,
-      pathLabel,
-    );
-    if (utilityResult !== null) {
-      return utilityResult;
+    // Only treat as a built-in utility type if the name is not shadowed by
+    // a user-defined declaration in the project source. If a local symbol
+    // exists in a non-lib file, fall through to the generic error.
+    const localSymbol = resolveSymbol(node, ctx.checker);
+    const isShadowedByUser =
+      localSymbol?.declarations?.some((decl) => {
+        const fileName = decl.getSourceFile().fileName;
+        return (
+          !fileName.includes('node_modules') &&
+          !fileName.includes('typescript') &&
+          !fileName.endsWith('.d.ts')
+        );
+      }) ?? false;
+    if (!isShadowedByUser) {
+      const utilityResult = parseUtilityType(
+        typeName,
+        typeArguments,
+        ctx,
+        pathLabel,
+      );
+      if (utilityResult !== null) {
+        return utilityResult;
+      }
     }
     throw new Error(
       `Generic type references are not supported at ${pathLabel}: ${typeName}`,
@@ -867,15 +882,10 @@ function parseUtilityType(
     );
   }
 
-  const sourceResult = parseTypeNode(sourceNode, ctx, pathLabel);
-  if (sourceResult.kind !== 'object' || !sourceResult.properties) {
-    throw new Error(
-      `${typeName} can only be applied to object types at ${pathLabel}`,
-    );
-  }
-
-  let properties = sourceResult.properties;
-
+  // For Pick/Omit, resolve selector keys first so we can skip parsing
+  // properties that will be filtered out anyway. This prevents throws from
+  // unsupported members that are being excluded.
+  let pickOmitKeys: Set<string> | null = null;
   if (typeName === 'Pick' || typeName === 'Omit') {
     if (selectorNode === undefined) {
       throw new Error(
@@ -888,10 +898,93 @@ function parseUtilityType(
         `${typeName} selector must be a union of string literals at ${pathLabel}`,
       );
     }
-    const keySet = new Set(keys);
+    pickOmitKeys = new Set(keys);
+  }
+
+  // For Pick/Omit, try parsing the source. If it fails (e.g. it has
+  // unsupported members), fall back to parsing only the retained properties
+  // individually so unsupported excluded members don't cause a throw.
+  let sourceResult: AttributeNode;
+  try {
+    sourceResult = parseTypeNode(sourceNode, ctx, pathLabel);
+  } catch {
+    if (pickOmitKeys !== null) {
+      // Resolve the source declaration and parse only the retained keys.
+      const retainedKeys = parseRetainedPropertiesFromSource(
+        sourceNode,
+        ctx,
+        pathLabel,
+        typeName,
+        pickOmitKeys,
+      );
+      return {
+        constraints: defaultAttributeConstraints(),
+        enumValues: null,
+        kind: 'object',
+        path: pathLabel,
+        properties: retainedKeys,
+        required: true,
+        union: null,
+        wp: {
+          preserveOnEmpty: false,
+          selector: null,
+          secret: false,
+          secretStateField: null,
+          source: null,
+          writeOnly: false,
+        },
+      };
+    }
+    throw new Error(
+      `${typeName} source type could not be parsed at ${pathLabel}`,
+    );
+  }
+
+  // Required<T> can operate on discriminated unions — apply branch-wise,
+  // making each branch's properties required.
+  if (
+    typeName === 'Required' &&
+    sourceResult.kind === 'union' &&
+    sourceResult.union
+  ) {
+    const result: AttributeNode = {
+      ...sourceResult,
+      path: pathLabel,
+      union: {
+        branches: Object.fromEntries(
+          Object.entries(sourceResult.union.branches).map(
+            ([key, branch]) => {
+              const rb = withRequired(branch, true);
+              if (rb.properties) {
+                rb.properties = Object.fromEntries(
+                  Object.entries(rb.properties).map(([pk, pn]) => [
+                    pk,
+                    withRequired(pn, true),
+                  ]),
+                );
+              }
+              return [key, rb];
+            },
+          ),
+        ),
+        discriminator: sourceResult.union.discriminator,
+      },
+    };
+    return result;
+  }
+
+  if (sourceResult.kind !== 'object' || !sourceResult.properties) {
+    throw new Error(
+      `${typeName} can only be applied to object types at ${pathLabel}`,
+    );
+  }
+
+  let properties = sourceResult.properties;
+
+  if (pickOmitKeys !== null) {
     properties = Object.fromEntries(
       Object.entries(properties).filter(([key]) =>
-        typeName === 'Pick' ? keySet.has(key) : !keySet.has(key),
+        typeName === 'Pick' ? pickOmitKeys.has(key) : !pickOmitKeys.has(key),
       ),
     );
   }
@@ -918,5 +1011,57 @@ function parseUtilityType(
     );
   }
 
+  return result;
+}
+
+/**
+ * Resolve the source type declaration and parse only the properties that
+ * survive the Pick/Omit filter, skipping unsupported members. This avoids
+ * throws from unsupported members that are being excluded.
+ */
+function parseRetainedPropertiesFromSource(
+  sourceNode: ts.TypeNode,
+  ctx: AnalysisContext,
+  pathLabel: string,
+  typeName: string,
+  pickOmitKeys: Set<string>,
+): Record<string, AttributeNode> {
+  // Resolve the backing interface declaration.
+  if (!ts.isTypeReferenceNode(sourceNode)) {
+    throw new Error(`${typeName} source must be a named type at ${pathLabel}`);
+  }
+
+  const symbol = resolveSymbol(sourceNode, ctx.checker);
+  const declaration = symbol?.declarations?.find(
+    (d): d is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(d),
+  );
+  if (declaration === undefined) {
+    throw new Error(
+      `${typeName} source could not be resolved to an interface at ${pathLabel}`,
+    );
+  }
+
+  const result: Record<string, AttributeNode> = {};
+  for (const member of declaration.members) {
+    if (!ts.isPropertySignature(member) || member.type === undefined) {
+      continue;
+    }
+    const propName = getPropertyName(member.name);
+    const isRetained =
+      typeName === 'Pick'
+        ? pickOmitKeys.has(propName)
+        : !pickOmitKeys.has(propName);
+    if (!isRetained) {
+      continue;
+    }
+    try {
+      result[propName] = withRequired(
+        parseTypeNode(member.type, ctx, `${pathLabel}.${propName}`),
+        member.questionToken === undefined,
+      );
+    } catch {
+      // Skip unsupported retained members.
+    }
+  }
   return result;
 }
