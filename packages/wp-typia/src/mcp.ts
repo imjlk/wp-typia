@@ -585,10 +585,6 @@ export function getBuiltinWpTypiaToolGroup(): MCPToolGroup {
         inputSchema: {
           additionalProperties: false,
           properties: {
-            'block-key': {
-              description: 'Block key for multi-block projects.',
-              type: 'string',
-            },
             'from-migration-version': {
               description: 'Source migration version label (e.g. v1).',
               type: 'string',
@@ -613,7 +609,12 @@ export function getBuiltinWpTypiaToolGroup(): MCPToolGroup {
               description: 'Source migration version label.',
               type: 'string',
             },
+            'to-migration-version': {
+              description: 'Target migration version label.',
+              type: 'string',
+            },
           },
+          required: ['from-migration-version'],
           type: 'object',
         },
         name: 'migration-plan',
@@ -624,10 +625,6 @@ export function getBuiltinWpTypiaToolGroup(): MCPToolGroup {
         inputSchema: {
           additionalProperties: false,
           properties: {
-            'block-key': {
-              description: 'Block key for multi-block projects.',
-              type: 'string',
-            },
             'from-migration-version': {
               description: 'Source migration version label.',
               type: 'string',
@@ -648,7 +645,9 @@ export function getBuiltinWpTypiaToolGroup(): MCPToolGroup {
 
 /**
  * Load MCP tool groups from configured schema sources plus the built-in
- * wp-typia migration tool group.
+ * wp-typia migration tool group. External groups that reuse the reserved
+ * `wp-typia` namespace are filtered out to prevent duplicate namespace
+ * collisions during sync.
  */
 export async function loadMcpToolGroupsWithBuiltin(
   cwd: string,
@@ -662,5 +661,10 @@ export async function loadMcpToolGroupsWithBuiltin(
     // tools from AI agents.
     external = [];
   }
-  return [getBuiltinWpTypiaToolGroup(), ...external];
+  // Filter out external groups that collide with the built-in namespace.
+  const builtin = getBuiltinWpTypiaToolGroup();
+  const filtered = external.filter(
+    (group) => group.namespace !== builtin.namespace,
+  );
+  return [builtin, ...filtered];
 }
