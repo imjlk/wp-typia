@@ -5,6 +5,7 @@ import ts from '@typescript/typescript6';
 import {
   type AnalysisContext,
   createAnalysisContext,
+  MAX_TOTAL_NODE_COUNT,
 } from './metadata-analysis.js';
 import {
   type AttributeNode,
@@ -142,6 +143,10 @@ export function parseNamedDeclaration(
 	pathLabel: string,
 	required: boolean,
 ): AttributeNode {
+  ctx.totalNodeCount += 1;
+  if (ctx.totalNodeCount > MAX_TOTAL_NODE_COUNT) {
+    return createRecursiveTerminalNode(pathLabel);
+  }
   const recursionKey = `${declaration.getSourceFile().fileName}:${declaration.name.text}`;
   const currentDepth = ctx.recursionDepth.get(recursionKey) ?? 0;
 
