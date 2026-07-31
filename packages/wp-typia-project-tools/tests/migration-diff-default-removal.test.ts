@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import {
   cleanupMigrationTempRoot,
   createArrayItemDropProject,
+  createArrayItemRenameProject,
   createCompositeDefaultChangeProject,
   createDefaultChangeProject,
   createMigrationTempRoot,
@@ -205,6 +206,24 @@ describe('wp-typia migrate diff default and removal classification', () => {
           item.kind === 'drop' && item.path.includes('legacy'),
       );
       expect(dropItem).toBeDefined();
+    });
+
+    test('detects array item property renames', () => {
+      const projectDir = path.join(tempRoot, 'array-item-rename');
+      createArrayItemRenameProject(projectDir);
+
+      const diff = createMigrationDiff(
+        loadMigrationProject(projectDir),
+        'v1',
+        'v3',
+      );
+
+      const renameCandidate = diff.summary.renameCandidates.find(
+        (candidate) =>
+          candidate.currentPath.includes('newName') &&
+          candidate.legacyPath.includes('oldName'),
+      );
+      expect(renameCandidate).toBeDefined();
     });
   });
 

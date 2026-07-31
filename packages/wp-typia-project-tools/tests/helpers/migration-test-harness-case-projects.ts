@@ -1166,3 +1166,93 @@ export function createArrayItemDropProject(projectDir: string) {
   fs.mkdirSync(localBinDir, { recursive: true });
   fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
 }
+
+/**
+ * Creates a project where an array item property is renamed between v1
+ * and current (rows: Array<{ oldName: string }> → Array<{ newName: string }>).
+ * This verifies that array item property renames are detected.
+ */
+export function createArrayItemRenameProject(projectDir: string) {
+  createProjectShell(projectDir);
+
+  writeFile(
+    path.join(projectDir, 'src', 'types.ts'),
+    `export interface ArrayItemRenameAttributes {\n\trows: Array<{ newName: string }>;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.rows?.[0]?.newName ?? null;\n}\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'validators.ts'),
+    `export const validators = {\n\tvalidate(input: unknown) {\n\t\tconst attributes = input as Record<string, unknown>;\n\t\tconst rows = attributes.rows;\n\t\tconst success = Array.isArray(rows);\n\t\treturn success\n\t\t\t? { success: true as const, data: attributes }\n\t\t\t: { success: false as const, errors: [{ path: "$.rows", expected: "array" }] };\n\t},\n\trandom() {\n\t\treturn { rows: [{ newName: "x" }] };\n\t},\n};\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'config.ts'),
+    `export const migrationConfig = {\n\tblockName: "create-block/array-item-rename",\n\tcurrentMigrationVersion: "v3",\n\tsupportedMigrationVersions: ["v1", "v3"],\n\tsnapshotDir: "src/migrations/versions",\n} as const;\n\nexport default migrationConfig;\n`,
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'helpers.ts'),
+    HELPERS_SOURCE,
+  );
+
+  function makeRowsAttr(properties: Record<string, ManifestAttribute>) {
+    const arr = createManifestAttribute('array', { required: true });
+    const itemObj = createManifestAttribute('object', { required: true });
+    itemObj.ts.properties = properties;
+    arr.ts.items = itemObj;
+    return arr;
+  }
+
+  const currentRows = makeRowsAttr({
+    newName: createManifestAttribute('string', { required: true }),
+  });
+  const legacyRows = makeRowsAttr({
+    oldName: createManifestAttribute('string', { required: true }),
+  });
+
+  writeJson(path.join(projectDir, 'block.json'), {
+    apiVersion: 3,
+    attributes: { rows: { type: 'array' } },
+    name: 'create-block/array-item-rename',
+    title: 'Array Item Rename',
+  });
+  writeJson(path.join(projectDir, 'typia.manifest.json'), {
+    attributes: { rows: currentRows },
+    manifestVersion: 2,
+    sourceType: 'ArrayItemRenameAttributes',
+  });
+  writeJson(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'block.json'),
+    {
+      apiVersion: 3,
+      attributes: { rows: { type: 'array' } },
+      name: 'create-block/array-item-rename',
+      title: 'Array Item Rename',
+    },
+  );
+  writeJson(
+    path.join(
+      projectDir,
+      'src',
+      'migrations',
+      'versions',
+      'v1',
+      'typia.manifest.json',
+    ),
+    {
+      attributes: { rows: legacyRows },
+      manifestVersion: 2,
+      sourceType: 'ArrayItemRenameAttributes',
+    },
+  );
+  writeFile(
+    path.join(projectDir, 'src', 'migrations', 'versions', 'v1', 'save.tsx'),
+    `export default function Save({ attributes }: { attributes: any }) {\n\treturn attributes.rows?.[0]?.oldName ?? null;\n}\n`,
+  );
+  writeCurrentSnapshot(projectDir);
+
+  const localBinDir = path.join(projectDir, 'node_modules', '.bin');
+  fs.mkdirSync(localBinDir, { recursive: true });
+  fs.symlinkSync(repoTtsxPath, path.join(localBinDir, 'ttsx'));
+}
