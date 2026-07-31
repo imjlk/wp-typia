@@ -148,6 +148,26 @@ export interface BlockAttributes { data: Record<string, number>; }
     }
   });
 
+  test('Record with literal key union produces concrete properties', () => {
+    const root = createUtilityTypeFixtureRoot(`
+export interface BlockAttributes { data: Record<"a" | "b", number>; }
+`);
+
+    try {
+      const parsed = analyzeSourceTypes(
+        { projectRoot: root, typesFile: 'src/types.ts' },
+        ['BlockAttributes'],
+      );
+      const data = parsed['BlockAttributes'].properties!['data'];
+      expect(data.kind).toBe('object');
+      expect(Object.keys(data.properties!).sort()).toEqual(['a', 'b']);
+      expect(data.properties!['a'].kind).toBe('number');
+      expect(data.properties!['b'].kind).toBe('number');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('Pick with named type alias selector resolves keys', () => {
     const root = createUtilityTypeFixtureRoot(`
 interface Base { a: string; b: number; c: boolean; }

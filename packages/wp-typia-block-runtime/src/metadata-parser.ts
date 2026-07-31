@@ -740,8 +740,17 @@ function extractKeyLiterals(
     return [node.literal.text];
   }
   if (ts.isUnionTypeNode(node)) {
-    const keys = node.types.map((t) => extractKeyLiterals(t, ctx));
-    if (keys.every((key) => key !== null)) {
+    const keys: string[][] = [];
+    let allValid = true;
+    for (const t of node.types) {
+      const key = extractKeyLiterals(t, ctx);
+      if (key === null) {
+        allValid = false;
+        break;
+      }
+      keys.push(key);
+    }
+    if (allValid) {
       return keys.flat();
     }
   }
@@ -792,14 +801,43 @@ function parseUtilityType(
     return parseTypeNode(inner, ctx, pathLabel);
   }
 
-  // Record<K, V> → open object that allows any additional properties.
-  // WordPress block attributes are flat JSON, so we model Record as a
-  // permissive object with no declared keys. The recursiveTerminal marker
-  // signals JSON Schema generation to emit additionalProperties: true.
+  // Record<K, V> → when K is a literal string union, produce concrete
+  // properties; otherwise produce an open permissive object.
   if (typeName === 'Record') {
     if (typeArguments.length < 2) {
       throw new Error(`Record requires two type arguments at ${pathLabel}`);
     }
+    const [keyNode, valueNode] = typeArguments;
+    const keys = extractKeyLiterals(keyNode, ctx);
+    if (keys !== null && keys.length > 0) {
+      // Concrete keys: produce typed properties for each key.
+      const valueResult = parseTypeNode(valueNode, ctx, pathLabel);
+      const properties: Record<string, AttributeNode> = {};
+      for (const key of keys) {
+        properties[key] = withRequired(
+          { ...valueResult, path: `${pathLabel}.${key}` },
+          true,
+        );
+      }
+      return {
+        constraints: defaultAttributeConstraints(),
+        enumValues: null,
+        kind: 'object',
+        path: pathLabel,
+        properties,
+        required: true,
+        union: null,
+        wp: {
+          preserveOnEmpty: false,
+          selector: null,
+          secret: false,
+          secretStateField: null,
+          source: null,
+          writeOnly: false,
+        },
+      };
+    }
+    // Non-literal keys (e.g. Record<string, V>): permissive open object.
     return {
       constraints: defaultAttributeConstraints(),
       enumValues: null,
