@@ -1,5 +1,73 @@
 # wp-typia
 
+## 0.27.0 — 2026-08-01
+
+### Minor changes
+
+- [6efff7a4](https://github.com/imjlk/wp-typia/commit/6efff7a4ade85fea0112e77b11ae519d8a08aaa6) Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
+  
+  - `MigrationRiskSummary` now exposes a `removal` bucket separate from `additive`. Attribute drops (`drop` diff kind) are no longer folded into the additive risk category, so data-loss edges surface independently in risk summaries, generated registries, and the migration dashboard.
+  - `createMigrationDiff` now emits a `default-change` diff outcome when a manifest attribute's default value appears, disappears, or changes between versions. Previously default-value transitions were silently ignored during diff planning.
+  - The empty risk summary and risk summary formatter across `@wp-typia/block-runtime`, `@wp-typia/project-tools`, and generated-project templates (`helpers.ts`, `index.ts`, `report.ts`, `types.ts`) now include the `removal` bucket. — Thanks @imjlk!
+- [c529cd85](https://github.com/imjlk/wp-typia/commit/c529cd85f1eda4614365671167b6d8481ec35b75) Added: `wp-typia mcp call` subcommand for executing built-in MCP tools.
+  
+  - AI agents can now invoke migration tools via `wp-typia mcp call --tool migration-diff --from-migration-version v1` instead of only discovering schemas.
+  - The call handler delegates to the existing CLI migration runtime via subprocess, returning JSON results.
+  - Supports `migration-diff`, `migration-plan`, and `migration-scaffold` tools. — Thanks Junglei Kim!
+- [904bbeeb](https://github.com/imjlk/wp-typia/commit/904bbeeb04a8b8ad009157cc833a5a1a7a303d61) Added: wp-typia migration tools are now exposed as built-in MCP tools for AI agent discovery.
+  
+  - A built-in `wp-typia` MCP tool group is now included alongside external schema sources in `wp-typia mcp list` and `wp-typia mcp sync`. It exposes `migration-diff`, `migration-plan`, and `migration-scaffold` as self-describing MCP tools with input schemas, so AI agents can discover and invoke migration diagnostics without memorizing CLI flags.
+  - This enables the agent loop: an AI agent inspects migration diffs via MCP, writes migration rules, and scaffolds verify/fuzz harnesses — all through the MCP tool interface. — Thanks Junglei Kim!
+- [f3b6fd70](https://github.com/imjlk/wp-typia/commit/f3b6fd704ac6446b7123dddddd41c21536d35b30) Added: `wp-typia sync` now recognizes and dispatches a `sync-typia-llm` script.
+  
+  - Projects that define a `sync-typia-llm` script in `package.json` will have it executed as part of the default sync chain, ordered after `sync-rest` and before `sync-ai`. This allows projects to generate `*.llm.application.json` artifacts during sync. — Thanks Junglei Kim!
+
+### Patch changes
+
+- [40fd7275](https://github.com/imjlk/wp-typia/commit/40fd7275986bffe281b6f9f8b83553b7beabecb1) Fixed: MCP external schema source failures no longer discard valid groups.
+  
+  - `loadMcpToolGroups` now uses `Promise.allSettled` instead of `Promise.all`, so one malformed external schema source does not discard all other valid external groups. — Thanks @imjlk!
+- [050cb9ba](https://github.com/imjlk/wp-typia/commit/050cb9baa5b41925a1bfa28d4ab5c684c0c7c4e2) Fixed: MCP built-in tool schema accuracy and namespace collision prevention.
+  
+  - `migration-plan` now requires `from-migration-version` (matching the underlying CLI behavior) and exposes `to-migration-version`.
+  - Removed unsupported `block-key` from all tool schemas (the CLI uses `--block` not `--block-key`).
+  - External MCP groups that reuse the reserved `wp-typia` namespace are filtered out to prevent duplicate namespace collisions during sync. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.27.0
+
+## 0.26.0 — 2026-08-01
+
+### Minor changes
+
+- [6efff7a4](https://github.com/imjlk/wp-typia/commit/6efff7a4ade85fea0112e77b11ae519d8a08aaa6) Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
+  
+  - `MigrationRiskSummary` now exposes a `removal` bucket separate from `additive`. Attribute drops (`drop` diff kind) are no longer folded into the additive risk category, so data-loss edges surface independently in risk summaries, generated registries, and the migration dashboard.
+  - `createMigrationDiff` now emits a `default-change` diff outcome when a manifest attribute's default value appears, disappears, or changes between versions. Previously default-value transitions were silently ignored during diff planning.
+  - The empty risk summary and risk summary formatter across `@wp-typia/block-runtime`, `@wp-typia/project-tools`, and generated-project templates (`helpers.ts`, `index.ts`, `report.ts`, `types.ts`) now include the `removal` bucket. — Thanks @imjlk!
+- [c529cd85](https://github.com/imjlk/wp-typia/commit/c529cd85f1eda4614365671167b6d8481ec35b75) Added: `wp-typia mcp call` subcommand for executing built-in MCP tools.
+  
+  - AI agents can now invoke migration tools via `wp-typia mcp call --tool migration-diff --from-migration-version v1` instead of only discovering schemas.
+  - The call handler delegates to the existing CLI migration runtime via subprocess, returning JSON results.
+  - Supports `migration-diff`, `migration-plan`, and `migration-scaffold` tools. — Thanks @imjlk!
+- [904bbeeb](https://github.com/imjlk/wp-typia/commit/904bbeeb04a8b8ad009157cc833a5a1a7a303d61) Added: wp-typia migration tools are now exposed as built-in MCP tools for AI agent discovery.
+  
+  - A built-in `wp-typia` MCP tool group is now included alongside external schema sources in `wp-typia mcp list` and `wp-typia mcp sync`. It exposes `migration-diff`, `migration-plan`, and `migration-scaffold` as self-describing MCP tools with input schemas, so AI agents can discover and invoke migration diagnostics without memorizing CLI flags.
+  - This enables the agent loop: an AI agent inspects migration diffs via MCP, writes migration rules, and scaffolds verify/fuzz harnesses — all through the MCP tool interface. — Thanks @imjlk!
+- [f3b6fd70](https://github.com/imjlk/wp-typia/commit/f3b6fd704ac6446b7123dddddd41c21536d35b30) Added: `wp-typia sync` now recognizes and dispatches a `sync-typia-llm` script.
+  
+  - Projects that define a `sync-typia-llm` script in `package.json` will have it executed as part of the default sync chain, ordered after `sync-rest` and before `sync-ai`. This allows projects to generate `*.llm.application.json` artifacts during sync. — Thanks @imjlk!
+
+### Patch changes
+
+- [40fd7275](https://github.com/imjlk/wp-typia/commit/40fd7275986bffe281b6f9f8b83553b7beabecb1) Fixed: MCP external schema source failures no longer discard valid groups.
+  
+  - `loadMcpToolGroups` now uses `Promise.allSettled` instead of `Promise.all`, so one malformed external schema source does not discard all other valid external groups. — Thanks @imjlk!
+- [050cb9ba](https://github.com/imjlk/wp-typia/commit/050cb9baa5b41925a1bfa28d4ab5c684c0c7c4e2) Fixed: MCP built-in tool schema accuracy and namespace collision prevention.
+  
+  - `migration-plan` now requires `from-migration-version` (matching the underlying CLI behavior) and exposes `to-migration-version`.
+  - Removed unsupported `block-key` from all tool schemas (the CLI uses `--block` not `--block-key`).
+  - External MCP groups that reuse the reserved `wp-typia` namespace are filtered out to prevent duplicate namespace collisions during sync. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.26.0
+
 ## 0.25.0 — 2026-07-28
 
 ### Minor changes
