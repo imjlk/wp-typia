@@ -25,6 +25,11 @@ export interface AnalysisContext {
    * (`${fileName}:${typeName}`). Replaces the former hard-throw presence set.
    */
   recursionDepth: Map<string, number>;
+  /**
+   * Total number of attribute nodes created during this analysis run.
+   * Capped to prevent exponential blowups from multi-branch recursive types.
+   */
+  totalNodeCount: number;
 }
 
 interface AnalysisProgramInputs {
@@ -89,6 +94,12 @@ const DEFAULT_MAX_RECURSIVE_DEPTH = 5;
  * (e.g. a binary tree with both `left` and `right` children).
  */
 const MAX_RECURSIVE_DEPTH_LIMIT = 15;
+/**
+ * Hard upper bound on total attribute nodes produced during a single
+ * analysis run. Prevents exponential expansion from multi-branch recursive
+ * types (e.g. binary trees at depth 15 would produce 2^15 nodes per branch).
+ */
+export const MAX_TOTAL_NODE_COUNT = 5000;
 const TYPESCRIPT_LIB_DIRECTORY = path.dirname(ts.getDefaultLibFilePath({}));
 const RUNTIME_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const SYNC_BLOCK_METADATA_FAILURE_CODE = Symbol(
@@ -444,6 +455,7 @@ export function createAnalysisContext(
         projectRoot,
         program: cachedAnalysis.program,
         recursionDepth: new Map<string, number>(),
+        totalNodeCount: 0,
       };
     }
   }
@@ -498,6 +510,7 @@ export function createAnalysisContext(
     projectRoot,
     program,
     recursionDepth: new Map<string, number>(),
+    totalNodeCount: 0,
   };
 }
 
