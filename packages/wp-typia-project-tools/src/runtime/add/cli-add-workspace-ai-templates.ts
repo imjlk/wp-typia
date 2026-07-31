@@ -594,10 +594,12 @@ if ( ! function_exists( '${handlerFunctionName}' ) ) {
 
 if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
 \tfunction ${registerRoutesFunctionName}() {
-\t\t// Progressive enhancement: skip route registration entirely when the
-\t\t// AI Client capability is unavailable so the endpoint does not appear
-\t\t// on unsupported WordPress versions.
-\t\tif ( ! ${isSupportedFunctionName}() ) {
+\t\t// Progressive enhancement: skip route registration when the AI Client
+\t\t// capability is unavailable. We check only function existence here (not
+\t\t// the full is_ai_feature_supported probe) because the probe applies
+\t\t// request-specific model preferences that are not available at
+\t\t// registration time. The handler still runs the full probe per-request.
+\t\tif ( ! function_exists( 'wp_ai_client_prompt' ) ) {
 \t\t\treturn;
 \t\t}
 
