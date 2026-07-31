@@ -49,4 +49,31 @@ describe('getBuiltinWpTypiaToolGroup', () => {
       expect(tool.inputSchema?.type).toBe('object');
     }
   });
+
+  test('migration-plan requires from-migration-version', () => {
+    const planTool = group.tools.find(
+      (tool) => tool.name === 'migration-plan',
+    ) as MCPTool | undefined;
+    expect(planTool).toBeDefined();
+    expect(planTool!.inputSchema?.required).toContain(
+      'from-migration-version',
+    );
+  });
+
+  test('no tool exposes block-key (unsupported flag)', () => {
+    for (const tool of group.tools) {
+      const props = tool.inputSchema?.properties ?? {};
+      expect(props).not.toHaveProperty('block-key');
+    }
+  });
+
+  test('migration-plan exposes to-migration-version', () => {
+    const planTool = group.tools.find(
+      (tool) => tool.name === 'migration-plan',
+    ) as MCPTool | undefined;
+    expect(planTool).toBeDefined();
+    expect(planTool!.inputSchema?.properties).toHaveProperty(
+      'to-migration-version',
+    );
+  });
 });
