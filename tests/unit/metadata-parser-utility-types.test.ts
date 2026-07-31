@@ -205,4 +205,48 @@ export interface BlockAttributes { data: Box<string>; }
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  test('Required<T> works on discriminated unions', () => {
+    const root = createUtilityTypeFixtureRoot(`
+interface BranchA { kind: "a"; value?: string; }
+interface BranchB { kind: "b"; count?: number; }
+export interface BlockAttributes { data: Required<BranchA | BranchB>; }
+`);
+
+    try {
+      const parsed = analyzeSourceTypes(
+        { projectRoot: root, typesFile: 'src/types.ts' },
+        ['BlockAttributes'],
+      );
+      const data = parsed['BlockAttributes'].properties!['data'];
+      expect(data.kind).toBe('union');
+      expect(data.union).toBeDefined();
+      // Non-discriminator optional properties should now be required
+      const branchA = data.union!.branches['a'];
+      expect(branchA).toBeDefined();
+      const valueProp = branchA!.properties!['value'];
+      expect(valueProp.required).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('Omit skips unsupported members without throwing', () => {
+    const root = createUtilityTypeFixtureRoot(`
+interface Base { title: string; callback: () => void; }
+export interface BlockAttributes { data: Omit<Base, "callback">; }
+`);
+
+    try {
+      const parsed = analyzeSourceTypes(
+        { projectRoot: root, typesFile: 'src/types.ts' },
+        ['BlockAttributes'],
+      );
+      const data = parsed['BlockAttributes'].properties!['data'];
+      expect(data.kind).toBe('object');
+      expect(Object.keys(data.properties!)).toEqual(['title']);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
