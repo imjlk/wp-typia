@@ -11,7 +11,6 @@ import {
   type AttributeNode,
   baseNode,
   cloneProperties,
-  defaultAttributeConstraints,
   withRequired,
 } from './metadata-model.js';
 import {
@@ -182,22 +181,10 @@ function createRecursiveTerminalNode(
 	pathLabel: string,
 ): AttributeNode {
   return {
-    constraints: defaultAttributeConstraints(),
-    enumValues: null,
-    kind: 'object',
-    path: `${pathLabel}.__recursive_terminal`,
+    ...baseNode('object', `${pathLabel}.__recursive_terminal`),
     properties: {},
     recursiveTerminal: true,
     required: false,
-    union: null,
-    wp: {
-      preserveOnEmpty: false,
-      selector: null,
-      secret: false,
-      secretStateField: null,
-      source: null,
-      writeOnly: false,
-    },
   };
 }
 
@@ -215,17 +202,20 @@ function parseInterfaceDeclaration(
     }
 
     for (const baseType of heritageClause.types) {
-      const baseNode = parseTypeReference(
+      const extendedNode = parseTypeReference(
         baseType,
         ctx,
         `${pathLabel}<extends>`,
       );
-      if (baseNode.kind !== 'object' || baseNode.properties === undefined) {
+      if (
+        extendedNode.kind !== 'object' ||
+        extendedNode.properties === undefined
+      ) {
         throw new Error(
           `Only object-like interface extensions are supported: ${pathLabel}`,
         );
       }
-      Object.assign(properties, cloneProperties(baseNode.properties));
+      Object.assign(properties, cloneProperties(extendedNode.properties));
     }
   }
 
@@ -244,21 +234,9 @@ function parseInterfaceDeclaration(
   }
 
   return {
-    constraints: defaultAttributeConstraints(),
-    enumValues: null,
-    kind: 'object',
-    path: pathLabel,
+    ...baseNode('object', pathLabel),
     properties,
     required,
-    union: null,
-    wp: {
-      preserveOnEmpty: false,
-      selector: null,
-      secret: false,
-      secretStateField: null,
-      source: null,
-      writeOnly: false,
-    },
   };
 }
 
@@ -293,24 +271,11 @@ export function parseTypeNode(
   }
   if (ts.isArrayTypeNode(node)) {
     return {
-      constraints: defaultAttributeConstraints(),
-      enumValues: null,
+      ...baseNode('array', pathLabel),
       items: withRequired(
         parseTypeNode(node.elementType, ctx, `${pathLabel}[]`),
         true,
       ),
-      kind: 'array',
-      path: pathLabel,
-      required: true,
-      union: null,
-      wp: {
-        preserveOnEmpty: false,
-        selector: null,
-        secret: false,
-        secretStateField: null,
-        source: null,
-        writeOnly: false,
-      },
     };
   }
   if (ts.isLiteralTypeNode(node)) {
@@ -426,20 +391,8 @@ function parseUnionType(
 
     const kind = [...uniqueKinds][0] as 'string' | 'number' | 'boolean';
     return {
-      constraints: defaultAttributeConstraints(),
+      ...baseNode(kind, pathLabel),
       enumValues: literalValues,
-      kind,
-      path: pathLabel,
-      required: true,
-      union: null,
-      wp: {
-        preserveOnEmpty: false,
-        selector: null,
-        secret: false,
-        secretStateField: null,
-        source: null,
-        writeOnly: false,
-      },
     };
   }
 
@@ -503,22 +456,10 @@ function parseDiscriminatedUnion(
   }
 
   return {
-    constraints: defaultAttributeConstraints(),
-    enumValues: null,
-    kind: 'union',
-    path: pathLabel,
-    required: true,
+    ...baseNode('union', pathLabel),
     union: {
       branches,
       discriminator,
-    },
-    wp: {
-      preserveOnEmpty: false,
-      selector: null,
-      secret: false,
-      secretStateField: null,
-      source: null,
-      writeOnly: false,
     },
   };
 }
@@ -583,21 +524,8 @@ function parseTypeLiteral(
   }
 
   return {
-    constraints: defaultAttributeConstraints(),
-    enumValues: null,
-    kind: 'object',
-    path: pathLabel,
+    ...baseNode('object', pathLabel),
     properties,
-    required: true,
-    union: null,
-    wp: {
-      preserveOnEmpty: false,
-      selector: null,
-      secret: false,
-      secretStateField: null,
-      source: null,
-      writeOnly: false,
-    },
   };
 }
 
@@ -613,20 +541,11 @@ function parseLiteralType(
   }
 
   return {
-    constraints: defaultAttributeConstraints(),
+    ...baseNode(
+      typeof literal as 'string' | 'number' | 'boolean',
+      pathLabel,
+    ),
     enumValues: [literal],
-    kind: typeof literal as 'string' | 'number' | 'boolean',
-    path: pathLabel,
-    required: true,
-    union: null,
-    wp: {
-      preserveOnEmpty: false,
-      selector: null,
-      secret: false,
-      secretStateField: null,
-      source: null,
-      writeOnly: false,
-    },
   };
 }
 
@@ -645,21 +564,8 @@ function parseTypeReference(
     }
 
     return {
-      constraints: defaultAttributeConstraints(),
-      enumValues: null,
+      ...baseNode('array', pathLabel),
       items: withRequired(parseTypeNode(itemNode, ctx, `${pathLabel}[]`), true),
-      kind: 'array',
-      path: pathLabel,
-      required: true,
-      union: null,
-      wp: {
-        preserveOnEmpty: false,
-        selector: null,
-        secret: false,
-        secretStateField: null,
-        source: null,
-        writeOnly: false,
-      },
     };
   }
   if (typeArguments.length > 0) {
@@ -840,41 +746,15 @@ function parseUtilityType(
         );
       }
       return {
-        constraints: defaultAttributeConstraints(),
-        enumValues: null,
-        kind: 'object',
-        path: pathLabel,
+        ...baseNode('object', pathLabel),
         properties,
-        required: true,
-        union: null,
-        wp: {
-          preserveOnEmpty: false,
-          selector: null,
-          secret: false,
-          secretStateField: null,
-          source: null,
-          writeOnly: false,
-        },
       };
     }
     // Non-literal keys (e.g. Record<string, V>): permissive open object.
     return {
-      constraints: defaultAttributeConstraints(),
-      enumValues: null,
-      kind: 'object',
-      path: pathLabel,
+      ...baseNode('object', pathLabel),
       properties: {},
       recursiveTerminal: true,
-      required: true,
-      union: null,
-      wp: {
-        preserveOnEmpty: false,
-        selector: null,
-        secret: false,
-        secretStateField: null,
-        source: null,
-        writeOnly: false,
-      },
     };
   }
 
@@ -923,21 +803,8 @@ function parseUtilityType(
         pickOmitKeys,
       );
       return {
-        constraints: defaultAttributeConstraints(),
-        enumValues: null,
-        kind: 'object',
-        path: pathLabel,
+        ...baseNode('object', pathLabel),
         properties: retainedKeys,
-        required: true,
-        union: null,
-        wp: {
-          preserveOnEmpty: false,
-          selector: null,
-          secret: false,
-          secretStateField: null,
-          source: null,
-          writeOnly: false,
-        },
       };
     }
     throw new Error(
