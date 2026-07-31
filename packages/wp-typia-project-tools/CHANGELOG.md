@@ -1,5 +1,58 @@
 # @wp-typia/project-tools
 
+## 0.26.0 — 2026-07-31
+
+### Minor changes
+
+- [358915bf](https://github.com/imjlk/wp-typia/commit/358915bf2ce3ad564cfc1b7f8570b3f0e2d92fe7) Added: typia.llm tool endpoint is now generated during AI feature scaffolding.
+  
+  - `scaffoldAiFeatureWorkspace` now writes the typia.llm tool endpoint PHP file (`inc/<slug>-llm-tools.php`) alongside the existing AI feature PHP, so the endpoint is available immediately after scaffolding.
+  - Fixed the dispatch handler to use `$ability->execute()` (the correct WordPress Abilities API method) instead of the non-existent `wp_execute_ability()` function. — Thanks @imjlk!
+- [6efff7a4](https://github.com/imjlk/wp-typia/commit/6efff7a4ade85fea0112e77b11ae519d8a08aaa6) Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
+  
+  - `MigrationRiskSummary` now exposes a `removal` bucket separate from `additive`. Attribute drops (`drop` diff kind) are no longer folded into the additive risk category, so data-loss edges surface independently in risk summaries, generated registries, and the migration dashboard.
+  - `createMigrationDiff` now emits a `default-change` diff outcome when a manifest attribute's default value appears, disappears, or changes between versions. Previously default-value transitions were silently ignored during diff planning.
+  - The empty risk summary and risk summary formatter across `@wp-typia/block-runtime`, `@wp-typia/project-tools`, and generated-project templates (`helpers.ts`, `index.ts`, `report.ts`, `types.ts`) now include the `removal` bucket. — Thanks Junglei Kim!
+- [a1ba5529](https://github.com/imjlk/wp-typia/commit/a1ba552980096e0aa6ae56ebc694a7e0d6a1403e) Added: generated PHP REST endpoint that exposes typia.llm function-calling tool schemas to WordPress AI consumers at runtime.
+  
+  - New `buildTypiaLlmToolEndpointPhpSource` template generates a PHP module that loads the pre-compiled `*.llm.application.json` artifact (no typia runtime dependency) and serves it via a read-only `/llm-tools` REST route.
+  - A `/llm-tools/dispatch` route maps incoming AI tool-calls to registered WordPress abilities via `wp_get_ability` / `wp_execute_ability`, reusing the existing permission and execution pipeline instead of duplicating handler logic.
+  - This closes the gap between typia.llm build-time artifact generation and WordPress runtime consumption (diagnosed as C1). — Thanks Junglei Kim!
+
+### Patch changes
+
+- [a97d67bb](https://github.com/imjlk/wp-typia/commit/a97d67bba164311b7bc621629d9f42588ef041cd) Fixed: typia.llm tool dispatch now resolves ability IDs when tool name and ability ID differ.
+  
+  - The dispatch handler tries `wp_get_ability($tool_name)` directly first, then falls back to searching all abilities via `wp_get_abilities()` for one whose ID ends with `/$tool_name`, matching the `category/operationId` format used by the WordPress Abilities API. — Thanks @imjlk!
+- [5fc8aa77](https://github.com/imjlk/wp-typia/commit/5fc8aa776787d84a26020e14d5030c2084659947) Fixed: typia.llm tool endpoint PHP template improvements.
+  
+  - REST routes now include the feature slug (`/llm-tools/<slug>`) to prevent collisions when a workspace has multiple AI features.
+  - WP_Error status codes from ability execution are preserved instead of always returning 500.
+  - Empty typia.llm artifacts (no functions) return 404 with a clear message.
+  - Text domain is escaped via `quotePhpString` in generated PHP string literals. — Thanks Junglei Kim!
+- [243e604a](https://github.com/imjlk/wp-typia/commit/243e604a87d96483870b495faf600938590048a4) Added: test coverage for array item property rename detection.
+  
+  - Array item property renames (e.g. `rows[].oldName` → `rows[].newName`) are now verified to be detected by the migration diff rename logic, building on the array item flattening added in PR #1164. — Thanks Junglei Kim!
+- [aab79481](https://github.com/imjlk/wp-typia/commit/aab7948162b89ec987cb5b93a6eb2698515fdd02) Fixed: two migration diff edge cases that produced incorrect removal detection.
+  
+  - Nested object-to-primitive type changes (e.g. `settings.mode: { value: string }` → `settings.mode: string`) no longer produce false `drop` outcomes for the old child leaf paths. The diff loop now checks whether the immediate parent path is retained as a non-object before classifying a leaf as a drop.
+  - Array item property removals (e.g. `Array<{ label; legacy }>` → `Array<{ label }>`) are now detected as `drop` outcomes. `flattenManifestAttribute` now descends into array item object properties, and `getAttributeByCurrentPath` resolves `[]` array item paths. — Thanks Junglei Kim!
+- [82088a8d](https://github.com/imjlk/wp-typia/commit/82088a8d054b225f8b17927f4476756890476e73) Fixed: three migration diff and dashboard gaps surfaced by Codex review on PR #1156.
+  
+  - Composite attribute default changes (object, array, union) are now detected by `createMigrationDiff` and classified in the additive risk bucket. Previously the composite branches returned before the default-change check, hiding default transitions on nested attributes.
+  - Nested property removals inside retained objects are now tracked as `drop` outcomes in the removal risk bucket. Previously `compareObjectAttribute` only iterated new properties, so removed nested fields were silently discarded.
+  - The generated migration dashboard (`migration-dashboard.tsx`) now includes the `removal` bucket in `riskTotals`, `formatRiskSummaryLine`, and `collectStats`, so attribute drops surface in both per-result and aggregate views. — Thanks Junglei Kim!
+- [4b922182](https://github.com/imjlk/wp-typia/commit/4b9221829184e19bb7d89679c71fde48fcde97d9) Fixed: generated AI feature PHP now gates route registration behind runtime capability checks for progressive enhancement.
+  
+  - The AI feature REST route registration (`rest_api_init` handler) now calls the existing `is_ai_feature_supported()` check before registering routes. On unsupported WordPress versions, the endpoint does not appear at all instead of registering and returning 501 on every request.
+  - The typia.llm tool endpoint registration now checks `function_exists('wp_register_ability')` before registering routes, so the endpoint is invisible on sites without the Abilities API (WP < 7.0).
+  - Admin notices and graceful 501 fallbacks remain for backward compatibility. — Thanks Junglei Kim!
+- [316d0cc0](https://github.com/imjlk/wp-typia/commit/316d0cc0dfe860c207bc8ee1b071a3e67ede6b83) Fixed: AI feature route registration gate no longer runs the full capability probe at registration time.
+  
+  - The registration-time gate now checks only `function_exists('wp_ai_client_prompt')` instead of the full `is_ai_feature_supported()` probe. The probe applies request-specific model preferences via filters that are not available at registration time, causing false negatives when a filter returns request-dependent values.
+  - The per-request handler still runs the full probe and returns 501 when unsupported, preserving the graceful degradation behavior. — Thanks Junglei Kim!
+- Updated dependencies: block-runtime (npm)@0.9.0
+
 ## 0.25.0 — 2026-07-28
 
 ### Minor changes
