@@ -27,8 +27,8 @@ describe('buildTypiaLlmToolEndpointPhpSource', () => {
       'persistence-examples',
     );
 
-    expect(source).toContain("'/llm-tools'");
-    expect(source).toContain("'/llm-tools/dispatch'");
+    expect(source).toContain("'/llm-tools/counter'");
+    expect(source).toContain("'/llm-tools/counter/dispatch'");
     expect(source).toContain('WP_REST_Server::READABLE');
     expect(source).toContain('WP_REST_Server::CREATABLE');
     expect(source).toContain('rest_api_init');
