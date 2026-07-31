@@ -16,7 +16,12 @@ import {
 import { escapeRegExp } from './string-utils';
 import { isSyncStackFrameLine } from './sync-output';
 
-type SyncScriptName = 'sync' | 'sync-ai' | 'sync-rest' | 'sync-types';
+type SyncScriptName =
+  | 'sync'
+  | 'sync-ai'
+  | 'sync-rest'
+  | 'sync-typia-llm'
+  | 'sync-types';
 type SyncScriptKey = SyncScriptName | 'sync-wordpress-ai';
 export type SyncExecutionTarget = 'ai' | 'default';
 
@@ -423,6 +428,13 @@ function resolveSyncProjectContext(cwd: string): SyncProjectContext {
             scriptName: 'sync-rest',
           }
         : undefined,
+    'sync-typia-llm':
+      typeof scripts['sync-typia-llm'] === 'string'
+        ? {
+            command: scripts['sync-typia-llm'],
+            scriptName: 'sync-typia-llm',
+          }
+        : undefined,
     'sync-types':
       typeof scripts['sync-types'] === 'string'
         ? {
@@ -596,6 +608,14 @@ function buildSyncPlannedCommands(
   );
   if (syncRestCommand) {
     plannedCommands.push(syncRestCommand);
+  }
+  const syncTypiaLlmCommand = createSyncPlannedCommand(
+    project,
+    'sync-typia-llm',
+    extraArgs,
+  );
+  if (syncTypiaLlmCommand) {
+    plannedCommands.push(syncTypiaLlmCommand);
   }
   const syncAiCommand = createSyncPlannedCommand(project, 'sync-ai', extraArgs);
   if (syncAiCommand) {
