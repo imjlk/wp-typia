@@ -213,9 +213,15 @@ export async function loadMcpToolGroups(
   cwd: string,
   schemaSources: WpTypiaSchemaSource[],
 ): Promise<MCPToolGroup[]> {
-  return Promise.all(
+  const results = await Promise.allSettled(
     schemaSources.map((source) => readSchemaSource(cwd, source)),
   );
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<MCPToolGroup> =>
+        r.status === 'fulfilled',
+    )
+    .map((r) => r.value);
 }
 
 export function extractCommandMetadata(
