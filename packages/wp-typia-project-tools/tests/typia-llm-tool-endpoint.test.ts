@@ -58,4 +58,17 @@ describe('buildTypiaLlmToolEndpointPhpSource', () => {
     expect(source).toContain('typia_llm_artifact_not_found');
     expect(source).toContain('404');
   });
+
+  test('falls back to ability ID search when direct lookup fails', () => {
+    const source = buildTypiaLlmToolEndpointPhpSource(
+      'counter',
+      'persistence-examples/v1',
+      'persistence_examples',
+      'persistence-examples',
+    );
+
+    // The dispatch handler should try wp_get_abilities fallback search.
+    expect(source).toContain('wp_get_abilities');
+    expect(source).toContain('str_ends_with');
+  });
 });

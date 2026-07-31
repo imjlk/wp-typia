@@ -759,7 +759,24 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 \t\t\t);
 \t\t}
 
+\t\t// WordPress abilities use category/operationId format, but tool names
+\t\t// in the typia.llm artifact are plain operationIds. Try the tool name
+\t\t// directly first, then search all abilities for a matching operationId.
 \t\t$ability = wp_get_ability( $tool_name );
+\t\tif ( $ability === null && function_exists( 'wp_get_abilities' ) ) {
+\t\t\t$all_abilities = wp_get_abilities();
+\t\t\tif ( is_array( $all_abilities ) ) {
+\t\t\t\tforeach ( $all_abilities as $candidate ) {
+\t\t\t\t\t$candidate_id = method_exists( $candidate, 'get_id' )
+\t\t\t\t\t\t? $candidate->get_id()
+\t\t\t\t\t\t: ( property_exists( $candidate, 'id' ) ? $candidate->id : '' );
+\t\t\t\t\tif ( is_string( $candidate_id ) && str_ends_with( $candidate_id, '/' . $tool_name ) ) {
+\t\t\t\t\t\t$ability = $candidate;
+\t\t\t\t\t\tbreak;
+\t\t\t\t\t}
+\t\t\t\t}
+\t\t\t}
+\t\t}
 \t\tif ( $ability === null ) {
 \t\t\treturn new WP_REST_Response(
 \t\t\t\tarray(
