@@ -21,6 +21,7 @@ import {
 	ensureAiFeatureSyncRestAnchors,
 } from './cli-add-workspace-ai-sync-rest-anchors.js';
 import { buildAiFeaturePhpSource } from './cli-add-workspace-ai-templates.js';
+import { buildTypiaLlmToolEndpointPhpSource } from './cli-add-workspace-ai-templates.js';
 import { appendWorkspaceInventoryEntries } from '../workspace/workspace-inventory.js';
 import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import { executeWorkspaceMutationPlan } from './cli-add-workspace-mutation.js';
@@ -97,6 +98,11 @@ export async function scaffoldAiFeatureWorkspace({
     'ai-features',
     `${aiFeatureSlug}.php`,
   );
+  const llmToolEndpointPath = path.join(
+    workspace.projectDir,
+    'inc',
+    `${aiFeatureSlug}-llm-tools.php`,
+  );
   return executeWorkspaceMutationPlan({
 		filePaths: [
 			blockConfigPath,
@@ -106,7 +112,12 @@ export async function scaffoldAiFeatureWorkspace({
 			syncProjectScriptPath,
 			syncRestScriptPath,
 		],
-		targetPaths: [aiFeatureDir, phpFilePath, syncAiScriptPath],
+		targetPaths: [
+			aiFeatureDir,
+			llmToolEndpointPath,
+			phpFilePath,
+			syncAiScriptPath,
+		],
 		run: async () => {
 			await fsp.mkdir(aiFeatureDir, { recursive: true });
 			await fsp.mkdir(path.dirname(phpFilePath), { recursive: true });
@@ -137,6 +148,17 @@ export async function scaffoldAiFeatureWorkspace({
 			await fsp.writeFile(
 				phpFilePath,
 				buildAiFeaturePhpSource(
+					aiFeatureSlug,
+					namespace,
+					workspace.workspace.phpPrefix,
+					workspace.workspace.textDomain,
+				),
+				'utf8',
+			);
+
+			await fsp.writeFile(
+				llmToolEndpointPath,
+				buildTypiaLlmToolEndpointPhpSource(
 					aiFeatureSlug,
 					namespace,
 					workspace.workspace.phpPrefix,

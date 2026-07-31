@@ -775,7 +775,7 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 \t\t\t);
 \t\t}
 
-\t\t$result = wp_execute_ability( $tool_name, $arguments );
+\t\t$result = $ability->execute( $arguments );
 \t\tif ( is_wp_error( $result ) ) {
 \t\t\t$error_status = 500;
 \t\t\t$error_data   = $result->get_error_data();
