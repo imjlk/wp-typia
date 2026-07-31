@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 import {
@@ -83,7 +84,7 @@ export async function dispatchMcpCommand({
   const schemaSources = getMcpSchemaSources(userConfig);
   const structured = format === 'json';
 
-  if (subcommand !== 'list' && subcommand !== 'sync') {
+  if (subcommand !== 'list' && subcommand !== 'sync' && subcommand !== 'call') {
     throwUnknownMcpSubcommand(subcommand);
   }
 
@@ -113,6 +114,27 @@ export async function dispatchMcpCommand({
       printMcpSyncSummary(result, printLine);
       return;
     }
+
+    if (subcommand === 'call') {
+      const toolName = typeof flags.tool === 'string' ? flags.tool : '';
+      if (!toolName) {
+        throw createCliCommandError({
+          code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+          command: 'mcp',
+          detailLines: ['A --tool <name> flag is required for mcp call.'],
+        });
+      }
+
+      const result = await dispatchBuiltinTool(cwd, toolName, flags);
+      if (structured) {
+        printLine(JSON.stringify({ result }, null, 2));
+        return;
+      }
+      printLine(
+        typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+      );
+      return;
+    }
   } catch (error) {
     if (isCliDiagnosticError(error)) {
       throw error;
@@ -121,5 +143,79 @@ export async function dispatchMcpCommand({
       command: 'mcp',
       error,
     });
+  }
+}
+
+/**
+ * Built-in MCP tool names that can be dispatched via `wp-typia mcp call`.
+ */
+const DISPATCHABLE_TOOLS = new Set([
+  'migration-diff',
+  'migration-plan',
+  'migration-scaffold',
+]);
+
+/**
+ * Map a built-in MCP tool name + flags to the corresponding CLI command
+ * invocation and return its JSON result.
+ */
+async function dispatchBuiltinTool(
+  cwd: string,
+  toolName: string,
+  flags: Record<string, unknown>,
+): Promise<unknown> {
+  if (!DISPATCHABLE_TOOLS.has(toolName)) {
+    throw createCliCommandError({
+      code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      command: 'mcp',
+      detailLines: [
+        `Unknown or non-dispatchable tool "${toolName}". Available: ${[...DISPATCHABLE_TOOLS].join(', ')}.`,
+      ],
+    });
+  }
+
+  const fromVersion = typeof flags['from-migration-version'] === 'string'
+    ? flags['from-migration-version']
+    : '';
+  const toVersion = typeof flags['to-migration-version'] === 'string'
+    ? flags['to-migration-version']
+    : undefined;
+
+  if (!fromVersion) {
+    throw createCliCommandError({
+      code: CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      command: 'mcp',
+      detailLines: [
+        '--from-migration-version is required for migration tools.',
+      ],
+    });
+  }
+
+  // Delegate to the existing CLI by spawning a subprocess. This keeps the
+  // dispatch isolated and reuses the full migration runtime.
+  const entryPath = path.join(__dirname, '..', 'bin', 'wp-typia.js');
+  const args = ['migrate'];
+  if (toolName === 'migration-diff') {
+    args.push('diff');
+  } else if (toolName === 'migration-plan') {
+    args.push('plan');
+  } else {
+    args.push('scaffold');
+  }
+  args.push('--from-migration-version', fromVersion);
+  if (toVersion) {
+    args.push('--to-migration-version', toVersion);
+  }
+  args.push('--format', 'json');
+
+  const stdout = execFileSync(process.execPath, [entryPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return stdout.trim();
   }
 }
