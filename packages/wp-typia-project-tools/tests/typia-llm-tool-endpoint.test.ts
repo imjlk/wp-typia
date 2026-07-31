@@ -34,7 +34,7 @@ describe('buildTypiaLlmToolEndpointPhpSource', () => {
     expect(source).toContain('rest_api_init');
   });
 
-  test('dispatch handler routes tool calls through wp_execute_ability', () => {
+  test('dispatch handler routes tool calls through WP_Ability::execute', () => {
     const source = buildTypiaLlmToolEndpointPhpSource(
       'counter',
       'persistence-examples/v1',
@@ -43,7 +43,7 @@ describe('buildTypiaLlmToolEndpointPhpSource', () => {
     );
 
     expect(source).toContain('wp_get_ability');
-    expect(source).toContain('wp_execute_ability');
+    expect(source).toContain('$ability->execute');
     expect(source).toContain('persistence_examples_counter_dispatch_llm_tool');
   });
 
