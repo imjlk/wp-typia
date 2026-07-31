@@ -1,5 +1,97 @@
 # @wp-typia/block-runtime
 
+## 0.10.0 — 2026-08-01
+
+### Minor changes
+
+- [6efff7a4](https://github.com/imjlk/wp-typia/commit/6efff7a4ade85fea0112e77b11ae519d8a08aaa6) Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
+  
+  - `MigrationRiskSummary` now exposes a `removal` bucket separate from `additive`. Attribute drops (`drop` diff kind) are no longer folded into the additive risk category, so data-loss edges surface independently in risk summaries, generated registries, and the migration dashboard.
+  - `createMigrationDiff` now emits a `default-change` diff outcome when a manifest attribute's default value appears, disappears, or changes between versions. Previously default-value transitions were silently ignored during diff planning.
+  - The empty risk summary and risk summary formatter across `@wp-typia/block-runtime`, `@wp-typia/project-tools`, and generated-project templates (`helpers.ts`, `index.ts`, `report.ts`, `types.ts`) now include the `removal` bucket. — Thanks @imjlk!
+- [d1c88b30](https://github.com/imjlk/wp-typia/commit/d1c88b305712ea4ebfcdcf25b53481d80eca43ea) Added: recursive type declarations are now unrolled to a bounded depth instead of throwing.
+  
+  - The metadata parser previously threw `Recursive types are not supported` on any self-referential or mutually recursive type declaration. It now unrolls the type tree to a configurable maximum depth (default: 5) and emits a terminal empty-object leaf node at the depth limit.
+  - `analyzeSourceType`, `analyzeSourceTypes`, and `SyncBlockMetadataOptions` accept an optional `maxRecursiveDepth` parameter to override the default.
+  - All downstream consumers (manifest projection, PHP validator, JSON Schema, migration diff) handle the bounded finite tree transparently without changes. — Thanks Junglei Kim!
+- [f6fee9dc](https://github.com/imjlk/wp-typia/commit/f6fee9dc7361015a52b721e1f42e670c38b26f0a) Added: TypeScript utility types (`Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`) are now resolved by the metadata parser instead of throwing "Generic type references are not supported".
+  
+  - `Partial<T>` marks all properties optional; `Required<T>` marks all required.
+  - `Readonly<T>` is a passthrough (serialization ignores mutability).
+  - `Pick<T, Keys>` and `Omit<T, Keys>` select or exclude properties by string-literal union keys.
+  - `Record<K, V>` produces a permissive empty object (block attributes are flat JSON).
+  - Unrecognized generics still throw as before. — Thanks Junglei Kim!
+- [790b24a1](https://github.com/imjlk/wp-typia/commit/790b24a183d8105355ca151856cc31ac16961ea8) Added: parser accuracy improvements for utility types.
+  
+  - `Required<T>` now works on discriminated unions, making each branch's properties required branch-wise.
+  - `Pick` and `Omit` no longer throw when the source type has unsupported members that are being excluded. The parser falls back to parsing only retained properties individually.
+  - Built-in utility type names (`Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`) are no longer shadowed by user-defined declarations with the same name in project source files. — Thanks Junglei Kim!
+
+### Patch changes
+
+- [d5e76407](https://github.com/imjlk/wp-typia/commit/d5e76407d99dbc969774af2a98e5c18101df2350) Fixed: utility type edge cases for Record literal keys and type narrowing.
+  
+  - `Record<'a' | 'b', V>` now produces concrete typed properties for each literal key instead of an empty permissive object. Non-literal keys (`Record<string, V>`) still produce an open object.
+  - `extractKeyLiterals` type narrowing fixed: the union branch no longer relies on `every()` + `flat()` which fails to narrow under strict mode. — Thanks @imjlk!
+- [285dfcf4](https://github.com/imjlk/wp-typia/commit/285dfcf434471c4384b31718e39280e033120cc9) Refactored: eliminate 11 duplicate `wp: {...}` object literals in metadata parser.
+  
+  - All attribute node construction in `metadata-parser.ts` now uses `baseNode(kind, pathLabel)` + spread overrides instead of repeating the full `wp`, `constraints`, `enumValues`, `union` boilerplate.
+  - Removed unused `defaultAttributeConstraints` import from the parser.
+  - Renamed local `baseNode` variable in `parseInterfaceDeclaration` to `extendedNode` to avoid shadowing the imported `baseNode` function. — Thanks Junglei Kim!
+- [2ccb2883](https://github.com/imjlk/wp-typia/commit/2ccb288348e7b7bc1a8c511eb9681fe01310bd6e) Fixed: total node count cap prevents exponential expansion from multi-branch recursive types.
+  
+  - The parser now tracks total attribute nodes created during a single analysis run and emits a terminal leaf when the count exceeds 5000, preventing memory exhaustion from multi-branch recursive types like binary trees at high depth. — Thanks Junglei Kim!
+- [ba708839](https://github.com/imjlk/wp-typia/commit/ba70883964d43b9cb963d49211b32b56a1daf9a9) Added: PHP validator regression test for recursive type terminals.
+  
+  - New test verifying that manifest projection and PHP generation warning collection handle recursive terminal nodes (empty objects) without errors.
+  - Documented known limitation: non-object recursive aliases produce object terminals instead of preserving the outer kind. — Thanks Junglei Kim!
+
+## 0.9.0 — 2026-08-01
+
+### Minor changes
+
+- [6efff7a4](https://github.com/imjlk/wp-typia/commit/6efff7a4ade85fea0112e77b11ae519d8a08aaa6) Added: migration diff detects default-value changes and classifies attribute removal in a dedicated risk bucket.
+  
+  - `MigrationRiskSummary` now exposes a `removal` bucket separate from `additive`. Attribute drops (`drop` diff kind) are no longer folded into the additive risk category, so data-loss edges surface independently in risk summaries, generated registries, and the migration dashboard.
+  - `createMigrationDiff` now emits a `default-change` diff outcome when a manifest attribute's default value appears, disappears, or changes between versions. Previously default-value transitions were silently ignored during diff planning.
+  - The empty risk summary and risk summary formatter across `@wp-typia/block-runtime`, `@wp-typia/project-tools`, and generated-project templates (`helpers.ts`, `index.ts`, `report.ts`, `types.ts`) now include the `removal` bucket. — Thanks @imjlk!
+- [d1c88b30](https://github.com/imjlk/wp-typia/commit/d1c88b305712ea4ebfcdcf25b53481d80eca43ea) Added: recursive type declarations are now unrolled to a bounded depth instead of throwing.
+  
+  - The metadata parser previously threw `Recursive types are not supported` on any self-referential or mutually recursive type declaration. It now unrolls the type tree to a configurable maximum depth (default: 5) and emits a terminal empty-object leaf node at the depth limit.
+  - `analyzeSourceType`, `analyzeSourceTypes`, and `SyncBlockMetadataOptions` accept an optional `maxRecursiveDepth` parameter to override the default.
+  - All downstream consumers (manifest projection, PHP validator, JSON Schema, migration diff) handle the bounded finite tree transparently without changes. — Thanks @imjlk!
+- [f6fee9dc](https://github.com/imjlk/wp-typia/commit/f6fee9dc7361015a52b721e1f42e670c38b26f0a) Added: TypeScript utility types (`Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`) are now resolved by the metadata parser instead of throwing "Generic type references are not supported".
+  
+  - `Partial<T>` marks all properties optional; `Required<T>` marks all required.
+  - `Readonly<T>` is a passthrough (serialization ignores mutability).
+  - `Pick<T, Keys>` and `Omit<T, Keys>` select or exclude properties by string-literal union keys.
+  - `Record<K, V>` produces a permissive empty object (block attributes are flat JSON).
+  - Unrecognized generics still throw as before. — Thanks @imjlk!
+- [790b24a1](https://github.com/imjlk/wp-typia/commit/790b24a183d8105355ca151856cc31ac16961ea8) Added: parser accuracy improvements for utility types.
+  
+  - `Required<T>` now works on discriminated unions, making each branch's properties required branch-wise.
+  - `Pick` and `Omit` no longer throw when the source type has unsupported members that are being excluded. The parser falls back to parsing only retained properties individually.
+  - Built-in utility type names (`Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`) are no longer shadowed by user-defined declarations with the same name in project source files. — Thanks @imjlk!
+
+### Patch changes
+
+- [d5e76407](https://github.com/imjlk/wp-typia/commit/d5e76407d99dbc969774af2a98e5c18101df2350) Fixed: utility type edge cases for Record literal keys and type narrowing.
+  
+  - `Record<'a' | 'b', V>` now produces concrete typed properties for each literal key instead of an empty permissive object. Non-literal keys (`Record<string, V>`) still produce an open object.
+  - `extractKeyLiterals` type narrowing fixed: the union branch no longer relies on `every()` + `flat()` which fails to narrow under strict mode. — Thanks @imjlk!
+- [285dfcf4](https://github.com/imjlk/wp-typia/commit/285dfcf434471c4384b31718e39280e033120cc9) Refactored: eliminate 11 duplicate `wp: {...}` object literals in metadata parser.
+  
+  - All attribute node construction in `metadata-parser.ts` now uses `baseNode(kind, pathLabel)` + spread overrides instead of repeating the full `wp`, `constraints`, `enumValues`, `union` boilerplate.
+  - Removed unused `defaultAttributeConstraints` import from the parser.
+  - Renamed local `baseNode` variable in `parseInterfaceDeclaration` to `extendedNode` to avoid shadowing the imported `baseNode` function. — Thanks @imjlk!
+- [2ccb2883](https://github.com/imjlk/wp-typia/commit/2ccb288348e7b7bc1a8c511eb9681fe01310bd6e) Fixed: total node count cap prevents exponential expansion from multi-branch recursive types.
+  
+  - The parser now tracks total attribute nodes created during a single analysis run and emits a terminal leaf when the count exceeds 5000, preventing memory exhaustion from multi-branch recursive types like binary trees at high depth. — Thanks @imjlk!
+- [ba708839](https://github.com/imjlk/wp-typia/commit/ba70883964d43b9cb963d49211b32b56a1daf9a9) Added: PHP validator regression test for recursive type terminals.
+  
+  - New test verifying that manifest projection and PHP generation warning collection handle recursive terminal nodes (empty objects) without errors.
+  - Documented known limitation: non-object recursive aliases produce object terminals instead of preserving the outer kind. — Thanks @imjlk!
+
 ## 0.8.0 — 2026-07-28
 
 ### Minor changes
