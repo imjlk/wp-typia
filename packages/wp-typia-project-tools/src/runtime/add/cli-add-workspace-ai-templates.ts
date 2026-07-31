@@ -647,6 +647,7 @@ export function buildTypiaLlmToolEndpointPhpSource(
   const registerRoutesFunctionName = `${phpPrefix}_${aiFeaturePhpId}_register_llm_tool_routes`;
   const getToolsFunctionName = `${phpPrefix}_${aiFeaturePhpId}_get_llm_tools`;
   const dispatchToolFunctionName = `${phpPrefix}_${aiFeaturePhpId}_dispatch_llm_tool`;
+  const escapedTextDomain = quotePhpString(textDomain);
 
   return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
@@ -683,7 +684,7 @@ if ( ! function_exists( '${getToolsFunctionName}' ) ) {
 \t\t\treturn new WP_REST_Response(
 \t\t\t\tarray(
 \t\t\t\t\t'code'    => 'typia_llm_artifact_not_found',
-\t\t\t\t\t'message' => __( 'The typia.llm application artifact was not found. Run wp-typia sync to generate it.', '${textDomain}' ),
+\t\t\t\t\t'message' => __( 'The typia.llm application artifact was not found. Run wp-typia sync to generate it.', ${escapedTextDomain} ),
 \t\t\t\t\t'data'    => array( 'status' => 404 ),
 \t\t\t\t),
 \t\t\t\t404
@@ -693,6 +694,17 @@ if ( ! function_exists( '${getToolsFunctionName}' ) ) {
 \t\t$functions = isset( $application['functions'] ) && is_array( $application['functions'] )
 \t\t\t? $application['functions']
 \t\t\t: array();
+
+\t\tif ( count( $functions ) === 0 ) {
+\t\t\treturn new WP_REST_Response(
+\t\t\t\tarray(
+\t\t\t\t\t'code'    => 'typia_llm_artifact_empty',
+\t\t\t\t\t'message' => __( 'The typia.llm application artifact contains no functions.', ${escapedTextDomain} ),
+\t\t\t\t\t'data'    => array( 'status' => 404 ),
+\t\t\t\t),
+\t\t\t\t404
+\t\t\t);
+\t\t}
 
 \t\treturn new WP_REST_Response(
 \t\t\tarray(
@@ -722,7 +734,7 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 \t\t\treturn new WP_REST_Response(
 \t\t\t\tarray(
 \t\t\t\t\t'code'    => 'invalid_tool_call',
-\t\t\t\t\t'message' => __( 'A "name" field is required in the tool-call body.', '${textDomain}' ),
+\t\t\t\t\t'message' => __( 'A "name" field is required in the tool-call body.', ${escapedTextDomain} ),
 \t\t\t\t\t'data'    => array( 'status' => 400 ),
 \t\t\t\t),
 \t\t\t\t400
@@ -738,7 +750,7 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 \t\t\treturn new WP_REST_Response(
 \t\t\t\tarray(
 \t\t\t\t\t'code'    => 'abilities_api_unavailable',
-\t\t\t\t\t'message' => __( 'The WordPress Abilities API is not available.', '${textDomain}' ),
+\t\t\t\t\t'message' => __( 'The WordPress Abilities API is not available.', ${escapedTextDomain} ),
 \t\t\t\t\t'data'    => array( 'status' => 501 ),
 \t\t\t\t),
 \t\t\t\t501
@@ -752,7 +764,7 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 \t\t\t\t\t'code'    => 'ability_not_found',
 \t\t\t\t\t'message' => sprintf(
 \t\t\t\t\t\t/* translators: %s: ability/tool name */
-\t\t\t\t\t\t__( 'No ability registered for tool "%s".', '${textDomain}' ),
+\t\t\t\t\t\t__( 'No ability registered for tool "%s".', ${escapedTextDomain} ),
 \t\t\t\t\t\t$tool_name
 \t\t\t\t\t),
 \t\t\t\t\t'data'    => array( 'status' => 404 ),
@@ -763,13 +775,18 @@ if ( ! function_exists( '${dispatchToolFunctionName}' ) ) {
 
 \t\t$result = wp_execute_ability( $tool_name, $arguments );
 \t\tif ( is_wp_error( $result ) ) {
+\t\t\t$error_status = 500;
+\t\t\t$error_data   = $result->get_error_data();
+\t\t\tif ( is_array( $error_data ) && isset( $error_data['status'] ) ) {
+\t\t\t\t$error_status = (int) $error_data['status'];
+\t\t\t}
 \t\t\treturn new WP_REST_Response(
 \t\t\t\tarray(
 \t\t\t\t\t'code'    => $result->get_error_code(),
 \t\t\t\t\t'message' => $result->get_error_message(),
-\t\t\t\t\t'data'    => array( 'status' => 500 ),
+\t\t\t\t\t'data'    => array( 'status' => $error_status ),
 \t\t\t\t),
-\t\t\t\t500
+\t\t\t\t$error_status
 \t\t\t);
 \t\t}
 
@@ -790,7 +807,7 @@ if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
 
 \t\tregister_rest_route(
 \t\t\t'${namespace}',
-\t\t\t'/llm-tools',
+\t\t\t'/llm-tools/${aiFeatureSlug}',
 \t\t\tarray(
 \t\t\t\t'methods'             => WP_REST_Server::READABLE,
 \t\t\t\t'callback'            => '${getToolsFunctionName}',
@@ -800,7 +817,7 @@ if ( ! function_exists( '${registerRoutesFunctionName}' ) ) {
 
 \t\tregister_rest_route(
 \t\t\t'${namespace}',
-\t\t\t'/llm-tools/dispatch',
+\t\t\t'/llm-tools/${aiFeatureSlug}/dispatch',
 \t\t\tarray(
 \t\t\t\t'methods'             => WP_REST_Server::CREATABLE,
 \t\t\t\t'callback'            => '${dispatchToolFunctionName}',
