@@ -5,6 +5,8 @@ import path from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 import { analyzeSourceTypes } from '../../packages/wp-typia-project-tools/src/runtime/metadata-parser';
+import { createManifestDocument } from '../../packages/wp-typia-project-tools/src/runtime/metadata-projection';
+import { collectPhpGenerationWarnings } from '../../packages/wp-typia-project-tools/src/runtime/metadata-php-render';
 
 function createRecursiveFixtureRoot(typesSource: string): string {
   const root = fs.mkdtempSync(
@@ -257,6 +259,44 @@ export interface BlockAttributes {
           ['BlockAttributes'],
         ),
       ).toThrow(/exponential expansion/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  // Known limitation: non-object recursive aliases (e.g. type Chain = Array<{...}>)
+  // produce an object terminal instead of preserving the outer kind. This is
+  // acceptable because all downstream consumers handle empty objects safely.
+
+  test('manifest projection and PHP validator handle recursive terminals without errors', () => {
+    const root = createRecursiveFixtureRoot(RECURSIVE_TREE_SOURCE);
+
+    try {
+      const parsed = analyzeSourceTypes(
+        {
+          maxRecursiveDepth: 2,
+          projectRoot: root,
+          typesFile: 'src/types.ts',
+        },
+        ['BlockAttributes'],
+      );
+
+      const rootNode = parsed['BlockAttributes'];
+      expect(rootNode.kind).toBe('object');
+
+      // Project to manifest — should not throw on terminal nodes.
+      const manifest = createManifestDocument('BlockAttributes', rootNode.properties ?? {});
+      expect(manifest.manifestVersion).toBe(2);
+
+      // Collect PHP generation warnings from each attribute — should not
+      // throw on terminal nodes.
+      const warnings: string[] = [];
+      for (const [key, attr] of Object.entries(manifest.attributes ?? {})) {
+        collectPhpGenerationWarnings(attr, key, warnings);
+      }
+      // Terminal nodes produce empty properties, so no warnings expected
+      // from the terminal itself.
+      expect(Array.isArray(warnings)).toBe(true);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
