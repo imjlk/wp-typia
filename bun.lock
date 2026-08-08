@@ -160,11 +160,25 @@
     },
     "packages/create-workspace-template": {
       "name": "@wp-typia/create-workspace-template",
-      "version": "0.18.3",
+      "version": "0.19.0",
+    },
+    "packages/ttsc-lint-plugin-wp": {
+      "name": "@wp-typia/ttsc-lint-plugin-wp",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@ttsc/lint": "^0.23.0",
+        "eslint": "9.39.4",
+        "ttsc": "^0.23.0",
+        "typescript": "^7.0.2",
+      },
+      "peerDependencies": {
+        "@ttsc/lint": ">=0.23.0 <0.26.0",
+        "ttsc": ">=0.23.0 <0.26.0",
+      },
     },
     "packages/wp-typia": {
       "name": "wp-typia",
-      "version": "0.24.15",
+      "version": "0.27.0",
       "bin": {
         "wp-typia": "bin/wp-typia.js",
       },
@@ -182,7 +196,7 @@
     },
     "packages/wp-typia-api-client": {
       "name": "@wp-typia/api-client",
-      "version": "0.4.6",
+      "version": "0.5.0",
       "dependencies": {
         "@typia/interface": "^13.2.0",
       },
@@ -193,7 +207,7 @@
     },
     "packages/wp-typia-block-runtime": {
       "name": "@wp-typia/block-runtime",
-      "version": "0.7.2",
+      "version": "0.10.0",
       "dependencies": {
         "@typescript/typescript6": "^6.0.2",
         "@wp-typia/api-client": "^0.4.6",
@@ -214,7 +228,7 @@
     },
     "packages/wp-typia-block-types": {
       "name": "@wp-typia/block-types",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "devDependencies": {
         "@types/react": "^18.3.12",
         "@types/wordpress__block-editor": "^11.5.17",
@@ -234,7 +248,7 @@
     },
     "packages/wp-typia-dataviews": {
       "name": "@wp-typia/dataviews",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "devDependencies": {
         "ttsc": "^0.23.0",
         "typescript": "^7.0.2",
@@ -242,7 +256,7 @@
     },
     "packages/wp-typia-project-tools": {
       "name": "@wp-typia/project-tools",
-      "version": "0.24.13",
+      "version": "0.27.0",
       "dependencies": {
         "@typescript/typescript6": "^6.0.2",
         "@wp-typia/api-client": "^0.4.6",
@@ -263,7 +277,7 @@
     },
     "packages/wp-typia-rest": {
       "name": "@wp-typia/rest",
-      "version": "0.3.14",
+      "version": "0.4.0",
       "dependencies": {
         "@typia/interface": "^13.2.0",
         "@wordpress/api-fetch": "^7.42.0",
@@ -1821,6 +1835,8 @@
     "@wp-typia/project-tools": ["@wp-typia/project-tools@workspace:packages/wp-typia-project-tools"],
 
     "@wp-typia/rest": ["@wp-typia/rest@workspace:packages/wp-typia-rest"],
+
+    "@wp-typia/ttsc-lint-plugin-wp": ["@wp-typia/ttsc-lint-plugin-wp@workspace:packages/ttsc-lint-plugin-wp"],
 
     "@xtuc/ieee754": ["@xtuc/ieee754@1.2.0", "", {}, "sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA=="],
 

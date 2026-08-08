@@ -454,6 +454,7 @@ If you want to see the “everything included” shape of `wp-typia`, start with
 - [`@wp-typia/api-client`](https://www.npmjs.com/package/@wp-typia/api-client)
 - [`@wp-typia/dataviews`](https://www.npmjs.com/package/@wp-typia/dataviews) as the opt-in DataViews compatibility contract for generated admin screens
 - [`@wp-typia/block-runtime`](https://www.npmjs.com/package/@wp-typia/block-runtime) as the current graduation prototype for defaults/editor/validation helpers
+- [`@wp-typia/ttsc-lint-plugin-wp`](https://www.npmjs.com/package/@wp-typia/ttsc-lint-plugin-wp) for WordPress-specific native `@ttsc/lint` rules and preset compatibility
 
 ## Project Structure
 
@@ -465,6 +466,7 @@ wp-typia/
 │   ├── wp-typia-api-client/    # Backend-neutral generated API client runtime
 │   ├── wp-typia-block-runtime/ # Prototype block runtime facade package
 │   ├── wp-typia-dataviews/     # Opt-in DataViews compatibility contract
+│   ├── ttsc-lint-plugin-wp/    # Native WordPress ttsc lint contributor
 │   ├── wp-typia-rest/          # Typed REST client helpers
 │   └── wp-typia-block-types/   # Shared semantic block types
 ├── examples/

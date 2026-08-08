@@ -46,7 +46,7 @@ runs:
       uses: actions/cache@v6
       with:
         path: .ttsc-cache/plugins
-        key: ttsc-${{ inputs.ttsc-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock', 'patches/*.patch', '**/go.mod', '**/go.sum') }}
+        key: ttsc-${{ inputs.ttsc-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-${{ hashFiles('bun.lock', 'patches/*.patch', 'packages/**/rules/**/*.go', '**/go.mod', '**/go.sum') }}
         restore-keys: |
           ttsc-${{ inputs.ttsc-cache-scope }}-${{ runner.os }}-${{ runner.arch }}-${{ inputs.bun-version }}-
 

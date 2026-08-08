@@ -1,5 +1,9 @@
 /** Ordered workspace packages consumed by the packed-install release smoke. */
 export const PUBLISH_PACKAGE_CHAIN = Object.freeze([
+	Object.freeze([
+		"packages/ttsc-lint-plugin-wp",
+		"@wp-typia/ttsc-lint-plugin-wp",
+	]),
 	Object.freeze(["packages/wp-typia-api-client", "@wp-typia/api-client"]),
 	Object.freeze(["packages/wp-typia-rest", "@wp-typia/rest"]),
 	Object.freeze(["packages/wp-typia-block-types", "@wp-typia/block-types"]),
@@ -18,6 +22,10 @@ export const PUBLISH_PACKAGE_CHAIN = Object.freeze([
 
 /** Maximum installed footprint allowed for each published package. */
 export const PUBLISH_PACKAGE_FOOTPRINT_BUDGETS = Object.freeze({
+	"@wp-typia/ttsc-lint-plugin-wp": Object.freeze({
+		maxFileCount: 30,
+		maxUnpackedBytes: 250_000,
+	}),
 	"@wp-typia/api-client": Object.freeze({
 		maxFileCount: 17,
 		maxUnpackedBytes: 43_000,

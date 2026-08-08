@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DRY_RUN="${DRY_RUN:-0}"
 
 PACKAGES=(
+  "packages/ttsc-lint-plugin-wp"
   "packages/wp-typia-block-types"
   "packages/wp-typia-dataviews"
   "packages/wp-typia-api-client"

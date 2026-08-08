@@ -1,0 +1,4041 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "integrity": "sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==",
+    "package": "@wordpress/eslint-plugin",
+    "version": "25.8.0"
+  },
+  "namespace": "wordpress",
+  "ttscRange": ">=0.23.0 <0.26.0",
+  "wordpressRules": [
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/components-no-missing-40px-size-prop"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/components-no-unsafe-button-disabled"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/data-no-store-string-literals"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/dependency-group"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-ellipsis"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-hyphenated-range"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-collapsible-whitespace"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-flanking-whitespace"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-placeholders-only"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-variables"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/i18n-text-domain",
+      "target": "wordpress/i18n-text-domain"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-translator-comments"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-base-control-with-label-without-id"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-dom-globals-in-constructor"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-dom-globals-in-module-scope"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-dom-globals-in-react-cc-render"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-dom-globals-in-react-fc"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-ds-tokens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-global-active-element"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-global-get-selection"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-i18n-in-save"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-non-module-stylesheet-imports"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-setting-ds-tokens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unguarded-get-range-at"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unknown-ds-tokens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unmerged-classname"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unsafe-render-order"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/no-unsafe-wp-apis",
+      "target": "wordpress/no-unsafe-wp-apis"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unused-vars-before-return"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-wp-process-env"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/react-no-unsafe-timeout"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/use-import-as"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/use-recommended-components"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/valid-sprintf",
+      "target": "wordpress/valid-sprintf"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/wp-global-usage"
+    }
+  ],
+  "presets": {
+    "custom": {
+      "@wordpress/no-base-control-with-label-without-id": "enabled",
+      "@wordpress/no-global-active-element": "mixed",
+      "@wordpress/no-global-get-selection": "mixed",
+      "@wordpress/no-setting-ds-tokens": "enabled",
+      "@wordpress/no-unguarded-get-range-at": "enabled",
+      "@wordpress/no-unknown-ds-tokens": "enabled",
+      "@wordpress/no-unsafe-render-order": "enabled",
+      "@wordpress/no-unsafe-wp-apis": "enabled",
+      "@wordpress/no-unused-vars-before-return": "enabled",
+      "@wordpress/no-wp-process-env": "enabled"
+    },
+    "es5": {
+      "array-bracket-spacing": "enabled",
+      "array-callback-return": "enabled",
+      "brace-style": "enabled",
+      "camelcase": "enabled",
+      "comma-dangle": "enabled",
+      "comma-spacing": "enabled",
+      "comma-style": "enabled",
+      "curly": "enabled",
+      "dot-notation": "enabled",
+      "eol-last": "enabled",
+      "eqeqeq": "enabled",
+      "func-call-spacing": "enabled",
+      "indent": "enabled",
+      "jsdoc/check-access": "enabled",
+      "jsdoc/check-alignment": "enabled",
+      "jsdoc/check-examples": "off",
+      "jsdoc/check-indentation": "off",
+      "jsdoc/check-line-alignment": "mixed",
+      "jsdoc/check-param-names": "enabled",
+      "jsdoc/check-property-names": "enabled",
+      "jsdoc/check-syntax": "off",
+      "jsdoc/check-tag-names": "enabled",
+      "jsdoc/check-template-names": "off",
+      "jsdoc/check-types": "enabled",
+      "jsdoc/check-values": "mixed",
+      "jsdoc/convert-to-jsdoc-comments": "off",
+      "jsdoc/empty-tags": "enabled",
+      "jsdoc/implements-on-classes": "enabled",
+      "jsdoc/imports-as-dependencies": "off",
+      "jsdoc/informative-docs": "off",
+      "jsdoc/lines-before-block": "off",
+      "jsdoc/match-description": "off",
+      "jsdoc/match-name": "off",
+      "jsdoc/multiline-blocks": "enabled",
+      "jsdoc/no-bad-blocks": "off",
+      "jsdoc/no-blank-block-descriptions": "off",
+      "jsdoc/no-blank-blocks": "off",
+      "jsdoc/no-defaults": "mixed",
+      "jsdoc/no-missing-syntax": "off",
+      "jsdoc/no-multi-asterisks": "enabled",
+      "jsdoc/no-restricted-syntax": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/no-undefined-types": "enabled",
+      "jsdoc/require-asterisk-prefix": "off",
+      "jsdoc/require-description": "off",
+      "jsdoc/require-description-complete-sentence": "off",
+      "jsdoc/require-example": "off",
+      "jsdoc/require-file-overview": "off",
+      "jsdoc/require-hyphen-before-param-description": "off",
+      "jsdoc/require-jsdoc": "mixed",
+      "jsdoc/require-param": "enabled",
+      "jsdoc/require-param-description": "mixed",
+      "jsdoc/require-param-name": "enabled",
+      "jsdoc/require-param-type": "enabled",
+      "jsdoc/require-property": "enabled",
+      "jsdoc/require-property-description": "enabled",
+      "jsdoc/require-property-name": "enabled",
+      "jsdoc/require-property-type": "enabled",
+      "jsdoc/require-returns": "mixed",
+      "jsdoc/require-returns-check": "enabled",
+      "jsdoc/require-returns-description": "enabled",
+      "jsdoc/require-returns-type": "enabled",
+      "jsdoc/require-template": "off",
+      "jsdoc/require-throws": "off",
+      "jsdoc/require-yields": "mixed",
+      "jsdoc/require-yields-check": "enabled",
+      "jsdoc/sort-tags": "off",
+      "jsdoc/tag-lines": "enabled",
+      "jsdoc/text-escaping": "off",
+      "jsdoc/valid-types": "enabled",
+      "key-spacing": "enabled",
+      "keyword-spacing": "enabled",
+      "linebreak-style": "enabled",
+      "no-alert": "enabled",
+      "no-bitwise": "enabled",
+      "no-caller": "enabled",
+      "no-cond-assign": "enabled",
+      "no-console": "enabled",
+      "no-debugger": "enabled",
+      "no-dupe-args": "enabled",
+      "no-dupe-keys": "enabled",
+      "no-duplicate-case": "enabled",
+      "no-else-return": "enabled",
+      "no-eval": "enabled",
+      "no-extra-semi": "enabled",
+      "no-fallthrough": "enabled",
+      "no-irregular-whitespace": "enabled",
+      "no-lonely-if": "enabled",
+      "no-mixed-operators": "enabled",
+      "no-mixed-spaces-and-tabs": "enabled",
+      "no-multi-spaces": "enabled",
+      "no-multi-str": "enabled",
+      "no-multiple-empty-lines": "enabled",
+      "no-nested-ternary": "enabled",
+      "no-redeclare": "enabled",
+      "no-shadow": "enabled",
+      "no-trailing-spaces": "enabled",
+      "no-undef": "enabled",
+      "no-undef-init": "enabled",
+      "no-unreachable": "enabled",
+      "no-unsafe-negation": "enabled",
+      "no-unused-expressions": "enabled",
+      "no-unused-vars": "enabled",
+      "no-useless-return": "enabled",
+      "no-whitespace-before-property": "enabled",
+      "no-with": "enabled",
+      "object-curly-spacing": "enabled",
+      "one-var-declaration-per-line": "enabled",
+      "operator-linebreak": "enabled",
+      "padded-blocks": "enabled",
+      "quote-props": "enabled",
+      "quotes": "enabled",
+      "semi": "enabled",
+      "semi-spacing": "enabled",
+      "space-before-blocks": "enabled",
+      "space-before-function-paren": "enabled",
+      "space-in-parens": "enabled",
+      "space-infix-ops": "enabled",
+      "space-unary-ops": "enabled",
+      "valid-typeof": "enabled",
+      "vars-on-top": "enabled",
+      "wrap-iife": "enabled"
+    },
+    "esnext": {
+      "array-bracket-spacing": "enabled",
+      "array-callback-return": "enabled",
+      "arrow-parens": "enabled",
+      "arrow-spacing": "enabled",
+      "brace-style": "enabled",
+      "camelcase": "enabled",
+      "comma-dangle": "enabled",
+      "comma-spacing": "enabled",
+      "comma-style": "enabled",
+      "computed-property-spacing": "enabled",
+      "constructor-super": "enabled",
+      "curly": "enabled",
+      "dot-notation": "enabled",
+      "eol-last": "enabled",
+      "eqeqeq": "enabled",
+      "func-call-spacing": "enabled",
+      "indent": "enabled",
+      "jsdoc/check-access": "enabled",
+      "jsdoc/check-alignment": "enabled",
+      "jsdoc/check-examples": "off",
+      "jsdoc/check-indentation": "off",
+      "jsdoc/check-line-alignment": "mixed",
+      "jsdoc/check-param-names": "enabled",
+      "jsdoc/check-property-names": "enabled",
+      "jsdoc/check-syntax": "off",
+      "jsdoc/check-tag-names": "enabled",
+      "jsdoc/check-template-names": "off",
+      "jsdoc/check-types": "enabled",
+      "jsdoc/check-values": "mixed",
+      "jsdoc/convert-to-jsdoc-comments": "off",
+      "jsdoc/empty-tags": "enabled",
+      "jsdoc/implements-on-classes": "enabled",
+      "jsdoc/imports-as-dependencies": "off",
+      "jsdoc/informative-docs": "off",
+      "jsdoc/lines-before-block": "off",
+      "jsdoc/match-description": "off",
+      "jsdoc/match-name": "off",
+      "jsdoc/multiline-blocks": "enabled",
+      "jsdoc/no-bad-blocks": "off",
+      "jsdoc/no-blank-block-descriptions": "off",
+      "jsdoc/no-blank-blocks": "off",
+      "jsdoc/no-defaults": "mixed",
+      "jsdoc/no-missing-syntax": "off",
+      "jsdoc/no-multi-asterisks": "enabled",
+      "jsdoc/no-restricted-syntax": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/no-undefined-types": "enabled",
+      "jsdoc/require-asterisk-prefix": "off",
+      "jsdoc/require-description": "off",
+      "jsdoc/require-description-complete-sentence": "off",
+      "jsdoc/require-example": "off",
+      "jsdoc/require-file-overview": "off",
+      "jsdoc/require-hyphen-before-param-description": "off",
+      "jsdoc/require-jsdoc": "mixed",
+      "jsdoc/require-param": "enabled",
+      "jsdoc/require-param-description": "mixed",
+      "jsdoc/require-param-name": "enabled",
+      "jsdoc/require-param-type": "enabled",
+      "jsdoc/require-property": "enabled",
+      "jsdoc/require-property-description": "enabled",
+      "jsdoc/require-property-name": "enabled",
+      "jsdoc/require-property-type": "enabled",
+      "jsdoc/require-returns": "mixed",
+      "jsdoc/require-returns-check": "enabled",
+      "jsdoc/require-returns-description": "enabled",
+      "jsdoc/require-returns-type": "enabled",
+      "jsdoc/require-template": "off",
+      "jsdoc/require-throws": "off",
+      "jsdoc/require-yields": "mixed",
+      "jsdoc/require-yields-check": "enabled",
+      "jsdoc/sort-tags": "off",
+      "jsdoc/tag-lines": "enabled",
+      "jsdoc/text-escaping": "off",
+      "jsdoc/valid-types": "enabled",
+      "key-spacing": "enabled",
+      "keyword-spacing": "enabled",
+      "linebreak-style": "enabled",
+      "no-alert": "enabled",
+      "no-bitwise": "enabled",
+      "no-caller": "enabled",
+      "no-cond-assign": "enabled",
+      "no-console": "enabled",
+      "no-const-assign": "enabled",
+      "no-debugger": "enabled",
+      "no-dupe-args": "enabled",
+      "no-dupe-class-members": "enabled",
+      "no-dupe-keys": "enabled",
+      "no-duplicate-case": "enabled",
+      "no-duplicate-imports": "enabled",
+      "no-else-return": "enabled",
+      "no-eval": "enabled",
+      "no-extra-semi": "enabled",
+      "no-fallthrough": "enabled",
+      "no-irregular-whitespace": "enabled",
+      "no-lonely-if": "enabled",
+      "no-mixed-operators": "enabled",
+      "no-mixed-spaces-and-tabs": "enabled",
+      "no-multi-spaces": "enabled",
+      "no-multi-str": "enabled",
+      "no-multiple-empty-lines": "enabled",
+      "no-nested-ternary": "enabled",
+      "no-redeclare": "enabled",
+      "no-shadow": "enabled",
+      "no-trailing-spaces": "enabled",
+      "no-undef": "enabled",
+      "no-undef-init": "enabled",
+      "no-unreachable": "enabled",
+      "no-unsafe-negation": "enabled",
+      "no-unused-expressions": "enabled",
+      "no-unused-vars": "enabled",
+      "no-useless-computed-key": "enabled",
+      "no-useless-constructor": "enabled",
+      "no-useless-return": "enabled",
+      "no-var": "enabled",
+      "no-whitespace-before-property": "enabled",
+      "no-with": "enabled",
+      "object-curly-spacing": "enabled",
+      "object-shorthand": "enabled",
+      "one-var-declaration-per-line": "enabled",
+      "operator-linebreak": "enabled",
+      "padded-blocks": "enabled",
+      "prefer-const": "enabled",
+      "quote-props": "enabled",
+      "quotes": "enabled",
+      "semi": "enabled",
+      "semi-spacing": "enabled",
+      "space-before-blocks": "enabled",
+      "space-before-function-paren": "enabled",
+      "space-in-parens": "enabled",
+      "space-infix-ops": "enabled",
+      "space-unary-ops": "enabled",
+      "template-curly-spacing": "enabled",
+      "valid-typeof": "enabled",
+      "vars-on-top": "mixed",
+      "wrap-iife": "enabled"
+    },
+    "i18n": {
+      "@wordpress/i18n-ellipsis": "enabled",
+      "@wordpress/i18n-hyphenated-range": "enabled",
+      "@wordpress/i18n-no-collapsible-whitespace": "enabled",
+      "@wordpress/i18n-no-flanking-whitespace": "enabled",
+      "@wordpress/i18n-no-placeholders-only": "enabled",
+      "@wordpress/i18n-no-variables": "enabled",
+      "@wordpress/i18n-text-domain": "enabled",
+      "@wordpress/i18n-translator-comments": "enabled",
+      "@wordpress/valid-sprintf": "enabled"
+    },
+    "jsdoc": {
+      "jsdoc/check-access": "enabled",
+      "jsdoc/check-alignment": "enabled",
+      "jsdoc/check-examples": "off",
+      "jsdoc/check-indentation": "off",
+      "jsdoc/check-line-alignment": "mixed",
+      "jsdoc/check-param-names": "enabled",
+      "jsdoc/check-property-names": "enabled",
+      "jsdoc/check-syntax": "off",
+      "jsdoc/check-tag-names": "enabled",
+      "jsdoc/check-template-names": "off",
+      "jsdoc/check-types": "enabled",
+      "jsdoc/check-values": "mixed",
+      "jsdoc/convert-to-jsdoc-comments": "off",
+      "jsdoc/empty-tags": "enabled",
+      "jsdoc/implements-on-classes": "enabled",
+      "jsdoc/imports-as-dependencies": "off",
+      "jsdoc/informative-docs": "off",
+      "jsdoc/lines-before-block": "off",
+      "jsdoc/match-description": "off",
+      "jsdoc/match-name": "off",
+      "jsdoc/multiline-blocks": "enabled",
+      "jsdoc/no-bad-blocks": "off",
+      "jsdoc/no-blank-block-descriptions": "off",
+      "jsdoc/no-blank-blocks": "off",
+      "jsdoc/no-defaults": "mixed",
+      "jsdoc/no-missing-syntax": "off",
+      "jsdoc/no-multi-asterisks": "enabled",
+      "jsdoc/no-restricted-syntax": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/no-undefined-types": "enabled",
+      "jsdoc/require-asterisk-prefix": "off",
+      "jsdoc/require-description": "off",
+      "jsdoc/require-description-complete-sentence": "off",
+      "jsdoc/require-example": "off",
+      "jsdoc/require-file-overview": "off",
+      "jsdoc/require-hyphen-before-param-description": "off",
+      "jsdoc/require-jsdoc": "mixed",
+      "jsdoc/require-param": "enabled",
+      "jsdoc/require-param-description": "mixed",
+      "jsdoc/require-param-name": "enabled",
+      "jsdoc/require-param-type": "enabled",
+      "jsdoc/require-property": "enabled",
+      "jsdoc/require-property-description": "enabled",
+      "jsdoc/require-property-name": "enabled",
+      "jsdoc/require-property-type": "enabled",
+      "jsdoc/require-returns": "mixed",
+      "jsdoc/require-returns-check": "enabled",
+      "jsdoc/require-returns-description": "enabled",
+      "jsdoc/require-returns-type": "enabled",
+      "jsdoc/require-template": "off",
+      "jsdoc/require-throws": "off",
+      "jsdoc/require-yields": "mixed",
+      "jsdoc/require-yields-check": "enabled",
+      "jsdoc/sort-tags": "off",
+      "jsdoc/tag-lines": "enabled",
+      "jsdoc/text-escaping": "off",
+      "jsdoc/valid-types": "enabled"
+    },
+    "jshint": {
+      "curly": "enabled",
+      "eqeqeq": "enabled",
+      "no-caller": "enabled",
+      "no-cond-assign": "enabled",
+      "no-eq-null": "enabled",
+      "no-irregular-whitespace": "enabled",
+      "no-trailing-spaces": "enabled",
+      "no-undef": "enabled",
+      "no-unused-expressions": "enabled",
+      "no-unused-vars": "enabled",
+      "one-var": "enabled",
+      "quotes": "enabled",
+      "wrap-iife": "enabled"
+    },
+    "jsx-a11y": {
+      "jsx-a11y/alt-text": "enabled",
+      "jsx-a11y/anchor-ambiguous-text": "off",
+      "jsx-a11y/anchor-has-content": "enabled",
+      "jsx-a11y/anchor-is-valid": "enabled",
+      "jsx-a11y/aria-activedescendant-has-tabindex": "enabled",
+      "jsx-a11y/aria-props": "enabled",
+      "jsx-a11y/aria-proptypes": "enabled",
+      "jsx-a11y/aria-role": "enabled",
+      "jsx-a11y/aria-unsupported-elements": "enabled",
+      "jsx-a11y/autocomplete-valid": "enabled",
+      "jsx-a11y/click-events-have-key-events": "enabled",
+      "jsx-a11y/control-has-associated-label": "off",
+      "jsx-a11y/heading-has-content": "mixed",
+      "jsx-a11y/html-has-lang": "enabled",
+      "jsx-a11y/iframe-has-title": "enabled",
+      "jsx-a11y/img-redundant-alt": "enabled",
+      "jsx-a11y/interactive-supports-focus": "enabled",
+      "jsx-a11y/label-has-associated-control": "enabled",
+      "jsx-a11y/label-has-for": "off",
+      "jsx-a11y/media-has-caption": "mixed",
+      "jsx-a11y/mouse-events-have-key-events": "enabled",
+      "jsx-a11y/no-access-key": "enabled",
+      "jsx-a11y/no-autofocus": "enabled",
+      "jsx-a11y/no-distracting-elements": "enabled",
+      "jsx-a11y/no-interactive-element-to-noninteractive-role": "enabled",
+      "jsx-a11y/no-noninteractive-element-interactions": "enabled",
+      "jsx-a11y/no-noninteractive-element-to-interactive-role": "enabled",
+      "jsx-a11y/no-noninteractive-tabindex": "mixed",
+      "jsx-a11y/no-redundant-roles": "enabled",
+      "jsx-a11y/no-static-element-interactions": "enabled",
+      "jsx-a11y/role-has-required-aria-props": "mixed",
+      "jsx-a11y/role-supports-aria-props": "enabled",
+      "jsx-a11y/scope": "enabled",
+      "jsx-a11y/tabindex-no-positive": "enabled",
+      "jsx-quotes": "enabled"
+    },
+    "react": {
+      "@wordpress/no-unused-vars-before-return": "enabled",
+      "react-hooks/exhaustive-deps": "enabled",
+      "react-hooks/rules-of-hooks": "enabled",
+      "react/display-name": "mixed",
+      "react/jsx-curly-spacing": "enabled",
+      "react/jsx-equals-spacing": "enabled",
+      "react/jsx-indent": "enabled",
+      "react/jsx-indent-props": "enabled",
+      "react/jsx-key": "enabled",
+      "react/jsx-no-comment-textnodes": "enabled",
+      "react/jsx-no-duplicate-props": "enabled",
+      "react/jsx-no-target-blank": "enabled",
+      "react/jsx-no-undef": "enabled",
+      "react/jsx-tag-spacing": "enabled",
+      "react/jsx-uses-react": "enabled",
+      "react/jsx-uses-vars": "enabled",
+      "react/no-children-prop": "mixed",
+      "react/no-danger-with-children": "enabled",
+      "react/no-deprecated": "enabled",
+      "react/no-direct-mutation-state": "enabled",
+      "react/no-find-dom-node": "enabled",
+      "react/no-is-mounted": "enabled",
+      "react/no-render-return-value": "enabled",
+      "react/no-string-refs": "enabled",
+      "react/no-unescaped-entities": "enabled",
+      "react/no-unknown-property": "enabled",
+      "react/no-unsafe": "off",
+      "react/prop-types": "mixed",
+      "react/react-in-jsx-scope": "mixed",
+      "react/require-render-return": "enabled"
+    },
+    "recommended": {
+      "@babel/object-curly-spacing": "off",
+      "@babel/semi": "off",
+      "@stylistic/array-bracket-newline": "off",
+      "@stylistic/array-bracket-spacing": "off",
+      "@stylistic/array-element-newline": "off",
+      "@stylistic/arrow-parens": "off",
+      "@stylistic/arrow-spacing": "off",
+      "@stylistic/block-spacing": "off",
+      "@stylistic/brace-style": "off",
+      "@stylistic/comma-dangle": "off",
+      "@stylistic/comma-spacing": "off",
+      "@stylistic/comma-style": "off",
+      "@stylistic/computed-property-spacing": "off",
+      "@stylistic/dot-location": "off",
+      "@stylistic/eol-last": "off",
+      "@stylistic/func-call-spacing": "off",
+      "@stylistic/function-call-argument-newline": "off",
+      "@stylistic/function-call-spacing": "off",
+      "@stylistic/function-paren-newline": "off",
+      "@stylistic/generator-star-spacing": "off",
+      "@stylistic/implicit-arrow-linebreak": "off",
+      "@stylistic/indent": "off",
+      "@stylistic/indent-binary-ops": "off",
+      "@stylistic/js/array-bracket-newline": "off",
+      "@stylistic/js/array-bracket-spacing": "off",
+      "@stylistic/js/array-element-newline": "off",
+      "@stylistic/js/arrow-parens": "off",
+      "@stylistic/js/arrow-spacing": "off",
+      "@stylistic/js/block-spacing": "off",
+      "@stylistic/js/brace-style": "off",
+      "@stylistic/js/comma-dangle": "off",
+      "@stylistic/js/comma-spacing": "off",
+      "@stylistic/js/comma-style": "off",
+      "@stylistic/js/computed-property-spacing": "off",
+      "@stylistic/js/dot-location": "off",
+      "@stylistic/js/eol-last": "off",
+      "@stylistic/js/func-call-spacing": "off",
+      "@stylistic/js/function-call-argument-newline": "off",
+      "@stylistic/js/function-call-spacing": "off",
+      "@stylistic/js/function-paren-newline": "off",
+      "@stylistic/js/generator-star-spacing": "off",
+      "@stylistic/js/implicit-arrow-linebreak": "off",
+      "@stylistic/js/indent": "off",
+      "@stylistic/js/jsx-quotes": "off",
+      "@stylistic/js/key-spacing": "off",
+      "@stylistic/js/keyword-spacing": "off",
+      "@stylistic/js/linebreak-style": "off",
+      "@stylistic/js/lines-around-comment": "off",
+      "@stylistic/js/max-len": "off",
+      "@stylistic/js/max-statements-per-line": "off",
+      "@stylistic/js/multiline-ternary": "off",
+      "@stylistic/js/new-parens": "off",
+      "@stylistic/js/newline-per-chained-call": "off",
+      "@stylistic/js/no-confusing-arrow": "off",
+      "@stylistic/js/no-extra-parens": "off",
+      "@stylistic/js/no-extra-semi": "off",
+      "@stylistic/js/no-floating-decimal": "off",
+      "@stylistic/js/no-mixed-operators": "off",
+      "@stylistic/js/no-mixed-spaces-and-tabs": "off",
+      "@stylistic/js/no-multi-spaces": "off",
+      "@stylistic/js/no-multiple-empty-lines": "off",
+      "@stylistic/js/no-tabs": "off",
+      "@stylistic/js/no-trailing-spaces": "off",
+      "@stylistic/js/no-whitespace-before-property": "off",
+      "@stylistic/js/nonblock-statement-body-position": "off",
+      "@stylistic/js/object-curly-newline": "off",
+      "@stylistic/js/object-curly-spacing": "off",
+      "@stylistic/js/object-property-newline": "off",
+      "@stylistic/js/one-var-declaration-per-line": "off",
+      "@stylistic/js/operator-linebreak": "off",
+      "@stylistic/js/padded-blocks": "off",
+      "@stylistic/js/quote-props": "off",
+      "@stylistic/js/quotes": "off",
+      "@stylistic/js/rest-spread-spacing": "off",
+      "@stylistic/js/semi": "off",
+      "@stylistic/js/semi-spacing": "off",
+      "@stylistic/js/semi-style": "off",
+      "@stylistic/js/space-before-blocks": "off",
+      "@stylistic/js/space-before-function-paren": "off",
+      "@stylistic/js/space-in-parens": "off",
+      "@stylistic/js/space-infix-ops": "off",
+      "@stylistic/js/space-unary-ops": "off",
+      "@stylistic/js/switch-colon-spacing": "off",
+      "@stylistic/js/template-curly-spacing": "off",
+      "@stylistic/js/template-tag-spacing": "off",
+      "@stylistic/js/wrap-iife": "off",
+      "@stylistic/js/wrap-regex": "off",
+      "@stylistic/js/yield-star-spacing": "off",
+      "@stylistic/jsx-child-element-spacing": "off",
+      "@stylistic/jsx-closing-bracket-location": "off",
+      "@stylistic/jsx-closing-tag-location": "off",
+      "@stylistic/jsx-curly-newline": "off",
+      "@stylistic/jsx-curly-spacing": "off",
+      "@stylistic/jsx-equals-spacing": "off",
+      "@stylistic/jsx-first-prop-new-line": "off",
+      "@stylistic/jsx-indent": "off",
+      "@stylistic/jsx-indent-props": "off",
+      "@stylistic/jsx-max-props-per-line": "off",
+      "@stylistic/jsx-newline": "off",
+      "@stylistic/jsx-one-expression-per-line": "off",
+      "@stylistic/jsx-props-no-multi-spaces": "off",
+      "@stylistic/jsx-quotes": "off",
+      "@stylistic/jsx-tag-spacing": "off",
+      "@stylistic/jsx-wrap-multilines": "off",
+      "@stylistic/jsx/jsx-child-element-spacing": "off",
+      "@stylistic/jsx/jsx-closing-bracket-location": "off",
+      "@stylistic/jsx/jsx-closing-tag-location": "off",
+      "@stylistic/jsx/jsx-curly-newline": "off",
+      "@stylistic/jsx/jsx-curly-spacing": "off",
+      "@stylistic/jsx/jsx-equals-spacing": "off",
+      "@stylistic/jsx/jsx-first-prop-new-line": "off",
+      "@stylistic/jsx/jsx-indent": "off",
+      "@stylistic/jsx/jsx-indent-props": "off",
+      "@stylistic/jsx/jsx-max-props-per-line": "off",
+      "@stylistic/key-spacing": "off",
+      "@stylistic/keyword-spacing": "off",
+      "@stylistic/linebreak-style": "off",
+      "@stylistic/lines-around-comment": "off",
+      "@stylistic/max-len": "off",
+      "@stylistic/max-statements-per-line": "off",
+      "@stylistic/member-delimiter-style": "off",
+      "@stylistic/multiline-ternary": "off",
+      "@stylistic/new-parens": "off",
+      "@stylistic/newline-per-chained-call": "off",
+      "@stylistic/no-confusing-arrow": "off",
+      "@stylistic/no-extra-parens": "off",
+      "@stylistic/no-extra-semi": "off",
+      "@stylistic/no-floating-decimal": "off",
+      "@stylistic/no-mixed-operators": "off",
+      "@stylistic/no-mixed-spaces-and-tabs": "off",
+      "@stylistic/no-multi-spaces": "off",
+      "@stylistic/no-multiple-empty-lines": "off",
+      "@stylistic/no-tabs": "off",
+      "@stylistic/no-trailing-spaces": "off",
+      "@stylistic/no-whitespace-before-property": "off",
+      "@stylistic/nonblock-statement-body-position": "off",
+      "@stylistic/object-curly-newline": "off",
+      "@stylistic/object-curly-spacing": "off",
+      "@stylistic/object-property-newline": "off",
+      "@stylistic/one-var-declaration-per-line": "off",
+      "@stylistic/operator-linebreak": "off",
+      "@stylistic/padded-blocks": "off",
+      "@stylistic/quote-props": "off",
+      "@stylistic/quotes": "off",
+      "@stylistic/rest-spread-spacing": "off",
+      "@stylistic/semi": "off",
+      "@stylistic/semi-spacing": "off",
+      "@stylistic/semi-style": "off",
+      "@stylistic/space-before-blocks": "off",
+      "@stylistic/space-before-function-paren": "off",
+      "@stylistic/space-in-parens": "off",
+      "@stylistic/space-infix-ops": "off",
+      "@stylistic/space-unary-ops": "off",
+      "@stylistic/switch-colon-spacing": "off",
+      "@stylistic/template-curly-spacing": "off",
+      "@stylistic/template-tag-spacing": "off",
+      "@stylistic/ts/block-spacing": "off",
+      "@stylistic/ts/brace-style": "off",
+      "@stylistic/ts/comma-dangle": "off",
+      "@stylistic/ts/comma-spacing": "off",
+      "@stylistic/ts/func-call-spacing": "off",
+      "@stylistic/ts/function-call-spacing": "off",
+      "@stylistic/ts/indent": "off",
+      "@stylistic/ts/key-spacing": "off",
+      "@stylistic/ts/keyword-spacing": "off",
+      "@stylistic/ts/lines-around-comment": "off",
+      "@stylistic/ts/member-delimiter-style": "off",
+      "@stylistic/ts/no-extra-parens": "off",
+      "@stylistic/ts/no-extra-semi": "off",
+      "@stylistic/ts/object-curly-spacing": "off",
+      "@stylistic/ts/quotes": "off",
+      "@stylistic/ts/semi": "off",
+      "@stylistic/ts/space-before-blocks": "off",
+      "@stylistic/ts/space-before-function-paren": "off",
+      "@stylistic/ts/space-infix-ops": "off",
+      "@stylistic/ts/type-annotation-spacing": "off",
+      "@stylistic/type-annotation-spacing": "off",
+      "@stylistic/type-generic-spacing": "off",
+      "@stylistic/type-named-tuple-spacing": "off",
+      "@stylistic/wrap-iife": "off",
+      "@stylistic/wrap-regex": "off",
+      "@stylistic/yield-star-spacing": "off",
+      "@typescript-eslint/block-spacing": "off",
+      "@typescript-eslint/brace-style": "off",
+      "@typescript-eslint/comma-dangle": "off",
+      "@typescript-eslint/comma-spacing": "off",
+      "@typescript-eslint/func-call-spacing": "off",
+      "@typescript-eslint/indent": "off",
+      "@typescript-eslint/key-spacing": "off",
+      "@typescript-eslint/keyword-spacing": "off",
+      "@typescript-eslint/lines-around-comment": "off",
+      "@typescript-eslint/member-delimiter-style": "off",
+      "@typescript-eslint/method-signature-style": "enabled",
+      "@typescript-eslint/no-extra-parens": "off",
+      "@typescript-eslint/no-extra-semi": "off",
+      "@typescript-eslint/no-shadow": "enabled",
+      "@typescript-eslint/no-unused-vars": "enabled",
+      "@typescript-eslint/object-curly-spacing": "off",
+      "@typescript-eslint/quotes": "off",
+      "@typescript-eslint/semi": "off",
+      "@typescript-eslint/space-before-blocks": "off",
+      "@typescript-eslint/space-before-function-paren": "off",
+      "@typescript-eslint/space-infix-ops": "off",
+      "@typescript-eslint/type-annotation-spacing": "off",
+      "@wordpress/i18n-ellipsis": "enabled",
+      "@wordpress/i18n-hyphenated-range": "enabled",
+      "@wordpress/i18n-no-collapsible-whitespace": "enabled",
+      "@wordpress/i18n-no-flanking-whitespace": "enabled",
+      "@wordpress/i18n-no-placeholders-only": "enabled",
+      "@wordpress/i18n-no-variables": "enabled",
+      "@wordpress/i18n-text-domain": "enabled",
+      "@wordpress/i18n-translator-comments": "enabled",
+      "@wordpress/no-base-control-with-label-without-id": "enabled",
+      "@wordpress/no-global-active-element": "mixed",
+      "@wordpress/no-global-get-selection": "mixed",
+      "@wordpress/no-setting-ds-tokens": "enabled",
+      "@wordpress/no-unguarded-get-range-at": "enabled",
+      "@wordpress/no-unknown-ds-tokens": "enabled",
+      "@wordpress/no-unsafe-render-order": "enabled",
+      "@wordpress/no-unsafe-wp-apis": "enabled",
+      "@wordpress/no-unused-vars-before-return": "enabled",
+      "@wordpress/no-wp-process-env": "enabled",
+      "@wordpress/valid-sprintf": "enabled",
+      "array-bracket-newline": "off",
+      "array-bracket-spacing": "mixed",
+      "array-callback-return": "enabled",
+      "array-element-newline": "off",
+      "arrow-parens": "mixed",
+      "arrow-spacing": "mixed",
+      "babel/object-curly-spacing": "off",
+      "babel/quotes": "off",
+      "babel/semi": "off",
+      "block-spacing": "off",
+      "brace-style": "mixed",
+      "camelcase": "enabled",
+      "comma-dangle": "mixed",
+      "comma-spacing": "mixed",
+      "comma-style": "mixed",
+      "computed-property-spacing": "mixed",
+      "constructor-super": "mixed",
+      "curly": "mixed",
+      "dot-location": "off",
+      "dot-notation": "enabled",
+      "eol-last": "mixed",
+      "eqeqeq": "enabled",
+      "flowtype/boolean-style": "off",
+      "flowtype/delimiter-dangle": "off",
+      "flowtype/generic-spacing": "off",
+      "flowtype/object-type-curly-spacing": "off",
+      "flowtype/object-type-delimiter": "off",
+      "flowtype/quotes": "off",
+      "flowtype/semi": "off",
+      "flowtype/space-after-type-colon": "off",
+      "flowtype/space-before-generic-bracket": "off",
+      "flowtype/space-before-type-colon": "off",
+      "flowtype/union-intersection-spacing": "off",
+      "func-call-spacing": "mixed",
+      "function-call-argument-newline": "off",
+      "function-paren-newline": "off",
+      "generator-star": "off",
+      "generator-star-spacing": "off",
+      "getter-return": "off",
+      "implicit-arrow-linebreak": "off",
+      "import/default": "mixed",
+      "import/named": "mixed",
+      "import/no-duplicates": "enabled",
+      "import/no-extraneous-dependencies": "enabled",
+      "import/no-unresolved": "mixed",
+      "indent": "mixed",
+      "indent-legacy": "off",
+      "jsdoc/check-access": "enabled",
+      "jsdoc/check-alignment": "enabled",
+      "jsdoc/check-examples": "off",
+      "jsdoc/check-indentation": "off",
+      "jsdoc/check-line-alignment": "mixed",
+      "jsdoc/check-param-names": "enabled",
+      "jsdoc/check-property-names": "enabled",
+      "jsdoc/check-syntax": "off",
+      "jsdoc/check-tag-names": "enabled",
+      "jsdoc/check-template-names": "off",
+      "jsdoc/check-types": "enabled",
+      "jsdoc/check-values": "mixed",
+      "jsdoc/convert-to-jsdoc-comments": "off",
+      "jsdoc/empty-tags": "enabled",
+      "jsdoc/implements-on-classes": "enabled",
+      "jsdoc/imports-as-dependencies": "off",
+      "jsdoc/informative-docs": "off",
+      "jsdoc/lines-before-block": "off",
+      "jsdoc/match-description": "off",
+      "jsdoc/match-name": "off",
+      "jsdoc/multiline-blocks": "enabled",
+      "jsdoc/no-bad-blocks": "off",
+      "jsdoc/no-blank-block-descriptions": "off",
+      "jsdoc/no-blank-blocks": "off",
+      "jsdoc/no-defaults": "mixed",
+      "jsdoc/no-missing-syntax": "off",
+      "jsdoc/no-multi-asterisks": "enabled",
+      "jsdoc/no-restricted-syntax": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/no-undefined-types": "enabled",
+      "jsdoc/require-asterisk-prefix": "off",
+      "jsdoc/require-description": "off",
+      "jsdoc/require-description-complete-sentence": "off",
+      "jsdoc/require-example": "off",
+      "jsdoc/require-file-overview": "off",
+      "jsdoc/require-hyphen-before-param-description": "off",
+      "jsdoc/require-jsdoc": "mixed",
+      "jsdoc/require-param": "enabled",
+      "jsdoc/require-param-description": "mixed",
+      "jsdoc/require-param-name": "enabled",
+      "jsdoc/require-param-type": "mixed",
+      "jsdoc/require-property": "enabled",
+      "jsdoc/require-property-description": "enabled",
+      "jsdoc/require-property-name": "enabled",
+      "jsdoc/require-property-type": "enabled",
+      "jsdoc/require-returns": "mixed",
+      "jsdoc/require-returns-check": "enabled",
+      "jsdoc/require-returns-description": "enabled",
+      "jsdoc/require-returns-type": "mixed",
+      "jsdoc/require-template": "off",
+      "jsdoc/require-throws": "off",
+      "jsdoc/require-yields": "mixed",
+      "jsdoc/require-yields-check": "enabled",
+      "jsdoc/sort-tags": "off",
+      "jsdoc/tag-lines": "enabled",
+      "jsdoc/text-escaping": "off",
+      "jsdoc/valid-types": "enabled",
+      "jsx-a11y/alt-text": "enabled",
+      "jsx-a11y/anchor-ambiguous-text": "off",
+      "jsx-a11y/anchor-has-content": "enabled",
+      "jsx-a11y/anchor-is-valid": "enabled",
+      "jsx-a11y/aria-activedescendant-has-tabindex": "enabled",
+      "jsx-a11y/aria-props": "enabled",
+      "jsx-a11y/aria-proptypes": "enabled",
+      "jsx-a11y/aria-role": "enabled",
+      "jsx-a11y/aria-unsupported-elements": "enabled",
+      "jsx-a11y/autocomplete-valid": "enabled",
+      "jsx-a11y/click-events-have-key-events": "enabled",
+      "jsx-a11y/control-has-associated-label": "off",
+      "jsx-a11y/heading-has-content": "mixed",
+      "jsx-a11y/html-has-lang": "enabled",
+      "jsx-a11y/iframe-has-title": "enabled",
+      "jsx-a11y/img-redundant-alt": "enabled",
+      "jsx-a11y/interactive-supports-focus": "enabled",
+      "jsx-a11y/label-has-associated-control": "enabled",
+      "jsx-a11y/label-has-for": "off",
+      "jsx-a11y/media-has-caption": "mixed",
+      "jsx-a11y/mouse-events-have-key-events": "enabled",
+      "jsx-a11y/no-access-key": "enabled",
+      "jsx-a11y/no-autofocus": "enabled",
+      "jsx-a11y/no-distracting-elements": "enabled",
+      "jsx-a11y/no-interactive-element-to-noninteractive-role": "enabled",
+      "jsx-a11y/no-noninteractive-element-interactions": "enabled",
+      "jsx-a11y/no-noninteractive-element-to-interactive-role": "enabled",
+      "jsx-a11y/no-noninteractive-tabindex": "mixed",
+      "jsx-a11y/no-redundant-roles": "enabled",
+      "jsx-a11y/no-static-element-interactions": "enabled",
+      "jsx-a11y/role-has-required-aria-props": "mixed",
+      "jsx-a11y/role-supports-aria-props": "enabled",
+      "jsx-a11y/scope": "enabled",
+      "jsx-a11y/tabindex-no-positive": "enabled",
+      "jsx-quotes": "mixed",
+      "key-spacing": "mixed",
+      "keyword-spacing": "mixed",
+      "linebreak-style": "mixed",
+      "lines-around-comment": "off",
+      "max-len": "off",
+      "max-statements-per-line": "off",
+      "multiline-ternary": "off",
+      "new-parens": "off",
+      "newline-per-chained-call": "off",
+      "no-alert": "enabled",
+      "no-arrow-condition": "off",
+      "no-bitwise": "enabled",
+      "no-caller": "enabled",
+      "no-class-assign": "off",
+      "no-comma-dangle": "off",
+      "no-cond-assign": "enabled",
+      "no-confusing-arrow": "off",
+      "no-console": "enabled",
+      "no-const-assign": "mixed",
+      "no-debugger": "enabled",
+      "no-dupe-args": "mixed",
+      "no-dupe-class-members": "mixed",
+      "no-dupe-keys": "mixed",
+      "no-duplicate-case": "enabled",
+      "no-duplicate-imports": "mixed",
+      "no-else-return": "enabled",
+      "no-eval": "enabled",
+      "no-extra-parens": "off",
+      "no-extra-semi": "mixed",
+      "no-fallthrough": "enabled",
+      "no-floating-decimal": "off",
+      "no-func-assign": "off",
+      "no-import-assign": "off",
+      "no-irregular-whitespace": "enabled",
+      "no-lonely-if": "enabled",
+      "no-mixed-operators": "mixed",
+      "no-mixed-spaces-and-tabs": "mixed",
+      "no-multi-spaces": "mixed",
+      "no-multi-str": "enabled",
+      "no-multiple-empty-lines": "mixed",
+      "no-nested-ternary": "enabled",
+      "no-new-native-nonconstructor": "off",
+      "no-new-symbol": "off",
+      "no-obj-calls": "off",
+      "no-redeclare": "mixed",
+      "no-reserved-keys": "off",
+      "no-setter-return": "off",
+      "no-shadow": "mixed",
+      "no-space-before-semi": "off",
+      "no-spaced-func": "off",
+      "no-tabs": "off",
+      "no-this-before-super": "off",
+      "no-trailing-spaces": "mixed",
+      "no-undef": "mixed",
+      "no-undef-init": "enabled",
+      "no-unexpected-multiline": "off",
+      "no-unreachable": "mixed",
+      "no-unsafe-negation": "mixed",
+      "no-unused-expressions": "enabled",
+      "no-unused-vars": "mixed",
+      "no-useless-computed-key": "enabled",
+      "no-useless-constructor": "enabled",
+      "no-useless-return": "enabled",
+      "no-var": "enabled",
+      "no-whitespace-before-property": "mixed",
+      "no-with": "mixed",
+      "no-wrap-func": "off",
+      "nonblock-statement-body-position": "off",
+      "object-curly-newline": "off",
+      "object-curly-spacing": "mixed",
+      "object-property-newline": "off",
+      "object-shorthand": "enabled",
+      "one-var-declaration-per-line": "mixed",
+      "operator-linebreak": "mixed",
+      "padded-blocks": "mixed",
+      "prefer-const": "enabled",
+      "prefer-rest-params": "enabled",
+      "prefer-spread": "enabled",
+      "prettier/prettier": "enabled",
+      "quote-props": "mixed",
+      "quotes": "mixed",
+      "react-hooks/exhaustive-deps": "enabled",
+      "react-hooks/rules-of-hooks": "enabled",
+      "react/display-name": "mixed",
+      "react/jsx-child-element-spacing": "off",
+      "react/jsx-closing-bracket-location": "off",
+      "react/jsx-closing-tag-location": "off",
+      "react/jsx-curly-newline": "off",
+      "react/jsx-curly-spacing": "mixed",
+      "react/jsx-equals-spacing": "mixed",
+      "react/jsx-first-prop-new-line": "off",
+      "react/jsx-indent": "mixed",
+      "react/jsx-indent-props": "mixed",
+      "react/jsx-key": "enabled",
+      "react/jsx-max-props-per-line": "off",
+      "react/jsx-newline": "off",
+      "react/jsx-no-comment-textnodes": "enabled",
+      "react/jsx-no-duplicate-props": "enabled",
+      "react/jsx-no-target-blank": "enabled",
+      "react/jsx-no-undef": "enabled",
+      "react/jsx-one-expression-per-line": "off",
+      "react/jsx-props-no-multi-spaces": "off",
+      "react/jsx-space-before-closing": "off",
+      "react/jsx-tag-spacing": "mixed",
+      "react/jsx-uses-react": "enabled",
+      "react/jsx-uses-vars": "enabled",
+      "react/jsx-wrap-multilines": "off",
+      "react/no-children-prop": "mixed",
+      "react/no-danger-with-children": "enabled",
+      "react/no-deprecated": "enabled",
+      "react/no-direct-mutation-state": "enabled",
+      "react/no-find-dom-node": "enabled",
+      "react/no-is-mounted": "enabled",
+      "react/no-render-return-value": "enabled",
+      "react/no-string-refs": "enabled",
+      "react/no-unescaped-entities": "enabled",
+      "react/no-unknown-property": "enabled",
+      "react/no-unsafe": "off",
+      "react/prop-types": "mixed",
+      "react/react-in-jsx-scope": "mixed",
+      "react/require-render-return": "enabled",
+      "rest-spread-spacing": "off",
+      "semi": "mixed",
+      "semi-spacing": "mixed",
+      "semi-style": "off",
+      "space-after-function-name": "off",
+      "space-after-keywords": "off",
+      "space-before-blocks": "mixed",
+      "space-before-function-paren": "mixed",
+      "space-before-function-parentheses": "off",
+      "space-before-keywords": "off",
+      "space-in-brackets": "off",
+      "space-in-parens": "mixed",
+      "space-infix-ops": "mixed",
+      "space-return-throw-case": "off",
+      "space-unary-ops": "mixed",
+      "space-unary-word-ops": "off",
+      "standard/array-bracket-even-spacing": "off",
+      "standard/computed-property-even-spacing": "off",
+      "standard/object-curly-even-spacing": "off",
+      "switch-colon-spacing": "off",
+      "template-curly-spacing": "mixed",
+      "template-tag-spacing": "off",
+      "unicorn/empty-brace-spaces": "off",
+      "unicorn/no-nested-ternary": "off",
+      "unicorn/number-literal-case": "off",
+      "unicorn/template-indent": "off",
+      "valid-typeof": "enabled",
+      "vars-on-top": "mixed",
+      "vue/array-bracket-newline": "off",
+      "vue/array-bracket-spacing": "off",
+      "vue/array-element-newline": "off",
+      "vue/arrow-spacing": "off",
+      "vue/block-spacing": "off",
+      "vue/block-tag-newline": "off",
+      "vue/brace-style": "off",
+      "vue/comma-dangle": "off",
+      "vue/comma-spacing": "off",
+      "vue/comma-style": "off",
+      "vue/dot-location": "off",
+      "vue/func-call-spacing": "off",
+      "vue/html-closing-bracket-newline": "off",
+      "vue/html-closing-bracket-spacing": "off",
+      "vue/html-end-tags": "off",
+      "vue/html-indent": "off",
+      "vue/html-quotes": "off",
+      "vue/html-self-closing": "off",
+      "vue/key-spacing": "off",
+      "vue/keyword-spacing": "off",
+      "vue/max-attributes-per-line": "off",
+      "vue/max-len": "off",
+      "vue/multiline-html-element-content-newline": "off",
+      "vue/multiline-ternary": "off",
+      "vue/mustache-interpolation-spacing": "off",
+      "vue/no-extra-parens": "off",
+      "vue/no-multi-spaces": "off",
+      "vue/no-spaces-around-equal-signs-in-attribute": "off",
+      "vue/object-curly-newline": "off",
+      "vue/object-curly-spacing": "off",
+      "vue/object-property-newline": "off",
+      "vue/operator-linebreak": "off",
+      "vue/quote-props": "off",
+      "vue/script-indent": "off",
+      "vue/singleline-html-element-content-newline": "off",
+      "vue/space-in-parens": "off",
+      "vue/space-infix-ops": "off",
+      "vue/space-unary-ops": "off",
+      "vue/template-curly-spacing": "off",
+      "wrap-iife": "mixed",
+      "wrap-regex": "off",
+      "yield-star-spacing": "off"
+    },
+    "recommended-with-formatting": {
+      "@wordpress/i18n-ellipsis": "enabled",
+      "@wordpress/i18n-hyphenated-range": "enabled",
+      "@wordpress/i18n-no-collapsible-whitespace": "enabled",
+      "@wordpress/i18n-no-flanking-whitespace": "enabled",
+      "@wordpress/i18n-no-placeholders-only": "enabled",
+      "@wordpress/i18n-no-variables": "enabled",
+      "@wordpress/i18n-text-domain": "enabled",
+      "@wordpress/i18n-translator-comments": "enabled",
+      "@wordpress/no-base-control-with-label-without-id": "enabled",
+      "@wordpress/no-global-active-element": "mixed",
+      "@wordpress/no-global-get-selection": "mixed",
+      "@wordpress/no-setting-ds-tokens": "enabled",
+      "@wordpress/no-unguarded-get-range-at": "enabled",
+      "@wordpress/no-unknown-ds-tokens": "enabled",
+      "@wordpress/no-unsafe-render-order": "enabled",
+      "@wordpress/no-unsafe-wp-apis": "enabled",
+      "@wordpress/no-unused-vars-before-return": "enabled",
+      "@wordpress/no-wp-process-env": "enabled",
+      "@wordpress/valid-sprintf": "enabled",
+      "array-bracket-spacing": "enabled",
+      "array-callback-return": "enabled",
+      "arrow-parens": "enabled",
+      "arrow-spacing": "enabled",
+      "brace-style": "enabled",
+      "camelcase": "enabled",
+      "comma-dangle": "enabled",
+      "comma-spacing": "enabled",
+      "comma-style": "enabled",
+      "computed-property-spacing": "enabled",
+      "constructor-super": "enabled",
+      "curly": "enabled",
+      "dot-notation": "enabled",
+      "eol-last": "enabled",
+      "eqeqeq": "enabled",
+      "func-call-spacing": "enabled",
+      "import/default": "enabled",
+      "import/named": "enabled",
+      "import/no-extraneous-dependencies": "enabled",
+      "import/no-unresolved": "enabled",
+      "indent": "enabled",
+      "jsdoc/check-access": "enabled",
+      "jsdoc/check-alignment": "enabled",
+      "jsdoc/check-examples": "off",
+      "jsdoc/check-indentation": "off",
+      "jsdoc/check-line-alignment": "mixed",
+      "jsdoc/check-param-names": "enabled",
+      "jsdoc/check-property-names": "enabled",
+      "jsdoc/check-syntax": "off",
+      "jsdoc/check-tag-names": "enabled",
+      "jsdoc/check-template-names": "off",
+      "jsdoc/check-types": "enabled",
+      "jsdoc/check-values": "mixed",
+      "jsdoc/convert-to-jsdoc-comments": "off",
+      "jsdoc/empty-tags": "enabled",
+      "jsdoc/implements-on-classes": "enabled",
+      "jsdoc/imports-as-dependencies": "off",
+      "jsdoc/informative-docs": "off",
+      "jsdoc/lines-before-block": "off",
+      "jsdoc/match-description": "off",
+      "jsdoc/match-name": "off",
+      "jsdoc/multiline-blocks": "enabled",
+      "jsdoc/no-bad-blocks": "off",
+      "jsdoc/no-blank-block-descriptions": "off",
+      "jsdoc/no-blank-blocks": "off",
+      "jsdoc/no-defaults": "mixed",
+      "jsdoc/no-missing-syntax": "off",
+      "jsdoc/no-multi-asterisks": "enabled",
+      "jsdoc/no-restricted-syntax": "off",
+      "jsdoc/no-types": "off",
+      "jsdoc/no-undefined-types": "enabled",
+      "jsdoc/require-asterisk-prefix": "off",
+      "jsdoc/require-description": "off",
+      "jsdoc/require-description-complete-sentence": "off",
+      "jsdoc/require-example": "off",
+      "jsdoc/require-file-overview": "off",
+      "jsdoc/require-hyphen-before-param-description": "off",
+      "jsdoc/require-jsdoc": "mixed",
+      "jsdoc/require-param": "enabled",
+      "jsdoc/require-param-description": "mixed",
+      "jsdoc/require-param-name": "enabled",
+      "jsdoc/require-param-type": "enabled",
+      "jsdoc/require-property": "enabled",
+      "jsdoc/require-property-description": "enabled",
+      "jsdoc/require-property-name": "enabled",
+      "jsdoc/require-property-type": "enabled",
+      "jsdoc/require-returns": "mixed",
+      "jsdoc/require-returns-check": "enabled",
+      "jsdoc/require-returns-description": "enabled",
+      "jsdoc/require-returns-type": "enabled",
+      "jsdoc/require-template": "off",
+      "jsdoc/require-throws": "off",
+      "jsdoc/require-yields": "mixed",
+      "jsdoc/require-yields-check": "enabled",
+      "jsdoc/sort-tags": "off",
+      "jsdoc/tag-lines": "enabled",
+      "jsdoc/text-escaping": "off",
+      "jsdoc/valid-types": "enabled",
+      "jsx-a11y/alt-text": "enabled",
+      "jsx-a11y/anchor-ambiguous-text": "off",
+      "jsx-a11y/anchor-has-content": "enabled",
+      "jsx-a11y/anchor-is-valid": "enabled",
+      "jsx-a11y/aria-activedescendant-has-tabindex": "enabled",
+      "jsx-a11y/aria-props": "enabled",
+      "jsx-a11y/aria-proptypes": "enabled",
+      "jsx-a11y/aria-role": "enabled",
+      "jsx-a11y/aria-unsupported-elements": "enabled",
+      "jsx-a11y/autocomplete-valid": "enabled",
+      "jsx-a11y/click-events-have-key-events": "enabled",
+      "jsx-a11y/control-has-associated-label": "off",
+      "jsx-a11y/heading-has-content": "mixed",
+      "jsx-a11y/html-has-lang": "enabled",
+      "jsx-a11y/iframe-has-title": "enabled",
+      "jsx-a11y/img-redundant-alt": "enabled",
+      "jsx-a11y/interactive-supports-focus": "enabled",
+      "jsx-a11y/label-has-associated-control": "enabled",
+      "jsx-a11y/label-has-for": "off",
+      "jsx-a11y/media-has-caption": "mixed",
+      "jsx-a11y/mouse-events-have-key-events": "enabled",
+      "jsx-a11y/no-access-key": "enabled",
+      "jsx-a11y/no-autofocus": "enabled",
+      "jsx-a11y/no-distracting-elements": "enabled",
+      "jsx-a11y/no-interactive-element-to-noninteractive-role": "enabled",
+      "jsx-a11y/no-noninteractive-element-interactions": "enabled",
+      "jsx-a11y/no-noninteractive-element-to-interactive-role": "enabled",
+      "jsx-a11y/no-noninteractive-tabindex": "mixed",
+      "jsx-a11y/no-redundant-roles": "enabled",
+      "jsx-a11y/no-static-element-interactions": "enabled",
+      "jsx-a11y/role-has-required-aria-props": "mixed",
+      "jsx-a11y/role-supports-aria-props": "enabled",
+      "jsx-a11y/scope": "enabled",
+      "jsx-a11y/tabindex-no-positive": "enabled",
+      "jsx-quotes": "enabled",
+      "key-spacing": "enabled",
+      "keyword-spacing": "enabled",
+      "linebreak-style": "enabled",
+      "no-alert": "enabled",
+      "no-bitwise": "enabled",
+      "no-caller": "enabled",
+      "no-cond-assign": "enabled",
+      "no-console": "enabled",
+      "no-const-assign": "enabled",
+      "no-debugger": "enabled",
+      "no-dupe-args": "enabled",
+      "no-dupe-class-members": "enabled",
+      "no-dupe-keys": "enabled",
+      "no-duplicate-case": "enabled",
+      "no-duplicate-imports": "enabled",
+      "no-else-return": "enabled",
+      "no-eval": "enabled",
+      "no-extra-semi": "enabled",
+      "no-fallthrough": "enabled",
+      "no-irregular-whitespace": "enabled",
+      "no-lonely-if": "enabled",
+      "no-mixed-operators": "enabled",
+      "no-mixed-spaces-and-tabs": "enabled",
+      "no-multi-spaces": "enabled",
+      "no-multi-str": "enabled",
+      "no-multiple-empty-lines": "enabled",
+      "no-nested-ternary": "enabled",
+      "no-redeclare": "enabled",
+      "no-shadow": "enabled",
+      "no-trailing-spaces": "enabled",
+      "no-undef": "enabled",
+      "no-undef-init": "enabled",
+      "no-unreachable": "enabled",
+      "no-unsafe-negation": "enabled",
+      "no-unused-expressions": "enabled",
+      "no-unused-vars": "enabled",
+      "no-useless-computed-key": "enabled",
+      "no-useless-constructor": "enabled",
+      "no-useless-return": "enabled",
+      "no-var": "enabled",
+      "no-whitespace-before-property": "enabled",
+      "no-with": "enabled",
+      "object-curly-spacing": "enabled",
+      "object-shorthand": "enabled",
+      "one-var-declaration-per-line": "enabled",
+      "operator-linebreak": "enabled",
+      "padded-blocks": "enabled",
+      "prefer-const": "enabled",
+      "quote-props": "enabled",
+      "quotes": "enabled",
+      "react-hooks/exhaustive-deps": "enabled",
+      "react-hooks/rules-of-hooks": "enabled",
+      "react/display-name": "mixed",
+      "react/jsx-curly-spacing": "enabled",
+      "react/jsx-equals-spacing": "enabled",
+      "react/jsx-indent": "enabled",
+      "react/jsx-indent-props": "enabled",
+      "react/jsx-key": "enabled",
+      "react/jsx-no-comment-textnodes": "enabled",
+      "react/jsx-no-duplicate-props": "enabled",
+      "react/jsx-no-target-blank": "enabled",
+      "react/jsx-no-undef": "enabled",
+      "react/jsx-tag-spacing": "enabled",
+      "react/jsx-uses-react": "enabled",
+      "react/jsx-uses-vars": "enabled",
+      "react/no-children-prop": "mixed",
+      "react/no-danger-with-children": "enabled",
+      "react/no-deprecated": "enabled",
+      "react/no-direct-mutation-state": "enabled",
+      "react/no-find-dom-node": "enabled",
+      "react/no-is-mounted": "enabled",
+      "react/no-render-return-value": "enabled",
+      "react/no-string-refs": "enabled",
+      "react/no-unescaped-entities": "enabled",
+      "react/no-unknown-property": "enabled",
+      "react/no-unsafe": "off",
+      "react/prop-types": "mixed",
+      "react/react-in-jsx-scope": "mixed",
+      "react/require-render-return": "enabled",
+      "semi": "enabled",
+      "semi-spacing": "enabled",
+      "space-before-blocks": "enabled",
+      "space-before-function-paren": "enabled",
+      "space-in-parens": "enabled",
+      "space-infix-ops": "enabled",
+      "space-unary-ops": "enabled",
+      "template-curly-spacing": "enabled",
+      "valid-typeof": "enabled",
+      "vars-on-top": "mixed",
+      "wrap-iife": "enabled"
+    },
+    "test-e2e": {
+      "jest/expect-expect": "enabled",
+      "jest/no-alias-methods": "enabled",
+      "jest/no-commented-out-tests": "enabled",
+      "jest/no-conditional-expect": "enabled",
+      "jest/no-deprecated-functions": "enabled",
+      "jest/no-disabled-tests": "enabled",
+      "jest/no-done-callback": "enabled",
+      "jest/no-export": "enabled",
+      "jest/no-focused-tests": "enabled",
+      "jest/no-identical-title": "enabled",
+      "jest/no-interpolation-in-snapshots": "enabled",
+      "jest/no-jasmine-globals": "enabled",
+      "jest/no-mocks-import": "enabled",
+      "jest/no-standalone-expect": "enabled",
+      "jest/no-test-prefixes": "enabled",
+      "jest/valid-describe-callback": "enabled",
+      "jest/valid-expect": "enabled",
+      "jest/valid-expect-in-promise": "enabled",
+      "jest/valid-title": "enabled"
+    },
+    "test-playwright": {
+      "no-empty-pattern": "off",
+      "playwright/consistent-spacing-between-blocks": "enabled",
+      "playwright/expect-expect": "enabled",
+      "playwright/max-nested-describe": "enabled",
+      "playwright/missing-playwright-await": "enabled",
+      "playwright/no-conditional-expect": "enabled",
+      "playwright/no-conditional-in-test": "enabled",
+      "playwright/no-duplicate-hooks": "enabled",
+      "playwright/no-duplicate-slow": "enabled",
+      "playwright/no-element-handle": "enabled",
+      "playwright/no-eval": "enabled",
+      "playwright/no-focused-test": "enabled",
+      "playwright/no-force-option": "enabled",
+      "playwright/no-nested-step": "enabled",
+      "playwright/no-networkidle": "enabled",
+      "playwright/no-page-pause": "enabled",
+      "playwright/no-skipped-test": "enabled",
+      "playwright/no-standalone-expect": "enabled",
+      "playwright/no-unnecessary-assertions": "enabled",
+      "playwright/no-unsafe-references": "enabled",
+      "playwright/no-unused-locators": "enabled",
+      "playwright/no-useless-await": "enabled",
+      "playwright/no-useless-not": "enabled",
+      "playwright/no-wait-for-navigation": "enabled",
+      "playwright/no-wait-for-selector": "enabled",
+      "playwright/no-wait-for-timeout": "enabled",
+      "playwright/prefer-hooks-in-order": "enabled",
+      "playwright/prefer-hooks-on-top": "enabled",
+      "playwright/prefer-locator": "enabled",
+      "playwright/prefer-to-have-count": "enabled",
+      "playwright/prefer-to-have-length": "enabled",
+      "playwright/prefer-web-first-assertions": "enabled",
+      "playwright/valid-describe-callback": "enabled",
+      "playwright/valid-expect": "enabled",
+      "playwright/valid-expect-in-promise": "enabled",
+      "playwright/valid-test-tags": "enabled",
+      "playwright/valid-title": "enabled"
+    },
+    "test-unit": {
+      "jest/expect-expect": "enabled",
+      "jest/no-alias-methods": "enabled",
+      "jest/no-commented-out-tests": "enabled",
+      "jest/no-conditional-expect": "enabled",
+      "jest/no-deprecated-functions": "enabled",
+      "jest/no-disabled-tests": "enabled",
+      "jest/no-done-callback": "enabled",
+      "jest/no-export": "enabled",
+      "jest/no-focused-tests": "enabled",
+      "jest/no-identical-title": "enabled",
+      "jest/no-interpolation-in-snapshots": "enabled",
+      "jest/no-jasmine-globals": "enabled",
+      "jest/no-mocks-import": "enabled",
+      "jest/no-standalone-expect": "enabled",
+      "jest/no-test-prefixes": "enabled",
+      "jest/valid-describe-callback": "enabled",
+      "jest/valid-expect": "enabled",
+      "jest/valid-expect-in-promise": "enabled",
+      "jest/valid-title": "enabled"
+    }
+  },
+  "compatibility": [
+    {
+      "kind": "unsupported",
+      "source": "@babel/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@babel/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/array-bracket-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/array-bracket-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/array-element-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/arrow-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/arrow-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/brace-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/comma-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/computed-property-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/dot-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/eol-last"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/function-call-argument-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/function-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/function-paren-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/generator-star-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/implicit-arrow-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/indent-binary-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/array-bracket-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/array-bracket-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/array-element-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/arrow-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/arrow-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/brace-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/comma-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/computed-property-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/dot-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/eol-last"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/function-call-argument-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/function-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/function-paren-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/generator-star-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/implicit-arrow-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/jsx-quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/linebreak-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/lines-around-comment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/max-len"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/max-statements-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/multiline-ternary"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/new-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/newline-per-chained-call"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-confusing-arrow"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-extra-semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-floating-decimal"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-mixed-operators"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-mixed-spaces-and-tabs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-multi-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-multiple-empty-lines"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-tabs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-trailing-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/no-whitespace-before-property"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/nonblock-statement-body-position"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/object-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/object-property-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/one-var-declaration-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/operator-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/padded-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/quote-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/rest-spread-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/semi-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/semi-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/space-before-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/space-before-function-paren"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/space-in-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/space-unary-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/switch-colon-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/template-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/template-tag-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/wrap-iife"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/wrap-regex"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/js/yield-star-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-child-element-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-closing-bracket-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-closing-tag-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-equals-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-first-prop-new-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-indent-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-max-props-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-one-expression-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-props-no-multi-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-tag-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx-wrap-multilines"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-child-element-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-closing-bracket-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-closing-tag-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-equals-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-first-prop-new-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-indent-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/jsx/jsx-max-props-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/linebreak-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/lines-around-comment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/max-len"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/max-statements-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/member-delimiter-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/multiline-ternary"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/new-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/newline-per-chained-call"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-confusing-arrow"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-extra-semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-floating-decimal"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-mixed-operators"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-mixed-spaces-and-tabs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-multi-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-multiple-empty-lines"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-tabs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-trailing-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/no-whitespace-before-property"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/nonblock-statement-body-position"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/object-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/object-property-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/one-var-declaration-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/operator-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/padded-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/quote-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/rest-spread-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/semi-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/semi-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/space-before-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/space-before-function-paren"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/space-in-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/space-unary-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/switch-colon-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/template-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/template-tag-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/brace-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/function-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/lines-around-comment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/member-delimiter-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/no-extra-semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/space-before-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/space-before-function-paren"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/ts/type-annotation-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/type-annotation-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/type-generic-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/type-named-tuple-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/wrap-iife"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/wrap-regex"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@stylistic/yield-star-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/brace-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/lines-around-comment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/member-delimiter-style"
+    },
+    {
+      "kind": "mapped",
+      "source": "@typescript-eslint/method-signature-style",
+      "target": "typescript/method-signature-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/no-extra-semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/no-shadow"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/space-before-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/space-before-function-paren"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@typescript-eslint/type-annotation-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-ellipsis"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-hyphenated-range"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-collapsible-whitespace"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-flanking-whitespace"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-placeholders-only"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-no-variables"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/i18n-text-domain",
+      "target": "wordpress/i18n-text-domain"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/i18n-translator-comments"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-base-control-with-label-without-id"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-global-active-element"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-global-get-selection"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-setting-ds-tokens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unguarded-get-range-at"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unknown-ds-tokens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unsafe-render-order"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/no-unsafe-wp-apis",
+      "target": "wordpress/no-unsafe-wp-apis"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-unused-vars-before-return"
+    },
+    {
+      "kind": "unsupported",
+      "source": "@wordpress/no-wp-process-env"
+    },
+    {
+      "kind": "contributor",
+      "source": "@wordpress/valid-sprintf",
+      "target": "wordpress/valid-sprintf"
+    },
+    {
+      "kind": "unsupported",
+      "source": "array-bracket-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "array-bracket-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "array-callback-return"
+    },
+    {
+      "kind": "unsupported",
+      "source": "array-element-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "arrow-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "arrow-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "babel/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "babel/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "babel/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "brace-style"
+    },
+    {
+      "kind": "builtin",
+      "source": "camelcase",
+      "target": "camelcase"
+    },
+    {
+      "kind": "unsupported",
+      "source": "comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "comma-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "computed-property-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "constructor-super"
+    },
+    {
+      "kind": "builtin",
+      "source": "curly",
+      "target": "curly"
+    },
+    {
+      "kind": "unsupported",
+      "source": "dot-location"
+    },
+    {
+      "kind": "builtin",
+      "source": "dot-notation",
+      "target": "dot-notation"
+    },
+    {
+      "kind": "unsupported",
+      "source": "eol-last"
+    },
+    {
+      "kind": "builtin",
+      "source": "eqeqeq",
+      "target": "eqeqeq"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/boolean-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/delimiter-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/generic-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/object-type-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/object-type-delimiter"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/space-after-type-colon"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/space-before-generic-bracket"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/space-before-type-colon"
+    },
+    {
+      "kind": "unsupported",
+      "source": "flowtype/union-intersection-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "function-call-argument-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "function-paren-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "generator-star"
+    },
+    {
+      "kind": "unsupported",
+      "source": "generator-star-spacing"
+    },
+    {
+      "kind": "builtin",
+      "source": "getter-return",
+      "target": "getter-return"
+    },
+    {
+      "kind": "unsupported",
+      "source": "implicit-arrow-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "import/default"
+    },
+    {
+      "kind": "unsupported",
+      "source": "import/named"
+    },
+    {
+      "kind": "unsupported",
+      "source": "import/no-duplicates"
+    },
+    {
+      "kind": "unsupported",
+      "source": "import/no-extraneous-dependencies"
+    },
+    {
+      "kind": "unsupported",
+      "source": "import/no-unresolved"
+    },
+    {
+      "kind": "unsupported",
+      "source": "indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "indent-legacy"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/expect-expect",
+      "target": "jest/expect-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-alias-methods"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-commented-out-tests"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-conditional-expect",
+      "target": "jest/no-conditional-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-deprecated-functions"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-disabled-tests",
+      "target": "jest/no-disabled-tests"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-done-callback",
+      "target": "jest/no-done-callback"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-export",
+      "target": "jest/no-export"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-focused-tests",
+      "target": "jest/no-focused-tests"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-identical-title",
+      "target": "jest/no-identical-title"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-interpolation-in-snapshots"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-jasmine-globals"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/no-mocks-import"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-standalone-expect",
+      "target": "jest/no-standalone-expect"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/no-test-prefixes",
+      "target": "jest/no-test-prefixes"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/valid-describe-callback",
+      "target": "jest/valid-describe-callback"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/valid-expect",
+      "target": "jest/valid-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jest/valid-expect-in-promise"
+    },
+    {
+      "kind": "builtin",
+      "source": "jest/valid-title",
+      "target": "jest/valid-title"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-access"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-alignment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-examples"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-indentation"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-line-alignment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-param-names"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-property-names"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-syntax"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/check-tag-names",
+      "target": "jsdoc/check-tag-names"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-template-names"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/check-types"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/check-values",
+      "target": "jsdoc/check-values"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/convert-to-jsdoc-comments"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/empty-tags",
+      "target": "jsdoc/empty-tags"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/implements-on-classes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/imports-as-dependencies"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/informative-docs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/lines-before-block"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/match-description"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/match-name"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/multiline-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-bad-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-blank-block-descriptions"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-blank-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-defaults"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-missing-syntax"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-multi-asterisks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-restricted-syntax"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/no-types",
+      "target": "jsdoc/no-types"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/no-undefined-types"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-asterisk-prefix"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-description",
+      "target": "jsdoc/require-description"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-description-complete-sentence"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-example"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-file-overview"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-hyphen-before-param-description"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-jsdoc"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-param"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-param-description",
+      "target": "jsdoc/require-param-description"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-param-name",
+      "target": "jsdoc/require-param-name"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-param-type"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-property"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-property-description",
+      "target": "jsdoc/require-property-description"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-property-name",
+      "target": "jsdoc/require-property-name"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-property-type"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-returns"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-returns-check"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsdoc/require-returns-description",
+      "target": "jsdoc/require-returns-description"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-returns-type"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-template"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-throws"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-yields"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/require-yields-check"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/sort-tags"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/tag-lines"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/text-escaping"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsdoc/valid-types"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/alt-text",
+      "target": "jsx-a11y/alt-text"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/anchor-ambiguous-text",
+      "target": "jsx-a11y/anchor-ambiguous-text"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/anchor-has-content",
+      "target": "jsx-a11y/anchor-has-content"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/anchor-is-valid",
+      "target": "jsx-a11y/anchor-is-valid"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/aria-activedescendant-has-tabindex",
+      "target": "jsx-a11y/aria-activedescendant-has-tabindex"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/aria-props",
+      "target": "jsx-a11y/aria-props"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/aria-proptypes",
+      "target": "jsx-a11y/aria-proptypes"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/aria-role",
+      "target": "jsx-a11y/aria-role"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/aria-unsupported-elements",
+      "target": "jsx-a11y/aria-unsupported-elements"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/autocomplete-valid",
+      "target": "jsx-a11y/autocomplete-valid"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/click-events-have-key-events",
+      "target": "jsx-a11y/click-events-have-key-events"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/control-has-associated-label",
+      "target": "jsx-a11y/control-has-associated-label"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/heading-has-content",
+      "target": "jsx-a11y/heading-has-content"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/html-has-lang",
+      "target": "jsx-a11y/html-has-lang"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/iframe-has-title",
+      "target": "jsx-a11y/iframe-has-title"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/img-redundant-alt",
+      "target": "jsx-a11y/img-redundant-alt"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/interactive-supports-focus",
+      "target": "jsx-a11y/interactive-supports-focus"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/label-has-associated-control",
+      "target": "jsx-a11y/label-has-associated-control"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/label-has-for",
+      "target": "jsx-a11y/label-has-for"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/media-has-caption",
+      "target": "jsx-a11y/media-has-caption"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/mouse-events-have-key-events",
+      "target": "jsx-a11y/mouse-events-have-key-events"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-access-key",
+      "target": "jsx-a11y/no-access-key"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-autofocus",
+      "target": "jsx-a11y/no-autofocus"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-distracting-elements",
+      "target": "jsx-a11y/no-distracting-elements"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-interactive-element-to-noninteractive-role",
+      "target": "jsx-a11y/no-interactive-element-to-noninteractive-role"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-noninteractive-element-interactions",
+      "target": "jsx-a11y/no-noninteractive-element-interactions"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-noninteractive-element-to-interactive-role",
+      "target": "jsx-a11y/no-noninteractive-element-to-interactive-role"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-noninteractive-tabindex",
+      "target": "jsx-a11y/no-noninteractive-tabindex"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-redundant-roles",
+      "target": "jsx-a11y/no-redundant-roles"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/no-static-element-interactions",
+      "target": "jsx-a11y/no-static-element-interactions"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/role-has-required-aria-props",
+      "target": "jsx-a11y/role-has-required-aria-props"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/role-supports-aria-props",
+      "target": "jsx-a11y/role-supports-aria-props"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/scope",
+      "target": "jsx-a11y/scope"
+    },
+    {
+      "kind": "builtin",
+      "source": "jsx-a11y/tabindex-no-positive",
+      "target": "jsx-a11y/tabindex-no-positive"
+    },
+    {
+      "kind": "unsupported",
+      "source": "jsx-quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "linebreak-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "lines-around-comment"
+    },
+    {
+      "kind": "unsupported",
+      "source": "max-len"
+    },
+    {
+      "kind": "unsupported",
+      "source": "max-statements-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "multiline-ternary"
+    },
+    {
+      "kind": "unsupported",
+      "source": "new-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "newline-per-chained-call"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-alert",
+      "target": "no-alert"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-arrow-condition"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-bitwise",
+      "target": "no-bitwise"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-caller",
+      "target": "no-caller"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-class-assign",
+      "target": "no-class-assign"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-comma-dangle"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-cond-assign",
+      "target": "no-cond-assign"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-confusing-arrow"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-console",
+      "target": "no-console"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-const-assign"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-debugger",
+      "target": "no-debugger"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-dupe-args",
+      "target": "no-dupe-args"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-dupe-class-members",
+      "target": "no-dupe-class-members"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-dupe-keys",
+      "target": "no-dupe-keys"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-duplicate-case",
+      "target": "no-duplicate-case"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-duplicate-imports",
+      "target": "no-duplicate-imports"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-else-return",
+      "target": "no-else-return"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-empty-pattern",
+      "target": "no-empty-pattern"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-eq-null",
+      "target": "no-eq-null"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-eval",
+      "target": "no-eval"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-extra-semi"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-fallthrough",
+      "target": "no-fallthrough"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-floating-decimal"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-func-assign",
+      "target": "no-func-assign"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-import-assign",
+      "target": "no-import-assign"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-irregular-whitespace",
+      "target": "no-irregular-whitespace"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-lonely-if",
+      "target": "no-lonely-if"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-mixed-operators",
+      "target": "no-mixed-operators"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-mixed-spaces-and-tabs"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-multi-spaces"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-multi-str",
+      "target": "no-multi-str"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-multiple-empty-lines"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-nested-ternary",
+      "target": "no-nested-ternary"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-new-native-nonconstructor"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-new-symbol",
+      "target": "no-new-symbol"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-obj-calls",
+      "target": "no-obj-calls"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-redeclare",
+      "target": "no-redeclare"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-reserved-keys"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-setter-return",
+      "target": "no-setter-return"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-shadow",
+      "target": "no-shadow"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-space-before-semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-spaced-func"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-tabs"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-this-before-super",
+      "target": "no-this-before-super"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-trailing-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-undef"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-undef-init",
+      "target": "no-undef-init"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-unexpected-multiline"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-unreachable",
+      "target": "no-unreachable"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-unsafe-negation",
+      "target": "no-unsafe-negation"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-unused-expressions",
+      "target": "no-unused-expressions"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-unused-vars"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-useless-computed-key",
+      "target": "no-useless-computed-key"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-useless-constructor",
+      "target": "no-useless-constructor"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-useless-return",
+      "target": "no-useless-return"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-var",
+      "target": "no-var"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-whitespace-before-property"
+    },
+    {
+      "kind": "builtin",
+      "source": "no-with",
+      "target": "no-with"
+    },
+    {
+      "kind": "unsupported",
+      "source": "no-wrap-func"
+    },
+    {
+      "kind": "unsupported",
+      "source": "nonblock-statement-body-position"
+    },
+    {
+      "kind": "unsupported",
+      "source": "object-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "object-property-newline"
+    },
+    {
+      "kind": "builtin",
+      "source": "object-shorthand",
+      "target": "object-shorthand"
+    },
+    {
+      "kind": "unsupported",
+      "source": "one-var"
+    },
+    {
+      "kind": "unsupported",
+      "source": "one-var-declaration-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "operator-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "padded-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/consistent-spacing-between-blocks"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/expect-expect",
+      "target": "playwright/expect-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/max-nested-describe"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/missing-playwright-await"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-conditional-expect",
+      "target": "playwright/no-conditional-expect"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-conditional-in-test",
+      "target": "playwright/no-conditional-in-test"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-duplicate-hooks",
+      "target": "playwright/no-duplicate-hooks"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-duplicate-slow",
+      "target": "playwright/no-duplicate-slow"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-element-handle",
+      "target": "playwright/no-element-handle"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-eval",
+      "target": "playwright/no-eval"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-focused-test",
+      "target": "playwright/no-focused-test"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-force-option",
+      "target": "playwright/no-force-option"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-nested-step",
+      "target": "playwright/no-nested-step"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-networkidle",
+      "target": "playwright/no-networkidle"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-page-pause",
+      "target": "playwright/no-page-pause"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-skipped-test",
+      "target": "playwright/no-skipped-test"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-standalone-expect",
+      "target": "playwright/no-standalone-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/no-unnecessary-assertions"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/no-unsafe-references"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/no-unused-locators"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/no-useless-await"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/no-useless-not"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-wait-for-navigation",
+      "target": "playwright/no-wait-for-navigation"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-wait-for-selector",
+      "target": "playwright/no-wait-for-selector"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/no-wait-for-timeout",
+      "target": "playwright/no-wait-for-timeout"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/prefer-hooks-in-order"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/prefer-hooks-on-top"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/prefer-locator",
+      "target": "playwright/prefer-locator"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/prefer-to-have-count",
+      "target": "playwright/prefer-to-have-count"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/prefer-to-have-length",
+      "target": "playwright/prefer-to-have-length"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/prefer-web-first-assertions",
+      "target": "playwright/prefer-web-first-assertions"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/valid-describe-callback",
+      "target": "playwright/valid-describe-callback"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/valid-expect",
+      "target": "playwright/valid-expect"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/valid-expect-in-promise"
+    },
+    {
+      "kind": "unsupported",
+      "source": "playwright/valid-test-tags"
+    },
+    {
+      "kind": "builtin",
+      "source": "playwright/valid-title",
+      "target": "playwright/valid-title"
+    },
+    {
+      "kind": "builtin",
+      "source": "prefer-const",
+      "target": "prefer-const"
+    },
+    {
+      "kind": "builtin",
+      "source": "prefer-rest-params",
+      "target": "prefer-rest-params"
+    },
+    {
+      "kind": "builtin",
+      "source": "prefer-spread",
+      "target": "prefer-spread"
+    },
+    {
+      "kind": "runner",
+      "source": "prettier/prettier",
+      "target": "ttsc format"
+    },
+    {
+      "kind": "unsupported",
+      "source": "quote-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react-hooks/exhaustive-deps"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react-hooks/rules-of-hooks"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/display-name",
+      "target": "react/display-name"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-child-element-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-closing-bracket-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-closing-tag-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-equals-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-first-prop-new-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-indent-props"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/jsx-key",
+      "target": "react/jsx-key"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-max-props-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-no-comment-textnodes"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/jsx-no-duplicate-props",
+      "target": "react/jsx-no-duplicate-props"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/jsx-no-target-blank",
+      "target": "react/jsx-no-target-blank"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/jsx-no-undef",
+      "target": "react/jsx-no-undef"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-one-expression-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-props-no-multi-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-space-before-closing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-tag-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-uses-react"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-uses-vars"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/jsx-wrap-multilines"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-children-prop",
+      "target": "react/no-children-prop"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-danger-with-children",
+      "target": "react/no-danger-with-children"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/no-deprecated"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-direct-mutation-state",
+      "target": "react/no-direct-mutation-state"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-find-dom-node",
+      "target": "react/no-find-dom-node"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-is-mounted",
+      "target": "react/no-is-mounted"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/no-render-return-value"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-string-refs",
+      "target": "react/no-string-refs"
+    },
+    {
+      "kind": "builtin",
+      "source": "react/no-unescaped-entities",
+      "target": "react/no-unescaped-entities"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/no-unknown-property"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/no-unsafe"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/prop-types"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/react-in-jsx-scope"
+    },
+    {
+      "kind": "unsupported",
+      "source": "react/require-render-return"
+    },
+    {
+      "kind": "unsupported",
+      "source": "rest-spread-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "semi"
+    },
+    {
+      "kind": "unsupported",
+      "source": "semi-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "semi-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-after-function-name"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-after-keywords"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-before-blocks"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-before-function-paren"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-before-function-parentheses"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-before-keywords"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-in-brackets"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-in-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-return-throw-case"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-unary-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "space-unary-word-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "standard/array-bracket-even-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "standard/computed-property-even-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "standard/object-curly-even-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "switch-colon-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "template-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "template-tag-spacing"
+    },
+    {
+      "kind": "builtin",
+      "source": "unicorn/empty-brace-spaces",
+      "target": "unicorn/empty-brace-spaces"
+    },
+    {
+      "kind": "builtin",
+      "source": "unicorn/no-nested-ternary",
+      "target": "unicorn/no-nested-ternary"
+    },
+    {
+      "kind": "builtin",
+      "source": "unicorn/number-literal-case",
+      "target": "unicorn/number-literal-case"
+    },
+    {
+      "kind": "builtin",
+      "source": "unicorn/template-indent",
+      "target": "unicorn/template-indent"
+    },
+    {
+      "kind": "builtin",
+      "source": "valid-typeof",
+      "target": "valid-typeof"
+    },
+    {
+      "kind": "builtin",
+      "source": "vars-on-top",
+      "target": "vars-on-top"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/array-bracket-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/array-bracket-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/array-element-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/arrow-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/block-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/block-tag-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/brace-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/comma-dangle"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/comma-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/comma-style"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/dot-location"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/func-call-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-closing-bracket-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-closing-bracket-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-end-tags"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-quotes"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/html-self-closing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/key-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/keyword-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/max-attributes-per-line"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/max-len"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/multiline-html-element-content-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/multiline-ternary"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/mustache-interpolation-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/no-extra-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/no-multi-spaces"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/no-spaces-around-equal-signs-in-attribute"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/object-curly-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/object-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/object-property-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/operator-linebreak"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/quote-props"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/script-indent"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/singleline-html-element-content-newline"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/space-in-parens"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/space-infix-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/space-unary-ops"
+    },
+    {
+      "kind": "unsupported",
+      "source": "vue/template-curly-spacing"
+    },
+    {
+      "kind": "unsupported",
+      "source": "wrap-iife"
+    },
+    {
+      "kind": "unsupported",
+      "source": "wrap-regex"
+    },
+    {
+      "kind": "unsupported",
+      "source": "yield-star-spacing"
+    }
+  ]
+}
