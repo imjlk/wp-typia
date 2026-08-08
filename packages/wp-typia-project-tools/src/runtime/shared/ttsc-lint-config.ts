@@ -80,20 +80,28 @@ function getPropertyAccessPath(expression: ts.Expression): string[] | null {
   return null;
 }
 
-function getExpressionRootIdentifier(
+function expressionHasAccessPathRoot(
   expression: ts.Expression,
-): string | null {
-  const current = unwrapExpression(expression);
-  if (ts.isIdentifier(current)) {
-    return current.text;
+  rootPath: readonly string[],
+): boolean {
+  let current = unwrapExpression(expression);
+  while (true) {
+    const currentPath = getPropertyAccessPath(current);
+    if (
+      currentPath &&
+      currentPath.length >= rootPath.length &&
+      rootPath.every((segment, index) => currentPath[index] === segment)
+    ) {
+      return true;
+    }
+    if (
+      !ts.isPropertyAccessExpression(current) &&
+      !ts.isElementAccessExpression(current)
+    ) {
+      return false;
+    }
+    current = unwrapExpression(current.expression);
   }
-  if (
-    ts.isPropertyAccessExpression(current) ||
-    ts.isElementAccessExpression(current)
-  ) {
-    return getExpressionRootIdentifier(current.expression);
-  }
-  return null;
 }
 
 function isWordPressLintPluginRequire(expression: ts.Expression): boolean {
@@ -194,9 +202,9 @@ function isWordPressConfigPath(
   );
 }
 
-function statementMutatesIdentifier(
+function statementMutatesAccessPath(
   statement: ts.Statement,
-  identifier: string,
+  rootPath: readonly string[],
 ): boolean {
   let mutated = false;
   const visit = (node: ts.Node): void => {
@@ -217,7 +225,7 @@ function statementMutatesIdentifier(
       ts.isBinaryExpression(node) &&
       node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
       node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
-      getExpressionRootIdentifier(node.left) === identifier
+      expressionHasAccessPathRoot(node.left, rootPath)
     ) {
       mutated = true;
       return;
@@ -235,7 +243,7 @@ function statementMutatesIdentifier(
     }
     if (
       mutatingUnary &&
-      getExpressionRootIdentifier(mutatingUnary) === identifier
+      expressionHasAccessPathRoot(mutatingUnary, rootPath)
     ) {
       mutated = true;
       return;
@@ -245,13 +253,13 @@ function statementMutatesIdentifier(
         getPropertyAccessPath(node.expression)?.join('.') ===
           'Object.assign' &&
         node.arguments.length > 0 &&
-        getExpressionRootIdentifier(node.arguments[0]) === identifier;
+        expressionHasAccessPathRoot(node.arguments[0], rootPath);
       // Static validation cannot prove arbitrary project-owned methods pure,
       // so any call rooted at the exported config fails closed.
       const callsIdentifierMethod =
         (ts.isPropertyAccessExpression(node.expression) ||
           ts.isElementAccessExpression(node.expression)) &&
-        getExpressionRootIdentifier(node.expression.expression) === identifier;
+        expressionHasAccessPathRoot(node.expression.expression, rootPath);
       if (assignsToIdentifier || callsIdentifierMethod) {
         mutated = true;
         return;
@@ -261,6 +269,13 @@ function statementMutatesIdentifier(
   };
   visit(statement);
   return mutated;
+}
+
+function statementMutatesIdentifier(
+  statement: ts.Statement,
+  identifier: string,
+): boolean {
+  return statementMutatesAccessPath(statement, [identifier]);
 }
 
 function resolveObjectLiteral(
@@ -392,10 +407,18 @@ function hasEffectiveWordPressPlugin(
             );
           }
           // An explicit wordpress key replaces the contributor supplied by
-          // the recommended preset unless a later known spread restores it.
-          return getObjectLiteralElementName(pluginProperty) === 'wordpress'
-            ? false
-            : current;
+          // the recommended preset unless it retains the known contributor.
+          if (getObjectLiteralElementName(pluginProperty) !== 'wordpress') {
+            return current;
+          }
+          return (
+            ts.isPropertyAssignment(pluginProperty) &&
+            isWordPressConfigPath(pluginProperty.initializer, bindings, [
+              'recommended',
+              'plugins',
+              'wordpress',
+            ])
+          );
         }, false),
     );
   }
@@ -452,6 +475,7 @@ function hasExpectedTextDomainRule(
 function findConfigExportExpression(
   sourceFile: ts.SourceFile,
 ): ts.Expression | null {
+  let commonJsExportPath: string[] | null = null;
   let result: ts.Expression | null = null;
   for (const statement of sourceFile.statements) {
     if (ts.isExportAssignment(statement)) {
@@ -466,6 +490,12 @@ function findConfigExportExpression(
       !ts.isBinaryExpression(statement.expression) ||
       statement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken
     ) {
+      if (
+        commonJsExportPath &&
+        statementMutatesAccessPath(statement, commonJsExportPath)
+      ) {
+        return null;
+      }
       continue;
     }
     const exportPath = getPropertyAccessPath(statement.expression.left);
@@ -478,6 +508,14 @@ function findConfigExportExpression(
         return null;
       }
       result = statement.expression.right;
+      commonJsExportPath = exportPath;
+      continue;
+    }
+    if (
+      commonJsExportPath &&
+      statementMutatesAccessPath(statement, commonJsExportPath)
+    ) {
+      return null;
     }
   }
   return result;
@@ -592,19 +630,16 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
   } else if (command === 'bun') {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
-    if (tokens[commandIndex] !== 'run' && tokens[commandIndex] !== 'x') {
+    if (tokens[commandIndex] !== 'x') {
       return null;
     }
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
   } else if (command === 'pnpm' || command === 'yarn') {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
-    if (
-      tokens[commandIndex] === 'exec' ||
-      tokens[commandIndex] === 'dlx' ||
-      tokens[commandIndex] === 'run'
-    ) {
-      commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (tokens[commandIndex] !== 'exec' && tokens[commandIndex] !== 'dlx') {
+      return null;
     }
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
   } else if (command === 'npm') {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
     if (tokens[commandIndex] !== 'exec' && tokens[commandIndex] !== 'x') {
@@ -626,6 +661,7 @@ interface SimpleShellSegment {
 
 function getSimpleShellSegments(command: string): SimpleShellSegment[] {
   const segments: SimpleShellSegment[] = [];
+  let atTokenBoundary = true;
   let buffer = '';
   let escaped = false;
   let operatorBefore: SimpleShellSegment['operatorBefore'] = null;
@@ -637,6 +673,7 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
     if (tokens.length > 0) {
       segments.push({ operatorBefore, tokens });
     }
+    atTokenBoundary = true;
     buffer = '';
   };
 
@@ -644,6 +681,7 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
     const character = command[index] ?? '';
     if (escaped) {
       buffer += character;
+      atTokenBoundary = false;
       escaped = false;
       continue;
     }
@@ -662,14 +700,17 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
       }
       if (nextCharacter === undefined) {
         buffer += character;
+        atTokenBoundary = false;
         continue;
       }
       buffer += character;
+      atTokenBoundary = false;
       escaped = true;
       continue;
     }
     if (quote) {
       buffer += character;
+      atTokenBoundary = false;
       if (character === quote) {
         quote = null;
       }
@@ -677,8 +718,12 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
     }
     if (character === "'" || character === '"') {
       buffer += character;
+      atTokenBoundary = false;
       quote = character;
       continue;
+    }
+    if (character === '#' && atTokenBoundary) {
+      break;
     }
 
     const pair = command.slice(index, index + 2);
@@ -694,6 +739,7 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
       continue;
     }
     buffer += character;
+    atTokenBoundary = /\s/u.test(character);
   }
   pushSegment();
   return segments;

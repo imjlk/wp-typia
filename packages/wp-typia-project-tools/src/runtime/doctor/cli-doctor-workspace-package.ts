@@ -15,6 +15,7 @@ import {
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
+import { getPackageVersions } from '../shared/package-versions.js';
 import { WORKSPACE_TEMPLATE_PACKAGE } from '../workspace/workspace-project.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -151,8 +152,13 @@ export function getWorkspaceTtscLintCheck(
     ...(packageJson.dependencies ?? {}),
     ...(packageJson.devDependencies ?? {}),
   };
+  const requiredTtscLintVersion = getPackageVersions().ttscLintPackageVersion;
   if (typeof dependencies['@ttsc/lint'] !== 'string') {
     issues.push('missing @ttsc/lint dependency');
+  } else if (dependencies['@ttsc/lint'] !== requiredTtscLintVersion) {
+    issues.push(
+      `@ttsc/lint dependency must be exactly ${requiredTtscLintVersion}`,
+    );
   }
   if (typeof dependencies['@wp-typia/ttsc-lint-plugin-wp'] !== 'string') {
     issues.push('missing @wp-typia/ttsc-lint-plugin-wp dependency');

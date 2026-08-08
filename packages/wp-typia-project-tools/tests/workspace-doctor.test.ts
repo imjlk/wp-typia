@@ -180,6 +180,22 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   };
   const managedLint = packageJson.scripts.lint;
   const managedPostinstall = packageJson.scripts.postinstall;
+  const managedTtscLint = packageJson.devDependencies['@ttsc/lint'];
+  packageJson.devDependencies['@ttsc/lint'] = '0.24.0';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const wrongLintVersionChecks = await getDoctorChecks(targetDir);
+  const wrongLintVersionCheck = wrongLintVersionChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(wrongLintVersionCheck?.status).toBe('warn');
+  expect(wrongLintVersionCheck?.detail).toContain(
+    `@ttsc/lint dependency must be exactly ${managedTtscLint}`,
+  );
+  packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
   packageJson.scripts.lint = 'npm run lint:ts:ci';
   fs.writeFileSync(
     packageJsonPath,

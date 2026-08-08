@@ -191,6 +191,8 @@ export async function applyInitPlan(
     packageJson: currentPackageJson,
     packageManager: previewPlan.packageManager,
     projectName: previewPlan.projectName,
+    removeTypiaUnplugin:
+      previewPlan.detectedLayout.kind !== 'official-workspace',
   });
   const helperFiles =
     previewPlan.detectedLayout.kind === 'official-workspace'
@@ -202,7 +204,10 @@ export async function applyInitPlan(
           projectDir: previewPlan.projectDir,
           textDomain: expectedTextDomain,
         });
-  const webpackChanges = collectRetrofitWebpackChanges(previewPlan.projectDir);
+  const webpackChanges =
+    previewPlan.detectedLayout.kind === 'official-workspace'
+      ? []
+      : collectRetrofitWebpackChanges(previewPlan.projectDir);
   const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
     previewPlan.projectDir,
     previewPlan.packageManager,

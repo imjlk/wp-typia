@@ -405,6 +405,7 @@ export function buildNextProjectPackageJson(options: {
   packageJson: ProjectPackageJson | null;
   packageManager: PackageManagerId;
   projectName: string;
+  removeTypiaUnplugin?: boolean;
 }): ProjectPackageJson {
   const nextPackageJson: ProjectPackageJson = options.packageJson
     ? JSON.parse(JSON.stringify(options.packageJson))
@@ -423,7 +424,9 @@ export function buildNextProjectPackageJson(options: {
       dependencyChange.requiredValue,
     );
   }
-  removeDependency(nextPackageJson, '@typia/unplugin');
+  if (options.removeTypiaUnplugin !== false) {
+    removeDependency(nextPackageJson, '@typia/unplugin');
+  }
 
   if (options.packageChanges.packageManagerField) {
     nextPackageJson.packageManager =
