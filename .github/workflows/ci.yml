@@ -165,9 +165,16 @@ jobs:
         uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          ttsc-cache-scope: project-tools-wordpress
 
       - name: Prepare all ttsc source plugins
-        run: bun x ttsc prepare --project tsconfig.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun x ttsc prepare --project tsconfig.json
+          TTSC_NATIVE_BINARY="$(node scripts/resolve-native-typescript-binary.mjs)"
+          test -n "$TTSC_NATIVE_BINARY"
+          TTSC_TSGO_BINARY="$TTSC_NATIVE_BINARY" bun x ttsc prepare --project .github/fixtures/ttsc-wordpress-prepare/tsconfig.json
 
       - name: Upload prepared ttsc source plugins
         uses: actions/upload-artifact@v7

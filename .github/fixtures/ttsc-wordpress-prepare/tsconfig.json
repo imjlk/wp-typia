@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "plugins": [
+      {
+        "configFile": "./lint.config.cjs",
+        "transform": "@ttsc/lint"
+      }
+    ]
+  },
+  "files": ["./prepare.ts"]
+}

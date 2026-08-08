@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -397,6 +398,9 @@ describe('repository DX baseline', () => {
 
     expect(prepareJob).toContain('Prepare Project Tools Workspace');
     expect(prepareJob).toContain('timeout-minutes: 15');
+    expect(prepareJob).toContain(
+      'ttsc-cache-scope: project-tools-wordpress',
+    );
     expect(prepareJob).toContain('bun run project-tools-prebuilt:prepare');
     expect(prepareJob).toContain('name: project-tools-workspace-dist');
     expect(prepareJob).toContain('bun run project-tools-prebuilt:validate');
@@ -413,8 +417,42 @@ describe('repository DX baseline', () => {
       expect(setupAction).toContain(cacheContract);
     }
     expect(prepareJob).toContain(
-      'run: bun x ttsc prepare --project tsconfig.json',
+      'bun x ttsc prepare --project tsconfig.json',
     );
+    expect(prepareJob).toContain(
+      'bun x ttsc prepare --project .github/fixtures/ttsc-wordpress-prepare/tsconfig.json',
+    );
+    expect(prepareJob).toContain(
+      'node scripts/resolve-native-typescript-binary.mjs',
+    );
+    expect(prepareJob).toContain('set -euo pipefail');
+    expect(prepareJob).toContain('test -n "$TTSC_NATIVE_BINARY"');
+    expect(prepareJob).toContain('TTSC_TSGO_BINARY="$TTSC_NATIVE_BINARY"');
+    const nativeTypeScript = spawnSync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts/resolve-native-typescript-binary.mjs')],
+      { encoding: 'utf8' },
+    );
+    expect(nativeTypeScript.status).toBe(0);
+    expect(nativeTypeScript.stderr).toBe('');
+    expect(fs.statSync(nativeTypeScript.stdout).isFile()).toBe(true);
+    const wordpressPreparePackage = readJson(
+      '.github/fixtures/ttsc-wordpress-prepare/package.json',
+    );
+    expect(wordpressPreparePackage.private).toBe(true);
+    expect(wordpressPreparePackage.dependencies).toBeUndefined();
+    expect(wordpressPreparePackage.devDependencies).toBeUndefined();
+    const wordpressPrepareConfig = fs.readFileSync(
+      path.join(
+        repoRoot,
+        '.github/fixtures/ttsc-wordpress-prepare/lint.config.cjs',
+      ),
+      'utf8',
+    );
+    expect(wordpressPrepareConfig).toContain(
+      '../../../packages/ttsc-lint-plugin-wp/rules',
+    );
+    expect(wordpressPrepareConfig).toContain('wordpress:');
     expect(prepareJob).toContain('name: ttsc-source-plugins');
     expect(prepareJob).toContain('path: .ttsc-cache/plugins/');
     expect(prepareJob).toContain('include-hidden-files: true');
