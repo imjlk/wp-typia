@@ -442,6 +442,12 @@ describe('repository DX baseline', () => {
     expect(wordpressPreparePackage.private).toBe(true);
     expect(wordpressPreparePackage.dependencies).toBeUndefined();
     expect(wordpressPreparePackage.devDependencies).toBeUndefined();
+    const wordpressPrepareTsconfig = readJson(
+      '.github/fixtures/ttsc-wordpress-prepare/tsconfig.json',
+    );
+    const wordpressPrepareCompilerOptions =
+      wordpressPrepareTsconfig.compilerOptions as Record<string, unknown>;
+    expect(wordpressPrepareCompilerOptions.strict).toBe(true);
     const wordpressPrepareConfig = fs.readFileSync(
       path.join(
         repoRoot,
