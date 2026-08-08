@@ -33,6 +33,17 @@ describe('typescript-runtime-policy', () => {
 		expect(importFiles).toContain('src/metadata-parser-tags.ts');
 	});
 
+	test('audits the project-tools lint config parser as a TS6 runtime island', () => {
+		const importFiles = collectTypeScriptImportFiles(
+			'packages/wp-typia-project-tools',
+			['src/runtime'],
+		);
+
+		expect(importFiles).toContain(
+			'src/runtime/shared/ttsc-lint-config.ts',
+		);
+	});
+
 	test('detects side-effect imports but ignores type-only TypeScript imports', () => {
 		expect(
 			sourceImportsTypeScriptAtRuntime(

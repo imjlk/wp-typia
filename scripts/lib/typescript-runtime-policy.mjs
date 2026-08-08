@@ -29,7 +29,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 		packageDir: "packages/wp-typia-project-tools",
 		packageName: "@wp-typia/project-tools",
 		reason:
-			"workspace inventory, standalone doctor sync parsing, and generated workspace asset helpers used by add/doctor/migrations and exported workspace selection flows use the TypeScript compiler API at runtime",
+			"workspace inventory, standalone doctor sync parsing, lint config inspection, and generated workspace asset helpers used by add/doctor/migrations and exported workspace selection flows use the TypeScript compiler API at runtime",
 		requiredTypeScriptImportFiles: [
 			"src/runtime/add/cli-add-block-legacy-validator.ts",
 			"src/runtime/add/cli-add-workspace-binding-source.ts",
@@ -38,6 +38,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 			"src/runtime/doctor/cli-doctor-standalone-rest.ts",
 			"src/runtime/doctor/cli-doctor-standalone-shared.ts",
 			"src/runtime/doctor/cli-doctor-standalone.ts",
+			"src/runtime/shared/ttsc-lint-config.ts",
 			"src/runtime/shared/ts-property-names.ts",
 			"src/runtime/workspace/workspace-inventory-parser-entries.ts",
 			"src/runtime/workspace/workspace-inventory-parser.ts",
