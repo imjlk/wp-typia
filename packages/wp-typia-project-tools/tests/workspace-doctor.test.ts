@@ -111,6 +111,14 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
 
   const lintConfigPath = path.join(targetDir, 'lint.config.ts');
   const lintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
+  const commonJsLintConfigPath = path.join(targetDir, 'lint.config.cjs');
+  const commonJsLintConfigSource = lintConfigSource
+    .replace(
+      "import { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
+      "const { configs } = require('@wp-typia/ttsc-lint-plugin-wp');",
+    )
+    .replace('export default', 'module.exports =');
+  fs.writeFileSync(commonJsLintConfigPath, commonJsLintConfigSource, 'utf8');
   fs.rmSync(lintConfigPath);
   fs.mkdirSync(lintConfigPath);
   const unreadableChecks = await getDoctorChecks(targetDir);
@@ -122,6 +130,13 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     'unable to read lint.config.ts',
   );
   fs.rmdirSync(lintConfigPath);
+  const commonJsChecks = await getDoctorChecks(targetDir);
+  const commonJsLintCheck = commonJsChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(commonJsLintCheck?.status).toBe('pass');
+  expect(commonJsLintCheck?.detail).toContain('lint.config.cjs');
+  fs.rmSync(commonJsLintConfigPath);
   fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
 
   fs.writeFileSync(

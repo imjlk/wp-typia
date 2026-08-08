@@ -750,7 +750,7 @@ describe('wp-typia init', () => {
 			{
 				scripts: {
 					lint: 'npm run lint:css',
-					'lint:ts': 'ttsc --noEmit --pretty',
+					'lint:ts': 'ttsc --pretty false --noEmit',
 				},
 			},
 			'npm',
@@ -763,6 +763,56 @@ describe('wp-typia init', () => {
 				requiredValue: 'npm run lint:ts && npm run lint:css',
 			}),
 		);
+
+		const quotedFlagChanges = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': `ttsc '--noEmit'`,
+				},
+			},
+			'npm',
+		);
+		expect(
+			quotedFlagChanges.some((change) => change.name === 'lint:ts'),
+		).toBe(false);
+	});
+
+	test('recognizes package runners without matching ttsc arguments', () => {
+		const plansLintTsReplacement = (command: string): boolean =>
+			buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: 'npm run lint:ts',
+						'lint:ts': command,
+					},
+				},
+				'npm',
+			).some((change) => change.name === 'lint:ts');
+
+		for (const command of [
+			'npx ttsc --noEmit',
+			'npx --yes ttsc --noEmit',
+			'npx -p ttsc ttsc --noEmit',
+			'bun x ttsc --noEmit',
+			'bunx ttsc --noEmit',
+			'pnpm exec ttsc --noEmit',
+			'pnpm --silent exec --offline ttsc --noEmit',
+			'pnpm ttsc --noEmit',
+			'yarn run ttsc --noEmit',
+			'npm exec -- ttsc --noEmit',
+			'npm exec --silent ttsc -- --noEmit',
+		]) {
+			expect(plansLintTsReplacement(command)).toBe(false);
+		}
+		for (const command of [
+			'echo ttsc --noEmit',
+			'npx echo ttsc --noEmit',
+			'npx --yes echo ttsc --noEmit',
+			'ttsc --pretty && echo --noEmit',
+		]) {
+			expect(plansLintTsReplacement(command)).toBe(true);
+		}
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -817,6 +867,92 @@ export default {
 				'fixture-domain',
 			),
 		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  ...configs.recommended,
+  rules: {
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+    ...configs.recommended.rules,
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+  ...configs.recommended,
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wpConfigs.recommended,
+  rules: {
+    ...wpConfigs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const { ...configs } = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...configs.recommended,
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const { configs } = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...configs.recommended,
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+export default {};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
 	});
 
 	test('normalizes scoped package names for retrofit text domains', () => {
@@ -847,11 +983,11 @@ export default {
 		delete packageJson.scripts.postinstall;
 		delete packageJson.scripts['lint:ts'];
 		packageJson.packageManager = 'pnpm@8.3.1';
-		packageJson.scripts.sync = 'tsx scripts/sync-project.ts';
+		packageJson.scripts.sync = 'tsx scripts/sync-project.ts --custom';
 		packageJson.scripts['sync-types'] =
-			'tsx scripts/sync-types-to-block-json.ts';
+			'tsx scripts/sync-types-to-block-json.ts --custom';
 		packageJson.scripts.typecheck =
-			'pnpm run sync --check && tsc --noEmit';
+			'pnpm run sync --check && ttsc --noEmit && bun test';
 		packageJson.scripts.lint = 'pnpm run lint:css';
 		fs.writeFileSync(
 			packageJsonPath,
@@ -885,8 +1021,17 @@ export default {
 		expect(
 			nextPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
 		).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
+		expect(nextPackageJson.scripts.postinstall).toBe(
+			'node scripts/apply-ttsc-lint-compat.mjs',
+		);
+		expect(nextPackageJson.scripts.sync).toBe(
+			'tsx scripts/sync-project.ts --custom',
+		);
+		expect(nextPackageJson.scripts['sync-types']).toBe(
+			'tsx scripts/sync-types-to-block-json.ts --custom',
+		);
 		expect(nextPackageJson.scripts.typecheck).toBe(
-			'pnpm run sync --check && ttsc --noEmit',
+			'pnpm run sync --check && ttsc --noEmit && bun test',
 		);
 		expect(nextPackageJson.scripts['lint:ts']).toBe('ttsc --noEmit');
 		expect(nextPackageJson.scripts.lint).toBe(

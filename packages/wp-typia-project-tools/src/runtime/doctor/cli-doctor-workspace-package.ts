@@ -43,12 +43,6 @@ async function readWorkspaceTtscLintConfig(projectDir: string): Promise<{
   relativePath: string | null;
   source: string | null;
 }> {
-  let firstReadFailure: {
-    readError: string;
-    relativePath: string;
-    source: null;
-  } | null = null;
-
   for (const relativePath of TTSC_LINT_CONFIG_FILENAMES) {
     const configPath = path.join(projectDir, relativePath);
     try {
@@ -57,7 +51,9 @@ async function readWorkspaceTtscLintConfig(projectDir: string): Promise<{
         return { readError: null, relativePath, source };
       }
     } catch (error) {
-      firstReadFailure ??= {
+      // The first existing filename is authoritative by discovery precedence;
+      // never hide its read failure behind a lower-precedence config.
+      return {
         readError: error instanceof Error ? error.message : String(error),
         relativePath,
         source: null,
@@ -65,13 +61,11 @@ async function readWorkspaceTtscLintConfig(projectDir: string): Promise<{
     }
   }
 
-  return (
-    firstReadFailure ?? {
-      readError: null,
-      relativePath: null,
-      source: null,
-    }
-  );
+  return {
+    readError: null,
+    relativePath: null,
+    source: null,
+  };
 }
 
 /**

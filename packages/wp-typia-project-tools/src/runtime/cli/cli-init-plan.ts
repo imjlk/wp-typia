@@ -428,13 +428,12 @@ export function getInitPlan(
       options.packageManager,
     );
     const dependencyChanges = buildDependencyChanges(workspacePackageJson);
-    const scriptChanges = [
-      ...buildScriptChanges(workspacePackageJson, workspacePackageManager),
-      ...buildOfficialWorkspaceLintScriptChanges(
-        workspacePackageJson,
-        workspacePackageManager,
-      ),
-    ];
+    // Official-workspace upgrades own only lint integration. Sync and
+    // typecheck commands are project lifecycle hooks and must be preserved.
+    const scriptChanges = buildOfficialWorkspaceLintScriptChanges(
+      workspacePackageJson,
+      workspacePackageManager,
+    );
     const packageManagerFieldChange = buildPackageManagerFieldChange(
       workspacePackageJson,
       workspacePackageManager,

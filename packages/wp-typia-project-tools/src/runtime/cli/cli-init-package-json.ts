@@ -200,6 +200,18 @@ function buildOptionalScriptChange(
   ];
 }
 
+function mergePostinstallCommand(
+  currentValue: string | undefined,
+  requiredCommand: string,
+): string {
+  if (typeof currentValue === 'string' && currentValue.trim().length > 0) {
+    return currentValue.includes(requiredCommand)
+      ? currentValue
+      : `${currentValue} && ${requiredCommand}`;
+  }
+  return requiredCommand;
+}
+
 export function buildScriptChanges(
 	packageJson: ProjectPackageJson | null,
 	packageManager: PackageManagerId,
@@ -214,14 +226,8 @@ export function buildScriptChanges(
 			);
 			const currentValue = scripts[name];
 			let requiredValue = command;
-			if (
-				name === 'postinstall' &&
-				typeof currentValue === 'string' &&
-				currentValue.trim().length > 0
-			) {
-				requiredValue = currentValue.includes(command)
-					? currentValue
-					: `${currentValue} && ${command}`;
+			if (name === 'postinstall') {
+				requiredValue = mergePostinstallCommand(currentValue, command);
 			}
 			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
@@ -242,6 +248,15 @@ export function buildOfficialWorkspaceLintScriptChanges(
   packageManager: PackageManagerId,
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
+  const postinstallCommand = transformPackageManagerText(
+    BASE_RETROFIT_SCRIPTS.postinstall,
+    packageManager,
+  );
+  const currentPostinstall = scripts.postinstall;
+  const requiredPostinstall = mergePostinstallCommand(
+    currentPostinstall,
+    postinstallCommand,
+  );
   const lintTsCommand = 'ttsc --noEmit';
   const lintTsRun = transformPackageManagerText(
     'bun run lint:ts',
@@ -261,6 +276,11 @@ export function buildOfficialWorkspaceLintScriptChanges(
   }
 
   return [
+    ...buildOptionalScriptChange(
+      'postinstall',
+      currentPostinstall,
+      requiredPostinstall,
+    ),
     ...(lintTsSatisfied
       ? []
       : buildOptionalScriptChange('lint:ts', currentLintTs, lintTsCommand)),

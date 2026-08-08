@@ -82,6 +82,23 @@ function getPropertyAccessPath(expression: ts.Expression): string[] | null {
   return null;
 }
 
+function isWordPressLintPluginRequire(expression: ts.Expression): boolean {
+  const current = unwrapExpression(expression);
+  if (
+    !ts.isCallExpression(current) ||
+    !ts.isIdentifier(current.expression) ||
+    current.expression.text !== 'require' ||
+    current.arguments.length !== 1
+  ) {
+    return false;
+  }
+  const moduleSpecifier = unwrapExpression(current.arguments[0]);
+  return (
+    ts.isStringLiteral(moduleSpecifier) &&
+    moduleSpecifier.text === '@wp-typia/ttsc-lint-plugin-wp'
+  );
+}
+
 function getWordPressLintConfigBindings(
   sourceFile: ts.SourceFile,
 ): WordPressLintConfigBindings {
@@ -90,6 +107,35 @@ function getWordPressLintConfigBindings(
     namespaces: new Set<string>(),
   };
   for (const statement of sourceFile.statements) {
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (
+          !declaration.initializer ||
+          !isWordPressLintPluginRequire(declaration.initializer)
+        ) {
+          continue;
+        }
+        if (ts.isIdentifier(declaration.name)) {
+          bindings.namespaces.add(declaration.name.text);
+          continue;
+        }
+        if (!ts.isObjectBindingPattern(declaration.name)) {
+          continue;
+        }
+        for (const element of declaration.name.elements) {
+          if (!ts.isIdentifier(element.name) || element.dotDotDotToken) {
+            continue;
+          }
+          const importedName = element.propertyName
+            ? getPropertyName(element.propertyName)
+            : element.name.text;
+          if (importedName === 'configs') {
+            bindings.named.add(element.name.text);
+          }
+        }
+      }
+      continue;
+    }
     if (
       !ts.isImportDeclaration(statement) ||
       !ts.isStringLiteral(statement.moduleSpecifier) ||
@@ -163,22 +209,39 @@ function resolveObjectLiteral(
   return null;
 }
 
-function findProperty(
-  objectLiteral: ts.ObjectLiteralExpression,
-  propertyName: string,
-): ts.PropertyAssignment | null {
-  for (const property of objectLiteral.properties) {
-    if (
-      ts.isPropertyAssignment(property) &&
-      getPropertyName(property.name) === propertyName
-    ) {
-      return property;
-    }
+function getObjectLiteralElementName(
+  property: ts.ObjectLiteralElementLike,
+): string | null {
+  if (
+    ts.isPropertyAssignment(property) ||
+    ts.isShorthandPropertyAssignment(property) ||
+    ts.isMethodDeclaration(property) ||
+    ts.isGetAccessorDeclaration(property) ||
+    ts.isSetAccessorDeclaration(property)
+  ) {
+    return getPropertyName(property.name);
   }
   return null;
 }
 
-function hasSpread(
+function findEffectiveProperty(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+): ts.PropertyAssignment | null {
+  let result: ts.PropertyAssignment | null = null;
+  for (const property of objectLiteral.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      // A dynamic spread can overwrite any earlier property. Fail closed until
+      // a later explicit assignment makes the effective value knowable again.
+      result = null;
+    } else if (getObjectLiteralElementName(property) === propertyName) {
+      result = ts.isPropertyAssignment(property) ? property : null;
+    }
+  }
+  return result;
+}
+
+function hasWordPressConfigSpread(
   objectLiteral: ts.ObjectLiteralExpression,
   bindings: WordPressLintConfigBindings,
   suffix: readonly string[],
@@ -191,13 +254,9 @@ function hasSpread(
 }
 
 function hasExpectedTextDomainRule(
-  rules: ts.ObjectLiteralExpression,
+  rule: ts.PropertyAssignment,
   expectedTextDomain: string,
 ): boolean {
-  const rule = findProperty(rules, 'wordpress/i18n-text-domain');
-  if (!rule) {
-    return false;
-  }
   const ruleValue = unwrapExpression(rule.initializer);
   if (
     !ts.isArrayLiteralExpression(ruleValue) ||
@@ -217,7 +276,7 @@ function hasExpectedTextDomainRule(
   if (!ts.isObjectLiteralExpression(options)) {
     return false;
   }
-  const allowedTextDomain = findProperty(options, 'allowedTextDomain');
+  const allowedTextDomain = findEffectiveProperty(options, 'allowedTextDomain');
   if (!allowedTextDomain) {
     return false;
   }
@@ -241,13 +300,47 @@ function hasExpectedTextDomainRule(
   );
 }
 
+function findConfigExportExpression(
+  sourceFile: ts.SourceFile,
+): ts.Expression | null {
+  let result: ts.Expression | null = null;
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportAssignment(statement)) {
+      if (result) {
+        return null;
+      }
+      result = statement.expression;
+      continue;
+    }
+    if (
+      !ts.isExpressionStatement(statement) ||
+      !ts.isBinaryExpression(statement.expression) ||
+      statement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken
+    ) {
+      continue;
+    }
+    const exportPath = getPropertyAccessPath(statement.expression.left);
+    const joinedExportPath = exportPath?.join('.') ?? null;
+    if (
+      joinedExportPath === 'module.exports' ||
+      joinedExportPath === 'exports.default'
+    ) {
+      if (result) {
+        return null;
+      }
+      result = statement.expression.right;
+    }
+  }
+  return result;
+}
+
 /**
  * Check whether a lint config enables the WordPress preset and binds its i18n
  * rule to the expected project text domain.
  *
  * @param source TypeScript or JavaScript lint configuration source.
  * @param expectedTextDomain Project text domain required by the i18n rule.
- * @returns Whether the default-exported config satisfies the managed contract.
+ * @returns Whether the exported config satisfies the managed contract.
  */
 export function hasWordPressTtscLintConfigSource(
   source: string,
@@ -264,28 +357,121 @@ export function hasWordPressTtscLintConfigSource(
   if (bindings.named.size === 0 && bindings.namespaces.size === 0) {
     return false;
   }
-  const exportAssignment = sourceFile.statements.find(
-    (statement): statement is ts.ExportAssignment =>
-      ts.isExportAssignment(statement) && !statement.isExportEquals,
-  );
-  const config = exportAssignment
-    ? resolveObjectLiteral(exportAssignment.expression, sourceFile)
+  const exportExpression = findConfigExportExpression(sourceFile);
+  const config = exportExpression
+    ? resolveObjectLiteral(exportExpression, sourceFile)
     : null;
-  if (!config || !hasSpread(config, bindings, ['recommended'])) {
+  if (!config || !hasWordPressConfigSpread(config, bindings, ['recommended'])) {
     return false;
   }
-  const rulesProperty = findProperty(config, 'rules');
+  const rulesProperty = findEffectiveProperty(config, 'rules');
   const rules = rulesProperty
     ? resolveObjectLiteral(rulesProperty.initializer, sourceFile)
     : null;
+  const textDomainRule = rules
+    ? findEffectiveProperty(rules, 'wordpress/i18n-text-domain')
+    : null;
   return Boolean(
     rules &&
-      hasSpread(rules, bindings, ['recommended', 'rules']) &&
-      hasExpectedTextDomainRule(rules, expectedTextDomain),
+      hasWordPressConfigSpread(
+        rules,
+        bindings,
+        ['recommended', 'rules'],
+      ) &&
+      textDomainRule &&
+      hasExpectedTextDomainRule(textDomainRule, expectedTextDomain),
   );
+}
+
+function normalizeShellToken(token: string): string {
+  return token.replace(/^['"]|['"]$/gu, '');
+}
+
+function getShellExecutableName(token: string | undefined): string {
+  return normalizeShellToken(token ?? '')
+    .split(/[\\/]/u)
+    .pop()
+    ?.replace(/\.(?:cmd|exe)$/u, '') ?? '';
+}
+
+function skipShellRunnerOptions(
+  tokens: readonly string[],
+  startIndex: number,
+): number {
+  let index = startIndex;
+  while (tokens[index]?.startsWith('-')) {
+    const option = tokens[index];
+    if (option === '--') {
+      return index + 1;
+    }
+    if (['--call', '--package', '-c', '-p'].includes(option ?? '')) {
+      index += 2;
+    } else {
+      index += 1;
+    }
+  }
+  return index;
+}
+
+function getTtscCommandIndex(tokens: readonly string[]): number | null {
+  let commandIndex = 0;
+  if (tokens[commandIndex] === 'env') {
+    commandIndex += 1;
+  }
+  while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(tokens[commandIndex] ?? '')) {
+    commandIndex += 1;
+  }
+
+  const command = getShellExecutableName(tokens[commandIndex]);
+  if (command === 'ttsc') {
+    return commandIndex;
+  }
+  if (command === 'npx' || command === 'bunx') {
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+  } else if (command === 'bun') {
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (tokens[commandIndex] !== 'x') {
+      return null;
+    }
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+  } else if (command === 'pnpm' || command === 'yarn') {
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (
+      tokens[commandIndex] === 'exec' ||
+      tokens[commandIndex] === 'dlx' ||
+      tokens[commandIndex] === 'run'
+    ) {
+      commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    }
+  } else if (command === 'npm') {
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (tokens[commandIndex] !== 'exec' && tokens[commandIndex] !== 'x') {
+      return null;
+    }
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+  } else {
+    return null;
+  }
+  return getShellExecutableName(tokens[commandIndex]) === 'ttsc'
+    ? commandIndex
+    : null;
 }
 
 /** Check whether a project-owned lint command invokes the managed ttsc lane. */
 export function hasTtscNoEmitLintCommand(command: unknown): boolean {
-  return typeof command === 'string' && command.includes('ttsc --noEmit');
+  if (typeof command !== 'string') {
+    return false;
+  }
+  // This intentionally recognizes only simple shell segments and quoted
+  // tokens. Subshells and escaped quote sequences fail closed.
+  return command.split(/\s*(?:&&|\|\||[;|\n])\s*/u).some((segment) => {
+    const tokens = (segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [])
+      .map((token) => normalizeShellToken(token));
+    const commandIndex = getTtscCommandIndex(tokens);
+    if (commandIndex === null) {
+      return false;
+    }
+    const args = tokens.slice(commandIndex + 1);
+    return args.includes('--noEmit');
+  });
 }
