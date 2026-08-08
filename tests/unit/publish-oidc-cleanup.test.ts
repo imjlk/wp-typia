@@ -6,6 +6,7 @@ import path from 'node:path';
 
 const repoRoot = path.resolve(import.meta.dir, '../..');
 const publishPackageDirs = [
+  'ttsc-lint-plugin-wp',
   'wp-typia-block-types',
   'wp-typia-dataviews',
   'wp-typia-api-client',
