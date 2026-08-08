@@ -202,29 +202,32 @@ function isWordPressConfigPath(
   );
 }
 
+function isDeferredScope(node: ts.Node): boolean {
+  return (
+    ts.isFunctionDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isClassDeclaration(node) ||
+    ts.isClassExpression(node) ||
+    ts.isModuleDeclaration(node)
+  );
+}
+
 function statementMutatesAccessPath(
   statement: ts.Statement,
   rootPath: readonly string[],
+  ignoredAssignments?: ReadonlySet<ts.BinaryExpression>,
 ): boolean {
   let mutated = false;
   const visit = (node: ts.Node): void => {
-    if (mutated) {
-      return;
-    }
-    if (
-      ts.isFunctionDeclaration(node) ||
-      ts.isFunctionExpression(node) ||
-      ts.isArrowFunction(node) ||
-      ts.isClassDeclaration(node) ||
-      ts.isClassExpression(node) ||
-      ts.isModuleDeclaration(node)
-    ) {
+    if (mutated || isDeferredScope(node)) {
       return;
     }
     if (
       ts.isBinaryExpression(node) &&
       node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
       node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      !ignoredAssignments?.has(node) &&
       expressionHasAccessPathRoot(node.left, rootPath)
     ) {
       mutated = true;
@@ -274,8 +277,94 @@ function statementMutatesAccessPath(
 function statementMutatesIdentifier(
   statement: ts.Statement,
   identifier: string,
+  ignoredAssignments?: ReadonlySet<ts.BinaryExpression>,
 ): boolean {
-  return statementMutatesAccessPath(statement, [identifier]);
+  return statementMutatesAccessPath(
+    statement,
+    [identifier],
+    ignoredAssignments,
+  );
+}
+
+function collectBindingIdentifiers(
+  name: ts.BindingName,
+  identifiers: Set<string>,
+): void {
+  if (ts.isIdentifier(name)) {
+    identifiers.add(name.text);
+    return;
+  }
+  if (ts.isArrayBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (!ts.isOmittedExpression(element)) {
+        collectBindingIdentifiers(element.name, identifiers);
+      }
+    }
+    return;
+  }
+  if (ts.isObjectBindingPattern(name)) {
+    for (const element of name.elements) {
+      collectBindingIdentifiers(element.name, identifiers);
+    }
+  }
+}
+
+function expressionUsesTrackedAccess(
+  expression: ts.Expression,
+  identifiers: ReadonlySet<string>,
+): boolean {
+  for (const identifier of identifiers) {
+    if (expressionHasAccessPathRoot(expression, [identifier])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function collectVariableAliases(
+  statement: ts.Statement,
+  identifiers: Set<string>,
+): void {
+  const visit = (node: ts.Node): void => {
+    if (isDeferredScope(node)) {
+      return;
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      expressionUsesTrackedAccess(node.initializer, identifiers)
+    ) {
+      collectBindingIdentifiers(node.name, identifiers);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+}
+
+function collectAssignedAliases(
+  statement: ts.Statement,
+  identifiers: Set<string>,
+): ReadonlySet<ts.BinaryExpression> {
+  const aliasAssignments = new Set<ts.BinaryExpression>();
+  const visit = (node: ts.Node): void => {
+    if (isDeferredScope(node)) {
+      return;
+    }
+    if (ts.isBinaryExpression(node)) {
+      const assignedTarget = unwrapExpression(node.left);
+      if (
+        node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(assignedTarget) &&
+        expressionUsesTrackedAccess(node.right, identifiers)
+      ) {
+        identifiers.add(assignedTarget.text);
+        aliasAssignments.add(node);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return aliasAssignments;
 }
 
 function resolveObjectLiteral(
@@ -308,12 +397,28 @@ function resolveObjectLiteral(
         if (!ts.isObjectLiteralExpression(initializer)) {
           return null;
         }
-        const laterMutation = sourceFile.statements
-          .slice(statementIndex + 1)
-          .some((laterStatement) =>
-            statementMutatesIdentifier(laterStatement, current.text),
+        const trackedIdentifiers = new Set([current.text]);
+        for (const laterStatement of sourceFile.statements.slice(
+          statementIndex + 1,
+        )) {
+          collectVariableAliases(laterStatement, trackedIdentifiers);
+          const aliasAssignments = collectAssignedAliases(
+            laterStatement,
+            trackedIdentifiers,
           );
-        return laterMutation ? null : initializer;
+          for (const identifier of trackedIdentifiers) {
+            if (
+              statementMutatesIdentifier(
+                laterStatement,
+                identifier,
+                aliasAssignments,
+              )
+            ) {
+              return null;
+            }
+          }
+        }
+        return initializer;
       }
     }
   }
@@ -437,11 +542,14 @@ function hasExpectedTextDomainRule(
     return false;
   }
   const severity = unwrapExpression(ruleValue.elements[0]);
-  if (
-    (ts.isStringLiteral(severity) && severity.text === 'off') ||
-    (ts.isNumericLiteral(severity) && severity.text === '0') ||
-    severity.kind === ts.SyntaxKind.FalseKeyword
-  ) {
+  const enabledSeverity =
+    ((ts.isStringLiteral(severity) ||
+      ts.isNoSubstitutionTemplateLiteral(severity)) &&
+      // @ttsc/lint accepts both its canonical "warning" and ESLint's "warn".
+      ['error', 'warn', 'warning'].includes(severity.text)) ||
+    (ts.isNumericLiteral(severity) &&
+      (severity.text === '1' || severity.text === '2'));
+  if (!enabledSeverity) {
     return false;
   }
   const options = unwrapExpression(ruleValue.elements[1]);
@@ -540,6 +648,14 @@ export function hasWordPressTtscLintConfigSource(
     true,
     ts.ScriptKind.TS,
   );
+  const parseDiagnostics = (
+    sourceFile as ts.SourceFile & {
+      parseDiagnostics?: readonly ts.Diagnostic[];
+    }
+  ).parseDiagnostics;
+  if (parseDiagnostics && parseDiagnostics.length > 0) {
+    return false;
+  }
   const bindings = getWordPressLintConfigBindings(sourceFile);
   if (bindings.named.size === 0 && bindings.namespaces.size === 0) {
     return false;
@@ -655,23 +771,30 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
 }
 
 interface SimpleShellSegment {
-  operatorBefore: '&&' | '||' | ';' | '|' | null;
+  operatorAfter: '&&' | '||' | '&' | ';' | '|' | null;
+  operatorBefore: '&&' | '||' | '&' | ';' | '|' | null;
   tokens: string[];
 }
 
-function getSimpleShellSegments(command: string): SimpleShellSegment[] {
+interface SimpleShellParseResult {
+  segments: SimpleShellSegment[];
+  valid: boolean;
+}
+
+function getSimpleShellSegments(command: string): SimpleShellParseResult {
   const segments: SimpleShellSegment[] = [];
   let atTokenBoundary = true;
   let buffer = '';
   let escaped = false;
   let operatorBefore: SimpleShellSegment['operatorBefore'] = null;
   let quote: "'" | '"' | null = null;
+  let valid = true;
   const pushSegment = () => {
     const rawTokens =
       buffer.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
     const tokens = rawTokens.map((token) => normalizeShellToken(token));
     if (tokens.length > 0) {
-      segments.push({ operatorBefore, tokens });
+      segments.push({ operatorAfter: null, operatorBefore, tokens });
     }
     atTokenBoundary = true;
     buffer = '';
@@ -701,6 +824,7 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
       if (nextCharacter === undefined) {
         buffer += character;
         atTokenBoundary = false;
+        valid = false;
         continue;
       }
       buffer += character;
@@ -723,26 +847,86 @@ function getSimpleShellSegments(command: string): SimpleShellSegment[] {
       continue;
     }
     if (character === '#' && atTokenBoundary) {
-      break;
+      const nextLineIndex = command.indexOf('\n', index + 1);
+      if (nextLineIndex === -1) {
+        break;
+      }
+      index = nextLineIndex - 1;
+      continue;
     }
 
     const pair = command.slice(index, index + 2);
     if (pair === '&&' || pair === '||') {
+      const lengthBefore = segments.length;
       pushSegment();
+      if (segments.length === lengthBefore) {
+        valid = false;
+      }
+      const previous = segments[segments.length - 1];
+      if (previous && segments.length !== lengthBefore) {
+        previous.operatorAfter = pair;
+      }
       operatorBefore = pair;
       index += 1;
       continue;
     }
-    if (character === ';' || character === '|' || character === '\n') {
+    const isRedirectionAmpersand =
+      character === '&' &&
+      // Shell fd duplication uses an adjacent >& or <&, while &> redirects
+      // both streams. Whitespace before & starts a background operator.
+      (command[index - 1] === '>' ||
+        command[index - 1] === '<' ||
+        command[index + 1] === '>');
+    if (isRedirectionAmpersand) {
+      buffer += character;
+      atTokenBoundary = false;
+      continue;
+    }
+    if (
+      character === '&' ||
+      character === ';' ||
+      character === '|' ||
+      character === '\n'
+    ) {
+      const lengthBefore = segments.length;
       pushSegment();
-      operatorBefore = character === '\n' ? ';' : character;
+      const operator = character === '\n' ? ';' : character;
+      if (segments.length === lengthBefore) {
+        if (character === '\n') {
+          if (
+            operatorBefore === null ||
+            operatorBefore === '&' ||
+            operatorBefore === ';'
+          ) {
+            operatorBefore = ';';
+          }
+          continue;
+        }
+        valid = false;
+      }
+      const previous = segments[segments.length - 1];
+      if (previous && segments.length !== lengthBefore) {
+        previous.operatorAfter = operator;
+      }
+      operatorBefore = operator;
       continue;
     }
     buffer += character;
     atTokenBoundary = /\s/u.test(character);
   }
   pushSegment();
-  return segments;
+  if (quote !== null || escaped) {
+    valid = false;
+  }
+  const trailingOperator = segments[segments.length - 1]?.operatorAfter;
+  if (
+    trailingOperator === '&&' ||
+    trailingOperator === '||' ||
+    trailingOperator === '|'
+  ) {
+    valid = false;
+  }
+  return { segments, valid };
 }
 
 function doesShellSegmentPropagateFailure(
@@ -753,19 +937,41 @@ function doesShellSegmentPropagateFailure(
   if (segment?.operatorBefore === '||' || segment?.operatorBefore === '|') {
     return false;
   }
-  return segments
-    .slice(segmentIndex + 1)
-    .every((laterSegment) => laterSegment.operatorBefore === '&&');
+  if (
+    segment?.operatorAfter !== null &&
+    segment?.operatorAfter !== '&&' &&
+    !(
+      segment?.operatorAfter === ';' &&
+      segmentIndex === segments.length - 1
+    )
+  ) {
+    return false;
+  }
+  if (
+    segment?.operatorAfter === '&&' &&
+    segmentIndex === segments.length - 1
+  ) {
+    return false;
+  }
+  const laterSegments = segments.slice(segmentIndex + 1);
+  return (
+    laterSegments.every(
+      (laterSegment) => laterSegment.operatorBefore === '&&',
+    ) && segments[segments.length - 1]?.operatorAfter !== '&'
+  );
 }
 
 function hasPropagatingShellSegment(
   command: string,
   predicate: (tokens: readonly string[]) => boolean,
 ): boolean {
-  const segments = getSimpleShellSegments(command);
-  return segments.some(
+  const parsed = getSimpleShellSegments(command);
+  return parsed.valid && parsed.segments.some(
     (segment, segmentIndex) =>
-      doesShellSegmentPropagateFailure(segments, segmentIndex) &&
+      doesShellSegmentPropagateFailure(
+        parsed.segments,
+        segmentIndex,
+      ) &&
       predicate(segment.tokens),
   );
 }

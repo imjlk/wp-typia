@@ -9,6 +9,7 @@ import { PROJECT_TOOLS_PACKAGE_ROOT } from '../templates/template-registry.js';
 interface PackageManifest {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   version?: string;
 }
 
@@ -21,6 +22,8 @@ export interface PackageVersions {
   ttscLintPackageVersion: string;
   /** Normalized version range for the WordPress ttsc lint contributor. */
   ttscLintPluginWpPackageVersion: string;
+  /** ttsc range supported by the WordPress ttsc lint contributor. */
+  ttscLintPluginWpTtscPeerRange: string;
   ttscPackageVersion: string;
   ttscUnpluginPackageVersion: string;
   /**
@@ -54,6 +57,7 @@ const DEFAULT_EXACT_VERSION = '0.0.0';
 const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
 const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
 const DEFAULT_TTSC_LINT_PLUGIN_WP_PACKAGE_VERSION = '^0.1.1';
+const DEFAULT_TTSC_LINT_PLUGIN_WP_TTSC_PEER_RANGE = '>=0.23.0 <0.26.0';
 const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
 const DEFAULT_TYPESCRIPT_PACKAGE_VERSION = '^7.0.2';
 const DEFAULT_TYPIA_PACKAGE_VERSION = '^13.2.0';
@@ -116,6 +120,14 @@ function normalizeVersionRangeWithFallback(
 ): string {
   const normalized = normalizeVersionRange(value);
   return normalized === DEFAULT_VERSION_RANGE ? fallback : normalized;
+}
+
+function preserveVersionRangeWithFallback(
+  value: string | undefined,
+  fallback: string,
+): string {
+  const trimmed = value?.trim();
+  return !trimmed || trimmed.startsWith('workspace:') ? fallback : trimmed;
 }
 
 function createContentFingerprint(source: string): string {
@@ -416,6 +428,10 @@ export function getPackageVersions(): PackageVersions {
     ttscLintPluginWpPackageVersion: normalizeVersionRangeWithFallback(
       ttscLintPluginWpManifest.version,
       DEFAULT_TTSC_LINT_PLUGIN_WP_PACKAGE_VERSION,
+    ),
+    ttscLintPluginWpTtscPeerRange: preserveVersionRangeWithFallback(
+      ttscLintPluginWpManifest.peerDependencies?.ttsc,
+      DEFAULT_TTSC_LINT_PLUGIN_WP_TTSC_PEER_RANGE,
     ),
     ttscPackageVersion,
     ttscUnpluginPackageVersion,

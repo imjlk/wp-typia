@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import semver from 'semver';
+
 import {
   createDoctorCheck,
   getWorkspaceBootstrapRelativePath,
@@ -152,7 +154,9 @@ export function getWorkspaceTtscLintCheck(
     ...(packageJson.dependencies ?? {}),
     ...(packageJson.devDependencies ?? {}),
   };
-  const requiredTtscLintVersion = getPackageVersions().ttscLintPackageVersion;
+  const packageVersions = getPackageVersions();
+  const requiredTtscLintVersion = packageVersions.ttscLintPackageVersion;
+  const supportedTtscRange = packageVersions.ttscLintPluginWpTtscPeerRange;
   if (typeof dependencies['@ttsc/lint'] !== 'string') {
     issues.push('missing @ttsc/lint dependency');
   } else if (dependencies['@ttsc/lint'] !== requiredTtscLintVersion) {
@@ -165,6 +169,16 @@ export function getWorkspaceTtscLintCheck(
   }
   if (typeof dependencies.ttsc !== 'string') {
     issues.push('missing ttsc dependency');
+  } else {
+    let supported = false;
+    try {
+      supported = semver.subset(dependencies.ttsc, supportedTtscRange);
+    } catch {
+      // Invalid ranges cannot satisfy the managed contributor contract.
+    }
+    if (!supported) {
+      issues.push(`ttsc dependency must satisfy ${supportedTtscRange}`);
+    }
   }
   if (typeof dependencies.typescript !== 'string') {
     issues.push('missing typescript dependency');

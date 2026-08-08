@@ -196,6 +196,24 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     `@ttsc/lint dependency must be exactly ${managedTtscLint}`,
   );
   packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
+
+  const managedTtsc = packageJson.devDependencies.ttsc;
+  packageJson.devDependencies.ttsc = '0.22.0';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const unsupportedTtscChecks = await getDoctorChecks(targetDir);
+  const unsupportedTtscCheck = unsupportedTtscChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(unsupportedTtscCheck?.status).toBe('warn');
+  expect(unsupportedTtscCheck?.detail).toContain(
+    'ttsc dependency must satisfy >=0.23.0 <0.26.0',
+  );
+  packageJson.devDependencies.ttsc = managedTtsc;
+
   packageJson.scripts.lint = 'npm run lint:ts:ci';
   fs.writeFileSync(
     packageJsonPath,
@@ -278,7 +296,6 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   fs.writeFileSync(compatPath, compatSource, 'utf8');
 
-  const managedTtsc = packageJson.devDependencies.ttsc;
   const managedTypeScript = packageJson.devDependencies.typescript;
   delete packageJson.devDependencies.ttsc;
   delete packageJson.devDependencies.typescript;

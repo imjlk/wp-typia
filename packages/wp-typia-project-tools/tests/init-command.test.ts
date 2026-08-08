@@ -805,6 +805,12 @@ describe('wp-typia init', () => {
 			['ttsc \\', '--noEmit'].join('\r\n'),
 			'echo label#value && ttsc --noEmit',
 			'echo escaped\\ #value && ttsc --noEmit',
+			'ttsc --noEmit;',
+			'ttsc --noEmit\n',
+			'ttsc --noEmit 2>&1',
+			'ttsc --noEmit &>lint.log',
+			'echo setup &&\nttsc --noEmit',
+			'ttsc --noEmit # managed lint\n',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(false);
 		}
@@ -815,6 +821,18 @@ describe('wp-typia init', () => {
 			'npx --yes echo ttsc --noEmit',
 			'ttsc --pretty && echo --noEmit',
 			'ttsc --noEmit || true',
+			'ttsc --noEmit &',
+			'ttsc --noEmit & true',
+			'ttsc --noEmit & && true',
+			'ttsc --noEmit ; && true',
+			'ttsc --noEmit && true &',
+			'ttsc --noEmit 2> &1',
+			'echo setup & && ttsc --noEmit',
+			'ttsc --noEmit && true &&',
+			'ttsc --noEmit "',
+			"ttsc --noEmit '",
+			'ttsc --noEmit # managed lint\ntrue',
+			'ttsc --noEmit &&',
 			'ttsc --noEmit\\',
 			'echo disabled # && ttsc --noEmit',
 			'bun run ttsc --noEmit',
@@ -894,7 +912,7 @@ describe('wp-typia init', () => {
 		).toBe(false);
 		const enabledTextDomainRule =
 			"    'wordpress/i18n-text-domain': [\n      'error',";
-		for (const severity of ["'off'", '0', 'false']) {
+		for (const severity of ["'off'", '0', 'false', '{}']) {
 			expect(
 				hasWordPressTtscLintConfigSource(
 					canonicalSource.replace(
@@ -905,6 +923,23 @@ describe('wp-typia init', () => {
 				),
 			).toBe(false);
 		}
+		for (const severity of ["'warning'", "'warn'", '1', '2']) {
+			expect(
+				hasWordPressTtscLintConfigSource(
+					canonicalSource.replace(
+						enabledTextDomainRule,
+						enabledTextDomainRule.replace("'error'", severity),
+					),
+					'fixture-domain',
+				),
+			).toBe(true);
+		}
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`${canonicalSource}\nconst broken =`,
+				'fixture-domain',
+			),
+		).toBe(false);
 		const multipleDomainsSource = canonicalSource.replace(
 			"allowedTextDomain: 'fixture-domain'",
 			"allowedTextDomain: ['shared-domain', 'fixture-domain']",
@@ -981,6 +1016,54 @@ describe('wp-typia init', () => {
 				'fixture-domain',
 			),
 		).toBe(false);
+		const aliasMutatedConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				'} satisfies ITtscLintConfig;\nconst alias = config;\nalias.plugins = {};\nexport default config;',
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				aliasMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const destructuredAliasMutatedConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				"} satisfies ITtscLintConfig;\nconst { rules } = config;\nrules['wordpress/i18n-text-domain'] = [];\nexport default config;",
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				destructuredAliasMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const assignedAliasMutatedInBlockSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				'} satisfies ITtscLintConfig;\nlet alias;\n{\n  alias = config;\n  alias.plugins = {};\n}\nexport default config;',
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				assignedAliasMutatedInBlockSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const assignedAliasWithoutMutationSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				'} satisfies ITtscLintConfig;\nlet alias;\nalias = config;\nexport default config;',
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				assignedAliasWithoutMutationSource,
+				'fixture-domain',
+			),
+		).toBe(true);
 		const methodMutatedConfigSource = canonicalSource
 			.replace('export default {', 'const config = {')
 			.replace(
