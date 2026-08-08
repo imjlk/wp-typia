@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -53,10 +52,16 @@ const [eslintResult] = await eslint.lintText(fixtureSource, {
 assert.ok(eslintResult);
 const expected = eslintResult.messages
   .filter(({ ruleId }) => ruleId?.startsWith('@wordpress/'))
-  .map(({ line, message, ruleId }) => ({ line, message, ruleId }))
+  .map(({ column, line, message, ruleId }) => ({
+    column,
+    line,
+    message,
+    ruleId,
+  }))
   .sort(compareDiagnostic);
 
-const fixtureRoot = prepareConsumerProject();
+const { consumerRoot, fixtureRoot } = prepareConsumerProject();
+const ttscBinary = path.join(consumerRoot, 'node_modules/.bin/ttsc');
 const ttscEnv = {
   ...process.env,
   NO_COLOR: '1',
@@ -68,7 +73,7 @@ const ttscEnv = {
     path.join(repoRoot, 'node_modules/.cache/ttsc/go-build'),
 };
 const ttscResult = spawnSync(
-  path.join(fixtureRoot, '../node_modules/.bin/ttsc'),
+  ttscBinary,
   ['--noEmit', '--pretty', 'false', '--project', 'tsconfig.json'],
   {
     cwd: fixtureRoot,
@@ -99,7 +104,7 @@ const [eslintFixResult] = await createUpstreamEslint(true).lintText(
 assert.ok(eslintFixResult);
 const expectedFixedSource = eslintFixResult.output ?? fixtureSource;
 const ttscFixResult = spawnSync(
-  path.join(fixtureRoot, '../node_modules/.bin/ttsc'),
+  ttscBinary,
   ['fix', '--pretty', 'false', '--project', 'tsconfig.json'],
   {
     cwd: fixtureRoot,
@@ -119,6 +124,7 @@ assert.equal(
   expectedFixedSource,
   `${ttscFixResult.stdout}${ttscFixResult.stderr}`,
 );
+verifyInvalidOptionsFailClosed(fixtureRoot, ttscBinary, ttscEnv);
 console.log(
   `Matched ${actual.length} diagnostics and autofixes against @wordpress/eslint-plugin ${UPSTREAM_VERSION} from a packed, unpatched ttsc ${TTSC_CONSUMER_VERSION} registry install.`,
 );
@@ -151,7 +157,10 @@ function createUpstreamEslint(fix: boolean): ESLint {
   });
 }
 
-function prepareConsumerProject(): string {
+function prepareConsumerProject(): {
+  consumerRoot: string;
+  fixtureRoot: string;
+} {
   const packRoot = path.join(
     repoRoot,
     'node_modules/.cache/ttsc-lint-plugin-wp-pack',
@@ -271,26 +280,23 @@ export default {
 };
 `,
   );
-  return fixtureRoot;
+  return { consumerRoot, fixtureRoot };
 }
 
 async function prepareUpstreamPackage(): Promise<string> {
+  const cacheParent = path.join(repoRoot, 'node_modules/.cache');
   const cacheRoot = path.join(
-    os.tmpdir(),
+    cacheParent,
     `wp-typia-eslint-plugin-${UPSTREAM_VERSION}`,
   );
-  const extractedRoot = path.join(cacheRoot, 'package');
-  const packageJsonPath = path.join(extractedRoot, 'package.json');
-  if (fs.existsSync(packageJsonPath)) {
-    const metadata = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
-      version?: string;
-    };
-    if (metadata.version === UPSTREAM_VERSION) {
-      return extractedRoot;
-    }
+  fs.mkdirSync(cacheParent, { recursive: true });
+  if (fs.existsSync(cacheRoot)) {
+    return validateUpstreamCache(cacheRoot);
   }
 
-  fs.mkdirSync(cacheRoot, { recursive: true });
+  const stagingRoot = fs.mkdtempSync(
+    path.join(cacheParent, `.wp-typia-eslint-plugin-${UPSTREAM_VERSION}-`),
+  );
   const response = await fetch(UPSTREAM_TARBALL, {
     signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
   });
@@ -302,16 +308,110 @@ async function prepareUpstreamPackage(): Promise<string> {
     UPSTREAM_INTEGRITY,
     `@wordpress/eslint-plugin ${UPSTREAM_VERSION} tarball integrity mismatch`,
   );
-  const tarballPath = path.join(cacheRoot, 'package.tgz');
+  const tarballPath = path.join(stagingRoot, 'package.tgz');
   fs.writeFileSync(tarballPath, tarball);
-  execFileSync('tar', ['-xzf', tarballPath, '-C', cacheRoot], {
+  execFileSync('tar', ['-xzf', tarballPath, '-C', stagingRoot], {
     timeout: NETWORK_TIMEOUT_MS,
   });
+  validateUpstreamCache(stagingRoot);
+
+  try {
+    fs.renameSync(stagingRoot, cacheRoot);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
+      throw error;
+    }
+  } finally {
+    if (fs.existsSync(stagingRoot)) {
+      fs.rmSync(stagingRoot, { force: true, recursive: true });
+    }
+  }
+  return validateUpstreamCache(cacheRoot);
+}
+
+function validateUpstreamCache(cacheRoot: string): string {
+  const tarballPath = path.join(cacheRoot, 'package.tgz');
+  assert.ok(
+    fs.existsSync(tarballPath),
+    `Missing cached upstream tarball at ${tarballPath}`,
+  );
+  const tarball = fs.readFileSync(tarballPath);
+  const integrity = `sha512-${crypto.createHash('sha512').update(tarball).digest('base64')}`;
+  assert.equal(
+    integrity,
+    UPSTREAM_INTEGRITY,
+    `Cached @wordpress/eslint-plugin ${UPSTREAM_VERSION} tarball integrity mismatch`,
+  );
+  const extractedRoot = path.join(cacheRoot, 'package');
+  const packageJsonPath = path.join(extractedRoot, 'package.json');
+  const metadata = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+    name?: string;
+    version?: string;
+  };
+  assert.equal(metadata.name, '@wordpress/eslint-plugin');
+  assert.equal(metadata.version, UPSTREAM_VERSION);
   return extractedRoot;
+}
+
+function verifyInvalidOptionsFailClosed(
+  fixtureRoot: string,
+  ttscBinary: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const configPath = path.join(fixtureRoot, 'lint.config.mjs');
+  const validConfig = fs.readFileSync(configPath, 'utf8');
+  try {
+    fs.writeFileSync(
+      configPath,
+      `import plugin from '@wp-typia/ttsc-lint-plugin-wp';
+
+export default {
+  plugins: { wordpress: plugin },
+  rules: {
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 42 },
+    ],
+    'wordpress/no-unsafe-wp-apis': ['error', 'invalid'],
+  },
+};
+`,
+    );
+    const result = spawnSync(
+      ttscBinary,
+      ['--noEmit', '--pretty', 'false', '--project', 'tsconfig.json'],
+      {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env,
+        timeout: TTSC_PROCESS_TIMEOUT_MS,
+      },
+    );
+    assert.ifError(result.error);
+    assert.notEqual(
+      result.status,
+      null,
+      'invalid-options ttsc process was killed by a signal',
+    );
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(result.status, 0, 'invalid options must fail closed');
+    assert.match(
+      output,
+      /\[wordpress\/i18n-text-domain\] Invalid wordpress\/i18n-text-domain options/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/no-unsafe-wp-apis\] Usage of `__experimentalBlocked`/u,
+    );
+  } finally {
+    fs.writeFileSync(configPath, validConfig);
+  }
 }
 
 function parseTtscDiagnostics(output: string) {
   const diagnostics: Array<{
+    column: number;
     line: number;
     message: string;
     ruleId: string | null;
@@ -325,14 +425,17 @@ function parseTtscDiagnostics(output: string) {
       continue;
     }
     const messageLines = [match[4] ?? ''];
-    for (let next = index + 1; next < lines.length; next += 1) {
+    let next = index + 1;
+    for (; next < lines.length; next += 1) {
       const line = lines[next] ?? '';
-      if (line === '') {
+      if (line === '' || pattern.test(line)) {
         break;
       }
       messageLines.push(line);
     }
+    index = next - 1;
     diagnostics.push({
+      column: Number(match[2]),
       line: Number(match[1]),
       message: messageLines.join('\n').trim(),
       ruleId: `@wordpress/${match[3]}`,
@@ -342,11 +445,22 @@ function parseTtscDiagnostics(output: string) {
 }
 
 function compareDiagnostic(
-  left: { line: number; message: string; ruleId: string | null },
-  right: { line: number; message: string; ruleId: string | null },
+  left: {
+    column: number;
+    line: number;
+    message: string;
+    ruleId: string | null;
+  },
+  right: {
+    column: number;
+    line: number;
+    message: string;
+    ruleId: string | null;
+  },
 ) {
   return (
     left.line - right.line ||
+    left.column - right.column ||
     (left.ruleId ?? '').localeCompare(right.ruleId ?? '') ||
     left.message.localeCompare(right.message)
   );

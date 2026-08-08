@@ -33,7 +33,11 @@ func (i18nTextDomain) Check(ctx *rule.Context, node *shimast.Node) {
 		return
 	}
 
-	allowed := decodeAllowedTextDomains(ctx)
+	allowed, optionsError := decodeAllowedTextDomains(ctx)
+	if optionsError != nil {
+		ctx.Report(node, "Invalid wordpress/i18n-text-domain options")
+		return
+	}
 	allowDefault := len(allowed) == 0 || containsString(allowed, "default")
 	arguments := call.Arguments.Nodes
 	if index >= len(arguments) {
@@ -107,18 +111,31 @@ func (i18nTextDomain) Check(ctx *rule.Context, node *shimast.Node) {
 	ctx.Report(node, message)
 }
 
-func decodeAllowedTextDomains(ctx *rule.Context) []string {
+func decodeAllowedTextDomains(ctx *rule.Context) ([]string, error) {
+	if ctx == nil || len(ctx.Options) == 0 {
+		return nil, nil
+	}
 	var options i18nTextDomainOptions
-	if ctx == nil || ctx.DecodeOptions(&options) != nil || len(options.AllowedTextDomain) == 0 {
-		return nil
+	if err := ctx.DecodeOptions(&options); err != nil {
+		return nil, err
+	}
+	if len(options.AllowedTextDomain) == 0 {
+		return nil, nil
 	}
 	var single string
-	if json.Unmarshal(options.AllowedTextDomain, &single) == nil && single != "" {
-		return []string{single}
+	if json.Unmarshal(options.AllowedTextDomain, &single) == nil {
+		single = strings.TrimSpace(single)
+		if single == "" {
+			return nil, nil
+		}
+		return []string{single}, nil
 	}
 	var multiple []string
-	if json.Unmarshal(options.AllowedTextDomain, &multiple) != nil {
-		return nil
+	if err := json.Unmarshal(options.AllowedTextDomain, &multiple); err != nil {
+		return nil, fmt.Errorf(
+			"allowedTextDomain must be a string or array of strings: %w",
+			err,
+		)
 	}
 	out := make([]string, 0, len(multiple))
 	seen := map[string]bool{}
@@ -129,7 +146,7 @@ func decodeAllowedTextDomains(ctx *rule.Context) []string {
 			out = append(out, value)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func containsString(values []string, value string) bool {

@@ -24,8 +24,11 @@ func (noUnsafeWpApis) Check(ctx *rule.Context, node *shimast.Node) {
 		return
 	}
 	moduleName, ok := stringLiteralText(declaration.ModuleSpecifier)
+	if !ok {
+		return
+	}
 	moduleName = strings.TrimSpace(moduleName)
-	if !ok || !strings.HasPrefix(moduleName, "@wordpress/") {
+	if !strings.HasPrefix(moduleName, "@wordpress/") {
 		return
 	}
 
@@ -34,7 +37,9 @@ func (noUnsafeWpApis) Check(ctx *rule.Context, node *shimast.Node) {
 		return
 	}
 	if err := ctx.DecodeOptions(&allowedByModule); err != nil {
-		return
+		// Invalid options must not disable the rule. An empty allow list is the
+		// conservative fallback, so unstable APIs remain reportable.
+		allowedByModule = nil
 	}
 	allowed := map[string]bool{}
 	for _, name := range allowedByModule[moduleName] {

@@ -19,10 +19,9 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
       peerDependencies?: Record<string, string>;
       version: string;
     };
-    expect(plugin.meta).toEqual({
+    expect(plugin.meta).toMatchObject({
       name: '@wp-typia/ttsc-lint-plugin-wp',
       namespace: 'wordpress',
-      version: '0.1.0',
     });
     expect(plugin.rules).toEqual(ruleNames);
     expect(plugin.meta?.version).toBe(packageJson.version);
