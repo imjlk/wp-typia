@@ -420,6 +420,7 @@ describe('repository DX baseline', () => {
     expect(prepareJob).toContain('include-hidden-files: true');
     expect(prepareJob).toContain('compression-level: 0');
     for (const packagePath of [
+      'ttsc-lint-plugin-wp/dist/',
       'wp-typia-api-client/dist/',
       'wp-typia-block-types/dist/',
       'wp-typia-block-runtime/dist/',

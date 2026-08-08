@@ -40,6 +40,12 @@ describe('Project Tools prebuilt workspace validation', () => {
     );
   });
 
+  test('requires the WordPress ttsc lint contributor build', () => {
+    expect(PROJECT_TOOLS_PREBUILT_FILES).toContain(
+      'packages/ttsc-lint-plugin-wp/dist/index.js',
+    );
+  });
+
   test('accepts a workspace containing every regular-file sentinel', () => {
     const testRoot = createTestRoot();
     for (const relativePath of PROJECT_TOOLS_PREBUILT_FILES) {
