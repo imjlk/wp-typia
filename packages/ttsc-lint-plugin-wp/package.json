@@ -1,0 +1,69 @@
+{
+  "name": "@wp-typia/ttsc-lint-plugin-wp",
+  "version": "0.1.0",
+  "description": "WordPress lint rule and preset compatibility for @ttsc/lint",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./compatibility.json": "./compatibility/upstream-25.8.0.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "compatibility/",
+    "dist/",
+    "rules/",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && ttsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "test": "bun run build && bun test tests && bun run test:inventory",
+    "test:ci": "bun run test && bun run test:parity",
+    "test:inventory": "bun tests/validate-compatibility-inventory.ts",
+    "test:parity": "bun tests/run-parity.ts",
+    "typecheck": "ttsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "wordpress",
+    "lint",
+    "ttsc",
+    "typescript"
+  ],
+  "author": "imjlk",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imjlk/wp-typia.git",
+    "directory": "packages/ttsc-lint-plugin-wp"
+  },
+  "bugs": {
+    "url": "https://github.com/imjlk/wp-typia/issues"
+  },
+  "homepage": "https://github.com/imjlk/wp-typia/tree/main/packages/ttsc-lint-plugin-wp#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0",
+    "bun": ">=1.3.11"
+  },
+  "peerDependencies": {
+    "@ttsc/lint": ">=0.23.0 <0.26.0",
+    "ttsc": ">=0.23.0 <0.26.0"
+  },
+  "devDependencies": {
+    "@ttsc/lint": "^0.23.0",
+    "eslint": "9.39.4",
+    "ttsc": "^0.23.0",
+    "typescript": "^7.0.2"
+  }
+}

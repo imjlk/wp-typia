@@ -13,6 +13,7 @@ export interface PublishPackageFootprintBudgetMap {
   readonly '@wp-typia/dataviews': Readonly<PublishPackageFootprintBudget>;
   readonly '@wp-typia/project-tools': Readonly<PublishPackageFootprintBudget>;
   readonly '@wp-typia/rest': Readonly<PublishPackageFootprintBudget>;
+  readonly '@wp-typia/ttsc-lint-plugin-wp': Readonly<PublishPackageFootprintBudget>;
   readonly 'wp-typia': Readonly<PublishPackageFootprintBudget>;
 }
 

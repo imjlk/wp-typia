@@ -91,6 +91,7 @@
     "**/build/**",
     "**/dist/**",
     "**/coverage/**",
+    "packages/ttsc-lint-plugin-wp/tests/fixtures/**",
     "**/*.js"
   ]
 }

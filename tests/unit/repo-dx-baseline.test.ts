@@ -407,7 +407,7 @@ describe('repository DX baseline', () => {
       'TTSC_GO_CACHE_DIR=$RUNNER_TEMP/ttsc-go-cache',
       'ttsc-cache-scope:',
       'default: workspace',
-      "hashFiles('bun.lock', 'patches/*.patch', '**/go.mod', '**/go.sum')",
+      "hashFiles('bun.lock', 'patches/*.patch', 'packages/**/rules/**/*.go', '**/go.mod', '**/go.sum')",
     ];
     for (const cacheContract of ttscPluginCache) {
       expect(setupAction).toContain(cacheContract);
