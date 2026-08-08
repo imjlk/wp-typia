@@ -253,6 +253,59 @@ function hasWordPressConfigSpread(
   );
 }
 
+function hasEffectiveWordPressPlugin(
+  config: ts.ObjectLiteralExpression,
+  sourceFile: ts.SourceFile,
+  bindings: WordPressLintConfigBindings,
+): boolean {
+  let enabled = false;
+  for (const property of config.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      enabled = isWordPressConfigPath(property.expression, bindings, [
+        'recommended',
+      ]);
+      continue;
+    }
+    if (getObjectLiteralElementName(property) !== 'plugins') {
+      continue;
+    }
+    if (!ts.isPropertyAssignment(property)) {
+      enabled = false;
+      continue;
+    }
+    if (
+      isWordPressConfigPath(property.initializer, bindings, [
+        'recommended',
+        'plugins',
+      ])
+    ) {
+      enabled = true;
+      continue;
+    }
+    const plugins = resolveObjectLiteral(property.initializer, sourceFile);
+    enabled = Boolean(
+      plugins &&
+        plugins.properties.reduce((current, pluginProperty) => {
+          if (ts.isSpreadAssignment(pluginProperty)) {
+            // A later dynamic spread may overwrite the wordpress key. Keep
+            // validation fail-closed instead of preserving an earlier match.
+            return isWordPressConfigPath(
+              pluginProperty.expression,
+              bindings,
+              ['recommended', 'plugins'],
+            );
+          }
+          // An explicit wordpress key replaces the contributor supplied by
+          // the recommended preset unless a later known spread restores it.
+          return getObjectLiteralElementName(pluginProperty) === 'wordpress'
+            ? false
+            : current;
+        }, false),
+    );
+  }
+  return enabled;
+}
+
 function hasExpectedTextDomainRule(
   rule: ts.PropertyAssignment,
   expectedTextDomain: string,
@@ -373,6 +426,7 @@ export function hasWordPressTtscLintConfigSource(
     : null;
   return Boolean(
     rules &&
+      hasEffectiveWordPressPlugin(config, sourceFile, bindings) &&
       hasWordPressConfigSpread(
         rules,
         bindings,
@@ -404,7 +458,19 @@ function skipShellRunnerOptions(
     if (option === '--') {
       return index + 1;
     }
-    if (['--call', '--package', '-c', '-p'].includes(option ?? '')) {
+    if (
+      [
+        '--call',
+        '--env-file',
+        '--import',
+        '--loader',
+        '--package',
+        '--require',
+        '-c',
+        '-p',
+        '-r',
+      ].includes(option ?? '')
+    ) {
       index += 2;
     } else {
       index += 1;
@@ -430,7 +496,7 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
   } else if (command === 'bun') {
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
-    if (tokens[commandIndex] !== 'x') {
+    if (tokens[commandIndex] !== 'run' && tokens[commandIndex] !== 'x') {
       return null;
     }
     commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
@@ -457,6 +523,21 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
     : null;
 }
 
+function getSimpleShellSegments(command: string): string[][] {
+  return command.split(/\s*(?:&&|\|\||[;|\n])\s*/u).map((segment) => {
+    const tokens = segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
+    return tokens.map((token) => normalizeShellToken(token));
+  });
+}
+
+function getShellCommandStartIndex(tokens: readonly string[]): number {
+  let commandIndex = tokens[0] === 'env' ? 1 : 0;
+  while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(tokens[commandIndex] ?? '')) {
+    commandIndex += 1;
+  }
+  return commandIndex;
+}
+
 /** Check whether a project-owned lint command invokes the managed ttsc lane. */
 export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   if (typeof command !== 'string') {
@@ -464,14 +545,56 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   }
   // This intentionally recognizes only simple shell segments and quoted
   // tokens. Subshells and escaped quote sequences fail closed.
-  return command.split(/\s*(?:&&|\|\||[;|\n])\s*/u).some((segment) => {
-    const tokens = (segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [])
-      .map((token) => normalizeShellToken(token));
+  return getSimpleShellSegments(command).some((tokens) => {
     const commandIndex = getTtscCommandIndex(tokens);
     if (commandIndex === null) {
       return false;
     }
     const args = tokens.slice(commandIndex + 1);
     return args.includes('--noEmit');
+  });
+}
+
+/** Check whether an aggregate command actually runs a package script. */
+export function hasPackageRunScriptCommand(
+  command: unknown,
+  scriptName: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  return getSimpleShellSegments(command).some((tokens) => {
+    let commandIndex = getShellCommandStartIndex(tokens);
+    const packageManager = getShellExecutableName(tokens[commandIndex]);
+    if (!['bun', 'npm', 'pnpm', 'yarn'].includes(packageManager)) {
+      return false;
+    }
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (tokens[commandIndex] === 'run') {
+      commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    } else if (packageManager === 'bun' || packageManager === 'npm') {
+      return false;
+    }
+    return tokens[commandIndex] === scriptName;
+  });
+}
+
+/** Check whether postinstall invokes the managed ttsc lint compatibility file. */
+export function hasTtscLintCompatPostinstallCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  return getSimpleShellSegments(command).some((tokens) => {
+    const commandIndex = getShellCommandStartIndex(tokens);
+    if (getShellExecutableName(tokens[commandIndex]) !== 'node') {
+      return false;
+    }
+    const scriptIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    const scriptPath = (tokens[scriptIndex] ?? '')
+      .replace(/\\/gu, '/')
+      .replace(/^\.\//u, '');
+    return scriptPath === 'scripts/apply-ttsc-lint-compat.mjs';
   });
 }

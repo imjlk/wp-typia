@@ -795,6 +795,7 @@ describe('wp-typia init', () => {
 			'npx --yes ttsc --noEmit',
 			'npx -p ttsc ttsc --noEmit',
 			'bun x ttsc --noEmit',
+			'bun run ttsc --noEmit',
 			'bunx ttsc --noEmit',
 			'pnpm exec ttsc --noEmit',
 			'pnpm --silent exec --offline ttsc --noEmit',
@@ -847,6 +848,19 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'other-domain'),
 		).toBe(false);
+		const enabledTextDomainRule =
+			"    'wordpress/i18n-text-domain': [\n      'error',";
+		for (const severity of ["'off'", '0', 'false']) {
+			expect(
+				hasWordPressTtscLintConfigSource(
+					canonicalSource.replace(
+						enabledTextDomainRule,
+						enabledTextDomainRule.replace("'error'", severity),
+					),
+					'fixture-domain',
+				),
+			).toBe(false);
+		}
 		const multipleDomainsSource = canonicalSource.replace(
 			"allowedTextDomain: 'fixture-domain'",
 			"allowedTextDomain: ['shared-domain', 'fixture-domain']",
@@ -854,6 +868,56 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				multipleDomainsSource,
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource.replace(
+					'  rules: {',
+					'  plugins: {},\n  rules: {',
+				),
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource.replace(
+					'  rules: {',
+					'  plugins: { ...configs.recommended.plugins },\n  rules: {',
+				),
+				'fixture-domain',
+			),
+		).toBe(true);
+		const overwrittenPluginSource = canonicalSource
+			.replace(
+				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
+				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';\nconst localPlugins = { wordpress: undefined };",
+			)
+			.replace(
+				'  rules: {',
+				'  plugins: { ...configs.recommended.plugins, ...localPlugins },\n  rules: {',
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				overwrittenPluginSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`import * as wp from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
 				'fixture-domain',
 			),
 		).toBe(true);
@@ -980,6 +1044,9 @@ export default {};
 		};
 		delete packageJson.devDependencies['@ttsc/lint'];
 		delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+		packageJson.devDependencies['@wordpress/blocks'] = '^999.0.0';
+		packageJson.devDependencies['@wp-typia/block-runtime'] = '^9.0.0';
+		packageJson.devDependencies['@wp-typia/block-types'] = '^9.0.0';
 		delete packageJson.scripts.postinstall;
 		delete packageJson.scripts['lint:ts'];
 		packageJson.packageManager = 'pnpm@8.3.1';
@@ -1021,6 +1088,15 @@ export default {};
 		expect(
 			nextPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
 		).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
+		expect(nextPackageJson.devDependencies['@wordpress/blocks']).toBe(
+			'^999.0.0',
+		);
+		expect(nextPackageJson.devDependencies['@wp-typia/block-runtime']).toBe(
+			'^9.0.0',
+		);
+		expect(nextPackageJson.devDependencies['@wp-typia/block-types']).toBe(
+			'^9.0.0',
+		);
 		expect(nextPackageJson.scripts.postinstall).toBe(
 			'node scripts/apply-ttsc-lint-compat.mjs',
 		);

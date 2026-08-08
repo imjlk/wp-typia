@@ -360,7 +360,8 @@ main().catch( ( error ) => {
 `;
 }
 
-function readRetrofitTtscLintCompatSource(): string {
+/** Read the canonical managed ttsc lint compatibility helper source. */
+export function getTtscLintCompatSource(): string {
   const templatePath = path.join(
     SHARED_BASE_TEMPLATE_ROOT,
     'scripts',
@@ -388,7 +389,7 @@ export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
       source.replace(/\r\n/gu, '\n');
     return (
       normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
-      normalizeLineEndings(readRetrofitTtscLintCompatSource())
+      normalizeLineEndings(getTtscLintCompatSource())
     );
   } catch {
     return false;
@@ -410,7 +411,7 @@ export function buildRetrofitHelperFiles(
 ): Record<string, string> {
   return {
 		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
-			readRetrofitTtscLintCompatSource(),
+			getTtscLintCompatSource(),
 		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
 		[path.join('scripts', 'sync-project.ts')]:
@@ -441,7 +442,7 @@ export function buildOfficialWorkspaceLintFiles(options: {
       ? {}
       : {
           [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
-            readRetrofitTtscLintCompatSource(),
+            getTtscLintCompatSource(),
         }),
     ...(findTtscLintConfigPath(options.projectDir)
       ? {}

@@ -46,6 +46,13 @@ const BASE_RETROFIT_DEV_DEPENDENCIES = [
   'typia',
 ] as const;
 
+const OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES = [
+  '@ttsc/lint',
+  '@wp-typia/ttsc-lint-plugin-wp',
+  'ttsc',
+  'typescript',
+] as const satisfies readonly (typeof BASE_RETROFIT_DEV_DEPENDENCIES)[number][];
+
 export function readProjectPackageJson(
 	projectDir: string,
 ): ProjectPackageJson | null {
@@ -158,11 +165,12 @@ export function hasObsoleteTypiaUnpluginDependency(
   );
 }
 
-export function buildDependencyChanges(
+function buildDependencyChangesForNames(
 	packageJson: ProjectPackageJson | null,
+  names: readonly (typeof BASE_RETROFIT_DEV_DEPENDENCIES)[number][],
 ): InitDependencyChange[] {
   const requiredDependencies = buildRequiredDevDependencyMap();
-  return BASE_RETROFIT_DEV_DEPENDENCIES.flatMap((name) => {
+  return names.flatMap((name) => {
 		const requiredValue = requiredDependencies[name];
 		const currentValue = getExistingDependencyVersion(packageJson, name);
 
@@ -179,6 +187,25 @@ export function buildDependencyChanges(
 			} satisfies InitDependencyChange,
 		];
 	});
+}
+
+export function buildDependencyChanges(
+	packageJson: ProjectPackageJson | null,
+): InitDependencyChange[] {
+  return buildDependencyChangesForNames(
+    packageJson,
+    BASE_RETROFIT_DEV_DEPENDENCIES,
+  );
+}
+
+/** Build only dependencies owned by official-workspace lint adoption. */
+export function buildOfficialWorkspaceLintDependencyChanges(
+  packageJson: ProjectPackageJson | null,
+): InitDependencyChange[] {
+  return buildDependencyChangesForNames(
+    packageJson,
+    OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES,
+  );
 }
 
 function buildOptionalScriptChange(

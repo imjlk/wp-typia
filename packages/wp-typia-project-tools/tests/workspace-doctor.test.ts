@@ -178,6 +178,8 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     devDependencies: Record<string, string>;
     scripts: Record<string, string>;
   };
+  const managedLint = packageJson.scripts.lint;
+  const managedPostinstall = packageJson.scripts.postinstall;
   packageJson.scripts.lint = 'npm run lint:ts:ci';
   fs.writeFileSync(
     packageJsonPath,
@@ -192,6 +194,73 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   expect(subLaneLintCheck?.detail).toContain(
     'lint must include the lint:ts lane',
   );
+
+  packageJson.scripts.lint = 'echo lint:ts';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const echoedLaneChecks = await getDoctorChecks(targetDir);
+  const echoedLaneLintCheck = echoedLaneChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(echoedLaneLintCheck?.status).toBe('warn');
+  expect(echoedLaneLintCheck?.detail).toContain(
+    'lint must include the lint:ts lane',
+  );
+
+  packageJson.scripts.lint = managedLint;
+  packageJson.scripts.postinstall = 'echo apply-ttsc-lint-compat.mjs';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const missingHookChecks = await getDoctorChecks(targetDir);
+  const missingHookLintCheck = missingHookChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingHookLintCheck?.status).toBe('warn');
+  expect(missingHookLintCheck?.detail).toContain(
+    'postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+  );
+
+  packageJson.scripts.postinstall =
+    'node --inspect scripts/apply-ttsc-lint-compat.mjs';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const nodeOptionHookChecks = await getDoctorChecks(targetDir);
+  const nodeOptionHookLintCheck = nodeOptionHookChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(nodeOptionHookLintCheck?.status).toBe('pass');
+
+  packageJson.scripts.postinstall = managedPostinstall;
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const compatPath = path.join(
+    targetDir,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs',
+  );
+  const compatSource = fs.readFileSync(compatPath, 'utf8');
+  fs.writeFileSync(compatPath, `${compatSource}\n// stale\n`, 'utf8');
+  const staleCompatChecks = await getDoctorChecks(targetDir);
+  const staleCompatLintCheck = staleCompatChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(staleCompatLintCheck?.status).toBe('warn');
+  expect(staleCompatLintCheck?.detail).toContain(
+    'missing or stale scripts/apply-ttsc-lint-compat.mjs',
+  );
+  fs.writeFileSync(compatPath, compatSource, 'utf8');
 
   delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
   delete packageJson.scripts['lint:ts'];

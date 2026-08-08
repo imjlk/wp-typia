@@ -15,6 +15,7 @@ import { getPackageVersions } from '../shared/package-versions.js';
 import { toPascalCase } from '../shared/string-case.js';
 import {
   buildDependencyChanges,
+  buildOfficialWorkspaceLintDependencyChanges,
   buildOfficialWorkspaceLintScriptChanges,
   buildPackageManagerFieldChange,
   buildScriptChanges,
@@ -427,7 +428,9 @@ export function getInitPlan(
       workspacePackageJson,
       options.packageManager,
     );
-    const dependencyChanges = buildDependencyChanges(workspacePackageJson);
+    const dependencyChanges = buildOfficialWorkspaceLintDependencyChanges(
+      workspacePackageJson,
+    );
     // Official-workspace upgrades own only lint integration. Sync and
     // typecheck commands are project lifecycle hooks and must be preserved.
     const scriptChanges = buildOfficialWorkspaceLintScriptChanges(

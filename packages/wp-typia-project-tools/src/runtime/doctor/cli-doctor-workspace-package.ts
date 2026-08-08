@@ -6,6 +6,11 @@ import {
 } from './cli-doctor-workspace-shared.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
 import {
+  getTtscLintCompatSource,
+} from '../cli/cli-init-templates.js';
+import {
+  hasPackageRunScriptCommand,
+  hasTtscLintCompatPostinstallCommand,
   hasTtscNoEmitLintCommand,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
@@ -36,6 +41,27 @@ export interface WorkspacePackageDoctorSnapshot {
   ttscLintConfigReadError: string | null;
 	/** Source of the discovered ttsc lint config, when readable. */
   ttscLintConfigSource: string | null;
+	/** Whether the managed ttsc lint compatibility helper is current. */
+  ttscLintCompatCurrent: boolean;
+}
+
+async function readWorkspaceTtscLintCompatCurrent(
+  projectDir: string,
+): Promise<boolean> {
+  try {
+    const source = await readOptionalUtf8File(
+      path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+    );
+    const normalizeLineEndings = (value: string) =>
+      value.replace(/\r\n/gu, '\n');
+    return Boolean(
+      source !== null &&
+        normalizeLineEndings(source) ===
+          normalizeLineEndings(getTtscLintCompatSource()),
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function readWorkspaceTtscLintConfig(projectDir: string): Promise<{
@@ -90,10 +116,16 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     'migrations',
     'config.ts',
   );
-  const [bootstrapExists, migrationConfigExists, ttscLintConfig] =
+  const [
+    bootstrapExists,
+    migrationConfigExists,
+    ttscLintCompatCurrent,
+    ttscLintConfig,
+  ] =
     await Promise.all([
       pathExists(path.join(workspace.projectDir, bootstrapRelativePath)),
       pathExists(path.join(workspace.projectDir, migrationConfigRelativePath)),
+      readWorkspaceTtscLintCompatCurrent(workspace.projectDir),
       readWorkspaceTtscLintConfig(workspace.projectDir),
     ]);
 
@@ -105,6 +137,7 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     ttscLintConfigRelativePath: ttscLintConfig.relativePath,
     ttscLintConfigReadError: ttscLintConfig.readError,
     ttscLintConfigSource: ttscLintConfig.source,
+    ttscLintCompatCurrent,
   };
 }
 
@@ -143,8 +176,16 @@ export function getWorkspaceTtscLintCheck(
   if (!hasTtscNoEmitLintCommand(packageJson.scripts?.['lint:ts'])) {
     issues.push('lint:ts must invoke `ttsc --noEmit`');
   }
-  if (!/(?:^|\s)lint:ts(?:$|[\s;&|])/u.test(packageJson.scripts?.lint ?? '')) {
+  if (!hasPackageRunScriptCommand(packageJson.scripts?.lint, 'lint:ts')) {
     issues.push('lint must include the lint:ts lane');
+  }
+  if (!snapshot.ttscLintCompatCurrent) {
+    issues.push('missing or stale scripts/apply-ttsc-lint-compat.mjs');
+  }
+  if (
+    !hasTtscLintCompatPostinstallCommand(packageJson.scripts?.postinstall)
+  ) {
+    issues.push('postinstall must invoke scripts/apply-ttsc-lint-compat.mjs');
   }
 
   return createDoctorCheck(
