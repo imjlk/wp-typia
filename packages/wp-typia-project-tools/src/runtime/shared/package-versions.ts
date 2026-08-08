@@ -19,6 +19,7 @@ export interface PackageVersions {
   projectToolsPackageVersion: string;
   restPackageVersion: string;
   ttscLintPackageVersion: string;
+  /** Normalized version range for the WordPress ttsc lint contributor. */
   ttscLintPluginWpPackageVersion: string;
   ttscPackageVersion: string;
   ttscUnpluginPackageVersion: string;

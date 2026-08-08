@@ -13,6 +13,7 @@ import type {
 } from './cli-init-types.js';
 import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
 
+/** Find the first ttsc lint config using the shared discovery precedence. */
 export function findTtscLintConfigPath(projectDir: string): string | null {
   for (const filename of TTSC_LINT_CONFIG_FILENAMES) {
     const configPath = path.join(projectDir, filename);
@@ -24,8 +25,12 @@ export function findTtscLintConfigPath(projectDir: string): string | null {
   return null;
 }
 
+/**
+ * Check whether a readable config enables the WordPress preset for a project.
+ */
 export function hasWordPressTtscLintConfig(
   configPath: string | null,
+  expectedTextDomain: string,
 ): boolean {
   if (!configPath) {
     return false;
@@ -37,45 +42,37 @@ export function hasWordPressTtscLintConfig(
   } catch {
     return false;
   }
-  return hasWordPressTtscLintConfigSource(source);
+  return hasWordPressTtscLintConfigSource(source, expectedTextDomain);
 }
 
 /** Build the canonical WordPress-aware lint config for an existing workspace. */
 export function buildWordPressTtscLintConfigSource(
   textDomain: string,
 ): string {
-  return `import type { ITtscLintConfig } from '@ttsc/lint';
-import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
-
-export default {
-  ...configs.recommended,
-  ignores: ['build/**', 'node_modules/**'],
-  format: {
-    severity: 'error',
-    printWidth: 80,
-    tabWidth: 2,
-    useTabs: false,
-    semi: true,
-    singleQuote: true,
-    trailingComma: 'all',
-    endOfLine: 'lf',
-    sortImports: false,
-    jsDoc: false,
-  },
-  rules: {
-    ...configs.recommended.rules,
-    'no-var': 'error',
-    'prefer-const': 'error',
-    eqeqeq: 'error',
-    'wordpress/i18n-text-domain': [
-      'error',
-      { allowedTextDomain: ${quoteTsString(textDomain)} },
-    ],
-  },
-} satisfies ITtscLintConfig;
-`;
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'lint.config.ts.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  const placeholder = "'{{textDomain}}'";
+  if (source.split(placeholder).length !== 2) {
+    throw new Error(
+      `${templatePath} must contain exactly one quoted textDomain placeholder.`,
+    );
+  }
+  const rendered = source.replace(placeholder, () => quoteTsString(textDomain));
+  if (/\{\{|\}\}/u.test(rendered)) {
+    throw new Error(
+      `${templatePath} must not contain unsupported Mustache placeholders.`,
+    );
+  }
+  return rendered;
 }
 
+/**
+ * Resolve a retrofit text domain from wpTypia metadata, block metadata,
+ * package name, the first block slug, then the project directory name.
+ */
 export function resolveRetrofitTextDomain(options: {
   blockTargets: readonly RetrofitInitBlockTarget[];
   packageJson: ProjectPackageJson | null;
@@ -379,6 +376,7 @@ function readRetrofitTtscLintCompatSource(): string {
   return source;
 }
 
+/** Check whether the generated ttsc compatibility helper is current. */
 export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
   const compatPath = path.join(
     projectDir,

@@ -6,7 +6,11 @@ import { applyInitPlan } from '../src/runtime/cli-init-apply.js';
 import { runInitCommand } from '../src/runtime/cli-init.js';
 import { getInitPlan } from '../src/runtime/cli-init-plan.js';
 import { buildOfficialWorkspaceLintScriptChanges } from '../src/runtime/cli/cli-init-package-json.js';
-import { buildWordPressTtscLintConfigSource } from '../src/runtime/cli/cli-init-templates.js';
+import {
+  buildWordPressTtscLintConfigSource,
+  resolveRetrofitTextDomain,
+} from '../src/runtime/cli/cli-init-templates.js';
+import { hasWordPressTtscLintConfigSource } from '../src/runtime/shared/ttsc-lint-config.js';
 import {
   buildInitPlanChangeSummary,
   buildInitPlanNextSteps,
@@ -738,6 +742,27 @@ describe('wp-typia init', () => {
 					'pnpm run lint:ts && pnpm run lint:ts:ci && pnpm run lint:css',
 			}),
 		);
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+	});
+
+	test('preserves project-owned flags on the managed lint:ts lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:css',
+					'lint:ts': 'ttsc --noEmit --pretty',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue: 'npm run lint:ts && npm run lint:css',
+			}),
+		);
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -756,6 +781,52 @@ describe('wp-typia init', () => {
 		expect(buildWordPressTtscLintConfigSource('fixture-domain')).toBe(
 			templateSource.split('{{textDomain}}').join('fixture-domain'),
 		);
+		expect(buildWordPressTtscLintConfigSource("owner's-domain")).toContain(
+			"allowedTextDomain: 'owner\\'s-domain'",
+		);
+		expect(buildWordPressTtscLintConfigSource('domain-$&')).toContain(
+			"allowedTextDomain: 'domain-$&'",
+		);
+	});
+
+	test('requires the contributor preset and expected text domain', () => {
+		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
+		expect(
+			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(canonicalSource, 'other-domain'),
+		).toBe(false);
+		const multipleDomainsSource = canonicalSource.replace(
+			"allowedTextDomain: 'fixture-domain'",
+			"allowedTextDomain: ['shared-domain', 'fixture-domain']",
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				multipleDomainsSource,
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  rules: { 'wordpress/i18n-text-domain': 'error' },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+	});
+
+	test('normalizes scoped package names for retrofit text domains', () => {
+		expect(
+			resolveRetrofitTextDomain({
+				blockTargets: [],
+				packageJson: { name: '@acme/site-blocks' },
+				projectDir: '/tmp/ignored-project-dir',
+			}),
+		).toBe('site-blocks');
 	});
 
 	test('upgrades an existing official workspace to the WordPress ttsc lint lane', async () => {
@@ -931,7 +1002,10 @@ export default {
   ...configs.recommended,
   rules: {
     ...configs.recommended.rules,
-    'wordpress/i18n-text-domain': 'error',
+		'wordpress/i18n-text-domain': [
+			'error',
+			{ allowedTextDomain: 'retrofit-already-initialized' },
+		],
   },
 };
 `,

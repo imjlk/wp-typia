@@ -16,6 +16,7 @@ import {
   getPackageVersions,
 } from '../shared/package-versions.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
+import { hasTtscNoEmitLintCommand } from '../shared/ttsc-lint-config.js';
 import type {
   InitDependencyChange,
   InitPackageManagerFieldChange,
@@ -247,6 +248,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
     packageManager,
   );
   const currentLintTs = scripts['lint:ts'];
+  const lintTsSatisfied = hasTtscNoEmitLintCommand(currentLintTs);
   const currentLint = scripts.lint;
   let requiredLint = lintTsRun;
   if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
@@ -259,11 +261,9 @@ export function buildOfficialWorkspaceLintScriptChanges(
   }
 
   return [
-    ...buildOptionalScriptChange(
-      'lint:ts',
-      currentLintTs,
-      lintTsCommand,
-    ),
+    ...(lintTsSatisfied
+      ? []
+      : buildOptionalScriptChange('lint:ts', currentLintTs, lintTsCommand)),
     ...buildOptionalScriptChange('lint', currentLint, requiredLint),
   ];
 }

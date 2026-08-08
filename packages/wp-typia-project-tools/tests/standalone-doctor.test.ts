@@ -126,6 +126,54 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(createDoctorRunSummary(checks).exitCode).toBe(1);
   });
 
+  test('requires the standalone WordPress lint declaration and config contract', async () => {
+    const targetDir = path.join(tempRoot, 'standalone-lint-contract');
+    await scaffoldBasic(targetDir);
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const originalPackageJsonSource = fs.readFileSync(packageJsonPath, 'utf8');
+    const packageJson = JSON.parse(originalPackageJsonSource) as {
+      devDependencies: Record<string, string>;
+    };
+    delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+    const missingDeclarationCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(missingDeclarationCheck?.status).toBe('fail');
+    expect(missingDeclarationCheck?.detail).toContain(
+      'must declare @wp-typia/ttsc-lint-plugin-wp',
+    );
+
+    fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
+    const lintConfigPath = path.join(targetDir, 'lint.config.ts');
+    const originalLintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
+    fs.writeFileSync(
+      lintConfigPath,
+      originalLintConfigSource.replace(
+        "allowedTextDomain: 'standalone-lint-contract'",
+        "allowedTextDomain: 'wrong-domain'",
+      ),
+    );
+    const wrongDomainCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(wrongDomainCheck?.status).toBe('fail');
+    expect(wrongDomainCheck?.detail).toContain(
+      'bind wordpress/i18n-text-domain to "standalone-lint-contract"',
+    );
+
+    fs.rmSync(lintConfigPath);
+    const missingConfigCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(missingConfigCheck?.status).toBe('fail');
+    expect(missingConfigCheck?.detail).toContain('missing ttsc lint config');
+  });
+
   test('requires each scaffold family source surface', async () => {
     const fixtures = [
       {
@@ -278,6 +326,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       ['typescript', 'typescript'],
       ['ttsc', 'ttsc/package.json'],
       ['@ttsc/lint', '@ttsc/lint/package.json'],
+      [
+        '@wp-typia/ttsc-lint-plugin-wp',
+        '@wp-typia/ttsc-lint-plugin-wp/package.json',
+      ],
       ['@wordpress/block-editor', '@wordpress/block-editor/package.json'],
       ['@wordpress/blocks', '@wordpress/blocks/package.json'],
       ['@wordpress/components', '@wordpress/components/package.json'],
@@ -374,6 +426,30 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(dependenciesCheck?.detail).toContain('@wordpress/scripts');
     expect(getCheck(checks, STANDALONE_DOCTOR_CODES.ARTIFACTS)?.status).toBe(
       'warn',
+    );
+  }, 20_000);
+
+  test('requires the installed WordPress ttsc lint contributor', async () => {
+    const targetDir = path.join(tempRoot, 'missing-wordpress-lint-contributor');
+    await scaffoldBasic(targetDir);
+    linkWorkspaceNodeModules(targetDir);
+    fs.rmSync(
+      path.join(
+        targetDir,
+        'node_modules',
+        '@wp-typia',
+        'ttsc-lint-plugin-wp',
+      ),
+      { force: true, recursive: true },
+    );
+
+    const dependenciesCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+    );
+    expect(dependenciesCheck?.status).toBe('fail');
+    expect(dependenciesCheck?.detail).toContain(
+      '@wp-typia/ttsc-lint-plugin-wp',
     );
   }, 20_000);
 

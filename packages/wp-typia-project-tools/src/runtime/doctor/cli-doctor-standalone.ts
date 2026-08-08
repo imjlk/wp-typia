@@ -25,6 +25,10 @@ import {
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
+  hasWordPressTtscLintConfigSource,
+  TTSC_LINT_CONFIG_FILENAMES,
+} from '../shared/ttsc-lint-config.js';
+import {
   createDoctorCheck,
   createDoctorScopeCheck,
 } from './cli-doctor-workspace-shared.js';
@@ -165,6 +169,11 @@ const REQUIRED_INSTALLED_PACKAGES = [
     diagnosticName: '@ttsc/lint',
     packageName: '@ttsc/lint',
     resolutionSpecifier: '@ttsc/lint/package.json',
+  },
+  {
+    diagnosticName: '@wp-typia/ttsc-lint-plugin-wp',
+    packageName: '@wp-typia/ttsc-lint-plugin-wp',
+    resolutionSpecifier: '@wp-typia/ttsc-lint-plugin-wp/package.json',
   },
   {
     diagnosticName: '@wordpress/scripts',
@@ -2935,6 +2944,45 @@ function getPackageManagerSelector(
     : undefined;
 }
 
+function getStandaloneTtscLintConfigIssue(
+  project: StandaloneScaffoldProject,
+): string | null {
+  let expectedTextDomain: string;
+  try {
+    const blockJson = readJsonFileSync<{ textdomain?: unknown }>(
+      path.join(project.projectDir, STANDALONE_BLOCK_JSON_FILE),
+      { context: 'standalone block metadata' },
+    );
+    if (
+      typeof blockJson.textdomain !== 'string' ||
+      blockJson.textdomain.trim().length === 0
+    ) {
+      return `${STANDALONE_BLOCK_JSON_FILE} must define a non-empty textdomain for lint validation`;
+    }
+    expectedTextDomain = blockJson.textdomain.trim();
+  } catch (error) {
+    return `unable to read ${STANDALONE_BLOCK_JSON_FILE} for lint validation: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  for (const relativePath of TTSC_LINT_CONFIG_FILENAMES) {
+    const configPath = path.join(project.projectDir, relativePath);
+    if (!fs.existsSync(configPath)) {
+      continue;
+    }
+    let source: string;
+    try {
+      source = fs.readFileSync(configPath, 'utf8');
+    } catch (error) {
+      return `unable to read ${relativePath}: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return hasWordPressTtscLintConfigSource(source, expectedTextDomain)
+      ? null
+      : `${relativePath} must enable the WordPress ttsc lint preset and bind wordpress/i18n-text-domain to "${expectedTextDomain}"`;
+  }
+
+  return 'missing ttsc lint config';
+}
+
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
@@ -2959,6 +3007,10 @@ function getPackageMetadataCheck(
     project.projectDir,
     getPackageManagerSelector(project),
   );
+  const ttscLintConfigIssue = getStandaloneTtscLintConfigIssue(project);
+  if (ttscLintConfigIssue) {
+    issues.push(ttscLintConfigIssue);
+  }
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const syncCommand = formatRunScript(packageManager, 'sync');
   const scriptRequirements = [
@@ -3063,6 +3115,7 @@ function getPackageMetadataCheck(
     '@ttsc/lint',
     '@ttsc/unplugin',
     '@wordpress/scripts',
+    '@wp-typia/ttsc-lint-plugin-wp',
     'ttsc',
     'typescript',
   ]) {

@@ -124,6 +124,38 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   fs.rmdirSync(lintConfigPath);
   fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
 
+  fs.writeFileSync(
+    lintConfigPath,
+    lintConfigSource.replace(
+      /'wordpress\/i18n-text-domain': \[[\s\S]*?\n    \],/u,
+      "'wordpress/i18n-text-domain': 'error',",
+    ),
+    'utf8',
+  );
+  const unboundRuleChecks = await getDoctorChecks(targetDir);
+  const unboundRuleLintCheck = unboundRuleChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(unboundRuleLintCheck?.status).toBe('warn');
+  expect(unboundRuleLintCheck?.detail).toContain(
+    'does not enable the WordPress contributor and text-domain rule',
+  );
+
+  fs.writeFileSync(
+    lintConfigPath,
+    lintConfigSource.replace(
+      /allowedTextDomain: '[^']*'/u,
+      "allowedTextDomain: 'wrong-domain'",
+    ),
+    'utf8',
+  );
+  const wrongDomainChecks = await getDoctorChecks(targetDir);
+  const wrongDomainLintCheck = wrongDomainChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(wrongDomainLintCheck?.status).toBe('warn');
+  fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
+
   const packageJsonPath = path.join(targetDir, 'package.json');
   const packageJson = JSON.parse(
     fs.readFileSync(packageJsonPath, 'utf8'),

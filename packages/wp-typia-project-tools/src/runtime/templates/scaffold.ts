@@ -160,6 +160,7 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   textDomain: string;
   textdomain: string;
   testedUpTo: string;
+  /** WordPress ttsc lint contributor version rendered into package templates. */
   ttscLintPluginWpPackageVersion: string;
   title: string;
   titleJson: string;

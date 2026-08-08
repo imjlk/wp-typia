@@ -28,6 +28,7 @@ import {
   findTtscLintConfigPath,
   hasCurrentTtscLintCompatFile,
   hasWordPressTtscLintConfig,
+  resolveRetrofitTextDomain,
 } from './cli-init-templates.js';
 import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
@@ -449,6 +450,7 @@ export function getInitPlan(
     const existingLintConfigPath = findTtscLintConfigPath(workspace.projectDir);
     const wordpressLintIntegrated = hasWordPressTtscLintConfig(
       existingLintConfigPath,
+      workspace.workspace.textDomain,
     );
     const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
       workspace.projectDir,
@@ -556,8 +558,14 @@ export function getInitPlan(
     packageJson,
   );
   const existingLintConfigPath = findTtscLintConfigPath(resolvedProjectDir);
+  const expectedTextDomain = resolveRetrofitTextDomain({
+    blockTargets: layout.blockTargets,
+    packageJson,
+    projectDir: resolvedProjectDir,
+  });
   const wordpressLintIntegrated = hasWordPressTtscLintConfig(
     existingLintConfigPath,
+    expectedTextDomain,
   );
   const status: InitPlanStatus =
 		hasExistingSurface &&

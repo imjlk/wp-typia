@@ -159,10 +159,16 @@ export async function applyInitPlan(
     );
   }
 
+  const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
+  const expectedTextDomain = resolveRetrofitTextDomain({
+    blockTargets: previewPlan.blockTargets,
+    packageJson: currentPackageJson,
+    projectDir: previewPlan.projectDir,
+  });
   const existingLintConfigPath = findTtscLintConfigPath(previewPlan.projectDir);
   if (
     existingLintConfigPath &&
-    !hasWordPressTtscLintConfig(existingLintConfigPath)
+    !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain)
   ) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
@@ -180,7 +186,6 @@ export async function applyInitPlan(
     });
   }
 
-  const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
   const nextPackageJson = buildNextProjectPackageJson({
     packageChanges: previewPlan.packageChanges,
     packageJson: currentPackageJson,
@@ -191,16 +196,11 @@ export async function applyInitPlan(
     previewPlan.detectedLayout.kind === 'official-workspace'
       ? buildOfficialWorkspaceLintFiles({
           projectDir: previewPlan.projectDir,
-          textDomain:
-            currentPackageJson?.wpTypia?.textDomain ?? previewPlan.projectName,
+          textDomain: expectedTextDomain,
         })
       : buildRetrofitHelperFiles(previewPlan.blockTargets, {
           projectDir: previewPlan.projectDir,
-          textDomain: resolveRetrofitTextDomain({
-            blockTargets: previewPlan.blockTargets,
-            packageJson: currentPackageJson,
-            projectDir: previewPlan.projectDir,
-          }),
+          textDomain: expectedTextDomain,
         });
   const webpackChanges = collectRetrofitWebpackChanges(previewPlan.projectDir);
   const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(

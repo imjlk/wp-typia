@@ -6,6 +6,7 @@ import {
 } from './cli-doctor-workspace-shared.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
 import {
+  hasTtscNoEmitLintCommand,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
@@ -136,13 +137,16 @@ export function getWorkspaceTtscLintCheck(
   } else if (!snapshot.ttscLintConfigSource) {
     issues.push('missing ttsc lint config');
   } else if (
-    !hasWordPressTtscLintConfigSource(snapshot.ttscLintConfigSource)
+    !hasWordPressTtscLintConfigSource(
+      snapshot.ttscLintConfigSource,
+      packageJson.wpTypia?.textDomain ?? '',
+    )
   ) {
     issues.push(
       `${snapshot.ttscLintConfigRelativePath} does not enable the WordPress contributor and text-domain rule`,
     );
   }
-  if (!packageJson.scripts?.['lint:ts']?.includes('ttsc --noEmit')) {
+  if (!hasTtscNoEmitLintCommand(packageJson.scripts?.['lint:ts'])) {
     issues.push('lint:ts must invoke `ttsc --noEmit`');
   }
   if (!/(?:^|\s)lint:ts(?:$|[\s;&|])/u.test(packageJson.scripts?.lint ?? '')) {

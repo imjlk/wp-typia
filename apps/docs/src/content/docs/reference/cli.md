@@ -390,7 +390,7 @@ The command previews changes by default, and `--apply` switches to
 rollback-protected writes for `package.json` and the generated retrofit helper
 files.
 
-The adoption plan also adds the WordPress `@ttsc/lint` contributor, creates a
+The adoption plan also adds `@wp-typia/ttsc-lint-plugin-wp`, creates a
 text-domain-aware `lint.config.ts`, and puts `ttsc --noEmit` in the TypeScript
 lint lane. Existing lint configs are project-owned and are never overwritten;
 `init --apply` stops with manual merge guidance when one exists without the
