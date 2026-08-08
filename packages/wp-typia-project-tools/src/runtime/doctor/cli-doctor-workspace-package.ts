@@ -157,6 +157,12 @@ export function getWorkspaceTtscLintCheck(
   if (typeof dependencies['@wp-typia/ttsc-lint-plugin-wp'] !== 'string') {
     issues.push('missing @wp-typia/ttsc-lint-plugin-wp dependency');
   }
+  if (typeof dependencies.ttsc !== 'string') {
+    issues.push('missing ttsc dependency');
+  }
+  if (typeof dependencies.typescript !== 'string') {
+    issues.push('missing typescript dependency');
+  }
   if (snapshot.ttscLintConfigReadError) {
     issues.push(
       `unable to read ${snapshot.ttscLintConfigRelativePath}: ${snapshot.ttscLintConfigReadError}`,

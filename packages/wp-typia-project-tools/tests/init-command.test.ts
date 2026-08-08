@@ -803,17 +803,56 @@ describe('wp-typia init', () => {
 			'yarn run ttsc --noEmit',
 			'npm exec -- ttsc --noEmit',
 			'npm exec --silent ttsc -- --noEmit',
+			['ttsc \\', '--noEmit'].join('\n'),
+			['ttsc \\', '--noEmit'].join('\r\n'),
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(false);
 		}
 		for (const command of [
 			'echo ttsc --noEmit',
+			`echo 'next: && ttsc --noEmit'`,
 			'npx echo ttsc --noEmit',
 			'npx --yes echo ttsc --noEmit',
 			'ttsc --pretty && echo --noEmit',
+			'ttsc --noEmit || true',
+			'ttsc --noEmit\\',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(true);
 		}
+
+		const noncanonicalAggregate = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'pnpm --silent run lint:ts && pnpm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'pnpm',
+		);
+		expect(
+			noncanonicalAggregate.some((change) => change.name === 'lint'),
+		).toBe(false);
+
+		const echoedPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'echo node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(echoedPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'echo node scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -904,6 +943,62 @@ describe('wp-typia init', () => {
 				'fixture-domain',
 			),
 		).toBe(false);
+		const mutatedConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				'} satisfies ITtscLintConfig;\nconfig.plugins = {};\nexport default config;',
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				mutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const dynamicMutatedConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				"} satisfies ITtscLintConfig;\nconst key = 'plugins';\nconfig[key] = {};\nexport default config;",
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				dynamicMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const methodMutatedConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				"} satisfies ITtscLintConfig;\nconfig.rules['wordpress/i18n-text-domain'].push('warn');\nexport default config;",
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				methodMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const shadowedHelperConfigSource = canonicalSource
+			.replace('export default {', 'const config = {')
+			.replace(
+				'} satisfies ITtscLintConfig;',
+				[
+					'} satisfies ITtscLintConfig;',
+					'function buildLocalConfig() {',
+					'  const config = { rules: {} };',
+					"  config.rules = { local: 'error' };",
+					'  return config;',
+					'}',
+					'export default config;',
+				].join('\n'),
+			);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				shadowedHelperConfigSource,
+				'fixture-domain',
+			),
+		).toBe(true);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`import * as wp from '@wp-typia/ttsc-lint-plugin-wp';
@@ -1158,6 +1253,24 @@ export default {};
 			/preserves an existing ttsc lint config/u,
 		);
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
+	});
+
+	test('does not discover unsupported JSON lint configs', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-json-lint-config');
+		await scaffoldOfficialWorkspace(projectDir);
+		fs.rmSync(path.join(projectDir, 'lint.config.ts'));
+		const jsonConfigPath = path.join(projectDir, 'lint.config.json');
+		const jsonConfigSource = '{"rules":{"eqeqeq":"error"}}\n';
+		fs.writeFileSync(jsonConfigPath, jsonConfigSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'add', path: 'lint.config.ts' }),
+		);
+		await applyInitPlan(projectDir);
+		expect(fs.readFileSync(jsonConfigPath, 'utf8')).toBe(jsonConfigSource);
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(true);
 	});
 
 	test('reports already-initialized projects without planning redundant changes', () => {

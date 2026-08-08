@@ -262,6 +262,29 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   fs.writeFileSync(compatPath, compatSource, 'utf8');
 
+  const managedTtsc = packageJson.devDependencies.ttsc;
+  const managedTypeScript = packageJson.devDependencies.typescript;
+  delete packageJson.devDependencies.ttsc;
+  delete packageJson.devDependencies.typescript;
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const missingToolchainChecks = await getDoctorChecks(targetDir);
+  const missingToolchainLintCheck = missingToolchainChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingToolchainLintCheck?.status).toBe('warn');
+  expect(missingToolchainLintCheck?.detail).toContain(
+    'missing ttsc dependency',
+  );
+  expect(missingToolchainLintCheck?.detail).toContain(
+    'missing typescript dependency',
+  );
+  packageJson.devDependencies.ttsc = managedTtsc;
+  packageJson.devDependencies.typescript = managedTypeScript;
+
   delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
   delete packageJson.scripts['lint:ts'];
   packageJson.scripts.lint = 'npm run lint:css';

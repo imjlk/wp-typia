@@ -16,7 +16,11 @@ import {
   getPackageVersions,
 } from '../shared/package-versions.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
-import { hasTtscNoEmitLintCommand } from '../shared/ttsc-lint-config.js';
+import {
+  hasPackageRunScriptCommand,
+  hasTtscLintCompatPostinstallCommand,
+  hasTtscNoEmitLintCommand,
+} from '../shared/ttsc-lint-config.js';
 import type {
   InitDependencyChange,
   InitPackageManagerFieldChange,
@@ -232,7 +236,7 @@ function mergePostinstallCommand(
   requiredCommand: string,
 ): string {
   if (typeof currentValue === 'string' && currentValue.trim().length > 0) {
-    return currentValue.includes(requiredCommand)
+    return hasTtscLintCompatPostinstallCommand(currentValue)
       ? currentValue
       : `${currentValue} && ${requiredCommand}`;
   }
@@ -294,9 +298,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
   const currentLint = scripts.lint;
   let requiredLint = lintTsRun;
   if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
-    const includesLintTs = currentLint
-      .split(/\s*(?:&&|\|\||;)\s*/u)
-      .some((command) => command.trim() === lintTsRun);
+    const includesLintTs = hasPackageRunScriptCommand(currentLint, 'lint:ts');
     requiredLint = includesLintTs
       ? currentLint
       : `${lintTsRun} && ${currentLint}`;

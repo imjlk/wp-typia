@@ -10,14 +10,12 @@ export const TTSC_LINT_CONFIG_FILENAMES = [
   'lint.config.mjs',
   'lint.config.cjs',
   'lint.config.js',
-  'lint.config.json',
   'ttsc-lint.config.ts',
   'ttsc-lint.config.mts',
   'ttsc-lint.config.cts',
   'ttsc-lint.config.mjs',
   'ttsc-lint.config.cjs',
   'ttsc-lint.config.js',
-  'ttsc-lint.config.json',
 ] as const;
 
 interface WordPressLintConfigBindings {
@@ -78,6 +76,22 @@ function getPropertyAccessPath(expression: ts.Expression): string[] | null {
             .text,
         ]
       : null;
+  }
+  return null;
+}
+
+function getExpressionRootIdentifier(
+  expression: ts.Expression,
+): string | null {
+  const current = unwrapExpression(expression);
+  if (ts.isIdentifier(current)) {
+    return current.text;
+  }
+  if (
+    ts.isPropertyAccessExpression(current) ||
+    ts.isElementAccessExpression(current)
+  ) {
+    return getExpressionRootIdentifier(current.expression);
   }
   return null;
 }
@@ -180,6 +194,75 @@ function isWordPressConfigPath(
   );
 }
 
+function statementMutatesIdentifier(
+  statement: ts.Statement,
+  identifier: string,
+): boolean {
+  let mutated = false;
+  const visit = (node: ts.Node): void => {
+    if (mutated) {
+      return;
+    }
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isClassDeclaration(node) ||
+      ts.isClassExpression(node) ||
+      ts.isModuleDeclaration(node)
+    ) {
+      return;
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      getExpressionRootIdentifier(node.left) === identifier
+    ) {
+      mutated = true;
+      return;
+    }
+    let mutatingUnary: ts.Expression | null = null;
+    if (ts.isDeleteExpression(node)) {
+      mutatingUnary = node.expression;
+    } else if (
+      (ts.isPostfixUnaryExpression(node) ||
+        ts.isPrefixUnaryExpression(node)) &&
+      (node.operator === ts.SyntaxKind.PlusPlusToken ||
+        node.operator === ts.SyntaxKind.MinusMinusToken)
+    ) {
+      mutatingUnary = node.operand;
+    }
+    if (
+      mutatingUnary &&
+      getExpressionRootIdentifier(mutatingUnary) === identifier
+    ) {
+      mutated = true;
+      return;
+    }
+    if (ts.isCallExpression(node)) {
+      const assignsToIdentifier =
+        getPropertyAccessPath(node.expression)?.join('.') ===
+          'Object.assign' &&
+        node.arguments.length > 0 &&
+        getExpressionRootIdentifier(node.arguments[0]) === identifier;
+      // Static validation cannot prove arbitrary project-owned methods pure,
+      // so any call rooted at the exported config fails closed.
+      const callsIdentifierMethod =
+        (ts.isPropertyAccessExpression(node.expression) ||
+          ts.isElementAccessExpression(node.expression)) &&
+        getExpressionRootIdentifier(node.expression.expression) === identifier;
+      if (assignsToIdentifier || callsIdentifierMethod) {
+        mutated = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return mutated;
+}
+
 function resolveObjectLiteral(
   expression: ts.Expression,
   sourceFile: ts.SourceFile,
@@ -191,7 +274,12 @@ function resolveObjectLiteral(
   if (!ts.isIdentifier(current)) {
     return null;
   }
-  for (const statement of sourceFile.statements) {
+  for (
+    let statementIndex = 0;
+    statementIndex < sourceFile.statements.length;
+    statementIndex += 1
+  ) {
+    const statement = sourceFile.statements[statementIndex];
     if (!ts.isVariableStatement(statement)) {
       continue;
     }
@@ -202,7 +290,15 @@ function resolveObjectLiteral(
         declaration.initializer
       ) {
         const initializer = unwrapExpression(declaration.initializer);
-        return ts.isObjectLiteralExpression(initializer) ? initializer : null;
+        if (!ts.isObjectLiteralExpression(initializer)) {
+          return null;
+        }
+        const laterMutation = sourceFile.statements
+          .slice(statementIndex + 1)
+          .some((laterStatement) =>
+            statementMutatesIdentifier(laterStatement, current.text),
+          );
+        return laterMutation ? null : initializer;
       }
     }
   }
@@ -523,11 +619,109 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
     : null;
 }
 
-function getSimpleShellSegments(command: string): string[][] {
-  return command.split(/\s*(?:&&|\|\||[;|\n])\s*/u).map((segment) => {
-    const tokens = segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
-    return tokens.map((token) => normalizeShellToken(token));
-  });
+interface SimpleShellSegment {
+  operatorBefore: '&&' | '||' | ';' | '|' | null;
+  tokens: string[];
+}
+
+function getSimpleShellSegments(command: string): SimpleShellSegment[] {
+  const segments: SimpleShellSegment[] = [];
+  let buffer = '';
+  let escaped = false;
+  let operatorBefore: SimpleShellSegment['operatorBefore'] = null;
+  let quote: "'" | '"' | null = null;
+  const pushSegment = () => {
+    const rawTokens =
+      buffer.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
+    const tokens = rawTokens.map((token) => normalizeShellToken(token));
+    if (tokens.length > 0) {
+      segments.push({ operatorBefore, tokens });
+    }
+    buffer = '';
+  };
+
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index] ?? '';
+    if (escaped) {
+      buffer += character;
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      const nextCharacter = command[index + 1];
+      if (nextCharacter === '\n') {
+        index += 1;
+        continue;
+      }
+      if (
+        nextCharacter === '\r' &&
+        command[index + 2] === '\n'
+      ) {
+        index += 2;
+        continue;
+      }
+      if (nextCharacter === undefined) {
+        buffer += character;
+        continue;
+      }
+      buffer += character;
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      buffer += character;
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      buffer += character;
+      quote = character;
+      continue;
+    }
+
+    const pair = command.slice(index, index + 2);
+    if (pair === '&&' || pair === '||') {
+      pushSegment();
+      operatorBefore = pair;
+      index += 1;
+      continue;
+    }
+    if (character === ';' || character === '|' || character === '\n') {
+      pushSegment();
+      operatorBefore = character === '\n' ? ';' : character;
+      continue;
+    }
+    buffer += character;
+  }
+  pushSegment();
+  return segments;
+}
+
+function doesShellSegmentPropagateFailure(
+  segments: readonly SimpleShellSegment[],
+  segmentIndex: number,
+): boolean {
+  const segment = segments[segmentIndex];
+  if (segment?.operatorBefore === '||' || segment?.operatorBefore === '|') {
+    return false;
+  }
+  return segments
+    .slice(segmentIndex + 1)
+    .every((laterSegment) => laterSegment.operatorBefore === '&&');
+}
+
+function hasPropagatingShellSegment(
+  command: string,
+  predicate: (tokens: readonly string[]) => boolean,
+): boolean {
+  const segments = getSimpleShellSegments(command);
+  return segments.some(
+    (segment, segmentIndex) =>
+      doesShellSegmentPropagateFailure(segments, segmentIndex) &&
+      predicate(segment.tokens),
+  );
 }
 
 function getShellCommandStartIndex(tokens: readonly string[]): number {
@@ -545,7 +739,7 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   }
   // This intentionally recognizes only simple shell segments and quoted
   // tokens. Subshells and escaped quote sequences fail closed.
-  return getSimpleShellSegments(command).some((tokens) => {
+  return hasPropagatingShellSegment(command, (tokens) => {
     const commandIndex = getTtscCommandIndex(tokens);
     if (commandIndex === null) {
       return false;
@@ -563,7 +757,7 @@ export function hasPackageRunScriptCommand(
   if (typeof command !== 'string') {
     return false;
   }
-  return getSimpleShellSegments(command).some((tokens) => {
+  return hasPropagatingShellSegment(command, (tokens) => {
     let commandIndex = getShellCommandStartIndex(tokens);
     const packageManager = getShellExecutableName(tokens[commandIndex]);
     if (!['bun', 'npm', 'pnpm', 'yarn'].includes(packageManager)) {
@@ -586,7 +780,7 @@ export function hasTtscLintCompatPostinstallCommand(
   if (typeof command !== 'string') {
     return false;
   }
-  return getSimpleShellSegments(command).some((tokens) => {
+  return hasPropagatingShellSegment(command, (tokens) => {
     const commandIndex = getShellCommandStartIndex(tokens);
     if (getShellExecutableName(tokens[commandIndex]) !== 'node') {
       return false;
