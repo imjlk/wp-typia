@@ -5,6 +5,8 @@ import * as path from 'node:path';
 import { applyInitPlan } from '../src/runtime/cli-init-apply.js';
 import { runInitCommand } from '../src/runtime/cli-init.js';
 import { getInitPlan } from '../src/runtime/cli-init-plan.js';
+import { buildOfficialWorkspaceLintScriptChanges } from '../src/runtime/cli/cli-init-package-json.js';
+import { buildWordPressTtscLintConfigSource } from '../src/runtime/cli/cli-init-templates.js';
 import {
   buildInitPlanChangeSummary,
   buildInitPlanNextSteps,
@@ -116,6 +118,7 @@ describe('wp-typia init', () => {
 			})),
 		).toEqual([
 			{ action: 'add', path: 'scripts/apply-ttsc-lint-compat.mjs' },
+			{ action: 'add', path: 'lint.config.ts' },
 			{ action: 'add', path: 'scripts/block-config.ts' },
 			{ action: 'add', path: 'scripts/sync-types-to-block-json.ts' },
 			{ action: 'add', path: 'scripts/sync-project.ts' },
@@ -180,6 +183,12 @@ describe('wp-typia init', () => {
 		expect(previewPlan.commandMode).toBe('preview-only');
 		expect(appliedPlan.status).toBe('applied');
 		expect(appliedPlan.commandMode).toBe('apply');
+		expect(appliedPlan.nextSteps[0]).toContain(
+			'Install or reinstall project dependencies',
+		);
+		expect(appliedPlan.nextSteps).not.toContain(
+			'Re-run `wp-typia init --apply` to write the planned package.json changes and helper files automatically.',
+		);
 		expect(
 			fs.existsSync(path.join(projectDir, 'scripts', 'sync-project.ts')),
 		).toBe(true);
@@ -309,6 +318,9 @@ describe('wp-typia init', () => {
 				path.join(projectDir, 'scripts', 'sync-types-to-block-json.ts'),
 			),
 		).toBe(true);
+		expect(
+			fs.readFileSync(path.join(projectDir, 'lint.config.ts'), 'utf8'),
+		).toContain("allowedTextDomain: 'retrofit-legacy-root'");
 	});
 
 	test('replaces an empty retrofit postinstall script without a shell prefix', async () => {
@@ -699,6 +711,161 @@ describe('wp-typia init', () => {
 		expect(plan.nextSteps).toContain(
 			`bunx wp-typia@${wpTypiaPackageManifest.version} doctor`,
 		);
+
+		await applyInitPlan(path.join(projectDir, 'src'));
+		const currentPlan = getInitPlan(path.join(projectDir, 'src'));
+		expect(currentPlan.status).toBe('already-initialized');
+		expect(currentPlan.nextSteps[0]).toContain(
+			'wp-typia add <kind> <name>',
+		);
+	});
+
+	test('does not mistake a lint:ts sub-lane for the managed lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'pnpm run lint:ts:ci && pnpm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+				},
+			},
+			'pnpm',
+		);
+
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue:
+					'pnpm run lint:ts && pnpm run lint:ts:ci && pnpm run lint:css',
+			}),
+		);
+	});
+
+	test('keeps retrofit lint config output aligned with the scaffold template', () => {
+		const templateSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'..',
+				'templates',
+				'_shared',
+				'base',
+				'lint.config.ts.mustache',
+			),
+			'utf8',
+		);
+
+		expect(buildWordPressTtscLintConfigSource('fixture-domain')).toBe(
+			templateSource.split('{{textDomain}}').join('fixture-domain'),
+		);
+	});
+
+	test('upgrades an existing official workspace to the WordPress ttsc lint lane', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-lint-upgrade');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'workspace-lint-domain',
+		});
+		const packageJsonPath = path.join(projectDir, 'package.json');
+		const packageJson = JSON.parse(
+			fs.readFileSync(packageJsonPath, 'utf8'),
+		) as {
+			devDependencies: Record<string, string>;
+			packageManager?: string;
+			scripts: Record<string, string>;
+		};
+		delete packageJson.devDependencies['@ttsc/lint'];
+		delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+		delete packageJson.scripts.postinstall;
+		delete packageJson.scripts['lint:ts'];
+		packageJson.packageManager = 'pnpm@8.3.1';
+		packageJson.scripts.sync = 'tsx scripts/sync-project.ts';
+		packageJson.scripts['sync-types'] =
+			'tsx scripts/sync-types-to-block-json.ts';
+		packageJson.scripts.typecheck =
+			'pnpm run sync --check && tsc --noEmit';
+		packageJson.scripts.lint = 'pnpm run lint:css';
+		fs.writeFileSync(
+			packageJsonPath,
+			`${JSON.stringify(packageJson, null, 2)}\n`,
+			'utf8',
+		);
+		fs.rmSync(path.join(projectDir, 'lint.config.ts'));
+
+		const preview = getInitPlan(path.join(projectDir, 'src'));
+		const applied = await applyInitPlan(path.join(projectDir, 'src'));
+		const nextPackageJson = JSON.parse(
+			fs.readFileSync(packageJsonPath, 'utf8'),
+		) as {
+			devDependencies: Record<string, string>;
+			scripts: Record<string, string>;
+		};
+		const lintConfigSource = fs.readFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			'utf8',
+		);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.detectedLayout.kind).toBe('official-workspace');
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({
+				action: 'add',
+				path: 'lint.config.ts',
+			}),
+		);
+		expect(applied.status).toBe('applied');
+		expect(
+			nextPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
+		).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
+		expect(nextPackageJson.scripts.typecheck).toBe(
+			'pnpm run sync --check && ttsc --noEmit',
+		);
+		expect(nextPackageJson.scripts['lint:ts']).toBe('ttsc --noEmit');
+		expect(nextPackageJson.scripts.lint).toBe(
+			'pnpm run lint:ts && pnpm run lint:css',
+		);
+		expect(lintConfigSource).toContain(
+			"from '@wp-typia/ttsc-lint-plugin-wp'",
+		);
+		expect(lintConfigSource).toContain(
+			"allowedTextDomain: 'workspace-lint-domain'",
+		);
+
+		const currentPlan = getInitPlan(projectDir);
+		expect(currentPlan.status).toBe('already-initialized');
+
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		fs.rmSync(compatPath);
+		const repairPlan = getInitPlan(projectDir);
+		expect(repairPlan.status).toBe('preview');
+		expect(repairPlan.plannedFiles).toContainEqual(
+			expect.objectContaining({
+				action: 'add',
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await applyInitPlan(projectDir);
+		expect(fs.existsSync(compatPath)).toBe(true);
+	});
+
+	test('preserves project-owned lint configs during official workspace upgrades', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-custom-lint-config');
+		await scaffoldOfficialWorkspace(projectDir);
+		const lintConfigPath = path.join(projectDir, 'lint.config.ts');
+		const customSource = `export default { rules: { eqeqeq: 'warning' } };\n`;
+		fs.writeFileSync(lintConfigPath, customSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'project-owned and will not be overwritten',
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves an existing ttsc lint config/u,
+		);
+		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
 	});
 
 	test('reports already-initialized projects without planning redundant changes', () => {
@@ -725,6 +892,8 @@ describe('wp-typia init', () => {
 						'@wordpress/blocks': DEFAULT_WORDPRESS_BLOCKS_VERSION,
 						'@wp-typia/block-runtime': versions.blockRuntimePackageVersion,
 						'@wp-typia/block-types': versions.blockTypesPackageVersion,
+						'@wp-typia/ttsc-lint-plugin-wp':
+							versions.ttscLintPluginWpPackageVersion,
 						ttsc: versions.ttscPackageVersion,
 						typescript: versions.typescriptPackageVersion,
 						typia: versions.typiaPackageVersion,
@@ -753,6 +922,19 @@ describe('wp-typia init', () => {
 		fs.writeFileSync(
 			path.join(projectDir, 'scripts', 'sync-types-to-block-json.ts'),
 			'export {};\n',
+			'utf8',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  ...configs.recommended,
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': 'error',
+  },
+};
+`,
 			'utf8',
 		);
 

@@ -97,6 +97,77 @@ test('doctor reports environment-only scope outside official workspace roots', a
   ).toBe(false);
 });
 
+test('doctor reports the managed WordPress ttsc lint integration', async () => {
+  const targetDir = path.join(tempRoot, 'doctor-wordpress-ttsc-lint');
+  await scaffoldOfficialWorkspace(targetDir);
+
+  const currentChecks = await getDoctorChecks(targetDir);
+  const currentLintCheck = currentChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+
+  expect(currentLintCheck?.status).toBe('pass');
+  expect(currentLintCheck?.detail).toContain('lint.config.ts');
+
+  const lintConfigPath = path.join(targetDir, 'lint.config.ts');
+  const lintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
+  fs.rmSync(lintConfigPath);
+  fs.mkdirSync(lintConfigPath);
+  const unreadableChecks = await getDoctorChecks(targetDir);
+  const unreadableLintCheck = unreadableChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(unreadableLintCheck?.status).toBe('warn');
+  expect(unreadableLintCheck?.detail).toContain(
+    'unable to read lint.config.ts',
+  );
+  fs.rmdirSync(lintConfigPath);
+  fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
+
+  const packageJsonPath = path.join(targetDir, 'package.json');
+  const packageJson = JSON.parse(
+    fs.readFileSync(packageJsonPath, 'utf8'),
+  ) as {
+    devDependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+  packageJson.scripts.lint = 'npm run lint:ts:ci';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const subLaneChecks = await getDoctorChecks(targetDir);
+  const subLaneLintCheck = subLaneChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(subLaneLintCheck?.status).toBe('warn');
+  expect(subLaneLintCheck?.detail).toContain(
+    'lint must include the lint:ts lane',
+  );
+
+  delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+  delete packageJson.scripts['lint:ts'];
+  packageJson.scripts.lint = 'npm run lint:css';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  fs.rmSync(lintConfigPath);
+
+  const legacyChecks = await getDoctorChecks(targetDir);
+  const legacyLintCheck = legacyChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+
+  expect(legacyLintCheck?.status).toBe('warn');
+  expect(legacyLintCheck?.detail).toContain(
+    'missing @wp-typia/ttsc-lint-plugin-wp dependency',
+  );
+  expect(legacyLintCheck?.detail).toContain('wp-typia init --apply');
+});
+
 test('doctor workspace-only policy treats environment failures as advisory', () => {
   const checks = [
     {

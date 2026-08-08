@@ -50,6 +50,7 @@ async function importPackageVersionsModule(options: {
     projectToolsPackageVersion: string;
     restPackageVersion: string;
     ttscLintPackageVersion: string;
+    ttscLintPluginWpPackageVersion: string;
     ttscPackageVersion: string;
     tsxPackageVersion: string;
     typiaPackageVersion: string;
@@ -137,6 +138,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^4.5.6',
 			restPackageVersion: '^3.4.5',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -175,6 +177,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^4.5.6',
 			restPackageVersion: '^3.4.5',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -232,6 +235,7 @@ describe('package version helpers', () => {
 				},
 				'@wp-typia/block-runtime': { version: '0.9.0' },
 				'@wp-typia/rest': { version: '0.4.0' },
+				'@wp-typia/ttsc-lint-plugin-wp': { version: '0.2.0' },
 				'wp-typia': { version: '0.8.0' },
 			},
 		});
@@ -243,6 +247,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^0.8.0',
 			restPackageVersion: '~0.4.0',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.2.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -328,6 +333,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^0.11.0',
 			restPackageVersion: '^0.3.1',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -358,6 +364,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^0.0.0',
 			restPackageVersion: '^0.0.0',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -409,6 +416,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^11.22.33',
 			restPackageVersion: '^30.40.50',
 			ttscLintPackageVersion: '0.23.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',

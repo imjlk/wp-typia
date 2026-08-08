@@ -17,7 +17,14 @@ import {
   readProjectPackageJson,
 } from './cli-init-package-json.js';
 import { createRetrofitPlan, getInitPlan } from './cli-init-plan.js';
-import { buildRetrofitHelperFiles } from './cli-init-templates.js';
+import { buildInitPlanNextSteps } from './cli-init-plan-presentation.js';
+import {
+  buildOfficialWorkspaceLintFiles,
+  buildRetrofitHelperFiles,
+  findTtscLintConfigPath,
+  hasWordPressTtscLintConfig,
+  resolveRetrofitTextDomain,
+} from './cli-init-templates.js';
 import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import {
   collectRetrofitWebpackChanges,
@@ -27,7 +34,6 @@ import {
   RETROFIT_APPLY_PREVIEW_NOTE,
   RETROFIT_ROLLBACK_NOTE,
   type ProjectPackageJson,
-  type RetrofitInitBlockTarget,
   type RetrofitInitPlan,
 } from './cli-init-types.js';
 
@@ -54,13 +60,12 @@ async function createRetrofitMutationSnapshot(
 }
 
 async function writeRetrofitFiles(options: {
-  blockTargets: RetrofitInitBlockTarget[];
+  helperFiles: Record<string, string>;
   packageJson: ProjectPackageJson;
   projectDir: string;
   webpackChanges: RetrofitWebpackChange[];
   yarnPnpNodeModulesConfig: ReturnType<typeof getYarnPnpNodeModulesConfig>;
 }): Promise<void> {
-  const helperFiles = buildRetrofitHelperFiles(options.blockTargets);
   const scriptsDir = path.join(options.projectDir, 'scripts');
 
   await fsp.mkdir(scriptsDir, { recursive: true });
@@ -70,7 +75,7 @@ async function writeRetrofitFiles(options: {
     'utf8',
   );
 
-  for (const [relativePath, source] of Object.entries(helperFiles)) {
+  for (const [relativePath, source] of Object.entries(options.helperFiles)) {
     await fsp.writeFile(
       path.join(options.projectDir, relativePath),
       source,
@@ -115,6 +120,19 @@ function toApplyNotes(previewNotes: readonly string[]): string[] {
 	);
 }
 
+function buildApplyNextSteps(
+  previewPlan: RetrofitInitPlan,
+): string[] {
+  return buildInitPlanNextSteps({
+    commandMode: 'apply',
+    dependencyChangeCount:
+      previewPlan.packageChanges.addDevDependencies.length,
+    hasPlannedChanges: true,
+    layoutKind: previewPlan.detectedLayout.kind,
+    packageManager: previewPlan.packageManager,
+  });
+}
+
 /**
  * Apply the previewed retrofit init plan to disk.
  *
@@ -141,22 +159,49 @@ export async function applyInitPlan(
     );
   }
 
+  const existingLintConfigPath = findTtscLintConfigPath(previewPlan.projectDir);
+  if (
+    existingLintConfigPath &&
+    !hasWordPressTtscLintConfig(existingLintConfigPath)
+  ) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      '`wp-typia init --apply` preserves an existing ttsc lint config. Extend that config with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule, then rerun the command.',
+    );
+  }
+
   if (previewPlan.status === 'already-initialized') {
     return createRetrofitPlan({
       ...previewPlan,
       commandMode: 'apply',
+      nextSteps: previewPlan.nextSteps,
       notes: toApplyNotes(previewPlan.notes),
       status: 'already-initialized',
     });
   }
 
+  const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
   const nextPackageJson = buildNextProjectPackageJson({
     packageChanges: previewPlan.packageChanges,
-    packageJson: readProjectPackageJson(previewPlan.projectDir),
+    packageJson: currentPackageJson,
     packageManager: previewPlan.packageManager,
     projectName: previewPlan.projectName,
   });
-  const helperFiles = buildRetrofitHelperFiles(previewPlan.blockTargets);
+  const helperFiles =
+    previewPlan.detectedLayout.kind === 'official-workspace'
+      ? buildOfficialWorkspaceLintFiles({
+          projectDir: previewPlan.projectDir,
+          textDomain:
+            currentPackageJson?.wpTypia?.textDomain ?? previewPlan.projectName,
+        })
+      : buildRetrofitHelperFiles(previewPlan.blockTargets, {
+          projectDir: previewPlan.projectDir,
+          textDomain: resolveRetrofitTextDomain({
+            blockTargets: previewPlan.blockTargets,
+            packageJson: currentPackageJson,
+            projectDir: previewPlan.projectDir,
+          }),
+        });
   const webpackChanges = collectRetrofitWebpackChanges(previewPlan.projectDir);
   const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
     previewPlan.projectDir,
@@ -180,7 +225,7 @@ export async function applyInitPlan(
 
   try {
     await writeRetrofitFiles({
-      blockTargets: previewPlan.blockTargets,
+      helperFiles,
       packageJson: nextPackageJson,
       projectDir: previewPlan.projectDir,
       webpackChanges,
@@ -194,6 +239,7 @@ export async function applyInitPlan(
   return createRetrofitPlan({
     ...previewPlan,
     commandMode: 'apply',
+    nextSteps: buildApplyNextSteps(previewPlan),
     notes: toApplyNotes(previewPlan.notes),
     status: 'applied',
   });

@@ -385,9 +385,18 @@ wp-typia init [project-dir] --format json
 | `--format json`                                  | Emit the standard CLI success envelope and keep the detailed retrofit plan nested under `data.plan`. |
 
 `init` reports dependency, script, generated artifact, and migration follow-up
-steps for supported single-block and multi-block layouts. The command previews
-changes by default, and `--apply` switches to rollback-protected writes for
-`package.json` and the generated retrofit helper files.
+steps for supported single-block, multi-block, and official workspace layouts.
+The command previews changes by default, and `--apply` switches to
+rollback-protected writes for `package.json` and the generated retrofit helper
+files.
+
+The adoption plan also adds the WordPress `@ttsc/lint` contributor, creates a
+text-domain-aware `lint.config.ts`, and puts `ttsc --noEmit` in the TypeScript
+lint lane. Existing lint configs are project-owned and are never overwritten;
+`init --apply` stops with manual merge guidance when one exists without the
+WordPress contributor. The existing JavaScript/style lint commands remain
+separate while the lint-only upstream command is tracked in
+[samchon/ttsc#1127](https://github.com/samchon/ttsc/issues/1127).
 
 ## `sync`
 

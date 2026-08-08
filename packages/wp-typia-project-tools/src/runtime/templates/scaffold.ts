@@ -160,6 +160,7 @@ export interface FlatScaffoldTemplateVariables extends Record<string, string> {
   textDomain: string;
   textdomain: string;
   testedUpTo: string;
+  ttscLintPluginWpPackageVersion: string;
   title: string;
   titleJson: string;
   titleTsLiteral: string;

@@ -19,6 +19,7 @@ export interface PackageVersions {
   projectToolsPackageVersion: string;
   restPackageVersion: string;
   ttscLintPackageVersion: string;
+  ttscLintPluginWpPackageVersion: string;
   ttscPackageVersion: string;
   ttscUnpluginPackageVersion: string;
   /**
@@ -51,6 +52,7 @@ const DEFAULT_EXACT_VERSION = '0.0.0';
  */
 const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
 const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
+const DEFAULT_TTSC_LINT_PLUGIN_WP_PACKAGE_VERSION = '^0.1.1';
 const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
 const DEFAULT_TYPESCRIPT_PACKAGE_VERSION = '^7.0.2';
 const DEFAULT_TYPIA_PACKAGE_VERSION = '^13.2.0';
@@ -305,6 +307,14 @@ export function getPackageVersions(): PackageVersions {
   const wpTypiaManifestLocation = resolvePackageManifestLocation(
     path.join(PROJECT_TOOLS_PACKAGE_ROOT, '..', 'wp-typia', 'package.json'),
   );
+  const ttscLintPluginWpManifestLocation = resolvePackageManifestLocation(
+    path.join(
+      PROJECT_TOOLS_PACKAGE_ROOT,
+      '..',
+      'ttsc-lint-plugin-wp',
+      'package.json',
+    ),
+  );
   const installedProjectToolsManifestLocation =
     resolveInstalledPackageManifestLocation('@wp-typia/project-tools');
   const installedApiClientManifestLocation =
@@ -315,6 +325,8 @@ export function getPackageVersions(): PackageVersions {
     resolveInstalledPackageManifestLocation('@wp-typia/block-types');
   const installedRestManifestLocation =
     resolveInstalledPackageManifestLocation('@wp-typia/rest');
+  const installedTtscLintPluginWpManifestLocation =
+    resolveInstalledPackageManifestLocation('@wp-typia/ttsc-lint-plugin-wp');
   const installedWpTypiaManifestLocation =
     resolveInstalledPackageManifestLocation('wp-typia');
   const cacheKey = composePackageVersionsCacheKey([
@@ -322,12 +334,14 @@ export function getPackageVersions(): PackageVersions {
     monorepoManifestLocation,
     blockRuntimeManifestLocation,
     blockTypesManifestLocation,
+    ttscLintPluginWpManifestLocation,
     wpTypiaManifestLocation,
     installedProjectToolsManifestLocation,
     installedApiClientManifestLocation,
     installedBlockRuntimeManifestLocation,
     installedBlockTypesManifestLocation,
     installedRestManifestLocation,
+    installedTtscLintPluginWpManifestLocation,
     installedWpTypiaManifestLocation,
   ]);
 
@@ -351,6 +365,10 @@ export function getPackageVersions(): PackageVersions {
   const wpTypiaManifest =
     readPackageManifest(wpTypiaManifestLocation) ??
     readPackageManifest(installedWpTypiaManifestLocation) ??
+    {};
+  const ttscLintPluginWpManifest =
+    readPackageManifest(ttscLintPluginWpManifestLocation) ??
+    readPackageManifest(installedTtscLintPluginWpManifestLocation) ??
     {};
   const blockRuntimeDependencyVersion = normalizeVersionRange(
     createManifest.dependencies?.['@wp-typia/block-runtime'],
@@ -393,6 +411,10 @@ export function getPackageVersions(): PackageVersions {
         monorepoManifest.devDependencies?.['@ttsc/lint'] ??
         createManifest.devDependencies?.['@ttsc/lint'],
       DEFAULT_TTSC_LINT_PACKAGE_VERSION,
+    ),
+    ttscLintPluginWpPackageVersion: normalizeVersionRangeWithFallback(
+      ttscLintPluginWpManifest.version,
+      DEFAULT_TTSC_LINT_PLUGIN_WP_PACKAGE_VERSION,
     ),
     ttscPackageVersion,
     ttscUnpluginPackageVersion,

@@ -37,6 +37,11 @@ const workspacePackagePaths = {
   '@wp-typia/dataviews': path.resolve(packageRoot, '..', 'wp-typia-dataviews'),
   '@wp-typia/project-tools': packageRoot,
   '@wp-typia/rest': path.resolve(packageRoot, '..', 'wp-typia-rest'),
+  '@wp-typia/ttsc-lint-plugin-wp': path.resolve(
+    packageRoot,
+    '..',
+    'ttsc-lint-plugin-wp',
+  ),
 } as const;
 
 const generatedProjectTypecheckSupportPackages = [

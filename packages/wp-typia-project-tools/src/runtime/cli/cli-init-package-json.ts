@@ -39,6 +39,7 @@ const BASE_RETROFIT_DEV_DEPENDENCIES = [
   '@wordpress/blocks',
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
+  '@wp-typia/ttsc-lint-plugin-wp',
   'ttsc',
   'typescript',
   'typia',
@@ -133,6 +134,8 @@ function buildRequiredDevDependencyMap(): Record<string, string> {
     '@wordpress/blocks': DEFAULT_WORDPRESS_BLOCKS_VERSION,
     '@wp-typia/block-runtime': versions.blockRuntimePackageVersion,
     '@wp-typia/block-types': versions.blockTypesPackageVersion,
+    '@wp-typia/ttsc-lint-plugin-wp':
+      versions.ttscLintPluginWpPackageVersion,
     ttsc: versions.ttscPackageVersion,
     typescript: versions.typescriptPackageVersion,
     typia: versions.typiaPackageVersion,
@@ -177,6 +180,25 @@ export function buildDependencyChanges(
 	});
 }
 
+function buildOptionalScriptChange(
+  name: string,
+  currentValue: string | undefined,
+  requiredValue: string,
+): InitScriptChange[] {
+  if (currentValue === requiredValue) {
+    return [];
+  }
+
+  return [
+    {
+      action: typeof currentValue === 'string' ? 'update' : 'add',
+      ...(typeof currentValue === 'string' ? { currentValue } : {}),
+      name,
+      requiredValue,
+    },
+  ];
+}
+
 export function buildScriptChanges(
 	packageJson: ProjectPackageJson | null,
 	packageManager: PackageManagerId,
@@ -200,20 +222,50 @@ export function buildScriptChanges(
 					? currentValue
 					: `${currentValue} && ${command}`;
 			}
-			if (currentValue === requiredValue) {
-				return [];
-			}
-
-			return [
-				{
-					action: typeof currentValue === 'string' ? 'update' : 'add',
-					...(typeof currentValue === 'string' ? { currentValue } : {}),
-					name,
-					requiredValue,
-				} satisfies InitScriptChange,
-			];
+			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
 	);
+}
+
+/**
+ * Add the TypeScript lint lane to an existing official workspace without
+ * enabling the incomplete WordPress JavaScript replacement prematurely.
+ *
+ * Existing aggregate lint commands are preserved after the new `lint:ts`
+ * prerequisite, so projects that intentionally run only style lint (or retain
+ * a separate JavaScript lane) keep that behavior until upstream exposes a
+ * lint-only `ttsc` command.
+ */
+export function buildOfficialWorkspaceLintScriptChanges(
+  packageJson: ProjectPackageJson | null,
+  packageManager: PackageManagerId,
+): InitScriptChange[] {
+  const scripts = packageJson?.scripts ?? {};
+  const lintTsCommand = 'ttsc --noEmit';
+  const lintTsRun = transformPackageManagerText(
+    'bun run lint:ts',
+    packageManager,
+  );
+  const currentLintTs = scripts['lint:ts'];
+  const currentLint = scripts.lint;
+  let requiredLint = lintTsRun;
+  if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
+    const includesLintTs = currentLint
+      .split(/\s*(?:&&|\|\||;)\s*/u)
+      .some((command) => command.trim() === lintTsRun);
+    requiredLint = includesLintTs
+      ? currentLint
+      : `${lintTsRun} && ${currentLint}`;
+  }
+
+  return [
+    ...buildOptionalScriptChange(
+      'lint:ts',
+      currentLintTs,
+      lintTsCommand,
+    ),
+    ...buildOptionalScriptChange('lint', currentLint, requiredLint),
+  ];
 }
 
 export function buildPackageManagerFieldChange(

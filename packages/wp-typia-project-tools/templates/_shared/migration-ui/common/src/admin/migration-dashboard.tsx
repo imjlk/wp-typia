@@ -25,25 +25,25 @@ interface MigrationStats {
   versions: Record<string, number>;
 }
 
-const TEXT_DOMAIN = '{{textDomain}}';
-
 function formatUnionStatus(
   status: BlockScanResult['preview']['unionBranches'][number]['status'],
 ) {
+  // The WordPress i18n rule requires a literal text domain at every callsite.
+  // Keep the Mustache value inline instead of extracting a shared constant.
   switch (status) {
     case 'auto':
-      return __('auto', TEXT_DOMAIN);
+      return __('auto', '{{textDomain}}');
     case 'current':
-      return __('current', TEXT_DOMAIN);
+      return __('current', '{{textDomain}}');
     case 'manual':
-      return __('manual', TEXT_DOMAIN);
+      return __('manual', '{{textDomain}}');
     default:
-      return __('unknown', TEXT_DOMAIN);
+      return __('unknown', '{{textDomain}}');
   }
 }
 
 function formatRiskSummaryLine(result: BlockScanResult['analysis']): string {
-  return `${__('additive', TEXT_DOMAIN)} ${result.riskSummary.additive.count}, ${__('removal', TEXT_DOMAIN)} ${result.riskSummary.removal.count}, ${__('rename', TEXT_DOMAIN)} ${result.riskSummary.rename.count}, ${__('transform', TEXT_DOMAIN)} ${result.riskSummary.semanticTransform.count}, ${__('union breaking', TEXT_DOMAIN)} ${result.riskSummary.unionBreaking.count}`;
+  return `${__('additive', '{{textDomain}}')} ${result.riskSummary.additive.count}, ${__('removal', '{{textDomain}}')} ${result.riskSummary.removal.count}, ${__('rename', '{{textDomain}}')} ${result.riskSummary.rename.count}, ${__('transform', '{{textDomain}}')} ${result.riskSummary.semanticTransform.count}, ${__('union breaking', '{{textDomain}}')} ${result.riskSummary.unionBreaking.count}`;
 }
 
 function collectStats(results: BlockScanResult[]): MigrationStats {
@@ -98,14 +98,14 @@ function downloadFile(contents: string, fileName: string, type: string) {
 
 function formatUnionSummary(result: BlockScanResult['preview']): string {
   if (result.unionBranches.length === 0) {
-    return __('No union branch changes', TEXT_DOMAIN);
+    return __('No union branch changes', '{{textDomain}}');
   }
 
   return result.unionBranches
     .map(
       (branch) =>
-        `${branch.field}: ${branch.legacyBranch ?? __('unknown', TEXT_DOMAIN)} → ${
-          branch.nextBranch ?? __('unknown', TEXT_DOMAIN)
+        `${branch.field}: ${branch.legacyBranch ?? __('unknown', '{{textDomain}}')} → ${
+          branch.nextBranch ?? __('unknown', '{{textDomain}}')
         } (${formatUnionStatus(branch.status)})`,
     )
     .join(', ');
@@ -282,7 +282,7 @@ export function MigrationDashboard() {
                   executionResult === null
                 }
               >
-                {__('Export JSON', TEXT_DOMAIN)}
+                {__('Export JSON', '{{textDomain}}')}
               </Button>
             </div>
 
@@ -310,10 +310,11 @@ export function MigrationDashboard() {
                 status={executionResult.failed > 0 ? 'warning' : 'success'}
                 isDismissible={false}
               >
-                {__('Migration summary', TEXT_DOMAIN)}:{' '}
+                {__('Migration summary', '{{textDomain}}')}:{' '}
                 {executionResult.successful}{' '}
-                {__('post(s) migrated,', TEXT_DOMAIN)} {executionResult.failed}{' '}
-                {__('post(s) blocked.', TEXT_DOMAIN)}
+                {__('post(s) migrated,', '{{textDomain}}')}{' '}
+                {executionResult.failed}{' '}
+                {__('post(s) blocked.', '{{textDomain}}')}
               </Notice>
             )}
 
@@ -322,9 +323,10 @@ export function MigrationDashboard() {
                 status={dryRunResult.failed > 0 ? 'warning' : 'success'}
                 isDismissible={false}
               >
-                {__('Dry run summary', TEXT_DOMAIN)}: {dryRunResult.successful}{' '}
-                {__('post(s) ready,', TEXT_DOMAIN)} {dryRunResult.failed}{' '}
-                {__('post(s) blocked.', TEXT_DOMAIN)}
+                {__('Dry run summary', '{{textDomain}}')}:{' '}
+                {dryRunResult.successful}{' '}
+                {__('post(s) ready,', '{{textDomain}}')} {dryRunResult.failed}{' '}
+                {__('post(s) blocked.', '{{textDomain}}')}
               </Notice>
             )}
 

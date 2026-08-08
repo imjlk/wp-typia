@@ -4,7 +4,11 @@ import {
   createDoctorCheck,
   getWorkspaceBootstrapRelativePath,
 } from './cli-doctor-workspace-shared.js';
-import { pathExists } from '../shared/fs-async.js';
+import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
+import {
+  hasWordPressTtscLintConfigSource,
+  TTSC_LINT_CONFIG_FILENAMES,
+} from '../shared/ttsc-lint-config.js';
 import { WORKSPACE_TEMPLATE_PACKAGE } from '../workspace/workspace-project.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -25,6 +29,48 @@ export interface WorkspacePackageDoctorSnapshot {
   migrationConfigExists: boolean;
 	/** Relative path to the migration config file. */
   migrationConfigRelativePath: string;
+	/** First discovered ttsc lint config path, when present. */
+  ttscLintConfigRelativePath: string | null;
+	/** Read failure for the discovered ttsc lint config, when present. */
+  ttscLintConfigReadError: string | null;
+	/** Source of the discovered ttsc lint config, when readable. */
+  ttscLintConfigSource: string | null;
+}
+
+async function readWorkspaceTtscLintConfig(projectDir: string): Promise<{
+  readError: string | null;
+  relativePath: string | null;
+  source: string | null;
+}> {
+  let firstReadFailure: {
+    readError: string;
+    relativePath: string;
+    source: null;
+  } | null = null;
+
+  for (const relativePath of TTSC_LINT_CONFIG_FILENAMES) {
+    const configPath = path.join(projectDir, relativePath);
+    try {
+      const source = await readOptionalUtf8File(configPath);
+      if (source !== null) {
+        return { readError: null, relativePath, source };
+      }
+    } catch (error) {
+      firstReadFailure ??= {
+        readError: error instanceof Error ? error.message : String(error),
+        relativePath,
+        source: null,
+      };
+    }
+  }
+
+  return (
+    firstReadFailure ?? {
+      readError: null,
+      relativePath: null,
+      source: null,
+    }
+  );
 }
 
 /**
@@ -49,17 +95,67 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     'migrations',
     'config.ts',
   );
-  const [bootstrapExists, migrationConfigExists] = await Promise.all([
-    pathExists(path.join(workspace.projectDir, bootstrapRelativePath)),
-    pathExists(path.join(workspace.projectDir, migrationConfigRelativePath)),
-  ]);
+  const [bootstrapExists, migrationConfigExists, ttscLintConfig] =
+    await Promise.all([
+      pathExists(path.join(workspace.projectDir, bootstrapRelativePath)),
+      pathExists(path.join(workspace.projectDir, migrationConfigRelativePath)),
+      readWorkspaceTtscLintConfig(workspace.projectDir),
+    ]);
 
   return {
     bootstrapExists,
     bootstrapRelativePath,
     migrationConfigExists,
     migrationConfigRelativePath,
+    ttscLintConfigRelativePath: ttscLintConfig.relativePath,
+    ttscLintConfigReadError: ttscLintConfig.readError,
+    ttscLintConfigSource: ttscLintConfig.source,
   };
+}
+
+/** Report whether an official workspace has adopted the managed lint lane. */
+export function getWorkspaceTtscLintCheck(
+  packageJson: WorkspacePackageJson,
+  snapshot: WorkspacePackageDoctorSnapshot,
+): DoctorCheck {
+  const issues: string[] = [];
+  const dependencies = {
+    ...(packageJson.dependencies ?? {}),
+    ...(packageJson.devDependencies ?? {}),
+  };
+  if (typeof dependencies['@ttsc/lint'] !== 'string') {
+    issues.push('missing @ttsc/lint dependency');
+  }
+  if (typeof dependencies['@wp-typia/ttsc-lint-plugin-wp'] !== 'string') {
+    issues.push('missing @wp-typia/ttsc-lint-plugin-wp dependency');
+  }
+  if (snapshot.ttscLintConfigReadError) {
+    issues.push(
+      `unable to read ${snapshot.ttscLintConfigRelativePath}: ${snapshot.ttscLintConfigReadError}`,
+    );
+  } else if (!snapshot.ttscLintConfigSource) {
+    issues.push('missing ttsc lint config');
+  } else if (
+    !hasWordPressTtscLintConfigSource(snapshot.ttscLintConfigSource)
+  ) {
+    issues.push(
+      `${snapshot.ttscLintConfigRelativePath} does not enable the WordPress contributor and text-domain rule`,
+    );
+  }
+  if (!packageJson.scripts?.['lint:ts']?.includes('ttsc --noEmit')) {
+    issues.push('lint:ts must invoke `ttsc --noEmit`');
+  }
+  if (!/(?:^|\s)lint:ts(?:$|[\s;&|])/u.test(packageJson.scripts?.lint ?? '')) {
+    issues.push('lint must include the lint:ts lane');
+  }
+
+  return createDoctorCheck(
+    'WordPress ttsc lint',
+    issues.length === 0 ? 'pass' : 'warn',
+    issues.length === 0
+      ? `${snapshot.ttscLintConfigRelativePath} enables the WordPress contributor while JavaScript lint remains a separate lane`
+      : `${issues.join('; ')}. Preview the non-destructive upgrade with \`wp-typia init\`, then apply it with \`wp-typia init --apply\`.`,
+  );
 }
 
 /**

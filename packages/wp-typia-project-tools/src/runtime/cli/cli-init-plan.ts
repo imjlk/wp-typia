@@ -15,6 +15,7 @@ import { getPackageVersions } from '../shared/package-versions.js';
 import { toPascalCase } from '../shared/string-case.js';
 import {
   buildDependencyChanges,
+  buildOfficialWorkspaceLintScriptChanges,
   buildPackageManagerFieldChange,
   buildScriptChanges,
   getWpTypiaCliSpecifier,
@@ -23,6 +24,11 @@ import {
   readProjectPackageJson,
   resolveInitPackageManager,
 } from './cli-init-package-json.js';
+import {
+  findTtscLintConfigPath,
+  hasCurrentTtscLintCompatFile,
+  hasWordPressTtscLintConfig,
+} from './cli-init-templates.js';
 import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
 import {
@@ -41,6 +47,13 @@ import {
   type RetrofitInitPlan,
 } from './cli-init-types.js';
 import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
+
+const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
+  'Enable the partial WordPress ttsc preset and bind i18n diagnostics to the project text domain.';
+
+function buildProjectOwnedLintConfigNote(configPath: string): string {
+  return `Existing ${path.basename(configPath)} is project-owned and will not be overwritten. Extend it with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule before applying this plan.`;
+}
 
 function normalizeRelativePath(value: string): string {
   return value.replace(/\\/gu, '/');
@@ -244,15 +257,14 @@ function buildPlannedFiles(
   const ttscLintPackageVersion = getPackageVersions().ttscLintPackageVersion;
 
   return [
-		{
-			action: fs.existsSync(
-				path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
-			)
-				? 'update'
-				: 'add',
-			path: 'scripts/apply-ttsc-lint-compat.mjs',
-			purpose: `Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
-		},
+		buildTtscLintCompatFilePlan(
+			projectDir,
+			`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
+		),
+		...buildWordPressLintConfigFilePlans(
+			findTtscLintConfigPath(projectDir),
+			WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
+		),
 		{
 			action: fs.existsSync(path.join(projectDir, 'scripts', 'block-config.ts'))
 				? 'update'
@@ -280,6 +292,50 @@ function buildPlannedFiles(
 				'Provide one shared sync entrypoint that can grow into sync-rest or workspace-aware refresh steps later.',
 		},
 	];
+}
+
+function buildTtscLintCompatFilePlan(
+  projectDir: string,
+  purpose: string,
+): InitFilePlan {
+  return {
+    action: fs.existsSync(
+      path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+    )
+      ? 'update'
+      : 'add',
+    path: 'scripts/apply-ttsc-lint-compat.mjs',
+    purpose,
+  };
+}
+
+function buildWordPressLintConfigFilePlans(
+  lintConfigPath: string | null,
+  purpose: string,
+): InitFilePlan[] {
+  return lintConfigPath
+    ? []
+    : [{ action: 'add', path: 'lint.config.ts', purpose }];
+}
+
+function buildOfficialWorkspaceLintFilePlans(
+  projectDir: string,
+  lintConfigPath: string | null,
+): InitFilePlan[] {
+  return [
+    ...(hasCurrentTtscLintCompatFile(projectDir)
+      ? []
+      : [
+          buildTtscLintCompatFilePlan(
+            projectDir,
+            'Keep the exact generated-project @ttsc/lint compatibility fix aligned with the managed toolchain.',
+          ),
+        ]),
+    ...buildWordPressLintConfigFilePlans(
+      lintConfigPath,
+      WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
+    ),
+  ];
 }
 
 export function createRetrofitPlan(options: {
@@ -370,37 +426,91 @@ export function getInitPlan(
       workspacePackageJson,
       options.packageManager,
     );
-    const cliSpecifier = getWpTypiaCliSpecifier();
+    const dependencyChanges = buildDependencyChanges(workspacePackageJson);
+    const scriptChanges = [
+      ...buildScriptChanges(workspacePackageJson, workspacePackageManager),
+      ...buildOfficialWorkspaceLintScriptChanges(
+        workspacePackageJson,
+        workspacePackageManager,
+      ),
+    ];
+    const packageManagerFieldChange = buildPackageManagerFieldChange(
+      workspacePackageJson,
+      workspacePackageManager,
+      {
+        persistExplicitOverride: typeof options.packageManager === 'string',
+      },
+    );
+    const yarnPnpNodeModulesConfig = getYarnPnpNodeModulesConfig(
+      workspace.projectDir,
+      workspacePackageManager,
+      packageManagerFieldChange?.requiredValue,
+    );
+    const existingLintConfigPath = findTtscLintConfigPath(workspace.projectDir);
+    const wordpressLintIntegrated = hasWordPressTtscLintConfig(
+      existingLintConfigPath,
+    );
+    const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
+      workspace.projectDir,
+      existingLintConfigPath,
+    );
+    if (yarnPnpNodeModulesConfig) {
+      rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
+    }
+    const status: InitPlanStatus =
+      dependencyChanges.length === 0 &&
+      scriptChanges.length === 0 &&
+      packageManagerFieldChange === undefined &&
+      yarnPnpNodeModulesConfig === undefined &&
+      rawPlannedFiles.length === 0 &&
+      wordpressLintIntegrated
+        ? 'already-initialized'
+        : 'preview';
     return createRetrofitPlan({
       blockTargets: [],
       commandMode: 'preview-only',
       detectedLayout: {
         blockNames: [],
-        description: 'Already an official wp-typia workspace.',
+        description:
+          status === 'already-initialized'
+            ? 'Official wp-typia workspace lint integration is current.'
+            : 'Detected an official wp-typia workspace that can receive the managed WordPress ttsc lint integration.',
         kind: 'official-workspace',
       },
       generatedArtifacts: [],
-      nextSteps: [
-        'Use `wp-typia add <kind> <name>` to extend the official workspace instead of rerunning init.',
-        formatRunScript(workspacePackageManager, 'sync'),
-        formatPackageExecCommand(
-          workspacePackageManager,
-          cliSpecifier,
-          'doctor',
-        ),
-      ],
+      ...(status === 'already-initialized'
+        ? {
+            nextSteps: [
+              'Use `wp-typia add <kind> <name>` to extend the official workspace instead of rerunning init.',
+              formatRunScript(workspacePackageManager, 'sync'),
+              formatPackageExecCommand(
+                workspacePackageManager,
+                getWpTypiaCliSpecifier(),
+                'doctor',
+              ),
+            ],
+          }
+        : {}),
       notes: [
-        'The official workspace template already owns inventory, doctor, and add-command workflows.',
+        ...(existingLintConfigPath && !wordpressLintIntegrated
+          ? [
+              buildProjectOwnedLintConfigNote(existingLintConfigPath),
+            ]
+          : []),
+        'The TypeScript lane remains `ttsc --noEmit` until upstream exposes the lint-only command tracked by samchon/ttsc#1127. Existing JavaScript and style lint commands are preserved.',
       ],
       packageChanges: {
-        addDevDependencies: [],
-        scripts: [],
+        addDevDependencies: dependencyChanges,
+        ...(packageManagerFieldChange
+          ? { packageManagerField: packageManagerFieldChange }
+          : {}),
+        scripts: scriptChanges,
       },
       packageManager: workspacePackageManager,
-      plannedFiles: [],
+      plannedFiles: status === 'already-initialized' ? [] : rawPlannedFiles,
       projectDir: workspace.projectDir,
       projectName: workspace.packageName,
-      status: 'already-initialized',
+      status,
     });
   }
 
@@ -445,6 +555,10 @@ export function getInitPlan(
     resolvedProjectDir,
     packageJson,
   );
+  const existingLintConfigPath = findTtscLintConfigPath(resolvedProjectDir);
+  const wordpressLintIntegrated = hasWordPressTtscLintConfig(
+    existingLintConfigPath,
+  );
   const status: InitPlanStatus =
 		hasExistingSurface &&
 		dependencyChanges.length === 0 &&
@@ -452,7 +566,8 @@ export function getInitPlan(
 		!obsoleteTypiaUnplugin &&
 		webpackChanges.length === 0 &&
 		packageManagerFieldChange === undefined &&
-		yarnPnpNodeModulesConfig === undefined
+		yarnPnpNodeModulesConfig === undefined &&
+		wordpressLintIntegrated
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;
@@ -492,6 +607,11 @@ export function getInitPlan(
 				...(webpackChanges.length > 0
 					? [
 							'Webpack imports from `@typia/unplugin/webpack` will be migrated to `@ttsc/unplugin/webpack`.',
+					  ]
+					: []),
+				...(existingLintConfigPath && !wordpressLintIntegrated
+					? [
+							buildProjectOwnedLintConfigNote(existingLintConfigPath),
 					  ]
 					: []),
 				...layout.notes,

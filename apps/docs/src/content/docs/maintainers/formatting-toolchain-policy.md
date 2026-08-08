@@ -8,6 +8,8 @@ title: 'Formatting Toolchain Policy'
 
 - the repository root owns TypeScript `7.0.2`
 - the repository root owns `ttsc` and `@ttsc/lint` at `0.23.0`
+- generated projects use `@wp-typia/ttsc-lint-plugin-wp` `0.1.1` as the
+  WordPress-specific contributor baseline
 - the repository root owns `eslint` at `9.39.4`
 - the repository root owns `@eslint/js` at `9.39.4`
 - the repository root owns `prettier` at `3.8.2`
@@ -111,6 +113,20 @@ Compiler API consumers to exact `@typescript/typescript6@6.0.2` while TS/TSX
 remain under `ttsc`. Generated manifests also declare React 18 and its type
 packages directly so TS7 JSX resolution is reproducible under npm, Bun, pnpm,
 and Yarn rather than depending on transitive hoisting.
+
+Generated lint configs extend the partial WordPress `recommended` preset from
+`@wp-typia/ttsc-lint-plugin-wp`. The `wordpress/i18n-text-domain` rule is bound
+to the scaffold's normalized text domain, while the native
+`wordpress/valid-sprintf` and `wordpress/no-unsafe-wp-apis` rules remain enabled
+through the preset. Existing projects can preview the same dependency, config,
+and script adoption with `wp-typia init`; `wp-typia init --apply` writes it with
+rollback protection and refuses to overwrite a project-owned lint config.
+
+The TypeScript lane still uses `ttsc --noEmit`, so compiler and lint diagnostics
+remain combined. `lint:js` continues to own only JavaScript/CJS/MJS through the
+WordPress ESLint compatibility wrapper. A true lint-only split waits for
+[samchon/ttsc#1127](https://github.com/samchon/ttsc/issues/1127); the scaffold
+must not advertise `ttsc lint` before that command exists upstream.
 
 CI stores content-addressed `ttsc` source-plugin binaries outside
 `node_modules` in `.ttsc-cache/plugins`. Workspace and generated-project

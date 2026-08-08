@@ -299,6 +299,7 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		blockTypesPackageVersion,
 		projectToolsPackageVersion,
 		restPackageVersion,
+		ttscLintPluginWpPackageVersion,
 		wpTypiaPackageVersion,
 	} = getPackageVersions();
   const slug = spec.block.slug;
@@ -410,6 +411,7 @@ export function buildTemplateVariablesFromBlockSpec(spec: BlockSpec): ScaffoldTe
 		requiresAtLeast: compatibility.pluginHeader.requiresAtLeast,
 		requiresPhp: compatibility.pluginHeader.requiresPhp,
 		testedUpTo: compatibility.pluginHeader.testedUpTo,
+		ttscLintPluginWpPackageVersion,
 		projectToolsPackageVersion,
 		wpTypiaPackageVersion,
 		cssClassName,

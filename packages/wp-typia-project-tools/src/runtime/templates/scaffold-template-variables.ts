@@ -77,6 +77,7 @@ export function getTemplateVariables(
     blockTypesPackageVersion,
     projectToolsPackageVersion,
     restPackageVersion,
+    ttscLintPluginWpPackageVersion,
     wpTypiaPackageVersion,
   } = getPackageVersions();
   const template = isBuiltInTemplateId(templateId)
@@ -230,6 +231,7 @@ export function getTemplateVariables(
     phpPrefixUpper,
     restPackageVersion,
     testedUpTo: compatibility.pluginHeader.testedUpTo,
+    ttscLintPluginWpPackageVersion,
     publicWriteRequestIdDeclaration:
       persistencePolicy === 'public'
         ? 'publicWriteRequestId: string & tags.MinLength<1> & tags.MaxLength<128>;'

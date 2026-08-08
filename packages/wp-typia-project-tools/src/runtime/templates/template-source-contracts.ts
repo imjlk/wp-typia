@@ -18,6 +18,8 @@ export interface TemplateVariableContext extends UnknownRecord {
   blockTypesPackageVersion: string
   /** Version string for `wp-typia` used when templates include the CLI binary locally. */
   wpTypiaPackageVersion: string
+  /** Version string for `@wp-typia/ttsc-lint-plugin-wp` used in generated dependencies. */
+  ttscLintPluginWpPackageVersion: string
   /** PascalCase block type name derived from the scaffold slug. */
   pascalCase: string
   /** Snake_case PHP symbol prefix used for generated functions, constants, and keys. */
