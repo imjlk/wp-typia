@@ -12,7 +12,12 @@ export const configs = {
   custom: {
     plugins,
     rules: {
+      'wordpress/no-base-control-with-label-without-id': 'error',
+      'wordpress/no-global-active-element': 'error',
+      'wordpress/no-global-get-selection': 'error',
+      'wordpress/no-unguarded-get-range-at': 'error',
       'wordpress/no-unsafe-wp-apis': 'error',
+      'wordpress/no-wp-process-env': 'error',
     },
   },
   i18n: {
@@ -40,7 +45,12 @@ export const configs = {
       'wordpress/i18n-no-variables': 'error',
       'wordpress/i18n-text-domain': 'error',
       'wordpress/i18n-translator-comments': 'error',
+      'wordpress/no-base-control-with-label-without-id': 'error',
+      'wordpress/no-global-active-element': 'error',
+      'wordpress/no-global-get-selection': 'error',
+      'wordpress/no-unguarded-get-range-at': 'error',
       'wordpress/no-unsafe-wp-apis': 'error',
+      'wordpress/no-wp-process-env': 'error',
       'wordpress/valid-sprintf': 'error',
     },
   },

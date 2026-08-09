@@ -76,19 +76,37 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
       compatibilityManifest.wordpressRules.filter(
         ({ kind }) => kind === 'contributor',
       ),
-    ).toHaveLength(10);
+    ).toHaveLength(15);
     expect(
       compatibilityManifest.compiledPresets.recommended.supportedRules,
-    ).toHaveLength(102);
+    ).toHaveLength(109);
     expect(
       compatibilityManifest.compiledPresets.recommended.unsupportedRules,
-    ).toHaveLength(96);
+    ).toHaveLength(89);
     expect(
       compatibilityManifest.compiledPresets.recommended.optionDowngrades,
-    ).toHaveLength(11);
+    ).toHaveLength(12);
     expect(
       compatibilityManifest.compiledPresets.recommended.sourceEntryCount,
     ).toBe(17);
+    expect(
+      compatibilityManifest.compatibility.find(
+        ({ source }) => source === 'react-hooks/exhaustive-deps',
+      ),
+    ).toEqual({
+      kind: 'mapped',
+      source: 'react-hooks/exhaustive-deps',
+      target: 'react/exhaustive-deps',
+    });
+    expect(
+      compatibilityManifest.compatibility.find(
+        ({ source }) => source === 'react-hooks/rules-of-hooks',
+      ),
+    ).toEqual({
+      kind: 'mapped',
+      source: 'react-hooks/rules-of-hooks',
+      target: 'react/rules-of-hooks',
+    });
   });
 });
 

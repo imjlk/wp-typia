@@ -29,8 +29,20 @@ registerImplementedRule('i18n-no-placeholders-only');
 registerImplementedRule('i18n-no-variables');
 registerImplementedRule('i18n-text-domain');
 registerImplementedRule('i18n-translator-comments');
+registerImplementedRule('no-base-control-with-label-without-id');
+registerImplementedRule('no-global-active-element');
+registerImplementedRule('no-global-get-selection');
+registerImplementedRule('no-unguarded-get-range-at');
 registerImplementedRule('no-unsafe-wp-apis');
+registerImplementedRule('no-wp-process-env');
 registerImplementedRule('valid-sprintf');
+
+// WordPress presets use the react-hooks namespace while @ttsc/lint exposes
+// the equivalent native rules under react.
+const RULE_ALIASES = new Map<string, string>([
+  ['react-hooks/exhaustive-deps', 'react/exhaustive-deps'],
+  ['react-hooks/rules-of-hooks', 'react/rules-of-hooks'],
+]);
 // These @ttsc/lint implementations accept only a severity. Upstream option
 // payloads are removed explicitly and recorded in optionDowngrades.
 const SEVERITY_ONLY_TRANSLATIONS = new Set([
@@ -45,6 +57,7 @@ const SEVERITY_ONLY_TRANSLATIONS = new Set([
   'jsx-a11y/no-noninteractive-tabindex',
   'jsx-a11y/no-static-element-interactions',
   'no-cond-assign',
+  'react/exhaustive-deps',
 ]);
 
 interface FlatConfigEntry {
@@ -94,6 +107,13 @@ const ruleCodes = JSON.parse(
   fs.readFileSync(path.join(ttscLintRoot, 'linthost/rule_codes.json'), 'utf8'),
 ) as Record<string, number>;
 const builtinRules = new Set(Object.keys(ruleCodes));
+for (const [source, target] of RULE_ALIASES) {
+  if (!builtinRules.has(target)) {
+    throw new Error(
+      `Compatibility alias ${source} requires missing @ttsc/lint rule ${target}.`,
+    );
+  }
+}
 
 const wordpressRules = Object.keys(plugin.rules)
   .sort()
@@ -301,7 +321,7 @@ async function writeCompiledPreset(
     };
     const serialized = JSON.stringify(config, null, 2);
     const provenance = entry.sourceNames?.length
-      ? `// Upstream entries: ${entry.sourceNames.join(', ')}\n`
+      ? `// Merged upstream entries; named subset: ${entry.sourceNames.join(', ')}\n`
       : '';
     const previousFileName =
       index > 0 ? `${String(index - 1).padStart(2, '0')}.mjs` : undefined;
@@ -429,6 +449,10 @@ function classifyRule(
   }
   if (source === 'prettier/prettier') {
     return { kind: 'runner', source, target: 'ttsc format' };
+  }
+  const aliasTarget = RULE_ALIASES.get(source);
+  if (aliasTarget) {
+    return { kind: 'mapped', source, target: aliasTarget };
   }
   if (builtinRules.has(source)) {
     return { kind: 'builtin', source, target: source };
