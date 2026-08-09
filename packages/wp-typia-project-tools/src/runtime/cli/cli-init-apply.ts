@@ -17,7 +17,10 @@ import {
   readProjectPackageJson,
 } from './cli-init-package-json.js';
 import { createRetrofitPlan, getInitPlan } from './cli-init-plan.js';
-import { buildInitPlanNextSteps } from './cli-init-plan-presentation.js';
+import {
+  buildInitPlanNextSteps,
+  hasTtscLintCompatPlanChanges,
+} from './cli-init-plan-presentation.js';
 import {
   buildOfficialWorkspaceLintFiles,
   buildRetrofitHelperFiles,
@@ -125,6 +128,8 @@ function buildApplyNextSteps(
 ): string[] {
   return buildInitPlanNextSteps({
     commandMode: 'apply',
+    compatibilitySurfaceChanged:
+      hasTtscLintCompatPlanChanges(previewPlan),
     dependencyChanges: previewPlan.packageChanges.addDevDependencies,
     hasPlannedChanges: true,
     layoutKind: previewPlan.detectedLayout.kind,

@@ -32,8 +32,13 @@ import type {
 } from './cli-init-types.js';
 import { parseWorkspacePackageManagerId } from '../workspace/workspace-project.js';
 
+export const TTSC_LINT_COMPAT_HELPER_PATH =
+  'scripts/apply-ttsc-lint-compat.mjs';
+export const TTSC_LINT_COMPAT_HELPER_COMMAND =
+  `node ${TTSC_LINT_COMPAT_HELPER_PATH}`;
+
 const BASE_RETROFIT_SCRIPTS = {
-  postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
+  postinstall: TTSC_LINT_COMPAT_HELPER_COMMAND,
   sync: 'ttsx scripts/sync-project.ts',
   'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
   typecheck: 'bun run sync --check && ttsc --noEmit',

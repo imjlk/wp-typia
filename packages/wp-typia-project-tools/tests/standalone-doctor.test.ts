@@ -373,6 +373,39 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     ).toBe(false);
   });
 
+  test(
+    'accepts dependencies hoisted by a declaring ancestor workspace',
+    async () => {
+      const ancestorDir = path.join(tempRoot, 'workspace-dependencies');
+      const targetDir = path.join(ancestorDir, 'standalone-project');
+      await scaffoldBasic(targetDir);
+      fs.writeFileSync(
+        path.join(ancestorDir, 'package.json'),
+        `${JSON.stringify(
+          {
+            private: true,
+            workspaces: ['standalone-project'],
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      linkWorkspaceNodeModules(targetDir);
+      fs.renameSync(
+        path.join(targetDir, 'node_modules'),
+        path.join(ancestorDir, 'node_modules'),
+      );
+
+      const dependenciesCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+      );
+
+      expect(dependenciesCheck?.status).toBe('pass');
+    },
+    15_000,
+  );
+
   test('does not accept dependencies resolved only from an ancestor', async () => {
     const ancestorDir = path.join(tempRoot, 'ancestor-dependencies');
     const targetDir = path.join(ancestorDir, 'standalone-project');

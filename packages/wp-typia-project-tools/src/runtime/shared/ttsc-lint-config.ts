@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import ts from '@typescript/typescript6';
 
 /**
@@ -19,6 +21,7 @@ export const TTSC_LINT_CONFIG_FILENAMES = [
 ] as const;
 
 interface WordPressLintConfigBindings {
+  declarationEnds: Map<string, number>;
   defaults: Set<string>;
   named: Set<string>;
   namespaces: Set<string>;
@@ -297,6 +300,7 @@ function getWordPressLintConfigBindings(
       nodeReassignsIdentifier(statement, 'require'),
     );
   const bindings: WordPressLintConfigBindings = {
+    declarationEnds: new Map<string, number>(),
     defaults: new Set<string>(),
     named: new Set<string>(),
     namespaces: new Set<string>(),
@@ -313,6 +317,7 @@ function getWordPressLintConfigBindings(
         }
         if (ts.isIdentifier(declaration.name)) {
           bindings.namespaces.add(declaration.name.text);
+          bindings.declarationEnds.set(declaration.name.text, declaration.end);
           continue;
         }
         if (!ts.isObjectBindingPattern(declaration.name)) {
@@ -327,6 +332,7 @@ function getWordPressLintConfigBindings(
             : element.name.text;
           if (importedName === 'configs') {
             bindings.named.add(element.name.text);
+            bindings.declarationEnds.set(element.name.text, declaration.end);
           }
         }
       }
@@ -345,12 +351,20 @@ function getWordPressLintConfigBindings(
     }
     if (importClause.name) {
       bindings.defaults.add(importClause.name.text);
+      bindings.declarationEnds.set(
+        importClause.name.text,
+        Number.NEGATIVE_INFINITY,
+      );
     }
     if (!importClause.namedBindings) {
       continue;
     }
     if (ts.isNamespaceImport(importClause.namedBindings)) {
       bindings.namespaces.add(importClause.namedBindings.name.text);
+      bindings.declarationEnds.set(
+        importClause.namedBindings.name.text,
+        Number.NEGATIVE_INFINITY,
+      );
       continue;
     }
     for (const element of importClause.namedBindings.elements) {
@@ -358,8 +372,16 @@ function getWordPressLintConfigBindings(
         const importedName = (element.propertyName ?? element.name).text;
         if (importedName === 'configs') {
           bindings.named.add(element.name.text);
+          bindings.declarationEnds.set(
+            element.name.text,
+            Number.NEGATIVE_INFINITY,
+          );
         } else if (importedName === 'default') {
           bindings.defaults.add(element.name.text);
+          bindings.declarationEnds.set(
+            element.name.text,
+            Number.NEGATIVE_INFINITY,
+          );
         }
       }
     }
@@ -389,6 +411,14 @@ function isWordPressConfigPath(
 ): boolean {
   const path = getPropertyAccessPath(expression);
   if (!path) {
+    return false;
+  }
+  const binding = path[0];
+  if (
+    binding === undefined ||
+    (bindings.declarationEnds.get(binding) ?? Number.POSITIVE_INFINITY) >=
+      expression.getStart()
+  ) {
     return false;
   }
   return (
@@ -1084,20 +1114,27 @@ function collectMutatingTopLevelHelpers(
     }
   }
 
-  const worklist = [...mutatingHelpers];
+  expandHelperDependents(mutatingHelpers, dependents);
+  return mutatingHelpers;
+}
+
+function expandHelperDependents(
+  helperNames: Set<string>,
+  dependents: ReadonlyMap<string, ReadonlySet<string>>,
+): void {
+  const worklist = [...helperNames];
   for (let index = 0; index < worklist.length; index += 1) {
     const current = worklist[index];
     if (current === undefined) {
       continue;
     }
     for (const dependent of dependents.get(current) ?? []) {
-      if (!mutatingHelpers.has(dependent)) {
-        mutatingHelpers.add(dependent);
+      if (!helperNames.has(dependent)) {
+        helperNames.add(dependent);
         worklist.push(dependent);
       }
     }
   }
-  return mutatingHelpers;
 }
 
 function resolveObjectLiteral(
@@ -1225,7 +1262,12 @@ function isWordPressDefaultPlugin(
 ): boolean {
   const path = getPropertyAccessPath(expression);
   const binding = path?.length === 1 ? path[0] : undefined;
-  return binding !== undefined && bindings.defaults.has(binding);
+  return (
+    binding !== undefined &&
+    bindings.defaults.has(binding) &&
+    (bindings.declarationEnds.get(binding) ?? Number.POSITIVE_INFINITY) <
+      expression.getStart()
+  );
 }
 
 function hasEffectiveWordPressPlugin(
@@ -1381,6 +1423,101 @@ function hasEffectiveRecommendedRule(
   return enabled;
 }
 
+const MANAGED_WORDPRESS_SOURCE_PATHS = [
+  'src/index.tsx',
+  'src/edit.tsx',
+  'src/save.tsx',
+  'src/blocks/example/edit.tsx',
+] as const;
+
+function getStaticStringArray(expression: ts.Expression): string[] | null {
+  const current = unwrapExpression(expression);
+  if (!ts.isArrayLiteralExpression(current)) {
+    return null;
+  }
+  const values: string[] = [];
+  for (const element of current.elements) {
+    if (ts.isSpreadElement(element)) {
+      return null;
+    }
+    const value = getStaticStringValue(element);
+    if (value === null) {
+      return null;
+    }
+    values.push(value);
+  }
+  return values;
+}
+
+function ignorePatternMatchesSource(
+  sourcePath: string,
+  pattern: string,
+): boolean | null {
+  const negationPrefix = pattern.startsWith('!') ? '!' : '';
+  const normalized = pattern
+    .slice(negationPrefix.length)
+    .replace(/^\.\//u, '')
+    .replace(/\/$/u, '');
+  if (normalized.length === 0) {
+    return null;
+  }
+  if (normalized === 'src') {
+    return sourcePath.startsWith('src/');
+  }
+  try {
+    return path.posix.matchesGlob(sourcePath, normalized);
+  } catch {
+    return null;
+  }
+}
+
+function hasUsableManagedSourceTree(
+  config: ts.ObjectLiteralExpression,
+  bindings: WordPressLintConfigBindings,
+): boolean {
+  let ignorePatterns: string[] = [];
+  let ignorePatternsKnown = true;
+  for (const property of config.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      if (
+        !isWordPressConfigPath(property.expression, bindings, ['recommended'])
+      ) {
+        ignorePatternsKnown = false;
+      }
+      continue;
+    }
+    if (getObjectLiteralElementName(property) !== 'ignores') {
+      continue;
+    }
+    const staticPatterns = ts.isPropertyAssignment(property)
+      ? getStaticStringArray(property.initializer)
+      : null;
+    // Object-literal assignment order is authoritative: an explicit `ignores`
+    // safely replaces an unknown value from any earlier spread.
+    ignorePatternsKnown = staticPatterns !== null;
+    ignorePatterns = staticPatterns ?? [];
+  }
+  if (!ignorePatternsKnown) {
+    return false;
+  }
+  const ignored = new Map(
+    MANAGED_WORDPRESS_SOURCE_PATHS.map((sourcePath) => [sourcePath, false]),
+  );
+  for (const pattern of ignorePatterns) {
+    const negated = pattern.startsWith('!');
+    for (const sourcePath of MANAGED_WORDPRESS_SOURCE_PATHS) {
+      const matches = ignorePatternMatchesSource(sourcePath, pattern);
+      if (matches === null) {
+        return false;
+      }
+      if (matches) {
+        ignored.set(sourcePath, !negated);
+      }
+    }
+  }
+  return ![...ignored.values()].every(Boolean);
+}
+
 interface CommonJsExportAssignment {
   exportPath: string[];
   value: ts.Expression;
@@ -1489,7 +1626,11 @@ function findConfigExportExpression(
   ) {
     const statement = sourceFile.statements[statementIndex];
     if (ts.isExportAssignment(statement)) {
-      if (result || moduleFormat === 'commonjs') {
+      if (
+        result ||
+        moduleFormat === 'commonjs' ||
+        (moduleFormat === 'module' && statement.isExportEquals)
+      ) {
         return null;
       }
       result = statement.expression;
@@ -1554,6 +1695,71 @@ function findConfigExportExpression(
   return result;
 }
 
+function nodeTerminatesModuleEvaluation(node: ts.Node): boolean {
+  let terminates = false;
+  const visit = (current: ts.Node): void => {
+    if (terminates || isDeferredScope(current)) {
+      return;
+    }
+    if (ts.isThrowStatement(current)) {
+      terminates = true;
+      return;
+    }
+    if (ts.isCallExpression(current)) {
+      const calleePath = getPropertyAccessPath(current.expression);
+      if (calleePath?.join('.') === 'process.exit') {
+        terminates = true;
+        return;
+      }
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return terminates;
+}
+
+function nodeReturnsFromModuleScope(node: ts.Node): boolean {
+  let returns = false;
+  const visit = (current: ts.Node): void => {
+    if (
+      returns ||
+      ts.isFunctionLike(current) ||
+      ts.isClassDeclaration(current) ||
+      ts.isClassExpression(current) ||
+      ts.isModuleDeclaration(current)
+    ) {
+      return;
+    }
+    if (ts.isReturnStatement(current)) {
+      returns = true;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return returns;
+}
+
+function sourceTerminatesModuleEvaluation(sourceFile: ts.SourceFile): boolean {
+  if (
+    sourceFile.statements.some(nodeReturnsFromModuleScope) ||
+    sourceFile.statements.some(nodeTerminatesModuleEvaluation)
+  ) {
+    return true;
+  }
+  const { definitions, dependents } = getTopLevelHelperAnalysis(sourceFile);
+  const terminatingHelpers = new Set<string>();
+  for (const [name, definition] of definitions) {
+    if (nodeTerminatesModuleEvaluation(definition.body)) {
+      terminatingHelpers.add(name);
+    }
+  }
+  expandHelperDependents(terminatingHelpers, dependents);
+  return sourceFile.statements.some((statement) =>
+    nodeInvokesTrackedHelper(statement, terminatingHelpers),
+  );
+}
+
 /**
  * Check whether a lint config enables the WordPress preset and binds its i18n
  * rule to the expected project text domain.
@@ -1602,6 +1808,9 @@ export function hasWordPressTtscLintConfigSource(
   if (parseDiagnostics && parseDiagnostics.length > 0) {
     return false;
   }
+  if (sourceTerminatesModuleEvaluation(sourceFile)) {
+    return false;
+  }
   if (
     moduleFormat === 'commonjs' &&
     sourceFile.statements.some(
@@ -1620,6 +1829,10 @@ export function hasWordPressTtscLintConfigSource(
   ) {
     return false;
   }
+  const exportExpression = findConfigExportExpression(sourceFile, moduleFormat);
+  if (!exportExpression) {
+    return false;
+  }
   const bindings = getWordPressLintConfigBindings(sourceFile, moduleFormat);
   if (
     bindings.defaults.size === 0 &&
@@ -1628,10 +1841,7 @@ export function hasWordPressTtscLintConfigSource(
   ) {
     return false;
   }
-  const exportExpression = findConfigExportExpression(sourceFile, moduleFormat);
-  const config = exportExpression
-    ? resolveObjectLiteral(exportExpression, sourceFile)
-    : null;
+  const config = resolveObjectLiteral(exportExpression, sourceFile);
   if (!config || !hasWordPressConfigSpread(config, bindings, ['recommended'])) {
     return false;
   }
@@ -1660,6 +1870,7 @@ export function hasWordPressTtscLintConfigSource(
         bindings,
         'wordpress/valid-sprintf',
       ) &&
+      hasUsableManagedSourceTree(config, bindings) &&
       textDomainRule &&
       hasExpectedTextDomainRule(textDomainRule, expectedTextDomain),
   );

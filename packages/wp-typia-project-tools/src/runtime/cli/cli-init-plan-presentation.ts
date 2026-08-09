@@ -6,6 +6,8 @@ import {
 } from '../shared/package-managers.js';
 import {
   getWpTypiaCliSpecifier,
+  TTSC_LINT_COMPAT_HELPER_COMMAND,
+  TTSC_LINT_COMPAT_HELPER_PATH,
 } from './cli-init-package-json.js';
 import type {
   InitCommandMode,
@@ -61,6 +63,7 @@ export function buildInitPlanChangeSummary(
 
 export function buildInitPlanNextSteps(options: {
   commandMode: InitCommandMode;
+  compatibilitySurfaceChanged: boolean;
   dependencyChanges: readonly InitDependencyChange[];
   hasPlannedChanges: boolean;
   layoutKind: InitPlanLayoutKind;
@@ -85,6 +88,8 @@ export function buildInitPlanNextSteps(options: {
       (change) => `${change.name}@${change.requiredValue.replace(/^workspace:/u, '')}`,
     ),
   );
+  const requiresDirectCompatibilityRun =
+    options.compatibilitySurfaceChanged && options.dependencyChanges.length === 0;
 
   if (options.layoutKind === 'unsupported') {
     return [
@@ -96,32 +101,58 @@ export function buildInitPlanNextSteps(options: {
   }
 
   if (options.commandMode === 'apply') {
-    return [
-			...(options.dependencyChanges.length > 0
-				? [
-						'Install or reinstall project dependencies so the retrofit sync scripts and metadata generators are available locally.',
-						dependencyInstallCommand,
-				  ]
-				: []),
-			syncRun,
-			doctorRun,
-			`Optional migration bootstrap: ${migrationInitRun}`,
-		];
+    const nextSteps: string[] = [];
+    if (options.dependencyChanges.length > 0) {
+      nextSteps.push(
+        'Install or reinstall project dependencies so the retrofit sync scripts and metadata generators are available locally.',
+        dependencyInstallCommand,
+      );
+    }
+    if (requiresDirectCompatibilityRun) {
+      nextSteps.push(TTSC_LINT_COMPAT_HELPER_COMMAND);
+    }
+    nextSteps.push(
+      syncRun,
+      doctorRun,
+      `Optional migration bootstrap: ${migrationInitRun}`,
+    );
+    return nextSteps;
   }
 
-  return [
-		...(options.hasPlannedChanges
-			? [
-					'Re-run `wp-typia init --apply` to write the planned package.json changes and helper files automatically.',
-					...(options.dependencyChanges.length > 0
-						? [dependencyInstallCommand]
-						: []),
-			  ]
-			: []),
-		syncRun,
-		doctorRun,
-		`Optional migration bootstrap: ${migrationInitRun}`,
-	];
+  const nextSteps: string[] = [];
+  if (options.hasPlannedChanges) {
+    nextSteps.push(
+      'Re-run `wp-typia init --apply` to write the planned package.json changes and helper files automatically.',
+    );
+    if (options.dependencyChanges.length > 0) {
+      nextSteps.push(dependencyInstallCommand);
+    }
+    if (requiresDirectCompatibilityRun) {
+      nextSteps.push(TTSC_LINT_COMPAT_HELPER_COMMAND);
+    }
+  }
+  nextSteps.push(
+    syncRun,
+    doctorRun,
+    `Optional migration bootstrap: ${migrationInitRun}`,
+  );
+  return nextSteps;
+}
+
+export function hasTtscLintCompatPlanChanges(
+  plan: Pick<RetrofitInitPlan, 'packageChanges' | 'plannedFiles'>,
+): boolean {
+  return (
+    plan.packageChanges.scripts.some(
+      (change) =>
+        change.name === 'postinstall' &&
+        change.requiredValue.includes(TTSC_LINT_COMPAT_HELPER_PATH),
+    ) ||
+    plan.plannedFiles.some(
+      (file) =>
+        file.path.replace(/\\/gu, '/') === TTSC_LINT_COMPAT_HELPER_PATH,
+    )
+  );
 }
 
 export function buildRetrofitPlanSummary(options: {

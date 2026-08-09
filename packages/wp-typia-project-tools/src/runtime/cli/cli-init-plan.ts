@@ -37,6 +37,7 @@ import {
   buildInitPlanChangeSummary,
   buildInitPlanNextSteps,
   buildRetrofitPlanSummary,
+  hasTtscLintCompatPlanChanges,
 } from './cli-init-plan-presentation.js';
 import {
   RETROFIT_APPLY_PREVIEW_NOTE,
@@ -379,6 +380,10 @@ export function createRetrofitPlan(options: {
 			options.nextSteps ??
 			buildInitPlanNextSteps({
 				commandMode: options.commandMode,
+				compatibilitySurfaceChanged: hasTtscLintCompatPlanChanges({
+					packageChanges: options.packageChanges,
+					plannedFiles: options.plannedFiles,
+				}),
 				dependencyChanges: options.packageChanges.addDevDependencies,
 				hasPlannedChanges: plannedChanges.length > 0,
 				layoutKind: options.detectedLayout.kind,
