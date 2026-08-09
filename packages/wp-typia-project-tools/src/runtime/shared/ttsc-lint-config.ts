@@ -23,6 +23,71 @@ interface WordPressLintConfigBindings {
   namespaces: Set<string>;
 }
 
+function sourceFileHasTopLevelBinding(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): boolean {
+  for (const statement of sourceFile.statements) {
+    const bindings = new Set<string>();
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        collectBindingIdentifiers(declaration.name, bindings);
+      }
+    } else if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    ) {
+      bindings.add(statement.name.text);
+    } else if (ts.isImportDeclaration(statement)) {
+      const importClause = statement.importClause;
+      if (importClause?.name) {
+        bindings.add(importClause.name.text);
+      }
+      if (importClause?.namedBindings) {
+        if (ts.isNamespaceImport(importClause.namedBindings)) {
+          bindings.add(importClause.namedBindings.name.text);
+        } else {
+          for (const element of importClause.namedBindings.elements) {
+            bindings.add(element.name.text);
+          }
+        }
+      }
+    } else if (ts.isImportEqualsDeclaration(statement)) {
+      bindings.add(statement.name.text);
+    }
+    if (bindings.has(identifier)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nodeReassignsIdentifier(node: ts.Node, identifier: string): boolean {
+  let reassigned = false;
+  const visit = (current: ts.Node): void => {
+    if (reassigned || isDeferredScope(current)) {
+      return;
+    }
+    if (ts.isBinaryExpression(current)) {
+      const leftOperand = unwrapExpression(current.left);
+      if (
+        current.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        current.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+        ts.isIdentifier(leftOperand) &&
+        leftOperand.text === identifier
+      ) {
+        reassigned = true;
+        return;
+      }
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return reassigned;
+}
+
 function unwrapExpression(expression: ts.Expression): ts.Expression {
   let current = expression;
   while (
@@ -124,6 +189,11 @@ function isWordPressLintPluginRequire(expression: ts.Expression): boolean {
 function getWordPressLintConfigBindings(
   sourceFile: ts.SourceFile,
 ): WordPressLintConfigBindings {
+  const commonJsRequireAvailable =
+    !sourceFileHasTopLevelBinding(sourceFile, 'require') &&
+    !sourceFile.statements.some((statement) =>
+      nodeReassignsIdentifier(statement, 'require'),
+    );
   const bindings: WordPressLintConfigBindings = {
     named: new Set<string>(),
     namespaces: new Set<string>(),
@@ -133,6 +203,7 @@ function getWordPressLintConfigBindings(
       for (const declaration of statement.declarationList.declarations) {
         if (
           !declaration.initializer ||
+          !commonJsRequireAvailable ||
           !isWordPressLintPluginRequire(declaration.initializer)
         ) {
           continue;
@@ -525,14 +596,32 @@ function nodeMutatesTrackedIdentifiers(
   );
 }
 
-function collectTopLevelHelperBodies(
+interface TopLevelHelperDefinition {
+  body: ts.Node;
+  parameterNames: ReadonlySet<string>;
+}
+
+function getParameterNames(
+  parameters: readonly ts.ParameterDeclaration[],
+): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const parameter of parameters) {
+    collectBindingIdentifiers(parameter.name, names);
+  }
+  return names;
+}
+
+function collectTopLevelHelperDefinitions(
   sourceFile: ts.SourceFile,
-): ReadonlyMap<string, ts.Node> {
-  const helpers = new Map<string, ts.Node>();
+): ReadonlyMap<string, TopLevelHelperDefinition> {
+  const helpers = new Map<string, TopLevelHelperDefinition>();
   for (const statement of sourceFile.statements) {
     if (ts.isFunctionDeclaration(statement)) {
       if (statement.name && statement.body) {
-        helpers.set(statement.name.text, statement.body);
+        helpers.set(statement.name.text, {
+          body: statement.body,
+          parameterNames: getParameterNames(statement.parameters),
+        });
       }
       continue;
     }
@@ -545,9 +634,15 @@ function collectTopLevelHelperBodies(
       }
       const initializer = unwrapExpression(declaration.initializer);
       if (ts.isFunctionExpression(initializer)) {
-        helpers.set(declaration.name.text, initializer.body);
+        helpers.set(declaration.name.text, {
+          body: initializer.body,
+          parameterNames: getParameterNames(initializer.parameters),
+        });
       } else if (ts.isArrowFunction(initializer)) {
-        helpers.set(declaration.name.text, initializer.body);
+        helpers.set(declaration.name.text, {
+          body: initializer.body,
+          parameterNames: getParameterNames(initializer.parameters),
+        });
       }
     }
   }
@@ -555,7 +650,7 @@ function collectTopLevelHelperBodies(
 }
 
 interface TopLevelHelperAnalysis {
-  bodies: ReadonlyMap<string, ts.Node>;
+  definitions: ReadonlyMap<string, TopLevelHelperDefinition>;
   dependents: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
@@ -613,16 +708,114 @@ function addHelperDependency(
   dependencies.set(sourceName, dependents);
 }
 
+function findEffectiveObjectLiteralElement(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+): ts.ObjectLiteralElementLike | null {
+  let result: ts.ObjectLiteralElementLike | null = null;
+  for (const property of objectLiteral.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      // A dynamic spread can overwrite any earlier property. Fail closed until
+      // a later explicit assignment makes the effective value knowable again.
+      result = null;
+    } else if (getObjectLiteralElementName(property) === propertyName) {
+      result = property;
+    }
+  }
+  return result;
+}
+
+function getObjectLiteralAliasSource(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+): ts.Expression | null {
+  const property = findEffectiveObjectLiteralElement(
+    objectLiteral,
+    propertyName,
+  );
+  if (property && ts.isPropertyAssignment(property)) {
+    return property.initializer;
+  }
+  return property && ts.isShorthandPropertyAssignment(property)
+    ? property.name
+    : null;
+}
+
 function addHelperAliasDependency(
   dependencies: Map<string, Set<string>>,
   target: ts.Node,
   source: ts.Expression,
 ): void {
   const initializer = unwrapExpression(source);
-  // Destructuring extracts properties or elements; it does not preserve the
-  // initializer's callable identity and therefore is not a helper alias.
   if (ts.isIdentifier(target) && ts.isIdentifier(initializer)) {
     addHelperDependency(dependencies, initializer.text, target.text);
+    return;
+  }
+  if (
+    ts.isArrayBindingPattern(target) &&
+    ts.isArrayLiteralExpression(initializer)
+  ) {
+    for (let index = 0; index < target.elements.length; index += 1) {
+      const targetElement = target.elements[index];
+      const sourceElement = initializer.elements[index];
+      if (!targetElement || ts.isOmittedExpression(targetElement)) {
+        continue;
+      }
+      if (
+        targetElement.dotDotDotToken ||
+        (sourceElement && ts.isSpreadElement(sourceElement))
+      ) {
+        break;
+      }
+      if (sourceElement && !ts.isOmittedExpression(sourceElement)) {
+        addHelperAliasDependency(
+          dependencies,
+          targetElement.name,
+          sourceElement,
+        );
+      }
+      if (targetElement.initializer) {
+        addHelperAliasDependency(
+          dependencies,
+          targetElement.name,
+          targetElement.initializer,
+        );
+      }
+    }
+    return;
+  }
+  if (
+    ts.isObjectBindingPattern(target) &&
+    ts.isObjectLiteralExpression(initializer)
+  ) {
+    for (const targetElement of target.elements) {
+      if (targetElement.dotDotDotToken) {
+        continue;
+      }
+      let propertyName: string | null = null;
+      if (targetElement.propertyName) {
+        propertyName = getPropertyName(targetElement.propertyName);
+      } else if (ts.isIdentifier(targetElement.name)) {
+        propertyName = targetElement.name.text;
+      }
+      const sourceElement = propertyName
+        ? getObjectLiteralAliasSource(initializer, propertyName)
+        : null;
+      if (sourceElement) {
+        addHelperAliasDependency(
+          dependencies,
+          targetElement.name,
+          sourceElement,
+        );
+      }
+      if (targetElement.initializer) {
+        addHelperAliasDependency(
+          dependencies,
+          targetElement.name,
+          targetElement.initializer,
+        );
+      }
+    }
   }
 }
 
@@ -633,7 +826,7 @@ function getTopLevelHelperAnalysis(
   if (cached) {
     return cached;
   }
-  const bodies = collectTopLevelHelperBodies(sourceFile);
+  const definitions = collectTopLevelHelperDefinitions(sourceFile);
   const dependents = new Map<string, Set<string>>();
   for (const statement of sourceFile.statements) {
     if (ts.isVariableStatement(statement)) {
@@ -658,12 +851,15 @@ function getTopLevelHelperAnalysis(
       );
     }
   }
-  for (const [name, body] of bodies) {
-    for (const invokedName of collectInvokedHelperNames(body)) {
+  for (const [name, definition] of definitions) {
+    for (const invokedName of collectInvokedHelperNames(definition.body)) {
       addHelperDependency(dependents, invokedName, name);
     }
   }
-  const analysis = { bodies, dependents } satisfies TopLevelHelperAnalysis;
+  const analysis = {
+    definitions,
+    dependents,
+  } satisfies TopLevelHelperAnalysis;
   topLevelHelperAnalysisCache.set(sourceFile, analysis);
   return analysis;
 }
@@ -672,10 +868,16 @@ function collectMutatingTopLevelHelpers(
   sourceFile: ts.SourceFile,
   trackedIdentifiers: ReadonlySet<string>,
 ): ReadonlySet<string> {
-  const { bodies, dependents } = getTopLevelHelperAnalysis(sourceFile);
+  const { definitions, dependents } = getTopLevelHelperAnalysis(sourceFile);
   const mutatingHelpers = new Set<string>();
-  for (const [name, body] of bodies) {
-    if (nodeMutatesTrackedIdentifiers(body, trackedIdentifiers)) {
+  for (const [name, definition] of definitions) {
+    const visibleTrackedIdentifiers = new Set(trackedIdentifiers);
+    for (const parameterName of definition.parameterNames) {
+      visibleTrackedIdentifiers.delete(parameterName);
+    }
+    if (
+      nodeMutatesTrackedIdentifiers(definition.body, visibleTrackedIdentifiers)
+    ) {
       mutatingHelpers.add(name);
     }
   }
@@ -792,17 +994,11 @@ function findEffectiveProperty(
   objectLiteral: ts.ObjectLiteralExpression,
   propertyName: string,
 ): ts.PropertyAssignment | null {
-  let result: ts.PropertyAssignment | null = null;
-  for (const property of objectLiteral.properties) {
-    if (ts.isSpreadAssignment(property)) {
-      // A dynamic spread can overwrite any earlier property. Fail closed until
-      // a later explicit assignment makes the effective value knowable again.
-      result = null;
-    } else if (getObjectLiteralElementName(property) === propertyName) {
-      result = ts.isPropertyAssignment(property) ? property : null;
-    }
-  }
-  return result;
+  const property = findEffectiveObjectLiteralElement(
+    objectLiteral,
+    propertyName,
+  );
+  return property && ts.isPropertyAssignment(property) ? property : null;
 }
 
 function hasWordPressConfigSpread(
@@ -932,6 +1128,22 @@ function findConfigExportExpression(
   sourceFile: ts.SourceFile,
 ): ts.Expression | null {
   let commonJsExportPath: string[] | null = null;
+  const exportsAliasDetached = sourceFile.statements.some(
+    (statement) =>
+      nodeReassignsIdentifier(statement, 'exports') ||
+      (ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.some(
+          (declaration) =>
+            ts.isIdentifier(declaration.name) &&
+            declaration.name.text === 'exports' &&
+            (declaration.initializer !== undefined ||
+              (statement.declarationList.flags & ts.NodeFlags.BlockScoped) !==
+                0),
+        )) ||
+      ((ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement)) &&
+        statement.name?.text === 'exports'),
+  );
   let result: ts.Expression | null = null;
   for (const statement of sourceFile.statements) {
     if (ts.isExportAssignment(statement)) {
@@ -960,6 +1172,9 @@ function findConfigExportExpression(
       joinedExportPath === 'module.exports' ||
       joinedExportPath === 'exports.default'
     ) {
+      if (joinedExportPath === 'exports.default' && exportsAliasDetached) {
+        return null;
+      }
       if (result) {
         return null;
       }

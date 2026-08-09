@@ -1075,6 +1075,98 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function disable() {
+  wp.configs.recommended.plugins = {};
+}
+const [run] = [disable];
+run();
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function disable() {
+  wp.configs.recommended.plugins = {};
+}
+const [{ run }] = [{ run: disable }];
+run();
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function disable() {
+  wp.configs.recommended.plugins = {};
+}
+function noop() {}
+const rest = [noop, noop];
+const [first, second, run] = [noop, ...rest, disable];
+run();
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`function require() {
+  return {
+    configs: {
+      recommended: { plugins: { wordpress: {} }, rules: {} },
+    },
+  };
+}
+const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 const holder = { wp };
 holder.wp.configs.recommended.plugins = {};
 module.exports = {
@@ -1169,6 +1261,17 @@ module.exports = {
 				'fixture-domain',
 			),
 		).toBe(false);
+		const shadowedParameterConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nfunction normalize(config) {\n  config.plugins = {};\n}\nnormalize({});\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				shadowedParameterConfigSource,
+				'fixture-domain',
+			),
+		).toBe(true);
 		const constructorHelperMutatedConfigSource = replaceOnce(
 			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 			'} satisfies ITtscLintConfig;',
@@ -1477,6 +1580,44 @@ module.exports = config;
 				'fixture-domain',
 			),
 		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+const config = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+exports = {};
+exports.default = config;
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+const config = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+exports.default = config;
+let exports;
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
 	});
 
 	test('normalizes scoped package names for retrofit text domains', () => {
@@ -1497,6 +1638,13 @@ module.exports = config;
 				projectDir: '/tmp/ignored-project-dir',
 			}),
 		).toBe('site-blocks');
+		expect(
+			resolveRetrofitTextDomain({
+				blockTargets: [],
+				packageJson: { name: 42 as unknown as string },
+				projectDir: '/tmp/fallback-project',
+			}),
+		).toBe('fallback-project');
 	});
 
 	test('rejects conflicting retrofit block text domains', () => {

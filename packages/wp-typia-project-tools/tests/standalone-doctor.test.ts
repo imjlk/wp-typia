@@ -147,6 +147,32 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
+    const wrongContributorPackageJson = JSON.parse(
+      originalPackageJsonSource,
+    ) as {
+      devDependencies: Record<string, string>;
+    };
+    const managedContributorVersion =
+      wrongContributorPackageJson.devDependencies[
+        '@wp-typia/ttsc-lint-plugin-wp'
+      ];
+    wrongContributorPackageJson.devDependencies[
+      '@wp-typia/ttsc-lint-plugin-wp'
+    ] = '0.0.0';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(wrongContributorPackageJson, null, 2),
+    );
+    const wrongContributorVersionCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(wrongContributorVersionCheck?.status).toBe('fail');
+    expect(wrongContributorVersionCheck?.detail).toContain(
+      `@wp-typia/ttsc-lint-plugin-wp dependency must be exactly ${managedContributorVersion}`,
+    );
+
+    fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
     const executionPackageJson = JSON.parse(originalPackageJsonSource) as {
       scripts: Record<string, string>;
     };

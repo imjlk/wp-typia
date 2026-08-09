@@ -24,6 +24,7 @@ import {
   type PhpFunctionRange,
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
+import { getPackageVersions } from '../shared/package-versions.js';
 import {
   hasPackageRunScriptCommand,
   hasTtscLintCompatPostinstallCommand,
@@ -3044,6 +3045,20 @@ function getPackageMetadataCheck(
     issues.push(ttscLintConfigIssue);
   }
   issues.push(...getStandaloneTtscLintExecutionIssues(project));
+  const declaredContributorVersion = getDeclaredDependency(
+    project.packageJson,
+    '@wp-typia/ttsc-lint-plugin-wp',
+  );
+  const requiredContributorVersion =
+    getPackageVersions().ttscLintPluginWpPackageVersion;
+  if (
+    typeof declaredContributorVersion === 'string' &&
+    declaredContributorVersion !== requiredContributorVersion
+  ) {
+    issues.push(
+      `package.json @wp-typia/ttsc-lint-plugin-wp dependency must be exactly ${requiredContributorVersion}`,
+    );
+  }
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const syncCommand = formatRunScript(packageManager, 'sync');
   const scriptRequirements = [

@@ -124,7 +124,9 @@ export function resolveRetrofitTextDomain(options: {
     return blockTextDomain;
   }
 
-  const packageName = options.packageJson?.name?.trim();
+  const packageNameValue = options.packageJson?.name;
+  const packageName =
+    typeof packageNameValue === 'string' ? packageNameValue.trim() : '';
   if (packageName) {
     return packageName.includes('/')
       ? packageName.slice(packageName.lastIndexOf('/') + 1)
