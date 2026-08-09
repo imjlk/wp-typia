@@ -182,6 +182,8 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   const managedLint = packageJson.scripts.lint;
   const managedPostinstall = packageJson.scripts.postinstall;
   const managedTtscLint = packageJson.devDependencies['@ttsc/lint'];
+  const managedContributor =
+    packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
   packageJson.devDependencies['@ttsc/lint'] = '0.24.0';
   fs.writeFileSync(
     packageJsonPath,
@@ -197,6 +199,23 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     `@ttsc/lint dependency must be exactly ${managedTtscLint}`,
   );
   packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
+
+  packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'] = '0.0.0';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const wrongContributorVersionChecks = await getDoctorChecks(targetDir);
+  const wrongContributorVersionCheck = wrongContributorVersionChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(wrongContributorVersionCheck?.status).toBe('warn');
+  expect(wrongContributorVersionCheck?.detail).toContain(
+    `@wp-typia/ttsc-lint-plugin-wp dependency must be exactly ${managedContributor}`,
+  );
+  packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'] =
+    managedContributor;
 
   const managedTtsc = packageJson.devDependencies.ttsc;
   const supportedTtscRange =

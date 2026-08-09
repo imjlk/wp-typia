@@ -1048,6 +1048,25 @@ module.exports = {
   },
 };
 `,
+			'fixture-domain',
+		),
+	).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+const holder = { wp };
+holder.wp.configs.recommended.plugins = {};
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
 				'fixture-domain',
 			),
 		).toBe(false);
@@ -1192,6 +1211,17 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				assignedAliasWithoutMutationSource,
+				'fixture-domain',
+			),
+		).toBe(true);
+		const comparisonWithoutAliasSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nlet isValid = config === {};\nisValid = false;\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				comparisonWithoutAliasSource,
 				'fixture-domain',
 			),
 		).toBe(true);
@@ -1371,6 +1401,47 @@ const config = {
   },
 };
 `,
+			'fixture-domain',
+		),
+	).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function retain(...values) {
+  return values[0];
+}
+const holder = retain(...[wp]);
+holder.configs.recommended.plugins = {};
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+var config = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+var config = {};
+module.exports = config;
+`,
 				'fixture-domain',
 			),
 		).toBe(false);
@@ -1381,6 +1452,16 @@ const config = {
 			resolveRetrofitTextDomain({
 				blockTargets: [],
 				packageJson: { name: '@acme/site-blocks' },
+				projectDir: '/tmp/ignored-project-dir',
+			}),
+		).toBe('site-blocks');
+		expect(
+			resolveRetrofitTextDomain({
+				blockTargets: [],
+				packageJson: {
+					name: '@acme/site-blocks',
+					wpTypia: { textDomain: 42 as unknown as string },
+				},
 				projectDir: '/tmp/ignored-project-dir',
 			}),
 		).toBe('site-blocks');

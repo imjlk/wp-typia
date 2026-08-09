@@ -323,10 +323,78 @@ function expressionUsesTrackedAccess(
   expression: ts.Expression,
   identifiers: ReadonlySet<string>,
 ): boolean {
+  const current = unwrapExpression(expression);
   for (const identifier of identifiers) {
-    if (expressionHasAccessPathRoot(expression, [identifier])) {
+    if (expressionHasAccessPathRoot(current, [identifier])) {
       return true;
     }
+  }
+  if (ts.isObjectLiteralExpression(current)) {
+    return current.properties.some((property) => {
+      if (ts.isPropertyAssignment(property)) {
+        return expressionUsesTrackedAccess(property.initializer, identifiers);
+      }
+      if (ts.isShorthandPropertyAssignment(property)) {
+        return identifiers.has(property.name.text);
+      }
+      return (
+        ts.isSpreadAssignment(property) &&
+        expressionUsesTrackedAccess(property.expression, identifiers)
+      );
+    });
+  }
+  if (ts.isArrayLiteralExpression(current)) {
+    return current.elements.some(
+      (element) =>
+        !ts.isOmittedExpression(element) &&
+        expressionUsesTrackedAccess(
+          ts.isSpreadElement(element) ? element.expression : element,
+          identifiers,
+        ),
+    );
+  }
+  if (ts.isConditionalExpression(current)) {
+    return (
+      expressionUsesTrackedAccess(current.whenTrue, identifiers) ||
+      expressionUsesTrackedAccess(current.whenFalse, identifiers)
+    );
+  }
+  if (ts.isBinaryExpression(current)) {
+    const operator = current.operatorToken.kind;
+    if (
+      operator === ts.SyntaxKind.CommaToken ||
+      operator === ts.SyntaxKind.EqualsToken
+    ) {
+      return expressionUsesTrackedAccess(current.right, identifiers);
+    }
+    if (
+      operator !== ts.SyntaxKind.BarBarToken &&
+      operator !== ts.SyntaxKind.AmpersandAmpersandToken &&
+      operator !== ts.SyntaxKind.QuestionQuestionToken &&
+      operator !== ts.SyntaxKind.BarBarEqualsToken &&
+      operator !== ts.SyntaxKind.AmpersandAmpersandEqualsToken &&
+      operator !== ts.SyntaxKind.QuestionQuestionEqualsToken
+    ) {
+      return false;
+    }
+    return (
+      expressionUsesTrackedAccess(current.left, identifiers) ||
+      expressionUsesTrackedAccess(current.right, identifiers)
+    );
+  }
+  if (ts.isCallExpression(current) || ts.isNewExpression(current)) {
+    return current.arguments?.some((argument) =>
+      expressionUsesTrackedAccess(
+        ts.isSpreadElement(argument) ? argument.expression : argument,
+        identifiers,
+      ),
+    ) ?? false;
+  }
+  if (ts.isAwaitExpression(current) || ts.isYieldExpression(current)) {
+    return Boolean(
+      current.expression &&
+        expressionUsesTrackedAccess(current.expression, identifiers),
+    );
   }
   return false;
 }
@@ -594,6 +662,8 @@ function resolveObjectLiteral(
     return null;
   }
   const referencePosition = current.getStart(sourceFile);
+  let declarationIndex = -1;
+  let resolvedInitializer: ts.Expression | null = null;
   for (
     let statementIndex = 0;
     statementIndex < sourceFile.statements.length;
@@ -612,47 +682,50 @@ function resolveObjectLiteral(
         declaration.name.text === current.text &&
         declaration.initializer
       ) {
-        const initializer = unwrapExpression(declaration.initializer);
-        if (!ts.isObjectLiteralExpression(initializer)) {
-          return null;
-        }
-        const trackedIdentifiers = new Set([current.text]);
-        const laterStatements = sourceFile.statements.slice(statementIndex + 1);
-        for (const laterStatement of laterStatements) {
-          collectVariableAliases(laterStatement, trackedIdentifiers);
-          const aliasAssignments = collectAssignedAliases(
-            laterStatement,
-            trackedIdentifiers,
-          );
-          for (const identifier of trackedIdentifiers) {
-            if (
-              statementMutatesIdentifier(
-                laterStatement,
-                identifier,
-                aliasAssignments,
-              )
-            ) {
-              return null;
-            }
-          }
-        }
-        const mutatingHelpers = collectMutatingTopLevelHelpers(
-          sourceFile,
-          trackedIdentifiers,
-        );
-        if (
-          mutatingHelpers.size > 0 &&
-          laterStatements.some((statement) =>
-            nodeInvokesTrackedHelper(statement, mutatingHelpers),
-          )
-        ) {
-          return null;
-        }
-        return initializer;
+        // Top-level `var` redeclarations are valid JavaScript. Retain the last
+        // initializer before the export because that is the runtime value;
+        // stopping at the first declaration would trust a stale config.
+        declarationIndex = statementIndex;
+        resolvedInitializer = unwrapExpression(declaration.initializer);
       }
     }
   }
-  return null;
+  if (
+    declarationIndex === -1 ||
+    !resolvedInitializer ||
+    !ts.isObjectLiteralExpression(resolvedInitializer)
+  ) {
+    return null;
+  }
+  const trackedIdentifiers = new Set([current.text]);
+  const laterStatements = sourceFile.statements.slice(declarationIndex + 1);
+  for (const laterStatement of laterStatements) {
+    collectVariableAliases(laterStatement, trackedIdentifiers);
+    const aliasAssignments = collectAssignedAliases(
+      laterStatement,
+      trackedIdentifiers,
+    );
+    for (const identifier of trackedIdentifiers) {
+      if (
+        statementMutatesIdentifier(laterStatement, identifier, aliasAssignments)
+      ) {
+        return null;
+      }
+    }
+  }
+  const mutatingHelpers = collectMutatingTopLevelHelpers(
+    sourceFile,
+    trackedIdentifiers,
+  );
+  if (
+    mutatingHelpers.size > 0 &&
+    laterStatements.some((statement) =>
+      nodeInvokesTrackedHelper(statement, mutatingHelpers),
+    )
+  ) {
+    return null;
+  }
+  return resolvedInitializer;
 }
 
 function getObjectLiteralElementName(

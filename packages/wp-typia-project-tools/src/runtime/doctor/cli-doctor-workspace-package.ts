@@ -156,6 +156,8 @@ export function getWorkspaceTtscLintCheck(
   };
   const packageVersions = getPackageVersions();
   const requiredTtscLintVersion = packageVersions.ttscLintPackageVersion;
+  const requiredContributorVersion =
+    packageVersions.ttscLintPluginWpPackageVersion;
   const supportedTtscRange = packageVersions.ttscLintPluginWpTtscPeerRange;
   if (typeof dependencies['@ttsc/lint'] !== 'string') {
     issues.push('missing @ttsc/lint dependency');
@@ -166,6 +168,13 @@ export function getWorkspaceTtscLintCheck(
   }
   if (typeof dependencies['@wp-typia/ttsc-lint-plugin-wp'] !== 'string') {
     issues.push('missing @wp-typia/ttsc-lint-plugin-wp dependency');
+  } else if (
+    dependencies['@wp-typia/ttsc-lint-plugin-wp'] !==
+    requiredContributorVersion
+  ) {
+    issues.push(
+      `@wp-typia/ttsc-lint-plugin-wp dependency must be exactly ${requiredContributorVersion}`,
+    );
   }
   if (typeof dependencies.ttsc !== 'string') {
     issues.push('missing ttsc dependency');

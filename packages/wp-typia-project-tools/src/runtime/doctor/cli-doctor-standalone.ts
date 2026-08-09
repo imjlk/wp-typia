@@ -25,9 +25,13 @@ import {
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
+  hasPackageRunScriptCommand,
+  hasTtscLintCompatPostinstallCommand,
+  hasTtscNoEmitLintCommand,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
+import { hasCurrentTtscLintCompatFile } from '../cli/cli-init-templates.js';
 import {
   createDoctorCheck,
   createDoctorScopeCheck,
@@ -2983,6 +2987,34 @@ function getStandaloneTtscLintConfigIssue(
   return 'missing ttsc lint config';
 }
 
+function getStandaloneTtscLintExecutionIssues(
+  project: StandaloneScaffoldProject,
+): string[] {
+  const issues: string[] = [];
+  if (!hasTtscNoEmitLintCommand(project.packageJson.scripts?.['lint:ts'])) {
+    issues.push('package.json lint:ts must invoke `ttsc --noEmit`');
+  }
+  if (!hasPackageRunScriptCommand(
+    project.packageJson.scripts?.lint,
+    'lint:ts',
+  )) {
+    issues.push('package.json lint must include the lint:ts lane');
+  }
+  if (!hasCurrentTtscLintCompatFile(project.projectDir)) {
+    issues.push('missing or stale scripts/apply-ttsc-lint-compat.mjs');
+  }
+  if (
+    !hasTtscLintCompatPostinstallCommand(
+      project.packageJson.scripts?.postinstall,
+    )
+  ) {
+    issues.push(
+      'package.json postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+    );
+  }
+  return issues;
+}
+
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
@@ -3011,6 +3043,7 @@ function getPackageMetadataCheck(
   if (ttscLintConfigIssue) {
     issues.push(ttscLintConfigIssue);
   }
+  issues.push(...getStandaloneTtscLintExecutionIssues(project));
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const syncCommand = formatRunScript(packageManager, 'sync');
   const scriptRequirements = [

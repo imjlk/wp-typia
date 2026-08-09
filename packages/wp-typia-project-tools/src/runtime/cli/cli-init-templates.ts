@@ -80,7 +80,11 @@ export function resolveRetrofitTextDomain(options: {
   packageJson: ProjectPackageJson | null;
   projectDir: string;
 }): string {
-  const configuredTextDomain = options.packageJson?.wpTypia?.textDomain?.trim();
+  const configuredTextDomainValue = options.packageJson?.wpTypia?.textDomain;
+  const configuredTextDomain =
+    typeof configuredTextDomainValue === 'string'
+      ? configuredTextDomainValue.trim()
+      : '';
   if (configuredTextDomain) {
     return configuredTextDomain;
   }

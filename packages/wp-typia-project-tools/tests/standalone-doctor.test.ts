@@ -147,6 +147,44 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
+    const executionPackageJson = JSON.parse(originalPackageJsonSource) as {
+      scripts: Record<string, string>;
+    };
+    delete executionPackageJson.scripts['lint:ts'];
+    delete executionPackageJson.scripts.lint;
+    executionPackageJson.scripts.postinstall =
+      'node --check scripts/apply-ttsc-lint-compat.mjs';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(executionPackageJson, null, 2),
+    );
+    const compatPath = path.join(
+      targetDir,
+      'scripts',
+      'apply-ttsc-lint-compat.mjs',
+    );
+    const compatSource = fs.readFileSync(compatPath, 'utf8');
+    fs.rmSync(compatPath);
+    const missingExecutionCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(missingExecutionCheck?.status).toBe('fail');
+    expect(missingExecutionCheck?.detail).toContain(
+      'lint:ts must invoke `ttsc --noEmit`',
+    );
+    expect(missingExecutionCheck?.detail).toContain(
+      'lint must include the lint:ts lane',
+    );
+    expect(missingExecutionCheck?.detail).toContain(
+      'missing or stale scripts/apply-ttsc-lint-compat.mjs',
+    );
+    expect(missingExecutionCheck?.detail).toContain(
+      'postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+    );
+    fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
+    fs.writeFileSync(compatPath, compatSource);
+
     const lintConfigPath = path.join(targetDir, 'lint.config.ts');
     const originalLintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
     fs.writeFileSync(
