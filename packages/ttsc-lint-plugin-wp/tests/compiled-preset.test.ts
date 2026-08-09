@@ -51,17 +51,45 @@ describe('compiled WordPress presets', () => {
     expect(rules['wordpress/i18n-no-variables']).toBe('error');
     expect(rules['wordpress/i18n-text-domain']).toBe('error');
     expect(rules['wordpress/i18n-translator-comments']).toBe('error');
+    expect(
+      rules['wordpress/no-base-control-with-label-without-id'],
+    ).toBe('error');
+    expect(rules['wordpress/no-unguarded-get-range-at']).toBe('error');
     expect(rules['wordpress/no-unsafe-wp-apis']).toBe('error');
+    expect(rules['wordpress/no-wp-process-env']).toBe('error');
     expect(rules['wordpress/valid-sprintf']).toBe('error');
+    expect(rules['react/exhaustive-deps']).toBe('warn');
+    expect(rules['react/rules-of-hooks']).toBe('error');
+    expect(
+      compatibilityManifest.compiledPresets.recommended.optionDowngrades,
+    ).toContainEqual({
+      source: 'react-hooks/exhaustive-deps',
+      target: 'react/exhaustive-deps',
+    });
+    expect(entries[0]?.rules?.['wordpress/no-global-active-element']).toBe(
+      'error',
+    );
+    expect(entries[0]?.rules?.['wordpress/no-global-get-selection']).toBe(
+      'error',
+    );
+    expect(entries[1]?.rules?.['wordpress/no-global-active-element']).toBe(
+      'off',
+    );
+    expect(entries[1]?.rules?.['wordpress/no-global-get-selection']).toBe(
+      'off',
+    );
     expect(rules['prettier/prettier']).toBeUndefined();
   });
 
-  test('retains upstream entry names when adjacent scopes are folded', () => {
-    const [globalEntry, typescriptEntry] =
+  test('retains upstream entry names and scoped overrides', () => {
+    const [accessibilityEntry, testEntry, globalEntry, typescriptEntry] =
       compatibilityManifest.compiledPresets.recommended.entries;
 
-    expect(globalEntry?.sourceNames).toEqual([
+    expect(accessibilityEntry?.sourceNames).toEqual([
       'jsx-a11y/recommended',
+    ]);
+    expect(testEntry?.files).toEqual(['**/*.test.js', '**/test/*.js']);
+    expect(globalEntry?.sourceNames).toEqual([
       'jsdoc/flat/recommended',
     ]);
     expect(typescriptEntry?.sourceNames).toEqual([
@@ -71,12 +99,12 @@ describe('compiled WordPress presets', () => {
       fs.readFileSync(
         path.resolve(
           import.meta.dirname,
-          '../configs/wp-scripts-recommended/00.mjs',
+          '../configs/wp-scripts-recommended/02.mjs',
         ),
         'utf8',
       ),
     ).toStartWith(
-      '// Upstream entries: jsx-a11y/recommended, jsdoc/flat/recommended\n',
+      '// Merged upstream entries; named subset: jsdoc/flat/recommended\n',
     );
   });
 
@@ -109,6 +137,9 @@ describe('compiled WordPress presets', () => {
       expect(result.error).toBeUndefined();
       expect(`${result.stdout}${result.stderr}`).toContain(
         '[no-var] Unexpected var, use let or const instead.',
+      );
+      expect(`${result.stdout}${result.stderr}`).toContain(
+        '[wordpress/no-wp-process-env] `IS_WORDPRESS_CORE` should not be accessed from process.env.',
       );
       expect(result.status).toBe(2);
     },

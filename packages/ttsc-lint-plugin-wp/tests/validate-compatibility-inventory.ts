@@ -17,7 +17,7 @@ assert.equal(
 );
 assert.equal(
   compatibilityManifest.compiledPresets.recommended.optionDowngrades.length,
-  11,
+  12,
 );
 assert.deepEqual(
   compatibilityManifest.compiledPresets.recommended.runnerRules,

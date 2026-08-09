@@ -65,8 +65,9 @@
       "target": "wordpress/i18n-translator-comments"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-base-control-with-label-without-id"
+      "kind": "contributor",
+      "source": "@wordpress/no-base-control-with-label-without-id",
+      "target": "wordpress/no-base-control-with-label-without-id"
     },
     {
       "kind": "unsupported",
@@ -89,12 +90,14 @@
       "source": "@wordpress/no-ds-tokens"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-global-active-element"
+      "kind": "contributor",
+      "source": "@wordpress/no-global-active-element",
+      "target": "wordpress/no-global-active-element"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-global-get-selection"
+      "kind": "contributor",
+      "source": "@wordpress/no-global-get-selection",
+      "target": "wordpress/no-global-get-selection"
     },
     {
       "kind": "unsupported",
@@ -109,8 +112,9 @@
       "source": "@wordpress/no-setting-ds-tokens"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unguarded-get-range-at"
+      "kind": "contributor",
+      "source": "@wordpress/no-unguarded-get-range-at",
+      "target": "wordpress/no-unguarded-get-range-at"
     },
     {
       "kind": "unsupported",
@@ -134,8 +138,9 @@
       "source": "@wordpress/no-unused-vars-before-return"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-wp-process-env"
+      "kind": "contributor",
+      "source": "@wordpress/no-wp-process-env",
+      "target": "wordpress/no-wp-process-env"
     },
     {
       "kind": "unsupported",
@@ -2307,24 +2312,28 @@
       "target": "wordpress/i18n-translator-comments"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-base-control-with-label-without-id"
+      "kind": "contributor",
+      "source": "@wordpress/no-base-control-with-label-without-id",
+      "target": "wordpress/no-base-control-with-label-without-id"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-global-active-element"
+      "kind": "contributor",
+      "source": "@wordpress/no-global-active-element",
+      "target": "wordpress/no-global-active-element"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-global-get-selection"
+      "kind": "contributor",
+      "source": "@wordpress/no-global-get-selection",
+      "target": "wordpress/no-global-get-selection"
     },
     {
       "kind": "unsupported",
       "source": "@wordpress/no-setting-ds-tokens"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unguarded-get-range-at"
+      "kind": "contributor",
+      "source": "@wordpress/no-unguarded-get-range-at",
+      "target": "wordpress/no-unguarded-get-range-at"
     },
     {
       "kind": "unsupported",
@@ -2344,8 +2353,9 @@
       "source": "@wordpress/no-unused-vars-before-return"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-wp-process-env"
+      "kind": "contributor",
+      "source": "@wordpress/no-wp-process-env",
+      "target": "wordpress/no-wp-process-env"
     },
     {
       "kind": "contributor",
@@ -3594,12 +3604,14 @@
       "source": "quotes"
     },
     {
-      "kind": "unsupported",
-      "source": "react-hooks/exhaustive-deps"
+      "kind": "mapped",
+      "source": "react-hooks/exhaustive-deps",
+      "target": "react/exhaustive-deps"
     },
     {
-      "kind": "unsupported",
-      "source": "react-hooks/rules-of-hooks"
+      "kind": "mapped",
+      "source": "react-hooks/rules-of-hooks",
+      "target": "react/rules-of-hooks"
     },
     {
       "kind": "builtin",
@@ -4091,7 +4103,29 @@
             "jsx-a11y/role-supports-aria-props": "error",
             "jsx-a11y/scope": "error",
             "jsx-a11y/tabindex-no-positive": "error",
+            "wordpress/no-base-control-with-label-without-id": "error",
+            "wordpress/no-global-active-element": "error",
+            "wordpress/no-global-get-selection": "error",
+            "wordpress/no-unguarded-get-range-at": "error",
             "wordpress/no-unsafe-wp-apis": "error",
+            "wordpress/no-wp-process-env": "error"
+          },
+          "sourceNames": [
+            "jsx-a11y/recommended"
+          ]
+        },
+        {
+          "files": [
+            "**/*.test.js",
+            "**/test/*.js"
+          ],
+          "rules": {
+            "wordpress/no-global-active-element": "off",
+            "wordpress/no-global-get-selection": "off"
+          }
+        },
+        {
+          "rules": {
             "react/display-name": "off",
             "react/jsx-key": "error",
             "react/jsx-no-duplicate-props": "error",
@@ -4104,6 +4138,8 @@
             "react/no-is-mounted": "error",
             "react/no-string-refs": "error",
             "react/no-unescaped-entities": "error",
+            "react/exhaustive-deps": "warn",
+            "react/rules-of-hooks": "error",
             "jsdoc/check-tag-names": "error",
             "jsdoc/check-values": "off",
             "jsdoc/empty-tags": "error",
@@ -4172,7 +4208,6 @@
             "unicorn/template-indent": "off"
           },
           "sourceNames": [
-            "jsx-a11y/recommended",
             "jsdoc/flat/recommended"
           ]
         },
@@ -4270,6 +4305,10 @@
         {
           "source": "no-cond-assign",
           "target": "no-cond-assign"
+        },
+        {
+          "source": "react-hooks/exhaustive-deps",
+          "target": "react/exhaustive-deps"
         }
       ],
       "runnerRules": [
@@ -4286,7 +4325,12 @@
         "@wordpress/i18n-no-variables",
         "@wordpress/i18n-text-domain",
         "@wordpress/i18n-translator-comments",
+        "@wordpress/no-base-control-with-label-without-id",
+        "@wordpress/no-global-active-element",
+        "@wordpress/no-global-get-selection",
+        "@wordpress/no-unguarded-get-range-at",
         "@wordpress/no-unsafe-wp-apis",
+        "@wordpress/no-wp-process-env",
         "@wordpress/valid-sprintf",
         "camelcase",
         "curly",
@@ -4365,6 +4409,8 @@
         "prefer-const",
         "prefer-rest-params",
         "prefer-spread",
+        "react-hooks/exhaustive-deps",
+        "react-hooks/rules-of-hooks",
         "react/display-name",
         "react/jsx-key",
         "react/jsx-no-duplicate-props",
@@ -4383,15 +4429,10 @@
       "unsupportedRules": [
         "@typescript-eslint/no-shadow",
         "@typescript-eslint/no-unused-vars",
-        "@wordpress/no-base-control-with-label-without-id",
-        "@wordpress/no-global-active-element",
-        "@wordpress/no-global-get-selection",
         "@wordpress/no-setting-ds-tokens",
-        "@wordpress/no-unguarded-get-range-at",
         "@wordpress/no-unknown-ds-tokens",
         "@wordpress/no-unsafe-render-order",
         "@wordpress/no-unused-vars-before-return",
-        "@wordpress/no-wp-process-env",
         "array-bracket-spacing",
         "array-callback-return",
         "arrow-parens",
@@ -4452,8 +4493,6 @@
         "padded-blocks",
         "quote-props",
         "quotes",
-        "react-hooks/exhaustive-deps",
-        "react-hooks/rules-of-hooks",
         "react/jsx-curly-spacing",
         "react/jsx-equals-spacing",
         "react/jsx-indent",

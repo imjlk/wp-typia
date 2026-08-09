@@ -15,6 +15,11 @@ declare module '@ttsc/lint' {
     'wordpress/i18n-no-placeholders-only'?: TtscLintRuleSetting;
     'wordpress/i18n-no-variables'?: TtscLintRuleSetting;
     'wordpress/i18n-translator-comments'?: TtscLintRuleSetting;
+    'wordpress/no-base-control-with-label-without-id'?: TtscLintRuleSetting;
+    'wordpress/no-global-active-element'?: TtscLintRuleSetting;
+    'wordpress/no-global-get-selection'?: TtscLintRuleSetting;
+    'wordpress/no-unguarded-get-range-at'?: TtscLintRuleSetting;
+    'wordpress/no-wp-process-env'?: TtscLintRuleSetting;
     'wordpress/valid-sprintf'?: TtscLintRuleSetting;
   }
 

@@ -113,3 +113,32 @@ __('Surname: %s', 'my-plugin');
 void unrelated;
 void __experimentalBlocked;
 void __unstableAllowed;
+
+const defaultView = {
+  getSelection() {
+    return {
+      getRangeAt(index) {
+        return index;
+      },
+    };
+  },
+};
+const process = {
+  env: {
+    GUTENBERG_PHASE: '1',
+    IS_GUTENBERG_PLUGIN: '1',
+    IS_WORDPRESS_CORE: '1',
+    SCRIPT_DEBUG: '1',
+  },
+};
+const BaseControl = (_properties) => null;
+
+<BaseControl label="Missing id" />;
+<BaseControl id="allowed" label="Allowed" />;
+document.activeElement;
+window.getSelection();
+defaultView.getSelection().getRangeAt(0);
+process.env.IS_GUTENBERG_PLUGIN;
+process.env['SCRIPT_DEBUG'];
+process['env'][`IS_WORDPRESS_CORE`];
+process.env.GUTENBERG_PHASE;

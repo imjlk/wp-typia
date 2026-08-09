@@ -59,10 +59,11 @@ option payload, the compiled config keeps the severity and records the pair in
 `compiledPresets.recommended.optionDowngrades`. Consumers never receive an
 option tuple that the native host would silently ignore or reject.
 
-Use `ttsc check` for TypeScript and lint diagnostics, or `ttsc fix` to apply
-available lint and format fixes. Upstream does not currently expose a lint-only
-CLI, so replacing the `wp-scripts lint-js` command itself remains a later
-compatibility layer.
+Use `ttsc check --noEmit` as the combined TypeScript and lint gate, or `ttsc
+fix` to apply available lint and format fixes. `ttsc` intentionally has no
+lint-only command; consumers should expose the combined gate under a clear
+script name such as `check:code` instead of retaining a misleading lint-only
+alias.
 
 ## Native rules
 
@@ -74,12 +75,24 @@ compatibility layer.
 - `wordpress/i18n-no-variables`
 - `wordpress/i18n-text-domain`
 - `wordpress/i18n-translator-comments`
+- `wordpress/no-base-control-with-label-without-id`
+- `wordpress/no-global-active-element`
+- `wordpress/no-global-get-selection`
+- `wordpress/no-unguarded-get-range-at`
 - `wordpress/no-unsafe-wp-apis`
+- `wordpress/no-wp-process-env`
 - `wordpress/valid-sprintf`
 
 `i18n-text-domain` accepts the upstream `allowedTextDomain` string or string
 array. `no-unsafe-wp-apis` accepts a map from an `@wordpress/*` package to the
 unstable or experimental named imports allowed from that package.
+
+The upstream `react-hooks/rules-of-hooks` and
+`react-hooks/exhaustive-deps` identifiers map to the native
+`react/rules-of-hooks` and `react/exhaustive-deps` rules. The WordPress
+`additionalHooks` option for `useSelect` and `useSuspenseSelect` is recorded as
+an option downgrade because the current native rule accepts severity only;
+standard React dependency hooks remain enabled.
 
 ## Presets and compatibility
 

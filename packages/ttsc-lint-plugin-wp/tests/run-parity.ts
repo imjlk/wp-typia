@@ -29,7 +29,7 @@ assert.match(
 );
 const sourceFixtureRoot = path.join(import.meta.dirname, 'fixtures/parity');
 const fixtureSource = fs.readFileSync(
-  path.join(sourceFixtureRoot, 'fixture.ts'),
+  path.join(sourceFixtureRoot, 'fixture.tsx'),
   'utf8',
 );
 
@@ -61,12 +61,27 @@ const upstreamRules = {
   'no-unsafe-wp-apis': require(
     path.join(upstreamRoot, 'rules/no-unsafe-wp-apis.js'),
   ),
+  'no-base-control-with-label-without-id': require(
+    path.join(upstreamRoot, 'rules/no-base-control-with-label-without-id.js'),
+  ),
+  'no-global-active-element': require(
+    path.join(upstreamRoot, 'rules/no-global-active-element.js'),
+  ),
+  'no-global-get-selection': require(
+    path.join(upstreamRoot, 'rules/no-global-get-selection.js'),
+  ),
+  'no-unguarded-get-range-at': require(
+    path.join(upstreamRoot, 'rules/no-unguarded-get-range-at.js'),
+  ),
+  'no-wp-process-env': require(
+    path.join(upstreamRoot, 'rules/no-wp-process-env.js'),
+  ),
   'valid-sprintf': require(path.join(upstreamRoot, 'rules/valid-sprintf.js')),
 };
 
 const eslint = createUpstreamEslint(false);
 const [eslintResult] = await eslint.lintText(fixtureSource, {
-  filePath: 'fixture.ts',
+  filePath: 'fixture.tsx',
 });
 assert.ok(eslintResult);
 const expected = eslintResult.messages
@@ -118,7 +133,7 @@ assert.deepEqual(actual, expected, ttscOutput);
 
 const [eslintFixResult] = await createUpstreamEslint(true).lintText(
   fixtureSource,
-  { filePath: 'fixture.ts' },
+  { filePath: 'fixture.tsx' },
 );
 assert.ok(eslintFixResult);
 const expectedFixedSource = eslintFixResult.output ?? fixtureSource;
@@ -139,7 +154,7 @@ assert.notEqual(
   'non-fixable parity diagnostics must remain after ttsc fix',
 );
 assert.equal(
-  fs.readFileSync(path.join(fixtureRoot, 'fixture.ts'), 'utf8'),
+  fs.readFileSync(path.join(fixtureRoot, 'fixture.tsx'), 'utf8'),
   expectedFixedSource,
   `${ttscFixResult.stdout}${ttscFixResult.stderr}`,
 );
@@ -154,9 +169,14 @@ function createUpstreamEslint(fix: boolean): ESLint {
     fix,
     overrideConfigFile: true,
     overrideConfig: {
-      files: ['**/*.ts'],
+      files: ['**/*.tsx'],
       languageOptions: {
         ecmaVersion: 'latest',
+        parserOptions: {
+          ecmaFeatures: {
+            jsx: true,
+          },
+        },
         sourceType: 'module',
       },
       plugins: {
@@ -174,10 +194,15 @@ function createUpstreamEslint(fix: boolean): ESLint {
           { allowedTextDomain: 'my-plugin' },
         ],
         '@wordpress/i18n-translator-comments': 'error',
+        '@wordpress/no-base-control-with-label-without-id': 'error',
+        '@wordpress/no-global-active-element': 'error',
+        '@wordpress/no-global-get-selection': 'error',
+        '@wordpress/no-unguarded-get-range-at': 'error',
         '@wordpress/no-unsafe-wp-apis': [
           'error',
           { '@wordpress/components': ['__unstableAllowed'] },
         ],
+        '@wordpress/no-wp-process-env': 'error',
         '@wordpress/valid-sprintf': 'error',
       },
     },
@@ -262,7 +287,7 @@ function prepareConsumerProject(): {
 
   const fixtureRoot = path.join(consumerRoot, 'fixture');
   fs.mkdirSync(fixtureRoot, { recursive: true });
-  fs.writeFileSync(path.join(fixtureRoot, 'fixture.ts'), fixtureSource);
+  fs.writeFileSync(path.join(fixtureRoot, 'fixture.tsx'), fixtureSource);
   fs.copyFileSync(
     path.join(sourceFixtureRoot, 'wordpress-components.d.ts'),
     path.join(fixtureRoot, 'wordpress-components.d.ts'),
@@ -276,12 +301,13 @@ function prepareConsumerProject(): {
           moduleResolution: 'bundler',
           noEmit: true,
           noImplicitAny: false,
+          jsx: 'preserve',
           plugins: [{ transform: '@ttsc/lint' }],
           skipLibCheck: true,
           target: 'ES2020',
           types: [],
         },
-        files: ['./fixture.ts', './wordpress-components.d.ts'],
+        files: ['./fixture.tsx', './wordpress-components.d.ts'],
       },
       null,
       2,
@@ -305,10 +331,15 @@ export default {
       { allowedTextDomain: 'my-plugin' },
     ],
     'wordpress/i18n-translator-comments': 'error',
+    'wordpress/no-base-control-with-label-without-id': 'error',
+    'wordpress/no-global-active-element': 'error',
+    'wordpress/no-global-get-selection': 'error',
+    'wordpress/no-unguarded-get-range-at': 'error',
     'wordpress/no-unsafe-wp-apis': [
       'error',
       { '@wordpress/components': ['__unstableAllowed'] },
     ],
+    'wordpress/no-wp-process-env': 'error',
     'wordpress/valid-sprintf': 'error',
   },
 };
@@ -340,7 +371,7 @@ __('1' + '-2');
 __('hello ' + 'world');
 __('It\\'s okay');
 `;
-  const fixturePath = path.join(fixtureRoot, 'fixture.ts');
+  const fixturePath = path.join(fixtureRoot, 'fixture.tsx');
   const configPath = path.join(fixtureRoot, 'lint.config.mjs');
   const savedConfig = fs.readFileSync(configPath, 'utf8');
   try {
@@ -520,7 +551,7 @@ function parseTtscDiagnostics(output: string) {
   }> = [];
   const lines = output.replace(/\u001b\[[0-9;]*m/g, '').split(/\r?\n/);
   const pattern =
-    /^fixture\.ts:(\d+):(\d+) - error TS\d+: \[wordpress\/([^\]]+)\] (.*)$/u;
+    /^fixture\.tsx:(\d+):(\d+) - error TS\d+: \[wordpress\/([^\]]+)\] (.*)$/u;
   for (let index = 0; index < lines.length; index += 1) {
     const match = pattern.exec(lines[index] ?? '');
     if (!match) {

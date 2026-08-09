@@ -12,7 +12,12 @@ export const ruleNames = [
   'i18n-no-variables',
   'i18n-text-domain',
   'i18n-translator-comments',
+  'no-base-control-with-label-without-id',
+  'no-global-active-element',
+  'no-global-get-selection',
+  'no-unguarded-get-range-at',
   'no-unsafe-wp-apis',
+  'no-wp-process-env',
   'valid-sprintf',
 ] as const;
 
