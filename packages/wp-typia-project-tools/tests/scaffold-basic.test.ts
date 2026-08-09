@@ -121,6 +121,10 @@ describe('@wp-typia/project-tools scaffold core', () => {
         path.join(targetDir, 'webpack.config.js'),
         'utf8',
       );
+      const generatedLintConfig = fs.readFileSync(
+        path.join(targetDir, 'lint.config.ts'),
+        'utf8',
+      );
 
       expect(packageJson.name).toBe('demo-npm');
       expect(packageJson.packageManager).toBeUndefined();
@@ -134,6 +138,9 @@ describe('@wp-typia/project-tools scaffold core', () => {
         blockTypesPackageVersion,
       );
       expect(packageJson.devDependencies.prettier).toBe('3.8.2');
+      expect(
+        packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
+      ).toBe('^0.1.1');
       expect(
         packageJson.devDependencies['@wp-typia/project-tools'],
       ).toBeUndefined();
@@ -157,6 +164,13 @@ describe('@wp-typia/project-tools scaffold core', () => {
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',
+      );
+      expect(generatedLintConfig).toContain(
+        "from '@wp-typia/ttsc-lint-plugin-wp'",
+      );
+      expect(generatedLintConfig).toContain('...configs.recommended');
+      expect(generatedLintConfig).toContain(
+        "allowedTextDomain: 'demo-npm'",
       );
       expect(blockJson.textdomain).toBe('demo-npm');
       expect(blockJson.version).toBe('0.1.0');

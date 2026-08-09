@@ -63,6 +63,8 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   generatedPackageManifestPaths: readonly string[];
   generatedWpScriptsStyleLintManifestPaths: readonly string[];
   generatedTtscLintCompatTemplateRoots: readonly string[];
+  generatedWordPressTtscLintConfigPaths: readonly string[];
+  generatedWordPressTtscLintPluginVersion: '{{ttscLintPluginWpPackageVersion}}';
   generatedWpScriptsLintCompatTemplateRoots: readonly string[];
   workspaceExamplePackagePaths: readonly string[];
   workspaceExampleLintConfigPaths: readonly string[];

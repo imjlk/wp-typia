@@ -31,6 +31,7 @@ declare module "semver" {
 		gte(version: string | SemVer, other: string | SemVer): boolean;
 		maxSatisfying(versions: readonly string[], range: string): string | null;
 		minVersion(range: string): SemVer | null;
+		subset(subRange: string, superRange: string): boolean;
 	}
 
 	const semver: SemVerModule;

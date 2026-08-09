@@ -141,6 +141,8 @@ if (request === 'typescript') {}
       scripts,
       devDependencies: {
         '@ttsc/lint': policy.ttscLintVersion,
+        '@wp-typia/ttsc-lint-plugin-wp':
+          policy.generatedWordPressTtscLintPluginVersion,
         '@typescript/typescript6': policy.typescript6Version,
         '@types/react': policy.generatedReactTypesVersion,
         '@types/react-dom': policy.generatedReactDomTypesVersion,
@@ -152,6 +154,24 @@ if (request === 'typescript') {}
         ttsc: `^${policy.ttscVersion}`,
       },
     });
+  }
+
+  for (const relativePath of policy.generatedWordPressTtscLintConfigPaths) {
+    writeText(
+      path.join(repoRoot, relativePath),
+      `import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default {
+  ...configs.recommended,
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: '{{textDomain}}' },
+    ],
+  },
+};
+`,
+    );
   }
 
   for (const templateRoot of policy.generatedTtscLintCompatTemplateRoots) {
@@ -339,6 +359,38 @@ describe('validateFormattingToolchainPolicy', () => {
     );
     expect(result.errors).toContain(
       'packages/create-workspace-template/scripts/apply-ttsc-lint-compat.mjs.mustache must exist so generated projects patch the exact @ttsc/lint source before ttsc runs.',
+    );
+  });
+
+  test('fails when generated WordPress ttsc lint integration drifts', () => {
+    const repoRoot = createFormattingPolicyRepo();
+    const manifestPath = path.join(
+      repoRoot,
+      'packages/create-workspace-template/package.json.mustache',
+    );
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    delete manifest.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+    writeJson(manifestPath, manifest);
+
+    const configPath = path.join(
+      repoRoot,
+      'packages/create-workspace-template/lint.config.ts.mustache',
+    );
+    writeText(
+      configPath,
+      fs
+        .readFileSync(configPath, 'utf8')
+        .replace("allowedTextDomain: '{{textDomain}}'", "allowedTextDomain: 'wordpress'"),
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@wp-typia/ttsc-lint-plugin-wp"]="{{ttscLintPluginWpPackageVersion}}", found null.',
+    );
+    expect(result.errors).toContain(
+      'packages/create-workspace-template/lint.config.ts.mustache must include "allowedTextDomain: \'{{textDomain}}\'" for the generated WordPress ttsc lint contract.',
     );
   });
 

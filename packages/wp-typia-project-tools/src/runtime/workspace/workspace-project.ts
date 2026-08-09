@@ -11,9 +11,12 @@ export const WORKSPACE_TEMPLATE_PACKAGE = '@wp-typia/create-workspace-template';
 
 export interface WorkspacePackageJson {
   author?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   name?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
+  type?: string;
   wpTypia?: {
     namespace?: string;
     phpPrefix?: string;

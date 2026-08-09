@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const PROJECT_TOOLS_PREBUILT_FILES = Object.freeze([
+  'packages/ttsc-lint-plugin-wp/dist/index.js',
   'packages/wp-typia-api-client/dist/index.js',
   'packages/wp-typia-block-types/dist/index.js',
   'packages/wp-typia-block-runtime/dist/index.js',

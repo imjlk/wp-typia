@@ -13,6 +13,7 @@ import {
 import {
   getMigrationWorkspaceHintCheck,
   getWorkspacePackageMetadataCheck,
+  getWorkspaceTtscLintCheck,
   prepareWorkspacePackageDoctorSnapshot,
 } from './cli-doctor-workspace-package.js';
 import {
@@ -202,6 +203,9 @@ export async function getWorkspaceDoctorChecks(
       workspacePackageJson,
       packageDoctorSnapshot,
     ),
+  );
+  checks.push(
+    getWorkspaceTtscLintCheck(workspacePackageJson, packageDoctorSnapshot),
   );
 
   try {

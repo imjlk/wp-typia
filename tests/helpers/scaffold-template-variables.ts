@@ -98,6 +98,7 @@ export function createTestScaffoldTemplateVariables(
 			titleJson: JSON.stringify('Demo Block'),
 			titleTsLiteral: "'Demo Block'",
 			testedUpTo: '6.9',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			writeStateEndpointDeclaration:
 				'export const writeStateEndpoint = createRestEndpoint(\n  writeDemoBlockStateEndpoint,\n);',
 		};

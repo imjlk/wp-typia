@@ -16,6 +16,13 @@ import {
   getPackageVersions,
 } from '../shared/package-versions.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
+import {
+  hasPackageRunScriptCommand,
+  hasPackageRunScriptInvocation,
+  hasTtscLintCompatPostinstallCommand,
+  hasTtscNoEmitLintCommand,
+  removePackageRunScriptInvocations,
+} from '../shared/ttsc-lint-config.js';
 import type {
   InitDependencyChange,
   InitPackageManagerFieldChange,
@@ -25,8 +32,13 @@ import type {
 } from './cli-init-types.js';
 import { parseWorkspacePackageManagerId } from '../workspace/workspace-project.js';
 
+export const TTSC_LINT_COMPAT_HELPER_PATH =
+  'scripts/apply-ttsc-lint-compat.mjs';
+export const TTSC_LINT_COMPAT_HELPER_COMMAND =
+  `node ${TTSC_LINT_COMPAT_HELPER_PATH}`;
+
 const BASE_RETROFIT_SCRIPTS = {
-  postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
+  postinstall: TTSC_LINT_COMPAT_HELPER_COMMAND,
   sync: 'ttsx scripts/sync-project.ts',
   'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
   typecheck: 'bun run sync --check && ttsc --noEmit',
@@ -39,10 +51,18 @@ const BASE_RETROFIT_DEV_DEPENDENCIES = [
   '@wordpress/blocks',
   '@wp-typia/block-runtime',
   '@wp-typia/block-types',
+  '@wp-typia/ttsc-lint-plugin-wp',
   'ttsc',
   'typescript',
   'typia',
 ] as const;
+
+const OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES = [
+  '@ttsc/lint',
+  '@wp-typia/ttsc-lint-plugin-wp',
+  'ttsc',
+  'typescript',
+] as const satisfies readonly (typeof BASE_RETROFIT_DEV_DEPENDENCIES)[number][];
 
 export function readProjectPackageJson(
 	projectDir: string,
@@ -133,6 +153,8 @@ function buildRequiredDevDependencyMap(): Record<string, string> {
     '@wordpress/blocks': DEFAULT_WORDPRESS_BLOCKS_VERSION,
     '@wp-typia/block-runtime': versions.blockRuntimePackageVersion,
     '@wp-typia/block-types': versions.blockTypesPackageVersion,
+    '@wp-typia/ttsc-lint-plugin-wp':
+      versions.ttscLintPluginWpPackageVersion,
     ttsc: versions.ttscPackageVersion,
     typescript: versions.typescriptPackageVersion,
     typia: versions.typiaPackageVersion,
@@ -154,11 +176,12 @@ export function hasObsoleteTypiaUnpluginDependency(
   );
 }
 
-export function buildDependencyChanges(
+function buildDependencyChangesForNames(
 	packageJson: ProjectPackageJson | null,
+  names: readonly (typeof BASE_RETROFIT_DEV_DEPENDENCIES)[number][],
 ): InitDependencyChange[] {
   const requiredDependencies = buildRequiredDevDependencyMap();
-  return BASE_RETROFIT_DEV_DEPENDENCIES.flatMap((name) => {
+  return names.flatMap((name) => {
 		const requiredValue = requiredDependencies[name];
 		const currentValue = getExistingDependencyVersion(packageJson, name);
 
@@ -177,6 +200,181 @@ export function buildDependencyChanges(
 	});
 }
 
+export function buildDependencyChanges(
+	packageJson: ProjectPackageJson | null,
+): InitDependencyChange[] {
+  return buildDependencyChangesForNames(
+    packageJson,
+    BASE_RETROFIT_DEV_DEPENDENCIES,
+  );
+}
+
+/** Build only dependencies owned by official-workspace lint adoption. */
+export function buildOfficialWorkspaceLintDependencyChanges(
+  packageJson: ProjectPackageJson | null,
+): InitDependencyChange[] {
+  return buildDependencyChangesForNames(
+    packageJson,
+    OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES,
+  );
+}
+
+function buildOptionalScriptChange(
+  name: string,
+  currentValue: string | undefined,
+  requiredValue: string,
+): InitScriptChange[] {
+  if (currentValue === requiredValue) {
+    return [];
+  }
+
+  return [
+    {
+      action: typeof currentValue === 'string' ? 'update' : 'add',
+      ...(typeof currentValue === 'string' ? { currentValue } : {}),
+      name,
+      requiredValue,
+    },
+  ];
+}
+
+function mergePostinstallCommand(
+  currentValue: string | undefined,
+  requiredCommand: string,
+): string {
+  if (typeof currentValue === 'string' && currentValue.trim().length > 0) {
+    if (hasTtscLintCompatPostinstallCommand(currentValue)) {
+      return currentValue;
+    }
+    // Correctly parsing comments inside command substitutions requires a full
+    // shell parser. Keep comment-only scripts intact after the managed hook;
+    // otherwise insert the hook before the last recognized trailing comment.
+    if (currentValue.includes('#')) {
+      const containsOnlyComments = currentValue
+        .split(/\r?\n/u)
+        .every((line) => {
+          const trimmed = line.trimStart();
+          return trimmed.length === 0 || trimmed.startsWith('#');
+        });
+      return containsOnlyComments
+        ? `${requiredCommand} ${currentValue.trimStart()}`
+        : insertCommandBeforeTrailingShellComment(
+            currentValue,
+            requiredCommand,
+          );
+    }
+    return `${currentValue} && ${requiredCommand}`;
+  }
+  return requiredCommand;
+}
+
+function getShellCommentIndex(line: string): number | null {
+  let escaped = false;
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line.charAt(index);
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+    } else if (
+      character === '#' &&
+      (index === 0 || /[\s;&|()]/u.test(line[index - 1] ?? ''))
+    ) {
+      return index;
+    }
+  }
+  return null;
+}
+
+function countBackslashesBefore(source: string, index: number): number {
+  let count = 0;
+  for (
+    let cursor = index - 1;
+    source.charAt(cursor) === '\\';
+    cursor -= 1
+  ) {
+    count += 1;
+  }
+  return count;
+}
+
+function stripTrailingIncompleteShellOperators(source: string): string {
+  let result = source.trimEnd();
+  while (result.length > 0) {
+    let operatorLength = 0;
+    if (
+      (result.endsWith('&&') || result.endsWith('||')) &&
+      countBackslashesBefore(result, result.length - 2) % 2 === 0
+    ) {
+      operatorLength = 2;
+    } else if (
+      (result.endsWith('|') || result.endsWith(';')) &&
+      countBackslashesBefore(result, result.length - 1) % 2 === 0
+    ) {
+      operatorLength = 1;
+    }
+    if (operatorLength === 0) {
+      return result;
+    }
+    result = result.slice(0, -operatorLength).trimEnd();
+  }
+  return result;
+}
+
+function insertCommandBeforeTrailingShellComment(
+  currentValue: string,
+  requiredCommand: string,
+): string {
+  const lines = currentValue.split(/(\r?\n)/u);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index] ?? '';
+    if (/^\r?\n$/u.test(line)) {
+      continue;
+    }
+    const commentIndex = getShellCommentIndex(line);
+    let commandSource = stripTrailingIncompleteShellOperators(
+      commentIndex === null ? line : line.slice(0, commentIndex),
+    );
+    const trailingBackslashCount = countBackslashesBefore(
+      commandSource,
+      commandSource.length,
+    );
+    if (trailingBackslashCount % 2 === 1) {
+      commandSource = stripTrailingIncompleteShellOperators(
+        commandSource.slice(0, -1),
+      );
+    }
+    if (commandSource.length === 0) {
+      continue;
+    }
+    const commentSource =
+      commentIndex === null ? '' : line.slice(commentIndex);
+    const endsWithBackgroundOperator =
+      commandSource.endsWith('&') &&
+      countBackslashesBefore(commandSource, commandSource.length - 1) % 2 ===
+        0;
+    const separator = endsWithBackgroundOperator ? ' ' : ' && ';
+    lines[index] = `${commandSource}${separator}${requiredCommand}${
+      commentSource ? ` ${commentSource}` : ''
+    }`;
+    return lines.join('');
+  }
+  return `${requiredCommand} ${currentValue.trimStart()}`;
+}
+
 export function buildScriptChanges(
 	packageJson: ProjectPackageJson | null,
 	packageManager: PackageManagerId,
@@ -191,29 +389,78 @@ export function buildScriptChanges(
 			);
 			const currentValue = scripts[name];
 			let requiredValue = command;
-			if (
-				name === 'postinstall' &&
-				typeof currentValue === 'string' &&
-				currentValue.trim().length > 0
-			) {
-				requiredValue = currentValue.includes(command)
-					? currentValue
-					: `${currentValue} && ${command}`;
+			if (name === 'postinstall') {
+				requiredValue = mergePostinstallCommand(currentValue, command);
 			}
-			if (currentValue === requiredValue) {
-				return [];
-			}
-
-			return [
-				{
-					action: typeof currentValue === 'string' ? 'update' : 'add',
-					...(typeof currentValue === 'string' ? { currentValue } : {}),
-					name,
-					requiredValue,
-				} satisfies InitScriptChange,
-			];
+			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
 	);
+}
+
+/**
+ * Add the TypeScript lint lane to an existing official workspace without
+ * enabling the incomplete WordPress JavaScript replacement prematurely.
+ *
+ * Existing aggregate lint commands are preserved after the new `lint:ts`
+ * prerequisite, so projects that intentionally run only style lint (or retain
+ * a separate JavaScript lane) keep that behavior until upstream exposes a
+ * lint-only `ttsc` command.
+ */
+export function buildOfficialWorkspaceLintScriptChanges(
+  packageJson: ProjectPackageJson | null,
+  packageManager: PackageManagerId,
+): InitScriptChange[] {
+  const scripts = packageJson?.scripts ?? {};
+  const postinstallCommand = transformPackageManagerText(
+    BASE_RETROFIT_SCRIPTS.postinstall,
+    packageManager,
+  );
+  const currentPostinstall = scripts.postinstall;
+  const requiredPostinstall = mergePostinstallCommand(
+    currentPostinstall,
+    postinstallCommand,
+  );
+  const lintTsCommand = 'ttsc --noEmit';
+  const lintTsRun = transformPackageManagerText(
+    'bun run lint:ts',
+    packageManager,
+  );
+  const currentLintTs = scripts['lint:ts'];
+  const lintTsSatisfied = hasTtscNoEmitLintCommand(currentLintTs);
+  const currentLint = scripts.lint;
+  let requiredLint = lintTsRun;
+  if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
+    const includesLintTs = hasPackageRunScriptCommand(currentLint, 'lint:ts');
+    if (includesLintTs) {
+      requiredLint = currentLint;
+    } else if (hasPackageRunScriptInvocation(currentLint, 'lint:ts')) {
+      const retainedLint = removePackageRunScriptInvocations(
+        currentLint,
+        'lint:ts',
+      );
+      if (retainedLint === null) {
+        requiredLint = `${lintTsRun} && ${currentLint}`;
+      } else if (retainedLint) {
+        requiredLint = `${lintTsRun} && ${retainedLint}`;
+      } else {
+        requiredLint = lintTsRun;
+      }
+    } else {
+      requiredLint = `${lintTsRun} && ${currentLint}`;
+    }
+  }
+
+  return [
+    ...buildOptionalScriptChange(
+      'postinstall',
+      currentPostinstall,
+      requiredPostinstall,
+    ),
+    ...(lintTsSatisfied
+      ? []
+      : buildOptionalScriptChange('lint:ts', currentLintTs, lintTsCommand)),
+    ...buildOptionalScriptChange('lint', currentLint, requiredLint),
+  ];
 }
 
 export function buildPackageManagerFieldChange(
@@ -267,12 +514,6 @@ export function hasExistingWpTypiaProjectSurface(
   return hasSyncSurface && hasHelperFiles && hasRuntimeDeps;
 }
 
-export function buildRequiredDevDependencyMapEntries(): string[] {
-  return Object.entries(buildRequiredDevDependencyMap()).map(
-    ([name, version]) => `${name}@${version.replace(/^workspace:/u, '')}`,
-  );
-}
-
 function setDependencyVersion(
 	packageJson: ProjectPackageJson,
 	name: string,
@@ -304,6 +545,7 @@ export function buildNextProjectPackageJson(options: {
   packageJson: ProjectPackageJson | null;
   packageManager: PackageManagerId;
   projectName: string;
+  removeTypiaUnplugin?: boolean;
 }): ProjectPackageJson {
   const nextPackageJson: ProjectPackageJson = options.packageJson
     ? JSON.parse(JSON.stringify(options.packageJson))
@@ -322,7 +564,9 @@ export function buildNextProjectPackageJson(options: {
       dependencyChange.requiredValue,
     );
   }
-  removeDependency(nextPackageJson, '@typia/unplugin');
+  if (options.removeTypiaUnplugin !== false) {
+    removeDependency(nextPackageJson, '@typia/unplugin');
+  }
 
   if (options.packageChanges.packageManagerField) {
     nextPackageJson.packageManager =

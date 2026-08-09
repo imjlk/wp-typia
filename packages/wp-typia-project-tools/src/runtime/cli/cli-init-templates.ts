@@ -2,9 +2,170 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { quoteTsString } from '../add/cli-add-shared.js';
+import {
+  findManagedWordPressSourcePaths,
+  hasWordPressTtscLintConfigSource,
+  TTSC_LINT_CONFIG_FILENAMES,
+} from '../shared/ttsc-lint-config.js';
 import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
-import type { RetrofitInitBlockTarget } from './cli-init-types.js';
+import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliDiagnosticCodeError,
+} from './cli-diagnostics.js';
+import type {
+  ProjectPackageJson,
+  RetrofitInitBlockTarget,
+} from './cli-init-types.js';
 import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
+
+/** Find the first ttsc lint config using the shared discovery precedence. */
+export function findTtscLintConfigPath(projectDir: string): string | null {
+  for (const filename of TTSC_LINT_CONFIG_FILENAMES) {
+    const configPath = path.join(projectDir, filename);
+    if (fs.existsSync(configPath)) {
+      return configPath;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check whether a readable config enables the WordPress preset for a project.
+ */
+export function hasWordPressTtscLintConfig(
+  configPath: string | null,
+  expectedTextDomain: string,
+): boolean {
+  if (!configPath) {
+    return false;
+  }
+
+  let source: string;
+  try {
+    source = fs.readFileSync(configPath, 'utf8');
+  } catch {
+    return false;
+  }
+  let packageModuleType: 'commonjs' | 'module' = 'commonjs';
+  let packageDirectory = path.dirname(configPath);
+  while (true) {
+    const packageJsonPath = path.join(packageDirectory, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8'),
+        ) as {
+          type?: unknown;
+        };
+        packageModuleType =
+          packageJson.type === 'module' ? 'module' : 'commonjs';
+      } catch {
+        return false;
+      }
+      break;
+    }
+    const parentDirectory = path.dirname(packageDirectory);
+    if (parentDirectory === packageDirectory) {
+      break;
+    }
+    packageDirectory = parentDirectory;
+  }
+  return hasWordPressTtscLintConfigSource(
+    source,
+    expectedTextDomain,
+    path.basename(configPath),
+    packageModuleType,
+    findManagedWordPressSourcePaths(path.dirname(configPath)),
+  );
+}
+
+/** Build the canonical WordPress-aware lint config for an existing workspace. */
+export function buildWordPressTtscLintConfigSource(
+  textDomain: string,
+): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'lint.config.ts.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  const placeholder = "'{{textDomain}}'";
+  if (source.split(placeholder).length !== 2) {
+    throw new Error(
+      `${templatePath} must contain exactly one quoted textDomain placeholder.`,
+    );
+  }
+  const rendered = source.replace(placeholder, () => quoteTsString(textDomain));
+  if (/\{\{|\}\}/u.test(rendered)) {
+    throw new Error(
+      `${templatePath} must not contain unsupported Mustache placeholders.`,
+    );
+  }
+  return rendered;
+}
+
+/**
+ * Resolve a retrofit text domain from wpTypia metadata, block metadata,
+ * package name, the first block slug, then the project directory name.
+ * Conflicting block metadata fails closed until the project supplies one
+ * explicit wpTypia text domain or aligns its block metadata.
+ */
+export function resolveRetrofitTextDomain(options: {
+  blockTargets: readonly RetrofitInitBlockTarget[];
+  packageJson: ProjectPackageJson | null;
+  projectDir: string;
+}): string {
+  const configuredTextDomainValue = options.packageJson?.wpTypia?.textDomain;
+  const configuredTextDomain =
+    typeof configuredTextDomainValue === 'string'
+      ? configuredTextDomainValue.trim()
+      : '';
+  if (configuredTextDomain) {
+    return configuredTextDomain;
+  }
+
+  const blockTextDomains = new Set<string>();
+  for (const target of options.blockTargets) {
+    try {
+      const blockJson = JSON.parse(
+        fs.readFileSync(
+          path.join(options.projectDir, target.blockJsonFile),
+          'utf8',
+        ),
+      ) as { textdomain?: unknown };
+      if (
+        typeof blockJson.textdomain === 'string' &&
+        blockJson.textdomain.trim().length > 0
+      ) {
+        blockTextDomains.add(blockJson.textdomain.trim());
+      }
+    } catch {
+      // Layout discovery owns malformed block metadata diagnostics. Keep the
+      // lint fallback deterministic if this helper is called independently.
+    }
+  }
+  if (blockTextDomains.size > 1) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      `Conflicting WordPress text domains in block metadata: ${[...blockTextDomains].sort().join(', ')}. Align the block.json textdomain values before running wp-typia init.`,
+    );
+  }
+  const blockTextDomain = blockTextDomains.values().next().value;
+  if (blockTextDomain) {
+    return blockTextDomain;
+  }
+
+  const packageNameValue = options.packageJson?.name;
+  const packageName =
+    typeof packageNameValue === 'string' ? packageNameValue.trim() : '';
+  if (packageName) {
+    return packageName.includes('/')
+      ? packageName.slice(packageName.lastIndexOf('/') + 1)
+      : packageName;
+  }
+
+  return options.blockTargets[0]?.slug ?? path.basename(options.projectDir);
+}
 
 function buildRetrofitBlockConfigEntry(
 	target: RetrofitInitBlockTarget,
@@ -253,7 +414,8 @@ main().catch( ( error ) => {
 `;
 }
 
-function readRetrofitTtscLintCompatSource(): string {
+/** Read the canonical managed ttsc lint compatibility helper source. */
+export function getTtscLintCompatSource(): string {
   const templatePath = path.join(
     SHARED_BASE_TEMPLATE_ROOT,
     'scripts',
@@ -269,6 +431,25 @@ function readRetrofitTtscLintCompatSource(): string {
   return source;
 }
 
+/** Check whether the generated ttsc compatibility helper is current. */
+export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
+  const compatPath = path.join(
+    projectDir,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs',
+  );
+  try {
+    const normalizeLineEndings = (source: string) =>
+      source.replace(/\r\n/gu, '\n');
+    return (
+      normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
+      normalizeLineEndings(getTtscLintCompatSource())
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Build the helper file source map written by `wp-typia init --apply`.
  *
@@ -277,15 +458,52 @@ function readRetrofitTtscLintCompatSource(): string {
  */
 export function buildRetrofitHelperFiles(
 	blockTargets: RetrofitInitBlockTarget[],
+	options?: {
+		projectDir: string;
+		textDomain: string;
+	},
 ): Record<string, string> {
   return {
 		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
-			readRetrofitTtscLintCompatSource(),
+			getTtscLintCompatSource(),
 		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
 		[path.join('scripts', 'sync-project.ts')]:
 			buildRetrofitSyncProjectScriptSource(),
 		[path.join('scripts', 'sync-types-to-block-json.ts')]:
 			buildRetrofitSyncTypesScriptSource(),
+		...(options && !findTtscLintConfigPath(options.projectDir)
+			? {
+					'lint.config.ts': buildWordPressTtscLintConfigSource(
+						options.textDomain,
+					),
+			  }
+			: {}),
 	};
+}
+
+/**
+ * Build only the lint files that are safe to add to an official workspace.
+ * Existing lint configs are never overwritten because they can contain
+ * project-owned contributor rules or file routing.
+ */
+export function buildOfficialWorkspaceLintFiles(options: {
+  projectDir: string;
+  textDomain: string;
+}): Record<string, string> {
+  return {
+    ...(hasCurrentTtscLintCompatFile(options.projectDir)
+      ? {}
+      : {
+          [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
+            getTtscLintCompatSource(),
+        }),
+    ...(findTtscLintConfigPath(options.projectDir)
+      ? {}
+      : {
+          'lint.config.ts': buildWordPressTtscLintConfigSource(
+            options.textDomain,
+          ),
+        }),
+  };
 }

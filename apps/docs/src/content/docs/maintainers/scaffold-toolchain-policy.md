@@ -53,6 +53,8 @@ Generated package manifests use the versions resolved by
 The current policy is:
 
 - scaffolded `@wp-typia/*` package dependencies use caret ranges
+- generated lint configs declare the independently installable
+  `@wp-typia/ttsc-lint-plugin-wp` contributor as a development dependency
 - those ranges are sourced from the canonical package manifests that ship with
   the current CLI release
 - exact pins are reserved for places where the generated output must name a
@@ -100,5 +102,7 @@ When touching scaffolded package metadata:
 - do not add `.nvmrc` or `.node-version` unless this policy changes explicitly
 - keep generated `@wp-typia/*` dependencies on caret ranges sourced from
   `package-versions.ts`
+- keep the WordPress ttsc contributor version sourced from its package manifest
+  without making it a runtime dependency of `wp-typia` or project-tools
 - use `clearPackageVersionsCache()` in long-lived integrations after package
   metadata or linked package installs change

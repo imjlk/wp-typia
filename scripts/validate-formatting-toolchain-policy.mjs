@@ -49,6 +49,11 @@ const GENERATED_LINT_COMPAT_TEMPLATE_ROOTS = Object.freeze([
   'packages/wp-typia-project-tools/templates/_shared/base',
   'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates',
 ]);
+const GENERATED_WORDPRESS_TTSC_LINT_CONFIG_PATHS = Object.freeze([
+  'packages/create-workspace-template/lint.config.ts.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/base/lint.config.ts.mustache',
+  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/lint.config.ts.mustache',
+]);
 
 export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   eslintJsVersion: '9.39.4',
@@ -133,6 +138,9 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   generatedTtscLintCompatTemplateRoots: Object.freeze([
     ...GENERATED_LINT_COMPAT_TEMPLATE_ROOTS,
   ]),
+  generatedWordPressTtscLintConfigPaths:
+    GENERATED_WORDPRESS_TTSC_LINT_CONFIG_PATHS,
+  generatedWordPressTtscLintPluginVersion: '{{ttscLintPluginWpPackageVersion}}',
   generatedWpScriptsLintCompatTemplateRoots: Object.freeze([
     ...GENERATED_LINT_COMPAT_TEMPLATE_ROOTS,
   ]),
@@ -538,6 +546,15 @@ function validateGeneratedTemplateManifest(
   if (manifest.devDependencies?.['@ttsc/lint'] !== policy.ttscLintVersion) {
     errors.push(
       `${relativePath} must declare devDependencies["@ttsc/lint"]="${policy.ttscLintVersion}" while the generated compatibility hook targets that exact source, found ${JSON.stringify(manifest.devDependencies?.['@ttsc/lint'] ?? null)}.`,
+    );
+  }
+
+  if (
+    manifest.devDependencies?.['@wp-typia/ttsc-lint-plugin-wp'] !==
+    policy.generatedWordPressTtscLintPluginVersion
+  ) {
+    errors.push(
+      `${relativePath} must declare devDependencies["@wp-typia/ttsc-lint-plugin-wp"]="${policy.generatedWordPressTtscLintPluginVersion}", found ${JSON.stringify(manifest.devDependencies?.['@wp-typia/ttsc-lint-plugin-wp'] ?? null)}.`,
     );
   }
 
@@ -1132,6 +1149,28 @@ export function validateFormattingToolchainPolicy(
       continue;
     }
     validateGeneratedStyleLintManifest(relativePath, manifest, policy, errors);
+  }
+
+  for (const relativePath of policy.generatedWordPressTtscLintConfigPaths) {
+    try {
+      const source = readRelativeText(repoRoot, relativePath);
+      for (const requiredSource of [
+        "from '@wp-typia/ttsc-lint-plugin-wp'",
+        '...configs.recommended',
+        "'wordpress/i18n-text-domain'",
+        "allowedTextDomain: '{{textDomain}}'",
+      ]) {
+        if (!source.includes(requiredSource)) {
+          errors.push(
+            `${relativePath} must include ${JSON.stringify(requiredSource)} for the generated WordPress ttsc lint contract.`,
+          );
+        }
+      }
+    } catch (error) {
+      errors.push(
+        `${relativePath} must be a readable generated WordPress ttsc lint config: ${error instanceof Error ? error.message : String(error)}.`,
+      );
+    }
   }
 
   for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {

@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -9,6 +8,7 @@ import {
   type SyncBlockMetadataReport,
 } from '@wp-typia/block-runtime/metadata-core';
 import ts from '@typescript/typescript6';
+import semver from 'semver';
 
 import {
   formatInstallCommand,
@@ -24,6 +24,20 @@ import {
   type PhpFunctionRange,
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
+import { getPackageVersions } from '../shared/package-versions.js';
+import {
+  canResolveFromProject,
+  resolveFromProject,
+} from '../shared/project-package-resolution.js';
+import {
+  findManagedWordPressSourcePaths,
+  hasPackageRunScriptCommand,
+  hasTtscLintCompatPostinstallCommand,
+  hasTtscNoEmitLintCommand,
+  hasWordPressTtscLintConfigSource,
+  TTSC_LINT_CONFIG_FILENAMES,
+} from '../shared/ttsc-lint-config.js';
+import { hasCurrentTtscLintCompatFile } from '../cli/cli-init-templates.js';
 import {
   createDoctorCheck,
   createDoctorScopeCheck,
@@ -165,6 +179,11 @@ const REQUIRED_INSTALLED_PACKAGES = [
     diagnosticName: '@ttsc/lint',
     packageName: '@ttsc/lint',
     resolutionSpecifier: '@ttsc/lint/package.json',
+  },
+  {
+    diagnosticName: '@wp-typia/ttsc-lint-plugin-wp',
+    packageName: '@wp-typia/ttsc-lint-plugin-wp',
+    resolutionSpecifier: '@wp-typia/ttsc-lint-plugin-wp/package.json',
   },
   {
     diagnosticName: '@wordpress/scripts',
@@ -2935,6 +2954,79 @@ function getPackageManagerSelector(
     : undefined;
 }
 
+function getStandaloneTtscLintConfigIssue(
+  project: StandaloneScaffoldProject,
+): string | null {
+  let expectedTextDomain: string;
+  try {
+    const blockJson = readJsonFileSync<{ textdomain?: unknown }>(
+      path.join(project.projectDir, STANDALONE_BLOCK_JSON_FILE),
+      { context: 'standalone block metadata' },
+    );
+    if (
+      typeof blockJson.textdomain !== 'string' ||
+      blockJson.textdomain.trim().length === 0
+    ) {
+      return `${STANDALONE_BLOCK_JSON_FILE} must define a non-empty textdomain for lint validation`;
+    }
+    expectedTextDomain = blockJson.textdomain.trim();
+  } catch (error) {
+    return `unable to read ${STANDALONE_BLOCK_JSON_FILE} for lint validation: ${error instanceof Error ? error.message : String(error)}`;
+  }
+
+  for (const relativePath of TTSC_LINT_CONFIG_FILENAMES) {
+    const configPath = path.join(project.projectDir, relativePath);
+    if (!fs.existsSync(configPath)) {
+      continue;
+    }
+    let source: string;
+    try {
+      source = fs.readFileSync(configPath, 'utf8');
+    } catch (error) {
+      return `unable to read ${relativePath}: ${error instanceof Error ? error.message : String(error)}`;
+    }
+    return hasWordPressTtscLintConfigSource(
+      source,
+      expectedTextDomain,
+      relativePath,
+      project.packageJson.type === 'module' ? 'module' : 'commonjs',
+      findManagedWordPressSourcePaths(project.projectDir),
+    )
+      ? null
+      : `${relativePath} must enable the WordPress ttsc lint preset and bind wordpress/i18n-text-domain to "${expectedTextDomain}"`;
+  }
+
+  return 'missing ttsc lint config';
+}
+
+function getStandaloneTtscLintExecutionIssues(
+  project: StandaloneScaffoldProject,
+): string[] {
+  const issues: string[] = [];
+  if (!hasTtscNoEmitLintCommand(project.packageJson.scripts?.['lint:ts'])) {
+    issues.push('package.json lint:ts must invoke `ttsc --noEmit`');
+  }
+  if (!hasPackageRunScriptCommand(
+    project.packageJson.scripts?.lint,
+    'lint:ts',
+  )) {
+    issues.push('package.json lint must include the lint:ts lane');
+  }
+  if (!hasCurrentTtscLintCompatFile(project.projectDir)) {
+    issues.push('missing or stale scripts/apply-ttsc-lint-compat.mjs');
+  }
+  if (
+    !hasTtscLintCompatPostinstallCommand(
+      project.packageJson.scripts?.postinstall,
+    )
+  ) {
+    issues.push(
+      'package.json postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+    );
+  }
+  return issues;
+}
+
 function getPackageMetadataCheck(
   project: StandaloneScaffoldProject,
   requiresRest: boolean,
@@ -2959,6 +3051,60 @@ function getPackageMetadataCheck(
     project.projectDir,
     getPackageManagerSelector(project),
   );
+  const ttscLintConfigIssue = getStandaloneTtscLintConfigIssue(project);
+  if (ttscLintConfigIssue) {
+    issues.push(ttscLintConfigIssue);
+  }
+  issues.push(...getStandaloneTtscLintExecutionIssues(project));
+  const packageVersions = getPackageVersions();
+  const declaredTtscLintVersion = getDeclaredDependency(
+    project.packageJson,
+    '@ttsc/lint',
+  );
+  if (
+    typeof declaredTtscLintVersion === 'string' &&
+    declaredTtscLintVersion !== packageVersions.ttscLintPackageVersion
+  ) {
+    issues.push(
+      `package.json @ttsc/lint dependency must be exactly ${packageVersions.ttscLintPackageVersion}`,
+    );
+  }
+  const declaredTtscVersion = getDeclaredDependency(
+    project.packageJson,
+    'ttsc',
+  );
+  if (typeof declaredTtscVersion === 'string') {
+    let supported = false;
+    try {
+      supported =
+        semver.minVersion(declaredTtscVersion) !== null &&
+        semver.subset(
+          declaredTtscVersion,
+          packageVersions.ttscLintPluginWpTtscPeerRange,
+        );
+    } catch {
+      // Invalid ranges cannot satisfy the managed contributor contract.
+    }
+    if (!supported) {
+      issues.push(
+        `package.json ttsc dependency must satisfy ${packageVersions.ttscLintPluginWpTtscPeerRange}`,
+      );
+    }
+  }
+  const declaredContributorVersion = getDeclaredDependency(
+    project.packageJson,
+    '@wp-typia/ttsc-lint-plugin-wp',
+  );
+  const requiredContributorVersion =
+    packageVersions.ttscLintPluginWpPackageVersion;
+  if (
+    typeof declaredContributorVersion === 'string' &&
+    declaredContributorVersion !== requiredContributorVersion
+  ) {
+    issues.push(
+      `package.json @wp-typia/ttsc-lint-plugin-wp dependency must be exactly ${requiredContributorVersion}`,
+    );
+  }
   const syncCheckCommand = formatRunScript(packageManager, 'sync', '--check');
   const syncCommand = formatRunScript(packageManager, 'sync');
   const scriptRequirements = [
@@ -3063,6 +3209,7 @@ function getPackageMetadataCheck(
     '@ttsc/lint',
     '@ttsc/unplugin',
     '@wordpress/scripts',
+    '@wp-typia/ttsc-lint-plugin-wp',
     'ttsc',
     'typescript',
   ]) {
@@ -3605,95 +3752,6 @@ function getSourceLayoutCheck(
       ? 'Supported standalone source surface and static canonical sync configuration detected'
       : issues.join('; '),
     STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
-  );
-}
-
-function resolveFromProject(
-  projectDir: string,
-  packageName: string,
-  resolutionSpecifier: string,
-): string | null {
-  const projectRequire = createRequire(path.join(projectDir, 'package.json'));
-  try {
-    const resolvedPath = projectRequire.resolve(resolutionSpecifier);
-    const pnpVersion: unknown = process.versions.pnp;
-    if (
-      typeof pnpVersion === 'number' ||
-      (typeof pnpVersion === 'string' && pnpVersion.length > 0)
-    ) {
-      const pnpApi = projectRequire('pnpapi') as {
-        findPackageLocator(location: string): {
-          name: string | null;
-          reference: string | null;
-        } | null;
-        getLocator(
-          name: string,
-          referencish: string | [string, string],
-        ): { name: string; reference: string };
-        getPackageInformation(locator: {
-          name: string | null;
-          reference: string | null;
-        }): {
-          packageDependencies: Map<
-            string,
-            string | [string, string] | null
-          >;
-        } | null;
-      };
-      const issuerLocator = pnpApi.findPackageLocator(
-        path.join(projectDir, 'package.json'),
-      );
-      const resolvedLocator = pnpApi.findPackageLocator(resolvedPath);
-      if (!issuerLocator || !resolvedLocator) {
-        return null;
-      }
-      const issuerInformation = pnpApi.getPackageInformation(issuerLocator);
-      if (!issuerInformation) {
-        return null;
-      }
-      const dependencyReference =
-        issuerInformation.packageDependencies.get(packageName);
-      if (dependencyReference === undefined || dependencyReference === null) {
-        return null;
-      }
-      const expectedLocator = pnpApi.getLocator(
-        packageName,
-        dependencyReference,
-      );
-      // Keep the virtual path so Yarn can retain its peer-dependency locator.
-      return resolvedLocator.name === expectedLocator.name &&
-        resolvedLocator.reference === expectedLocator.reference
-        ? resolvedPath
-        : null;
-    }
-
-    const localPackageEntry = path.join(
-      projectDir,
-      'node_modules',
-      ...packageName.split('/'),
-    );
-    if (!fs.existsSync(localPackageEntry)) {
-      return null;
-    }
-    const localPackageRoot = fs.realpathSync(localPackageEntry);
-    const realResolvedPath = fs.realpathSync(resolvedPath);
-    return isProjectLocalRelativePath(
-      path.relative(localPackageRoot, realResolvedPath),
-    )
-      ? realResolvedPath
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function canResolveFromProject(
-  projectDir: string,
-  packageName: string,
-  resolutionSpecifier: string,
-): boolean {
-  return (
-    resolveFromProject(projectDir, packageName, resolutionSpecifier) !== null
   );
 }
 
