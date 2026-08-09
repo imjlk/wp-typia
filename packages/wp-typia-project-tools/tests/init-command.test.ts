@@ -876,6 +876,61 @@ describe('wp-typia init', () => {
 					'echo node scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
 			}),
 		);
+
+		const checkOnlyPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node --check scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(checkOnlyPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'node --check scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+
+		const testRunnerPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node --test scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(testRunnerPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'node --test scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+
+		const moduleInputPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node --input-type=module scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(
+			moduleInputPostinstall.some(
+				(change) => change.name === 'postinstall',
+			),
+		).toBe(false);
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -1049,6 +1104,39 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				mutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const helperMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nfunction disable() {\n  config.plugins = {};\n}\ndisable();\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				helperMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const constructorHelperMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nfunction disable() {\n  config.plugins = {};\n}\nnew disable();\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				constructorHelperMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const chainedHelperMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nfunction disable() {\n  config.plugins = {};\n}\nconst alias = disable;\nfunction run() {\n  alias();\n}\nrun();\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				chainedHelperMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);

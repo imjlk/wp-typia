@@ -276,6 +276,22 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(nodeOptionHookLintCheck?.status).toBe('pass');
 
+  packageJson.scripts.postinstall =
+    'node --check scripts/apply-ttsc-lint-compat.mjs';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const checkOnlyHookChecks = await getDoctorChecks(targetDir);
+  const checkOnlyHookLintCheck = checkOnlyHookChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(checkOnlyHookLintCheck?.status).toBe('warn');
+  expect(checkOnlyHookLintCheck?.detail).toContain(
+    'postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+  );
+
   packageJson.scripts.postinstall = managedPostinstall;
   fs.writeFileSync(
     packageJsonPath,

@@ -224,7 +224,7 @@ function isDeferredScope(node: ts.Node): boolean {
 }
 
 function statementMutatesAccessPath(
-  statement: ts.Statement,
+  statement: ts.Node,
   rootPath: readonly string[],
   ignoredAssignments?: ReadonlySet<ts.BinaryExpression>,
 ): boolean {
@@ -285,7 +285,7 @@ function statementMutatesAccessPath(
 }
 
 function statementMutatesIdentifier(
-  statement: ts.Statement,
+  statement: ts.Node,
   identifier: string,
   ignoredAssignments?: ReadonlySet<ts.BinaryExpression>,
 ): boolean {
@@ -332,7 +332,7 @@ function expressionUsesTrackedAccess(
 }
 
 function collectVariableAliases(
-  statement: ts.Statement,
+  statement: ts.Node,
   identifiers: Set<string>,
 ): void {
   const visit = (node: ts.Node): void => {
@@ -352,7 +352,7 @@ function collectVariableAliases(
 }
 
 function collectAssignedAliases(
-  statement: ts.Statement,
+  statement: ts.Node,
   identifiers: Set<string>,
 ): ReadonlySet<ts.BinaryExpression> {
   const aliasAssignments = new Set<ts.BinaryExpression>();
@@ -403,6 +403,185 @@ function sourceMutatesTrackedIdentifier(
   return false;
 }
 
+function nodeMutatesTrackedIdentifiers(
+  node: ts.Node,
+  identifiers: ReadonlySet<string>,
+): boolean {
+  const trackedIdentifiers = new Set(identifiers);
+  collectVariableAliases(node, trackedIdentifiers);
+  const aliasAssignments = collectAssignedAliases(node, trackedIdentifiers);
+  return [...trackedIdentifiers].some((identifier) =>
+    statementMutatesIdentifier(node, identifier, aliasAssignments),
+  );
+}
+
+function collectTopLevelHelperBodies(
+  sourceFile: ts.SourceFile,
+): ReadonlyMap<string, ts.Node> {
+  const helpers = new Map<string, ts.Node>();
+  for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement)) {
+      if (statement.name && statement.body) {
+        helpers.set(statement.name.text, statement.body);
+      }
+      continue;
+    }
+    if (!ts.isVariableStatement(statement)) {
+      continue;
+    }
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) {
+        continue;
+      }
+      const initializer = unwrapExpression(declaration.initializer);
+      if (ts.isFunctionExpression(initializer)) {
+        helpers.set(declaration.name.text, initializer.body);
+      } else if (ts.isArrowFunction(initializer)) {
+        helpers.set(declaration.name.text, initializer.body);
+      }
+    }
+  }
+  return helpers;
+}
+
+interface TopLevelHelperAnalysis {
+  bodies: ReadonlyMap<string, ts.Node>;
+  dependents: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+const topLevelHelperAnalysisCache = new WeakMap<
+  ts.SourceFile,
+  TopLevelHelperAnalysis
+>();
+
+function collectInvokedHelperNames(node: ts.Node): ReadonlySet<string> {
+  const helperNames = new Set<string>();
+  const visit = (current: ts.Node): void => {
+    if (isDeferredScope(current)) {
+      return;
+    }
+    if (ts.isCallExpression(current) || ts.isNewExpression(current)) {
+      const callee = unwrapExpression(current.expression);
+      if (ts.isIdentifier(callee)) {
+        helperNames.add(callee.text);
+      }
+      if (
+        ts.isPropertyAccessExpression(callee) &&
+        (callee.name.text === 'apply' || callee.name.text === 'call')
+      ) {
+        // These names are later intersected with declarations proven to be
+        // top-level function helpers. A helper that replaces its intrinsic
+        // call/apply method is deliberately handled conservatively.
+        const target = unwrapExpression(callee.expression);
+        if (ts.isIdentifier(target)) {
+          helperNames.add(target.text);
+        }
+      }
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return helperNames;
+}
+
+function nodeInvokesTrackedHelper(
+  node: ts.Node,
+  helperNames: ReadonlySet<string>,
+): boolean {
+  return [...collectInvokedHelperNames(node)].some((name) =>
+    helperNames.has(name),
+  );
+}
+
+function addHelperDependency(
+  dependencies: Map<string, Set<string>>,
+  sourceName: string,
+  dependentName: string,
+): void {
+  const dependents = dependencies.get(sourceName) ?? new Set<string>();
+  dependents.add(dependentName);
+  dependencies.set(sourceName, dependents);
+}
+
+function addHelperAliasDependency(
+  dependencies: Map<string, Set<string>>,
+  target: ts.Node,
+  source: ts.Expression,
+): void {
+  const initializer = unwrapExpression(source);
+  // Destructuring extracts properties or elements; it does not preserve the
+  // initializer's callable identity and therefore is not a helper alias.
+  if (ts.isIdentifier(target) && ts.isIdentifier(initializer)) {
+    addHelperDependency(dependencies, initializer.text, target.text);
+  }
+}
+
+function getTopLevelHelperAnalysis(
+  sourceFile: ts.SourceFile,
+): TopLevelHelperAnalysis {
+  const cached = topLevelHelperAnalysisCache.get(sourceFile);
+  if (cached) {
+    return cached;
+  }
+  const bodies = collectTopLevelHelperBodies(sourceFile);
+  const dependents = new Map<string, Set<string>>();
+  for (const statement of sourceFile.statements) {
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (declaration.initializer) {
+          addHelperAliasDependency(
+            dependents,
+            declaration.name,
+            declaration.initializer,
+          );
+        }
+      }
+    } else if (
+      ts.isExpressionStatement(statement) &&
+      ts.isBinaryExpression(statement.expression) &&
+      statement.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ) {
+      addHelperAliasDependency(
+        dependents,
+        statement.expression.left,
+        statement.expression.right,
+      );
+    }
+  }
+  for (const [name, body] of bodies) {
+    for (const invokedName of collectInvokedHelperNames(body)) {
+      addHelperDependency(dependents, invokedName, name);
+    }
+  }
+  const analysis = { bodies, dependents } satisfies TopLevelHelperAnalysis;
+  topLevelHelperAnalysisCache.set(sourceFile, analysis);
+  return analysis;
+}
+
+function collectMutatingTopLevelHelpers(
+  sourceFile: ts.SourceFile,
+  trackedIdentifiers: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const { bodies, dependents } = getTopLevelHelperAnalysis(sourceFile);
+  const mutatingHelpers = new Set<string>();
+  for (const [name, body] of bodies) {
+    if (nodeMutatesTrackedIdentifiers(body, trackedIdentifiers)) {
+      mutatingHelpers.add(name);
+    }
+  }
+
+  const worklist = [...mutatingHelpers];
+  for (let index = 0; index < worklist.length; index += 1) {
+    for (const dependent of dependents.get(worklist[index] ?? '') ?? []) {
+      if (!mutatingHelpers.has(dependent)) {
+        mutatingHelpers.add(dependent);
+        worklist.push(dependent);
+      }
+    }
+  }
+  return mutatingHelpers;
+}
+
 function resolveObjectLiteral(
   expression: ts.Expression,
   sourceFile: ts.SourceFile,
@@ -438,9 +617,8 @@ function resolveObjectLiteral(
           return null;
         }
         const trackedIdentifiers = new Set([current.text]);
-        for (const laterStatement of sourceFile.statements.slice(
-          statementIndex + 1,
-        )) {
+        const laterStatements = sourceFile.statements.slice(statementIndex + 1);
+        for (const laterStatement of laterStatements) {
           collectVariableAliases(laterStatement, trackedIdentifiers);
           const aliasAssignments = collectAssignedAliases(
             laterStatement,
@@ -457,6 +635,18 @@ function resolveObjectLiteral(
               return null;
             }
           }
+        }
+        const mutatingHelpers = collectMutatingTopLevelHelpers(
+          sourceFile,
+          trackedIdentifiers,
+        );
+        if (
+          mutatingHelpers.size > 0 &&
+          laterStatements.some((statement) =>
+            nodeInvokesTrackedHelper(statement, mutatingHelpers),
+          )
+        ) {
+          return null;
         }
         return initializer;
       }
@@ -1065,6 +1255,32 @@ export function hasPackageRunScriptCommand(
   });
 }
 
+const NODE_NON_SCRIPT_EXECUTION_OPTIONS = new Set([
+  '--check',
+  '--completion-bash',
+  '--eval',
+  '--help',
+  '--interactive',
+  '--print',
+  '--run',
+  '--test',
+  '--test-only',
+  '--v8-options',
+  '--version',
+  '-c',
+  '-e',
+  '-h',
+  '-i',
+  '-p',
+  '-v',
+]);
+
+function isNonScriptNodeExecutionOption(token: string): boolean {
+  const equalsIndex = token.indexOf('=');
+  const optionName = equalsIndex === -1 ? token : token.slice(0, equalsIndex);
+  return NODE_NON_SCRIPT_EXECUTION_OPTIONS.has(optionName);
+}
+
 /** Check whether postinstall invokes the managed ttsc lint compatibility file. */
 export function hasTtscLintCompatPostinstallCommand(
   command: unknown,
@@ -1078,6 +1294,13 @@ export function hasTtscLintCompatPostinstallCommand(
       return false;
     }
     const scriptIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (
+      tokens
+        .slice(commandIndex + 1, scriptIndex)
+        .some(isNonScriptNodeExecutionOption)
+    ) {
+      return false;
+    }
     const scriptPath = (tokens[scriptIndex] ?? '')
       .replace(/\\/gu, '/')
       .replace(/^\.\//u, '');
