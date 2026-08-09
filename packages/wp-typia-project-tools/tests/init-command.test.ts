@@ -1099,7 +1099,7 @@ describe('wp-typia init', () => {
 			}),
 		);
 
-		for (const currentPostinstall of [
+		for (const unsafePostinstall of [
 			'node --inspect-brk scripts/apply-ttsc-lint-compat.mjs',
 			'node --inspect-brk=127.0.0.1:9229 scripts/apply-ttsc-lint-compat.mjs',
 			'node --inspect-wait scripts/apply-ttsc-lint-compat.mjs',
@@ -1107,21 +1107,29 @@ describe('wp-typia init', () => {
 			'NODE_OPTIONS="--inspect-brk" node scripts/apply-ttsc-lint-compat.mjs',
 			"NODE_OPTIONS='--inspect-wait' node scripts/apply-ttsc-lint-compat.mjs",
 			'env NODE_OPTIONS=--inspect-wait node scripts/apply-ttsc-lint-compat.mjs',
+			'node --require ./skip.cjs scripts/apply-ttsc-lint-compat.mjs',
+			'node -r ./skip.cjs scripts/apply-ttsc-lint-compat.mjs',
+			'node --import=./skip.mjs scripts/apply-ttsc-lint-compat.mjs',
+			'node --loader ./skip.mjs scripts/apply-ttsc-lint-compat.mjs',
+			'NODE_OPTIONS=--require=./skip.cjs node scripts/apply-ttsc-lint-compat.mjs',
+			'NODE_OPTIONS="--require ./skip.cjs" node scripts/apply-ttsc-lint-compat.mjs',
+			"NODE_OPTIONS='--import ./skip.mjs' node scripts/apply-ttsc-lint-compat.mjs",
+			'env NODE_OPTIONS=--loader=./skip.mjs node scripts/apply-ttsc-lint-compat.mjs',
 		]) {
-			const debuggerPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			const repairedPostinstall = buildOfficialWorkspaceLintScriptChanges(
 				{
 					scripts: {
 						lint: 'npm run lint:ts',
 						'lint:ts': 'ttsc --noEmit',
-						postinstall: currentPostinstall,
+						postinstall: unsafePostinstall,
 					},
 				},
 				'npm',
 			);
-			expect(debuggerPostinstall).toContainEqual(
+			expect(repairedPostinstall).toContainEqual(
 				expect.objectContaining({
 					name: 'postinstall',
-					requiredValue: `${currentPostinstall} && node scripts/apply-ttsc-lint-compat.mjs`,
+					requiredValue: `${unsafePostinstall} && node scripts/apply-ttsc-lint-compat.mjs`,
 				}),
 			);
 		}

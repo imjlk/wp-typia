@@ -2704,7 +2704,19 @@ function isNonScriptNodeExecutionOption(token: string): boolean {
   return NODE_NON_SCRIPT_EXECUTION_OPTIONS.has(optionName);
 }
 
-function hasBlockingNodeOptionsAssignment(
+const NODE_STARTUP_BYPASS_OPTIONS = new Set([
+  '--experimental-loader',
+  '--import',
+  '--loader',
+  '--require',
+  '-r',
+]);
+
+function isNodeStartupBypassOption(token: string): boolean {
+  return NODE_STARTUP_BYPASS_OPTIONS.has(token.split('=', 1)[0] ?? '');
+}
+
+function hasUnsafeNodeOptionsAssignment(
   tokens: readonly string[],
   commandIndex: number,
 ): boolean {
@@ -2716,7 +2728,11 @@ function hasBlockingNodeOptionsAssignment(
     const options = normalizeShellToken(
       assignment.slice('NODE_OPTIONS='.length),
     );
-    return /(?:^|\s)--inspect-(?:brk|wait)(?:=\S*)?(?=\s|$)/u.test(options);
+    return options.split(/\s+/u).some(
+      (option) =>
+        isNodeStartupBypassOption(option) ||
+        /^--inspect-(?:brk|wait)(?:=\S*)?$/u.test(option),
+    );
   });
 }
 
@@ -2731,7 +2747,7 @@ export function hasTtscLintCompatPostinstallCommand(
     const commandIndex = getShellCommandStartIndex(tokens);
     if (
       getShellExecutableName(tokens[commandIndex]) !== 'node' ||
-      hasBlockingNodeOptionsAssignment(tokens, commandIndex)
+      hasUnsafeNodeOptionsAssignment(tokens, commandIndex)
     ) {
       return false;
     }
@@ -2739,7 +2755,11 @@ export function hasTtscLintCompatPostinstallCommand(
     if (
       tokens
         .slice(commandIndex + 1, scriptIndex)
-        .some(isNonScriptNodeExecutionOption)
+        .some(
+          (token) =>
+            isNonScriptNodeExecutionOption(token) ||
+            isNodeStartupBypassOption(token),
+        )
     ) {
       return false;
     }
