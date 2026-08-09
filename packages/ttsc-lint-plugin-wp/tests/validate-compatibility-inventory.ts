@@ -6,10 +6,29 @@ const compatibilityBySource = new Map(
   compatibilityManifest.compatibility.map((entry) => [entry.source, entry]),
 );
 
-assert.equal(compatibilityManifest.schemaVersion, 1);
+assert.equal(compatibilityManifest.schemaVersion, 2);
 assert.equal(compatibilityManifest.namespace, 'wordpress');
 assert.equal(compatibilityManifest.ttscRange, '>=0.23.0 <0.26.0');
 assert.equal(compatibilityManifest.wordpressRules.length, 35);
+assert.ok(compatibilityManifest.compiledPresets.recommended.entries.length > 0);
+assert.equal(
+  compatibilityManifest.compiledPresets.recommended.sourceEntryCount,
+  17,
+);
+assert.equal(
+  compatibilityManifest.compiledPresets.recommended.optionDowngrades.length,
+  11,
+);
+assert.deepEqual(
+  compatibilityManifest.compiledPresets.recommended.runnerRules,
+  ['prettier/prettier'],
+);
+assert.ok(
+  compatibilityManifest.compiledPresets.recommended.supportedRules.length > 0,
+);
+assert.ok(
+  compatibilityManifest.compiledPresets.recommended.unsupportedRules.length > 0,
+);
 
 const contributorRules = compatibilityManifest.wordpressRules.filter(
   ({ kind }) => kind === 'contributor',

@@ -1,8 +1,12 @@
 import type { ITtscLintConfig } from '@ttsc/lint';
+import { fileURLToPath } from 'node:url';
 
 import { plugin } from './plugin.js';
 
 const plugins = { wordpress: plugin } as const;
+const wpScriptsRecommendedConfigPath = fileURLToPath(
+  new URL('../configs/wp-scripts-recommended/index.mjs', import.meta.url),
+);
 
 export const configs = {
   custom: {
@@ -26,7 +30,14 @@ export const configs = {
       'wordpress/valid-sprintf': 'error',
     },
   },
-} as const satisfies Record<'custom' | 'i18n' | 'recommended', ITtscLintConfig>;
+  wpScriptsRecommended: {
+    extends: wpScriptsRecommendedConfigPath,
+    plugins,
+  },
+} as const satisfies Record<
+  'custom' | 'i18n' | 'recommended' | 'wpScriptsRecommended',
+  ITtscLintConfig
+>;
 
 export const presetCompatibility = {
   custom: {
@@ -38,6 +49,10 @@ export const presetCompatibility = {
     upstream: '@wordpress/eslint-plugin/i18n',
   },
   recommended: {
+    coverage: 'partial',
+    upstream: '@wordpress/eslint-plugin/recommended',
+  },
+  wpScriptsRecommended: {
     coverage: 'partial',
     upstream: '@wordpress/eslint-plugin/recommended',
   },

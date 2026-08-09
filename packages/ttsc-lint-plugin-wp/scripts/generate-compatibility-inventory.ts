@@ -1,8 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { format, resolveConfig } from 'prettier';
 
-import type { CompatibilityRule } from '../src/compatibility.js';
+import type {
+  CompatibilityRule,
+  CompiledPreset,
+  CompiledPresetEntry,
+} from '../src/compatibility.js';
 
 const UPSTREAM_PACKAGE = '@wordpress/eslint-plugin';
 const UPSTREAM_VERSION = '25.8.0';
@@ -17,8 +22,26 @@ const IMPLEMENTED_RULES = new Map([
   ['@wordpress/no-unsafe-wp-apis', 'wordpress/no-unsafe-wp-apis'],
   ['@wordpress/valid-sprintf', 'wordpress/valid-sprintf'],
 ]);
+// These @ttsc/lint implementations accept only a severity. Upstream option
+// payloads are removed explicitly and recorded in optionDowngrades.
+const SEVERITY_ONLY_TRANSLATIONS = new Set([
+  'camelcase',
+  'curly',
+  'jsx-a11y/control-has-associated-label',
+  'jsx-a11y/interactive-supports-focus',
+  'jsx-a11y/label-has-associated-control',
+  'jsx-a11y/no-interactive-element-to-noninteractive-role',
+  'jsx-a11y/no-noninteractive-element-interactions',
+  'jsx-a11y/no-noninteractive-element-to-interactive-role',
+  'jsx-a11y/no-noninteractive-tabindex',
+  'jsx-a11y/no-static-element-interactions',
+  'no-cond-assign',
+]);
 
 interface FlatConfigEntry {
+  files?: readonly string[];
+  ignores?: readonly string[];
+  name?: string;
   rules?: Readonly<Record<string, unknown>>;
 }
 
@@ -105,9 +128,16 @@ for (const rules of Object.values(presetRuleStates)) {
 const compatibility = [...allPresetRuleNames]
   .sort()
   .map((source) => classifyRule(source, builtinRules));
+const compatibilityBySource = new Map(
+  compatibility.map((entry) => [entry.source, entry]),
+);
+const compiledRecommended = compilePreset(
+  plugin.configs.recommended ?? [],
+  compatibilityBySource,
+);
 
 const manifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   upstream: {
     integrity: UPSTREAM_INTEGRITY,
     package: UPSTREAM_PACKAGE,
@@ -118,6 +148,9 @@ const manifest = {
   wordpressRules,
   presets: presetRuleStates,
   compatibility,
+  compiledPresets: {
+    recommended: compiledRecommended,
+  },
 };
 
 const outputPath = path.resolve(
@@ -126,7 +159,240 @@ const outputPath = path.resolve(
 );
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
+await writeCompiledPreset(
+  path.resolve(import.meta.dirname, '../configs/wp-scripts-recommended'),
+  compiledRecommended.entries,
+);
 console.log(`Wrote ${path.relative(process.cwd(), outputPath)}.`);
+
+function compilePreset(
+  entries: readonly FlatConfigEntry[],
+  compatibilityBySource: ReadonlyMap<string, CompatibilityRule>,
+): CompiledPreset {
+  const runnerRules = new Set<string>();
+  const supportedRules = new Set<string>();
+  const unsupportedRules = new Set<string>();
+  const optionDowngrades = new Map<string, string>();
+  const compiledEntries: CompiledPresetEntry[] = [];
+
+  for (const entry of entries) {
+    const translatedRules = new Map<string, unknown>();
+    for (const [source, setting] of Object.entries(entry.rules ?? {})) {
+      const ruleCompatibility = compatibilityBySource.get(source);
+      if (!ruleCompatibility) {
+        throw new Error(`Missing compatibility classification for ${source}.`);
+      }
+      if (ruleCompatibility.kind === 'unsupported') {
+        if (!isOff(setting)) unsupportedRules.add(source);
+        continue;
+      }
+      if (ruleCompatibility.kind === 'runner') {
+        if (!isOff(setting)) runnerRules.add(source);
+        continue;
+      }
+      const normalizedSetting = normalizeSeverity(setting);
+      if (
+        Array.isArray(normalizedSetting) &&
+        normalizedSetting.length > 1 &&
+        SEVERITY_ONLY_TRANSLATIONS.has(ruleCompatibility.target)
+      ) {
+        translatedRules.set(ruleCompatibility.target, normalizedSetting[0]);
+        optionDowngrades.set(source, ruleCompatibility.target);
+      } else {
+        translatedRules.set(ruleCompatibility.target, normalizedSetting);
+      }
+      if (!isOff(setting)) supportedRules.add(source);
+    }
+
+    const rules = Object.fromEntries(
+      [...translatedRules.entries()].sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    );
+    if (Object.keys(rules).length === 0 && !entry.ignores?.length) continue;
+    appendCompiledEntry(compiledEntries, {
+      ...(entry.files?.length ? { files: [...entry.files] } : {}),
+      ...(entry.ignores?.length ? { ignores: [...entry.ignores] } : {}),
+      rules,
+      ...(entry.name ? { sourceNames: [entry.name] } : {}),
+    });
+  }
+
+  return {
+    entries: compiledEntries,
+    optionDowngrades: [...optionDowngrades]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([source, target]) => ({ source, target })),
+    runnerRules: [...runnerRules].sort(),
+    sourceEntryCount: entries.length,
+    supportedRules: [...supportedRules].sort(),
+    unsupportedRules: [...unsupportedRules].sort(),
+  };
+}
+
+function appendCompiledEntry(
+  entries: CompiledPresetEntry[],
+  next: CompiledPresetEntry,
+): void {
+  const previous = entries[entries.length - 1];
+  if (
+    previous &&
+    !previous.ignores?.length &&
+    !next.ignores?.length &&
+    patternListsEqual(previous.files, next.files)
+  ) {
+    const sourceNames = [
+      ...(previous.sourceNames ?? []),
+      ...(next.sourceNames ?? []),
+    ];
+    entries[entries.length - 1] = {
+      ...(next.files ? { files: next.files } : {}),
+      rules: {
+        ...previous.rules,
+        ...next.rules,
+      },
+      ...(sourceNames.length ? { sourceNames } : {}),
+    };
+    return;
+  }
+  entries.push(next);
+}
+
+function patternListsEqual(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return (
+    left.length === right.length &&
+    left.every((pattern, index) => pattern === right[index])
+  );
+}
+
+async function writeCompiledPreset(
+  outputDir: string,
+  entries: readonly CompiledPresetEntry[],
+): Promise<void> {
+  if (entries.length === 0) {
+    throw new Error('Compiled preset must contain at least one entry.');
+  }
+  const modules = entries.map((entry, index) => {
+    const fileName = `${String(index).padStart(2, '0')}.mjs`;
+    const outputPath = path.join(outputDir, fileName);
+    const config = {
+      ...(entry.files ? { files: entry.files } : {}),
+      ...(entry.ignores ? { ignores: entry.ignores } : {}),
+      rules: entry.rules,
+    };
+    const serialized = JSON.stringify(config, null, 2);
+    const provenance = entry.sourceNames?.length
+      ? `// Upstream entries: ${entry.sourceNames.join(', ')}\n`
+      : '';
+    const previousFileName =
+      index > 0 ? `${String(index - 1).padStart(2, '0')}.mjs` : undefined;
+    const source = previousFileName
+      ? `${provenance}import { fileURLToPath } from 'node:url';\n\nconst config = ${serialized};\n\nexport default {\n  ...config,\n  extends: fileURLToPath(new URL('./${previousFileName}', import.meta.url)),\n};\n`
+      : `${provenance}export default ${serialized};\n`;
+    return { fileName, outputPath, source };
+  });
+
+  const lastModule = modules[modules.length - 1];
+  if (!lastModule) throw new Error('Compiled preset generation failed.');
+  const formattedModules = await Promise.all(
+    modules.map(async ({ outputPath, source }) => ({
+      outputPath,
+      source: await formatGeneratedModule(source, outputPath),
+    })),
+  );
+  const indexPath = path.join(outputDir, 'index.mjs');
+  const formattedIndex = await formatGeneratedModule(
+    `import { fileURLToPath } from 'node:url';\n\nexport default {\n  extends: fileURLToPath(new URL('./${lastModule.fileName}', import.meta.url)),\n};\n`,
+    indexPath,
+  );
+
+  replaceDirectory(
+    outputDir,
+    [
+      ...formattedModules.map(({ outputPath, source }) => ({
+        fileName: path.basename(outputPath),
+        source,
+      })),
+      { fileName: path.basename(indexPath), source: formattedIndex },
+    ],
+  );
+}
+
+function replaceDirectory(
+  outputDir: string,
+  files: readonly { fileName: string; source: string }[],
+): void {
+  const parentDir = path.dirname(outputDir);
+  const tempDir = fs.mkdtempSync(
+    path.join(parentDir, `.${path.basename(outputDir)}-`),
+  );
+  const previousDir = `${tempDir}.previous`;
+  let installed = false;
+
+  try {
+    for (const { fileName, source } of files) {
+      fs.writeFileSync(path.join(tempDir, fileName), source);
+    }
+
+    const hadPrevious = fs.existsSync(outputDir);
+    if (hadPrevious) fs.renameSync(outputDir, previousDir);
+    try {
+      fs.renameSync(tempDir, outputDir);
+      installed = true;
+    } catch (error) {
+      if (hadPrevious) {
+        try {
+          fs.renameSync(previousDir, outputDir);
+        } catch (rollbackError) {
+          throw new Error(
+            `Failed to install ${outputDir} and restore its backup at ${previousDir}. Install error: ${String(error)}. Rollback error: ${String(rollbackError)}.`,
+          );
+        }
+      }
+      throw error;
+    }
+    if (hadPrevious) {
+      try {
+        fs.rmSync(previousDir, { force: true, recursive: true });
+      } catch (error) {
+        console.warn(
+          `Generated preset installed, but failed to remove ${previousDir}: ${String(error)}`,
+        );
+      }
+    }
+  } finally {
+    if (!installed) fs.rmSync(tempDir, { force: true, recursive: true });
+  }
+}
+
+function normalizeSeverity(setting: unknown): unknown {
+  if (Array.isArray(setting)) {
+    return [normalizeSeverityValue(setting[0]), ...setting.slice(1)];
+  }
+  return normalizeSeverityValue(setting);
+}
+
+function normalizeSeverityValue(value: unknown): unknown {
+  if (value === 0) return 'off';
+  if (value === 1) return 'warn';
+  if (value === 2) return 'error';
+  return value;
+}
+
+async function formatGeneratedModule(
+  source: string,
+  outputPath: string,
+): Promise<string> {
+  const resolvedConfig = (await resolveConfig(outputPath)) ?? {};
+  return format(source, {
+    ...resolvedConfig,
+    filepath: outputPath,
+  });
+}
 
 function isOff(setting: unknown): boolean {
   if (Array.isArray(setting)) {

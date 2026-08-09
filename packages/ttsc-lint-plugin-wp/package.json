@@ -16,6 +16,7 @@
   },
   "files": [
     "compatibility/",
+    "configs/",
     "dist/",
     "rules/",
     "LICENSE",
@@ -28,6 +29,7 @@
     "test": "bun run build && bun test tests && bun run test:inventory",
     "test:ci": "bun run test && bun run test:parity",
     "test:inventory": "bun tests/validate-compatibility-inventory.ts",
+    "generate:inventory": "bun scripts/generate-compatibility-inventory.ts",
     "test:parity": "bun tests/run-parity.ts",
     "typecheck": "ttsc -p tsconfig.json --noEmit"
   },
@@ -63,6 +65,7 @@
   "devDependencies": {
     "@ttsc/lint": "^0.23.0",
     "eslint": "9.39.4",
+    "prettier": "3.8.2",
     "ttsc": "^0.23.0",
     "typescript": "^7.0.2"
   }
