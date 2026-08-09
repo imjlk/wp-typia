@@ -712,16 +712,25 @@ function collectInvokedHelperNames(node: ts.Node): ReadonlySet<string> {
       if (ts.isIdentifier(callee)) {
         helperNames.add(callee.text);
       }
-      if (
-        ts.isPropertyAccessExpression(callee) &&
-        (callee.name.text === 'apply' || callee.name.text === 'call')
-      ) {
-        // These names are later intersected with declarations proven to be
-        // top-level function helpers. A helper that replaces its intrinsic
-        // call/apply method is deliberately handled conservatively.
-        const target = unwrapExpression(callee.expression);
-        if (ts.isIdentifier(target)) {
-          helperNames.add(target.text);
+      if (ts.isPropertyAccessExpression(callee)) {
+        const calleePath = getPropertyAccessPath(callee);
+        if (callee.name.text !== 'apply' && callee.name.text !== 'call') {
+          if (calleePath) {
+            helperNames.add(calleePath.join('.'));
+          }
+        } else {
+          // These names are later intersected with declarations proven to be
+          // top-level function helpers. A helper that replaces its intrinsic
+          // call/apply method is deliberately handled conservatively.
+          const target = unwrapExpression(callee.expression);
+          if (ts.isIdentifier(target)) {
+            helperNames.add(target.text);
+          } else {
+            const targetPath = getPropertyAccessPath(target);
+            if (targetPath) {
+              helperNames.add(targetPath.join('.'));
+            }
+          }
         }
       }
     }
@@ -785,15 +794,38 @@ function getObjectLiteralAliasSource(
 
 function addHelperAliasDependency(
   dependencies: Map<string, Set<string>>,
-  target: ts.Node,
+  target: string | ts.Node,
   source: ts.Expression,
 ): void {
   const initializer = unwrapExpression(source);
-  if (ts.isIdentifier(target) && ts.isIdentifier(initializer)) {
-    addHelperDependency(dependencies, initializer.text, target.text);
+  const targetName =
+    typeof target === 'string'
+      ? target
+      : ts.isIdentifier(target)
+        ? target.text
+        : null;
+  if (targetName && ts.isIdentifier(initializer)) {
+    addHelperDependency(dependencies, initializer.text, targetName);
+    return;
+  }
+  if (targetName && ts.isObjectLiteralExpression(initializer)) {
+    for (const property of initializer.properties) {
+      const propertyName = getObjectLiteralElementName(property);
+      const propertySource = propertyName
+        ? getObjectLiteralAliasSource(initializer, propertyName)
+        : null;
+      if (propertyName && propertySource) {
+        addHelperAliasDependency(
+          dependencies,
+          `${targetName}.${propertyName}`,
+          propertySource,
+        );
+      }
+    }
     return;
   }
   if (
+    typeof target !== 'string' &&
     ts.isArrayBindingPattern(target) &&
     ts.isArrayLiteralExpression(initializer)
   ) {
@@ -827,6 +859,7 @@ function addHelperAliasDependency(
     return;
   }
   if (
+    typeof target !== 'string' &&
     ts.isObjectBindingPattern(target) &&
     ts.isObjectLiteralExpression(initializer)
   ) {
@@ -1166,6 +1199,93 @@ function hasExpectedTextDomainRule(
   );
 }
 
+interface CommonJsExportAssignment {
+  exportPath: string[];
+  value: ts.Expression;
+}
+
+function getAssignmentChainValue(expression: ts.Expression): ts.Expression {
+  let current = unwrapExpression(expression);
+  while (
+    ts.isBinaryExpression(current) &&
+    current.operatorToken.kind === ts.SyntaxKind.EqualsToken
+  ) {
+    current = unwrapExpression(current.right);
+  }
+  return current;
+}
+
+function findCommonJsExportAssignment(
+  expression: ts.Expression,
+): CommonJsExportAssignment | null {
+  const current = unwrapExpression(expression);
+  if (
+    !ts.isBinaryExpression(current) ||
+    current.operatorToken.kind !== ts.SyntaxKind.EqualsToken
+  ) {
+    return null;
+  }
+  const exportPath = getPropertyAccessPath(current.left);
+  const joinedExportPath = exportPath?.join('.') ?? null;
+  if (
+    exportPath &&
+    (joinedExportPath === 'module.exports' ||
+      joinedExportPath === 'exports.default')
+  ) {
+    return {
+      exportPath,
+      value: getAssignmentChainValue(current.right),
+    };
+  }
+  return findCommonJsExportAssignment(current.right);
+}
+
+function expressionUsesCommonJsExport(
+  expression: ts.Expression,
+  exportPath: readonly string[],
+  aliases: ReadonlySet<string>,
+): boolean {
+  return (
+    expressionHasAccessPathRoot(expression, exportPath) ||
+    expressionUsesTrackedAccess(expression, aliases)
+  );
+}
+
+function collectCommonJsExportAliases(
+  statement: ts.Node,
+  exportPath: readonly string[],
+  aliases: Set<string>,
+): ReadonlySet<ts.BinaryExpression> {
+  const aliasAssignments = new Set<ts.BinaryExpression>();
+  const visit = (node: ts.Node): void => {
+    if (isDeferredScope(node)) {
+      return;
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      expressionUsesCommonJsExport(node.initializer, exportPath, aliases)
+    ) {
+      collectBindingIdentifiers(node.name, aliases);
+    } else if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ) {
+      const assignedTarget = unwrapExpression(node.left);
+      if (
+        ts.isIdentifier(assignedTarget) &&
+        expressionUsesCommonJsExport(node.right, exportPath, aliases)
+      ) {
+        aliases.add(assignedTarget.text);
+        aliasAssignments.add(node);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(statement);
+  return aliasAssignments;
+}
+
 function findConfigExportExpression(
   sourceFile: ts.SourceFile,
   moduleFormat: TtscLintConfigModuleFormat,
@@ -1177,8 +1297,15 @@ function findConfigExportExpression(
   const moduleBindingDetached = sourceFile.statements.some((statement) =>
     statementDetachesCommonJsBinding(statement, 'module'),
   );
+  const commonJsExportAliases = new Set<string>();
+  let commonJsExportStatementIndex = -1;
   let result: ts.Expression | null = null;
-  for (const statement of sourceFile.statements) {
+  for (
+    let statementIndex = 0;
+    statementIndex < sourceFile.statements.length;
+    statementIndex += 1
+  ) {
+    const statement = sourceFile.statements[statementIndex];
     if (ts.isExportAssignment(statement)) {
       if (result || moduleFormat === 'commonjs') {
         return null;
@@ -1186,25 +1313,31 @@ function findConfigExportExpression(
       result = statement.expression;
       continue;
     }
+    if (commonJsExportPath) {
+      const aliasAssignments = collectCommonJsExportAliases(
+        statement,
+        commonJsExportPath,
+        commonJsExportAliases,
+      );
+      if (
+        statementMutatesAccessPath(statement, commonJsExportPath) ||
+        [...commonJsExportAliases].some((alias) =>
+          statementMutatesIdentifier(statement, alias, aliasAssignments),
+        )
+      ) {
+        return null;
+      }
+    }
     if (
       !ts.isExpressionStatement(statement) ||
       !ts.isBinaryExpression(statement.expression) ||
       statement.expression.operatorToken.kind !== ts.SyntaxKind.EqualsToken
     ) {
-      if (
-        commonJsExportPath &&
-        statementMutatesAccessPath(statement, commonJsExportPath)
-      ) {
-        return null;
-      }
       continue;
     }
-    const exportPath = getPropertyAccessPath(statement.expression.left);
-    const joinedExportPath = exportPath?.join('.') ?? null;
-    if (
-      joinedExportPath === 'module.exports' ||
-      joinedExportPath === 'exports.default'
-    ) {
+    const commonJsExport = findCommonJsExportAssignment(statement.expression);
+    if (commonJsExport) {
+      const joinedExportPath = commonJsExport.exportPath.join('.');
       if (
         moduleFormat === 'module' ||
         (joinedExportPath === 'module.exports' && moduleBindingDetached) ||
@@ -1215,13 +1348,23 @@ function findConfigExportExpression(
       if (result) {
         return null;
       }
-      result = statement.expression.right;
-      commonJsExportPath = exportPath;
+      result = commonJsExport.value;
+      commonJsExportPath = commonJsExport.exportPath;
+      commonJsExportStatementIndex = statementIndex;
       continue;
     }
+  }
+  if (commonJsExportAliases.size > 0) {
+    const mutatingHelpers = collectMutatingTopLevelHelpers(
+      sourceFile,
+      commonJsExportAliases,
+    );
     if (
-      commonJsExportPath &&
-      statementMutatesAccessPath(statement, commonJsExportPath)
+      sourceFile.statements
+        .slice(commonJsExportStatementIndex + 1)
+        .some((statement) =>
+          nodeInvokesTrackedHelper(statement, mutatingHelpers),
+        )
     ) {
       return null;
     }
@@ -1368,8 +1511,41 @@ function skipShellRunnerOptions(
   return index;
 }
 
+const SHELL_RUNNER_TERMINAL_OPTIONS = new Set([
+  '--help',
+  '--version',
+  '-h',
+  '-v',
+  '-V',
+]);
+
+function skipExecutableRunnerOptions(
+  tokens: readonly string[],
+  startIndex: number,
+): number | null {
+  const commandIndex = skipShellRunnerOptions(tokens, startIndex);
+  return tokens
+    .slice(startIndex, commandIndex)
+    .some((token) =>
+      SHELL_RUNNER_TERMINAL_OPTIONS.has(token.split('=', 1)[0] ?? ''),
+    )
+    ? null
+    : commandIndex;
+}
+
 function getTtscCommandIndex(tokens: readonly string[]): number | null {
   let commandIndex = 0;
+  const skipRunnerOptions = (): boolean => {
+    const nextCommandIndex = skipExecutableRunnerOptions(
+      tokens,
+      commandIndex + 1,
+    );
+    if (nextCommandIndex === null) {
+      return false;
+    }
+    commandIndex = nextCommandIndex;
+    return true;
+  };
   if (tokens[commandIndex] === 'env') {
     commandIndex += 1;
   }
@@ -1382,25 +1558,39 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
     return commandIndex;
   }
   if (command === 'npx' || command === 'bunx') {
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
   } else if (command === 'bun') {
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
     if (tokens[commandIndex] !== 'x') {
       return null;
     }
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
   } else if (command === 'pnpm' || command === 'yarn') {
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
     if (tokens[commandIndex] !== 'exec' && tokens[commandIndex] !== 'dlx') {
       return null;
     }
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
   } else if (command === 'npm') {
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
     if (tokens[commandIndex] !== 'exec' && tokens[commandIndex] !== 'x') {
       return null;
     }
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    if (!skipRunnerOptions()) {
+      return null;
+    }
   } else {
     return null;
   }
@@ -1412,6 +1602,7 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
 interface SimpleShellSegment {
   operatorAfter: '&&' | '||' | '&' | ';' | '|' | null;
   operatorBefore: '&&' | '||' | '&' | ';' | '|' | null;
+  source: string;
   tokens: string[];
 }
 
@@ -1429,11 +1620,12 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
   let quote: "'" | '"' | null = null;
   let valid = true;
   const pushSegment = () => {
+    const source = buffer.trim();
     const rawTokens =
       buffer.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
     const tokens = rawTokens.map((token) => normalizeShellToken(token));
     if (tokens.length > 0) {
-      segments.push({ operatorAfter: null, operatorBefore, tokens });
+      segments.push({ operatorAfter: null, operatorBefore, source, tokens });
     }
     atTokenBoundary = true;
     buffer = '';
@@ -1690,13 +1882,84 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   });
 }
 
-const PACKAGE_MANAGER_TERMINAL_OPTIONS = new Set([
-  '--help',
-  '--version',
-  '-h',
-  '-v',
-  '-V',
-]);
+const PACKAGE_MANAGER_TERMINAL_OPTIONS = SHELL_RUNNER_TERMINAL_OPTIONS;
+
+function isPackageRunScriptInvocation(
+  tokens: readonly string[],
+  scriptName: string,
+  allowTrailingArguments: boolean,
+): boolean {
+  let commandIndex = getShellCommandStartIndex(tokens);
+  const packageManager = getShellExecutableName(tokens[commandIndex]);
+  if (!['bun', 'npm', 'pnpm', 'yarn'].includes(packageManager)) {
+    return false;
+  }
+  const optionsStartIndex = commandIndex + 1;
+  commandIndex = skipShellRunnerOptions(tokens, optionsStartIndex);
+  if (
+    tokens
+      .slice(optionsStartIndex, commandIndex)
+      .some((token) =>
+        PACKAGE_MANAGER_TERMINAL_OPTIONS.has(token.split('=', 1)[0] ?? ''),
+      )
+  ) {
+    return false;
+  }
+  if (tokens[commandIndex] === 'run') {
+    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+  } else if (packageManager === 'bun' || packageManager === 'npm') {
+    return false;
+  }
+  return (
+    tokens[commandIndex] === scriptName &&
+    (allowTrailingArguments || commandIndex === tokens.length - 1)
+  );
+}
+
+/** Check whether any simple shell segment invokes a package script. */
+export function hasPackageRunScriptInvocation(
+  command: unknown,
+  scriptName: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  return (
+    parsed.valid &&
+    parsed.segments.some((segment) =>
+      isPackageRunScriptInvocation(segment.tokens, scriptName, true),
+    )
+  );
+}
+
+/** Remove package-script invocations from a simple failure-propagating chain. */
+export function removePackageRunScriptInvocations(
+  command: string,
+  scriptName: string,
+): string | null {
+  const parsed = getSimpleShellSegments(command);
+  if (
+    !parsed.valid ||
+    parsed.segments.some(
+      (segment) =>
+        segment.operatorBefore !== null && segment.operatorBefore !== '&&',
+    ) ||
+    parsed.segments.some(
+      (segment) =>
+        segment.operatorAfter !== null && segment.operatorAfter !== '&&',
+    )
+  ) {
+    return null;
+  }
+  return parsed.segments
+    .filter(
+      (segment) =>
+        !isPackageRunScriptInvocation(segment.tokens, scriptName, true),
+    )
+    .map((segment) => segment.source)
+    .join(' && ');
+}
 
 /** Check whether an aggregate command actually runs a package script. */
 export function hasPackageRunScriptCommand(
@@ -1706,32 +1969,9 @@ export function hasPackageRunScriptCommand(
   if (typeof command !== 'string') {
     return false;
   }
-  return hasPropagatingShellSegment(command, (tokens) => {
-    let commandIndex = getShellCommandStartIndex(tokens);
-    const packageManager = getShellExecutableName(tokens[commandIndex]);
-    if (!['bun', 'npm', 'pnpm', 'yarn'].includes(packageManager)) {
-      return false;
-    }
-    const optionsStartIndex = commandIndex + 1;
-    commandIndex = skipShellRunnerOptions(tokens, optionsStartIndex);
-    if (
-      tokens
-        .slice(optionsStartIndex, commandIndex)
-        .some((token) =>
-          PACKAGE_MANAGER_TERMINAL_OPTIONS.has(token.split('=', 1)[0] ?? ''),
-        )
-    ) {
-      return false;
-    }
-    if (tokens[commandIndex] === 'run') {
-      commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
-    } else if (packageManager === 'bun' || packageManager === 'npm') {
-      return false;
-    }
-    return (
-      tokens[commandIndex] === scriptName && commandIndex === tokens.length - 1
-    );
-  });
+  return hasPropagatingShellSegment(command, (tokens) =>
+    isPackageRunScriptInvocation(tokens, scriptName, false),
+  );
 }
 
 const NODE_NON_SCRIPT_EXECUTION_OPTIONS = new Set([

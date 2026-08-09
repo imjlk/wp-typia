@@ -18,8 +18,10 @@ import {
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
   hasPackageRunScriptCommand,
+  hasPackageRunScriptInvocation,
   hasTtscLintCompatPostinstallCommand,
   hasTtscNoEmitLintCommand,
+  removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
 import type {
   InitDependencyChange,
@@ -314,9 +316,23 @@ export function buildOfficialWorkspaceLintScriptChanges(
   let requiredLint = lintTsRun;
   if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
     const includesLintTs = hasPackageRunScriptCommand(currentLint, 'lint:ts');
-    requiredLint = includesLintTs
-      ? currentLint
-      : `${lintTsRun} && ${currentLint}`;
+    if (includesLintTs) {
+      requiredLint = currentLint;
+    } else if (hasPackageRunScriptInvocation(currentLint, 'lint:ts')) {
+      const retainedLint = removePackageRunScriptInvocations(
+        currentLint,
+        'lint:ts',
+      );
+      if (retainedLint === null) {
+        requiredLint = `${lintTsRun} && ${currentLint}`;
+      } else if (retainedLint) {
+        requiredLint = `${lintTsRun} && ${retainedLint}`;
+      } else {
+        requiredLint = lintTsRun;
+      }
+    } else {
+      requiredLint = `${lintTsRun} && ${currentLint}`;
+    }
   }
 
   return [

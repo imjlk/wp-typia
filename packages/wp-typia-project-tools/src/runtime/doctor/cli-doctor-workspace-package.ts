@@ -18,6 +18,7 @@ import {
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
 import { getPackageVersions } from '../shared/package-versions.js';
+import { canResolveFromProject } from '../shared/project-package-resolution.js';
 import { WORKSPACE_TEMPLATE_PACKAGE } from '../workspace/workspace-project.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -44,9 +45,26 @@ export interface WorkspacePackageDoctorSnapshot {
   ttscLintConfigReadError: string | null;
 	/** Source of the discovered ttsc lint config, when readable. */
   ttscLintConfigSource: string | null;
-	/** Whether the managed ttsc lint compatibility helper is current. */
+  /** Whether the managed ttsc lint compatibility helper is current. */
   ttscLintCompatCurrent: boolean;
+	/** Project-local lint packages that cannot be resolved. */
+  ttscLintMissingInstalledPackages: readonly string[];
 }
+
+const WORKSPACE_TTSC_LINT_INSTALLED_PACKAGES = [
+  {
+    packageName: 'ttsc',
+    resolutionSpecifier: 'ttsc/package.json',
+  },
+  {
+    packageName: '@ttsc/lint',
+    resolutionSpecifier: '@ttsc/lint/package.json',
+  },
+  {
+    packageName: '@wp-typia/ttsc-lint-plugin-wp',
+    resolutionSpecifier: '@wp-typia/ttsc-lint-plugin-wp/package.json',
+  },
+] as const;
 
 async function readWorkspaceTtscLintCompatCurrent(
   projectDir: string,
@@ -131,6 +149,15 @@ export async function prepareWorkspacePackageDoctorSnapshot(
       readWorkspaceTtscLintCompatCurrent(workspace.projectDir),
       readWorkspaceTtscLintConfig(workspace.projectDir),
     ]);
+  const ttscLintMissingInstalledPackages =
+    WORKSPACE_TTSC_LINT_INSTALLED_PACKAGES.filter(
+      ({ packageName, resolutionSpecifier }) =>
+        !canResolveFromProject(
+          workspace.projectDir,
+          packageName,
+          resolutionSpecifier,
+        ),
+    ).map(({ packageName }) => packageName);
 
   return {
     bootstrapExists,
@@ -141,6 +168,7 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     ttscLintConfigReadError: ttscLintConfig.readError,
     ttscLintConfigSource: ttscLintConfig.source,
     ttscLintCompatCurrent,
+    ttscLintMissingInstalledPackages,
   };
 }
 
@@ -181,7 +209,9 @@ export function getWorkspaceTtscLintCheck(
   } else {
     let supported = false;
     try {
-      supported = semver.subset(dependencies.ttsc, supportedTtscRange);
+      supported =
+        semver.minVersion(dependencies.ttsc) !== null &&
+        semver.subset(dependencies.ttsc, supportedTtscRange);
     } catch {
       // Invalid ranges cannot satisfy the managed contributor contract.
     }
@@ -191,6 +221,11 @@ export function getWorkspaceTtscLintCheck(
   }
   if (typeof dependencies.typescript !== 'string') {
     issues.push('missing typescript dependency');
+  }
+  if (snapshot.ttscLintMissingInstalledPackages.length > 0) {
+    issues.push(
+      `missing project-local installed package(s): ${snapshot.ttscLintMissingInstalledPackages.join(', ')}`,
+    );
   }
   if (snapshot.ttscLintConfigReadError) {
     issues.push(

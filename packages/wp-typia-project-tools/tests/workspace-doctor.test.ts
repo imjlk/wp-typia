@@ -101,6 +101,7 @@ test('doctor reports environment-only scope outside official workspace roots', a
 test('doctor reports the managed WordPress ttsc lint integration', async () => {
   const targetDir = path.join(tempRoot, 'doctor-wordpress-ttsc-lint');
   await scaffoldOfficialWorkspace(targetDir);
+  linkWorkspaceNodeModules(targetDir);
 
   const currentChecks = await getDoctorChecks(targetDir);
   const currentLintCheck = currentChecks.find(
@@ -237,6 +238,20 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   expect(unsupportedTtscCheck?.detail).toContain(
     `ttsc dependency must satisfy ${supportedTtscRange}`,
   );
+  packageJson.devDependencies.ttsc = '>=1 <1';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const emptyTtscRangeChecks = await getDoctorChecks(targetDir);
+  const emptyTtscRangeCheck = emptyTtscRangeChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(emptyTtscRangeCheck?.status).toBe('warn');
+  expect(emptyTtscRangeCheck?.detail).toContain(
+    `ttsc dependency must satisfy ${supportedTtscRange}`,
+  );
   packageJson.devDependencies.ttsc = managedTtsc;
 
   packageJson.scripts.lint = 'npm run lint:ts:ci';
@@ -367,6 +382,26 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     'missing or stale scripts/apply-ttsc-lint-compat.mjs',
   );
   fs.writeFileSync(compatPath, compatSource, 'utf8');
+
+  fs.rmSync(
+    path.join(
+      targetDir,
+      'node_modules',
+      '@wp-typia',
+      'ttsc-lint-plugin-wp',
+    ),
+    { force: true, recursive: true },
+  );
+  const missingInstalledContributorChecks = await getDoctorChecks(targetDir);
+  const missingInstalledContributorCheck =
+    missingInstalledContributorChecks.find(
+      (check) => check.label === 'WordPress ttsc lint',
+    );
+  expect(missingInstalledContributorCheck?.status).toBe('warn');
+  expect(missingInstalledContributorCheck?.detail).toContain(
+    'missing project-local installed package(s): @wp-typia/ttsc-lint-plugin-wp',
+  );
+  linkWorkspaceNodeModules(targetDir);
 
   const managedTypeScript = packageJson.devDependencies.typescript;
   delete packageJson.devDependencies.ttsc;

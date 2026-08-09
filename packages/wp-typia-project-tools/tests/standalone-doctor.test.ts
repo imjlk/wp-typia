@@ -178,6 +178,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     ) as {
       devDependencies: Record<string, string>;
     };
+    const managedLintVersion =
+      wrongToolchainPackageJson.devDependencies['@ttsc/lint'];
     wrongToolchainPackageJson.devDependencies['@ttsc/lint'] = '0.22.0';
     wrongToolchainPackageJson.devDependencies.ttsc = '0.22.0';
     fs.writeFileSync(
@@ -193,6 +195,22 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       '@ttsc/lint dependency must be exactly',
     );
     expect(wrongToolchainVersionCheck?.detail).toContain(
+      'ttsc dependency must satisfy',
+    );
+
+    wrongToolchainPackageJson.devDependencies['@ttsc/lint'] =
+      managedLintVersion;
+    wrongToolchainPackageJson.devDependencies.ttsc = '>=1 <1';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(wrongToolchainPackageJson, null, 2),
+    );
+    const emptyToolchainRangeCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(emptyToolchainRangeCheck?.status).toBe('fail');
+    expect(emptyToolchainRangeCheck?.detail).toContain(
       'ttsc dependency must satisfy',
     );
 
@@ -231,6 +249,22 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(missingExecutionCheck?.detail).toContain(
       'postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
+    );
+
+    executionPackageJson.scripts['lint:ts'] =
+      'npx --version ttsc --noEmit';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(executionPackageJson, null, 2),
+    );
+    fs.writeFileSync(compatPath, compatSource);
+    const terminalRunnerCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(terminalRunnerCheck?.status).toBe('fail');
+    expect(terminalRunnerCheck?.detail).toContain(
+      'lint:ts must invoke `ttsc --noEmit`',
     );
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
     fs.writeFileSync(compatPath, compatSource);

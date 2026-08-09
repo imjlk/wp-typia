@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -26,6 +25,10 @@ import {
 } from '../shared/php-utils.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import { getPackageVersions } from '../shared/package-versions.js';
+import {
+  canResolveFromProject,
+  resolveFromProject,
+} from '../shared/project-package-resolution.js';
 import {
   hasPackageRunScriptCommand,
   hasTtscLintCompatPostinstallCommand,
@@ -3071,10 +3074,12 @@ function getPackageMetadataCheck(
   if (typeof declaredTtscVersion === 'string') {
     let supported = false;
     try {
-      supported = semver.subset(
-        declaredTtscVersion,
-        packageVersions.ttscLintPluginWpTtscPeerRange,
-      );
+      supported =
+        semver.minVersion(declaredTtscVersion) !== null &&
+        semver.subset(
+          declaredTtscVersion,
+          packageVersions.ttscLintPluginWpTtscPeerRange,
+        );
     } catch {
       // Invalid ranges cannot satisfy the managed contributor contract.
     }
@@ -3745,95 +3750,6 @@ function getSourceLayoutCheck(
       ? 'Supported standalone source surface and static canonical sync configuration detected'
       : issues.join('; '),
     STANDALONE_DOCTOR_CODES.SOURCE_LAYOUT,
-  );
-}
-
-function resolveFromProject(
-  projectDir: string,
-  packageName: string,
-  resolutionSpecifier: string,
-): string | null {
-  const projectRequire = createRequire(path.join(projectDir, 'package.json'));
-  try {
-    const resolvedPath = projectRequire.resolve(resolutionSpecifier);
-    const pnpVersion: unknown = process.versions.pnp;
-    if (
-      typeof pnpVersion === 'number' ||
-      (typeof pnpVersion === 'string' && pnpVersion.length > 0)
-    ) {
-      const pnpApi = projectRequire('pnpapi') as {
-        findPackageLocator(location: string): {
-          name: string | null;
-          reference: string | null;
-        } | null;
-        getLocator(
-          name: string,
-          referencish: string | [string, string],
-        ): { name: string; reference: string };
-        getPackageInformation(locator: {
-          name: string | null;
-          reference: string | null;
-        }): {
-          packageDependencies: Map<
-            string,
-            string | [string, string] | null
-          >;
-        } | null;
-      };
-      const issuerLocator = pnpApi.findPackageLocator(
-        path.join(projectDir, 'package.json'),
-      );
-      const resolvedLocator = pnpApi.findPackageLocator(resolvedPath);
-      if (!issuerLocator || !resolvedLocator) {
-        return null;
-      }
-      const issuerInformation = pnpApi.getPackageInformation(issuerLocator);
-      if (!issuerInformation) {
-        return null;
-      }
-      const dependencyReference =
-        issuerInformation.packageDependencies.get(packageName);
-      if (dependencyReference === undefined || dependencyReference === null) {
-        return null;
-      }
-      const expectedLocator = pnpApi.getLocator(
-        packageName,
-        dependencyReference,
-      );
-      // Keep the virtual path so Yarn can retain its peer-dependency locator.
-      return resolvedLocator.name === expectedLocator.name &&
-        resolvedLocator.reference === expectedLocator.reference
-        ? resolvedPath
-        : null;
-    }
-
-    const localPackageEntry = path.join(
-      projectDir,
-      'node_modules',
-      ...packageName.split('/'),
-    );
-    if (!fs.existsSync(localPackageEntry)) {
-      return null;
-    }
-    const localPackageRoot = fs.realpathSync(localPackageEntry);
-    const realResolvedPath = fs.realpathSync(resolvedPath);
-    return isProjectLocalRelativePath(
-      path.relative(localPackageRoot, realResolvedPath),
-    )
-      ? realResolvedPath
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function canResolveFromProject(
-  projectDir: string,
-  packageName: string,
-  resolutionSpecifier: string,
-): boolean {
-  return (
-    resolveFromProject(projectDir, packageName, resolutionSpecifier) !== null
   );
 }
 
