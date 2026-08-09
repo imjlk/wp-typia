@@ -35,7 +35,12 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
   });
 
   test('keeps partial preset coverage explicit', () => {
-    expect(Object.keys(configs)).toEqual(['custom', 'i18n', 'recommended']);
+    expect(Object.keys(configs)).toEqual([
+      'custom',
+      'i18n',
+      'recommended',
+      'wpScriptsRecommended',
+    ]);
     expect(Object.values(presetCompatibility)).toEqual([
       {
         coverage: 'partial',
@@ -49,10 +54,17 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
         coverage: 'partial',
         upstream: '@wordpress/eslint-plugin/recommended',
       },
+      {
+        coverage: 'partial',
+        upstream: '@wordpress/eslint-plugin/recommended',
+      },
     ]);
+    expect(configs.wpScriptsRecommended.plugins).toEqual({ wordpress: plugin });
+    expect(fs.existsSync(configs.wpScriptsRecommended.extends)).toBe(true);
   });
 
   test('publishes an immutable upstream inventory baseline', () => {
+    expect(compatibilityManifest.schemaVersion).toBe(2);
     expect(compatibilityManifest.upstream).toEqual({
       integrity:
         'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==',
@@ -65,6 +77,18 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
         ({ kind }) => kind === 'contributor',
       ),
     ).toHaveLength(3);
+    expect(
+      compatibilityManifest.compiledPresets.recommended.supportedRules,
+    ).toHaveLength(95);
+    expect(
+      compatibilityManifest.compiledPresets.recommended.unsupportedRules,
+    ).toHaveLength(103);
+    expect(
+      compatibilityManifest.compiledPresets.recommended.optionDowngrades,
+    ).toHaveLength(11);
+    expect(
+      compatibilityManifest.compiledPresets.recommended.sourceEntryCount,
+    ).toBe(17);
   });
 });
 

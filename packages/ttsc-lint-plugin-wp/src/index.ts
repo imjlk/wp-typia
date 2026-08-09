@@ -22,6 +22,8 @@ declare module '@ttsc/lint' {
 export type { ITtscLintContributorRules, ITtscLintRuleOptionsMap };
 export {
   compatibilityManifest,
+  type CompiledPreset,
+  type CompiledPresetEntry,
   type CompatibilityKind,
   type CompatibilityManifest,
   type CompatibilityRule,

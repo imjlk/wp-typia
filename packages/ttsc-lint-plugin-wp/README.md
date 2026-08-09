@@ -33,6 +33,32 @@ export default {
 } satisfies ITtscLintConfig;
 ```
 
+To adopt every currently translatable rule from the ordered upstream
+`recommended` preset, use the compiled preset:
+
+```ts
+import type { ITtscLintConfig } from '@ttsc/lint';
+import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+
+export default {
+  ...configs.wpScriptsRecommended,
+  rules: {
+    'wordpress/i18n-text-domain': ['error', { allowedTextDomain: 'my-plugin' }],
+  },
+} satisfies ITtscLintConfig;
+```
+
+The compiled preset is a static package-owned `extends` chain. It folds
+consecutive entries with the same file scope while retaining effective
+upstream ordering, selectors, ignores, severities, and supported options
+without loading ESLint in consumer projects. Unsupported and external-runner
+rules are left out and remain visible in the compatibility manifest.
+
+When the current `@ttsc/lint` baseline implements a rule but not an upstream
+option payload, the compiled config keeps the severity and records the pair in
+`compiledPresets.recommended.optionDowngrades`. Consumers never receive an
+option tuple that the native host would silently ignore or reject.
+
 Use `ttsc check` for TypeScript and lint diagnostics, or `ttsc fix` to apply
 available lint and format fixes. Upstream does not currently expose a lint-only
 CLI, so replacing the `wp-scripts lint-js` command itself remains a later
@@ -54,6 +80,11 @@ The exported `configs.custom`, `configs.i18n`, and `configs.recommended`
 objects enable the native rules currently implemented by this package. They
 are intentionally partial in 0.1.0; `presetCompatibility` labels that status
 explicitly rather than silently claiming complete WordPress coverage.
+
+`configs.wpScriptsRecommended` compiles the supported portion of the full
+upstream `recommended` entry chain. It is also marked partial until every
+error-level rule has a documented contributor, builtin, compiler, formatter,
+or intentional replacement.
 
 The published `compatibility.json` export inventories the 35 WordPress-owned
 rules and every rule enabled or disabled across the 13 upstream presets in

@@ -21,13 +21,35 @@ export type CompatibilityRule =
       target?: undefined;
     };
 
+export interface CompiledPresetEntry {
+  files?: readonly string[];
+  ignores?: readonly string[];
+  rules: Readonly<Record<string, unknown>>;
+  sourceNames?: readonly string[];
+}
+
+export interface CompiledPreset {
+  entries: readonly CompiledPresetEntry[];
+  optionDowngrades: readonly {
+    source: string;
+    target: string;
+  }[];
+  runnerRules: readonly string[];
+  sourceEntryCount: number;
+  supportedRules: readonly string[];
+  unsupportedRules: readonly string[];
+}
+
 export interface CompatibilityManifest {
   compatibility: readonly CompatibilityRule[];
+  compiledPresets: Readonly<{
+    recommended: CompiledPreset;
+  }>;
   namespace: 'wordpress';
   presets: Readonly<
     Record<string, Readonly<Record<string, 'enabled' | 'mixed' | 'off'>>>
   >;
-  schemaVersion: 1;
+  schemaVersion: 2;
   ttscRange: '>=0.23.0 <0.26.0';
   upstream: {
     integrity: string;
