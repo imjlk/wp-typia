@@ -963,6 +963,41 @@ describe('wp-typia init', () => {
 		).toBe(true);
 		expect(
 			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+wp.configs.recommended.plugins = {};
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
 				replaceOnce(
 					canonicalSource,
 					'  rules: {',
@@ -1233,6 +1268,24 @@ export default {};
 				'fixture-domain',
 			),
 		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+export default config;
+const config = {
+  ...configs.recommended,
+  rules: {
+    ...configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
 	});
 
 	test('normalizes scoped package names for retrofit text domains', () => {
@@ -1243,6 +1296,41 @@ export default {};
 				projectDir: '/tmp/ignored-project-dir',
 			}),
 		).toBe('site-blocks');
+	});
+
+	test('rejects conflicting retrofit block text domains', () => {
+		const projectDir = path.join(tempRoot, 'conflicting-block-text-domains');
+		const blockTargets = ['first-block', 'second-block'].map(
+			(slug, index) => {
+				const blockDirectory = path.join('src', 'blocks', slug);
+				const blockJsonFile = path.join(blockDirectory, 'block.json');
+				fs.mkdirSync(path.join(projectDir, blockDirectory), {
+					recursive: true,
+				});
+				fs.writeFileSync(
+					path.join(projectDir, blockJsonFile),
+					`${JSON.stringify({ textdomain: `domain-${index + 1}` })}\n`,
+					'utf8',
+				);
+				return {
+					attributeTypeName: `Block${index + 1}Attributes`,
+					blockJsonFile,
+					blockName: `create-block/${slug}`,
+					manifestFile: path.join(blockDirectory, 'attributes.manifest.php'),
+					saveFile: path.join(blockDirectory, 'save.tsx'),
+					slug,
+					typesFile: path.join(blockDirectory, 'types.ts'),
+				};
+			},
+		);
+
+		expect(() =>
+			resolveRetrofitTextDomain({
+				blockTargets,
+				packageJson: null,
+				projectDir,
+			}),
+		).toThrow('Conflicting WordPress text domains in block metadata');
 	});
 
 	test('upgrades an existing official workspace to the WordPress ttsc lint lane', async () => {

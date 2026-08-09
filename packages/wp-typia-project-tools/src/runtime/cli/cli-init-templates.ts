@@ -72,6 +72,8 @@ export function buildWordPressTtscLintConfigSource(
 /**
  * Resolve a retrofit text domain from wpTypia metadata, block metadata,
  * package name, the first block slug, then the project directory name.
+ * Conflicting block metadata fails closed until the project supplies one
+ * explicit wpTypia text domain or aligns its block metadata.
  */
 export function resolveRetrofitTextDomain(options: {
   blockTargets: readonly RetrofitInitBlockTarget[];
@@ -83,6 +85,7 @@ export function resolveRetrofitTextDomain(options: {
     return configuredTextDomain;
   }
 
+  const blockTextDomains = new Set<string>();
   for (const target of options.blockTargets) {
     try {
       const blockJson = JSON.parse(
@@ -95,12 +98,21 @@ export function resolveRetrofitTextDomain(options: {
         typeof blockJson.textdomain === 'string' &&
         blockJson.textdomain.trim().length > 0
       ) {
-        return blockJson.textdomain.trim();
+        blockTextDomains.add(blockJson.textdomain.trim());
       }
     } catch {
       // Layout discovery owns malformed block metadata diagnostics. Keep the
       // lint fallback deterministic if this helper is called independently.
     }
+  }
+  if (blockTextDomains.size > 1) {
+    throw new Error(
+      `Conflicting WordPress text domains in block metadata: ${[...blockTextDomains].sort().join(', ')}. Align the block.json textdomain values before running wp-typia init.`,
+    );
+  }
+  const blockTextDomain = blockTextDomains.values().next().value;
+  if (blockTextDomain) {
+    return blockTextDomain;
   }
 
   const packageName = options.packageJson?.name?.trim();

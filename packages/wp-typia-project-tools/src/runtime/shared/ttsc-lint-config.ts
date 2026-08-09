@@ -179,6 +179,16 @@ function getWordPressLintConfigBindings(
       }
     }
   }
+  for (const binding of bindings.named) {
+    if (sourceMutatesTrackedIdentifier(sourceFile, binding)) {
+      bindings.named.delete(binding);
+    }
+  }
+  for (const binding of bindings.namespaces) {
+    if (sourceMutatesTrackedIdentifier(sourceFile, binding)) {
+      bindings.namespaces.delete(binding);
+    }
+  }
   return bindings;
 }
 
@@ -367,6 +377,32 @@ function collectAssignedAliases(
   return aliasAssignments;
 }
 
+function sourceMutatesTrackedIdentifier(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): boolean {
+  const trackedIdentifiers = new Set([identifier]);
+  for (const statement of sourceFile.statements) {
+    collectVariableAliases(statement, trackedIdentifiers);
+    const aliasAssignments = collectAssignedAliases(
+      statement,
+      trackedIdentifiers,
+    );
+    for (const trackedIdentifier of trackedIdentifiers) {
+      if (
+        statementMutatesIdentifier(
+          statement,
+          trackedIdentifier,
+          aliasAssignments,
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function resolveObjectLiteral(
   expression: ts.Expression,
   sourceFile: ts.SourceFile,
@@ -378,12 +414,16 @@ function resolveObjectLiteral(
   if (!ts.isIdentifier(current)) {
     return null;
   }
+  const referencePosition = current.getStart(sourceFile);
   for (
     let statementIndex = 0;
     statementIndex < sourceFile.statements.length;
     statementIndex += 1
   ) {
     const statement = sourceFile.statements[statementIndex];
+    if (statement.getStart(sourceFile) >= referencePosition) {
+      break;
+    }
     if (!ts.isVariableStatement(statement)) {
       continue;
     }
