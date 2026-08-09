@@ -169,7 +169,7 @@ describe('package version cache invalidation', () => {
       import { getPackageVersions } from ${JSON.stringify(packageVersionsModuleUrl)};
 
       const versions = getPackageVersions();
-      assert.equal(versions.ttscLintPluginWpPackageVersion, "^0.1.1");
+      assert.equal(versions.ttscLintPluginWpPackageVersion, "^0.2.0");
       assert.equal(versions.ttscLintPluginWpTtscPeerRange, ">=0.23.0 <0.26.0");
     `;
     const bunBinary =

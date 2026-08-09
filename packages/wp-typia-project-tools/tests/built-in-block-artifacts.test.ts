@@ -600,7 +600,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
 > = {
   basic: {
     'src/block-metadata.ts': '50956333a97a824a',
-    'src/edit.tsx': '74ff8f4d6fc9e8ac',
+    'src/edit.tsx': '85f8f14eae17c5b7',
     'src/editor.scss': 'd0287f8349249da4',
     'src/hooks.ts': 'e95dea31e16a6ec7',
     'src/index.tsx': '0acf1831bfb24ac1',

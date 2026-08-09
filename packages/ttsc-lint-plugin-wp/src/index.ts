@@ -8,6 +8,13 @@ import type { I18nTextDomainOptions, NoUnsafeWpApisOptions } from './types.js';
 
 declare module '@ttsc/lint' {
   interface ITtscLintContributorRules {
+    'wordpress/i18n-ellipsis'?: TtscLintRuleSetting;
+    'wordpress/i18n-hyphenated-range'?: TtscLintRuleSetting;
+    'wordpress/i18n-no-collapsible-whitespace'?: TtscLintRuleSetting;
+    'wordpress/i18n-no-flanking-whitespace'?: TtscLintRuleSetting;
+    'wordpress/i18n-no-placeholders-only'?: TtscLintRuleSetting;
+    'wordpress/i18n-no-variables'?: TtscLintRuleSetting;
+    'wordpress/i18n-translator-comments'?: TtscLintRuleSetting;
     'wordpress/valid-sprintf'?: TtscLintRuleSetting;
   }
 

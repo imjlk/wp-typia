@@ -64,9 +64,16 @@ available lint and format fixes. Upstream does not currently expose a lint-only
 CLI, so replacing the `wp-scripts lint-js` command itself remains a later
 compatibility layer.
 
-## Rules in 0.1.0
+## Native rules
 
+- `wordpress/i18n-ellipsis`
+- `wordpress/i18n-hyphenated-range`
+- `wordpress/i18n-no-collapsible-whitespace`
+- `wordpress/i18n-no-flanking-whitespace`
+- `wordpress/i18n-no-placeholders-only`
+- `wordpress/i18n-no-variables`
 - `wordpress/i18n-text-domain`
+- `wordpress/i18n-translator-comments`
 - `wordpress/no-unsafe-wp-apis`
 - `wordpress/valid-sprintf`
 
@@ -77,9 +84,11 @@ unstable or experimental named imports allowed from that package.
 ## Presets and compatibility
 
 The exported `configs.custom`, `configs.i18n`, and `configs.recommended`
-objects enable the native rules currently implemented by this package. They
-are intentionally partial in 0.1.0; `presetCompatibility` labels that status
-explicitly rather than silently claiming complete WordPress coverage.
+objects enable the native rules currently implemented by this package.
+`configs.i18n` has full parity with the WordPress-owned rules in the upstream
+`i18n` preset. The broader `custom` and `recommended` presets remain partial;
+`presetCompatibility` labels each status explicitly rather than silently
+claiming complete WordPress coverage.
 
 `configs.wpScriptsRecommended` compiles the supported portion of the full
 upstream `recommended` entry chain. It is also marked partial until every
@@ -103,7 +112,10 @@ import { compatibilityManifest } from '@wp-typia/ttsc-lint-plugin-wp';
 The manifest pins the upstream package version and npm integrity. Parity tests
 download that exact tarball, verify its SHA-512 integrity, run the real ESLint
 rules as the oracle, and compare their diagnostics with a linked `ttsc`
-contributor host.
+contributor host. Unsafe upstream fix behavior is intentionally not reproduced:
+native fixes preserve template delimiters, non-range hyphens, concatenation
+separators, and quote escaping. Dedicated regressions pin those safety
+guarantees.
 
 ## Contributor boundary
 

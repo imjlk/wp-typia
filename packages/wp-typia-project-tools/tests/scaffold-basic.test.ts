@@ -13,6 +13,7 @@ import {
 } from './helpers/scaffold-test-harness.js';
 import { scaffoldProject } from '../src/runtime/index.js';
 import { applyMigrationUiCapability } from '../src/runtime/migration-ui-capability.js';
+import { getPackageVersions } from '../src/runtime/shared/package-versions.js';
 
 const GENERATED_INTERACTIVITY_TYPECHECK_TIMEOUT_MS = 300_000;
 
@@ -140,7 +141,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(packageJson.devDependencies.prettier).toBe('3.8.2');
       expect(
         packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
-      ).toBe('^0.1.1');
+      ).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
       expect(
         packageJson.devDependencies['@wp-typia/project-tools'],
       ).toBeUndefined();
@@ -196,7 +197,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedEdit).toContain('TextControl');
       expect(generatedEdit).toContain("label={__('Content'");
       expect(generatedEdit).toContain("'Mirrors the main block content.'");
-      expect(generatedEdit).toContain("placeholder={__('Add your content...'");
+      expect(generatedEdit).toContain("placeholder={__('Add your content…'");
       expect(generatedEdit).toContain('@wp-typia/block-runtime/inspector');
       expect(generatedEdit).not.toContain(
         '@wp-typia/project-tools/schema-core',

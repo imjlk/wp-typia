@@ -18,14 +18,28 @@ export const configs = {
   i18n: {
     plugins,
     rules: {
+      'wordpress/i18n-ellipsis': 'error',
+      'wordpress/i18n-hyphenated-range': 'error',
+      'wordpress/i18n-no-collapsible-whitespace': 'error',
+      'wordpress/i18n-no-flanking-whitespace': 'error',
+      'wordpress/i18n-no-placeholders-only': 'error',
+      'wordpress/i18n-no-variables': 'error',
       'wordpress/i18n-text-domain': 'error',
+      'wordpress/i18n-translator-comments': 'error',
       'wordpress/valid-sprintf': 'error',
     },
   },
   recommended: {
     plugins,
     rules: {
+      'wordpress/i18n-ellipsis': 'error',
+      'wordpress/i18n-hyphenated-range': 'error',
+      'wordpress/i18n-no-collapsible-whitespace': 'error',
+      'wordpress/i18n-no-flanking-whitespace': 'error',
+      'wordpress/i18n-no-placeholders-only': 'error',
+      'wordpress/i18n-no-variables': 'error',
       'wordpress/i18n-text-domain': 'error',
+      'wordpress/i18n-translator-comments': 'error',
       'wordpress/no-unsafe-wp-apis': 'error',
       'wordpress/valid-sprintf': 'error',
     },
@@ -45,7 +59,7 @@ export const presetCompatibility = {
     upstream: '@wordpress/eslint-plugin/custom',
   },
   i18n: {
-    coverage: 'partial',
+    coverage: 'full',
     upstream: '@wordpress/eslint-plugin/i18n',
   },
   recommended: {

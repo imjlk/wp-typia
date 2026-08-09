@@ -43,7 +43,14 @@ describe('compiled WordPress presets', () => {
       target: 'jsx-a11y/interactive-supports-focus',
     });
     expect(rules['typescript/method-signature-style']).toBe('error');
+    expect(rules['wordpress/i18n-ellipsis']).toBe('error');
+    expect(rules['wordpress/i18n-hyphenated-range']).toBe('error');
+    expect(rules['wordpress/i18n-no-collapsible-whitespace']).toBe('error');
+    expect(rules['wordpress/i18n-no-flanking-whitespace']).toBe('error');
+    expect(rules['wordpress/i18n-no-placeholders-only']).toBe('error');
+    expect(rules['wordpress/i18n-no-variables']).toBe('error');
     expect(rules['wordpress/i18n-text-domain']).toBe('error');
+    expect(rules['wordpress/i18n-translator-comments']).toBe('error');
     expect(rules['wordpress/no-unsafe-wp-apis']).toBe('error');
     expect(rules['wordpress/valid-sprintf']).toBe('error');
     expect(rules['prettier/prettier']).toBeUndefined();
