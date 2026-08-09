@@ -846,6 +846,8 @@ describe('wp-typia init', () => {
 			'yarn run ttsc --noEmit',
 			'ttsc --noEmit --listFilesOnly',
 			'ttsc --noEmit --showConfig',
+			'ttsc --noEmit --watch',
+			'ttsc --noEmit -w',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
 		]) {
@@ -1050,14 +1052,71 @@ describe('wp-typia init', () => {
 			expect.objectContaining({
 				name: 'postinstall',
 				requiredValue:
-					'node scripts/apply-ttsc-lint-compat.mjs && echo setup # keep this',
+					'echo setup && node scripts/apply-ttsc-lint-compat.mjs # keep this',
+			}),
+		);
+		const fallbackPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall: 'cleanup || true # optional',
+				},
+			},
+			'npm',
+		);
+		expect(fallbackPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'cleanup || true && node scripts/apply-ttsc-lint-compat.mjs # optional',
 			}),
 		);
 
 		for (const [currentValue, requiredValue] of [
 			[
 				'echo setup;# keep this',
-				'node scripts/apply-ttsc-lint-compat.mjs && echo setup;# keep this',
+				'echo setup && node scripts/apply-ttsc-lint-compat.mjs # keep this',
+			],
+			[
+				'echo setup && # keep this',
+				'echo setup && node scripts/apply-ttsc-lint-compat.mjs # keep this',
+			],
+			[
+				'node scripts/server.js & # start server',
+				'node scripts/server.js & node scripts/apply-ttsc-lint-compat.mjs # start server',
+			],
+			[
+				'echo test \\& # literal ampersand',
+				'echo test \\& && node scripts/apply-ttsc-lint-compat.mjs # literal ampersand',
+			],
+			[
+				'echo test \\| # literal pipe',
+				'echo test \\| && node scripts/apply-ttsc-lint-compat.mjs # literal pipe',
+			],
+			[
+				'echo test \\; # literal separator',
+				'echo test \\; && node scripts/apply-ttsc-lint-compat.mjs # literal separator',
+			],
+			[
+				'echo test \\|| # literal pipe and dangling pipe',
+				'echo test \\| && node scripts/apply-ttsc-lint-compat.mjs # literal pipe and dangling pipe',
+			],
+			[
+				'echo hi \\ # trailing escape',
+				'echo hi && node scripts/apply-ttsc-lint-compat.mjs # trailing escape',
+			],
+			[
+				'echo hi || \\ # escaped fallback',
+				'echo hi && node scripts/apply-ttsc-lint-compat.mjs # escaped fallback',
+			],
+			[
+				'echo hi | \\ # escaped pipe',
+				'echo hi && node scripts/apply-ttsc-lint-compat.mjs # escaped pipe',
+			],
+			[
+				'echo hi ; \\ # escaped separator',
+				'echo hi && node scripts/apply-ttsc-lint-compat.mjs # escaped separator',
 			],
 			[
 				'# keep this',
@@ -1065,11 +1124,11 @@ describe('wp-typia init', () => {
 			],
 			[
 				'echo "# keep this"',
-				'node scripts/apply-ttsc-lint-compat.mjs && echo "# keep this"',
+				'echo "# keep this" && node scripts/apply-ttsc-lint-compat.mjs',
 			],
 			[
 				"echo \"$(printf '%s' '# keep this')\"",
-				"node scripts/apply-ttsc-lint-compat.mjs && echo \"$(printf '%s' '# keep this')\"",
+				"echo \"$(printf '%s' '# keep this')\" && node scripts/apply-ttsc-lint-compat.mjs",
 			],
 		] as const) {
 			const changes = buildOfficialWorkspaceLintScriptChanges(
@@ -1429,6 +1488,26 @@ function disable() {
   wp.configs.recommended.plugins = {};
 }
 disable();
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+(function () {
+  wp.configs.recommended.plugins = {};
+})();
 module.exports = {
   ...wp.configs.recommended,
   rules: {
@@ -1895,6 +1974,25 @@ module.exports = {
 };
 const exported = module.exports;
 exported.plugins = {};
+`,
+				'fixture-domain',
+				'lint.config.cjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wpConfigs.recommended,
+  rules: {
+    ...wpConfigs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+Object.defineProperty(module.exports, 'plugins', { value: {} });
 `,
 				'fixture-domain',
 				'lint.config.cjs',

@@ -120,15 +120,26 @@ function statementDetachesCommonJsBinding(
   });
 }
 
+function isWrapperExpression(
+  node: ts.Node,
+): node is
+  | ts.AsExpression
+  | ts.NonNullExpression
+  | ts.ParenthesizedExpression
+  | ts.SatisfiesExpression
+  | ts.TypeAssertion {
+  return (
+    ts.isAsExpression(node) ||
+    ts.isNonNullExpression(node) ||
+    ts.isParenthesizedExpression(node) ||
+    ts.isSatisfiesExpression(node) ||
+    ts.isTypeAssertionExpression(node)
+  );
+}
+
 function unwrapExpression(expression: ts.Expression): ts.Expression {
   let current = expression;
-  while (
-    ts.isAsExpression(current) ||
-    ts.isNonNullExpression(current) ||
-    ts.isParenthesizedExpression(current) ||
-    ts.isSatisfiesExpression(current) ||
-    ts.isTypeAssertionExpression(current)
-  ) {
+  while (isWrapperExpression(current)) {
     current = current.expression;
   }
   return current;
@@ -326,10 +337,19 @@ function isWordPressConfigPath(
 }
 
 function isDeferredScope(node: ts.Node): boolean {
+  if (ts.isFunctionExpression(node) || ts.isArrowFunction(node)) {
+    let parent = node.parent;
+    while (parent && isWrapperExpression(parent)) {
+      parent = parent.parent;
+    }
+    return !(
+      parent &&
+      (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+      unwrapExpression(parent.expression) === node
+    );
+  }
   return (
     ts.isFunctionDeclaration(node) ||
-    ts.isFunctionExpression(node) ||
-    ts.isArrowFunction(node) ||
     ts.isClassDeclaration(node) ||
     ts.isClassExpression(node) ||
     ts.isModuleDeclaration(node)
@@ -386,7 +406,13 @@ function statementMutatesAccessPath(
         (ts.isPropertyAccessExpression(node.expression) ||
           ts.isElementAccessExpression(node.expression)) &&
         expressionHasAccessPathRoot(node.expression.expression, rootPath);
-      if (assignsToIdentifier || callsIdentifierMethod) {
+      const passesAccessToCall = node.arguments.some((argument) =>
+        expressionHasAccessPathRoot(
+          ts.isSpreadElement(argument) ? argument.expression : argument,
+          rootPath,
+        ),
+      );
+      if (assignsToIdentifier || callsIdentifierMethod || passesAccessToCall) {
         mutated = true;
         return;
       }
@@ -1821,8 +1847,10 @@ const TTSC_TERMINAL_OPTIONS = new Set([
   '--listfilesonly',
   '--showconfig',
   '--version',
+  '--watch',
   '-h',
   '-v',
+  '-w',
 ]);
 
 function hasEnabledNoEmitOption(args: readonly string[]): boolean {

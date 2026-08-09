@@ -242,8 +242,8 @@ function mergePostinstallCommand(
       return currentValue;
     }
     // Correctly parsing comments inside command substitutions requires a full
-    // shell parser. Prefix the managed hook whenever `#` appears so no form of
-    // trailing comment can swallow an appended command.
+    // shell parser. Keep comment-only scripts intact after the managed hook;
+    // otherwise insert the hook before the last recognized trailing comment.
     if (currentValue.includes('#')) {
       const containsOnlyComments = currentValue
         .split(/\r?\n/u)
@@ -253,11 +253,121 @@ function mergePostinstallCommand(
         });
       return containsOnlyComments
         ? `${requiredCommand} ${currentValue.trimStart()}`
-        : `${requiredCommand} && ${currentValue}`;
+        : insertCommandBeforeTrailingShellComment(
+            currentValue,
+            requiredCommand,
+          );
     }
     return `${currentValue} && ${requiredCommand}`;
   }
   return requiredCommand;
+}
+
+function getShellCommentIndex(line: string): number | null {
+  let escaped = false;
+  let quote: "'" | '"' | null = null;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line.charAt(index);
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+    } else if (
+      character === '#' &&
+      (index === 0 || /[\s;&|()]/u.test(line[index - 1] ?? ''))
+    ) {
+      return index;
+    }
+  }
+  return null;
+}
+
+function countBackslashesBefore(source: string, index: number): number {
+  let count = 0;
+  for (
+    let cursor = index - 1;
+    source.charAt(cursor) === '\\';
+    cursor -= 1
+  ) {
+    count += 1;
+  }
+  return count;
+}
+
+function stripTrailingIncompleteShellOperators(source: string): string {
+  let result = source.trimEnd();
+  while (result.length > 0) {
+    let operatorLength = 0;
+    if (
+      (result.endsWith('&&') || result.endsWith('||')) &&
+      countBackslashesBefore(result, result.length - 2) % 2 === 0
+    ) {
+      operatorLength = 2;
+    } else if (
+      (result.endsWith('|') || result.endsWith(';')) &&
+      countBackslashesBefore(result, result.length - 1) % 2 === 0
+    ) {
+      operatorLength = 1;
+    }
+    if (operatorLength === 0) {
+      return result;
+    }
+    result = result.slice(0, -operatorLength).trimEnd();
+  }
+  return result;
+}
+
+function insertCommandBeforeTrailingShellComment(
+  currentValue: string,
+  requiredCommand: string,
+): string {
+  const lines = currentValue.split(/(\r?\n)/u);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index] ?? '';
+    if (/^\r?\n$/u.test(line)) {
+      continue;
+    }
+    const commentIndex = getShellCommentIndex(line);
+    let commandSource = stripTrailingIncompleteShellOperators(
+      commentIndex === null ? line : line.slice(0, commentIndex),
+    );
+    const trailingBackslashCount = countBackslashesBefore(
+      commandSource,
+      commandSource.length,
+    );
+    if (trailingBackslashCount % 2 === 1) {
+      commandSource = stripTrailingIncompleteShellOperators(
+        commandSource.slice(0, -1),
+      );
+    }
+    if (commandSource.length === 0) {
+      continue;
+    }
+    const commentSource =
+      commentIndex === null ? '' : line.slice(commentIndex);
+    const endsWithBackgroundOperator =
+      commandSource.endsWith('&') &&
+      countBackslashesBefore(commandSource, commandSource.length - 1) % 2 ===
+        0;
+    const separator = endsWithBackgroundOperator ? ' ' : ' && ';
+    lines[index] = `${commandSource}${separator}${requiredCommand}${
+      commentSource ? ` ${commentSource}` : ''
+    }`;
+    return lines.join('');
+  }
+  return `${requiredCommand} ${currentValue.trimStart()}`;
 }
 
 export function buildScriptChanges(

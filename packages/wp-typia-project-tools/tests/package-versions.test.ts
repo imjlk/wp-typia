@@ -127,6 +127,74 @@ describe('package version cache invalidation', () => {
     expect(result.stderr).toBe('');
   });
 
+  test('does not adopt a target-owned legacy lint contributor contract', () => {
+    const targetRoot = path.join(tempRoot, 'legacy-lint-target');
+    const projectToolsRoot = path.join(
+      targetRoot,
+      'node_modules',
+      '@wp-typia',
+      'project-tools',
+    );
+    const contributorRoot = path.join(
+      targetRoot,
+      'node_modules',
+      '@wp-typia',
+      'ttsc-lint-plugin-wp',
+    );
+    fs.mkdirSync(projectToolsRoot, { recursive: true });
+    fs.mkdirSync(contributorRoot, { recursive: true });
+    writeProjectToolsManifest(projectToolsRoot, {
+      apiClientVersion: '^0.4.0',
+      projectToolsVersion: '1.2.3',
+    });
+    fs.writeFileSync(
+      path.join(contributorRoot, 'package.json'),
+      `${JSON.stringify(
+        {
+          name: '@wp-typia/ttsc-lint-plugin-wp',
+          peerDependencies: { ttsc: '>=0.23.0 <0.24.0' },
+          version: '0.1.0',
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const packageVersionsModuleUrl = pathToFileURL(
+      path.join(import.meta.dir, '..', 'src', 'runtime', 'package-versions.ts'),
+    ).href;
+    const script = `
+      import assert from "node:assert/strict";
+      import { getPackageVersions } from ${JSON.stringify(packageVersionsModuleUrl)};
+
+      const versions = getPackageVersions();
+      assert.equal(versions.ttscLintPluginWpPackageVersion, "^0.1.1");
+      assert.equal(versions.ttscLintPluginWpTtscPeerRange, ">=0.23.0 <0.26.0");
+    `;
+    const bunBinary =
+      process.env.BUN_BINARY ??
+      ('Bun' in globalThis ? process.execPath : 'bun');
+    const result = spawnSync(bunBinary, ['--eval', script], {
+      cwd: targetRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WP_TYPIA_PROJECT_TOOLS_PACKAGE_ROOT: projectToolsRoot,
+      },
+    });
+
+    if (result.status !== 0) {
+      throw new Error(
+        `legacy contributor isolation script failed (status=${
+          result.status
+        }, error=${result.error?.message ?? 'none'}):\n${result.stderr}`,
+      );
+    }
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toBe('');
+  });
+
   test('reads package manifest metadata and contents through one file descriptor', () => {
     const packageVersionsSource = fs.readFileSync(
       path.join(
