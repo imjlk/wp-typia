@@ -36,8 +36,27 @@ const fixtureSource = fs.readFileSync(
 const upstreamRoot = await prepareUpstreamPackage();
 const require = createRequire(import.meta.url);
 const upstreamRules = {
+  'i18n-ellipsis': require(path.join(upstreamRoot, 'rules/i18n-ellipsis.js')),
+  'i18n-hyphenated-range': require(
+    path.join(upstreamRoot, 'rules/i18n-hyphenated-range.js'),
+  ),
+  'i18n-no-collapsible-whitespace': require(
+    path.join(upstreamRoot, 'rules/i18n-no-collapsible-whitespace.js'),
+  ),
+  'i18n-no-flanking-whitespace': require(
+    path.join(upstreamRoot, 'rules/i18n-no-flanking-whitespace.js'),
+  ),
+  'i18n-no-placeholders-only': require(
+    path.join(upstreamRoot, 'rules/i18n-no-placeholders-only.js'),
+  ),
+  'i18n-no-variables': require(
+    path.join(upstreamRoot, 'rules/i18n-no-variables.js'),
+  ),
   'i18n-text-domain': require(
     path.join(upstreamRoot, 'rules/i18n-text-domain.js'),
+  ),
+  'i18n-translator-comments': require(
+    path.join(upstreamRoot, 'rules/i18n-translator-comments.js'),
   ),
   'no-unsafe-wp-apis': require(
     path.join(upstreamRoot, 'rules/no-unsafe-wp-apis.js'),
@@ -124,6 +143,7 @@ assert.equal(
   expectedFixedSource,
   `${ttscFixResult.stdout}${ttscFixResult.stderr}`,
 );
+verifySafeI18nFixes(fixtureRoot, ttscBinary, ttscEnv);
 verifyInvalidOptionsFailClosed(fixtureRoot, ttscBinary, ttscEnv);
 console.log(
   `Matched ${actual.length} diagnostics and autofixes against @wordpress/eslint-plugin ${UPSTREAM_VERSION} from a packed, unpatched ttsc ${TTSC_CONSUMER_VERSION} registry install.`,
@@ -143,10 +163,17 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress': { rules: upstreamRules },
       },
       rules: {
+        '@wordpress/i18n-ellipsis': 'error',
+        '@wordpress/i18n-hyphenated-range': 'error',
+        '@wordpress/i18n-no-collapsible-whitespace': 'error',
+        '@wordpress/i18n-no-flanking-whitespace': 'error',
+        '@wordpress/i18n-no-placeholders-only': 'error',
+        '@wordpress/i18n-no-variables': 'error',
         '@wordpress/i18n-text-domain': [
           'error',
           { allowedTextDomain: 'my-plugin' },
         ],
+        '@wordpress/i18n-translator-comments': 'error',
         '@wordpress/no-unsafe-wp-apis': [
           'error',
           { '@wordpress/components': ['__unstableAllowed'] },
@@ -267,10 +294,17 @@ function prepareConsumerProject(): {
 export default {
   plugins: { wordpress: plugin },
   rules: {
+    'wordpress/i18n-ellipsis': 'error',
+    'wordpress/i18n-hyphenated-range': 'error',
+    'wordpress/i18n-no-collapsible-whitespace': 'error',
+    'wordpress/i18n-no-flanking-whitespace': 'error',
+    'wordpress/i18n-no-placeholders-only': 'error',
+    'wordpress/i18n-no-variables': 'error',
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'my-plugin' },
     ],
+    'wordpress/i18n-translator-comments': 'error',
     'wordpress/no-unsafe-wp-apis': [
       'error',
       { '@wordpress/components': ['__unstableAllowed'] },
@@ -281,6 +315,74 @@ export default {
 `,
   );
   return { consumerRoot, fixtureRoot };
+}
+
+function verifySafeI18nFixes(
+  fixtureRoot: string,
+  ttscBinary: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const source = `const value = 'two';
+const __ = (text = '') => text;
+__(\`Choose 2-4 items\`);
+__(\`Choose \${value} from 2-4 items\`);
+__('State-of-the-art pages 1-5 and 10-15');
+__('1' + '-2');
+__(' hello ' + 'world ');
+__(" It's okay ");
+`;
+  const expected = `const value = 'two';
+const __ = (text = '') => text;
+__(\`Choose 2–4 items\`);
+__(\`Choose \${value} from 2–4 items\`);
+__('State-of-the-art pages 1–5 and 10–15');
+__('1' + '-2');
+__('hello ' + 'world');
+__('It\\'s okay');
+`;
+  const fixturePath = path.join(fixtureRoot, 'fixture.ts');
+  const configPath = path.join(fixtureRoot, 'lint.config.mjs');
+  const savedConfig = fs.readFileSync(configPath, 'utf8');
+  try {
+    fs.writeFileSync(fixturePath, source);
+    fs.writeFileSync(
+      configPath,
+      `import plugin from '@wp-typia/ttsc-lint-plugin-wp';
+
+export default {
+  plugins: { wordpress: plugin },
+  rules: {
+    'wordpress/i18n-hyphenated-range': 'error',
+    'wordpress/i18n-no-flanking-whitespace': 'error',
+  },
+};
+`,
+    );
+    const result = spawnSync(
+      ttscBinary,
+      ['fix', '--pretty', 'false', '--project', 'tsconfig.json'],
+      {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env,
+        timeout: TTSC_PROCESS_TIMEOUT_MS,
+      },
+    );
+    assert.ifError(result.error);
+    assert.notEqual(result.status, 0, 'cross-boundary ranges are not fixable');
+    assert.match(
+      `${result.stdout}${result.stderr}`,
+      /\[wordpress\/i18n-hyphenated-range\]/u,
+    );
+    assert.equal(
+      fs.readFileSync(fixturePath, 'utf8'),
+      expected,
+      'safe fixes must preserve template boundaries, non-range hyphens, join spacing, and quotes',
+    );
+  } finally {
+    fs.writeFileSync(fixturePath, fixtureSource);
+    fs.writeFileSync(configPath, savedConfig);
+  }
 }
 
 async function prepareUpstreamPackage(): Promise<string> {

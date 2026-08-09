@@ -17,11 +17,20 @@ const UPSTREAM_INTEGRITY =
   'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==';
 const TTSC_BASELINE = '0.23.0';
 const TTSC_NEXT_UNSUPPORTED = '0.26.0';
-const IMPLEMENTED_RULES = new Map([
-  ['@wordpress/i18n-text-domain', 'wordpress/i18n-text-domain'],
-  ['@wordpress/no-unsafe-wp-apis', 'wordpress/no-unsafe-wp-apis'],
-  ['@wordpress/valid-sprintf', 'wordpress/valid-sprintf'],
-]);
+const IMPLEMENTED_RULES = new Map<string, string>();
+const registerImplementedRule = (name: string): void => {
+  IMPLEMENTED_RULES.set(`@wordpress/${name}`, `wordpress/${name}`);
+};
+registerImplementedRule('i18n-ellipsis');
+registerImplementedRule('i18n-hyphenated-range');
+registerImplementedRule('i18n-no-collapsible-whitespace');
+registerImplementedRule('i18n-no-flanking-whitespace');
+registerImplementedRule('i18n-no-placeholders-only');
+registerImplementedRule('i18n-no-variables');
+registerImplementedRule('i18n-text-domain');
+registerImplementedRule('i18n-translator-comments');
+registerImplementedRule('no-unsafe-wp-apis');
+registerImplementedRule('valid-sprintf');
 // These @ttsc/lint implementations accept only a severity. Upstream option
 // payloads are removed explicitly and recorded in optionDowngrades.
 const SEVERITY_ONLY_TRANSLATIONS = new Set([

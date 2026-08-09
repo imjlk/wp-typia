@@ -25,28 +25,34 @@
       "source": "@wordpress/dependency-group"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-ellipsis"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-ellipsis",
+      "target": "wordpress/i18n-ellipsis"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-hyphenated-range"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-hyphenated-range",
+      "target": "wordpress/i18n-hyphenated-range"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-collapsible-whitespace"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-collapsible-whitespace",
+      "target": "wordpress/i18n-no-collapsible-whitespace"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-flanking-whitespace"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-flanking-whitespace",
+      "target": "wordpress/i18n-no-flanking-whitespace"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-placeholders-only"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-placeholders-only",
+      "target": "wordpress/i18n-no-placeholders-only"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-variables"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-variables",
+      "target": "wordpress/i18n-no-variables"
     },
     {
       "kind": "contributor",
@@ -54,8 +60,9 @@
       "target": "wordpress/i18n-text-domain"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-translator-comments"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-translator-comments",
+      "target": "wordpress/i18n-translator-comments"
     },
     {
       "kind": "unsupported",
@@ -2260,28 +2267,34 @@
       "source": "@typescript-eslint/type-annotation-spacing"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-ellipsis"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-ellipsis",
+      "target": "wordpress/i18n-ellipsis"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-hyphenated-range"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-hyphenated-range",
+      "target": "wordpress/i18n-hyphenated-range"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-collapsible-whitespace"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-collapsible-whitespace",
+      "target": "wordpress/i18n-no-collapsible-whitespace"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-flanking-whitespace"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-flanking-whitespace",
+      "target": "wordpress/i18n-no-flanking-whitespace"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-placeholders-only"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-placeholders-only",
+      "target": "wordpress/i18n-no-placeholders-only"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-no-variables"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-no-variables",
+      "target": "wordpress/i18n-no-variables"
     },
     {
       "kind": "contributor",
@@ -2289,8 +2302,9 @@
       "target": "wordpress/i18n-text-domain"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/i18n-translator-comments"
+      "kind": "contributor",
+      "source": "@wordpress/i18n-translator-comments",
+      "target": "wordpress/i18n-translator-comments"
     },
     {
       "kind": "unsupported",
@@ -4143,7 +4157,14 @@
                 "destructuring": "all"
               }
             ],
+            "wordpress/i18n-ellipsis": "error",
+            "wordpress/i18n-hyphenated-range": "error",
+            "wordpress/i18n-no-collapsible-whitespace": "error",
+            "wordpress/i18n-no-flanking-whitespace": "error",
+            "wordpress/i18n-no-placeholders-only": "error",
+            "wordpress/i18n-no-variables": "error",
             "wordpress/i18n-text-domain": "error",
+            "wordpress/i18n-translator-comments": "error",
             "wordpress/valid-sprintf": "error",
             "unicorn/empty-brace-spaces": "off",
             "unicorn/no-nested-ternary": "off",
@@ -4257,7 +4278,14 @@
       "sourceEntryCount": 17,
       "supportedRules": [
         "@typescript-eslint/method-signature-style",
+        "@wordpress/i18n-ellipsis",
+        "@wordpress/i18n-hyphenated-range",
+        "@wordpress/i18n-no-collapsible-whitespace",
+        "@wordpress/i18n-no-flanking-whitespace",
+        "@wordpress/i18n-no-placeholders-only",
+        "@wordpress/i18n-no-variables",
         "@wordpress/i18n-text-domain",
+        "@wordpress/i18n-translator-comments",
         "@wordpress/no-unsafe-wp-apis",
         "@wordpress/valid-sprintf",
         "camelcase",
@@ -4355,13 +4383,6 @@
       "unsupportedRules": [
         "@typescript-eslint/no-shadow",
         "@typescript-eslint/no-unused-vars",
-        "@wordpress/i18n-ellipsis",
-        "@wordpress/i18n-hyphenated-range",
-        "@wordpress/i18n-no-collapsible-whitespace",
-        "@wordpress/i18n-no-flanking-whitespace",
-        "@wordpress/i18n-no-placeholders-only",
-        "@wordpress/i18n-no-variables",
-        "@wordpress/i18n-translator-comments",
         "@wordpress/no-base-control-with-label-without-id",
         "@wordpress/no-global-active-element",
         "@wordpress/no-global-get-selection",

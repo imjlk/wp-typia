@@ -34,7 +34,7 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
     expect(fs.existsSync(`${plugin.source}/go.mod`)).toBe(false);
   });
 
-  test('keeps partial preset coverage explicit', () => {
+  test('keeps preset coverage explicit', () => {
     expect(Object.keys(configs)).toEqual([
       'custom',
       'i18n',
@@ -47,7 +47,7 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
         upstream: '@wordpress/eslint-plugin/custom',
       },
       {
-        coverage: 'partial',
+        coverage: 'full',
         upstream: '@wordpress/eslint-plugin/i18n',
       },
       {
@@ -76,13 +76,13 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
       compatibilityManifest.wordpressRules.filter(
         ({ kind }) => kind === 'contributor',
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(10);
     expect(
       compatibilityManifest.compiledPresets.recommended.supportedRules,
-    ).toHaveLength(95);
+    ).toHaveLength(102);
     expect(
       compatibilityManifest.compiledPresets.recommended.unsupportedRules,
-    ).toHaveLength(103);
+    ).toHaveLength(96);
     expect(
       compatibilityManifest.compiledPresets.recommended.optionDowngrades,
     ).toHaveLength(11);
@@ -95,6 +95,7 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
 const typedConfig = {
   plugins: { wordpress: plugin },
   rules: {
+    'wordpress/i18n-ellipsis': 'error',
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: ['my-plugin'] },
@@ -122,3 +123,12 @@ const invalidTextDomainConfig = {
 } satisfies ITtscLintConfig;
 
 void invalidTextDomainConfig;
+
+const invalidOptionlessConfig = {
+  rules: {
+    // @ts-expect-error -- optionless contributor rules reject payloads.
+    'wordpress/i18n-ellipsis': ['error', { replacement: '...' }],
+  },
+} satisfies ITtscLintConfig;
+
+void invalidOptionlessConfig;

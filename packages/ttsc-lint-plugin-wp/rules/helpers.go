@@ -7,9 +7,12 @@ package wordpress
 
 import (
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+	"github.com/samchon/ttsc/packages/lint/rule"
 )
 
 func identifierText(node *shimast.Node) string {
@@ -71,6 +74,50 @@ func translationArgumentIndexes(name string) []int {
 	}
 }
 
+func translationCandidateArgumentIndexes(
+	name string,
+	includeContext bool,
+) []int {
+	switch name {
+	case "__":
+		return []int{0}
+	case "_x":
+		if includeContext {
+			return []int{0, 1}
+		}
+		return []int{0}
+	case "_n":
+		return []int{0, 1}
+	case "_nx":
+		if includeContext {
+			return []int{0, 1, 3}
+		}
+		return []int{0, 1}
+	default:
+		return nil
+	}
+}
+
+func translationCandidateArguments(
+	call *shimast.CallExpression,
+	includeContext bool,
+) []*shimast.Node {
+	if call == nil || call.Arguments == nil {
+		return nil
+	}
+	indexes := translationCandidateArgumentIndexes(
+		calleeName(call.Expression),
+		includeContext,
+	)
+	arguments := make([]*shimast.Node, 0, len(indexes))
+	for _, index := range indexes {
+		if index < len(call.Arguments.Nodes) {
+			arguments = append(arguments, call.Arguments.Nodes[index])
+		}
+	}
+	return arguments
+}
+
 func textDomainArgumentIndex(name string) int {
 	// Keep this list aligned with upstream TRANSLATION_FUNCTIONS rather than the
 	// wider set of functions exported by @wordpress/i18n.
@@ -101,6 +148,22 @@ func sourceNodeText(file *shimast.SourceFile, node *shimast.Node) string {
 	return strings.TrimSpace(source[start:end])
 }
 
+func sourceNodeRange(
+	file *shimast.SourceFile,
+	node *shimast.Node,
+) (int, int, bool) {
+	if file == nil || node == nil {
+		return 0, 0, false
+	}
+	source := file.Text()
+	start := shimscanner.SkipTrivia(source, node.Pos())
+	end := node.End()
+	if start < 0 || end > len(source) || start >= end {
+		return 0, 0, false
+	}
+	return start, end, true
+}
+
 func stringLiteralContentRange(
 	file *shimast.SourceFile,
 	node *shimast.Node,
@@ -129,4 +192,128 @@ func singleQuoted(value string) string {
 		"\n", "\\n",
 	)
 	return "'" + replacer.Replace(value) + "'"
+}
+
+func translationStaticNodes(node *shimast.Node) []*shimast.Node {
+	if node == nil {
+		return nil
+	}
+	switch node.Kind {
+	case shimast.KindStringLiteral,
+		shimast.KindNoSubstitutionTemplateLiteral:
+		return []*shimast.Node{node}
+	case shimast.KindBinaryExpression:
+		binary := node.AsBinaryExpression()
+		if binary == nil || binary.OperatorToken == nil ||
+			binary.OperatorToken.Kind != shimast.KindPlusToken {
+			return nil
+		}
+		return append(
+			translationStaticNodes(binary.Left),
+			translationStaticNodes(binary.Right)...,
+		)
+	case shimast.KindTemplateExpression:
+		template := node.AsTemplateExpression()
+		if template == nil || template.Head == nil ||
+			template.TemplateSpans == nil {
+			return nil
+		}
+		parts := []*shimast.Node{template.Head}
+		for _, spanNode := range template.TemplateSpans.Nodes {
+			span := spanNode.AsTemplateSpan()
+			if span != nil && span.Literal != nil {
+				parts = append(parts, span.Literal)
+			}
+		}
+		return parts
+	default:
+		return nil
+	}
+}
+
+func translationStaticReplacementEdits(
+	file *shimast.SourceFile,
+	node *shimast.Node,
+	rewrite func(string) string,
+) []rule.TextEdit {
+	if file == nil {
+		return nil
+	}
+	source := file.Text()
+	edits := make([]rule.TextEdit, 0)
+	for _, part := range translationStaticNodes(node) {
+		start, end, ok := sourceNodeRange(file, part)
+		if !ok {
+			continue
+		}
+		original := source[start:end]
+		replacement := rewrite(original)
+		if replacement != original {
+			edits = append(edits, rule.TextEdit{
+				Pos: start, End: end, Text: replacement,
+			})
+		}
+	}
+	return edits
+}
+
+func isAcceptableTranslationLiteral(node *shimast.Node) bool {
+	if node == nil {
+		return false
+	}
+	switch node.Kind {
+	case shimast.KindStringLiteral,
+		shimast.KindNumericLiteral,
+		shimast.KindBigIntLiteral,
+		shimast.KindRegularExpressionLiteral,
+		shimast.KindTrueKeyword,
+		shimast.KindFalseKeyword,
+		shimast.KindNullKeyword,
+		shimast.KindNoSubstitutionTemplateLiteral:
+		return true
+	case shimast.KindBinaryExpression:
+		binary := node.AsBinaryExpression()
+		return binary != nil && binary.OperatorToken != nil &&
+			binary.OperatorToken.Kind == shimast.KindPlusToken &&
+			isAcceptableTranslationLiteral(binary.Left) &&
+			isAcceptableTranslationLiteral(binary.Right)
+	default:
+		return false
+	}
+}
+
+func firstFlankingWhitespace(value string) (rune, bool) {
+	if value == "" {
+		return 0, false
+	}
+	first, _ := utf8.DecodeRuneInString(value)
+	if unicode.IsSpace(first) {
+		return first, true
+	}
+	last, _ := utf8.DecodeLastRuneInString(value)
+	return last, unicode.IsSpace(last)
+}
+
+func collapsibleWhitespaceProblem(value string) (string, bool) {
+	for index := 0; index < len(value); index++ {
+		switch value[index] {
+		case '\t':
+			return "\\t", true
+		case '\n':
+			return "\\n", true
+		case '\r':
+			return "\\r", true
+		case ' ':
+			if index+1 < len(value) && value[index+1] == ' ' {
+				return "consecutive spaces", true
+			}
+		}
+	}
+	return "", false
+}
+
+func removeSprintfPlaceholders(value string) string {
+	const escapedPercentage = "VALID_ESCAPED_PERCENTAGE_SIGN"
+	value = strings.ReplaceAll(value, "%%", escapedPercentage)
+	return sprintfPlaceholderPattern.ReplaceAllString(value, "")
 }

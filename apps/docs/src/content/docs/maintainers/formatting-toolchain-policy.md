@@ -114,13 +114,16 @@ remain under `ttsc`. Generated manifests also declare React 18 and its type
 packages directly so TS7 JSX resolution is reproducible under npm, Bun, pnpm,
 and Yarn rather than depending on transitive hoisting.
 
-Generated lint configs extend the partial WordPress `recommended` preset from
-`@wp-typia/ttsc-lint-plugin-wp`. The `wordpress/i18n-text-domain` rule is bound
-to the scaffold's normalized text domain, while the native
-`wordpress/valid-sprintf` and `wordpress/no-unsafe-wp-apis` rules remain enabled
-through the preset. Existing projects can preview the same dependency, config,
-and script adoption with `wp-typia init`; `wp-typia init --apply` writes it with
-rollback protection and refuses to overwrite a project-owned lint config.
+Generated lint configs extend the supported portion of the WordPress
+`recommended` preset from `@wp-typia/ttsc-lint-plugin-wp`. The complete
+WordPress-owned `i18n` preset is native, including translator comments,
+literal safety, whitespace, punctuation, placeholder, text-domain, and
+`sprintf` checks. The `wordpress/i18n-text-domain` rule is bound to the
+scaffold's normalized text domain, while `wordpress/no-unsafe-wp-apis` remains
+enabled through the broader partial preset. Existing projects can preview the
+same dependency, config, and script adoption with `wp-typia init`;
+`wp-typia init --apply` writes it with rollback protection and refuses to
+overwrite a project-owned lint config.
 
 The TypeScript lane still uses `ttsc --noEmit`, so compiler and lint diagnostics
 remain combined. `lint:js` continues to own only JavaScript/CJS/MJS through the
