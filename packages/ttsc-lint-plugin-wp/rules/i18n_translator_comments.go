@@ -24,10 +24,14 @@ type translatorKey struct {
 	raw       string
 }
 
-var translatorLinePattern = regexp.MustCompile(`(?i)translators:\s*(.*)`)
-var translatorMarkerPattern = regexp.MustCompile(`(?i)translators:\s*\S+`)
+var translatorLinePattern = regexp.MustCompile(
+	`(?i)translators:` + ecmaScriptWhitespaceClass + `*(.*)`,
+)
 var translatorCommentPlaceholderPattern = regexp.MustCompile(
-	`(?:^|[\s,])\s*(%?(?:\([a-zA-Z_][a-zA-Z0-9_]*\)(?:\.\d+|\.\*)?[sdf]|[1-9][0-9]*\$?(?:\.\d+|\.\*)?[sdf]|(?:\.\d+|\.\*)?[sdf]|[1-9][0-9]*|[sdf]|[a-zA-Z_][a-zA-Z0-9_]*))(:[ \t]+)?`,
+	`(?:^|` + ecmaScriptWhitespaceClass + `|,)` +
+		ecmaScriptWhitespaceClass +
+		`*(%?(?:\([a-zA-Z_][a-zA-Z0-9_]*\)(?:\.\d+|\.\*)?[sdf]|[1-9][0-9]*\$?(?:\.\d+|\.\*)?[sdf]|(?:\.\d+|\.\*)?[sdf]|[1-9][0-9]*|[sdf]|[a-zA-Z_][a-zA-Z0-9_]*))(:` +
+		ecmaScriptWhitespaceClass + `+)?`,
 )
 
 func (i18nTranslatorComments) Name() string {
@@ -84,7 +88,7 @@ func (i18nTranslatorComments) Check(
 		if absoluteDifference(commentLine, currentLine) > 1 {
 			break
 		}
-		if !translatorMarkerPattern.MatchString(comment.text) {
+		if !hasTranslatorMarker(comment.text) {
 			continue
 		}
 		keys := extractTranslatorKeys(comment.text)
@@ -112,6 +116,12 @@ func (i18nTranslatorComments) Check(
 		node,
 		"Translation function with placeholders is missing preceding translator comment",
 	)
+}
+
+func hasTranslatorMarker(comment string) bool {
+	line := translatorLinePattern.FindStringSubmatch(comment)
+	return len(line) >= 2 &&
+		strings.TrimFunc(line[1], isECMAScriptWhitespace) != ""
 }
 
 func extractTranslationPlaceholders(value string) []string {
@@ -152,7 +162,7 @@ func extractTranslatorKeys(comment string) []translatorKey {
 		if len(match) < 3 || match[1] == "" {
 			continue
 		}
-		described := strings.TrimSpace(match[2]) == ":"
+		described := strings.TrimFunc(match[2], isECMAScriptWhitespace) == ":"
 		if index, exists := indexByKey[match[1]]; exists {
 			keys[index].described = keys[index].described || described
 			continue

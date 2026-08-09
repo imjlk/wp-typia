@@ -11,7 +11,8 @@ import (
 type i18nHyphenatedRange struct{}
 
 var hyphenatedNumericRangePattern = regexp.MustCompile(
-	`(\d\s+-\s+\d)|(\d-\d)`,
+	`(\d` + ecmaScriptWhitespaceClass + `+-` +
+		ecmaScriptWhitespaceClass + `+\d)|(\d-\d)`,
 )
 
 func (i18nHyphenatedRange) Name() string {

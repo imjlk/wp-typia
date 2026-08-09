@@ -3,7 +3,6 @@ package wordpress
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 	"github.com/samchon/ttsc/packages/lint/rule"
@@ -72,6 +71,18 @@ func flankingWhitespaceEdits(
 	if node == nil {
 		return nil
 	}
+	if node.Kind == shimast.KindParenthesizedExpression {
+		parenthesized := node.AsParenthesizedExpression()
+		if parenthesized == nil {
+			return nil
+		}
+		return flankingWhitespaceEdits(
+			file,
+			parenthesized.Expression,
+			trimLeft,
+			trimRight,
+		)
+	}
 	if node.Kind == shimast.KindBinaryExpression {
 		binary := node.AsBinaryExpression()
 		if binary == nil || binary.OperatorToken == nil ||
@@ -95,10 +106,10 @@ func flankingWhitespaceEdits(
 	}
 	trimmed := value
 	if trimLeft {
-		trimmed = strings.TrimLeftFunc(trimmed, unicode.IsSpace)
+		trimmed = strings.TrimLeftFunc(trimmed, isECMAScriptWhitespace)
 	}
 	if trimRight {
-		trimmed = strings.TrimRightFunc(trimmed, unicode.IsSpace)
+		trimmed = strings.TrimRightFunc(trimmed, isECMAScriptWhitespace)
 	}
 	if trimmed == value {
 		return nil

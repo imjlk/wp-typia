@@ -7,13 +7,27 @@ package wordpress
 
 import (
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	shimast "github.com/microsoft/typescript-go/shim/ast"
 	shimscanner "github.com/microsoft/typescript-go/shim/scanner"
 	"github.com/samchon/ttsc/packages/lint/rule"
 )
+
+// Go regexp's \s is ASCII-only. Keep this class aligned with ECMAScript's
+// WhiteSpace and LineTerminator productions used by the upstream JavaScript
+// regular expressions.
+const ecmaScriptWhitespaceClass = `[\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]`
+
+func isECMAScriptWhitespace(value rune) bool {
+	switch value {
+	case '\t', '\n', '\v', '\f', '\r', ' ', '\u00A0', '\u1680',
+		'\u2028', '\u2029', '\u202F', '\u205F', '\u3000', '\uFEFF':
+		return true
+	default:
+		return value >= '\u2000' && value <= '\u200A'
+	}
+}
 
 func identifierText(node *shimast.Node) string {
 	if node == nil || node.Kind != shimast.KindIdentifier {
@@ -297,11 +311,11 @@ func firstFlankingWhitespace(value string) (rune, bool) {
 		return 0, false
 	}
 	first, _ := utf8.DecodeRuneInString(value)
-	if unicode.IsSpace(first) {
+	if isECMAScriptWhitespace(first) {
 		return first, true
 	}
 	last, _ := utf8.DecodeLastRuneInString(value)
-	return last, unicode.IsSpace(last)
+	return last, isECMAScriptWhitespace(last)
 }
 
 func collapsibleWhitespaceProblem(value string) (string, bool) {

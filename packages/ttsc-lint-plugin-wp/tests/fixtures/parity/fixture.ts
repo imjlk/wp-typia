@@ -23,6 +23,7 @@ const sprintf = (format = '', first = '', second = '') =>
   `${format}${first}${second}`;
 const domain = 'dynamic';
 const message = 'Dynamic message';
+const suffix = 'now';
 const value = 'value';
 
 __('Wrong domain', 'wrong');
@@ -55,11 +56,16 @@ sprintf(__(`\u0025s`, 'my-plugin'), value);
 __('Escaped percentage: %%%s', 'my-plugin');
 __('Please wait...', 'my-plugin');
 __('Binary ' + 'wait...', 'my-plugin');
+__('Please wait...' + suffix, 'my-plugin');
+__('Wait\u002e\u002e\u002e', 'my-plugin');
 __('Choose 1-3 items', 'my-plugin');
+__('Choose 1 - 3 items', 'my-plugin');
+__('Choose 1\u002d3 items', 'my-plugin');
 __('Do not  collapse this', 'my-plugin');
 __(`Line one
 line two`, 'my-plugin');
 __(' Trim this', 'my-plugin');
+__((' Grouped whitespace '), 'my-plugin');
 __(` Template whitespace `, 'my-plugin');
 __('%s', 'my-plugin');
 __(message, 'my-plugin');
@@ -74,6 +80,13 @@ __('Address: %s', 'my-plugin');
 __('City: %s', 'my-plugin');
 // translators: %s: Preference
 sprintf(__('Preference: %s', 'my-plugin'), value);
+// translators: %s: Wrapped label
+sprintf(
+  __('Wrapped label: %s', 'my-plugin'),
+  value,
+);
+// translators: %s: Non-breaking space label
+__('Non-breaking space label: %s', 'my-plugin');
 // translators: city: City
 __('City: %(city)s', 'my-plugin');
 // translators: 1: Address, 2: City
