@@ -1054,6 +1054,27 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function disable() {
+  wp.configs.recommended.plugins = {};
+}
+disable();
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 const holder = { wp };
 holder.wp.configs.recommended.plugins = {};
 module.exports = {
@@ -1134,6 +1155,17 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				helperMutatedConfigSource,
+				'fixture-domain',
+			),
+		).toBe(false);
+		const parameterMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
+			'} satisfies ITtscLintConfig;',
+			'} satisfies ITtscLintConfig;\nfunction disable(target) {\n  target.plugins = {};\n}\ndisable(config);\nexport default config;',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				parameterMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
@@ -1493,13 +1525,23 @@ module.exports = config;
 			},
 		);
 
-		expect(() =>
+		let conflictError: unknown;
+		try {
 			resolveRetrofitTextDomain({
 				blockTargets,
 				packageJson: null,
 				projectDir,
-			}),
-		).toThrow('Conflicting WordPress text domains in block metadata');
+			});
+		} catch (error) {
+			conflictError = error;
+		}
+		expect(conflictError).toBeInstanceOf(Error);
+		expect((conflictError as Error).message).toContain(
+			'Conflicting WordPress text domains in block metadata',
+		);
+		expect((conflictError as Error & { code?: string }).code).toBe(
+			'invalid-argument',
+		);
 	});
 
 	test('upgrades an existing official workspace to the WordPress ttsc lint lane', async () => {

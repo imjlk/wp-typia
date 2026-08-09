@@ -399,6 +399,33 @@ function expressionUsesTrackedAccess(
   return false;
 }
 
+function nodePassesTrackedAccessToCall(
+  node: ts.Node,
+  identifiers: ReadonlySet<string>,
+): boolean {
+  let passesTrackedAccess = false;
+  const visit = (current: ts.Node): void => {
+    if (passesTrackedAccess || isDeferredScope(current)) {
+      return;
+    }
+    if (
+      (ts.isCallExpression(current) || ts.isNewExpression(current)) &&
+      current.arguments?.some((argument) =>
+        expressionUsesTrackedAccess(
+          ts.isSpreadElement(argument) ? argument.expression : argument,
+          identifiers,
+        ),
+      )
+    ) {
+      passesTrackedAccess = true;
+      return;
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return passesTrackedAccess;
+}
+
 function collectVariableAliases(
   statement: ts.Node,
   identifiers: Set<string>,
@@ -456,6 +483,9 @@ function sourceMutatesTrackedIdentifier(
       statement,
       trackedIdentifiers,
     );
+    if (nodePassesTrackedAccessToCall(statement, trackedIdentifiers)) {
+      return true;
+    }
     for (const trackedIdentifier of trackedIdentifiers) {
       if (
         statementMutatesIdentifier(
@@ -468,7 +498,16 @@ function sourceMutatesTrackedIdentifier(
       }
     }
   }
-  return false;
+  const mutatingHelpers = collectMutatingTopLevelHelpers(
+    sourceFile,
+    trackedIdentifiers,
+  );
+  return (
+    mutatingHelpers.size > 0 &&
+    sourceFile.statements.some((statement) =>
+      nodeInvokesTrackedHelper(statement, mutatingHelpers),
+    )
+  );
 }
 
 function nodeMutatesTrackedIdentifiers(
@@ -478,8 +517,11 @@ function nodeMutatesTrackedIdentifiers(
   const trackedIdentifiers = new Set(identifiers);
   collectVariableAliases(node, trackedIdentifiers);
   const aliasAssignments = collectAssignedAliases(node, trackedIdentifiers);
-  return [...trackedIdentifiers].some((identifier) =>
-    statementMutatesIdentifier(node, identifier, aliasAssignments),
+  return (
+    nodePassesTrackedAccessToCall(node, trackedIdentifiers) ||
+    [...trackedIdentifiers].some((identifier) =>
+      statementMutatesIdentifier(node, identifier, aliasAssignments),
+    )
   );
 }
 
@@ -705,6 +747,9 @@ function resolveObjectLiteral(
       laterStatement,
       trackedIdentifiers,
     );
+    if (nodePassesTrackedAccessToCall(laterStatement, trackedIdentifiers)) {
+      return null;
+    }
     for (const identifier of trackedIdentifiers) {
       if (
         statementMutatesIdentifier(laterStatement, identifier, aliasAssignments)

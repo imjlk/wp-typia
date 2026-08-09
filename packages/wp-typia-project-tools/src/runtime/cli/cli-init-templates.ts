@@ -7,6 +7,10 @@ import {
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
 import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
+import {
+  CLI_DIAGNOSTIC_CODES,
+  createCliDiagnosticCodeError,
+} from './cli-diagnostics.js';
 import type {
   ProjectPackageJson,
   RetrofitInitBlockTarget,
@@ -110,7 +114,8 @@ export function resolveRetrofitTextDomain(options: {
     }
   }
   if (blockTextDomains.size > 1) {
-    throw new Error(
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
       `Conflicting WordPress text domains in block metadata: ${[...blockTextDomains].sort().join(', ')}. Align the block.json textdomain values before running wp-typia init.`,
     );
   }
