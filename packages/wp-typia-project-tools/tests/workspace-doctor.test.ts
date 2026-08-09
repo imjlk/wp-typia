@@ -182,6 +182,7 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     scripts: Record<string, string>;
   };
   const managedLint = packageJson.scripts.lint;
+  const managedLintTs = packageJson.scripts['lint:ts'];
   const managedPostinstall = packageJson.scripts.postinstall;
   const managedTtscLint = packageJson.devDependencies['@ttsc/lint'];
   const managedContributor =
@@ -268,7 +269,38 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     'lint must include the lint:ts lane',
   );
 
+  packageJson.scripts.lint = 'npm --version run lint:ts';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const terminalAggregateChecks = await getDoctorChecks(targetDir);
+  const terminalAggregateLintCheck = terminalAggregateChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(terminalAggregateLintCheck?.status).toBe('warn');
+  expect(terminalAggregateLintCheck?.detail).toContain(
+    'lint must include the lint:ts lane',
+  );
+
   packageJson.scripts.lint = managedLint;
+  packageJson.scripts['lint:ts'] = 'ttsc --noEmit --listFilesOnly';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const terminalTtscChecks = await getDoctorChecks(targetDir);
+  const terminalTtscLintCheck = terminalTtscChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(terminalTtscLintCheck?.status).toBe('warn');
+  expect(terminalTtscLintCheck?.detail).toContain(
+    'lint:ts must invoke `ttsc --noEmit`',
+  );
+
+  packageJson.scripts['lint:ts'] = managedLintTs;
   packageJson.scripts.postinstall = 'echo apply-ttsc-lint-compat.mjs';
   fs.writeFileSync(
     packageJsonPath,

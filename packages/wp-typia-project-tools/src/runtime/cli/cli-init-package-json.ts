@@ -236,9 +236,24 @@ function mergePostinstallCommand(
   requiredCommand: string,
 ): string {
   if (typeof currentValue === 'string' && currentValue.trim().length > 0) {
-    return hasTtscLintCompatPostinstallCommand(currentValue)
-      ? currentValue
-      : `${currentValue} && ${requiredCommand}`;
+    if (hasTtscLintCompatPostinstallCommand(currentValue)) {
+      return currentValue;
+    }
+    // Correctly parsing comments inside command substitutions requires a full
+    // shell parser. Prefix the managed hook whenever `#` appears so no form of
+    // trailing comment can swallow an appended command.
+    if (currentValue.includes('#')) {
+      const containsOnlyComments = currentValue
+        .split(/\r?\n/u)
+        .every((line) => {
+          const trimmed = line.trimStart();
+          return trimmed.length === 0 || trimmed.startsWith('#');
+        });
+      return containsOnlyComments
+        ? `${requiredCommand} ${currentValue.trimStart()}`
+        : `${requiredCommand} && ${currentValue}`;
+    }
+    return `${currentValue} && ${requiredCommand}`;
   }
   return requiredCommand;
 }

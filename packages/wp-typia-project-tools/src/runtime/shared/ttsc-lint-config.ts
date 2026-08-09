@@ -221,8 +221,10 @@ function isWordPressLintPluginRequire(expression: ts.Expression): boolean {
 
 function getWordPressLintConfigBindings(
   sourceFile: ts.SourceFile,
+  moduleFormat: TtscLintConfigModuleFormat,
 ): WordPressLintConfigBindings {
   const commonJsRequireAvailable =
+    moduleFormat !== 'module' &&
     !sourceFileHasTopLevelBinding(sourceFile, 'require') &&
     !sourceFile.statements.some((statement) =>
       nodeReassignsIdentifier(statement, 'require'),
@@ -1273,7 +1275,7 @@ export function hasWordPressTtscLintConfigSource(
   ) {
     return false;
   }
-  const bindings = getWordPressLintConfigBindings(sourceFile);
+  const bindings = getWordPressLintConfigBindings(sourceFile, moduleFormat);
   if (bindings.named.size === 0 && bindings.namespaces.size === 0) {
     return false;
   }
@@ -1601,6 +1603,16 @@ function getShellCommandStartIndex(tokens: readonly string[]): number {
   return commandIndex;
 }
 
+const TTSC_TERMINAL_OPTIONS = new Set([
+  '--help',
+  '--init',
+  '--listfilesonly',
+  '--showconfig',
+  '--version',
+  '-h',
+  '-v',
+]);
+
 /** Check whether a project-owned lint command invokes the managed ttsc lane. */
 export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   if (typeof command !== 'string') {
@@ -1614,9 +1626,24 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
       return false;
     }
     const args = tokens.slice(commandIndex + 1);
-    return args.includes('--noEmit');
+    return (
+      args.includes('--noEmit') &&
+      !args.some((argument) =>
+        TTSC_TERMINAL_OPTIONS.has(
+          argument.split('=', 1)[0]?.toLowerCase() ?? '',
+        ),
+      )
+    );
   });
 }
+
+const PACKAGE_MANAGER_TERMINAL_OPTIONS = new Set([
+  '--help',
+  '--version',
+  '-h',
+  '-v',
+  '-V',
+]);
 
 /** Check whether an aggregate command actually runs a package script. */
 export function hasPackageRunScriptCommand(
@@ -1632,7 +1659,17 @@ export function hasPackageRunScriptCommand(
     if (!['bun', 'npm', 'pnpm', 'yarn'].includes(packageManager)) {
       return false;
     }
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    const optionsStartIndex = commandIndex + 1;
+    commandIndex = skipShellRunnerOptions(tokens, optionsStartIndex);
+    if (
+      tokens
+        .slice(optionsStartIndex, commandIndex)
+        .some((token) =>
+          PACKAGE_MANAGER_TERMINAL_OPTIONS.has(token.split('=', 1)[0] ?? ''),
+        )
+    ) {
+      return false;
+    }
     if (tokens[commandIndex] === 'run') {
       commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
     } else if (packageManager === 'bun' || packageManager === 'npm') {

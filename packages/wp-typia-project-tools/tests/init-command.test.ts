@@ -839,6 +839,8 @@ describe('wp-typia init', () => {
 			'pnpm ttsc --noEmit',
 			'pnpm run ttsc --noEmit',
 			'yarn run ttsc --noEmit',
+			'ttsc --noEmit --listFilesOnly',
+			'ttsc --noEmit --showConfig',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(true);
 		}
@@ -857,6 +859,25 @@ describe('wp-typia init', () => {
 		expect(
 			noncanonicalAggregate.some((change) => change.name === 'lint'),
 		).toBe(false);
+
+		const terminalAggregate = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm --version run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(terminalAggregate).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue:
+					'npm run lint:ts && npm --version run lint:ts',
+			}),
+		);
 
 		const echoedPostinstall = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -935,6 +956,60 @@ describe('wp-typia init', () => {
 					'node --input-type=module scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
 			}),
 		);
+
+		const commentedPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall: 'echo setup # keep this',
+				},
+			},
+			'npm',
+		);
+		expect(commentedPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'node scripts/apply-ttsc-lint-compat.mjs && echo setup # keep this',
+			}),
+		);
+
+		for (const [currentValue, requiredValue] of [
+			[
+				'echo setup;# keep this',
+				'node scripts/apply-ttsc-lint-compat.mjs && echo setup;# keep this',
+			],
+			[
+				'# keep this',
+				'node scripts/apply-ttsc-lint-compat.mjs # keep this',
+			],
+			[
+				'echo "# keep this"',
+				'node scripts/apply-ttsc-lint-compat.mjs && echo "# keep this"',
+			],
+			[
+				"echo \"$(printf '%s' '# keep this')\"",
+				"node scripts/apply-ttsc-lint-compat.mjs && echo \"$(printf '%s' '# keep this')\"",
+			],
+		] as const) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: 'npm run lint:ts',
+						'lint:ts': 'ttsc --noEmit',
+						postinstall: currentValue,
+					},
+				},
+				'npm',
+			);
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'postinstall',
+					requiredValue,
+				}),
+			);
+		}
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -1042,6 +1117,24 @@ module.exports = {
 				canonicalSource,
 				'fixture-domain',
 				'lint.config.cjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+export default {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.mjs',
 			),
 		).toBe(false);
 		expect(
