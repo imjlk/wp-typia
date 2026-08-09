@@ -15,6 +15,7 @@ import {
   workspaceTemplatePackageManifest,
 } from './helpers/scaffold-test-harness.js';
 import { scaffoldProject } from '../src/runtime/index.js';
+import { getPackageVersions } from '../src/runtime/package-versions.js';
 import {
   createDoctorRunSummary,
   getDoctorChecks,
@@ -198,6 +199,8 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
 
   const managedTtsc = packageJson.devDependencies.ttsc;
+  const supportedTtscRange =
+    getPackageVersions().ttscLintPluginWpTtscPeerRange;
   packageJson.devDependencies.ttsc = '0.22.0';
   fs.writeFileSync(
     packageJsonPath,
@@ -210,7 +213,7 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(unsupportedTtscCheck?.status).toBe('warn');
   expect(unsupportedTtscCheck?.detail).toContain(
-    'ttsc dependency must satisfy >=0.23.0 <0.26.0',
+    `ttsc dependency must satisfy ${supportedTtscRange}`,
   );
   packageJson.devDependencies.ttsc = managedTtsc;
 

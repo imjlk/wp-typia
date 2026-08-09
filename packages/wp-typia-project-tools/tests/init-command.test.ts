@@ -904,6 +904,14 @@ describe('wp-typia init', () => {
 
 	test('requires the contributor preset and expected text domain', () => {
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
+		const replaceOnce = (
+			source: string,
+			anchor: string,
+			replacement: string,
+		): string => {
+			expect(source).toContain(anchor);
+			return source.replace(anchor, replacement);
+		};
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
 		).toBe(true);
@@ -915,9 +923,10 @@ describe('wp-typia init', () => {
 		for (const severity of ["'off'", '0', 'false', '{}']) {
 			expect(
 				hasWordPressTtscLintConfigSource(
-					canonicalSource.replace(
+					replaceOnce(
+						canonicalSource,
 						enabledTextDomainRule,
-						enabledTextDomainRule.replace("'error'", severity),
+						replaceOnce(enabledTextDomainRule, "'error'", severity),
 					),
 					'fixture-domain',
 				),
@@ -926,9 +935,10 @@ describe('wp-typia init', () => {
 		for (const severity of ["'warning'", "'warn'", '1', '2']) {
 			expect(
 				hasWordPressTtscLintConfigSource(
-					canonicalSource.replace(
+					replaceOnce(
+						canonicalSource,
 						enabledTextDomainRule,
-						enabledTextDomainRule.replace("'error'", severity),
+						replaceOnce(enabledTextDomainRule, "'error'", severity),
 					),
 					'fixture-domain',
 				),
@@ -940,7 +950,8 @@ describe('wp-typia init', () => {
 				'fixture-domain',
 			),
 		).toBe(false);
-		const multipleDomainsSource = canonicalSource.replace(
+		const multipleDomainsSource = replaceOnce(
+			canonicalSource,
 			"allowedTextDomain: 'fixture-domain'",
 			"allowedTextDomain: ['shared-domain', 'fixture-domain']",
 		);
@@ -952,7 +963,8 @@ describe('wp-typia init', () => {
 		).toBe(true);
 		expect(
 			hasWordPressTtscLintConfigSource(
-				canonicalSource.replace(
+				replaceOnce(
+					canonicalSource,
 					'  rules: {',
 					'  plugins: {},\n  rules: {',
 				),
@@ -961,7 +973,8 @@ describe('wp-typia init', () => {
 		).toBe(false);
 		expect(
 			hasWordPressTtscLintConfigSource(
-				canonicalSource.replace(
+				replaceOnce(
+					canonicalSource,
 					'  rules: {',
 					'  plugins: { ...configs.recommended.plugins },\n  rules: {',
 				),
@@ -970,115 +983,108 @@ describe('wp-typia init', () => {
 		).toBe(true);
 		expect(
 			hasWordPressTtscLintConfigSource(
-				canonicalSource.replace(
+				replaceOnce(
+					canonicalSource,
 					'  rules: {',
 					'  plugins: { wordpress: configs.recommended.plugins.wordpress },\n  rules: {',
 				),
 				'fixture-domain',
 			),
 		).toBe(true);
-		const overwrittenPluginSource = canonicalSource
-			.replace(
+		const overwrittenPluginSource = replaceOnce(
+			replaceOnce(
+				canonicalSource,
 				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
 				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';\nconst localPlugins = { wordpress: undefined };",
-			)
-			.replace(
-				'  rules: {',
-				'  plugins: { ...configs.recommended.plugins, ...localPlugins },\n  rules: {',
-			);
+			),
+			'  rules: {',
+			'  plugins: { ...configs.recommended.plugins, ...localPlugins },\n  rules: {',
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				overwrittenPluginSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const mutatedConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const mutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				'} satisfies ITtscLintConfig;\nconfig.plugins = {};\nexport default config;',
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				mutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const dynamicMutatedConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const dynamicMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				"} satisfies ITtscLintConfig;\nconst key = 'plugins';\nconfig[key] = {};\nexport default config;",
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				dynamicMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const aliasMutatedConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const aliasMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				'} satisfies ITtscLintConfig;\nconst alias = config;\nalias.plugins = {};\nexport default config;',
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				aliasMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const destructuredAliasMutatedConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const destructuredAliasMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				"} satisfies ITtscLintConfig;\nconst { rules } = config;\nrules['wordpress/i18n-text-domain'] = [];\nexport default config;",
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				destructuredAliasMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const assignedAliasMutatedInBlockSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const assignedAliasMutatedInBlockSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				'} satisfies ITtscLintConfig;\nlet alias;\n{\n  alias = config;\n  alias.plugins = {};\n}\nexport default config;',
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				assignedAliasMutatedInBlockSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const assignedAliasWithoutMutationSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const assignedAliasWithoutMutationSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				'} satisfies ITtscLintConfig;\nlet alias;\nalias = config;\nexport default config;',
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				assignedAliasWithoutMutationSource,
 				'fixture-domain',
 			),
 		).toBe(true);
-		const methodMutatedConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const methodMutatedConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				"} satisfies ITtscLintConfig;\nconfig.rules['wordpress/i18n-text-domain'].push('warn');\nexport default config;",
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				methodMutatedConfigSource,
 				'fixture-domain',
 			),
 		).toBe(false);
-		const shadowedHelperConfigSource = canonicalSource
-			.replace('export default {', 'const config = {')
-			.replace(
+		const shadowedHelperConfigSource = replaceOnce(
+			replaceOnce(canonicalSource, 'export default {', 'const config = {'),
 				'} satisfies ITtscLintConfig;',
 				[
 					'} satisfies ITtscLintConfig;',
@@ -1089,7 +1095,7 @@ describe('wp-typia init', () => {
 					'}',
 					'export default config;',
 				].join('\n'),
-			);
+		);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				shadowedHelperConfigSource,
