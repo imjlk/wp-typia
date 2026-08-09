@@ -202,6 +202,7 @@ export function getWorkspaceTtscLintCheck(
     !hasWordPressTtscLintConfigSource(
       snapshot.ttscLintConfigSource,
       packageJson.wpTypia?.textDomain ?? '',
+      snapshot.ttscLintConfigRelativePath ?? undefined,
     )
   ) {
     issues.push(

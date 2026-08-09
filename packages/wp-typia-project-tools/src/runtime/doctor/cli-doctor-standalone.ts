@@ -2980,7 +2980,11 @@ function getStandaloneTtscLintConfigIssue(
     } catch (error) {
       return `unable to read ${relativePath}: ${error instanceof Error ? error.message : String(error)}`;
     }
-    return hasWordPressTtscLintConfigSource(source, expectedTextDomain)
+    return hasWordPressTtscLintConfigSource(
+      source,
+      expectedTextDomain,
+      relativePath,
+    )
       ? null
       : `${relativePath} must enable the WordPress ttsc lint preset and bind wordpress/i18n-text-domain to "${expectedTextDomain}"`;
   }

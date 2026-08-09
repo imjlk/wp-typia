@@ -23,45 +23,51 @@ interface WordPressLintConfigBindings {
   namespaces: Set<string>;
 }
 
+type TtscLintConfigModuleFormat = 'commonjs' | 'module' | 'flexible';
+
+function statementHasTopLevelBinding(
+  statement: ts.Statement,
+  identifier: string,
+): boolean {
+  const bindings = new Set<string>();
+  if (ts.isVariableStatement(statement)) {
+    for (const declaration of statement.declarationList.declarations) {
+      collectBindingIdentifiers(declaration.name, bindings);
+    }
+  } else if (
+    (ts.isFunctionDeclaration(statement) ||
+      ts.isClassDeclaration(statement) ||
+      ts.isEnumDeclaration(statement)) &&
+    statement.name
+  ) {
+    bindings.add(statement.name.text);
+  } else if (ts.isImportDeclaration(statement)) {
+    const importClause = statement.importClause;
+    if (importClause?.name) {
+      bindings.add(importClause.name.text);
+    }
+    if (importClause?.namedBindings) {
+      if (ts.isNamespaceImport(importClause.namedBindings)) {
+        bindings.add(importClause.namedBindings.name.text);
+      } else {
+        for (const element of importClause.namedBindings.elements) {
+          bindings.add(element.name.text);
+        }
+      }
+    }
+  } else if (ts.isImportEqualsDeclaration(statement)) {
+    bindings.add(statement.name.text);
+  }
+  return bindings.has(identifier);
+}
+
 function sourceFileHasTopLevelBinding(
   sourceFile: ts.SourceFile,
   identifier: string,
 ): boolean {
-  for (const statement of sourceFile.statements) {
-    const bindings = new Set<string>();
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        collectBindingIdentifiers(declaration.name, bindings);
-      }
-    } else if (
-      (ts.isFunctionDeclaration(statement) ||
-        ts.isClassDeclaration(statement) ||
-        ts.isEnumDeclaration(statement)) &&
-      statement.name
-    ) {
-      bindings.add(statement.name.text);
-    } else if (ts.isImportDeclaration(statement)) {
-      const importClause = statement.importClause;
-      if (importClause?.name) {
-        bindings.add(importClause.name.text);
-      }
-      if (importClause?.namedBindings) {
-        if (ts.isNamespaceImport(importClause.namedBindings)) {
-          bindings.add(importClause.namedBindings.name.text);
-        } else {
-          for (const element of importClause.namedBindings.elements) {
-            bindings.add(element.name.text);
-          }
-        }
-      }
-    } else if (ts.isImportEqualsDeclaration(statement)) {
-      bindings.add(statement.name.text);
-    }
-    if (bindings.has(identifier)) {
-      return true;
-    }
-  }
-  return false;
+  return sourceFile.statements.some((statement) =>
+    statementHasTopLevelBinding(statement, identifier),
+  );
 }
 
 function nodeReassignsIdentifier(node: ts.Node, identifier: string): boolean {
@@ -88,6 +94,28 @@ function nodeReassignsIdentifier(node: ts.Node, identifier: string): boolean {
   return reassigned;
 }
 
+function statementDetachesCommonJsBinding(
+  statement: ts.Statement,
+  identifier: string,
+): boolean {
+  if (nodeReassignsIdentifier(statement, identifier)) {
+    return true;
+  }
+  if (!ts.isVariableStatement(statement)) {
+    return statementHasTopLevelBinding(statement, identifier);
+  }
+  const blockScoped =
+    (statement.declarationList.flags & ts.NodeFlags.BlockScoped) !== 0;
+  return statement.declarationList.declarations.some((declaration) => {
+    const bindings = new Set<string>();
+    collectBindingIdentifiers(declaration.name, bindings);
+    return (
+      bindings.has(identifier) &&
+      (blockScoped || declaration.initializer !== undefined)
+    );
+  });
+}
+
 function unwrapExpression(expression: ts.Expression): ts.Expression {
   let current = expression;
   while (
@@ -102,6 +130,14 @@ function unwrapExpression(expression: ts.Expression): ts.Expression {
   return current;
 }
 
+function getStaticStringValue(expression: ts.Expression): string | null {
+  const current = unwrapExpression(expression);
+  return ts.isStringLiteral(current) ||
+    ts.isNoSubstitutionTemplateLiteral(current)
+    ? current.text
+    : null;
+}
+
 function getPropertyName(name: ts.PropertyName): string | null {
   if (
     ts.isIdentifier(name) ||
@@ -110,11 +146,8 @@ function getPropertyName(name: ts.PropertyName): string | null {
   ) {
     return name.text;
   }
-  if (
-    ts.isComputedPropertyName(name) &&
-    ts.isStringLiteral(unwrapExpression(name.expression))
-  ) {
-    return (unwrapExpression(name.expression) as ts.StringLiteral).text;
+  if (ts.isComputedPropertyName(name)) {
+    return getStaticStringValue(name.expression);
   }
   return null;
 }
@@ -1126,28 +1159,19 @@ function hasExpectedTextDomainRule(
 
 function findConfigExportExpression(
   sourceFile: ts.SourceFile,
+  moduleFormat: TtscLintConfigModuleFormat,
 ): ts.Expression | null {
   let commonJsExportPath: string[] | null = null;
-  const exportsAliasDetached = sourceFile.statements.some(
-    (statement) =>
-      nodeReassignsIdentifier(statement, 'exports') ||
-      (ts.isVariableStatement(statement) &&
-        statement.declarationList.declarations.some(
-          (declaration) =>
-            ts.isIdentifier(declaration.name) &&
-            declaration.name.text === 'exports' &&
-            (declaration.initializer !== undefined ||
-              (statement.declarationList.flags & ts.NodeFlags.BlockScoped) !==
-                0),
-        )) ||
-      ((ts.isFunctionDeclaration(statement) ||
-        ts.isClassDeclaration(statement)) &&
-        statement.name?.text === 'exports'),
+  const exportsAliasDetached = sourceFile.statements.some((statement) =>
+    statementDetachesCommonJsBinding(statement, 'exports'),
+  );
+  const moduleBindingDetached = sourceFile.statements.some((statement) =>
+    statementDetachesCommonJsBinding(statement, 'module'),
   );
   let result: ts.Expression | null = null;
   for (const statement of sourceFile.statements) {
     if (ts.isExportAssignment(statement)) {
-      if (result) {
+      if (result || moduleFormat === 'commonjs') {
         return null;
       }
       result = statement.expression;
@@ -1172,7 +1196,11 @@ function findConfigExportExpression(
       joinedExportPath === 'module.exports' ||
       joinedExportPath === 'exports.default'
     ) {
-      if (joinedExportPath === 'exports.default' && exportsAliasDetached) {
+      if (
+        moduleFormat === 'module' ||
+        (joinedExportPath === 'module.exports' && moduleBindingDetached) ||
+        (joinedExportPath === 'exports.default' && exportsAliasDetached)
+      ) {
         return null;
       }
       if (result) {
@@ -1198,14 +1226,22 @@ function findConfigExportExpression(
  *
  * @param source TypeScript or JavaScript lint configuration source.
  * @param expectedTextDomain Project text domain required by the i18n rule.
+ * @param configFilename Discovered filename used to enforce its module format.
  * @returns Whether the exported config satisfies the managed contract.
  */
 export function hasWordPressTtscLintConfigSource(
   source: string,
   expectedTextDomain: string,
+  configFilename = 'lint.config.ts',
 ): boolean {
+  let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
+  if (configFilename.endsWith('.cjs')) {
+    moduleFormat = 'commonjs';
+  } else if (configFilename.endsWith('.mjs')) {
+    moduleFormat = 'module';
+  }
   const sourceFile = ts.createSourceFile(
-    'lint.config.ts',
+    configFilename,
     source,
     ts.ScriptTarget.Latest,
     true,
@@ -1219,11 +1255,29 @@ export function hasWordPressTtscLintConfigSource(
   if (parseDiagnostics && parseDiagnostics.length > 0) {
     return false;
   }
+  if (
+    moduleFormat === 'commonjs' &&
+    sourceFile.statements.some(
+      (statement) =>
+        ts.isImportDeclaration(statement) ||
+        ts.isImportEqualsDeclaration(statement) ||
+        ts.isExportAssignment(statement) ||
+        ts.isExportDeclaration(statement) ||
+        (ts.canHaveModifiers(statement) &&
+          ts
+            .getModifiers(statement)
+            ?.some(
+              (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+            )),
+    )
+  ) {
+    return false;
+  }
   const bindings = getWordPressLintConfigBindings(sourceFile);
   if (bindings.named.size === 0 && bindings.namespaces.size === 0) {
     return false;
   }
-  const exportExpression = findConfigExportExpression(sourceFile);
+  const exportExpression = findConfigExportExpression(sourceFile, moduleFormat);
   const config = exportExpression
     ? resolveObjectLiteral(exportExpression, sourceFile)
     : null;
@@ -1593,6 +1647,7 @@ const NODE_NON_SCRIPT_EXECUTION_OPTIONS = new Set([
   '--completion-bash',
   '--eval',
   '--help',
+  '--input-type',
   '--interactive',
   '--print',
   '--run',

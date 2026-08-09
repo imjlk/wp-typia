@@ -46,7 +46,11 @@ export function hasWordPressTtscLintConfig(
   } catch {
     return false;
   }
-  return hasWordPressTtscLintConfigSource(source, expectedTextDomain);
+  return hasWordPressTtscLintConfigSource(
+    source,
+    expectedTextDomain,
+    path.basename(configPath),
+  );
 }
 
 /** Build the canonical WordPress-aware lint config for an existing workspace. */

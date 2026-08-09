@@ -927,10 +927,14 @@ describe('wp-typia init', () => {
 			'npm',
 		);
 		expect(
-			moduleInputPostinstall.some(
-				(change) => change.name === 'postinstall',
-			),
-		).toBe(false);
+			moduleInputPostinstall,
+		).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'node --input-type=module scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
 	});
 
 	test('keeps retrofit lint config output aligned with the scaffold template', () => {
@@ -1033,6 +1037,91 @@ module.exports = {
 				'fixture-domain',
 			),
 		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource,
+				'fixture-domain',
+				'lint.config.cjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`var module;
+const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.cjs',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.mjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module = { exports: {} };
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.cjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  plugins: {
+    ...wp.configs.recommended.plugins,
+    [\`wordpress\`]: undefined,
+  },
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.cjs',
+			),
+		).toBe(false);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');

@@ -114,11 +114,13 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   const lintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
   const commonJsLintConfigPath = path.join(targetDir, 'lint.config.cjs');
   const commonJsLintConfigSource = lintConfigSource
+    .replace("import type { ITtscLintConfig } from '@ttsc/lint';\n", '')
     .replace(
       "import { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
       "const { configs } = require('@wp-typia/ttsc-lint-plugin-wp');",
     )
-    .replace('export default', 'module.exports =');
+    .replace('export default', 'module.exports =')
+    .replace('} satisfies ITtscLintConfig;', '};');
   fs.writeFileSync(commonJsLintConfigPath, commonJsLintConfigSource, 'utf8');
   fs.rmSync(lintConfigPath);
   fs.mkdirSync(lintConfigPath);
