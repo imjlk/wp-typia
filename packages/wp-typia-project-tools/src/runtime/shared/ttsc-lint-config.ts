@@ -19,6 +19,7 @@ export const TTSC_LINT_CONFIG_FILENAMES = [
 ] as const;
 
 interface WordPressLintConfigBindings {
+  defaults: Set<string>;
   named: Set<string>;
   namespaces: Set<string>;
 }
@@ -85,8 +86,7 @@ function nodeReassignsIdentifier(node: ts.Node, identifier: string): boolean {
       if (
         current.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
         current.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
-        ts.isIdentifier(leftOperand) &&
-        leftOperand.text === identifier
+        assignmentTargetContainsIdentifier(leftOperand, identifier)
       ) {
         reassigned = true;
         return;
@@ -217,6 +217,58 @@ function expressionHasAccessPathRoot(
   }
 }
 
+function getAssignmentTargetLeaves(target: ts.Expression): ts.Expression[] {
+  const current = unwrapExpression(target);
+  if (ts.isArrayLiteralExpression(current)) {
+    return current.elements.flatMap((element) => {
+      if (ts.isOmittedExpression(element)) {
+        return [];
+      }
+      return getAssignmentTargetLeaves(
+        ts.isSpreadElement(element) ? element.expression : element,
+      );
+    });
+  }
+  if (ts.isObjectLiteralExpression(current)) {
+    return current.properties.flatMap((property) => {
+      if (ts.isShorthandPropertyAssignment(property)) {
+        return [property.name];
+      }
+      if (ts.isPropertyAssignment(property)) {
+        return getAssignmentTargetLeaves(property.initializer);
+      }
+      return ts.isSpreadAssignment(property)
+        ? getAssignmentTargetLeaves(property.expression)
+        : [];
+    });
+  }
+  if (
+    ts.isBinaryExpression(current) &&
+    current.operatorToken.kind === ts.SyntaxKind.EqualsToken
+  ) {
+    return getAssignmentTargetLeaves(current.left);
+  }
+  return [current];
+}
+
+function assignmentTargetHasAccessPathRoot(
+  target: ts.Expression,
+  rootPath: readonly string[],
+): boolean {
+  return getAssignmentTargetLeaves(target).some((leaf) =>
+    expressionHasAccessPathRoot(leaf, rootPath),
+  );
+}
+
+function assignmentTargetContainsIdentifier(
+  target: ts.Expression,
+  identifier: string,
+): boolean {
+  return getAssignmentTargetLeaves(target).some(
+    (leaf) => ts.isIdentifier(leaf) && leaf.text === identifier,
+  );
+}
+
 function isWordPressLintPluginRequire(expression: ts.Expression): boolean {
   const current = unwrapExpression(expression);
   if (
@@ -245,6 +297,7 @@ function getWordPressLintConfigBindings(
       nodeReassignsIdentifier(statement, 'require'),
     );
   const bindings: WordPressLintConfigBindings = {
+    defaults: new Set<string>(),
     named: new Set<string>(),
     namespaces: new Set<string>(),
   };
@@ -287,7 +340,13 @@ function getWordPressLintConfigBindings(
       continue;
     }
     const importClause = statement.importClause;
-    if (importClause?.isTypeOnly || !importClause?.namedBindings) {
+    if (!importClause || importClause.isTypeOnly) {
+      continue;
+    }
+    if (importClause.name) {
+      bindings.defaults.add(importClause.name.text);
+    }
+    if (!importClause.namedBindings) {
       continue;
     }
     if (ts.isNamespaceImport(importClause.namedBindings)) {
@@ -295,12 +354,19 @@ function getWordPressLintConfigBindings(
       continue;
     }
     for (const element of importClause.namedBindings.elements) {
-      if (
-        !element.isTypeOnly &&
-        (element.propertyName ?? element.name).text === 'configs'
-      ) {
-        bindings.named.add(element.name.text);
+      if (!element.isTypeOnly) {
+        const importedName = (element.propertyName ?? element.name).text;
+        if (importedName === 'configs') {
+          bindings.named.add(element.name.text);
+        } else if (importedName === 'default') {
+          bindings.defaults.add(element.name.text);
+        }
       }
+    }
+  }
+  for (const binding of bindings.defaults) {
+    if (sourceMutatesTrackedIdentifier(sourceFile, binding)) {
+      bindings.defaults.delete(binding);
     }
   }
   for (const binding of bindings.named) {
@@ -371,7 +437,7 @@ function statementMutatesAccessPath(
       node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
       node.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
       !ignoredAssignments?.has(node) &&
-      expressionHasAccessPathRoot(node.left, rootPath)
+      assignmentTargetHasAccessPathRoot(node.left, rootPath)
     ) {
       mutated = true;
       return;
@@ -598,10 +664,9 @@ function collectAssignedAliases(
       const assignedTarget = unwrapExpression(node.left);
       if (
         node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
-        ts.isIdentifier(assignedTarget) &&
         expressionUsesTrackedAccess(node.right, identifiers)
       ) {
-        identifiers.add(assignedTarget.text);
+        collectAssignmentTargetIdentifiers(assignedTarget, identifiers);
         aliasAssignments.add(node);
       }
     }
@@ -609,6 +674,17 @@ function collectAssignedAliases(
   };
   visit(statement);
   return aliasAssignments;
+}
+
+function collectAssignmentTargetIdentifiers(
+  target: ts.Expression,
+  identifiers: Set<string>,
+): void {
+  for (const leaf of getAssignmentTargetLeaves(target)) {
+    if (ts.isIdentifier(leaf)) {
+      identifiers.add(leaf.text);
+    }
+  }
 }
 
 function sourceMutatesTrackedIdentifier(
@@ -1114,6 +1190,15 @@ function hasWordPressConfigSpread(
   );
 }
 
+function isWordPressDefaultPlugin(
+  expression: ts.Expression,
+  bindings: WordPressLintConfigBindings,
+): boolean {
+  const path = getPropertyAccessPath(expression);
+  const binding = path?.length === 1 ? path[0] : undefined;
+  return binding !== undefined && bindings.defaults.has(binding);
+}
+
 function hasEffectiveWordPressPlugin(
   config: ts.ObjectLiteralExpression,
   sourceFile: ts.SourceFile,
@@ -1161,13 +1246,20 @@ function hasEffectiveWordPressPlugin(
           if (getObjectLiteralElementName(pluginProperty) !== 'wordpress') {
             return current;
           }
+          if (ts.isShorthandPropertyAssignment(pluginProperty)) {
+            return bindings.defaults.has(pluginProperty.name.text);
+          }
           return (
             ts.isPropertyAssignment(pluginProperty) &&
-            isWordPressConfigPath(pluginProperty.initializer, bindings, [
-              'recommended',
-              'plugins',
-              'wordpress',
-            ])
+            (isWordPressDefaultPlugin(
+              pluginProperty.initializer,
+              bindings,
+            ) ||
+              isWordPressConfigPath(pluginProperty.initializer, bindings, [
+                'recommended',
+                'plugins',
+                'wordpress',
+              ]))
           );
         }, false),
     );
@@ -1465,7 +1557,11 @@ export function hasWordPressTtscLintConfigSource(
     return false;
   }
   const bindings = getWordPressLintConfigBindings(sourceFile, moduleFormat);
-  if (bindings.named.size === 0 && bindings.namespaces.size === 0) {
+  if (
+    bindings.defaults.size === 0 &&
+    bindings.named.size === 0 &&
+    bindings.namespaces.size === 0
+  ) {
     return false;
   }
   const exportExpression = findConfigExportExpression(sourceFile, moduleFormat);
@@ -1825,11 +1921,34 @@ function hasPropagatingShellSegment(
   const parsed = getSimpleShellSegments(command);
   return parsed.valid && parsed.segments.some(
     (segment, segmentIndex) =>
+      !parsed.segments
+        .slice(0, segmentIndex)
+        .some(isTerminatingShellSegment) &&
       doesShellSegmentPropagateFailure(
         parsed.segments,
         segmentIndex,
       ) &&
       predicate(segment.tokens),
+  );
+}
+
+function isTerminatingShellSegment(segment: SimpleShellSegment): boolean {
+  if (
+    segment.operatorBefore === '|' ||
+    segment.operatorAfter === '|' ||
+    segment.operatorAfter === '&'
+  ) {
+    return false;
+  }
+  let commandIndex = 0;
+  while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(segment.tokens[commandIndex] ?? '')) {
+    commandIndex += 1;
+  }
+  const command = getShellExecutableName(segment.tokens[commandIndex]);
+  return (
+    command === 'exit' ||
+    (command === 'builtin' &&
+      getShellExecutableName(segment.tokens[commandIndex + 1]) === 'exit')
   );
 }
 

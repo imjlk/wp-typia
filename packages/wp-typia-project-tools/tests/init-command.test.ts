@@ -812,6 +812,9 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit 2>&1',
 			'ttsc --noEmit &>lint.log',
 			'echo setup &&\nttsc --noEmit',
+			'exit 0 | cat && ttsc --noEmit',
+			'exit 0 & ttsc --noEmit',
+			'env WP_TYPIA_SKIP=1 exit; ttsc --noEmit',
 			'ttsc --noEmit # managed lint\n',
 			'ttsc --noEmit false --noEmit',
 			'ttsc --noEmit=false --noEmit=true',
@@ -850,6 +853,9 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit -w',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
+			'exit 0 && ttsc --noEmit',
+			'exit 0; ttsc --noEmit',
+			'WP_TYPIA_SKIP=1 exit 0 && ttsc --noEmit',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(true);
 		}
@@ -879,6 +885,23 @@ describe('wp-typia init', () => {
 				},
 			},
 			'npm',
+		);
+		const unreachableAggregate = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'exit 0 && npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(unreachableAggregate).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue: 'npm run lint:ts && exit 0',
+			}),
 		);
 		expect(terminalAggregate).toContainEqual(
 			expect.objectContaining({
@@ -1190,6 +1213,21 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
 		).toBe(true);
+		const documentedDefaultPluginSource = replaceOnce(
+			replaceOnce(
+				canonicalSource,
+				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
+				"import wordpress, { configs } from '@wp-typia/ttsc-lint-plugin-wp';",
+			),
+			'  rules: {',
+			'  plugins: { wordpress },\n  rules: {',
+		);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				documentedDefaultPluginSource,
+				'fixture-domain',
+			),
+		).toBe(true);
 		for (const typeOnlyImport of [
 			"import { type configs } from '@wp-typia/ttsc-lint-plugin-wp';",
 			"import type * as wp from '@wp-typia/ttsc-lint-plugin-wp';",
@@ -1278,6 +1316,42 @@ module.exports = {
 				'fixture-domain',
 			),
 		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`let wp = require('@wp-typia/ttsc-lint-plugin-wp');
+[wp] = [{ configs: { recommended: { plugins: {}, rules: {} } } }];
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`let wp = require('@wp-typia/ttsc-lint-plugin-wp');
+({ wp } = { wp: { configs: { recommended: { plugins: {}, rules: {} } } } });
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				canonicalSource,
