@@ -218,7 +218,7 @@ describe('package version helpers', () => {
 		);
 	});
 
-	test('falls back to installed package manifests when the workspace manifest is missing', async () => {
+	test('falls back to installed runtime manifests while keeping the managed lint contributor canonical', async () => {
 		const createPackageRoot = path.join(
 			createTempDir('wp-typia-missing-create-root-'),
 			'missing-create-root',
@@ -238,7 +238,10 @@ describe('package version helpers', () => {
 				},
 				'@wp-typia/block-runtime': { version: '0.9.0' },
 				'@wp-typia/rest': { version: '0.4.0' },
-				'@wp-typia/ttsc-lint-plugin-wp': { version: '0.2.0' },
+				'@wp-typia/ttsc-lint-plugin-wp': {
+					peerDependencies: { ttsc: '>=0.23.0 <0.24.0' },
+					version: '0.2.0',
+				},
 				'wp-typia': { version: '0.8.0' },
 			},
 		});
@@ -250,7 +253,7 @@ describe('package version helpers', () => {
 			projectToolsPackageVersion: '^0.8.0',
 			restPackageVersion: '~0.4.0',
 			ttscLintPackageVersion: '0.23.0',
-			ttscLintPluginWpPackageVersion: '^0.2.0',
+			ttscLintPluginWpPackageVersion: '^0.1.1',
 			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
