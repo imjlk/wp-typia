@@ -51,6 +51,7 @@ async function importPackageVersionsModule(options: {
     restPackageVersion: string;
     ttscLintPackageVersion: string;
     ttscLintPluginWpPackageVersion: string;
+    ttscLintPluginWpTtscPeerRange: string;
     ttscPackageVersion: string;
     tsxPackageVersion: string;
     typiaPackageVersion: string;
@@ -139,6 +140,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '^3.4.5',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.1.1',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -178,6 +180,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '^3.4.5',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.1.1',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -248,6 +251,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '~0.4.0',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.2.0',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -334,6 +338,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '^0.3.1',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.1.1',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -365,6 +370,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '^0.0.0',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.1.1',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
@@ -417,6 +423,7 @@ describe('package version helpers', () => {
 			restPackageVersion: '^30.40.50',
 			ttscLintPackageVersion: '0.23.0',
 			ttscLintPluginWpPackageVersion: '^0.1.1',
+			ttscLintPluginWpTtscPeerRange: '>=0.23.0 <0.26.0',
 			ttscPackageVersion: '^0.23.0',
 			tsxPackageVersion: '^0.23.0',
 			typiaPackageVersion: '^13.2.0',
