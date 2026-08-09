@@ -51,6 +51,7 @@ _nx('One item', 'Many items', 2, 'context', 'my-plugin');
 sprintf('%s', value);
 sprintf('%1$s and %2$s', value, value);
 sprintf(__(`\u0025s`, 'my-plugin'), value);
+__('Escaped percentage: %%%s', 'my-plugin');
 __('Please wait...', 'my-plugin');
 __('Binary ' + 'wait...', 'my-plugin');
 __('Choose 1-3 items', 'my-plugin');
