@@ -125,8 +125,7 @@ function buildApplyNextSteps(
 ): string[] {
   return buildInitPlanNextSteps({
     commandMode: 'apply',
-    dependencyChangeCount:
-      previewPlan.packageChanges.addDevDependencies.length,
+    dependencyChanges: previewPlan.packageChanges.addDevDependencies,
     hasPlannedChanges: true,
     layoutKind: previewPlan.detectedLayout.kind,
     packageManager: previewPlan.packageManager,

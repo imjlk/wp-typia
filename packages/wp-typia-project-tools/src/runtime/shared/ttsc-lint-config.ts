@@ -1236,12 +1236,14 @@ function findConfigExportExpression(
  * @param source TypeScript or JavaScript lint configuration source.
  * @param expectedTextDomain Project text domain required by the i18n rule.
  * @param configFilename Discovered filename used to enforce its module format.
+ * @param packageModuleType Nearest package type used for ambiguous .js files.
  * @returns Whether the exported config satisfies the managed contract.
  */
 export function hasWordPressTtscLintConfigSource(
   source: string,
   expectedTextDomain: string,
   configFilename = 'lint.config.ts',
+  packageModuleType: 'commonjs' | 'module' = 'commonjs',
 ): boolean {
   let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
   if (configFilename.endsWith('.cjs')) {
@@ -1255,13 +1257,17 @@ export function hasWordPressTtscLintConfigSource(
     // TypeScript transforms import/export syntax in .cts files to CommonJS,
     // so both forms remain executable even though raw .cjs cannot parse ESM.
     moduleFormat = 'transpiled-commonjs';
+  } else if (configFilename.endsWith('.js')) {
+    moduleFormat = packageModuleType;
   }
   const sourceFile = ts.createSourceFile(
     configFilename,
     source,
     ts.ScriptTarget.Latest,
     true,
-    ts.ScriptKind.TS,
+    /\.(?:cjs|js|mjs)$/u.test(configFilename)
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS,
   );
   const parseDiagnostics = (
     sourceFile as ts.SourceFile & {
@@ -1722,7 +1728,9 @@ export function hasPackageRunScriptCommand(
     } else if (packageManager === 'bun' || packageManager === 'npm') {
       return false;
     }
-    return tokens[commandIndex] === scriptName;
+    return (
+      tokens[commandIndex] === scriptName && commandIndex === tokens.length - 1
+    );
   });
 }
 
@@ -1739,6 +1747,9 @@ const NODE_NON_SCRIPT_EXECUTION_OPTIONS = new Set([
   '--test-only',
   '--v8-options',
   '--version',
+  '--watch',
+  '--watch-path',
+  '--watch-preserve-output',
   '-c',
   '-e',
   '-h',

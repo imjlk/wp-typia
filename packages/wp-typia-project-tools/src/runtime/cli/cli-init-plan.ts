@@ -379,7 +379,7 @@ export function createRetrofitPlan(options: {
 			options.nextSteps ??
 			buildInitPlanNextSteps({
 				commandMode: options.commandMode,
-				dependencyChangeCount: options.packageChanges.addDevDependencies.length,
+				dependencyChanges: options.packageChanges.addDevDependencies,
 				hasPlannedChanges: plannedChanges.length > 0,
 				layoutKind: options.detectedLayout.kind,
 				packageManager: options.packageManager,

@@ -383,12 +383,6 @@ export function hasExistingWpTypiaProjectSurface(
   return hasSyncSurface && hasHelperFiles && hasRuntimeDeps;
 }
 
-export function buildRequiredDevDependencyMapEntries(): string[] {
-  return Object.entries(buildRequiredDevDependencyMap()).map(
-    ([name, version]) => `${name}@${version.replace(/^workspace:/u, '')}`,
-  );
-}
-
 function setDependencyVersion(
 	packageJson: ProjectPackageJson,
 	name: string,

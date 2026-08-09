@@ -46,10 +46,35 @@ export function hasWordPressTtscLintConfig(
   } catch {
     return false;
   }
+  let packageModuleType: 'commonjs' | 'module' = 'commonjs';
+  let packageDirectory = path.dirname(configPath);
+  while (true) {
+    const packageJsonPath = path.join(packageDirectory, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8'),
+        ) as {
+          type?: unknown;
+        };
+        packageModuleType =
+          packageJson.type === 'module' ? 'module' : 'commonjs';
+      } catch {
+        return false;
+      }
+      break;
+    }
+    const parentDirectory = path.dirname(packageDirectory);
+    if (parentDirectory === packageDirectory) {
+      break;
+    }
+    packageDirectory = parentDirectory;
+  }
   return hasWordPressTtscLintConfigSource(
     source,
     expectedTextDomain,
     path.basename(configPath),
+    packageModuleType,
   );
 }
 

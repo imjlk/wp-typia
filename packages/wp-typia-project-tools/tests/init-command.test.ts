@@ -9,6 +9,7 @@ import { buildOfficialWorkspaceLintScriptChanges } from '../src/runtime/cli/cli-
 import {
   buildWordPressTtscLintConfigSource,
   getTtscLintCompatSource,
+  hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
 } from '../src/runtime/cli/cli-init-templates.js';
 import { hasWordPressTtscLintConfigSource } from '../src/runtime/shared/ttsc-lint-config.js';
@@ -625,7 +626,7 @@ describe('wp-typia init', () => {
 		);
 		const nextSteps = buildInitPlanNextSteps({
 			commandMode: 'preview-only',
-			dependencyChangeCount: 0,
+			dependencyChanges: [],
 			hasPlannedChanges: false,
 			layoutKind: 'single-block',
 			packageManager: 'npm',
@@ -883,6 +884,24 @@ describe('wp-typia init', () => {
 					'npm run lint:ts && npm --version run lint:ts',
 			}),
 		);
+		const forwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts -- --noEmit false',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(forwardedAggregate).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue:
+					'npm run lint:ts && npm run lint:ts -- --noEmit false',
+			}),
+		);
 
 		const echoedPostinstall = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -959,6 +978,24 @@ describe('wp-typia init', () => {
 				name: 'postinstall',
 				requiredValue:
 					'node --input-type=module scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		const watchPostinstall = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node --watch scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(watchPostinstall).toContainEqual(
+			expect.objectContaining({
+				name: 'postinstall',
+				requiredValue:
+					'node --watch scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
 			}),
 		);
 
@@ -1043,6 +1080,9 @@ describe('wp-typia init', () => {
 
 	test('requires the contributor preset and expected text domain', () => {
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
+		const esmJavaScriptSource = canonicalSource
+			.replace("import type { ITtscLintConfig } from '@ttsc/lint';\n", '')
+			.replace('} satisfies ITtscLintConfig;', '};');
 		const replaceOnce = (
 			source: string,
 			anchor: string,
@@ -1160,6 +1200,42 @@ module.exports = {
 		}
 		expect(
 			hasWordPressTtscLintConfigSource(
+				esmJavaScriptSource,
+				'fixture-domain',
+				'lint.config.js',
+				'module',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				esmJavaScriptSource,
+				'fixture-domain',
+				'lint.config.js',
+				'commonjs',
+			),
+		).toBe(false);
+		const jsConfigDirectory = path.join(tempRoot, 'js-lint-config-module-type');
+		const jsConfigPath = path.join(jsConfigDirectory, 'lint.config.js');
+		fs.mkdirSync(jsConfigDirectory, { recursive: true });
+		fs.writeFileSync(
+			path.join(jsConfigDirectory, 'package.json'),
+			'{"type":"module"}\n',
+			'utf8',
+		);
+		fs.writeFileSync(jsConfigPath, esmJavaScriptSource, 'utf8');
+		expect(
+			hasWordPressTtscLintConfig(jsConfigPath, 'fixture-domain'),
+		).toBe(true);
+		fs.writeFileSync(
+			path.join(jsConfigDirectory, 'package.json'),
+			'{"type":"commonjs"}\n',
+			'utf8',
+		);
+		expect(
+			hasWordPressTtscLintConfig(jsConfigPath, 'fixture-domain'),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 export default {
   ...wp.configs.recommended,
@@ -1229,6 +1305,25 @@ module.exports = {
 `,
 				'fixture-domain',
 				'lint.config.mts',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.js',
+				'module',
 			),
 		).toBe(false);
 		expect(
@@ -1985,6 +2080,15 @@ let exports;
 
 		expect(preview.status).toBe('preview');
 		expect(preview.detectedLayout.kind).toBe('official-workspace');
+		const dependencyInstallStep = preview.nextSteps.find((step) =>
+			step.startsWith('pnpm add -D'),
+		);
+		expect(dependencyInstallStep).toContain('@ttsc/lint@');
+		expect(dependencyInstallStep).toContain(
+			'@wp-typia/ttsc-lint-plugin-wp@',
+		);
+		expect(dependencyInstallStep).not.toContain('@wp-typia/block-runtime@');
+		expect(dependencyInstallStep).not.toContain('@wordpress/blocks@');
 		expect(
 			preview.plannedFiles.some((file) => file.path === 'webpack.config.js'),
 		).toBe(false);

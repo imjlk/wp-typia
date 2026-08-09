@@ -5,11 +5,11 @@ import {
   type PackageManagerId,
 } from '../shared/package-managers.js';
 import {
-  buildRequiredDevDependencyMapEntries,
   getWpTypiaCliSpecifier,
 } from './cli-init-package-json.js';
 import type {
   InitCommandMode,
+  InitDependencyChange,
   InitPlanLayoutKind,
   InitPlanStatus,
   RetrofitInitPlan,
@@ -61,7 +61,7 @@ export function buildInitPlanChangeSummary(
 
 export function buildInitPlanNextSteps(options: {
   commandMode: InitCommandMode;
-  dependencyChangeCount: number;
+  dependencyChanges: readonly InitDependencyChange[];
   hasPlannedChanges: boolean;
   layoutKind: InitPlanLayoutKind;
   packageManager: PackageManagerId;
@@ -81,7 +81,9 @@ export function buildInitPlanNextSteps(options: {
   );
   const dependencyInstallCommand = formatAddDevDependenciesCommand(
     options.packageManager,
-    buildRequiredDevDependencyMapEntries(),
+    options.dependencyChanges.map(
+      (change) => `${change.name}@${change.requiredValue.replace(/^workspace:/u, '')}`,
+    ),
   );
 
   if (options.layoutKind === 'unsupported') {
@@ -95,7 +97,7 @@ export function buildInitPlanNextSteps(options: {
 
   if (options.commandMode === 'apply') {
     return [
-			...(options.dependencyChangeCount > 0
+			...(options.dependencyChanges.length > 0
 				? [
 						'Install or reinstall project dependencies so the retrofit sync scripts and metadata generators are available locally.',
 						dependencyInstallCommand,
@@ -111,7 +113,9 @@ export function buildInitPlanNextSteps(options: {
 		...(options.hasPlannedChanges
 			? [
 					'Re-run `wp-typia init --apply` to write the planned package.json changes and helper files automatically.',
-					...(options.dependencyChangeCount > 0 ? [dependencyInstallCommand] : []),
+					...(options.dependencyChanges.length > 0
+						? [dependencyInstallCommand]
+						: []),
 			  ]
 			: []),
 		syncRun,

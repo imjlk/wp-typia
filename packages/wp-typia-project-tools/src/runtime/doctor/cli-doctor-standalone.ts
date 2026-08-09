@@ -2985,6 +2985,7 @@ function getStandaloneTtscLintConfigIssue(
       source,
       expectedTextDomain,
       relativePath,
+      project.packageJson.type === 'module' ? 'module' : 'commonjs',
     )
       ? null
       : `${relativePath} must enable the WordPress ttsc lint preset and bind wordpress/i18n-text-domain to "${expectedTextDomain}"`;
