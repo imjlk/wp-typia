@@ -106,7 +106,7 @@ const presetRuleStates = Object.fromEntries(
       presetName,
       Object.fromEntries(
         [...states.entries()]
-          .sort(([left], [right]) => left.localeCompare(right))
+          .sort(([left], [right]) => compareCodeUnits(left, right))
           .map(([name, statesForRule]) => [
             name,
             statesForRule.size > 1
@@ -206,7 +206,7 @@ function compilePreset(
 
     const rules = Object.fromEntries(
       [...translatedRules.entries()].sort(([left], [right]) =>
-        left.localeCompare(right),
+        compareCodeUnits(left, right),
       ),
     );
     if (Object.keys(rules).length === 0 && !entry.ignores?.length) continue;
@@ -221,13 +221,19 @@ function compilePreset(
   return {
     entries: compiledEntries,
     optionDowngrades: [...optionDowngrades]
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareCodeUnits(left, right))
       .map(([source, target]) => ({ source, target })),
     runnerRules: [...runnerRules].sort(),
     sourceEntryCount: entries.length,
     supportedRules: [...supportedRules].sort(),
     unsupportedRules: [...unsupportedRules].sort(),
   };
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 function appendCompiledEntry(
