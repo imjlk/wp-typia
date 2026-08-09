@@ -46,6 +46,7 @@ _n_noop('One', 'Many', 'wrong');
 _nx_noop('One', 'Many', 'context', 'wrong');
 sprintf(_n_noop('%s item', 'items', 'wrong'), value);
 __('Allowed domain', 'my-plugin');
+__(('Grouped literal'), 'my-plugin');
 _x('Allowed contextual domain', 'context', 'my-plugin');
 _nx('One item', 'Many items', 2, 'context', 'my-plugin');
 sprintf('%s', value);

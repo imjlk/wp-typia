@@ -199,6 +199,12 @@ func translationStaticNodes(node *shimast.Node) []*shimast.Node {
 		return nil
 	}
 	switch node.Kind {
+	case shimast.KindParenthesizedExpression:
+		parenthesized := node.AsParenthesizedExpression()
+		if parenthesized == nil {
+			return nil
+		}
+		return translationStaticNodes(parenthesized.Expression)
 	case shimast.KindStringLiteral,
 		shimast.KindNoSubstitutionTemplateLiteral:
 		return []*shimast.Node{node}
@@ -262,6 +268,10 @@ func isAcceptableTranslationLiteral(node *shimast.Node) bool {
 		return false
 	}
 	switch node.Kind {
+	case shimast.KindParenthesizedExpression:
+		parenthesized := node.AsParenthesizedExpression()
+		return parenthesized != nil &&
+			isAcceptableTranslationLiteral(parenthesized.Expression)
 	case shimast.KindStringLiteral,
 		shimast.KindNumericLiteral,
 		shimast.KindBigIntLiteral,

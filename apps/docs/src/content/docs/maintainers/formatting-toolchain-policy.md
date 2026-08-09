@@ -8,8 +8,8 @@ title: 'Formatting Toolchain Policy'
 
 - the repository root owns TypeScript `7.0.2`
 - the repository root owns `ttsc` and `@ttsc/lint` at `0.23.0`
-- generated projects use `@wp-typia/ttsc-lint-plugin-wp` `0.1.1` as the
-  WordPress-specific contributor baseline
+- packaged project tools fall back to `@wp-typia/ttsc-lint-plugin-wp` `^0.2.0`
+  as the WordPress-specific contributor baseline
 - the repository root owns `eslint` at `9.39.4`
 - the repository root owns `@eslint/js` at `9.39.4`
 - the repository root owns `prettier` at `3.8.2`

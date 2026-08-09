@@ -119,6 +119,13 @@ func translationTextContent(file *shimast.SourceFile, node *shimast.Node) (strin
 	if node == nil {
 		return "", false
 	}
+	if node.Kind == shimast.KindParenthesizedExpression {
+		parenthesized := node.AsParenthesizedExpression()
+		if parenthesized == nil {
+			return "", false
+		}
+		return translationTextContent(file, parenthesized.Expression)
+	}
 	if node.Kind == shimast.KindNoSubstitutionTemplateLiteral {
 		raw := sourceNodeText(file, node)
 		if len(raw) >= 2 && raw[0] == '`' && raw[len(raw)-1] == '`' {
