@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 import ts from '@typescript/typescript6';
@@ -1430,6 +1431,159 @@ const MANAGED_WORDPRESS_SOURCE_PATHS = [
   'src/blocks/example/edit.tsx',
 ] as const;
 
+const MANAGED_SOURCE_EXTENSIONS = new Set([
+  '.cjs',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.mts',
+  '.ts',
+  '.tsx',
+]);
+
+const MANAGED_SOURCE_EXCLUDED_DIRECTORIES = new Set([
+  'build',
+  'dist',
+  'node_modules',
+]);
+
+function isManagedSourceDirectory(entry: fs.Dirent): boolean {
+  return (
+    entry.isDirectory() &&
+    !entry.isSymbolicLink() &&
+    !MANAGED_SOURCE_EXCLUDED_DIRECTORIES.has(entry.name)
+  );
+}
+
+function getManagedSourcePath(
+  projectDir: string,
+  entryPath: string,
+  entry: fs.Dirent,
+): string | null {
+  return entry.isFile() &&
+    !entry.isSymbolicLink() &&
+    !/\.d\.[cm]?ts$/u.test(entry.name) &&
+    MANAGED_SOURCE_EXTENSIONS.has(path.extname(entry.name))
+    ? path.relative(projectDir, entryPath).split(path.sep).join('/')
+    : null;
+}
+
+function selectManagedSourcePaths(
+  blockSourcePaths: string[],
+  sourcePaths: string[],
+): string[] {
+  if (blockSourcePaths.length > 0) {
+    return blockSourcePaths;
+  }
+  return sourcePaths.length > 0
+    ? sourcePaths
+    : [...MANAGED_WORDPRESS_SOURCE_PATHS];
+}
+
+function collectManagedSourcePaths(
+  projectDir: string,
+  currentDir: string,
+): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(currentDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const sourcePaths: string[] = [];
+  for (const entry of entries) {
+    const entryPath = path.join(currentDir, entry.name);
+    if (isManagedSourceDirectory(entry)) {
+      sourcePaths.push(...collectManagedSourcePaths(projectDir, entryPath));
+      continue;
+    }
+    const sourcePath = getManagedSourcePath(projectDir, entryPath, entry);
+    if (sourcePath !== null) {
+      sourcePaths.push(sourcePath);
+    }
+  }
+  return sourcePaths;
+}
+
+async function collectManagedSourcePathsAsync(
+  projectDir: string,
+  currentDir: string,
+): Promise<string[]> {
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.promises.readdir(currentDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const sourcePathGroups = await Promise.all(
+    entries.map(async (entry): Promise<string[]> => {
+      const entryPath = path.join(currentDir, entry.name);
+      if (isManagedSourceDirectory(entry)) {
+        return collectManagedSourcePathsAsync(projectDir, entryPath);
+      }
+      const sourcePath = getManagedSourcePath(projectDir, entryPath, entry);
+      return sourcePath === null ? [] : [sourcePath];
+    }),
+  );
+  return sourcePathGroups.flat();
+}
+
+/** Discover actual WordPress source files used to validate lint exclusions. */
+export function findManagedWordPressSourcePaths(projectDir: string): string[] {
+  const sourceRoot = path.join(projectDir, 'src');
+  const blocksRoot = path.join(sourceRoot, 'blocks');
+  let blockDirectories: string[] = [];
+  try {
+    blockDirectories = fs
+      .readdirSync(blocksRoot, { withFileTypes: true })
+      .filter(isManagedSourceDirectory)
+      .map((entry) => path.join(blocksRoot, entry.name));
+  } catch {
+    // Standalone blocks and variation scaffolds do not have src/blocks.
+  }
+  const blockSourcePaths = blockDirectories.flatMap((blockDir) =>
+    collectManagedSourcePaths(projectDir, blockDir),
+  );
+  return selectManagedSourcePaths(
+    blockSourcePaths,
+    blockSourcePaths.length === 0
+      ? collectManagedSourcePaths(projectDir, sourceRoot)
+      : [],
+  );
+}
+
+/** Asynchronously discover source files for workspace doctor validation. */
+export async function findManagedWordPressSourcePathsAsync(
+  projectDir: string,
+): Promise<string[]> {
+  const sourceRoot = path.join(projectDir, 'src');
+  const blocksRoot = path.join(sourceRoot, 'blocks');
+  let blockDirectories: string[] = [];
+  try {
+    blockDirectories = (await fs.promises.readdir(blocksRoot, {
+      withFileTypes: true,
+    }))
+      .filter(isManagedSourceDirectory)
+      .map((entry) => path.join(blocksRoot, entry.name));
+  } catch {
+    // Standalone blocks and variation scaffolds do not have src/blocks.
+  }
+  const blockSourcePaths = (
+    await Promise.all(
+      blockDirectories.map((blockDir) =>
+        collectManagedSourcePathsAsync(projectDir, blockDir),
+      ),
+    )
+  ).flat();
+  return selectManagedSourcePaths(
+    blockSourcePaths,
+    blockSourcePaths.length === 0
+      ? await collectManagedSourcePathsAsync(projectDir, sourceRoot)
+      : [],
+  );
+}
+
 function getStaticStringArray(expression: ts.Expression): string[] | null {
   const current = unwrapExpression(expression);
   if (!ts.isArrayLiteralExpression(current)) {
@@ -1474,6 +1628,7 @@ function ignorePatternMatchesSource(
 function hasUsableManagedSourceTree(
   config: ts.ObjectLiteralExpression,
   bindings: WordPressLintConfigBindings,
+  managedSourcePaths: readonly string[],
 ): boolean {
   let ignorePatterns: string[] = [];
   let ignorePatternsKnown = true;
@@ -1501,11 +1656,11 @@ function hasUsableManagedSourceTree(
     return false;
   }
   const ignored = new Map(
-    MANAGED_WORDPRESS_SOURCE_PATHS.map((sourcePath) => [sourcePath, false]),
+    managedSourcePaths.map((sourcePath) => [sourcePath, false]),
   );
   for (const pattern of ignorePatterns) {
     const negated = pattern.startsWith('!');
-    for (const sourcePath of MANAGED_WORDPRESS_SOURCE_PATHS) {
+    for (const sourcePath of managedSourcePaths) {
       const matches = ignorePatternMatchesSource(sourcePath, pattern);
       if (matches === null) {
         return false;
@@ -1768,6 +1923,7 @@ function sourceTerminatesModuleEvaluation(sourceFile: ts.SourceFile): boolean {
  * @param expectedTextDomain Project text domain required by the i18n rule.
  * @param configFilename Discovered filename used to enforce its module format.
  * @param packageModuleType Nearest package type used for ambiguous .js files.
+ * @param managedSourcePaths Actual source files that must remain lint-visible.
  * @returns Whether the exported config satisfies the managed contract.
  */
 export function hasWordPressTtscLintConfigSource(
@@ -1775,6 +1931,7 @@ export function hasWordPressTtscLintConfigSource(
   expectedTextDomain: string,
   configFilename = 'lint.config.ts',
   packageModuleType: 'commonjs' | 'module' = 'commonjs',
+  managedSourcePaths: readonly string[] = MANAGED_WORDPRESS_SOURCE_PATHS,
 ): boolean {
   let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
   if (configFilename.endsWith('.cjs')) {
@@ -1870,7 +2027,7 @@ export function hasWordPressTtscLintConfigSource(
         bindings,
         'wordpress/valid-sprintf',
       ) &&
-      hasUsableManagedSourceTree(config, bindings) &&
+      hasUsableManagedSourceTree(config, bindings, managedSourcePaths) &&
       textDomainRule &&
       hasExpectedTextDomainRule(textDomainRule, expectedTextDomain),
   );
@@ -2261,6 +2418,62 @@ const TTSC_TERMINAL_OPTIONS = new Set([
 // tsconfig discovery prevents an explicit path from checking another project.
 const TTSC_EXPLICIT_PROJECT_OPTIONS = new Set(['--project', '-p']);
 
+interface TypeScriptCommandLineOptionMetadata {
+  name: string;
+  shortName?: string;
+  type: unknown;
+}
+
+const TYPESCRIPT_COMMAND_LINE_OPTIONS = (
+  ts as typeof ts & {
+    optionDeclarations: readonly TypeScriptCommandLineOptionMetadata[];
+  }
+).optionDeclarations;
+
+const TTSC_OPTIONS_WITH_VALUES = new Set(
+  TYPESCRIPT_COMMAND_LINE_OPTIONS.flatMap((option) =>
+    option.type === 'boolean'
+      ? []
+      : [
+          `--${option.name.toLowerCase()}`,
+          ...(option.shortName ? [`-${option.shortName.toLowerCase()}`] : []),
+        ],
+  ),
+);
+
+function hasPositionalTtscInput(args: readonly string[]): boolean {
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index] ?? '';
+    if (argument === '--') {
+      return index < args.length - 1;
+    }
+    // Redirections belong to the shell rather than the ttsc argument list.
+    if (/^(?:\d*(?:>>?|<<?|<>|>&|<&)|&>)\S+$/u.test(argument)) {
+      continue;
+    }
+    if (!argument.startsWith('-')) {
+      return true;
+    }
+    if (argument.includes('=')) {
+      continue;
+    }
+    const optionName = argument.toLowerCase();
+    const nextValue = args[index + 1];
+    const normalizedNextValue = nextValue?.toLowerCase();
+    if (normalizedNextValue === 'true' || normalizedNextValue === 'false') {
+      index += 1;
+      continue;
+    }
+    if (TTSC_OPTIONS_WITH_VALUES.has(optionName)) {
+      if (!nextValue || nextValue.startsWith('-')) {
+        return true;
+      }
+      index += 1;
+    }
+  }
+  return false;
+}
+
 function hasEnabledNoEmitOption(args: readonly string[]): boolean {
   let enabled: boolean | null = null;
   for (let index = 0; index < args.length; index += 1) {
@@ -2306,7 +2519,14 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
     if (commandIndex === null) {
       return false;
     }
-    const args = tokens.slice(commandIndex + 1);
+    const commandArgs = tokens.slice(commandIndex + 1);
+    const packageManager = getShellExecutableName(
+      tokens[getShellCommandStartIndex(tokens)],
+    );
+    const args =
+      packageManager === 'npm' && commandArgs[0] === '--'
+        ? commandArgs.slice(1)
+        : commandArgs;
     return (
       hasEnabledNoEmitOption(args) &&
       !args.some((argument) =>
@@ -2318,12 +2538,40 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
         TTSC_TERMINAL_OPTIONS.has(
           argument.split('=', 1)[0]?.toLowerCase() ?? '',
         ),
-      )
+      ) &&
+      !hasPositionalTtscInput(args)
     );
   });
 }
 
 const PACKAGE_MANAGER_TERMINAL_OPTIONS = SHELL_RUNNER_TERMINAL_OPTIONS;
+
+const PACKAGE_MANAGER_PROJECT_SCOPE_OPTIONS = new Set([
+  '--cwd',
+  '--dir',
+  '--filter',
+  '--include-workspace-root',
+  '--prefix',
+  '--workspace',
+  '--workspaces',
+  '-w',
+]);
+
+const PACKAGE_MANAGER_ALTERNATE_EXECUTION_OPTIONS = new Set(['--call', '-c']);
+
+function hasNonlocalPackageScriptOption(
+  tokens: readonly string[],
+  startIndex: number,
+  endIndex: number,
+): boolean {
+  return tokens.slice(startIndex, endIndex).some((token) => {
+    const optionName = token.split('=', 1)[0]?.toLowerCase() ?? '';
+    return (
+      PACKAGE_MANAGER_PROJECT_SCOPE_OPTIONS.has(optionName) ||
+      PACKAGE_MANAGER_ALTERNATE_EXECUTION_OPTIONS.has(optionName)
+    );
+  });
+}
 
 function isPackageRunScriptInvocation(
   tokens: readonly string[],
@@ -2337,6 +2585,9 @@ function isPackageRunScriptInvocation(
   }
   const optionsStartIndex = commandIndex + 1;
   commandIndex = skipShellRunnerOptions(tokens, optionsStartIndex);
+  if (hasNonlocalPackageScriptOption(tokens, optionsStartIndex, commandIndex)) {
+    return false;
+  }
   if (
     tokens
       .slice(optionsStartIndex, commandIndex)
@@ -2347,7 +2598,13 @@ function isPackageRunScriptInvocation(
     return false;
   }
   if (tokens[commandIndex] === 'run') {
-    commandIndex = skipShellRunnerOptions(tokens, commandIndex + 1);
+    const runOptionsStartIndex = commandIndex + 1;
+    commandIndex = skipShellRunnerOptions(tokens, runOptionsStartIndex);
+    if (
+      hasNonlocalPackageScriptOption(tokens, runOptionsStartIndex, commandIndex)
+    ) {
+      return false;
+    }
   } else if (packageManager === 'bun' || packageManager === 'npm') {
     return false;
   }

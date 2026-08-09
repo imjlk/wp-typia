@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { parse } from 'yaml';
+
 import { isProjectLocalRelativePath } from '../doctor/cli-doctor-standalone-shared.js';
+import { isFileNotFoundError } from './fs-async.js';
 
 interface PackageManifestShape {
   dependencies?: Record<string, string>;
@@ -58,6 +61,39 @@ function getWorkspacePatterns(manifest: PackageManifestShape): string[] {
   );
 }
 
+function readPnpmWorkspacePatterns(candidateRoot: string): string[] {
+  let source: string;
+  try {
+    source = fs.readFileSync(
+      path.join(candidateRoot, 'pnpm-workspace.yaml'),
+      'utf8',
+    );
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return [];
+    }
+    throw error;
+  }
+  let document: unknown;
+  try {
+    document = parse(source);
+  } catch {
+    return [];
+  }
+  if (
+    document === null ||
+    typeof document !== 'object' ||
+    !('packages' in document) ||
+    !Array.isArray(document.packages) ||
+    !document.packages.every(
+      (pattern): pattern is string => typeof pattern === 'string',
+    )
+  ) {
+    return [];
+  }
+  return document.packages;
+}
+
 function workspacePatternMatches(
   projectRelativePath: string,
   pattern: string,
@@ -89,12 +125,15 @@ function findDeclaringWorkspaceRoot(
     const manifest = readPackageManifest(
       path.join(candidateRoot, 'package.json'),
     );
-    if (manifest) {
+    const patterns = [
+      ...(manifest ? getWorkspacePatterns(manifest) : []),
+      ...readPnpmWorkspacePatterns(candidateRoot),
+    ];
+    if (patterns.length > 0) {
       const projectRelativePath = path
         .relative(candidateRoot, projectDir)
         .split(path.sep)
         .join('/');
-      const patterns = getWorkspacePatterns(manifest);
       const included = patterns.some(
         (pattern) =>
           !pattern.startsWith('!') &&

@@ -30,6 +30,7 @@ import {
   resolveFromProject,
 } from '../shared/project-package-resolution.js';
 import {
+  findManagedWordPressSourcePaths,
   hasPackageRunScriptCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscNoEmitLintCommand,
@@ -2989,6 +2990,7 @@ function getStandaloneTtscLintConfigIssue(
       expectedTextDomain,
       relativePath,
       project.packageJson.type === 'module' ? 'module' : 'commonjs',
+      findManagedWordPressSourcePaths(project.projectDir),
     )
       ? null
       : `${relativePath} must enable the WordPress ttsc lint preset and bind wordpress/i18n-text-domain to "${expectedTextDomain}"`;

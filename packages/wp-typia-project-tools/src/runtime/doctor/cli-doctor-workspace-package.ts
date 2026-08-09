@@ -11,6 +11,7 @@ import {
   getTtscLintCompatSource,
 } from '../cli/cli-init-templates.js';
 import {
+  findManagedWordPressSourcePathsAsync,
   hasPackageRunScriptCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscNoEmitLintCommand,
@@ -45,6 +46,8 @@ export interface WorkspacePackageDoctorSnapshot {
   ttscLintConfigReadError: string | null;
 	/** Source of the discovered ttsc lint config, when readable. */
   ttscLintConfigSource: string | null;
+	/** Actual block source paths used to validate lint exclusions. */
+  ttscLintManagedSourcePaths: string[];
   /** Whether the managed ttsc lint compatibility helper is current. */
   ttscLintCompatCurrent: boolean;
 	/** Project-local lint packages that cannot be resolved. */
@@ -142,12 +145,14 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     migrationConfigExists,
     ttscLintCompatCurrent,
     ttscLintConfig,
+    ttscLintManagedSourcePaths,
   ] =
     await Promise.all([
       pathExists(path.join(workspace.projectDir, bootstrapRelativePath)),
       pathExists(path.join(workspace.projectDir, migrationConfigRelativePath)),
       readWorkspaceTtscLintCompatCurrent(workspace.projectDir),
       readWorkspaceTtscLintConfig(workspace.projectDir),
+      findManagedWordPressSourcePathsAsync(workspace.projectDir),
     ]);
   const ttscLintMissingInstalledPackages =
     WORKSPACE_TTSC_LINT_INSTALLED_PACKAGES.filter(
@@ -167,6 +172,7 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     ttscLintConfigRelativePath: ttscLintConfig.relativePath,
     ttscLintConfigReadError: ttscLintConfig.readError,
     ttscLintConfigSource: ttscLintConfig.source,
+    ttscLintManagedSourcePaths,
     ttscLintCompatCurrent,
     ttscLintMissingInstalledPackages,
   };
@@ -239,6 +245,7 @@ export function getWorkspaceTtscLintCheck(
       packageJson.wpTypia?.textDomain ?? '',
       snapshot.ttscLintConfigRelativePath ?? undefined,
       packageJson.type === 'module' ? 'module' : 'commonjs',
+      snapshot.ttscLintManagedSourcePaths,
     )
   ) {
     issues.push(

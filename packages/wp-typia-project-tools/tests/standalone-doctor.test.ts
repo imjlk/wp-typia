@@ -406,6 +406,36 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     15_000,
   );
 
+  test(
+    'accepts dependencies hoisted by a pnpm workspace declaration',
+    async () => {
+      const ancestorDir = path.join(tempRoot, 'pnpm-workspace-dependencies');
+      const targetDir = path.join(ancestorDir, 'standalone-project');
+      await scaffoldBasic(targetDir);
+      fs.writeFileSync(
+        path.join(ancestorDir, 'package.json'),
+        '{"private":true}\n',
+      );
+      fs.writeFileSync(
+        path.join(ancestorDir, 'pnpm-workspace.yaml'),
+        'packages: ["unused # literal", "standalone-project"] # fixture\n',
+      );
+      linkWorkspaceNodeModules(targetDir);
+      fs.renameSync(
+        path.join(targetDir, 'node_modules'),
+        path.join(ancestorDir, 'node_modules'),
+      );
+
+      const dependenciesCheck = getCheck(
+        await getDoctorChecks(targetDir),
+        STANDALONE_DOCTOR_CODES.DEPENDENCIES,
+      );
+
+      expect(dependenciesCheck?.status).toBe('pass');
+    },
+    15_000,
+  );
+
   test('does not accept dependencies resolved only from an ancestor', async () => {
     const ancestorDir = path.join(tempRoot, 'ancestor-dependencies');
     const targetDir = path.join(ancestorDir, 'standalone-project');

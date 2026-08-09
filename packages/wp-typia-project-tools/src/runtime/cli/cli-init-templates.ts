@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { quoteTsString } from '../add/cli-add-shared.js';
 import {
+  findManagedWordPressSourcePaths,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
@@ -75,6 +76,7 @@ export function hasWordPressTtscLintConfig(
     expectedTextDomain,
     path.basename(configPath),
     packageModuleType,
+    findManagedWordPressSourcePaths(path.dirname(configPath)),
   );
 }
 

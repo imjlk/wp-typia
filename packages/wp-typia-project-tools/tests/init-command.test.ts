@@ -12,7 +12,11 @@ import {
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
 } from '../src/runtime/cli/cli-init-templates.js';
-import { hasWordPressTtscLintConfigSource } from '../src/runtime/shared/ttsc-lint-config.js';
+import {
+  findManagedWordPressSourcePaths,
+  findManagedWordPressSourcePathsAsync,
+  hasWordPressTtscLintConfigSource,
+} from '../src/runtime/shared/ttsc-lint-config.js';
 import {
   buildInitPlanChangeSummary,
   buildInitPlanNextSteps,
@@ -862,6 +866,7 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit # managed lint\n',
 			'ttsc --noEmit false --noEmit',
 			'ttsc --noEmit=false --noEmit=true',
+			'ttsc --baseUrl src --generateTrace traces --noEmit',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(false);
 		}
@@ -898,6 +903,9 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit --project ../unrelated/tsconfig.json',
 			'ttsc --noEmit --project=../unrelated/tsconfig.json',
 			'ttsc --noEmit -p ../unrelated/tsconfig.json',
+			'ttsc --noEmit ../unrelated.ts',
+			'ttsc ../unrelated.ts --noEmit',
+			'ttsc --noEmit -- --project custom.tsconfig',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
 			'exit 0 && ttsc --noEmit',
@@ -974,6 +982,29 @@ describe('wp-typia init', () => {
 				requiredValue: 'npm run lint:ts',
 			}),
 		);
+		for (const lintCommand of [
+			'npm --prefix=../other run lint:ts',
+			'pnpm --filter=other run lint:ts',
+			'yarn --cwd ../other run lint:ts',
+		]) {
+			const scopedAggregate = buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: lintCommand,
+						'lint:ts': 'ttsc --noEmit',
+						postinstall:
+							'node scripts/apply-ttsc-lint-compat.mjs',
+					},
+				},
+				'npm',
+			);
+			expect(scopedAggregate).toContainEqual(
+				expect.objectContaining({
+					name: 'lint',
+					requiredValue: `npm run lint:ts && ${lintCommand}`,
+				}),
+			);
+		}
 		const mixedForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -987,6 +1018,24 @@ describe('wp-typia init', () => {
 			'npm',
 		);
 		expect(mixedForwardedAggregate).toContainEqual(
+			expect.objectContaining({
+				name: 'lint',
+				requiredValue: 'npm run lint:ts && npm run lint:css',
+			}),
+		);
+		const scopedForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts -- --workspace other && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					postinstall:
+						'node scripts/apply-ttsc-lint-compat.mjs',
+				},
+			},
+			'npm',
+		);
+		expect(scopedForwardedAggregate).toContainEqual(
 			expect.objectContaining({
 				name: 'lint',
 				requiredValue: 'npm run lint:ts && npm run lint:css',
@@ -1271,6 +1320,74 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('validates ignores against actual compound block sources', async () => {
+		const projectDir = path.join(tempRoot, 'compound-lint-ignore');
+		const configPath = path.join(projectDir, 'lint.config.ts');
+		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
+		fs.mkdirSync(path.join(projectDir, 'src', 'blocks', 'container'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
+			'export const Edit = () => null;\n',
+		);
+		fs.writeFileSync(
+			configPath,
+			canonicalSource.replace(
+				"  ignores: ['build/**', 'node_modules/**'],",
+				"  ignores: ['src/blocks/**'],",
+			),
+		);
+
+		expect(hasWordPressTtscLintConfig(configPath, 'fixture-domain')).toBe(false);
+		expect(await findManagedWordPressSourcePathsAsync(projectDir)).toEqual(
+			findManagedWordPressSourcePaths(projectDir),
+		);
+
+		fs.unlinkSync(
+			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
+		);
+		fs.mkdirSync(
+			path.join(
+				projectDir,
+				'src',
+				'blocks',
+				'container',
+				'node_modules',
+				'fixture',
+			),
+			{ recursive: true },
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'blocks', 'container', 'types.d.cts'),
+			'export interface Fixture {}\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'blocks', 'container', 'types.d.mts'),
+			'export interface Fixture {}\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'index.ts'),
+			'export const register = true;\n',
+		);
+		fs.writeFileSync(
+			path.join(
+				projectDir,
+				'src',
+				'blocks',
+				'container',
+				'node_modules',
+				'fixture',
+				'index.ts',
+			),
+			'export const generated = true;\n',
+		);
+		expect(hasWordPressTtscLintConfig(configPath, 'fixture-domain')).toBe(true);
+		expect(await findManagedWordPressSourcePathsAsync(projectDir)).toEqual([
+			'src/index.ts',
+		]);
+	});
+
 	test('requires the contributor preset and expected text domain', () => {
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
 		const esmJavaScriptSource = canonicalSource
@@ -1346,6 +1463,22 @@ export default {
 				),
 			).toBe(false);
 		}
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					"  ignores: ['build/**', 'node_modules/**'],",
+					"  ignores: ['src/blocks/**'],",
+				),
+				'fixture-domain',
+				'lint.config.ts',
+				'commonjs',
+				[
+					'src/blocks/container/edit.tsx',
+					'src/blocks/container/save.tsx',
+				],
+			),
+		).toBe(false);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				replaceOnce(
