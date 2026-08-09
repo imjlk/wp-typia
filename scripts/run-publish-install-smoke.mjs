@@ -21,15 +21,9 @@ import {
 } from "./lib/publish-package-footprint.mjs";
 import { createCiPhaseTimer } from "./lib/ci-phase-timing.mjs";
 
-const GENERATED_PROJECT_OVERRIDE_PACKAGES = [
-	"@wp-typia/api-client",
-	"@wp-typia/rest",
-	"@wp-typia/block-types",
-	"@wp-typia/dataviews",
-	"@wp-typia/block-runtime",
-	"@wp-typia/project-tools",
-	"wp-typia",
-];
+const GENERATED_PROJECT_OVERRIDE_PACKAGES = PUBLISH_PACKAGE_CHAIN.filter(
+	([, packageName]) => packageName !== "@wp-typia/create-workspace-template",
+).map(([, packageName]) => packageName);
 const npmCommand = getNpmCommand();
 const tarCommand = getTarCommand();
 
