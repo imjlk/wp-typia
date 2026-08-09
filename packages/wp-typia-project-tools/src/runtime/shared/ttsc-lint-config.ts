@@ -276,7 +276,7 @@ function getWordPressLintConfigBindings(
       continue;
     }
     const importClause = statement.importClause;
-    if (!importClause?.namedBindings) {
+    if (importClause?.isTypeOnly || !importClause?.namedBindings) {
       continue;
     }
     if (ts.isNamespaceImport(importClause.namedBindings)) {
@@ -284,7 +284,10 @@ function getWordPressLintConfigBindings(
       continue;
     }
     for (const element of importClause.namedBindings.elements) {
-      if ((element.propertyName ?? element.name).text === 'configs') {
+      if (
+        !element.isTypeOnly &&
+        (element.propertyName ?? element.name).text === 'configs'
+      ) {
         bindings.named.add(element.name.text);
       }
     }

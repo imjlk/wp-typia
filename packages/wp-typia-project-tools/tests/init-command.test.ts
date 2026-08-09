@@ -1054,6 +1054,31 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
 		).toBe(true);
+		for (const typeOnlyImport of [
+			"import { type configs } from '@wp-typia/ttsc-lint-plugin-wp';",
+			"import type * as wp from '@wp-typia/ttsc-lint-plugin-wp';",
+		]) {
+			const typeOnlyConfigReference = typeOnlyImport.includes('* as wp')
+				? 'wp.configs'
+				: 'configs';
+			expect(
+				hasWordPressTtscLintConfigSource(
+					`${typeOnlyImport}
+export default {
+  ...${typeOnlyConfigReference}.recommended,
+  rules: {
+    ...${typeOnlyConfigReference}.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+					'fixture-domain',
+				),
+			).toBe(false);
+		}
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'other-domain'),
 		).toBe(false);
