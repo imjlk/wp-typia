@@ -66,6 +66,9 @@ __(`Line one
 line two`, 'my-plugin');
 __(' Trim this', 'my-plugin');
 __((' Grouped whitespace '), 'my-plugin');
+__('' + ' Empty left edge', 'my-plugin');
+__('Empty right edge ' + '', 'my-plugin');
+__(' Escaped\u2028line separator ', 'my-plugin');
 __(` Template whitespace `, 'my-plugin');
 __('%s', 'my-plugin');
 __(message, 'my-plugin');
@@ -87,6 +90,8 @@ sprintf(
 );
 // translators: %s: Non-breaking space label
 __('Non-breaking space label: %s', 'my-plugin');
+/* translators: %s: Line separator label %d: Ignored second line */
+__('Line separator label: %s', 'my-plugin');
 // translators: city: City
 __('City: %(city)s', 'my-plugin');
 // translators: 1: Address, 2: City

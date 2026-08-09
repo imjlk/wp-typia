@@ -89,11 +89,25 @@ func flankingWhitespaceEdits(
 			binary.OperatorToken.Kind != shimast.KindPlusToken {
 			return nil
 		}
+		leftValue, leftOK := translationTextContent(file, binary.Left)
+		rightValue, rightOK := translationTextContent(file, binary.Right)
 		return append(
 			// Only the outer edges are flanking whitespace. Trimming every
 			// literal, as upstream does, removes meaningful join separators.
-			flankingWhitespaceEdits(file, binary.Left, trimLeft, false),
-			flankingWhitespaceEdits(file, binary.Right, false, trimRight)...,
+			// Empty edge operands do not own an edge, so carry its flag inward
+			// until the first or last nonempty static operand.
+			flankingWhitespaceEdits(
+				file,
+				binary.Left,
+				trimLeft,
+				trimRight && rightOK && rightValue == "",
+			),
+			flankingWhitespaceEdits(
+				file,
+				binary.Right,
+				trimLeft && leftOK && leftValue == "",
+				trimRight,
+			)...,
 		)
 	}
 	value, ok := stringLiteralText(node)

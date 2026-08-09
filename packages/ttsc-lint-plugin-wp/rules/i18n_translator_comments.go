@@ -25,7 +25,8 @@ type translatorKey struct {
 }
 
 var translatorLinePattern = regexp.MustCompile(
-	`(?i)translators:` + ecmaScriptWhitespaceClass + `*(.*)`,
+	`(?i)translators:` + ecmaScriptWhitespaceClass +
+		`*([^\n\r\x{2028}\x{2029}]*)`,
 )
 var translatorCommentPlaceholderPattern = regexp.MustCompile(
 	`(?:^|` + ecmaScriptWhitespaceClass + `|,)` +
