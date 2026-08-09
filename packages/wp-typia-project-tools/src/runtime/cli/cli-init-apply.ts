@@ -195,7 +195,8 @@ export async function applyInitPlan(
       previewPlan.detectedLayout.kind !== 'official-workspace',
   });
   const helperFiles =
-    previewPlan.detectedLayout.kind === 'official-workspace'
+    previewPlan.detectedLayout.kind === 'official-workspace' ||
+    previewPlan.detectedLayout.kind === 'generated-project'
       ? buildOfficialWorkspaceLintFiles({
           projectDir: previewPlan.projectDir,
           textDomain: expectedTextDomain,

@@ -173,6 +173,30 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
+    const wrongToolchainPackageJson = JSON.parse(
+      originalPackageJsonSource,
+    ) as {
+      devDependencies: Record<string, string>;
+    };
+    wrongToolchainPackageJson.devDependencies['@ttsc/lint'] = '0.22.0';
+    wrongToolchainPackageJson.devDependencies.ttsc = '0.22.0';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(wrongToolchainPackageJson, null, 2),
+    );
+    const wrongToolchainVersionCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(wrongToolchainVersionCheck?.status).toBe('fail');
+    expect(wrongToolchainVersionCheck?.detail).toContain(
+      '@ttsc/lint dependency must be exactly',
+    );
+    expect(wrongToolchainVersionCheck?.detail).toContain(
+      'ttsc dependency must satisfy',
+    );
+
+    fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
     const executionPackageJson = JSON.parse(originalPackageJsonSource) as {
       scripts: Record<string, string>;
     };

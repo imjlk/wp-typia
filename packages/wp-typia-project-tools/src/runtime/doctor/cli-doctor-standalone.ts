@@ -9,6 +9,7 @@ import {
   type SyncBlockMetadataReport,
 } from '@wp-typia/block-runtime/metadata-core';
 import ts from '@typescript/typescript6';
+import semver from 'semver';
 
 import {
   formatInstallCommand,
@@ -3049,12 +3050,45 @@ function getPackageMetadataCheck(
     issues.push(ttscLintConfigIssue);
   }
   issues.push(...getStandaloneTtscLintExecutionIssues(project));
+  const packageVersions = getPackageVersions();
+  const declaredTtscLintVersion = getDeclaredDependency(
+    project.packageJson,
+    '@ttsc/lint',
+  );
+  if (
+    typeof declaredTtscLintVersion === 'string' &&
+    declaredTtscLintVersion !== packageVersions.ttscLintPackageVersion
+  ) {
+    issues.push(
+      `package.json @ttsc/lint dependency must be exactly ${packageVersions.ttscLintPackageVersion}`,
+    );
+  }
+  const declaredTtscVersion = getDeclaredDependency(
+    project.packageJson,
+    'ttsc',
+  );
+  if (typeof declaredTtscVersion === 'string') {
+    let supported = false;
+    try {
+      supported = semver.subset(
+        declaredTtscVersion,
+        packageVersions.ttscLintPluginWpTtscPeerRange,
+      );
+    } catch {
+      // Invalid ranges cannot satisfy the managed contributor contract.
+    }
+    if (!supported) {
+      issues.push(
+        `package.json ttsc dependency must satisfy ${packageVersions.ttscLintPluginWpTtscPeerRange}`,
+      );
+    }
+  }
   const declaredContributorVersion = getDeclaredDependency(
     project.packageJson,
     '@wp-typia/ttsc-lint-plugin-wp',
   );
   const requiredContributorVersion =
-    getPackageVersions().ttscLintPluginWpPackageVersion;
+    packageVersions.ttscLintPluginWpPackageVersion;
   if (
     typeof declaredContributorVersion === 'string' &&
     declaredContributorVersion !== requiredContributorVersion

@@ -523,6 +523,11 @@ export function getInitPlan(
       ? packageJson.name
       : path.basename(resolvedProjectDir);
   const layout = buildInitLayoutDetails(resolvedProjectDir);
+  const hasExistingSurface = hasExistingWpTypiaProjectSurface(
+    resolvedProjectDir,
+    packageJson,
+  );
+  const existingLintConfigPath = findTtscLintConfigPath(resolvedProjectDir);
   const dependencyChanges = buildDependencyChanges(packageJson);
   const scriptChanges = buildScriptChanges(packageJson, packageManager);
   const obsoleteTypiaUnplugin =
@@ -541,8 +546,11 @@ export function getInitPlan(
     packageManagerFieldChange?.requiredValue,
   );
   const rawPlannedFiles: InitFilePlan[] =
-		layout.kind === 'generated-project' || layout.kind === 'official-workspace'
-      ? []
+		hasExistingSurface
+      ? buildOfficialWorkspaceLintFilePlans(
+          resolvedProjectDir,
+          existingLintConfigPath,
+        )
       : buildPlannedFiles(resolvedProjectDir, layout.kind);
   if (yarnPnpNodeModulesConfig) {
     rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
@@ -555,11 +563,6 @@ export function getInitPlan(
         'Replace the obsolete @typia/unplugin Webpack loader with @ttsc/unplugin.',
     })),
   );
-  const hasExistingSurface = hasExistingWpTypiaProjectSurface(
-    resolvedProjectDir,
-    packageJson,
-  );
-  const existingLintConfigPath = findTtscLintConfigPath(resolvedProjectDir);
   const expectedTextDomain = resolveRetrofitTextDomain({
     blockTargets: layout.blockTargets,
     packageJson,
@@ -577,18 +580,19 @@ export function getInitPlan(
 		webpackChanges.length === 0 &&
 		packageManagerFieldChange === undefined &&
 		yarnPnpNodeModulesConfig === undefined &&
+		rawPlannedFiles.length === 0 &&
 		wordpressLintIntegrated
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;
   const detectedLayout =
-		status === 'already-initialized' && hasExistingSurface
+		hasExistingSurface
 			? {
 					blockNames: layout.blockNames,
 					description:
-						layout.kind === 'unsupported'
-							? 'Already exposes the minimum wp-typia sync surface.'
-							: `Already exposes the minimum wp-typia sync surface for ${layout.kind === 'multi-block' ? 'a multi-block project' : 'a single-block project'}.`,
+						status === 'already-initialized'
+							? 'Existing generated wp-typia project integration is current.'
+							: 'Detected an existing generated wp-typia project; only managed lint and toolchain files will be updated.',
 					kind: 'generated-project' as const,
 			  }
 			: {
@@ -602,7 +606,7 @@ export function getInitPlan(
 		commandMode: 'preview-only',
 		detectedLayout,
 		generatedArtifacts:
-			status === 'already-initialized' && detectedLayout.kind === 'generated-project'
+			detectedLayout.kind === 'generated-project'
 				? []
 				: layout.generatedArtifacts,
 		notes: Array.from(

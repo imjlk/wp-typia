@@ -8,6 +8,7 @@ import { getInitPlan } from '../src/runtime/cli-init-plan.js';
 import { buildOfficialWorkspaceLintScriptChanges } from '../src/runtime/cli/cli-init-package-json.js';
 import {
   buildWordPressTtscLintConfigSource,
+  getTtscLintCompatSource,
   resolveRetrofitTextDomain,
 } from '../src/runtime/cli/cli-init-templates.js';
 import { hasWordPressTtscLintConfigSource } from '../src/runtime/shared/ttsc-lint-config.js';
@@ -811,6 +812,8 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit &>lint.log',
 			'echo setup &&\nttsc --noEmit',
 			'ttsc --noEmit # managed lint\n',
+			'ttsc --noEmit false --noEmit',
+			'ttsc --noEmit=false --noEmit=true',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(false);
 		}
@@ -841,6 +844,8 @@ describe('wp-typia init', () => {
 			'yarn run ttsc --noEmit',
 			'ttsc --noEmit --listFilesOnly',
 			'ttsc --noEmit --showConfig',
+			'ttsc --noEmit false',
+			'ttsc --noEmit=true --noEmit=false',
 		]) {
 			expect(plansLintTsReplacement(command)).toBe(true);
 		}
@@ -1119,6 +1124,15 @@ module.exports = {
 				'lint.config.cjs',
 			),
 		).toBe(false);
+		for (const configFilename of ['lint.config.mts', 'lint.config.cts']) {
+			expect(
+				hasWordPressTtscLintConfigSource(
+					canonicalSource,
+					'fixture-domain',
+					configFilename,
+				),
+			).toBe(true);
+		}
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
@@ -1172,6 +1186,24 @@ module.exports = {
 `,
 				'fixture-domain',
 				'lint.config.mjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+				'lint.config.mts',
 			),
 		).toBe(false);
 		expect(
@@ -2035,6 +2067,63 @@ let exports;
 		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(true);
 	});
 
+	test('preserves generated persistence helpers during lint-only upgrades', async () => {
+		const projectDir = path.join(tempRoot, 'generated-persistence-lint-upgrade');
+		const versions = getPackageVersions();
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'GeneratedPersistenceAttributes',
+			packageJson: {
+				devDependencies: {
+					'@wp-typia/block-runtime': versions.blockRuntimePackageVersion,
+					'@wp-typia/block-types': versions.blockTypesPackageVersion,
+				},
+				scripts: {
+					sync: 'ttsx scripts/sync-project.ts',
+					'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
+				},
+			},
+		});
+		const helperSources = {
+			'block-config.ts':
+				"export const BLOCKS = [{ rest: { endpoint: '/counter' } }];\n",
+			'sync-project.ts':
+				"import './sync-rest-contracts.js';\nexport const persistence = true;\n",
+			'sync-types-to-block-json.ts':
+				'export const preserveGeneratedMetadata = true;\n',
+		};
+		fs.mkdirSync(path.join(projectDir, 'scripts'), { recursive: true });
+		for (const [filename, source] of Object.entries(helperSources)) {
+			fs.writeFileSync(path.join(projectDir, 'scripts', filename), source, 'utf8');
+		}
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.detectedLayout.kind).toBe('generated-project');
+		expect(preview.generatedArtifacts).toEqual([]);
+		expect(preview.plannedFiles.map((file) => file.path)).not.toContain(
+			'scripts/sync-project.ts',
+		);
+		expect(preview.plannedFiles.map((file) => file.path)).not.toContain(
+			'scripts/block-config.ts',
+		);
+
+		await applyInitPlan(projectDir);
+
+		for (const [filename, source] of Object.entries(helperSources)) {
+			expect(
+				fs.readFileSync(path.join(projectDir, 'scripts', filename), 'utf8'),
+			).toBe(source);
+		}
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(true);
+		expect(
+			fs.readFileSync(
+				path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+				'utf8',
+			),
+		).toBe(getTtscLintCompatSource());
+	});
+
 	test('reports already-initialized projects without planning redundant changes', () => {
 		const projectDir = path.join(tempRoot, 'retrofit-already-initialized');
 		const versions = getPackageVersions();
@@ -2073,7 +2162,7 @@ let exports;
 		);
 		fs.writeFileSync(
 			path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
-			'export {};\n',
+			getTtscLintCompatSource(),
 			'utf8',
 		);
 		fs.writeFileSync(

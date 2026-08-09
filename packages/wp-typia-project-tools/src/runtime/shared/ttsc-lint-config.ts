@@ -23,7 +23,11 @@ interface WordPressLintConfigBindings {
   namespaces: Set<string>;
 }
 
-type TtscLintConfigModuleFormat = 'commonjs' | 'module' | 'flexible';
+type TtscLintConfigModuleFormat =
+  | 'commonjs'
+  | 'flexible'
+  | 'module'
+  | 'transpiled-commonjs';
 
 function statementHasTopLevelBinding(
   statement: ts.Statement,
@@ -1239,8 +1243,15 @@ export function hasWordPressTtscLintConfigSource(
   let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
   if (configFilename.endsWith('.cjs')) {
     moduleFormat = 'commonjs';
-  } else if (configFilename.endsWith('.mjs')) {
+  } else if (
+    configFilename.endsWith('.mjs') ||
+    configFilename.endsWith('.mts')
+  ) {
     moduleFormat = 'module';
+  } else if (configFilename.endsWith('.cts')) {
+    // TypeScript transforms import/export syntax in .cts files to CommonJS,
+    // so both forms remain executable even though raw .cjs cannot parse ESM.
+    moduleFormat = 'transpiled-commonjs';
   }
   const sourceFile = ts.createSourceFile(
     configFilename,
@@ -1613,6 +1624,39 @@ const TTSC_TERMINAL_OPTIONS = new Set([
   '-v',
 ]);
 
+function hasEnabledNoEmitOption(args: readonly string[]): boolean {
+  let enabled: boolean | null = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index] ?? '';
+    const equalsIndex = argument.indexOf('=');
+    const optionName = (
+      equalsIndex === -1 ? argument : argument.slice(0, equalsIndex)
+    ).toLowerCase();
+    if (optionName !== '--noemit') {
+      continue;
+    }
+    if (equalsIndex !== -1) {
+      const inlineValue = argument.slice(equalsIndex + 1).toLowerCase();
+      if (inlineValue === 'true') {
+        enabled = true;
+      } else if (inlineValue === 'false') {
+        enabled = false;
+      } else {
+        enabled = null;
+      }
+      continue;
+    }
+    const nextValue = args[index + 1]?.toLowerCase();
+    if (nextValue === 'true' || nextValue === 'false') {
+      enabled = nextValue === 'true';
+      index += 1;
+    } else {
+      enabled = true;
+    }
+  }
+  return enabled === true;
+}
+
 /** Check whether a project-owned lint command invokes the managed ttsc lane. */
 export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   if (typeof command !== 'string') {
@@ -1627,7 +1671,7 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
     }
     const args = tokens.slice(commandIndex + 1);
     return (
-      args.includes('--noEmit') &&
+      hasEnabledNoEmitOption(args) &&
       !args.some((argument) =>
         TTSC_TERMINAL_OPTIONS.has(
           argument.split('=', 1)[0]?.toLowerCase() ?? '',
