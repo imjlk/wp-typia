@@ -120,7 +120,7 @@ function Edit({ attributes, setAttributes }: EditProps) {
             tagName="p"
             value={attributes.content || ''}
             onChange={(value) => updateField('content', value)}
-            placeholder={__('Add your content...', '{{textDomain}}')}
+            placeholder={__('Add your content…', '{{textDomain}}')}
           />
         </div>
         {!isValid && (

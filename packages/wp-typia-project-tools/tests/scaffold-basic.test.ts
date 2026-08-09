@@ -196,7 +196,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedEdit).toContain('TextControl');
       expect(generatedEdit).toContain("label={__('Content'");
       expect(generatedEdit).toContain("'Mirrors the main block content.'");
-      expect(generatedEdit).toContain("placeholder={__('Add your content...'");
+      expect(generatedEdit).toContain("placeholder={__('Add your content…'");
       expect(generatedEdit).toContain('@wp-typia/block-runtime/inspector');
       expect(generatedEdit).not.toContain(
         '@wp-typia/project-tools/schema-core',
