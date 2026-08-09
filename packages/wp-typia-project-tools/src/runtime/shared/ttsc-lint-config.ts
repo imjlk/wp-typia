@@ -408,10 +408,19 @@ function isDeferredScope(node: ts.Node): boolean {
     while (parent && isWrapperExpression(parent)) {
       parent = parent.parent;
     }
+    const isDirectCallArgument =
+      parent &&
+      (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+      parent.arguments?.some((argument) => {
+        const expression = ts.isSpreadElement(argument)
+          ? argument.expression
+          : argument;
+        return unwrapExpression(expression) === node;
+      });
     return !(
       parent &&
       (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
-      unwrapExpression(parent.expression) === node
+      (unwrapExpression(parent.expression) === node || isDirectCallArgument)
     );
   }
   return (
@@ -835,6 +844,22 @@ function collectInvokedHelperNames(node: ts.Node): ReadonlySet<string> {
           }
         }
       }
+      // A callback handed to project-owned code may execute immediately or
+      // retain a reference that mutates the managed contributor later. Treat
+      // known top-level helper arguments as invoked so validation fails closed.
+      for (const argument of current.arguments ?? []) {
+        const callback = unwrapExpression(
+          ts.isSpreadElement(argument) ? argument.expression : argument,
+        );
+        if (ts.isIdentifier(callback)) {
+          helperNames.add(callback.text);
+        } else {
+          const callbackPath = getPropertyAccessPath(callback);
+          if (callbackPath) {
+            helperNames.add(callbackPath.join('.'));
+          }
+        }
+      }
     }
     ts.forEachChild(current, visit);
   };
@@ -1061,7 +1086,11 @@ function collectMutatingTopLevelHelpers(
 
   const worklist = [...mutatingHelpers];
   for (let index = 0; index < worklist.length; index += 1) {
-    for (const dependent of dependents.get(worklist[index] ?? '') ?? []) {
+    const current = worklist[index];
+    if (current === undefined) {
+      continue;
+    }
+    for (const dependent of dependents.get(current) ?? []) {
       if (!mutatingHelpers.has(dependent)) {
         mutatingHelpers.add(dependent);
         worklist.push(dependent);
@@ -1278,15 +1307,7 @@ function hasExpectedTextDomainRule(
   ) {
     return false;
   }
-  const severity = unwrapExpression(ruleValue.elements[0]);
-  const enabledSeverity =
-    ((ts.isStringLiteral(severity) ||
-      ts.isNoSubstitutionTemplateLiteral(severity)) &&
-      // @ttsc/lint accepts both its canonical "warning" and ESLint's "warn".
-      ['error', 'warn', 'warning'].includes(severity.text)) ||
-    (ts.isNumericLiteral(severity) &&
-      (severity.text === '1' || severity.text === '2'));
-  if (!enabledSeverity) {
+  if (!hasEnabledRuleSeverity(ruleValue)) {
     return false;
   }
   const options = unwrapExpression(ruleValue.elements[1]);
@@ -1315,6 +1336,49 @@ function hasExpectedTextDomainRule(
     domains.every((domain): domain is string => domain !== null) &&
     domains.includes(expectedTextDomain)
   );
+}
+
+function hasEnabledRuleSeverity(expression: ts.Expression): boolean {
+  const ruleValue = unwrapExpression(expression);
+  const severity = ts.isArrayLiteralExpression(ruleValue)
+    ? ruleValue.elements[0]
+    : ruleValue;
+  if (!severity || ts.isSpreadElement(severity)) {
+    return false;
+  }
+  const current = unwrapExpression(severity);
+  return (
+    ((ts.isStringLiteral(current) ||
+      ts.isNoSubstitutionTemplateLiteral(current)) &&
+      // @ttsc/lint accepts both its canonical "warning" and ESLint's "warn".
+      ['error', 'warn', 'warning'].includes(current.text)) ||
+    (ts.isNumericLiteral(current) &&
+      (current.text === '1' || current.text === '2'))
+  );
+}
+
+function hasEffectiveRecommendedRule(
+  rules: ts.ObjectLiteralExpression,
+  bindings: WordPressLintConfigBindings,
+  ruleName: string,
+): boolean {
+  let enabled = false;
+  for (const property of rules.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      enabled = isWordPressConfigPath(property.expression, bindings, [
+        'recommended',
+        'rules',
+      ]);
+      continue;
+    }
+    if (getObjectLiteralElementName(property) !== ruleName) {
+      continue;
+    }
+    enabled =
+      ts.isPropertyAssignment(property) &&
+      hasEnabledRuleSeverity(property.initializer);
+  }
+  return enabled;
 }
 
 interface CommonJsExportAssignment {
@@ -1585,6 +1649,16 @@ export function hasWordPressTtscLintConfigSource(
         rules,
         bindings,
         ['recommended', 'rules'],
+      ) &&
+      hasEffectiveRecommendedRule(
+        rules,
+        bindings,
+        'wordpress/no-unsafe-wp-apis',
+      ) &&
+      hasEffectiveRecommendedRule(
+        rules,
+        bindings,
+        'wordpress/valid-sprintf',
       ) &&
       textDomainRule &&
       hasExpectedTextDomainRule(textDomainRule, expectedTextDomain),
@@ -1972,6 +2046,10 @@ const TTSC_TERMINAL_OPTIONS = new Set([
   '-w',
 ]);
 
+// Package scripts run from the inspected package root. Requiring implicit
+// tsconfig discovery prevents an explicit path from checking another project.
+const TTSC_EXPLICIT_PROJECT_OPTIONS = new Set(['--project', '-p']);
+
 function hasEnabledNoEmitOption(args: readonly string[]): boolean {
   let enabled: boolean | null = null;
   for (let index = 0; index < args.length; index += 1) {
@@ -2020,6 +2098,11 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
     const args = tokens.slice(commandIndex + 1);
     return (
       hasEnabledNoEmitOption(args) &&
+      !args.some((argument) =>
+        TTSC_EXPLICIT_PROJECT_OPTIONS.has(
+          argument.split('=', 1)[0]?.toLowerCase() ?? '',
+        ),
+      ) &&
       !args.some((argument) =>
         TTSC_TERMINAL_OPTIONS.has(
           argument.split('=', 1)[0]?.toLowerCase() ?? '',
@@ -2127,6 +2210,8 @@ const NODE_NON_SCRIPT_EXECUTION_OPTIONS = new Set([
   '--eval',
   '--help',
   '--input-type',
+  '--inspect-brk',
+  '--inspect-wait',
   '--interactive',
   '--print',
   '--run',
@@ -2151,6 +2236,22 @@ function isNonScriptNodeExecutionOption(token: string): boolean {
   return NODE_NON_SCRIPT_EXECUTION_OPTIONS.has(optionName);
 }
 
+function hasBlockingNodeOptionsAssignment(
+  tokens: readonly string[],
+  commandIndex: number,
+): boolean {
+  return tokens.slice(0, commandIndex).some((token) => {
+    const assignment = normalizeShellToken(token);
+    if (!assignment.startsWith('NODE_OPTIONS=')) {
+      return false;
+    }
+    const options = normalizeShellToken(
+      assignment.slice('NODE_OPTIONS='.length),
+    );
+    return /(?:^|\s)--inspect-(?:brk|wait)(?:=\S*)?(?=\s|$)/u.test(options);
+  });
+}
+
 /** Check whether postinstall invokes the managed ttsc lint compatibility file. */
 export function hasTtscLintCompatPostinstallCommand(
   command: unknown,
@@ -2160,7 +2261,10 @@ export function hasTtscLintCompatPostinstallCommand(
   }
   return hasPropagatingShellSegment(command, (tokens) => {
     const commandIndex = getShellCommandStartIndex(tokens);
-    if (getShellExecutableName(tokens[commandIndex]) !== 'node') {
+    if (
+      getShellExecutableName(tokens[commandIndex]) !== 'node' ||
+      hasBlockingNodeOptionsAssignment(tokens, commandIndex)
+    ) {
       return false;
     }
     const scriptIndex = skipShellRunnerOptions(tokens, commandIndex + 1);

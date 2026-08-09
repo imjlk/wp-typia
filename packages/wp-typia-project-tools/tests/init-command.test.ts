@@ -851,6 +851,9 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit --showConfig',
 			'ttsc --noEmit --watch',
 			'ttsc --noEmit -w',
+			'ttsc --noEmit --project ../unrelated/tsconfig.json',
+			'ttsc --noEmit --project=../unrelated/tsconfig.json',
+			'ttsc --noEmit -p ../unrelated/tsconfig.json',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
 			'exit 0 && ttsc --noEmit',
@@ -1002,6 +1005,33 @@ describe('wp-typia init', () => {
 					'node --check scripts/apply-ttsc-lint-compat.mjs && node scripts/apply-ttsc-lint-compat.mjs',
 			}),
 		);
+
+		for (const currentPostinstall of [
+			'node --inspect-brk scripts/apply-ttsc-lint-compat.mjs',
+			'node --inspect-brk=127.0.0.1:9229 scripts/apply-ttsc-lint-compat.mjs',
+			'node --inspect-wait scripts/apply-ttsc-lint-compat.mjs',
+			'NODE_OPTIONS=--inspect-brk node scripts/apply-ttsc-lint-compat.mjs',
+			'NODE_OPTIONS="--inspect-brk" node scripts/apply-ttsc-lint-compat.mjs',
+			"NODE_OPTIONS='--inspect-wait' node scripts/apply-ttsc-lint-compat.mjs",
+			'env NODE_OPTIONS=--inspect-wait node scripts/apply-ttsc-lint-compat.mjs',
+		]) {
+			const debuggerPostinstall = buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: 'npm run lint:ts',
+						'lint:ts': 'ttsc --noEmit',
+						postinstall: currentPostinstall,
+					},
+				},
+				'npm',
+			);
+			expect(debuggerPostinstall).toContainEqual(
+				expect.objectContaining({
+					name: 'postinstall',
+					requiredValue: `${currentPostinstall} && node scripts/apply-ttsc-lint-compat.mjs`,
+				}),
+			);
+		}
 
 		const testRunnerPostinstall = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -1282,6 +1312,34 @@ export default {
 				),
 			).toBe(true);
 		}
+		for (const ruleName of [
+			'wordpress/no-unsafe-wp-apis',
+			'wordpress/valid-sprintf',
+		]) {
+			const disabledRuleSource = replaceOnce(
+				canonicalSource,
+				'    ...configs.recommended.rules,',
+				`    ...configs.recommended.rules,\n    '${ruleName}': 'off',`,
+			);
+			expect(
+				hasWordPressTtscLintConfigSource(
+					disabledRuleSource,
+					'fixture-domain',
+				),
+			).toBe(false);
+
+			const restoredByPresetSource = replaceOnce(
+				canonicalSource,
+				'  rules: {\n    ...configs.recommended.rules,',
+				`  rules: {\n    '${ruleName}': 'off',\n    ...configs.recommended.rules,`,
+			);
+			expect(
+				hasWordPressTtscLintConfigSource(
+					restoredByPresetSource,
+					'fixture-domain',
+				),
+			).toBe(true);
+		}
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`${canonicalSource}\nconst broken =`,
@@ -1554,7 +1612,48 @@ module.exports = {
 `,
 			'fixture-domain',
 		),
-	).toBe(false);
+			).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+[0].forEach(() => {
+  wp.configs.recommended.plugins = {};
+});
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
+function disable() {
+  wp.configs.recommended.plugins = {};
+}
+[0].forEach(disable);
+module.exports = {
+  ...wp.configs.recommended,
+  rules: {
+    ...wp.configs.recommended.rules,
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: 'fixture-domain' },
+    ],
+  },
+};
+`,
+				'fixture-domain',
+			),
+		).toBe(false);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
