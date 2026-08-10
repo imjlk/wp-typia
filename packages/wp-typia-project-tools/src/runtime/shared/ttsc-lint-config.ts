@@ -1642,10 +1642,25 @@ export function getTtscJavaScriptCoverageIssue(
     return 'tsconfig.json must enable compilerOptions.allowJs for the combined JavaScript and TypeScript code gate';
   }
 
-  const javaScriptSources = collectManagedSourcePaths(
-    projectDir,
-    path.join(projectDir, 'src'),
-  ).filter((sourcePath) => /\.(?:[cm]?js|jsx)$/u.test(sourcePath));
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+  } catch {
+    // The parsed tsconfig already proved the project root was readable.
+  }
+  const rootSourcePaths = rootEntries.flatMap((entry) => {
+    const sourcePath = getManagedSourcePath(
+      projectDir,
+      path.join(projectDir, entry.name),
+      entry,
+    );
+    return sourcePath === null ? [] : [sourcePath];
+  });
+  const javaScriptSources = [
+    ...rootSourcePaths,
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'scripts')),
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'src')),
+  ].filter((sourcePath) => /\.(?:[cm]?js|jsx)$/u.test(sourcePath));
   if (javaScriptSources.length === 0) {
     return null;
   }

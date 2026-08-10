@@ -834,6 +834,52 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('migrates legacy managed style and format lanes into the new aggregate', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:js && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:js': 'node scripts/run-wp-scripts-lint-js-compat.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'format:check': legacyFormatCheck,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'wp-scripts lint-style --allow-empty-input',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: legacyFormatCheck,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		for (const name of [
+			'lint',
+			'lint:ts',
+			'lint:js',
+			'lint:css',
+			'format:check',
+		]) {
+			expect(changes).toContainEqual(
+				expect.objectContaining({ action: 'remove', name }),
+			);
+		}
+	});
+
 	test('removes only the legacy managed retrofit typecheck alias', () => {
 		const changes = buildScriptChanges(
 			{
@@ -1494,6 +1540,25 @@ describe('wp-typia init', () => {
 		writeConfig({
 			compilerOptions: { allowJs: true },
 			include: ['src/**/*'],
+		});
+		expect(getTtscJavaScriptCoverageIssue(projectDir)).toBeNull();
+
+		fs.mkdirSync(path.join(projectDir, 'scripts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'scripts', 'configure.mjs'),
+			'export {};\n',
+		);
+		const rootCoverageIssue = getTtscJavaScriptCoverageIssue(projectDir);
+		expect(rootCoverageIssue).toContain('webpack.config.js');
+		expect(rootCoverageIssue).toContain('scripts/configure.mjs');
+
+		writeConfig({
+			compilerOptions: { allowJs: true },
+			include: ['src/**/*', 'scripts/**/*', '*.js'],
 		});
 		expect(getTtscJavaScriptCoverageIssue(projectDir)).toBeNull();
 	});
@@ -2855,6 +2920,7 @@ let exports;
 		};
 		delete packageJson.devDependencies['@ttsc/lint'];
 		delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+		packageJson.devDependencies['@ttsc/unplugin'] = '^0.23.0';
 		packageJson.devDependencies['@wordpress/blocks'] = '^999.0.0';
 		packageJson.devDependencies['@wp-typia/block-runtime'] = '^9.0.0';
 		packageJson.devDependencies['@wp-typia/block-types'] = '^9.0.0';
@@ -2898,6 +2964,7 @@ let exports;
 			step.startsWith('pnpm add -D'),
 		);
 		expect(dependencyInstallStep).toContain('@ttsc/lint@');
+		expect(dependencyInstallStep).toContain('@ttsc/unplugin@');
 		expect(dependencyInstallStep).toContain(
 			'@wp-typia/ttsc-lint-plugin-wp@',
 		);
@@ -2916,6 +2983,9 @@ let exports;
 		expect(
 			nextPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
 		).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
+		expect(nextPackageJson.devDependencies['@ttsc/unplugin']).toBe(
+			getPackageVersions().ttscUnpluginPackageVersion,
+		);
 		expect(nextPackageJson.devDependencies['@wordpress/blocks']).toBe(
 			'^999.0.0',
 		);

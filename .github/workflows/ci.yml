@@ -327,6 +327,7 @@ jobs:
         with:
           name: generated-smoke-package-dist
           path: |
+            packages/ttsc-lint-plugin-wp/dist/
             packages/wp-typia-api-client/dist/
             packages/wp-typia-block-runtime/dist/
             packages/wp-typia-block-types/dist/

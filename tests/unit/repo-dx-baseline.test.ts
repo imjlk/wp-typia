@@ -559,6 +559,7 @@ describe('repository DX baseline', () => {
     expect(buildJob).toContain('bun run --filter wp-typia build');
     expect(buildJob).toContain('name: generated-smoke-package-dist');
     for (const packageDir of [
+      'ttsc-lint-plugin-wp',
       'wp-typia-api-client',
       'wp-typia-block-runtime',
       'wp-typia-block-types',

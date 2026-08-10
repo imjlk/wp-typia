@@ -344,6 +344,41 @@ describe('@wp-typia/block-runtime', () => {
 		}
 	});
 
+	test('Typia/Webpack compatibility preflight retains the patch-compatible 0.23 matrix', async () => {
+		const blocksModule = await import('@wp-typia/block-runtime/blocks');
+		const projectRoot = mkdtempSync(resolve(tmpdir(), 'wp-typia-compat-023-'));
+
+		try {
+			writeFileSync(
+				resolve(projectRoot, 'package.json'),
+				JSON.stringify({ name: 'compat-023', private: true }, null, 2),
+				'utf8',
+			);
+			writeMockPackage(projectRoot, 'typia', '13.2.0');
+			writeMockPackage(projectRoot, 'ttsc', '0.23.0');
+			writeMockPackage(projectRoot, 'typescript', '7.0.2');
+			writeMockPackage(projectRoot, '@ttsc/unplugin', '0.23.0');
+			writeMockPackage(projectRoot, '@wordpress/scripts', '30.23.0');
+			writeMockPackage(projectRoot, 'webpack', '5.106.0');
+
+			await expect(
+				blocksModule.assertTypiaWebpackCompatibility({ projectRoot }),
+			).resolves.toEqual(
+				expect.objectContaining({
+					'@ttsc/unplugin': '0.23.0',
+					ttsc: '0.23.0',
+				}),
+			);
+
+			writeMockPackage(projectRoot, '@ttsc/unplugin', '0.26.1');
+			await expect(
+				blocksModule.assertTypiaWebpackCompatibility({ projectRoot }),
+			).rejects.toThrow(/matching ttsc and @ttsc\/unplugin/u);
+		} finally {
+			rmSync(projectRoot, { force: true, recursive: true });
+		}
+	});
+
 	test('Typia/Webpack compatibility preflight explains unsupported tuples', async () => {
 		const blocksModule = await import('@wp-typia/block-runtime/blocks');
 		const projectRoot = mkdtempSync(resolve(tmpdir(), 'wp-typia-compat-bad-'));
@@ -364,7 +399,7 @@ describe('@wp-typia/block-runtime', () => {
 			await expect(
 				blocksModule.assertTypiaWebpackCompatibility({ projectRoot }),
 			).rejects.toThrow(
-				/Installed versions: typia=11\.0\.0, ttsc=0\.26\.1, typescript=7\.0\.2, @ttsc\/unplugin=0\.26\.1, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x, ttsc 0\.26\.x, TypeScript 7\.x, @ttsc\/unplugin 0\.26\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
+				/Installed versions: typia=11\.0\.0, ttsc=0\.26\.1, typescript=7\.0\.2, @ttsc\/unplugin=0\.26\.1, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x, matching ttsc and @ttsc\/unplugin 0\.23\.x or 0\.26\.x, TypeScript 7\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
 			);
 		} finally {
 			rmSync(projectRoot, { force: true, recursive: true });

@@ -48,6 +48,10 @@ const BASE_RETROFIT_SCRIPTS = {
 const LEGACY_RETROFIT_TYPECHECK = 'bun run sync --check && ttsc --noEmit';
 const LEGACY_LINT_JS_COMMAND =
   'node scripts/run-wp-scripts-lint-js-compat.mjs';
+const LEGACY_LINT_CSS_COMMAND =
+  'wp-scripts lint-style --allow-empty-input';
+const LEGACY_FORMAT_CHECK_COMMAND =
+  'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
 const LEGACY_LINT_SCRIPT_NAMES = [
   'lint:ts',
   'lint:js',
@@ -70,6 +74,7 @@ const BASE_RETROFIT_DEV_DEPENDENCIES = [
 
 const OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES = [
   '@ttsc/lint',
+  '@ttsc/unplugin',
   '@wp-typia/ttsc-lint-plugin-wp',
   'ttsc',
   'typescript',
@@ -444,16 +449,33 @@ export function buildOfficialWorkspaceLintScriptChanges(
     'bun run sync --check && ttsc check --noEmit',
     packageManager,
   );
-  const checkRun = transformPackageManagerText(
-    'bun run check:code',
-    packageManager,
-  );
+  const legacyStyleCommand =
+    scripts['lint:css'] === LEGACY_LINT_CSS_COMMAND
+      ? scripts['lint:css']
+      : undefined;
+  const legacyFormatCommand =
+    scripts['format:check'] === LEGACY_FORMAT_CHECK_COMMAND
+      ? scripts['format:check']
+      : undefined;
+  const requiredCheckLanes = [
+    'check:code',
+    ...(scripts['check:style'] || legacyStyleCommand ? ['check:style'] : []),
+    ...(scripts['check:format'] || legacyFormatCommand ? ['check:format'] : []),
+  ];
+  const checkLanes = requiredCheckLanes.map((name) => ({
+    command: transformPackageManagerText(`bun run ${name}`, packageManager),
+    name,
+  }));
   const currentCheck = scripts.check;
-  let requiredCheck = checkRun;
+  let requiredCheck = checkLanes.map(({ command }) => command).join(' && ');
   if (typeof currentCheck === 'string' && currentCheck.trim().length > 0) {
-    requiredCheck = hasPackageRunScriptCommand(currentCheck, 'check:code')
-      ? currentCheck
-      : insertCommandBeforeTrailingShellComment(currentCheck, checkRun);
+    requiredCheck = checkLanes.reduce(
+      (aggregate, lane) =>
+        hasPackageRunScriptCommand(aggregate, lane.name)
+          ? aggregate
+          : insertCommandBeforeTrailingShellComment(aggregate, lane.command),
+      currentCheck,
+    );
   }
   const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(
@@ -467,6 +489,20 @@ export function buildOfficialWorkspaceLintScriptChanges(
           'check:code',
           scripts['check:code'],
           checkCodeCommand,
+        )),
+    ...(scripts['check:style'] || !legacyStyleCommand
+      ? []
+      : buildOptionalScriptChange(
+          'check:style',
+          scripts['check:style'],
+          legacyStyleCommand,
+        )),
+    ...(scripts['check:format'] || !legacyFormatCommand
+      ? []
+      : buildOptionalScriptChange(
+          'check:format',
+          scripts['check:format'],
+          legacyFormatCommand,
         )),
     ...buildOptionalScriptChange('check', currentCheck, requiredCheck),
   ];
@@ -534,6 +570,20 @@ export function buildOfficialWorkspaceLintScriptChanges(
       action: 'remove',
       currentValue: scripts['lint:js'],
       name: 'lint:js',
+    });
+  }
+  if (canRemoveManagedAliases && legacyStyleCommand) {
+    changes.push({
+      action: 'remove',
+      currentValue: legacyStyleCommand,
+      name: 'lint:css',
+    });
+  }
+  if (canRemoveManagedAliases && legacyFormatCommand) {
+    changes.push({
+      action: 'remove',
+      currentValue: legacyFormatCommand,
+      name: 'format:check',
     });
   }
 
