@@ -8,9 +8,10 @@ import {
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_ADMIN_VIEW_ASSET,
-  WORKSPACE_ADMIN_VIEW_GLOB,
+  WORKSPACE_ADMIN_VIEW_MANIFEST,
   WORKSPACE_ADMIN_VIEW_SCRIPT,
   WORKSPACE_ADMIN_VIEW_STYLE,
 } from './cli-doctor-workspace-shared.js';
@@ -93,6 +94,7 @@ function checkWorkspaceAdminViewBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	adminViews: WorkspaceInventory['adminViews'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -107,14 +109,19 @@ function checkWorkspaceAdminViewBootstrap(
   const loadFunctionName = `${phpPrefix}_load_admin_views`;
   const loadHook = `add_action( 'plugins_loaded', '${loadFunctionName}' );`;
   const hasLoaderHook = source.includes(loadHook);
-  const hasServerGlob = source.includes(WORKSPACE_ADMIN_VIEW_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_ADMIN_VIEW_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    adminViews.map((adminView) => path.basename(adminView.phpFile)),
+  );
 
   return createDoctorCheck(
     'Admin view bootstrap',
-    hasLoaderHook && hasServerGlob ? 'pass' : 'fail',
-    hasLoaderHook && hasServerGlob
-      ? 'Admin view PHP loader hook is present'
-      : 'Missing admin view PHP require glob or plugins_loaded hook',
+    hasLoaderHook && hasServerManifest && hasValidManifest ? 'pass' : 'fail',
+    hasLoaderHook && hasServerManifest && hasValidManifest
+      ? 'Admin view PHP manifest hook is present'
+      : 'Missing or stale admin view PHP manifest or plugins_loaded hook',
   );
 }
 
@@ -217,6 +224,7 @@ export function getWorkspaceAdminViewDoctorChecks(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        inventory.adminViews,
       ),
     );
     checks.push(

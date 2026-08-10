@@ -1,28 +1,43 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { countPhpCodeIdentifiers } from '../shared/php-utils.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
+
 import type { DoctorCheck } from './cli-doctor.js';
 
-/** Glob pattern for generated binding-source PHP entrypoints. */
-export const WORKSPACE_BINDING_SERVER_GLOB = '/src/bindings/*/server.php';
+/** Literal manifest path for generated binding-source PHP entrypoints. */
+export const WORKSPACE_BINDING_SERVER_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.bindingSources}`;
+/** Literal manifest path for generated block server PHP entrypoints. */
+export const WORKSPACE_BLOCK_SERVER_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers}`;
+/** Literal manifest path for generated pattern PHP entrypoints. */
+export const WORKSPACE_PATTERN_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns}`;
 /** Relative path to the generated binding editor bundle. */
 export const WORKSPACE_BINDING_EDITOR_SCRIPT = 'build/bindings/index.js';
 /** Relative path to the generated binding asset manifest. */
 export const WORKSPACE_BINDING_EDITOR_ASSET = 'build/bindings/index.asset.php';
-/** Glob pattern for generated REST resource PHP entrypoints. */
-export const WORKSPACE_REST_RESOURCE_GLOB = '/inc/rest/*.php';
-/** Glob pattern for generated post-meta PHP entrypoints. */
-export const WORKSPACE_POST_META_GLOB = '/inc/post-meta/*.php';
-/** Glob pattern for generated ability PHP entrypoints. */
-export const WORKSPACE_ABILITY_GLOB = '/inc/abilities/*.php';
+/** Literal manifest path for generated REST resource PHP entrypoints. */
+export const WORKSPACE_REST_RESOURCE_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources}`;
+/** Literal manifest path for generated post-meta PHP entrypoints. */
+export const WORKSPACE_POST_META_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.postMeta}`;
+/** Literal manifest path for generated ability PHP entrypoints. */
+export const WORKSPACE_ABILITY_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.abilities}`;
 /** Relative path to the generated ability editor bundle. */
 export const WORKSPACE_ABILITY_EDITOR_SCRIPT = 'build/abilities/index.js';
 /** Relative path to the generated ability asset manifest. */
 export const WORKSPACE_ABILITY_EDITOR_ASSET = 'build/abilities/index.asset.php';
-/** Glob pattern for generated AI feature PHP entrypoints. */
-export const WORKSPACE_AI_FEATURE_GLOB = '/inc/ai-features/*.php';
-/** Glob pattern for generated admin view PHP entrypoints. */
-export const WORKSPACE_ADMIN_VIEW_GLOB = '/inc/admin-views/*.php';
+/** Literal manifest path for generated AI feature PHP entrypoints. */
+export const WORKSPACE_AI_FEATURE_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.aiFeatures}`;
+/** Literal manifest path for generated admin view PHP entrypoints. */
+export const WORKSPACE_ADMIN_VIEW_MANIFEST =
+  `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews}`;
 /** Relative path to the generated admin view editor bundle. */
 export const WORKSPACE_ADMIN_VIEW_SCRIPT = 'build/admin-views/index.js';
 /** Relative path to the generated admin view asset manifest. */
@@ -45,6 +60,112 @@ export const WORKSPACE_GENERATED_BLOCK_ARTIFACTS = [
 ] as const;
 /** Pattern for full block names in `namespace/slug` format. */
 export const WORKSPACE_FULL_BLOCK_NAME_PATTERN = /^[a-z0-9-]+\/[a-z0-9-]+$/u;
+
+const PHP_ENTRYPOINT_LITERAL_PATTERN =
+  /\b(?:require|require_once|include|include_once)\s+__DIR__\s*\.\s*'\/([^']+)'\s*;/gu;
+const PHP_ENTRYPOINT_INCLUDE_KEYWORDS = [
+  'require',
+  'require_once',
+  'include',
+  'include_once',
+] as const;
+const PHP_ENTRYPOINT_VARIABLE_INCLUDE_PATTERN =
+  /\b(?:require|require_once|include|include_once)\s*(?:\(\s*)?\$/u;
+const SAFE_PHP_ENTRYPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/u;
+
+function hasUnsafeModulePath(modulePath: string): boolean {
+  const segments = modulePath.split('/');
+  return segments.some(
+    (segment) =>
+      segment === '' ||
+      segment === '.' ||
+      segment === '..' ||
+      !SAFE_PHP_ENTRYPOINT_SEGMENT_PATTERN.test(segment),
+  );
+}
+
+function isPathInside(parentPath: string, candidatePath: string): boolean {
+  const relativePath = path.normalize(
+    path.relative(path.resolve(parentPath), path.resolve(candidatePath)),
+  );
+  const firstSegment = relativePath.split(path.sep)[0];
+  return (
+    relativePath !== '' &&
+    relativePath !== '.' &&
+    firstSegment !== '..' &&
+    !path.isAbsolute(relativePath)
+  );
+}
+
+/**
+ * Validate a generated PHP entrypoint manifest and its literal local targets.
+ */
+export function isWorkspacePhpEntrypointManifestValid(
+  projectDir: string,
+  manifestPath: string,
+  expectedModulePaths: readonly string[],
+): boolean {
+  try {
+    const manifestRelativePath = manifestPath.startsWith('/')
+      ? manifestPath.slice(1)
+      : manifestPath;
+    if (hasUnsafeModulePath(manifestRelativePath)) {
+      return false;
+    }
+    const absoluteManifestPath = path.join(projectDir, manifestRelativePath);
+    if (!fs.existsSync(absoluteManifestPath)) {
+      return false;
+    }
+    const projectRealPath = fs.realpathSync(projectDir);
+    const manifestStat = fs.lstatSync(absoluteManifestPath);
+    if (
+      manifestStat.isSymbolicLink() ||
+      !isPathInside(projectRealPath, fs.realpathSync(absoluteManifestPath))
+    ) {
+      return false;
+    }
+    const source = fs.readFileSync(absoluteManifestPath, 'utf8');
+    if (
+      PHP_ENTRYPOINT_VARIABLE_INCLUDE_PATTERN.test(source) ||
+      /\bglob\s*\(/u.test(source)
+    ) {
+      return false;
+    }
+    const literalTargetMatches = [
+      ...source.matchAll(PHP_ENTRYPOINT_LITERAL_PATTERN),
+    ].map((match) => match[1]);
+    const includeStatementCount = countPhpCodeIdentifiers(
+      source,
+      PHP_ENTRYPOINT_INCLUDE_KEYWORDS,
+      { requirePhpOpenTag: true },
+    );
+    const literalTargets = new Set(literalTargetMatches);
+    const expectedTargets = new Set(expectedModulePaths);
+    if (
+      includeStatementCount !== literalTargetMatches.length ||
+      literalTargetMatches.length !== expectedTargets.size ||
+      expectedModulePaths.some(
+        (modulePath) =>
+          hasUnsafeModulePath(modulePath) || !literalTargets.has(modulePath),
+      ) ||
+      [...literalTargets].some((modulePath) => !expectedTargets.has(modulePath))
+    ) {
+      return false;
+    }
+    const manifestDirectory = path.dirname(absoluteManifestPath);
+    return [...literalTargets].every((modulePath) => {
+      const targetPath = path.join(manifestDirectory, modulePath);
+      return (
+        !hasUnsafeModulePath(modulePath) &&
+        fs.existsSync(targetPath) &&
+        !fs.lstatSync(targetPath).isSymbolicLink() &&
+        isPathInside(projectRealPath, fs.realpathSync(targetPath))
+      );
+    });
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Create a doctor result row with an optional stable diagnostic code.

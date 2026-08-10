@@ -8,7 +8,12 @@ import {
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
 import { readJsonFile } from '../shared/json-utils.js';
-import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  hasPhpFunctionCall,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
 import {
   detectSourceLineEnding,
   findExecutablePatternMatch,
@@ -16,9 +21,11 @@ import {
   hasExecutablePattern,
   hasUncommentedPattern,
 } from '../shared/ts-source-masking.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
-
-const AI_FEATURE_SERVER_GLOB = '/inc/ai-features/*.php';
 
 /**
  * Patch generated sync-rest scripts so AI feature REST artifacts join workspace REST synchronization.
@@ -39,24 +46,43 @@ export async function ensureAiFeatureBootstrapAnchors(
 		let nextSource = source;
 		const registerFunctionName = `${workspace.workspace.phpPrefix}_register_ai_features`;
 		const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
+		const aiFeatureManifestPath =
+			`/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.aiFeatures}`;
 		const registerFunction = `
 
 function ${registerFunctionName}() {
-\tforeach ( glob( __DIR__ . '${AI_FEATURE_SERVER_GLOB}' ) ?: array() as $ai_feature_module ) {
-\t\trequire_once $ai_feature_module;
-\t}
+\trequire_once __DIR__ . '${aiFeatureManifestPath}';
 }
 `;
 		if (!hasPhpFunctionDefinition(nextSource, registerFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, registerFunction);
-		} else if (!nextSource.includes(AI_FEATURE_SERVER_GLOB)) {
-			throw new Error(
-				[
-					`Unable to patch ${path.basename(bootstrapPath)} in ensureAiFeatureBootstrapAnchors.`,
-					`The existing ${registerFunctionName}() definition does not include ${AI_FEATURE_SERVER_GLOB}.`,
-					'Restore the generated bootstrap shape or wire the AI feature loader manually before retrying.',
-				].join(' '),
-			);
+		} else {
+			const functionRange = findPhpFunctionRange(nextSource, registerFunctionName);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${registerFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+				);
+			}
+			const functionSource = functionRange.source;
+			if (!functionSource.includes(aiFeatureManifestPath)) {
+				if (!hasPhpFunctionCall(functionSource, 'glob')) {
+					throw new Error(
+						`Unable to migrate customized ${registerFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${aiFeatureManifestPath} manually.`,
+					);
+				}
+				const replacedSource = replacePhpFunctionDefinition(
+					nextSource,
+					registerFunctionName,
+					registerFunction,
+					{ trimReplacementStart: true },
+				);
+				if (!replacedSource) {
+					throw new Error(
+						`Unable to repair ${path.basename(bootstrapPath)} for ${registerFunctionName}.`,
+					);
+				}
+				nextSource = replacedSource;
+			}
 		}
 
 		if (!nextSource.includes(registerHook)) {
@@ -65,6 +91,9 @@ function ${registerFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['aiFeatures'],
+  });
 }
 
 /**

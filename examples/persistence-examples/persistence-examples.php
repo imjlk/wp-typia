@@ -47,15 +47,14 @@ function persistence_examples_register_blocks() {
 		return;
 	}
 
-	$block_dirs = glob( $build_root . '/*', GLOB_ONLYDIR );
-	if ( ! is_array( $block_dirs ) ) {
-		return;
-	}
+	$counter_block_dir     = $build_root . '/counter';
+	$like_button_block_dir = $build_root . '/like-button';
 
-	foreach ( $block_dirs as $block_dir ) {
-		if ( file_exists( $block_dir . '/block.json' ) ) {
-			register_block_type( $block_dir );
-		}
+	if ( file_exists( $counter_block_dir . '/block.json' ) ) {
+		register_block_type( $counter_block_dir );
+	}
+	if ( file_exists( $like_button_block_dir . '/block.json' ) ) {
+		register_block_type( $like_button_block_dir );
 	}
 }
 

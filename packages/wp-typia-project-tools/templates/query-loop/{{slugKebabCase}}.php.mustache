@@ -45,9 +45,8 @@ function {{phpPrefix}}_register_query_loop_patterns() {
 		return;
 	}
 
-	foreach ( glob( __DIR__ . '/src/patterns/*.php' ) ?: array() as $pattern_module ) {
-		require $pattern_module;
-	}
+	require __DIR__ . '/src/patterns/grid.php';
+	require __DIR__ . '/src/patterns/list.php';
 }
 
 function {{phpPrefix}}_register_query_loop_variation_script() {
@@ -58,7 +57,7 @@ function {{phpPrefix}}_register_query_loop_variation_script() {
 		return;
 	}
 
-	$asset = require $script_asset_path;
+	$asset = require __DIR__ . '/build/index.asset.php';
 	$handle = '{{phpPrefix}}_query_loop_variation';
 
 	wp_register_script(

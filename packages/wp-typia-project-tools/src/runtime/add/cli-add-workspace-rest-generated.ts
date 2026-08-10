@@ -40,6 +40,7 @@ import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
 import { syncRestResourceArtifacts } from './rest-resource-artifacts.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 import { appendWorkspaceInventoryEntries } from '../workspace/workspace-inventory.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
 async function ensureWorkspaceRestSchemaHelperFile(
 	helperFilePath: string,
@@ -162,6 +163,10 @@ export async function scaffoldGeneratedRestResource({
 			bootstrapPath,
 			restSchemaHelperPath,
 			syncRestScriptPath,
+			path.join(
+				workspace.projectDir,
+				WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+			),
 		]),
 		snapshotDirs: [],
 		targetPaths: [restResourceDir, restSchemaHelperPath, phpFilePath],
@@ -175,7 +180,6 @@ export async function scaffoldGeneratedRestResource({
       workspace.workspace.phpPrefix,
     );
     await ensureRestSchemaHelperBootstrapAnchors(workspace);
-    await ensureRestResourceBootstrapAnchors(workspace);
     await ensureRestResourceSyncScriptAnchors(workspace);
     await fsp.writeFile(
       typesFilePath,
@@ -219,6 +223,7 @@ export async function scaffoldGeneratedRestResource({
 			),
 			'utf8',
 		);
+    await ensureRestResourceBootstrapAnchors(workspace);
     await syncRestResourceArtifacts({
       clientFile: `src/rest/${restResourceSlug}/api-client.ts`,
       methods: resolvedMethods,

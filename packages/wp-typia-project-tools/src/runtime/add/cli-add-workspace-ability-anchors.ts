@@ -7,7 +7,6 @@ import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import {
   ABILITY_EDITOR_ASSET,
   ABILITY_EDITOR_SCRIPT,
-  ABILITY_SERVER_GLOB,
   WP_ABILITIES_SCRIPT_MODULE_ID,
   WP_CORE_ABILITIES_SCRIPT_MODULE_ID,
 } from './cli-add-workspace-ability-types.js';
@@ -33,6 +32,10 @@ import {
   hasExecutablePattern,
   hasUncommentedPattern,
 } from '../shared/ts-source-masking.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 function resolveManagedDependencyVersion(
@@ -73,12 +76,12 @@ export async function ensureAbilityBootstrapAnchors(
 		const loadHook = `add_action( 'plugins_loaded', '${loadFunctionName}' );`;
 		const adminEnqueueHook = `add_action( 'admin_enqueue_scripts', '${enqueueFunctionName}' );`;
 		const editorEnqueueHook = `add_action( 'enqueue_block_editor_assets', '${enqueueFunctionName}' );`;
+		const abilityManifestPath =
+			`/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.abilities}`;
 		const loadFunction = `
 
 function ${loadFunctionName}() {
-\tforeach ( glob( __DIR__ . '${ABILITY_SERVER_GLOB}' ) ?: array() as $ability_module ) {
-\t\trequire_once $ability_module;
-\t}
+\trequire_once __DIR__ . '${abilityManifestPath}';
 }
 `;
 		const enqueueFunction = `
@@ -89,13 +92,12 @@ function ${enqueueFunctionName}() {
 \t}
 
 \t$script_path = __DIR__ . '/${ABILITY_EDITOR_SCRIPT}';
-\t$asset_path  = __DIR__ . '/${ABILITY_EDITOR_ASSET}';
 
-\tif ( ! file_exists( $script_path ) || ! file_exists( $asset_path ) ) {
+\tif ( ! file_exists( $script_path ) || ! file_exists( __DIR__ . '/${ABILITY_EDITOR_ASSET}' ) ) {
 \t\treturn;
 \t}
 
-\t$asset = require $asset_path;
+\t$asset = require __DIR__ . '/${ABILITY_EDITOR_ASSET}';
 \tif ( ! is_array( $asset ) ) {
 \t\t$asset = array();
 \t}
@@ -134,6 +136,33 @@ function ${enqueueFunctionName}() {
 `;
 		if (!hasPhpFunctionDefinition(nextSource, loadFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, loadFunction);
+		} else {
+			const functionRange = findPhpFunctionRange(nextSource, loadFunctionName);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${loadFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+				);
+			}
+			const functionSource = functionRange.source;
+			if (!functionSource.includes(abilityManifestPath)) {
+				if (!hasPhpFunctionCall(functionSource, 'glob')) {
+					throw new Error(
+						`Unable to migrate customized ${loadFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${abilityManifestPath} manually.`,
+					);
+				}
+				const replacedSource = replacePhpFunctionDefinition(
+					nextSource,
+					loadFunctionName,
+					loadFunction,
+					{ trimReplacementStart: true },
+				);
+				if (!replacedSource) {
+					throw new Error(
+						`Unable to repair ${path.basename(bootstrapPath)} for ${loadFunctionName}.`,
+					);
+				}
+				nextSource = replacedSource;
+			}
 		}
 		if (!hasPhpFunctionDefinition(nextSource, enqueueFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(
@@ -173,6 +202,9 @@ function ${enqueueFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['abilities'],
+  });
 }
 
 /**

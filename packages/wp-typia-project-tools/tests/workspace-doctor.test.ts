@@ -1763,7 +1763,19 @@ test('binding source workflow repairs missing bootstrap functions even when hook
   expect(
     repairedBootstrap.slice(repairedBootstrap.lastIndexOf('?>') + 2).trim(),
   ).toBe('');
-  expect(repairedBootstrap).toContain('src/bindings/*/server.php');
+  expect(repairedBootstrap).toContain(
+    "require_once __DIR__ . '/src/bindings/wp-typia-modules.php';",
+  );
+  const bindingManifestSource = fs.readFileSync(
+    path.join(targetDir, 'src', 'bindings', 'wp-typia-modules.php'),
+    'utf8',
+  );
+  expect(bindingManifestSource).toContain(
+    "require_once __DIR__ . '/hero-data/server.php';",
+  );
+  expect(bindingManifestSource).toContain(
+    "require_once __DIR__ . '/news-data/server.php';",
+  );
   expect(repairedBootstrap).toContain('build/bindings/index.js');
 }, 15_000);
 
@@ -2535,7 +2547,7 @@ test('doctor passes on a healthy multi-block workspace', async () => {
   ).toBe('pass');
 }, 20_000);
 
-test('doctor accepts flat-only legacy pattern loaders for flat catalog files', async () => {
+test('doctor rejects legacy pattern glob loaders in place of the literal manifest', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-doctor-flat-patterns');
 
   await scaffoldOfficialWorkspace(targetDir, {
@@ -2555,19 +2567,18 @@ test('doctor accepts flat-only legacy pattern loaders for flat catalog files', a
     targetDir,
     'demo-workspace-doctor-flat-patterns.php',
   );
-  const nestedPatternLoader = [
-    '\t$pattern_modules = array_merge(',
-    "\t\tglob( __DIR__ . '/src/patterns/*.php' ) ?: array(),",
-    "\t\tglob( __DIR__ . '/src/patterns/*/*.php' ) ?: array()",
-    '\t);',
+  const literalPatternLoader =
+    "\trequire __DIR__ . '/src/patterns/wp-typia-modules.php';";
+  const legacyPatternLoader = [
+    "\tforeach ( glob( __DIR__ . '/src/patterns/*.php' ) ?: array() as $pattern_module ) {",
+    '\t\trequire $pattern_module;',
+    '\t}',
   ].join('\n');
-  const flatPatternLoader =
-    "\t$pattern_modules = glob( __DIR__ . '/src/patterns/*.php' ) ?: array();";
   fs.writeFileSync(
     bootstrapPath,
     fs.readFileSync(bootstrapPath, 'utf8').replace(
-      nestedPatternLoader,
-      flatPatternLoader,
+      literalPatternLoader,
+      legacyPatternLoader,
     ),
     'utf8',
   );
@@ -2576,7 +2587,7 @@ test('doctor accepts flat-only legacy pattern loaders for flat catalog files', a
 
   expect(
     checks.find((check) => check.label === 'Pattern bootstrap')?.status,
-  ).toBe('pass');
+  ).toBe('fail');
   expect(
     checks.find((check) => check.label === 'Pattern catalog')?.status,
   ).toBe('pass');

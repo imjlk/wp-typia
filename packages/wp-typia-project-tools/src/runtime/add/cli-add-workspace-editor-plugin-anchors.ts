@@ -48,15 +48,14 @@ export async function ensureEditorPluginBootstrapAnchors(
 
 function ${enqueueFunctionName}() {
 \t$script_path = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_SCRIPT}';
-\t$asset_path  = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}';
 \t$style_path  = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_STYLE}';
 \t$style_rtl_path = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_STYLE_RTL}';
 
-\tif ( ! file_exists( $script_path ) || ! file_exists( $asset_path ) ) {
+\tif ( ! file_exists( $script_path ) || ! file_exists( __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}' ) ) {
 \t\treturn;
 \t}
 
-\t$asset = require $asset_path;
+\t$asset = require __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}';
 \tif ( ! is_array( $asset ) ) {
 \t\t$asset = array();
 \t}

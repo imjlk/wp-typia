@@ -6,10 +6,11 @@ import { parseScaffoldBlockMetadata } from '@wp-typia/block-runtime/blocks';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_BINDING_EDITOR_ASSET,
   WORKSPACE_BINDING_EDITOR_SCRIPT,
-  WORKSPACE_BINDING_SERVER_GLOB,
+  WORKSPACE_BINDING_SERVER_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import { escapeRegex } from '../shared/php-utils.js';
@@ -22,7 +23,11 @@ import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-function checkWorkspaceBindingBootstrap(projectDir: string, packageName: string): DoctorCheck {
+function checkWorkspaceBindingBootstrap(
+  projectDir: string,
+  packageName: string,
+  bindingSources: WorkspaceInventory['bindingSources'],
+): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
     return createDoctorCheck(
@@ -33,19 +38,28 @@ function checkWorkspaceBindingBootstrap(projectDir: string, packageName: string)
   }
 
   const source = fs.readFileSync(bootstrapPath, 'utf8');
-  const hasServerGlob = source.includes(WORKSPACE_BINDING_SERVER_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_BINDING_SERVER_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_BINDING_SERVER_MANIFEST,
+    bindingSources.map((bindingSource) => `${bindingSource.slug}/server.php`),
+  );
   const hasEditorEnqueueHook = source.includes('enqueue_block_editor_assets');
   const hasEditorScript = source.includes(WORKSPACE_BINDING_EDITOR_SCRIPT);
   const hasEditorAsset = source.includes(WORKSPACE_BINDING_EDITOR_ASSET);
+  const hasValidBootstrap =
+    hasServerManifest &&
+    hasValidManifest &&
+    hasEditorEnqueueHook &&
+    hasEditorScript &&
+    hasEditorAsset;
 
   return createDoctorCheck(
     'Binding bootstrap',
-    hasServerGlob && hasEditorEnqueueHook && hasEditorScript && hasEditorAsset
-      ? 'pass'
-      : 'fail',
-    hasServerGlob && hasEditorEnqueueHook && hasEditorScript && hasEditorAsset
-      ? 'Binding source PHP and editor bootstrap hooks are present'
-      : 'Missing binding source PHP require glob or editor enqueue hook',
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
+      ? 'Binding source PHP manifest and editor bootstrap hooks are present'
+      : 'Missing or stale binding source PHP manifest or editor enqueue hook',
   );
 }
 
@@ -313,6 +327,7 @@ export function getWorkspaceBindingDoctorChecks(
       checkWorkspaceBindingBootstrap(
         workspace.projectDir,
         workspace.packageName,
+        inventory.bindingSources,
       ),
     );
     checks.push(

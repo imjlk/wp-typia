@@ -78,6 +78,7 @@ function buildProtectedTemplateOutputPaths({
     'package.json',
     'scripts/add-compound-child.ts',
     'scripts/block-config.ts',
+    'scripts/sync-php-entrypoints.ts',
     'scripts/sync-project.ts',
     'scripts/sync-rest-contracts.ts',
     'scripts/sync-types-to-block-json.ts',

@@ -4,10 +4,11 @@ import path from 'node:path';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_ABILITY_EDITOR_ASSET,
   WORKSPACE_ABILITY_EDITOR_SCRIPT,
-  WORKSPACE_ABILITY_GLOB,
+  WORKSPACE_ABILITY_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import { escapeRegex } from '../shared/php-utils.js';
@@ -81,6 +82,7 @@ function checkWorkspaceAbilityBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	abilities: WorkspaceInventory['abilities'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -100,32 +102,33 @@ function checkWorkspaceAbilityBootstrap(
   const hasLoaderHook = source.includes(loadHook);
   const hasAdminEnqueueHook = source.includes(adminEnqueueHook);
   const hasEditorEnqueueHook = source.includes(editorEnqueueHook);
-  const hasServerGlob = source.includes(WORKSPACE_ABILITY_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_ABILITY_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_ABILITY_MANIFEST,
+    abilities.map((ability) => path.basename(ability.phpFile)),
+  );
   const hasEditorScript = source.includes(WORKSPACE_ABILITY_EDITOR_SCRIPT);
   const hasEditorAsset = source.includes(WORKSPACE_ABILITY_EDITOR_ASSET);
   const hasScriptModuleEnqueue = source.includes('wp_enqueue_script_module');
+  const hasValidBootstrap =
+    hasLoaderHook &&
+    hasAdminEnqueueHook &&
+    hasEditorEnqueueHook &&
+    hasServerManifest &&
+    hasValidManifest &&
+    hasEditorScript &&
+    hasEditorAsset &&
+    hasScriptModuleEnqueue;
+  const bootstrapDetail = hasValidBootstrap
+    ? 'Ability loader and admin/editor script-module bootstrap hooks are present'
+    : 'Missing ability loader hook, script-module enqueue, or build/abilities asset references';
 
   return createDoctorCheck(
-		'Ability bootstrap',
-		hasLoaderHook &&
-			hasAdminEnqueueHook &&
-			hasEditorEnqueueHook &&
-			hasServerGlob &&
-			hasEditorScript &&
-			hasEditorAsset &&
-			hasScriptModuleEnqueue
-			? 'pass'
-			: 'fail',
-		hasLoaderHook &&
-			hasAdminEnqueueHook &&
-			hasEditorEnqueueHook &&
-			hasServerGlob &&
-			hasEditorScript &&
-			hasEditorAsset &&
-			hasScriptModuleEnqueue
-			? 'Ability loader and admin/editor script-module bootstrap hooks are present'
-			: 'Missing ability loader hook, script-module enqueue, or build/abilities asset references',
-	);
+    'Ability bootstrap',
+    hasValidBootstrap ? 'pass' : 'fail',
+    bootstrapDetail,
+  );
 }
 
 function checkWorkspaceAbilityIndex(
@@ -185,6 +188,7 @@ export function getWorkspaceAbilityDoctorChecks(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        abilities,
       ),
     );
     checks.push(checkWorkspaceAbilityIndex(workspace.projectDir, abilities));

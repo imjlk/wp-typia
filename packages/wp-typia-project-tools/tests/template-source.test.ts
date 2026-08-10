@@ -2060,12 +2060,31 @@ test('official workspace template scaffolds through the local npm template resol
   expect(bootstrapSource).toContain(
     'wp_register_block_types_from_metadata_collection',
   );
-  expect(bootstrapSource).toContain('src/bindings/*/server.php');
+  expect(bootstrapSource).toContain(
+    "require_once __DIR__ . '/src/bindings/wp-typia-modules.php';",
+  );
   expect(bootstrapSource).toContain('function demo_space_load_rest_schema_helpers()');
   expect(bootstrapSource).toContain('inc/rest-schema.php');
   expect(bootstrapSource).toContain('enqueue_block_editor_assets');
   expect(bootstrapSource).toContain('register_block_pattern_category');
-  expect(bootstrapSource).toContain('/src/patterns/*.php');
+  expect(bootstrapSource).toContain(
+    "require __DIR__ . '/src/patterns/wp-typia-modules.php';",
+  );
+  expect(
+    fs.existsSync(
+      path.join(targetDir, 'src', 'blocks', 'wp-typia-modules.php'),
+    ),
+  ).toBe(true);
+  expect(
+    fs.existsSync(
+      path.join(targetDir, 'src', 'bindings', 'wp-typia-modules.php'),
+    ),
+  ).toBe(true);
+  expect(
+    fs.existsSync(
+      path.join(targetDir, 'src', 'patterns', 'wp-typia-modules.php'),
+    ),
+  ).toBe(true);
   expect(restSchemaHelperSource).toContain('function demo_space_load_rest_schema');
   expect(restSchemaHelperSource).toContain(
     'function demo_space_prepare_rest_schema_for_wordpress',

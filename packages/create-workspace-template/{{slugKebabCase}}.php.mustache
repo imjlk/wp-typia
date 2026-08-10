@@ -20,15 +20,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 function {{phpPrefix}}_load_rest_schema_helpers() {
 	$helper_path = __DIR__ . '/inc/rest-schema.php';
 	if ( is_readable( $helper_path ) ) {
-		require_once $helper_path;
+		require_once __DIR__ . '/inc/rest-schema.php';
 	}
 }
 
 {{phpPrefix}}_load_rest_schema_helpers();
 
-foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
-	require_once $server_module;
-}
+require_once __DIR__ . '/src/blocks/wp-typia-modules.php';
 
 function {{phpPrefix}}_load_textdomain() {
 	load_plugin_textdomain(
@@ -49,19 +47,9 @@ function {{phpPrefix}}_get_blocks_manifest_path() {
 function {{phpPrefix}}_register_blocks_from_manifest_fallback() {
 	$build_root     = {{phpPrefix}}_get_build_root();
 	$manifest_path  = {{phpPrefix}}_get_blocks_manifest_path();
-	$manifest_data  = file_exists( $manifest_path ) ? require $manifest_path : array();
+	$manifest_data  = file_exists( $manifest_path ) ? require __DIR__ . '/build/blocks-manifest.php' : array();
 
 	if ( ! is_array( $manifest_data ) || empty( $manifest_data ) ) {
-		$block_dirs = glob( $build_root . '/*', GLOB_ONLYDIR );
-		if ( ! is_array( $block_dirs ) ) {
-			return;
-		}
-
-		foreach ( $block_dirs as $block_dir ) {
-			if ( file_exists( $block_dir . '/block.json' ) ) {
-				register_block_type( $block_dir );
-			}
-		}
 		return;
 	}
 
@@ -99,9 +87,7 @@ function {{phpPrefix}}_register_blocks() {
 }
 
 function {{phpPrefix}}_register_binding_sources() {
-	foreach ( glob( __DIR__ . '/src/bindings/*/server.php' ) ?: array() as $binding_source_module ) {
-		require_once $binding_source_module;
-	}
+	require_once __DIR__ . '/src/bindings/wp-typia-modules.php';
 }
 
 function {{phpPrefix}}_enqueue_binding_sources_editor() {
@@ -112,7 +98,7 @@ function {{phpPrefix}}_enqueue_binding_sources_editor() {
 		return;
 	}
 
-	$asset = require $asset_path;
+	$asset = require __DIR__ . '/build/bindings/index.asset.php';
 	if ( ! is_array( $asset ) ) {
 		$asset = array();
 	}
@@ -136,7 +122,7 @@ function {{phpPrefix}}_enqueue_editor_plugins_editor() {
 		return;
 	}
 
-	$asset = require $asset_path;
+	$asset = require __DIR__ . '/build/editor-plugins/index.asset.php';
 	if ( ! is_array( $asset ) ) {
 		$asset = array();
 	}
@@ -177,13 +163,7 @@ function {{phpPrefix}}_register_pattern_category() {
 }
 
 function {{phpPrefix}}_register_patterns() {
-	$pattern_modules = array_merge(
-		glob( __DIR__ . '/src/patterns/*.php' ) ?: array(),
-		glob( __DIR__ . '/src/patterns/*/*.php' ) ?: array()
-	);
-	foreach ( $pattern_modules as $pattern_module ) {
-		require $pattern_module;
-	}
+	require __DIR__ . '/src/patterns/wp-typia-modules.php';
 }
 
 add_action( 'init', '{{phpPrefix}}_load_textdomain' );

@@ -5,8 +5,9 @@ import { REST_RESOURCE_NAMESPACE_PATTERN } from '../add/cli-add-shared.js';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
-  WORKSPACE_AI_FEATURE_GLOB,
+  WORKSPACE_AI_FEATURE_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -65,6 +66,7 @@ function checkWorkspaceAiFeatureBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	aiFeatures: WorkspaceInventory['aiFeatures'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -78,15 +80,22 @@ function checkWorkspaceAiFeatureBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_ai_features`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerGlob = source.includes(WORKSPACE_AI_FEATURE_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_AI_FEATURE_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_AI_FEATURE_MANIFEST,
+    aiFeatures.map((aiFeature) => path.basename(aiFeature.phpFile)),
+  );
   const hasRegisterHook = source.includes(registerHook);
+  const hasValidBootstrap =
+    hasServerManifest && hasValidManifest && hasRegisterHook;
 
   return createDoctorCheck(
     'AI feature bootstrap',
-    hasServerGlob && hasRegisterHook ? 'pass' : 'fail',
-    hasServerGlob && hasRegisterHook
-      ? 'AI feature PHP loader hook is present'
-      : 'Missing AI feature PHP require glob or init hook',
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
+      ? 'AI feature PHP manifest hook is present'
+      : 'Missing or stale AI feature PHP manifest or init hook',
   );
 }
 
@@ -109,6 +118,7 @@ export function getWorkspaceAiFeatureDoctorChecks(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        aiFeatures,
       ),
     );
   }

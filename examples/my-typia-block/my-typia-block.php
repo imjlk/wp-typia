@@ -53,13 +53,19 @@ function my_typia_block_get_typia_validator() {
 		return null;
 	}
 
-	$validator_path = $build_dir . '/typia-validator.php';
-
-	if ( ! file_exists( $validator_path ) ) {
+	if ( __DIR__ . '/build' === $build_dir ) {
+		if ( ! file_exists( __DIR__ . '/build/typia-validator.php' ) ) {
+			return null;
+		}
+		$validator = require __DIR__ . '/build/typia-validator.php';
+	} elseif ( __DIR__ . '/build/my-typia-block' === $build_dir ) {
+		if ( ! file_exists( __DIR__ . '/build/my-typia-block/typia-validator.php' ) ) {
+			return null;
+		}
+		$validator = require __DIR__ . '/build/my-typia-block/typia-validator.php';
+	} else {
 		return null;
 	}
-
-	$validator = require $validator_path;
 
 	return is_object( $validator ) ? $validator : null;
 }

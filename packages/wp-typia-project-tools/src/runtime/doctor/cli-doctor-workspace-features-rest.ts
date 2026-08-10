@@ -11,8 +11,9 @@ import {
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
-  WORKSPACE_REST_RESOURCE_GLOB,
+  WORKSPACE_REST_RESOURCE_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -162,6 +163,7 @@ function checkWorkspaceRestResourceBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	restResources: WorkspaceInventory['restResources'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -175,15 +177,24 @@ function checkWorkspaceRestResourceBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_rest_resources`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerGlob = source.includes(WORKSPACE_REST_RESOURCE_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_REST_RESOURCE_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_REST_RESOURCE_MANIFEST,
+    restResources
+      .filter((restResource) => !isManualRestResource(restResource))
+      .map((restResource) => restResource.phpFile)
+      .filter((phpFile): phpFile is string => phpFile !== undefined)
+      .map((phpFile) => path.basename(phpFile)),
+  );
   const hasRegisterHook = source.includes(registerHook);
 
   return createDoctorCheck(
     'REST resource bootstrap',
-    hasServerGlob && hasRegisterHook ? 'pass' : 'fail',
-    hasServerGlob && hasRegisterHook
-      ? 'REST resource PHP loader hook is present'
-      : 'Missing REST resource PHP require glob or init hook',
+    hasServerManifest && hasValidManifest && hasRegisterHook ? 'pass' : 'fail',
+    hasServerManifest && hasValidManifest && hasRegisterHook
+      ? 'REST resource PHP manifest hook is present'
+      : 'Missing or stale REST resource PHP manifest or init hook',
   );
 }
 
@@ -208,6 +219,7 @@ export function getWorkspaceRestResourceDoctorChecks(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        restResources,
       ),
     );
   }

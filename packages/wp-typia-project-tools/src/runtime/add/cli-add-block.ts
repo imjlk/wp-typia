@@ -25,6 +25,10 @@ import type { MigrationBlockConfig } from '../migration/migration-types.js';
 import {
 	appendWorkspaceInventoryEntries,
 } from '../workspace/workspace-inventory.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import { createManagedTempRoot } from '../shared/temp-roots.js';
 import {
 	resolveWorkspaceProject,
@@ -732,6 +736,10 @@ export async function runAddBlockCommand({
 				packageJsonPath,
 				blockConfigPath,
 				migrationConfigPath,
+				path.join(
+					workspace.projectDir,
+					WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers,
+				),
 				...compoundSupportPaths,
 				...legacyCompoundValidatorPaths,
 			]),
@@ -781,6 +789,9 @@ export async function runAddBlockCommand({
         resolvedTemplateId,
         result.variables,
       );
+      await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+        manifestIds: ['blockServers'],
+      });
       await updateWorkspaceMigrationConfigIfPresent(
         workspace.projectDir,
         buildMigrationBlocks(resolvedTemplateId, result.variables),

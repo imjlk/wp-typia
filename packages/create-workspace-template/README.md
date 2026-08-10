@@ -45,6 +45,15 @@ duplicate slugs, `scope`, `sectionRole`, `tags`, `thumbnailUrl`, and
 blocks are reported as warnings so the first implementation stays non-mutating.
 The validator reads serialized `<!-- wp:* -->` block comment boundaries
 conservatively and does not execute dynamic PHP content.
+
+The sync flow also generates `wp-typia-modules.php` files beside workspace PHP
+modules. Each manifest contains sorted, literal `__DIR__` includes for blocks,
+bindings, patterns, abilities, admin views, AI features, post meta, and REST
+resources. Do not edit these manifests manually. Run `wp-typia sync` after
+adding or removing a module, and use `wp-typia sync --check` plus
+`wp-typia doctor --workspace-only` in CI to reject stale or unsafe entrypoints.
+The generator rejects path traversal and symbolic-link boundaries rather than
+emitting a dynamic include target.
 For a complete generic family with a container, section, title, body, and media
 block, see the Nesting Contracts Guide in the hosted docs and the checked
 fixture at `tests/fixtures/nested-block-family.ts`.

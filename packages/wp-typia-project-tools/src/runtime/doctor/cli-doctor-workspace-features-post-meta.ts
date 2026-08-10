@@ -5,8 +5,9 @@ import { assertValidPostMetaPostType } from '../add/cli-add-shared.js';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
-  WORKSPACE_POST_META_GLOB,
+  WORKSPACE_POST_META_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -51,6 +52,7 @@ function checkWorkspacePostMetaBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	postMetaEntries: WorkspaceInventory['postMeta'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -64,15 +66,20 @@ function checkWorkspacePostMetaBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_post_meta_contracts`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerGlob = source.includes(WORKSPACE_POST_META_GLOB);
+  const hasServerManifest = source.includes(WORKSPACE_POST_META_MANIFEST);
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_POST_META_MANIFEST,
+    postMetaEntries.map((postMeta) => path.basename(postMeta.phpFile)),
+  );
   const hasRegisterHook = source.includes(registerHook);
 
   return createDoctorCheck(
     'Post meta bootstrap',
-    hasServerGlob && hasRegisterHook ? 'pass' : 'fail',
-    hasServerGlob && hasRegisterHook
-      ? 'Post meta PHP loader hook is present'
-      : 'Missing post meta PHP require glob or init hook',
+    hasServerManifest && hasValidManifest && hasRegisterHook ? 'pass' : 'fail',
+    hasServerManifest && hasValidManifest && hasRegisterHook
+      ? 'Post meta PHP manifest hook is present'
+      : 'Missing or stale post meta PHP manifest or init hook',
   );
 }
 
@@ -126,6 +133,7 @@ export function getWorkspacePostMetaDoctorChecks(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        postMetaEntries,
       ),
     );
   }

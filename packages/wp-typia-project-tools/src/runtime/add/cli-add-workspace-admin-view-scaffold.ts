@@ -27,7 +27,6 @@ import {
   buildRestSettingsAdminViewTypesSource,
 } from './cli-add-workspace-admin-view-templates.js';
 import {
-  ADMIN_VIEWS_PHP_GLOB,
   isAdminViewCoreDataSource,
   isAdminViewManualSettingsRestResource,
   type AdminViewCoreDataSource,
@@ -52,8 +51,13 @@ import {
 import {
   findPhpFunctionRange,
   hasPhpFunctionDefinition,
+  hasPhpFunctionCall,
   replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 
 const LEGACY_MANUAL_REST_API_SOURCE_PATTERN =
   /^\s*export\s+\*\s+from\s+["']\.\/api-client["'];?\s*$/u;
@@ -206,26 +210,35 @@ async function ensureAdminViewBootstrapAnchors(
       `add_action\\(\\s*['"]plugins_loaded['"]\\s*,\\s*['"]${loadFunctionName}['"]\\s*\\)\\s*;`,
       'u',
     );
+    const adminViewManifestPath =
+      `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews}`;
     const loadFunction = `
 
 function ${loadFunctionName}() {
-\tforeach ( glob( __DIR__ . '${ADMIN_VIEWS_PHP_GLOB}' ) ?: array() as $admin_view_module ) {
-\t\trequire_once $admin_view_module;
-\t}
+\trequire_once __DIR__ . '${adminViewManifestPath}';
 }
 `;
     if (!hasPhpFunctionDefinition(nextSource, loadFunctionName)) {
       nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, loadFunction);
     } else {
       const functionRange = findPhpFunctionRange(nextSource, loadFunctionName);
-      const functionSource = functionRange
-        ? nextSource.slice(functionRange.start, functionRange.end)
-        : '';
-      if (!functionSource.includes(ADMIN_VIEWS_PHP_GLOB)) {
+      if (!functionRange) {
+        throw new Error(
+          `Unable to parse ${loadFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+        );
+      }
+      const functionSource = functionRange.source;
+      if (!functionSource.includes(adminViewManifestPath)) {
+        if (!hasPhpFunctionCall(functionSource, 'glob')) {
+          throw new Error(
+            `Unable to migrate customized ${loadFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${adminViewManifestPath} manually.`,
+          );
+        }
         const replacedSource = replacePhpFunctionDefinition(
           nextSource,
           loadFunctionName,
           loadFunction,
+          { trimReplacementStart: true },
         );
         if (!replacedSource) {
           throw new Error(
@@ -241,6 +254,9 @@ function ${loadFunctionName}() {
     }
 
     return nextSource;
+  });
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['adminViews'],
   });
 }
 
@@ -449,6 +465,10 @@ export async function scaffoldAdminViewWorkspace(options: {
       buildScriptPath,
       packageJsonPath,
       webpackConfigPath,
+      path.join(
+        workspace.projectDir,
+        WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews,
+      ),
       ...(manualSettingsRestApiPath ? [manualSettingsRestApiPath] : []),
     ],
     targetPaths: [adminViewDir, adminViewPhpPath],
@@ -456,7 +476,6 @@ export async function scaffoldAdminViewWorkspace(options: {
       await fsp.mkdir(adminViewDir, { recursive: true });
       await fsp.mkdir(path.dirname(adminViewPhpPath), { recursive: true });
       await ensureAdminViewPackageDependencies(workspace, parsedSource, restResource);
-      await ensureAdminViewBootstrapAnchors(workspace);
       await ensureAdminViewBuildScriptAnchors(workspace);
       await ensureAdminViewWebpackAnchors(workspace);
       if (manualSettingsRestResource) {
@@ -563,6 +582,7 @@ export async function scaffoldAdminViewWorkspace(options: {
         buildAdminViewPhpSource(adminViewSlug, workspace),
         'utf8',
       );
+      await ensureAdminViewBootstrapAnchors(workspace);
       await writeAdminViewRegistry(workspace.projectDir, adminViewSlug);
       await appendWorkspaceInventoryEntries(workspace.projectDir, {
         adminViewEntries: [

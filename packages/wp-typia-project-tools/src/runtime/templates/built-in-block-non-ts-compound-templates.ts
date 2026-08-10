@@ -18,12 +18,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! function_exists( '{{phpPrefix}}_{{slugSnakeCase}}_build_render_context' ) ) {
 	function {{phpPrefix}}_{{slugSnakeCase}}_build_render_context( $attributes, $content, $block ) {
-		$validator_path = __DIR__ . '/typia-validator.php';
-		if ( ! file_exists( $validator_path ) ) {
+		if ( ! file_exists( __DIR__ . '/typia-validator.php' ) ) {
 			return null;
 		}
 
-		$validator = require $validator_path;
+		$validator = require __DIR__ . '/typia-validator.php';
 		if ( ! is_object( $validator ) || ! method_exists( $validator, 'apply_defaults' ) || ! method_exists( $validator, 'validate' ) ) {
 			return null;
 		}
@@ -313,12 +312,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$validator_path = __DIR__ . '/typia-validator.php';
-if ( ! file_exists( $validator_path ) ) {
+if ( ! file_exists( __DIR__ . '/typia-validator.php' ) ) {
 	return '';
 }
 
-$validator = require $validator_path;
+$validator = require __DIR__ . '/typia-validator.php';
 if ( ! is_object( $validator ) || ! method_exists( $validator, 'apply_defaults' ) || ! method_exists( $validator, 'validate' ) ) {
 	return '';
 }

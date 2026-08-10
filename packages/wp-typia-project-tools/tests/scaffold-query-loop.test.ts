@@ -137,7 +137,13 @@ describe('@wp-typia/project-tools scaffold query-loop', () => {
 			expect(pluginBootstrap).toMatch(/enqueue_block_editor_assets/);
 			expect(pluginBootstrap).toMatch(/wp_register_script\s*\(/);
 			expect(pluginBootstrap).toContain('register_block_pattern_category');
-			expect(pluginBootstrap).toContain('/src/patterns/*.php');
+			expect(pluginBootstrap).toMatch(
+				/require\s+__DIR__\s*\.\s*['"]\/src\/patterns\/grid\.php['"]/,
+			);
+			expect(pluginBootstrap).toMatch(
+				/require\s+__DIR__\s*\.\s*['"]\/src\/patterns\/list\.php['"]/,
+			);
+			expect(pluginBootstrap).not.toMatch(/\bglob\s*\(/);
 			expect(pluginBootstrap).toMatch(/require_once\s+__DIR__\s*\.\s*['"]\/inc\/query-runtime\.php['"]/);
 			expect(pluginBootstrap).toMatch(
 				/add_filter\(\s*'query_loop_block_query_vars',\s*'demo_space_filter_query_loop_block_query_vars',\s*10,\s*3\s*\);/,

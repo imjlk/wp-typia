@@ -583,6 +583,45 @@ export function hasPhpFunctionCall(
   return false;
 }
 
+/** Count selected PHP identifiers in code while ignoring strings and comments. */
+export function countPhpCodeIdentifiers(
+  source: string,
+  identifiers: readonly string[],
+  options: PhpFunctionCallScanOptions = {},
+): number {
+  const expected = new Set(identifiers);
+  const scanner = createPhpScannerState(options);
+  let count = 0;
+  let index = 0;
+  while (index < source.length) {
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return -1;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+    if (
+      source[index - 1] === '$' ||
+      !isPhpIdentifierStart(source[index])
+    ) {
+      index += 1;
+      continue;
+    }
+
+    let end = index + 1;
+    while (isPhpIdentifierPart(source[end])) {
+      end += 1;
+    }
+    if (expected.has(source.slice(index, end))) {
+      count += 1;
+    }
+    index = end;
+  }
+  return count;
+}
+
 /**
  * Find the exclusive end offset of one PHP function call at a known offset.
  *

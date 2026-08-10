@@ -7,10 +7,18 @@ import {
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
 import { pathExists } from '../shared/fs-async.js';
-import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  hasPhpFunctionCall,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const BINDING_SOURCE_SERVER_GLOB = '/src/bindings/*/server.php';
 const BINDING_SOURCE_EDITOR_SCRIPT = 'build/bindings/index.js';
 const BINDING_SOURCE_EDITOR_ASSET = 'build/bindings/index.asset.php';
 
@@ -40,12 +48,12 @@ export async function ensureBindingSourceBootstrapAnchors(
 		const bindingEditorEnqueueFunctionName = `${workspace.workspace.phpPrefix}_enqueue_binding_sources_editor`;
 		const bindingRegistrationHook = `add_action( 'init', '${bindingRegistrationFunctionName}', 20 );`;
 		const bindingEditorEnqueueHook = `add_action( 'enqueue_block_editor_assets', '${bindingEditorEnqueueFunctionName}' );`;
+		const bindingSourceManifestPath =
+			`/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.bindingSources}`;
 		const bindingRegistrationFunction = `
 
 function ${bindingRegistrationFunctionName}() {
-\tforeach ( glob( __DIR__ . '${BINDING_SOURCE_SERVER_GLOB}' ) ?: array() as $binding_source_module ) {
-\t\trequire_once $binding_source_module;
-\t}
+\trequire_once __DIR__ . '${bindingSourceManifestPath}';
 }
 `;
 
@@ -53,13 +61,12 @@ function ${bindingRegistrationFunctionName}() {
 
 function ${bindingEditorEnqueueFunctionName}() {
 \t$script_path = __DIR__ . '/${BINDING_SOURCE_EDITOR_SCRIPT}';
-\t$asset_path  = __DIR__ . '/${BINDING_SOURCE_EDITOR_ASSET}';
 
-\tif ( ! file_exists( $script_path ) || ! file_exists( $asset_path ) ) {
+\tif ( ! file_exists( $script_path ) || ! file_exists( __DIR__ . '/${BINDING_SOURCE_EDITOR_ASSET}' ) ) {
 \t\treturn;
 \t}
 
-\t$asset = require $asset_path;
+\t$asset = require __DIR__ . '/${BINDING_SOURCE_EDITOR_ASSET}';
 \tif ( ! is_array( $asset ) ) {
 \t\t$asset = array();
 \t}
@@ -79,6 +86,36 @@ function ${bindingEditorEnqueueFunctionName}() {
 				nextSource,
 				bindingRegistrationFunction,
 			);
+		} else {
+			const functionRange = findPhpFunctionRange(
+				nextSource,
+				bindingRegistrationFunctionName,
+			);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${bindingRegistrationFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+				);
+			}
+			const functionSource = functionRange.source;
+			if (!functionSource.includes(bindingSourceManifestPath)) {
+				if (!hasPhpFunctionCall(functionSource, 'glob')) {
+					throw new Error(
+						`Unable to migrate customized ${bindingRegistrationFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${bindingSourceManifestPath} manually.`,
+					);
+				}
+				const replacedSource = replacePhpFunctionDefinition(
+					nextSource,
+					bindingRegistrationFunctionName,
+					bindingRegistrationFunction,
+					{ trimReplacementStart: true },
+				);
+				if (!replacedSource) {
+					throw new Error(
+						`Unable to repair ${path.basename(bootstrapPath)} for ${bindingRegistrationFunctionName}.`,
+					);
+				}
+				nextSource = replacedSource;
+			}
 		}
 		if (!hasPhpFunctionDefinition(nextSource, bindingEditorEnqueueFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(
@@ -102,6 +139,9 @@ function ${bindingEditorEnqueueFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['bindingSources'],
+  });
 }
 
 /**

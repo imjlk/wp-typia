@@ -3321,8 +3321,16 @@ test('canonical CLI can add a pattern to an official workspace template', async 
     "thumbnailUrl: './thumbnails/hero-layout.png'",
   );
   expect(bootstrapSource).toContain('register_block_pattern_category');
-  expect(bootstrapSource).toContain('/src/patterns/*.php');
-  expect(bootstrapSource).toContain('/src/patterns/*/*.php');
+  expect(bootstrapSource).toContain(
+    "require __DIR__ . '/src/patterns/wp-typia-modules.php';",
+  );
+  const patternManifestSource = fs.readFileSync(
+    path.join(targetDir, 'src', 'patterns', 'wp-typia-modules.php'),
+    'utf8',
+  );
+  expect(patternManifestSource).toContain(
+    "require __DIR__ . '/sections/hero-layout.php';",
+  );
   expect(patternSource).toContain('demo-space/hero-layout');
   expect(patternSource).toContain('section section--hero');
   expect(patternSource).toContain('"Homepage Hero"');
@@ -3460,7 +3468,15 @@ test('canonical CLI can add a binding source to an official workspace template',
   expect(blockConfigSource).toContain(
     "editorFile: 'src/bindings/hero-data/editor.ts'",
   );
-  expect(bootstrapSource).toContain('src/bindings/*/server.php');
+  expect(bootstrapSource).toContain(
+    "require_once __DIR__ . '/src/bindings/wp-typia-modules.php';",
+  );
+  expect(
+    fs.readFileSync(
+      path.join(targetDir, 'src', 'bindings', 'wp-typia-modules.php'),
+      'utf8',
+    ),
+  ).toContain("require_once __DIR__ . '/hero-data/server.php';");
   expect(bootstrapSource).toContain('build/bindings/index.js');
   expect(bindingsIndexSource).toContain("import './hero-data/editor';");
   expect(bindingServerSource).toContain('register_block_bindings_source');
@@ -4003,7 +4019,15 @@ test('canonical CLI can add a typed post meta contract to an official workspace 
   expect(bootstrapSource).toContain(
     'function demo_space_register_post_meta_contracts()',
   );
-  expect(bootstrapSource).toContain('inc/post-meta/*.php');
+  expect(bootstrapSource).toContain(
+    "require_once __DIR__ . '/inc/post-meta/wp-typia-modules.php';",
+  );
+  expect(
+    fs.readFileSync(
+      path.join(targetDir, 'inc', 'post-meta', 'wp-typia-modules.php'),
+      'utf8',
+    ),
+  ).toContain("require_once __DIR__ . '/integration-state.php';");
   expect(syncRestSource).toContain('POST_META');
   expect(syncRestSource).toContain('const postMetaContracts');
   expect(syncRestSource).toContain('for (const postMeta of postMetaContracts)');
@@ -5206,7 +5230,15 @@ test('canonical CLI can add a plugin-level REST resource to an official workspac
   expect(blockConfigSource).toContain("phpFile: 'inc/rest/snapshots.php'");
   expect(blockConfigSource).toContain('defineEndpointManifest');
   expect(bootstrapSource).toContain('function demo_space_register_rest_resources()');
-  expect(bootstrapSource).toContain('inc/rest/*.php');
+  expect(bootstrapSource).toContain(
+    "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';",
+  );
+  expect(
+    fs.readFileSync(
+      path.join(targetDir, 'inc', 'rest', 'wp-typia-modules.php'),
+      'utf8',
+    ),
+  ).toContain("require_once __DIR__ . '/snapshots.php';");
   expect(bootstrapSource).toContain('function demo_space_load_rest_schema_helpers()');
   expect(bootstrapSource).toContain('inc/rest-schema.php');
   expect(restSchemaHelperSource).toContain('function demo_space_load_rest_schema');
@@ -5635,7 +5667,15 @@ test('canonical CLI can add a DataViews admin screen with a REST resource source
   expect(blockConfigSource).toContain(
     "phpFile: 'inc/admin-views/snapshots.php'",
   );
-  expect(bootstrapSource).toContain('inc/admin-views/*.php');
+  expect(bootstrapSource).toContain(
+    "require_once __DIR__ . '/inc/admin-views/wp-typia-modules.php';",
+  );
+  expect(
+    fs.readFileSync(
+      path.join(targetDir, 'inc', 'admin-views', 'wp-typia-modules.php'),
+      'utf8',
+    ),
+  ).toContain("require_once __DIR__ . '/snapshots.php';");
   expect(adminViewsIndexSource).toContain("import './snapshots';");
   expect(entrySource).toContain('@wordpress/dataviews/build-style/style.css');
   expect(entrySource).toContain('createRoot');

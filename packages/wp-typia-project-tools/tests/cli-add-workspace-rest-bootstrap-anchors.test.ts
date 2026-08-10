@@ -72,7 +72,7 @@ demo_space_load_rest_schema_helpers();
 	);
 });
 
-test('REST resource bootstrap validation inspects the existing loader body', async () => {
+test('REST resource bootstrap migration replaces an existing glob loader', async () => {
 	const workspace = createWorkspaceFixture(`<?php
 // The expected REST glob may appear elsewhere without making the loader valid.
 // /inc/rest/*.php
@@ -84,17 +84,23 @@ function demo_space_register_rest_resources() {
 add_action( 'init', 'demo_space_register_rest_resources', 20 );
 `);
 
-	await expect(ensureRestResourceBootstrapAnchors(workspace)).rejects.toThrow(
-		'does not include /inc/rest/*.php',
+	await expect(ensureRestResourceBootstrapAnchors(workspace)).resolves.toBe(
+		undefined,
 	);
+	const bootstrapSource = fs.readFileSync(
+		path.join(workspace.projectDir, 'demo-workspace.php'),
+		'utf8',
+	);
+	expect(bootstrapSource).toContain(
+		"require_once __DIR__ . '/inc/rest/wp-typia-modules.php';",
+	);
+	expect(bootstrapSource).not.toContain('/inc/not-rest/*.php');
 });
 
 test('REST resource bootstrap validation accepts spaced PHP function declarations', async () => {
 	const workspace = createWorkspaceFixture(`<?php
 function demo_space_register_rest_resources () {
-\tforeach ( glob( __DIR__ . '/inc/rest/*.php' ) ?: array() as $rest_resource_module ) {
-\t\trequire_once $rest_resource_module;
-\t}
+\trequire_once __DIR__ . '/inc/rest/wp-typia-modules.php';
 }
 
 add_action( 'init', 'demo_space_register_rest_resources', 20 );
@@ -103,4 +109,25 @@ add_action( 'init', 'demo_space_register_rest_resources', 20 );
 	await expect(ensureRestResourceBootstrapAnchors(workspace)).resolves.toBe(
 		undefined,
 	);
+});
+
+test('REST resource bootstrap migration preserves customized loaders', async () => {
+	const source = `<?php
+function demo_space_register_rest_resources() {
+	// This loader mentioned glob() historically but is now intentionally custom.
+\tdemo_space_register_custom_rest_resources();
+}
+add_action( 'init', 'demo_space_register_rest_resources', 20 );
+`;
+	const workspace = createWorkspaceFixture(source);
+
+	await expect(ensureRestResourceBootstrapAnchors(workspace)).rejects.toThrow(
+		'Unable to migrate customized demo_space_register_rest_resources()',
+	);
+	expect(
+		fs.readFileSync(
+			path.join(workspace.projectDir, 'demo-workspace.php'),
+			'utf8',
+		),
+	).toBe(source);
 });

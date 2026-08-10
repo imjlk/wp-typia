@@ -46,8 +46,14 @@ import {
   parseMigrationArgs,
   projectJsonSchemaDocument,
   resolvePackageManagerId,
+  syncWorkspacePhpEntrypoints,
 } from '@wp-typia/project-tools';
 ```
+
+`syncWorkspacePhpEntrypoints(projectDir)` generates deterministic PHP module
+manifests for official workspaces. Pass `{ check: true }` to report drift
+without writing. The generated manifests use only validated literal `__DIR__`
+includes and reject traversal or symbolic-link boundaries.
 
 ```ts
 import { normalizeEndpointAuthDefinition } from '@wp-typia/project-tools/schema-core';

@@ -5,10 +5,18 @@ import {
   appendPhpSnippetBeforeClosingTag,
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
-import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  hasPhpFunctionCall,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const REST_RESOURCE_SERVER_GLOB = '/inc/rest/*.php';
 const REST_SCHEMA_HELPER_PATH = '/inc/rest-schema.php';
 
 function escapeRegex(value: string): string {
@@ -71,9 +79,8 @@ export async function ensureRestSchemaHelperBootstrapAnchors(
 		const helperFunction = `
 
 function ${loadFunctionName}() {
-\t$helper_path = __DIR__ . '${REST_SCHEMA_HELPER_PATH}';
-\tif ( is_readable( $helper_path ) ) {
-\t\trequire_once $helper_path;
+\tif ( is_readable( __DIR__ . '${REST_SCHEMA_HELPER_PATH}' ) ) {
+\t\trequire_once __DIR__ . '${REST_SCHEMA_HELPER_PATH}';
 \t}
 }
 
@@ -115,6 +122,8 @@ export async function ensureRestResourceBootstrapAnchors(
 	workspace: WorkspaceProject,
 ): Promise<void> {
   const bootstrapPath = getWorkspaceBootstrapPath(workspace);
+  const restResourceManifestPath =
+    `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources}`;
 
   await patchFile(bootstrapPath, (source) => {
 		let nextSource = source;
@@ -123,27 +132,38 @@ export async function ensureRestResourceBootstrapAnchors(
 		const registerFunction = `
 
 function ${registerFunctionName}() {
-\tforeach ( glob( __DIR__ . '${REST_RESOURCE_SERVER_GLOB}' ) ?: array() as $rest_resource_module ) {
-\t\trequire_once $rest_resource_module;
-\t}
+\trequire_once __DIR__ . '${restResourceManifestPath}';
 }
 `;
 		if (!hasPhpFunctionDefinition(nextSource, registerFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, registerFunction);
-		} else if (
-			!phpFunctionBlockIncludes(
-				nextSource,
-				registerFunctionName,
-				REST_RESOURCE_SERVER_GLOB,
-			)
-		) {
-			throw new Error(
-				[
-					`Unable to patch ${path.basename(bootstrapPath)} in ensureRestResourceBootstrapAnchors.`,
-					`The existing ${registerFunctionName}() definition does not include ${REST_RESOURCE_SERVER_GLOB}.`,
-					'Restore the generated bootstrap shape or wire the REST resource loader manually before retrying.',
-				].join(' '),
-			);
+		} else {
+			const functionRange = findPhpFunctionRange(nextSource, registerFunctionName);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${registerFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+				);
+			}
+			const functionSource = functionRange.source;
+			if (!functionSource.includes(restResourceManifestPath)) {
+				if (!hasPhpFunctionCall(functionSource, 'glob')) {
+					throw new Error(
+						`Unable to migrate customized ${registerFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${restResourceManifestPath} manually.`,
+					);
+				}
+				const replacedSource = replacePhpFunctionDefinition(
+					nextSource,
+					registerFunctionName,
+					registerFunction,
+					{ trimReplacementStart: true },
+				);
+				if (!replacedSource) {
+					throw new Error(
+						`Unable to repair ${path.basename(bootstrapPath)} for ${registerFunctionName}.`,
+					);
+				}
+				nextSource = replacedSource;
+			}
 		}
 
 		if (!nextSource.includes(registerHook)) {
@@ -152,4 +172,7 @@ function ${registerFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['restResources'],
+  });
 }

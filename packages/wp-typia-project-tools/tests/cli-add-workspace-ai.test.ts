@@ -195,7 +195,16 @@ describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 		expect(bootstrapSource).toContain(
 			'function demo_space_register_ai_features()',
 		);
-		expect(bootstrapSource).toContain('inc/ai-features/*.php');
+		expect(bootstrapSource).toContain(
+			"require_once __DIR__ . '/inc/ai-features/wp-typia-modules.php';",
+		);
+		const aiManifestSource = fs.readFileSync(
+			path.join(targetDir, 'inc', 'ai-features', 'wp-typia-modules.php'),
+			'utf8',
+		);
+		expect(aiManifestSource).toContain(
+			"require_once __DIR__ . '/brief-suggestions.php';",
+		);
 		expect(packageJson.scripts?.['sync-ai']).toBe('ttsx scripts/sync-ai-features.ts');
 		expect(packageJson.devDependencies?.['@wp-typia/project-tools']).toBeDefined();
 		expect(syncProjectSource).toContain('const syncAiScriptPath');

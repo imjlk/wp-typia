@@ -255,7 +255,9 @@ if ( ! function_exists( '${enqueueFunctionName}' ) ) {
 \t\t\treturn;
 \t\t}
 
-\t\t$asset = require $asset_path;
+\t\t// Keep the include target literal for WordPress.org static review. The
+\t\t// matching variable above is intentionally limited to existence checks.
+\t\t$asset = require dirname( __DIR__, 2 ) . '/${ADMIN_VIEWS_ASSET}';
 \t\tif ( ! is_array( $asset ) ) {
 \t\t\t$asset = array();
 \t\t}

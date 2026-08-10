@@ -45,6 +45,7 @@ import {
   loadPostMetaBindingFields,
 } from './post-meta-binding-fields.js';
 import type { WorkspacePostMetaInventoryEntry } from '../workspace/workspace-inventory-types.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
 const BINDING_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 
@@ -446,6 +447,10 @@ export async function runAddBindingSourceCommand({
 			blockConfigPath,
 			bootstrapPath,
 			bindingsIndexPath,
+			path.join(
+				workspace.projectDir,
+				WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.bindingSources,
+			),
 			...(blockJsonPath ? [blockJsonPath] : []),
 			...(targetBlock ? [path.join(workspace.projectDir, targetBlock.typesFile)] : []),
 			...targetGeneratedMetadataPaths,
@@ -456,7 +461,6 @@ export async function runAddBindingSourceCommand({
 
   try {
     await fsp.mkdir(bindingSourceDir, { recursive: true });
-    await ensureBindingSourceBootstrapAnchors(workspace);
     await fsp.writeFile(
       serverFilePath,
       buildBindingSourceServerSource(
@@ -469,6 +473,7 @@ export async function runAddBindingSourceCommand({
       ),
       'utf8',
     );
+    await ensureBindingSourceBootstrapAnchors(workspace);
     await fsp.writeFile(
       editorFilePath,
       buildBindingSourceEditorSource(

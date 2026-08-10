@@ -51,8 +51,8 @@ export const PUBLISH_PACKAGE_FOOTPRINT_BUDGETS = Object.freeze({
 		maxUnpackedBytes: 3_500_000,
 	}),
 	"@wp-typia/create-workspace-template": Object.freeze({
-		maxFileCount: 26,
-		maxUnpackedBytes: 84_000,
+		maxFileCount: 30,
+		maxUnpackedBytes: 90_000,
 	}),
 	"wp-typia": Object.freeze({
 		maxFileCount: 8,

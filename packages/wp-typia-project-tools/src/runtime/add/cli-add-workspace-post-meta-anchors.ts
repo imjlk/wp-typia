@@ -11,11 +11,19 @@ import {
   replaceBlockConfigImport,
   replaceNoResourcesGuard,
 } from './cli-add-workspace-rest-sync-script-shared.js';
-import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  hasPhpFunctionCall,
+  replacePhpFunctionDefinition,
+} from '../shared/php-utils.js';
 import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const POST_META_SERVER_GLOB = '/inc/post-meta/*.php';
 type SourceMatcher = string | RegExp;
 
 function matchesSource(source: string, matcher: SourceMatcher): boolean {
@@ -27,8 +35,8 @@ function matchesSource(source: string, matcher: SourceMatcher): boolean {
 /**
  * Ensure the workspace bootstrap loads generated post-meta PHP modules.
  *
- * Inserts the generated loader function, appends its `init` hook, and rejects
- * incompatible existing loader functions that omit the generated post-meta glob.
+ * Inserts the generated loader function, appends its `init` hook, repairs stale
+ * loader functions, and synchronizes the deterministic post-meta manifest.
  *
  * @param workspace Resolved official workspace metadata and paths.
  * @returns A promise that resolves after the bootstrap has been patched.
@@ -43,24 +51,43 @@ export async function ensurePostMetaBootstrapAnchors(
 		let nextSource = source;
 		const registerFunctionName = `${workspace.workspace.phpPrefix}_register_post_meta_contracts`;
 		const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
+		const postMetaManifestPath =
+			`/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.postMeta}`;
 		const registerFunction = `
 
 function ${registerFunctionName}() {
-\tforeach ( glob( __DIR__ . '${POST_META_SERVER_GLOB}' ) ?: array() as $post_meta_module ) {
-\t\trequire_once $post_meta_module;
-\t}
+\trequire_once __DIR__ . '${postMetaManifestPath}';
 }
 `;
 		if (!hasPhpFunctionDefinition(nextSource, registerFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, registerFunction);
-		} else if (!nextSource.includes(POST_META_SERVER_GLOB)) {
-			throw new Error(
-				[
-					`Unable to patch ${path.basename(bootstrapPath)} in ensurePostMetaBootstrapAnchors.`,
-					`The existing ${registerFunctionName}() definition does not include ${POST_META_SERVER_GLOB}.`,
-					'Restore the generated bootstrap shape or wire the post-meta loader manually before retrying.',
-				].join(' '),
-			);
+		} else {
+			const functionRange = findPhpFunctionRange(nextSource, registerFunctionName);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${registerFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
+				);
+			}
+			const functionSource = functionRange.source;
+			if (!functionSource.includes(postMetaManifestPath)) {
+				if (!hasPhpFunctionCall(functionSource, 'glob')) {
+					throw new Error(
+						`Unable to migrate customized ${registerFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${postMetaManifestPath} manually.`,
+					);
+				}
+				const replacedSource = replacePhpFunctionDefinition(
+					nextSource,
+					registerFunctionName,
+					registerFunction,
+					{ trimReplacementStart: true },
+				);
+				if (!replacedSource) {
+					throw new Error(
+						`Unable to repair ${path.basename(bootstrapPath)} for ${registerFunctionName}.`,
+					);
+				}
+				nextSource = replacedSource;
+			}
 		}
 
 		if (!nextSource.includes(registerHook)) {
@@ -69,6 +96,9 @@ function ${registerFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['postMeta'],
+  });
 }
 
 function getSyncRestPatchErrorMessage(

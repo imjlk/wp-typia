@@ -32,6 +32,7 @@ import {
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 import { toPascalCase } from '../shared/string-case.js';
 
 const ADD_POST_META_USAGE =
@@ -112,7 +113,15 @@ export async function runAddPostMetaCommand({
   const postMetaIncRootExisted = await pathExists(postMetaIncRoot);
 
   return executeWorkspaceMutationPlan({
-		filePaths: [blockConfigPath, bootstrapPath, syncRestScriptPath],
+		filePaths: [
+			blockConfigPath,
+			bootstrapPath,
+			syncRestScriptPath,
+			path.join(
+				workspace.projectDir,
+				WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.postMeta,
+			),
+		],
 		targetPaths: [
 			typesFilePath,
 			schemaFilePath,
@@ -126,7 +135,6 @@ export async function runAddPostMetaCommand({
 			await fsp.mkdir(postMetaIncRoot, { recursive: true });
 			await ensureContractSyncScriptAnchors(workspace);
 			await ensurePostMetaSyncScriptAnchors(workspace);
-			await ensurePostMetaBootstrapAnchors(workspace);
 			await fsp.writeFile(
 				typesFilePath,
 				buildPostMetaTypesSource(postMetaSlug, sourceTypeName),
@@ -150,6 +158,7 @@ export async function runAddPostMetaCommand({
 				}),
 				'utf8',
 			);
+			await ensurePostMetaBootstrapAnchors(workspace);
 			await fsp.writeFile(
 				readmeFilePath,
 				buildPostMetaReadmeSource({

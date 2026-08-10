@@ -101,6 +101,15 @@ export {
   tryResolveWorkspaceProject,
 } from './workspace-project.js';
 export {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from './workspace/workspace-php-entrypoint-manifests.js';
+export type {
+  SyncWorkspacePhpEntrypointsOptions,
+  SyncWorkspacePhpEntrypointsResult,
+  WorkspacePhpEntrypointManifestId,
+} from './workspace/workspace-php-entrypoint-manifests.js';
+export {
   manifestAttributeToJsonSchema,
   projectJsonSchemaDocument,
   manifestToJsonSchema,

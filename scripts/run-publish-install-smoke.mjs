@@ -248,6 +248,10 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			const missingEntries = [
 				"package/lint.config.ts.mustache",
 				"package/prettier.config.mjs.mustache",
+				"package/scripts/sync-php-entrypoints.ts.mustache",
+				"package/src/bindings/wp-typia-modules.php.mustache",
+				"package/src/blocks/wp-typia-modules.php.mustache",
+				"package/src/patterns/wp-typia-modules.php.mustache",
 			].filter((entry) => !tarballEntries.includes(entry));
 			if (missingEntries.length > 0) {
 				throw new Error(
@@ -809,12 +813,41 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	}
 	assertFilesExist(adminViewDir, [
 		"lint.config.ts",
+		"scripts/sync-php-entrypoints.ts",
 		"src/admin-views/snapshots/index.tsx",
 		"src/admin-views/snapshots/Screen.tsx",
 		"inc/admin-views/snapshots.php",
+		"inc/admin-views/wp-typia-modules.php",
+		"src/bindings/wp-typia-modules.php",
+		"src/blocks/wp-typia-modules.php",
+		"src/patterns/wp-typia-modules.php",
 	]);
+	const adminViewManifest = fs.readFileSync(
+		path.join(adminViewDir, "inc/admin-views/wp-typia-modules.php"),
+		"utf8",
+	);
+	if (
+		!adminViewManifest.includes(
+			"require_once __DIR__ . '/snapshots.php';",
+		) ||
+		/\bglob\s*\(/u.test(adminViewManifest) ||
+		/\b(?:require|require_once|include|include_once)\s*(?:\(\s*)?\$/u.test(
+			adminViewManifest,
+		)
+	) {
+		throw new Error(
+			"Generated admin-view workspace must use a deterministic literal PHP manifest.",
+		);
+	}
 	phaseTimer.measureSync("install and typecheck admin-view scaffold", () => {
 		installGeneratedProject(adminViewDir, tarballs);
+		run(npmCommand, ["run", "sync", "--", "--check"], {
+			cwd: adminViewDir,
+			env: {
+				...process.env,
+				TTSC_CACHE_DIR: ttscCacheDir,
+			},
+		});
 		typecheckGeneratedProject(adminViewDir, ttscCacheDir);
 	});
 
