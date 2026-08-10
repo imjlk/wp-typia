@@ -42,12 +42,30 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
       }
     }
 `;
-const TTSC_LINT_BUFFER_DECLARATION_PATTERN =
-  /^(\s*)let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);$/gmu;
-const UNPATCHED_TTSC_LINT_BUFFER_DECLARATION =
-  'let target = Buffer.alloc(0);';
-const PATCHED_TTSC_LINT_BUFFER_DECLARATION =
-  'let target: Buffer = Buffer.alloc(0);';
+const TTSC_LINT_BUFFER_TARGET_PATTERN = /    for \(const entry of fs\.readdirSync\(location, \{\n      encoding: "buffer",\n      withFileTypes: true,\n    \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);\n      if \(entry\.isSymbolicLink\(\)\) \{\n        try \{\n          target = fs\.readlinkSync\(/gu;
+const UNPATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
+const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target: Buffer = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
+const TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN = /  if \(process\.platform === "win32"\) \{\n    for \(const entry of fs\.readdirSync\(location, \{ withFileTypes: true \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);/gu;
+const UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);`;
+const PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target: Buffer = Buffer.alloc(0);`;
 let tempDirs: string[] = [];
 
 afterEach(() => {
@@ -260,14 +278,15 @@ export type Inferred<Value> =
     );
     const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
     const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
-    const unpatchedIndexSource = patchedIndexSource.replace(
-      TTSC_LINT_BUFFER_DECLARATION_PATTERN,
-      `$1${UNPATCHED_TTSC_LINT_BUFFER_DECLARATION}`,
-    );
-    expect(
-      unpatchedIndexSource.split(UNPATCHED_TTSC_LINT_BUFFER_DECLARATION)
-        .length - 1,
-    ).toBe(4);
+    const unpatchedIndexSource = patchedIndexSource
+      .replace(
+        TTSC_LINT_BUFFER_TARGET_PATTERN,
+        UNPATCHED_TTSC_LINT_BUFFER_TARGET,
+      )
+      .replace(
+        TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN,
+        UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
+      );
     writeText(lintIndexPath, unpatchedIndexSource);
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
@@ -334,11 +353,17 @@ export type Inferred<Value> =
     );
     const repairedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
     expect(
-      repairedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_DECLARATION)
+      repairedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
+    ).toBe(2);
+    expect(
+      repairedIndexSource.split(PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET)
         .length - 1,
-    ).toBe(4);
+    ).toBe(2);
     expect(repairedIndexSource).not.toContain(
-      UNPATCHED_TTSC_LINT_BUFFER_DECLARATION,
+      UNPATCHED_TTSC_LINT_BUFFER_TARGET,
+    );
+    expect(repairedIndexSource).not.toContain(
+      UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
     );
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
