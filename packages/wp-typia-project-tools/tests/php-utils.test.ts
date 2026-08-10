@@ -64,6 +64,10 @@ require_once __DIR__ . $module_path;
     "<?php require_once __DIR__ . '/literal.php';",
     { requirePhpOpenTag: true },
   )).toBe(false);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php REQuire_onCE (\n__DIR__ . $modulePath\n);',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
 });
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {

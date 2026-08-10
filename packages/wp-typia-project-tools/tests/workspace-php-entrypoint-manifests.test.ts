@@ -230,11 +230,16 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     await syncWorkspacePhpEntrypoints(projectDir, {
       manifestIds: ['blockServers'],
     });
-    expect(fs.readFileSync(
+    const migratedBootstrap = fs.readFileSync(
       path.join(projectDir, 'legacy-block-loader.php'),
       'utf8',
-    )).toContain(
+    );
+    expect(migratedBootstrap).toContain(
       "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    );
+    expect(migratedBootstrap).not.toMatch(/\bglob\s*\(/u);
+    expect(migratedBootstrap).not.toMatch(
+      /\brequire_once\s+\$server_module\b/u,
     );
   });
 

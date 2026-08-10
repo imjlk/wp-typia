@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VARIABLE_INCLUDE_PATTERN =
-  /\b(?:require|require_once|include|include_once)\b[^;\n]*\$[A-Za-z_]/u;
+import { hasPhpVariableIncludeExpression } from '../src/runtime/shared/php-utils.js';
+
 const PHP_GLOB_PATTERN = /\bglob\s*\(/u;
 const LEGACY_MIGRATION_SOURCE_PATHS = new Set([
   'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-binding-source-anchors.ts',
@@ -52,13 +52,17 @@ describe('generated PHP entrypoint policy', () => {
     const violations: string[] = [];
 
     for (const filePath of roots.flatMap(collectFiles)) {
-      const relativePath = path.relative(repositoryRoot, filePath);
+      const relativePath = path.relative(repositoryRoot, filePath)
+        .split(path.sep)
+        .join('/');
       if (LEGACY_MIGRATION_SOURCE_PATHS.has(relativePath)) {
         continue;
       }
       const source = fs.readFileSync(filePath, 'utf8');
       if (
-        VARIABLE_INCLUDE_PATTERN.test(source) ||
+        hasPhpVariableIncludeExpression(source, {
+          requirePhpOpenTag: true,
+        }) ||
         PHP_GLOB_PATTERN.test(source)
       ) {
         violations.push(relativePath);

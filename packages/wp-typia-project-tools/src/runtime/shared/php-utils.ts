@@ -650,6 +650,19 @@ function matchesPhpIdentifierAt(
   );
 }
 
+function matchesPhpIdentifierIgnoringCaseAt(
+  source: string,
+  index: number,
+  identifier: string,
+): boolean {
+  return (
+    source.slice(index, index + identifier.length).toLowerCase() ===
+      identifier.toLowerCase() &&
+    !isPhpIdentifierPart(source[index - 1]) &&
+    !isPhpIdentifierPart(source[index + identifier.length])
+  );
+}
+
 /**
  * Detect an executable PHP include whose complete expression is one literal
  * `__DIR__` concatenation.
@@ -671,8 +684,9 @@ export function hasPhpLiteralDirectoryInclude(
       continue;
     }
 
-    const includeKeyword = PHP_INCLUDE_KEYWORDS
-      .find((candidate) => matchesPhpIdentifierAt(source, index, candidate));
+    const includeKeyword = PHP_INCLUDE_KEYWORDS.find((candidate) =>
+      matchesPhpIdentifierIgnoringCaseAt(source, index, candidate),
+    );
     if (!includeKeyword) {
       index += 1;
       continue;
@@ -741,7 +755,7 @@ export function hasPhpVariableIncludeExpression(
     }
     if (!includeExpression) {
       const includeKeyword = PHP_INCLUDE_KEYWORDS.find((candidate) =>
-        matchesPhpIdentifierAt(source, index, candidate),
+        matchesPhpIdentifierIgnoringCaseAt(source, index, candidate),
       );
       if (includeKeyword) {
         includeExpression = true;
