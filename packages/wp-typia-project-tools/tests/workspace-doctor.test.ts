@@ -3020,6 +3020,23 @@ test('doctor validates orphan PHP manifests against empty inventories', async ()
     baselineChecks.find((check) => check.label === 'Binding bootstrap')
       ?.status,
   ).toBe('pass');
+  fs.rmSync(path.join(targetDir, 'src', 'bindings'), {
+    force: true,
+    recursive: true,
+  });
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Binding bootstrap',
+    )?.status,
+  ).toBe('fail');
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['bindingSources'],
+  });
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Binding bootstrap',
+    )?.status,
+  ).toBe('pass');
   const bootstrapPath = path.join(
     targetDir,
     'doctor-empty-php-inventories.php',

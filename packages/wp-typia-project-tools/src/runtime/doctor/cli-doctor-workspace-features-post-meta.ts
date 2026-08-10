@@ -8,7 +8,9 @@ import {
   isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_POST_META_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -66,7 +68,11 @@ function checkWorkspacePostMetaBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_post_meta_contracts`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = source.includes(WORKSPACE_POST_META_MANIFEST);
+  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_POST_META_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_POST_META_MANIFEST,
@@ -130,7 +136,17 @@ export function getWorkspacePostMetaDoctorChecks(
   const hasPostMetaManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_POST_META_MANIFEST.slice(1)),
   );
-  if (postMetaEntries.length > 0 || hasPostMetaManifest) {
+  const bootstrapReferencesPostMetaManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_POST_META_MANIFEST,
+    );
+  if (
+    postMetaEntries.length > 0 ||
+    hasPostMetaManifest ||
+    bootstrapReferencesPostMetaManifest
+  ) {
     checks.push(
       checkWorkspacePostMetaBootstrap(
         workspace.projectDir,

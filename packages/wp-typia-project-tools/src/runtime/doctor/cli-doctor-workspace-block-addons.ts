@@ -8,12 +8,14 @@ import {
   resolveWorkspaceBootstrapPath,
   WORKSPACE_FULL_BLOCK_NAME_PATTERN,
   WORKSPACE_PATTERN_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
 import {
   formatPatternCatalogDiagnostics,
   resolvePatternCatalogContentFile,
   validatePatternCatalog,
 } from '../add/pattern-catalog.js';
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 import {
   hasExecutablePattern,
   hasUncommentedPattern,
@@ -50,7 +52,11 @@ function checkWorkspacePatternBootstrap(
   }
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const hasCategoryAnchor = source.includes('register_block_pattern_category');
-  const hasPatternManifest = source.includes(WORKSPACE_PATTERN_MANIFEST);
+  const hasPatternManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_PATTERN_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_PATTERN_MANIFEST,
@@ -307,7 +313,12 @@ export function getWorkspaceBlockAddonDoctorChecks(
 
   const shouldCheckPatternBootstrap =
 		inventory.patterns.length > 0 ||
-		fs.existsSync(path.join(workspace.projectDir, 'src', 'patterns'));
+		fs.existsSync(path.join(workspace.projectDir, 'src', 'patterns')) ||
+		workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_PATTERN_MANIFEST,
+    );
   if (shouldCheckPatternBootstrap) {
     checks.push(
       checkWorkspacePatternBootstrap(

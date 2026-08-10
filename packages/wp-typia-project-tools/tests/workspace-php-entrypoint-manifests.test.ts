@@ -443,6 +443,28 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     await expect(syncWorkspacePhpEntrypoints(projectDir, {
       check: true,
     })).resolves.toEqual({ changed: [] });
+
+    const currentLoader = `function ${phpPrefix}_load_workflow_abilities() {
+\trequire_once __DIR__ . '/inc/abilities/wp-typia-modules.php';
+}`;
+    const customizedLoader = `${currentLoader.slice(0, -1)}
+\tforeach ( glob( __DIR__ . '/inc/abilities/*.php' ) as $ability_module ) {
+\t\trequire_once $ability_module;
+\t}
+}`;
+    const currentBootstrap = fs.readFileSync(
+      path.join(projectDir, `${packageName}.php`),
+      'utf8',
+    );
+    expect(currentBootstrap).toContain(currentLoader);
+    fs.writeFileSync(
+      path.join(projectDir, `${packageName}.php`),
+      currentBootstrap.replace(currentLoader, customizedLoader),
+      'utf8',
+    );
+    await expect(syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['abilities'],
+    })).rejects.toThrow('Unable to migrate customized');
   });
 
   test('rejects symbolic links in generated entrypoint inventories', async () => {
@@ -494,11 +516,67 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
       manifestIds: ['restResources'],
     });
     const manifestPath = WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources;
+    const generatedManifestSource = fs.readFileSync(
+      path.join(projectDir, manifestPath),
+      'utf8',
+    );
     expect(
       isWorkspacePhpEntrypointManifestValid(projectDir, manifestPath, [
         'example.php',
       ]),
     ).toBe(true);
+
+    const symlinkedManifestDirectory = path.join(
+      projectDir,
+      'inc/symlinked-rest',
+    );
+    fs.symlinkSync(
+      path.join(projectDir, 'inc/rest'),
+      symlinkedManifestDirectory,
+    );
+    expect(
+      isWorkspacePhpEntrypointManifestValid(
+        projectDir,
+        'inc/symlinked-rest/wp-typia-modules.php',
+        ['example.php'],
+      ),
+    ).toBe(false);
+    fs.unlinkSync(symlinkedManifestDirectory);
+
+    const exampleModulePath = path.join(projectDir, 'inc/rest/example.php');
+    fs.unlinkSync(exampleModulePath);
+    fs.mkdirSync(exampleModulePath);
+    expect(
+      isWorkspacePhpEntrypointManifestValid(projectDir, manifestPath, [
+        'example.php',
+      ]),
+    ).toBe(false);
+    fs.rmdirSync(exampleModulePath);
+    fs.writeFileSync(exampleModulePath, '<?php\n', 'utf8');
+
+    const escapedDecoyPath = path.join(
+      projectDir,
+      'inc/rest/x65xample.php',
+    );
+    fs.writeFileSync(escapedDecoyPath, '<?php\n', 'utf8');
+    fs.writeFileSync(
+      path.join(projectDir, manifestPath),
+      `<?php
+require_once __DIR__ . "/\\x65xample.php";
+`,
+      'utf8',
+    );
+    expect(
+      isWorkspacePhpEntrypointManifestValid(projectDir, manifestPath, [
+        'x65xample.php',
+      ]),
+    ).toBe(false);
+    fs.unlinkSync(escapedDecoyPath);
+    fs.writeFileSync(
+      path.join(projectDir, manifestPath),
+      generatedManifestSource,
+      'utf8',
+    );
 
     fs.appendFileSync(
       path.join(projectDir, manifestPath),

@@ -268,13 +268,14 @@ function matchesPhpFunctionCallAt(
 function parsePhpQuotedStringLiteralAt(
 	source: string,
 	index: number,
-): { end: number; value: string } | null {
+): { end: number; hasEscape: boolean; value: string } | null {
   const quote = source[index];
   if (quote !== "'" && quote !== '"') {
     return null;
   }
 
   let cursor = index + 1;
+  let hasEscape = false;
   let value = '';
   while (cursor < source.length) {
     const character = source[cursor];
@@ -283,6 +284,7 @@ function parsePhpQuotedStringLiteralAt(
       if (escapedCharacter === undefined) {
         return null;
       }
+      hasEscape = true;
       value += escapedCharacter;
       cursor += 2;
       continue;
@@ -291,6 +293,7 @@ function parsePhpQuotedStringLiteralAt(
     if (character === quote) {
       return {
         end: cursor + 1,
+        hasEscape,
         value,
       };
     }
@@ -720,7 +723,7 @@ function scanPhpLiteralDirectoryIncludes(
     const literal = cursor === null
       ? null
       : parsePhpQuotedStringLiteralAt(source, cursor);
-    if (!literal) {
+    if (!literal || literal.hasEscape) {
       if (strict) {
         return null;
       }

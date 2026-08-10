@@ -14,8 +14,12 @@ import {
   WORKSPACE_ADMIN_VIEW_MANIFEST,
   WORKSPACE_ADMIN_VIEW_SCRIPT,
   WORKSPACE_ADMIN_VIEW_STYLE,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
-import { escapeRegex } from '../shared/php-utils.js';
+import {
+  escapeRegex,
+  hasPhpLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -109,7 +113,11 @@ function checkWorkspaceAdminViewBootstrap(
   const loadFunctionName = `${phpPrefix}_load_admin_views`;
   const loadHook = `add_action( 'plugins_loaded', '${loadFunctionName}' );`;
   const hasLoaderHook = source.includes(loadHook);
-  const hasServerManifest = source.includes(WORKSPACE_ADMIN_VIEW_MANIFEST);
+  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_ADMIN_VIEW_MANIFEST,
@@ -223,7 +231,17 @@ export function getWorkspaceAdminViewDoctorChecks(
   const hasAdminViewManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_ADMIN_VIEW_MANIFEST.slice(1)),
   );
-  if (inventory.adminViews.length > 0 || hasAdminViewManifest) {
+  const bootstrapReferencesAdminViewManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_ADMIN_VIEW_MANIFEST,
+    );
+  if (
+    inventory.adminViews.length > 0 ||
+    hasAdminViewManifest ||
+    bootstrapReferencesAdminViewManifest
+  ) {
     checks.push(
       checkWorkspaceAdminViewBootstrap(
         workspace.projectDir,

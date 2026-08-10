@@ -2,7 +2,6 @@ import path from 'node:path';
 
 import {
   findPhpFunctionRange,
-  hasPhpLiteralDirectoryInclude,
   replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
 
@@ -219,9 +218,9 @@ export function migrateGeneratedPhpLoaderFunction(options: {
 }): string {
   return applyGeneratedPhpFunctionMigration({
     ...options,
-    isCurrent: (functionSource) => hasPhpLiteralDirectoryInclude(
+    isCurrent: (functionSource) => isEquivalentGeneratedPhp(
       functionSource,
-      options.manifestPath,
+      options.replacement,
     ),
     mismatchMessage:
       `Unable to migrate customized ${options.functionName}() in ${path.basename(options.bootstrapPath)}. Restore the generated loader or wire ${options.manifestPath} manually.`,

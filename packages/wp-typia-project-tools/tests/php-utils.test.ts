@@ -94,6 +94,10 @@ REQUIRE_ONCE __dir__ . '/inc/rest/wp-typia-modules.php';
     { requirePhpOpenTag: true },
   )).toBeNull();
   expect(collectPhpLiteralDirectoryIncludePaths(
+    '<?php require_once __DIR__ . "/\\x65xample.php";',
+    { requirePhpOpenTag: true },
+  )).toBeNull();
+  expect(collectPhpLiteralDirectoryIncludePaths(
     `<?php
 // require __DIR__ . '/commented.php';
 REQuire_onCE __dir__ . '/first.php';

@@ -9,9 +9,13 @@ import {
   WORKSPACE_ABILITY_EDITOR_ASSET,
   WORKSPACE_ABILITY_EDITOR_SCRIPT,
   WORKSPACE_ABILITY_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
-import { escapeRegex } from '../shared/php-utils.js';
+import {
+  escapeRegex,
+  hasPhpLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -102,7 +106,11 @@ function checkWorkspaceAbilityBootstrap(
   const hasLoaderHook = source.includes(loadHook);
   const hasAdminEnqueueHook = source.includes(adminEnqueueHook);
   const hasEditorEnqueueHook = source.includes(editorEnqueueHook);
-  const hasServerManifest = source.includes(WORKSPACE_ABILITY_MANIFEST);
+  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_ABILITY_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_ABILITY_MANIFEST,
@@ -185,7 +193,17 @@ export function getWorkspaceAbilityDoctorChecks(
   const hasAbilityManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_ABILITY_MANIFEST.slice(1)),
   );
-  if (abilities.length > 0 || hasAbilityManifest) {
+  const bootstrapReferencesAbilityManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_ABILITY_MANIFEST,
+    );
+  if (
+    abilities.length > 0 ||
+    hasAbilityManifest ||
+    bootstrapReferencesAbilityManifest
+  ) {
     checks.push(
       checkWorkspaceAbilityBootstrap(
         workspace.projectDir,

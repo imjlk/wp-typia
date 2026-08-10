@@ -11,6 +11,7 @@ import {
   WORKSPACE_BINDING_EDITOR_ASSET,
   WORKSPACE_BINDING_EDITOR_SCRIPT,
   WORKSPACE_BINDING_SERVER_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
@@ -358,7 +359,17 @@ export function getWorkspaceBindingDoctorChecks(
   const hasBindingManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_BINDING_SERVER_MANIFEST.slice(1)),
   );
-  if (inventory.bindingSources.length > 0 || hasBindingManifest) {
+  const bootstrapReferencesBindingManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_BINDING_SERVER_MANIFEST,
+    );
+  if (
+    inventory.bindingSources.length > 0 ||
+    hasBindingManifest ||
+    bootstrapReferencesBindingManifest
+  ) {
     checks.push(
       checkWorkspaceBindingBootstrap(
         workspace.projectDir,

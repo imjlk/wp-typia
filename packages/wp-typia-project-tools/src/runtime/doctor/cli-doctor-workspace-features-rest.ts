@@ -14,7 +14,9 @@ import {
   isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_REST_RESOURCE_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -177,7 +179,11 @@ function checkWorkspaceRestResourceBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_rest_resources`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = source.includes(WORKSPACE_REST_RESOURCE_MANIFEST);
+  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_REST_RESOURCE_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_REST_RESOURCE_MANIFEST,
@@ -217,7 +223,17 @@ export function getWorkspaceRestResourceDoctorChecks(
   const hasRestResourceManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_REST_RESOURCE_MANIFEST.slice(1)),
   );
-  if (hasGeneratedRestResource || hasRestResourceManifest) {
+  const bootstrapReferencesRestResourceManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_REST_RESOURCE_MANIFEST,
+    );
+  if (
+    hasGeneratedRestResource ||
+    hasRestResourceManifest ||
+    bootstrapReferencesRestResourceManifest
+  ) {
     checks.push(
       checkWorkspaceRestResourceBootstrap(
         workspace.projectDir,

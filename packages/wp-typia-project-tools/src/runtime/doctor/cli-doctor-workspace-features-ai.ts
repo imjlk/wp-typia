@@ -8,7 +8,9 @@ import {
   isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_AI_FEATURE_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -80,7 +82,11 @@ function checkWorkspaceAiFeatureBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_ai_features`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = source.includes(WORKSPACE_AI_FEATURE_MANIFEST);
+  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+    source,
+    WORKSPACE_AI_FEATURE_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_AI_FEATURE_MANIFEST,
@@ -115,7 +121,17 @@ export function getWorkspaceAiFeatureDoctorChecks(
   const hasAiFeatureManifest = fs.existsSync(
     path.join(workspace.projectDir, WORKSPACE_AI_FEATURE_MANIFEST.slice(1)),
   );
-  if (aiFeatures.length > 0 || hasAiFeatureManifest) {
+  const bootstrapReferencesAiFeatureManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_AI_FEATURE_MANIFEST,
+    );
+  if (
+    aiFeatures.length > 0 ||
+    hasAiFeatureManifest ||
+    bootstrapReferencesAiFeatureManifest
+  ) {
     checks.push(
       checkWorkspaceAiFeatureBootstrap(
         workspace.projectDir,

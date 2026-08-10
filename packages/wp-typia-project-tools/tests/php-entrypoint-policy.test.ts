@@ -85,6 +85,23 @@ GLoB
     )).toBe(true);
   });
 
+  test('doctor manifest checks use executable PHP include scanning', () => {
+    const doctorRoot = path.resolve(
+      import.meta.dir,
+      '../src/runtime/doctor',
+    );
+    const violations = collectFiles(doctorRoot)
+      .filter((filePath) => filePath.endsWith('.ts'))
+      .filter((filePath) =>
+        /\.includes\(\s*WORKSPACE_[A-Z_]+_MANIFEST\s*\)/u.test(
+          fs.readFileSync(filePath, 'utf8'),
+        ),
+      )
+      .map((filePath) => path.relative(doctorRoot, filePath));
+
+    expect(violations).toEqual([]);
+  });
+
   test('example validator loading keeps both supported build layouts literal', () => {
     const repositoryRoot = path.resolve(import.meta.dir, '../../..');
     const source = fs.readFileSync(

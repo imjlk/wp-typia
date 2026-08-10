@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import {
   collectPhpLiteralDirectoryIncludePaths,
+  hasPhpLiteralDirectoryInclude,
 } from '../shared/php-utils.js';
 import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
@@ -40,6 +41,23 @@ export const WORKSPACE_AI_FEATURE_MANIFEST =
 /** Literal manifest path for generated admin view PHP entrypoints. */
 export const WORKSPACE_ADMIN_VIEW_MANIFEST =
   `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews}`;
+
+/** Check whether the workspace bootstrap executes one literal manifest include. */
+export function workspaceBootstrapHasLiteralManifestInclude(
+  projectDir: string,
+  packageName: string,
+  manifestPath: string,
+): boolean {
+  const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
+  if (!fs.existsSync(bootstrapPath)) {
+    return false;
+  }
+  return hasPhpLiteralDirectoryInclude(
+    fs.readFileSync(bootstrapPath, 'utf8'),
+    manifestPath,
+    { requirePhpOpenTag: true },
+  );
+}
 /** Relative path to the generated admin view editor bundle. */
 export const WORKSPACE_ADMIN_VIEW_SCRIPT = 'build/admin-views/index.js';
 /** Relative path to the generated admin view asset manifest. */
@@ -110,9 +128,16 @@ export function isWorkspacePhpEntrypointManifestValid(
     }
     const projectRealPath = fs.realpathSync(projectDir);
     const manifestStat = fs.lstatSync(absoluteManifestPath);
+    const manifestRealPath = fs.realpathSync(absoluteManifestPath);
+    const expectedManifestRealPath = path.resolve(
+      projectRealPath,
+      manifestRelativePath,
+    );
     if (
       manifestStat.isSymbolicLink() ||
-      !isPathInside(projectRealPath, fs.realpathSync(absoluteManifestPath))
+      !manifestStat.isFile() ||
+      manifestRealPath !== expectedManifestRealPath ||
+      !isPathInside(projectRealPath, manifestRealPath)
     ) {
       return false;
     }
@@ -145,11 +170,19 @@ export function isWorkspacePhpEntrypointManifestValid(
     const manifestDirectory = path.dirname(absoluteManifestPath);
     return [...literalTargets].every((modulePath) => {
       const targetPath = path.join(manifestDirectory, modulePath);
+      if (hasUnsafeModulePath(modulePath) || !fs.existsSync(targetPath)) {
+        return false;
+      }
+      const targetStat = fs.lstatSync(targetPath);
+      const targetRealPath = fs.realpathSync(targetPath);
       return (
-        !hasUnsafeModulePath(modulePath) &&
-        fs.existsSync(targetPath) &&
-        !fs.lstatSync(targetPath).isSymbolicLink() &&
-        isPathInside(projectRealPath, fs.realpathSync(targetPath))
+        !targetStat.isSymbolicLink() &&
+        targetStat.isFile() &&
+        targetRealPath === path.resolve(
+          path.dirname(expectedManifestRealPath),
+          modulePath,
+        ) &&
+        isPathInside(projectRealPath, targetRealPath)
       );
     });
   } catch {
