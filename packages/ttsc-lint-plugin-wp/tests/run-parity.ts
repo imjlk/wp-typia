@@ -319,6 +319,10 @@ function prepareConsumerProject(): {
     path.join(sourceFixtureRoot, 'wordpress-components.d.ts'),
     path.join(fixtureRoot, 'wordpress-components.d.ts'),
   );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'local-ui.js'),
+    path.join(fixtureRoot, 'local-ui.js'),
+  );
   fs.writeFileSync(
     path.join(fixtureRoot, 'tsconfig.json'),
     `${JSON.stringify(
@@ -328,13 +332,18 @@ function prepareConsumerProject(): {
           moduleResolution: 'bundler',
           noEmit: true,
           noImplicitAny: false,
+          allowJs: true,
           jsx: 'preserve',
           plugins: [{ transform: '@ttsc/lint' }],
           skipLibCheck: true,
           target: 'ES2020',
           types: [],
         },
-        files: ['./fixture.tsx', './wordpress-components.d.ts'],
+        files: [
+          './fixture.tsx',
+          './local-ui.js',
+          './wordpress-components.d.ts',
+        ],
       },
       null,
       2,
@@ -562,7 +571,19 @@ async function prepareUpstreamTheme(
     assert.equal(metadata.name, '@wordpress/theme');
     assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
     fs.mkdirSync(path.dirname(themeRoot), { recursive: true });
-    fs.renameSync(path.join(stagingRoot, 'package'), themeRoot);
+    try {
+      fs.renameSync(path.join(stagingRoot, 'package'), themeRoot);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
+        throw error;
+      }
+      const installedMetadata = JSON.parse(
+        fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
+      ) as { name?: string; version?: string };
+      assert.equal(installedMetadata.name, '@wordpress/theme');
+      assert.equal(installedMetadata.version, UPSTREAM_THEME_VERSION);
+    }
     fs.writeFileSync(tarballPath, tarball);
   } finally {
     fs.rmSync(stagingRoot, { force: true, recursive: true });

@@ -13,10 +13,10 @@ const disallowedWpdsTokenSetMessage = "Do not set CSS custom properties using th
 
 var (
 	wpdsTokenBoundaryRegex = regexp.MustCompile(
-		`(?i)(^|[^A-Za-z0-9_])--wpds-`,
+		`(^|[^A-Za-z0-9_])--wpds-`,
 	)
 	wpdsDeclarationRegex = regexp.MustCompile(
-		`(?i)(^|[^A-Za-z0-9_])--wpds-[A-Za-z0-9_-]+` +
+		`(^|[^A-Za-z0-9_])--wpds-[A-Za-z0-9_-]+` +
 			ecmaScriptWhitespaceClass + `*:`,
 	)
 	wpdsDynamicEndRegex     = regexp.MustCompile(`--wpds-[A-Za-z0-9_-]*$`)

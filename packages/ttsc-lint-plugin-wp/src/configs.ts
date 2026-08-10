@@ -57,7 +57,10 @@ export const configs = {
       'wordpress/no-unknown-ds-tokens': 'error',
       'wordpress/no-unsafe-render-order': 'error',
       'wordpress/no-unsafe-wp-apis': 'error',
-      'wordpress/no-unused-vars-before-return': 'error',
+      'wordpress/no-unused-vars-before-return': [
+        'error',
+        { excludePattern: '^use' },
+      ],
       'wordpress/no-wp-process-env': 'error',
       'wordpress/valid-sprintf': 'error',
     },

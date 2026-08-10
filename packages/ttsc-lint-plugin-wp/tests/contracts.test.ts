@@ -61,6 +61,9 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
     ]);
     expect(configs.wpScriptsRecommended.plugins).toEqual({ wordpress: plugin });
     expect(fs.existsSync(configs.wpScriptsRecommended.extends)).toBe(true);
+    expect(
+      configs.recommended.rules['wordpress/no-unused-vars-before-return'],
+    ).toEqual(['error', { excludePattern: '^use' }]);
   });
 
   test('publishes an immutable upstream inventory baseline', () => {

@@ -148,6 +148,7 @@ process.env.GUTENBERG_PHASE;
 const tokenSuffix = 'md';
 const knownTokenDeclaration =
   '--wpds-color-foreground-content-neutral: red;';
+const differentlyCasedToken = 'var(--WPDS-color-foreground-content-neutral)';
 const unknownToken = 'var(--wpds-nonexistent-token)';
 const bareToken = '--wpds-color-foreground-content-neutral';
 const dynamicToken = `var(--wpds-dimension-gap-${tokenSuffix})`;
@@ -164,6 +165,7 @@ const tokenMethods = {
   },
 };
 void knownTokenDeclaration;
+void differentlyCasedToken;
 void unknownToken;
 void bareToken;
 void dynamicToken;

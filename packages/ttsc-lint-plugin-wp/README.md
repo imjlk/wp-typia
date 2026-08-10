@@ -93,7 +93,8 @@ unstable or experimental named imports allowed from that package.
 `no-unsafe-render-order` accepts `checkLocalImports` to include tracked
 components imported from relative paths. `no-unused-vars-before-return`
 accepts an `excludePattern` for call names that should not be treated as
-expensive initializers.
+expensive initializers. The pattern uses Go RE2 syntax; JavaScript-only
+lookaheads, lookbehinds, and backreferences are not supported.
 
 The Design System token rules embed the 167-token list from
 `@wordpress/theme` 1.1.0 used by the pinned ESLint oracle. The parity harness

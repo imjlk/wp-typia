@@ -11,5 +11,9 @@ export interface NoUnsafeRenderOrderOptions {
 }
 
 export interface NoUnusedVarsBeforeReturnOptions {
+  /**
+   * Go RE2 pattern matched against initializer call names. JavaScript-only
+   * lookarounds and backreferences are not supported.
+   */
   excludePattern?: string;
 }
