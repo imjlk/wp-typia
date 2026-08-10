@@ -47,5 +47,11 @@ describe('scaffold-onboarding', () => {
 		expect(getOptionalOnboardingShortNote('npm', 'workspace')).not.toContain(
 			"Follow the template's own artifact-refresh guidance",
 		);
+		expect(getOptionalOnboardingShortNote('npm', 'workspace')).toContain(
+			'npm run check:code',
+		);
+		expect(getOptionalOnboardingShortNote('npm', 'workspace')).not.toContain(
+			'typecheck',
+		);
 	});
 });

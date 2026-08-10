@@ -1245,16 +1245,32 @@ function findEffectiveProperty(
   return property && ts.isPropertyAssignment(property) ? property : null;
 }
 
-function hasWordPressConfigSpread(
+function hasEffectiveWordPressConfigExtends(
   objectLiteral: ts.ObjectLiteralExpression,
   bindings: WordPressLintConfigBindings,
-  suffix: readonly string[],
 ): boolean {
-  return objectLiteral.properties.some(
-    (property) =>
-      ts.isSpreadAssignment(property) &&
-      isWordPressConfigPath(property.expression, bindings, suffix),
-  );
+  let enabled = false;
+  for (const property of objectLiteral.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      // An unknown later spread may replace `extends`; stay fail-closed. A
+      // later preset spread restores the known compiled preset path.
+      enabled = isWordPressConfigPath(property.expression, bindings, [
+        'wpScriptsRecommended',
+      ]);
+      continue;
+    }
+    if (getObjectLiteralElementName(property) !== 'extends') {
+      continue;
+    }
+    enabled = Boolean(
+      ts.isPropertyAssignment(property) &&
+        isWordPressConfigPath(property.initializer, bindings, [
+          'wpScriptsRecommended',
+          'extends',
+        ]),
+    );
+  }
+  return enabled;
 }
 
 function isWordPressDefaultPlugin(
@@ -2064,7 +2080,7 @@ export function hasWordPressTtscLintConfigSource(
   const config = resolveObjectLiteral(exportExpression, sourceFile);
   if (
     !config ||
-    !hasWordPressConfigSpread(config, bindings, ['wpScriptsRecommended'])
+    !hasEffectiveWordPressConfigExtends(config, bindings)
   ) {
     return false;
   }

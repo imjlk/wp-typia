@@ -64,6 +64,7 @@
   },
   "devDependencies": {
     "@ttsc/lint": "^0.26.1",
+    "@ttsc/lint-baseline": "npm:@ttsc/lint@0.23.0",
     "eslint": "9.39.4",
     "prettier": "3.8.2",
     "ttsc": "^0.26.1",

@@ -1514,6 +1514,36 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
 		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					"  ignores: ['build/**', 'node_modules/**'],",
+					"  extends: './project-config.mjs',\n  ignores: ['build/**', 'node_modules/**'],",
+				),
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					'  ...configs.wpScriptsRecommended,',
+					"  extends: './project-config.mjs',\n  ...configs.wpScriptsRecommended,",
+				),
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					"  ignores: ['build/**', 'node_modules/**'],",
+					"  ...projectConfig,\n  ignores: ['build/**', 'node_modules/**'],",
+				),
+				'fixture-domain',
+			),
+		).toBe(false);
 		const documentedDefaultPluginSource = replaceOnce(
 			replaceOnce(
 				canonicalSource,

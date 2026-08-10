@@ -109,9 +109,10 @@ export function getDeferredCompilerArtifactsWarning(
     templateId,
     options,
   );
+  const codeCheckCommand = formatRunScript(packageManager, 'check:code');
   const followUp = syncSteps.length > 0
-    ? `, then run ${syncSteps.map((step) => `\`${step}\``).join(', then ')} before build or typecheck`
-    : ' before build or typecheck';
+    ? `, then run ${syncSteps.map((step) => `\`${step}\``).join(', then ')} before build or ${codeCheckCommand}`
+    : ` before build or ${codeCheckCommand}`;
 
   return `Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies${followUp}.`;
 }
@@ -160,7 +161,7 @@ export function getOptionalOnboardingNote(
   const doctorCommand = getDoctorVerificationCommand(packageManager);
 
   if (templateId === 'query-loop') {
-    return `This scaffold owns a \`core/query\` variation, so it does not generate a \`sync\` script, \`src/types.ts\`, \`block.json\`, or Typia manifests. Edit \`src/index.ts\`, \`src/patterns/*.php\`, \`src/query-extension.ts\`, and \`inc/query-runtime.php\` as needed, then rerun ${formatRunScript(packageManager, 'build')}, ${formatRunScript(packageManager, 'typecheck')}, or ${doctorCommand}.`;
+    return `This scaffold owns a \`core/query\` variation, so it does not generate a \`sync\` script, \`src/types.ts\`, \`block.json\`, or Typia manifests. Edit \`src/index.ts\`, \`src/patterns/*.php\`, \`src/query-extension.ts\`, and \`inc/query-runtime.php\` as needed, then rerun ${formatRunScript(packageManager, 'build')}, ${formatRunScript(packageManager, 'check:code')}, or ${doctorCommand}.`;
   }
 
   const optionalSyncScripts = getOptionalSyncScriptNames(templateId, options);
@@ -185,7 +186,7 @@ export function getOptionalOnboardingNote(
   );
   const syncTypesCommand = formatRunScript(packageManager, 'sync-types');
   const syncRestCommand = formatRunScript(packageManager, 'sync-rest');
-  const typecheckCommand = formatRunScript(packageManager, 'typecheck');
+  const codeCheckCommand = formatRunScript(packageManager, 'check:code');
   const strictSyncCommand = formatRunScript(
     packageManager,
     'sync-types',
@@ -204,7 +205,7 @@ export function getOptionalOnboardingNote(
 		!hasUnifiedSync &&
 		syncSteps.length > 0 &&
 		isCustomTemplate
-			? `Run ${syncSteps.join(' then ')} manually before build, typecheck, or commit. ${syncCheckCommand} verifies the current type-derived artifacts without rewriting them.${optionalSyncScripts.includes('sync-rest') ? ` ${syncRestCommand} remains available for REST-only refreshes after ${syncTypesCommand}.` : ''}`
+			? `Run ${syncSteps.join(' then ')} manually before build, ${codeCheckCommand}, or commit. ${syncCheckCommand} verifies the current type-derived artifacts without rewriting them.${optionalSyncScripts.includes('sync-rest') ? ` ${syncRestCommand} remains available for REST-only refreshes after ${syncTypesCommand}.` : ''}`
 			: null;
 
   if (fallbackCustomTemplateNote) {
@@ -212,10 +213,10 @@ export function getOptionalOnboardingNote(
   }
 
   if (isCustomTemplate && syncSteps.length === 0) {
-    return `No optional sync command was detected for this custom template. Use ${doctorCommand} for a quick environment and workspace sanity check, then follow the template's own artifact-refresh guidance before build, typecheck, or your first commit.`;
+    return `No optional sync command was detected for this custom template. Use ${doctorCommand} for a quick environment and workspace sanity check, then follow the template's own artifact-refresh guidance before build, ${codeCheckCommand}, or your first commit.`;
   }
 
-  return `You usually do not need to run ${syncCommand} during a normal ${formatRunScript(packageManager, developmentScript)} session. Run ${syncCommand} before ${formatRunScript(packageManager, 'build')}, ${typecheckCommand}, or ${doctorCommand} when you want a reviewable refresh. ${syncTypesCommand} stays warn-only by default; use \`${failOnLossySyncCommand}\` or \`${strictSyncCommand}\` for stricter CI checks.${advancedPersistenceNote} Generated syncs do not create migration history, so refresh before your first commit if this directory is new.`;
+  return `You usually do not need to run ${syncCommand} during a normal ${formatRunScript(packageManager, developmentScript)} session. Run ${syncCommand} before ${formatRunScript(packageManager, 'build')}, ${codeCheckCommand}, or ${doctorCommand} when you want a reviewable refresh. ${syncTypesCommand} stays warn-only by default; use \`${failOnLossySyncCommand}\` or \`${strictSyncCommand}\` for stricter CI checks.${advancedPersistenceNote} Generated syncs do not create migration history, so refresh before your first commit if this directory is new.`;
 }
 
 /**
@@ -228,9 +229,10 @@ export function getOptionalOnboardingShortNote(
 ): string {
   const normalizedTemplateId = normalizeTemplateLookupId(templateId);
   const doctorCommand = getDoctorVerificationCommand(packageManager);
+  const codeCheckCommand = formatRunScript(packageManager, 'check:code');
 
   if (normalizedTemplateId === 'query-loop') {
-    return `No sync step is generated for this Query Loop scaffold. Edit the variation files directly, then rerun ${formatRunScript(packageManager, 'build')}, ${formatRunScript(packageManager, 'typecheck')}, or ${doctorCommand} when you want a review pass.`;
+    return `No sync step is generated for this Query Loop scaffold. Edit the variation files directly, then rerun ${formatRunScript(packageManager, 'build')}, ${codeCheckCommand}, or ${doctorCommand} when you want a review pass.`;
   }
 
   const optionalSyncScripts = getOptionalSyncScriptNames(
@@ -251,7 +253,7 @@ export function getOptionalOnboardingShortNote(
     const syncSteps = optionalSyncScripts.map((scriptName) =>
       formatRunScript(packageManager, scriptName),
     );
-    return `Run ${syncSteps.join(' then ')} before build, typecheck, or ${doctorCommand} when you want a reviewable refresh.`;
+    return `Run ${syncSteps.join(' then ')} before build, ${codeCheckCommand}, or ${doctorCommand} when you want a reviewable refresh.`;
   }
 
   const syncCommand = formatRunScript(
@@ -259,7 +261,7 @@ export function getOptionalOnboardingShortNote(
     optionalSyncScripts.includes('sync') ? 'sync' : 'sync-types',
   );
 
-  return `Skip ${syncCommand} during normal ${devCommand} work. Re-run it before build, typecheck, or ${doctorCommand} when you want a reviewable refresh.`;
+  return `Skip ${syncCommand} during normal ${devCommand} work. Re-run it before build, ${codeCheckCommand}, or ${doctorCommand} when you want a reviewable refresh.`;
 }
 
 /**

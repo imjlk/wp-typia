@@ -672,7 +672,7 @@ test('optional onboarding derives sync steps from available custom-template scri
     'npm run sync-rest',
   ]);
   expect(onboarding.note).toContain(
-    'Run npm run sync-types then npm run sync-rest manually before build, typecheck',
+    'Run npm run sync-types then npm run sync-rest manually before build, npm run check:code',
   );
   expect(onboarding.note).toContain(
     'npm run sync-types -- --check verifies the current type-derived artifacts without rewriting them.',
@@ -688,14 +688,14 @@ test('deferred compiler artifact warnings retain every fallback sync script', ()
       availableScripts: ['sync-types', 'sync-rest'],
     }),
   ).toBe(
-    'Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `npm run sync-types`, then `npm run sync-rest` before build or typecheck.',
+    'Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `npm run sync-types`, then `npm run sync-rest` before build or npm run check:code.',
   );
   expect(
     getDeferredCompilerArtifactsWarning('pnpm', 'persistence', {
       availableScripts: ['sync', 'sync-types', 'sync-rest'],
     }),
   ).toBe(
-    'Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `pnpm run sync` before build or typecheck.',
+    'Compiler-derived artifacts were deferred because compiler dependencies are unavailable. Install dependencies, then run `pnpm run sync` before build or pnpm run check:code.',
   );
 });
 

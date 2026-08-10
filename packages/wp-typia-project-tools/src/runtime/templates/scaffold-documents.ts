@@ -63,7 +63,7 @@ function getPackageManagerInstallGuidance(packageManager: PackageManagerId): str
   return [
 		'',
 		`> npm note: the scaffold uses \`${installCommand}\` for the first install so npm does not spend the initial create flow in the audit resolver. Run \`npm audit\` separately when you want npm vulnerability output.`,
-		'> If npm prints React peer dependency noise from WordPress block-editor packages, validate with `npm run typecheck` and `npm run build` before changing WordPress package ranges.',
+		'> If npm prints React peer dependency noise from WordPress block-editor packages, validate with `npm run check:code` and `npm run build` before changing WordPress package ranges.',
 	].join('\n');
 }
 
@@ -185,7 +185,7 @@ ${getQuickStartWorkflowNote(packageManager, templateId, {
 
 \`\`\`bash
 ${formatRunScript(packageManager, 'build')}
-${formatRunScript(packageManager, 'typecheck')}
+${formatRunScript(packageManager, 'check')}
 ${formatPackageExecCommand(
     packageManager,
     `wp-typia@${getPackageVersions().wpTypiaPackageExactVersion}`,

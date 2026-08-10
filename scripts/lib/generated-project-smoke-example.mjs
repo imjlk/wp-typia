@@ -54,6 +54,7 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 
 	const nextConfig = {
 		compilerOptions: {
+			allowJs: true,
 			jsx: "react-jsx",
 			module: "esnext",
 			moduleResolution: "bundler",
@@ -65,7 +66,15 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 			types: ["bun-types", "node"],
 		},
 		exclude: ["node_modules", "build"],
-		include: ["src/**/*", "scripts/**/*", "../../types/assets.d.ts"],
+		include: [
+			"src/**/*",
+			"scripts/**/*",
+			"*.js",
+			"*.jsx",
+			"*.cjs",
+			"*.mjs",
+			"../../types/assets.d.ts",
+		],
 	};
 
 	fs.writeFileSync(tsconfigPath, `${JSON.stringify(nextConfig, null, "\t")}\n`, "utf8");

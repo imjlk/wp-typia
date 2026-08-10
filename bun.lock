@@ -150,6 +150,7 @@
         "@wp-typia/api-client": "workspace:*",
         "@wp-typia/block-runtime": "workspace:*",
         "@wp-typia/block-types": "workspace:*",
+        "@wp-typia/project-tools": "workspace:*",
         "@wp-typia/rest": "workspace:*",
         "@wp-typia/ttsc-lint-plugin-wp": "workspace:*",
         "prettier": "3.8.2",
@@ -167,6 +168,7 @@
       "version": "0.1.1",
       "devDependencies": {
         "@ttsc/lint": "^0.26.1",
+        "@ttsc/lint-baseline": "npm:@ttsc/lint@0.23.0",
         "eslint": "9.39.4",
         "prettier": "3.8.2",
         "ttsc": "^0.26.1",
@@ -1337,6 +1339,8 @@
     "@ttsc/darwin-x64": ["@ttsc/darwin-x64@0.26.1", "", { "os": "darwin", "cpu": "x64" }, "sha512-1w/Y+B8Q0YIOzxRS4aY0QIvIOSZD6pvqu8YvgK6fp/1xnH+HKsE1UfNkbVXleRwtk9VnA8OKRGPLHDgbXfV3yw=="],
 
     "@ttsc/lint": ["@ttsc/lint@0.26.1", "", {}, "sha512-UGJujI1IZGH95LnJbJTKfjh+zXc4kmFGH2r6xrrBMUISfLJmaPpAP/pvLoENg4l7CerGdNxkLPMbLn0tE8SSJw=="],
+
+    "@ttsc/lint-baseline": ["@ttsc/lint@0.23.0", "", {}, "sha512-9cJWMoW/VIJc3Ct+yA0/IEwsrGinelPesYLUfvnyclov5brctqFQF8Kl3zEgyVPRsyNWrxIVRW99hayjOfFHNw=="],
 
     "@ttsc/linux-arm": ["@ttsc/linux-arm@0.26.1", "", { "os": "linux", "cpu": "arm" }, "sha512-1csQGiuZ2QQGuklscRRLifbOepIjeCN3xUE49ATdM+RRgI/pFTp/o7RLnrFDsHSKFRSlQ+ZB237AD9hCBkQ+dw=="],
 

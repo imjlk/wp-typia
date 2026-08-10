@@ -199,8 +199,16 @@ test('reference example workspaces retain shared asset module declarations', asy
   ).toBe(fs.readFileSync(join(repoRoot, 'types', 'assets.d.ts'), 'utf8'));
   const tsconfig = JSON.parse(
     fs.readFileSync(join(projectDir, 'tsconfig.json'), 'utf8'),
-  ) as { compilerOptions?: { rootDir?: string }; include?: string[] };
+  ) as {
+    compilerOptions?: { allowJs?: boolean; rootDir?: string };
+    include?: string[];
+  };
   expect(tsconfig.include).toContain('../../types/assets.d.ts');
+  expect(tsconfig.include).toContain('*.js');
+  expect(tsconfig.include).toContain('*.jsx');
+  expect(tsconfig.include).toContain('*.cjs');
+  expect(tsconfig.include).toContain('*.mjs');
+  expect(tsconfig.compilerOptions?.allowJs).toBe(true);
   expect(tsconfig.compilerOptions?.rootDir).toBe('../..');
 });
 

@@ -105,7 +105,9 @@ if (
 
 const require = createRequire(import.meta.url);
 const plugin = require(packageRoot) as WordPressEslintPlugin;
-const ttscLintPackageJsonPath = require.resolve('@ttsc/lint/package.json');
+const ttscLintPackageJsonPath = require.resolve(
+  '@ttsc/lint-baseline/package.json',
+);
 const ttscLintRoot = path.dirname(ttscLintPackageJsonPath);
 const ttscLintPackageJson = JSON.parse(
   fs.readFileSync(ttscLintPackageJsonPath, 'utf8'),
