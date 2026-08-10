@@ -209,7 +209,7 @@ async function discoverNestedPhpFiles(directoryPath: string): Promise<string[]> 
     directoryName,
     entries: nestedEntries,
   } of nestedDirectories) {
-    for (const nestedEntry of nestedEntries ?? []) {
+    for (const nestedEntry of nestedEntries) {
       if (nestedEntry.isSymbolicLink()) {
         throw new Error(
           `Cannot generate a PHP entrypoint for symbolic link: ${directoryName}/${nestedEntry.name}`,

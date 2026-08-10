@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import {
+  countPhpCodeIdentifiers,
   escapeRegex,
   findPhpFunctionCallEnd,
   findPhpFunctionRange,
@@ -14,6 +15,23 @@ import {
   quotePhpString,
   replacePhpFunctionDefinition,
 } from '../src/runtime/php-utils.js';
+
+test('countPhpCodeIdentifiers ignores variables, strings, and comments', () => {
+  const source = `<?php
+$_require = 'include';
+// require include_once
+$value = "require_once";
+require __DIR__ . '/module.php';
+`;
+
+  expect(
+    countPhpCodeIdentifiers(
+      source,
+      ['require', 'require_once', 'include', 'include_once'],
+      { requirePhpOpenTag: true },
+    ),
+  ).toBe(1);
+});
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {
   expect(quotePhpString("Bob's \\ path")).toBe("'Bob\\'s \\\\ path'");

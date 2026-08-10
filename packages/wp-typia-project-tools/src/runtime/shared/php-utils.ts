@@ -602,10 +602,14 @@ export function countPhpCodeIdentifiers(
       index = scan.index;
       continue;
     }
-    if (
-      source[index - 1] === '$' ||
-      !isPhpIdentifierStart(source[index])
-    ) {
+    if (source[index] === '$') {
+      index += 1;
+      while (isPhpIdentifierPart(source[index])) {
+        index += 1;
+      }
+      continue;
+    }
+    if (!isPhpIdentifierStart(source[index])) {
       index += 1;
       continue;
     }

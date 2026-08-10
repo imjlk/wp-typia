@@ -115,11 +115,13 @@ function checkWorkspaceAdminViewBootstrap(
     WORKSPACE_ADMIN_VIEW_MANIFEST,
     adminViews.map((adminView) => path.basename(adminView.phpFile)),
   );
+  const hasValidBootstrap =
+    hasLoaderHook && hasServerManifest && hasValidManifest;
 
   return createDoctorCheck(
     'Admin view bootstrap',
-    hasLoaderHook && hasServerManifest && hasValidManifest ? 'pass' : 'fail',
-    hasLoaderHook && hasServerManifest && hasValidManifest
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
       ? 'Admin view PHP manifest hook is present'
       : 'Missing or stale admin view PHP manifest or plugins_loaded hook',
   );

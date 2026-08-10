@@ -19,8 +19,8 @@ import {
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
 /**
- * Ensure workspace bootstrap PHP registers pattern categories and loads
- * generated pattern modules from both flat and nested pattern directories.
+ * Ensure workspace bootstrap PHP registers pattern categories and loads the
+ * deterministic generated pattern module manifest.
  *
  * @param workspace Resolved official workspace project metadata.
  * @returns A promise that resolves after the workspace bootstrap is patched.
