@@ -638,18 +638,6 @@ export function countPhpCodeIdentifiers(
   return count;
 }
 
-function matchesPhpIdentifierAt(
-  source: string,
-  index: number,
-  identifier: string,
-): boolean {
-  return (
-    source.startsWith(identifier, index) &&
-    !isPhpIdentifierPart(source[index - 1]) &&
-    !isPhpIdentifierPart(source[index + identifier.length])
-  );
-}
-
 function matchesPhpIdentifierIgnoringCaseAt(
   source: string,
   index: number,
@@ -663,21 +651,18 @@ function matchesPhpIdentifierIgnoringCaseAt(
   );
 }
 
-/**
- * Detect an executable PHP include whose complete expression is one literal
- * `__DIR__` concatenation.
- */
-export function hasPhpLiteralDirectoryInclude(
+function scanPhpLiteralDirectoryIncludes(
   source: string,
-  relativePath: string,
-  options: PhpFunctionCallScanOptions = {},
-): boolean {
+  options: PhpFunctionCallScanOptions,
+  strict: boolean,
+  visit: (relativePath: string) => boolean,
+): boolean | null {
   const scanner = createPhpScannerState(options);
   let index = 0;
   while (index < source.length) {
     const scan = advancePhpScanner(source, index, scanner);
     if (scan.ambiguous) {
-      return false;
+      return null;
     }
     if (!scan.inCode) {
       index = scan.index;
@@ -694,7 +679,7 @@ export function hasPhpLiteralDirectoryInclude(
 
     let cursor = skipPhpCallTrivia(source, index + includeKeyword.length);
     if (cursor === null) {
-      return false;
+      return null;
     }
     const parenthesized = source[cursor] === '(';
     if (parenthesized) {
@@ -702,13 +687,19 @@ export function hasPhpLiteralDirectoryInclude(
     }
     if (
       cursor === null ||
-      !matchesPhpIdentifierAt(source, cursor, '__DIR__')
+      !matchesPhpIdentifierIgnoringCaseAt(source, cursor, '__DIR__')
     ) {
+      if (strict) {
+        return null;
+      }
       index += includeKeyword.length;
       continue;
     }
     cursor = skipPhpCallTrivia(source, cursor + '__DIR__'.length);
     if (cursor === null || source[cursor] !== '.') {
+      if (strict) {
+        return null;
+      }
       index += includeKeyword.length;
       continue;
     }
@@ -716,24 +707,76 @@ export function hasPhpLiteralDirectoryInclude(
     const literal = cursor === null
       ? null
       : parsePhpQuotedStringLiteralAt(source, cursor);
-    if (!literal || literal.value !== relativePath) {
+    if (!literal) {
+      if (strict) {
+        return null;
+      }
       index += includeKeyword.length;
       continue;
     }
     cursor = skipPhpCallTrivia(source, literal.end);
     if (parenthesized) {
       if (cursor === null || source[cursor] !== ')') {
+        if (strict) {
+          return null;
+        }
         index += includeKeyword.length;
         continue;
       }
       cursor = skipPhpCallTrivia(source, cursor + 1);
     }
-    if (cursor !== null && source[cursor] === ';') {
+    if (cursor === null || source[cursor] !== ';') {
+      if (strict) {
+        return null;
+      }
+      index += includeKeyword.length;
+      continue;
+    }
+    if (visit(literal.value)) {
       return true;
     }
-    index += includeKeyword.length;
+    index = cursor + 1;
   }
   return false;
+}
+
+/**
+ * Detect an executable PHP include whose complete expression is one literal
+ * `__DIR__` concatenation.
+ */
+export function hasPhpLiteralDirectoryInclude(
+  source: string,
+  relativePath: string,
+  options: PhpFunctionCallScanOptions = {},
+): boolean {
+  return scanPhpLiteralDirectoryIncludes(
+    source,
+    options,
+    false,
+    (candidate) => candidate === relativePath,
+  ) === true;
+}
+
+/**
+ * Collect executable includes whose complete target is one literal `__DIR__`
+ * concatenation. Returns `null` when any include expression is dynamic,
+ * malformed, or ambiguous.
+ */
+export function collectPhpLiteralDirectoryIncludePaths(
+  source: string,
+  options: PhpFunctionCallScanOptions = {},
+): string[] | null {
+  const paths: string[] = [];
+  const scan = scanPhpLiteralDirectoryIncludes(
+    source,
+    options,
+    true,
+    (path) => {
+      paths.push(path);
+      return false;
+    },
+  );
+  return scan === null ? null : paths;
 }
 
 /** Detect an executable PHP include expression that contains a variable. */

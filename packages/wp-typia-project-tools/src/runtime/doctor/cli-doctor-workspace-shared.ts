@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import {
-  countPhpCodeIdentifiers,
-  hasPhpVariableIncludeExpression,
+  collectPhpLiteralDirectoryIncludePaths,
 } from '../shared/php-utils.js';
 import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
@@ -64,16 +63,6 @@ export const WORKSPACE_GENERATED_BLOCK_ARTIFACTS = [
 /** Pattern for full block names in `namespace/slug` format. */
 export const WORKSPACE_FULL_BLOCK_NAME_PATTERN = /^[a-z0-9-]+\/[a-z0-9-]+$/u;
 
-const PHP_ENTRYPOINT_LITERAL_PATTERN =
-  /\b(?:require|require_once|include|include_once)\s+__DIR__\s*\.\s*'\/([^']+)'\s*;/gu;
-const PHP_ENTRYPOINT_INCLUDE_KEYWORDS = [
-  'require',
-  'require_once',
-  'include',
-  'include_once',
-] as const;
-const PHP_ENTRYPOINT_VARIABLE_INCLUDE_PATTERN =
-  /\b(?:require|require_once|include|include_once)\s*(?:\(\s*)?\$/u;
 const SAFE_PHP_ENTRYPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/u;
 
 function hasUnsafeModulePath(modulePath: string): boolean {
@@ -128,25 +117,22 @@ export function isWorkspacePhpEntrypointManifestValid(
       return false;
     }
     const source = fs.readFileSync(absoluteManifestPath, 'utf8');
-    if (
-      PHP_ENTRYPOINT_VARIABLE_INCLUDE_PATTERN.test(source) ||
-      hasPhpVariableIncludeExpression(source, { requirePhpOpenTag: true }) ||
-      /\bglob\s*\(/u.test(source)
-    ) {
+    if (/\bglob\s*\(/iu.test(source)) {
       return false;
     }
-    const literalTargetMatches = [
-      ...source.matchAll(PHP_ENTRYPOINT_LITERAL_PATTERN),
-    ].map((match) => match[1]);
-    const includeStatementCount = countPhpCodeIdentifiers(
-      source,
-      PHP_ENTRYPOINT_INCLUDE_KEYWORDS,
-      { requirePhpOpenTag: true },
+    const literalIncludePaths = collectPhpLiteralDirectoryIncludePaths(source, {
+      requirePhpOpenTag: true,
+    });
+    if (literalIncludePaths === null) {
+      return false;
+    }
+    const literalTargetMatches = literalIncludePaths.map((literalPath) =>
+      literalPath.startsWith('/') ? literalPath.slice(1) : '',
     );
     const literalTargets = new Set(literalTargetMatches);
     const expectedTargets = new Set(expectedModulePaths);
     if (
-      includeStatementCount !== literalTargetMatches.length ||
+      literalTargetMatches.some((modulePath) => modulePath.length === 0) ||
       literalTargetMatches.length !== expectedTargets.size ||
       expectedModulePaths.some(
         (modulePath) =>

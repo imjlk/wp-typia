@@ -182,7 +182,10 @@ export function getWorkspaceAbilityDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (abilities.length > 0) {
+  const hasAbilityManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_ABILITY_MANIFEST.slice(1)),
+  );
+  if (abilities.length > 0 || hasAbilityManifest) {
     checks.push(
       checkWorkspaceAbilityBootstrap(
         workspace.projectDir,
@@ -191,7 +194,9 @@ export function getWorkspaceAbilityDoctorChecks(
         abilities,
       ),
     );
-    checks.push(checkWorkspaceAbilityIndex(workspace.projectDir, abilities));
+    if (abilities.length > 0) {
+      checks.push(checkWorkspaceAbilityIndex(workspace.projectDir, abilities));
+    }
   }
   for (const ability of abilities) {
     checks.push(checkWorkspaceAbilityConfig(workspace.projectDir, ability));

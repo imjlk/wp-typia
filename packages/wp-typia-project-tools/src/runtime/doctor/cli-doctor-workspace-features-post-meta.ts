@@ -127,7 +127,10 @@ export function getWorkspacePostMetaDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (postMetaEntries.length > 0) {
+  const hasPostMetaManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_POST_META_MANIFEST.slice(1)),
+  );
+  if (postMetaEntries.length > 0 || hasPostMetaManifest) {
     checks.push(
       checkWorkspacePostMetaBootstrap(
         workspace.projectDir,

@@ -112,7 +112,10 @@ export function getWorkspaceAiFeatureDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (aiFeatures.length > 0) {
+  const hasAiFeatureManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_AI_FEATURE_MANIFEST.slice(1)),
+  );
+  if (aiFeatures.length > 0 || hasAiFeatureManifest) {
     checks.push(
       checkWorkspaceAiFeatureBootstrap(
         workspace.projectDir,

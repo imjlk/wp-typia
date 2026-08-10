@@ -585,6 +585,51 @@ test('runAddBlockCommand explains when a block name normalizes to an empty slug'
   );
 }, 20_000);
 
+test('add block rollback restores a bootstrap migrated during manifest sync', async () => {
+  const slug = 'demo-workspace-add-block-manifest-rollback';
+  const targetDir = path.join(tempRoot, slug);
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace add block manifest rollback',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug,
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Add Block Manifest Rollback',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+  const bootstrapPath = path.join(targetDir, `${slug}.php`);
+  const legacyBootstrap = fs.readFileSync(bootstrapPath, 'utf8').replace(
+    "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    `foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+\trequire_once $server_module;
+}`,
+  );
+  fs.writeFileSync(bootstrapPath, legacyBootstrap, 'utf8');
+  fs.writeFileSync(
+    path.join(targetDir, 'src/blocks/wp-typia-modules.php'),
+    '<?php\n// Project-owned manifest.\n',
+    'utf8',
+  );
+
+  await expect(runAddBlockCommand({
+    blockName: 'rollback-card',
+    cwd: targetDir,
+    templateId: 'basic',
+  })).rejects.toThrow('Refusing to overwrite unmanaged PHP entrypoint manifest');
+
+  expect(fs.readFileSync(bootstrapPath, 'utf8')).toBe(legacyBootstrap);
+  expect(
+    fs.existsSync(path.join(targetDir, 'src/blocks/rollback-card')),
+  ).toBe(false);
+}, 20_000);
+
 test('canonical CLI rejects add-block external layers that emit workspace-level files', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-basic-layered-root-output');
 

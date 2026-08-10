@@ -126,6 +126,26 @@ type SyncProcessResult = {
   status: number | null;
 };
 
+async function syncOfficialWorkspacePhpEntrypoints(
+  project: SyncProjectContext,
+  check: boolean,
+): Promise<void> {
+  const { tryResolveWorkspaceProject } = await import(
+    '@wp-typia/project-tools/workspace-project'
+  );
+  const workspace = tryResolveWorkspaceProject(project.cwd);
+  if (
+    !workspace ||
+    path.resolve(workspace.projectDir) !== path.resolve(project.cwd)
+  ) {
+    return;
+  }
+  const { syncWorkspacePhpEntrypoints } = await import(
+    '@wp-typia/project-tools'
+  );
+  await syncWorkspacePhpEntrypoints(project.cwd, { check });
+}
+
 function matchGeneratedArtifactCheckIssue(
   line: string,
 ): RegExpExecArray | undefined {
@@ -1178,6 +1198,9 @@ export async function executeSyncCommand({
         onStdout,
       }),
     );
+  }
+  if (target === 'default') {
+    await syncOfficialWorkspacePhpEntrypoints(project, check);
   }
   return result;
 }

@@ -211,9 +211,13 @@ export function getWorkspaceRestResourceDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (restResources.some(
+  const hasGeneratedRestResource = restResources.some(
     (restResource) => !isManualRestResource(restResource),
-  )) {
+  );
+  const hasRestResourceManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_REST_RESOURCE_MANIFEST.slice(1)),
+  );
+  if (hasGeneratedRestResource || hasRestResourceManifest) {
     checks.push(
       checkWorkspaceRestResourceBootstrap(
         workspace.projectDir,

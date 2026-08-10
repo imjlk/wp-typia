@@ -51,11 +51,11 @@ demo_space_load_rest_schema_helpers();
 `);
 
 	await expect(ensureRestSchemaHelperBootstrapAnchors(workspace)).rejects.toThrow(
-		'does not include /inc/rest-schema.php',
+		'Unable to migrate customized demo_space_load_rest_schema_helpers()',
 	);
 });
 
-test('REST schema helper bootstrap validation accepts spaced PHP function declarations', async () => {
+test('REST schema helper bootstrap migration replaces the generated variable include', async () => {
 	const workspace = createWorkspaceFixture(`<?php
 function demo_space_load_rest_schema_helpers () {
 \t$helper_path = __DIR__ . '/inc/rest-schema.php';
@@ -70,6 +70,14 @@ demo_space_load_rest_schema_helpers();
 	await expect(ensureRestSchemaHelperBootstrapAnchors(workspace)).resolves.toBe(
 		undefined,
 	);
+	const bootstrapSource = fs.readFileSync(
+		path.join(workspace.projectDir, 'demo-workspace.php'),
+		'utf8',
+	);
+	expect(bootstrapSource).toContain(
+		"require_once __DIR__ . '/inc/rest-schema.php';",
+	);
+	expect(bootstrapSource).not.toContain('require_once $helper_path;');
 });
 
 test('REST resource bootstrap migration replaces the generated glob loader', async () => {

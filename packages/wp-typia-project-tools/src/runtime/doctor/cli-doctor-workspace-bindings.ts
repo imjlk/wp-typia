@@ -355,7 +355,10 @@ export function getWorkspaceBindingDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (inventory.bindingSources.length > 0) {
+  const hasBindingManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_BINDING_SERVER_MANIFEST.slice(1)),
+  );
+  if (inventory.bindingSources.length > 0 || hasBindingManifest) {
     checks.push(
       checkWorkspaceBindingBootstrap(
         workspace.projectDir,
@@ -364,12 +367,14 @@ export function getWorkspaceBindingDoctorChecks(
         inventory.bindingSources,
       ),
     );
-    checks.push(
-      checkWorkspaceBindingSourcesIndex(
-        workspace.projectDir,
-        inventory.bindingSources,
-      ),
-    );
+    if (inventory.bindingSources.length > 0) {
+      checks.push(
+        checkWorkspaceBindingSourcesIndex(
+          workspace.projectDir,
+          inventory.bindingSources,
+        ),
+      );
+    }
   }
 
   const registeredBlockSlugs = new Set(

@@ -14,7 +14,10 @@ import {
   stripPhpFunction,
   workspaceTemplatePackageManifest,
 } from './helpers/scaffold-test-harness.js';
-import { scaffoldProject } from '../src/runtime/index.js';
+import {
+  scaffoldProject,
+  syncWorkspacePhpEntrypoints,
+} from '../src/runtime/index.js';
 import { getPackageVersions } from '../src/runtime/package-versions.js';
 import {
   createDoctorRunSummary,
@@ -3000,6 +3003,37 @@ test('doctor fails when workspace inventory entries are malformed', async () => 
   expect(errorMessage).toContain('Pattern catalog');
   expect(errorMessage).toContain('invalid-pattern-content-file');
 });
+
+test('doctor validates orphan PHP manifests against empty inventories', async () => {
+  const targetDir = path.join(tempRoot, 'doctor-empty-php-inventories');
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: 'Doctor empty PHP inventories',
+    slug: 'doctor-empty-php-inventories',
+    title: 'Doctor Empty PHP Inventories',
+  });
+  linkWorkspaceNodeModules(targetDir);
+  for (const modulePath of [
+    'src/bindings/orphan/server.php',
+    'inc/abilities/orphan.php',
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(targetDir, modulePath)), {
+      recursive: true,
+    });
+    fs.writeFileSync(path.join(targetDir, modulePath), '<?php\n', 'utf8');
+  }
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['abilities', 'bindingSources'],
+  });
+
+  const checks = await getDoctorChecks(targetDir);
+
+  expect(
+    checks.find((check) => check.label === 'Binding bootstrap')?.status,
+  ).toBe('fail');
+  expect(
+    checks.find((check) => check.label === 'Ability bootstrap')?.status,
+  ).toBe('fail');
+}, 20_000);
 
 test('doctor fails when workspace inventory exports use non-array initializers', async () => {
   const targetDir = path.join(

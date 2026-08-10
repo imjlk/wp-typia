@@ -11,6 +11,10 @@ import {
   WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
 } from '../src/runtime/workspace/workspace-php-entrypoint-manifests.js';
 import { isWorkspacePhpEntrypointManifestValid } from '../src/runtime/doctor/cli-doctor-workspace-shared.js';
+import {
+  buildLegacyGeneratedGlobArrayLoader,
+  buildLegacyGeneratedGlobLoader,
+} from '../src/runtime/add/cli-add-workspace-php-loader-migration.js';
 
 describe('workspace PHP entrypoint manifests', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-php-entrypoints-');
@@ -243,6 +247,123 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     );
   });
 
+  test('full sync migrates every exact historical workspace PHP loader', async () => {
+    const projectDir = path.join(tempRoot, 'legacy-workspace-loaders');
+    const phpPrefix = 'legacy_workspace';
+    const packageName = 'legacy-workspace-loaders';
+    const moduleFiles = [
+      'inc/abilities/review.php',
+      'inc/admin-views/reports.php',
+      'inc/ai-features/summarize.php',
+      'inc/post-meta/rating.php',
+      'inc/rest/articles.php',
+      'src/bindings/featured/server.php',
+      'src/blocks/card/server.php',
+      'src/patterns/hero.php',
+      'src/patterns/group/cta.php',
+    ];
+    for (const moduleFile of moduleFiles) {
+      fs.mkdirSync(path.dirname(path.join(projectDir, moduleFile)), {
+        recursive: true,
+      });
+      fs.writeFileSync(path.join(projectDir, moduleFile), '<?php\n', 'utf8');
+    }
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      `${JSON.stringify({
+        name: packageName,
+        wpTypia: { phpPrefix },
+      }, null, 2)}\n`,
+      'utf8',
+    );
+    const loaders = [
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_load_workflow_abilities`,
+        globPath: '/inc/abilities/*.php',
+        includeKind: 'require_once',
+        moduleVariable: 'ability_module',
+      }),
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_load_admin_views`,
+        globPath: '/inc/admin-views/*.php',
+        includeKind: 'require_once',
+        moduleVariable: 'admin_view_module',
+      }),
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_register_ai_features`,
+        globPath: '/inc/ai-features/*.php',
+        includeKind: 'require_once',
+        moduleVariable: 'ai_feature_module',
+      }),
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_register_binding_sources`,
+        globPath: '/src/bindings/*/server.php',
+        includeKind: 'require_once',
+        moduleVariable: 'binding_source_module',
+      }),
+      buildLegacyGeneratedGlobArrayLoader({
+        functionName: `${phpPrefix}_register_patterns`,
+        globPaths: ['/src/patterns/*.php', '/src/patterns/*/*.php'],
+        includeKind: 'require',
+        moduleVariable: 'pattern_module',
+        modulesVariable: 'pattern_modules',
+      }),
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_register_post_meta_contracts`,
+        globPath: '/inc/post-meta/*.php',
+        includeKind: 'require_once',
+        moduleVariable: 'post_meta_module',
+      }),
+      buildLegacyGeneratedGlobLoader({
+        functionName: `${phpPrefix}_register_rest_resources`,
+        globPath: '/inc/rest/*.php',
+        includeKind: 'require_once',
+        moduleVariable: 'rest_resource_module',
+      }),
+    ];
+    fs.writeFileSync(
+      path.join(projectDir, `${packageName}.php`),
+      `<?php
+function ${phpPrefix}_load_rest_schema_helpers() {
+\t$helper_path = __DIR__ . '/inc/rest-schema.php';
+\tif ( is_readable( $helper_path ) ) {
+\t\trequire_once $helper_path;
+\t}
+}
+
+${loaders.join('\n\n')}
+
+foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+\trequire_once $server_module;
+}
+`,
+      'utf8',
+    );
+
+    const result = await syncWorkspacePhpEntrypoints(projectDir);
+    const bootstrap = fs.readFileSync(
+      path.join(projectDir, `${packageName}.php`),
+      'utf8',
+    );
+
+    expect(result.changed).toContain(`${packageName}.php`);
+    for (const manifestPath of Object.values(
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+    )) {
+      expect(bootstrap).toContain(`/${manifestPath}`);
+    }
+    expect(bootstrap).toContain(
+      "require_once __DIR__ . '/inc/rest-schema.php';",
+    );
+    expect(bootstrap).not.toMatch(/\bglob\s*\(/u);
+    expect(bootstrap).not.toMatch(
+      /\b(?:require|require_once|include|include_once)\s+\$/u,
+    );
+    await expect(syncWorkspacePhpEntrypoints(projectDir, {
+      check: true,
+    })).resolves.toEqual({ changed: [] });
+  });
+
   test('rejects symbolic links in generated entrypoint inventories', async () => {
     const projectDir = path.join(tempRoot, 'symlink-manifest');
     const externalPath = path.join(tempRoot, 'external.php');
@@ -376,6 +497,27 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     fs.appendFileSync(
       absoluteManifestPath,
       'require __DIR__ . "/example.php";\n',
+      'utf8',
+    );
+    expect(
+      isWorkspacePhpEntrypointManifestValid(projectDir, manifestPath, [
+        'example.php',
+      ]),
+    ).toBe(false);
+    await syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['restResources'],
+    });
+    fs.writeFileSync(
+      path.join(projectDir, 'inc/outside.php'),
+      '<?php\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      absoluteManifestPath,
+      `<?php
+// require __DIR__ . '/example.php';
+REQuire __DIR__ . '/../outside.php';
+`,
       'utf8',
     );
     expect(

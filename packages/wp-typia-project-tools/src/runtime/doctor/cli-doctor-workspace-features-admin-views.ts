@@ -220,7 +220,10 @@ export function getWorkspaceAdminViewDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (inventory.adminViews.length > 0) {
+  const hasAdminViewManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_ADMIN_VIEW_MANIFEST.slice(1)),
+  );
+  if (inventory.adminViews.length > 0 || hasAdminViewManifest) {
     checks.push(
       checkWorkspaceAdminViewBootstrap(
         workspace.projectDir,
@@ -229,9 +232,14 @@ export function getWorkspaceAdminViewDoctorChecks(
         inventory.adminViews,
       ),
     );
-    checks.push(
-      checkWorkspaceAdminViewIndex(workspace.projectDir, inventory.adminViews),
-    );
+    if (inventory.adminViews.length > 0) {
+      checks.push(
+        checkWorkspaceAdminViewIndex(
+          workspace.projectDir,
+          inventory.adminViews,
+        ),
+      );
+    }
   }
   for (const adminView of inventory.adminViews) {
     checks.push(checkWorkspaceAdminViewConfig(adminView, inventory));

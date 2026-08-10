@@ -26,6 +26,7 @@ export const PROJECT_TOOLS_TEST_SHARDS = Object.freeze({
     'cli-add-workspace-mutation.test.ts',
     'cli-add-workspace-boundaries.test.ts',
     'workspace-add.test.ts',
+    'workspace-php-entrypoint-manifests.test.ts',
     'cli-add-workspace-ability.test.ts',
     'cli-add-workspace-ai.test.ts',
     'workspace-doctor.test.ts',

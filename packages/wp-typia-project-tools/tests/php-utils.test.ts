@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 
 import {
+  collectPhpLiteralDirectoryIncludePaths,
   countPhpCodeIdentifiers,
   escapeRegex,
   findPhpFunctionCallEnd,
@@ -49,6 +50,14 @@ require_once __DIR__ . $module_path;
     { requirePhpOpenTag: true },
   )).toBe(true);
   expect(hasPhpLiteralDirectoryInclude(
+    `<?php
+require_once ABSPATH . 'wp-admin/admin.php';
+REQUIRE_ONCE __dir__ . '/inc/rest/wp-typia-modules.php';
+`,
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpLiteralDirectoryInclude(
     source.replace(
       "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';\nrequire_once",
       'require_once',
@@ -68,6 +77,21 @@ require_once __DIR__ . $module_path;
     '<?php REQuire_onCE (\n__DIR__ . $modulePath\n);',
     { requirePhpOpenTag: true },
   )).toBe(true);
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    `<?php
+// require __DIR__ . '/commented.php';
+REQuire_onCE __dir__ . '/first.php';
+include( __DIR__ . "/second.php" );
+`,
+    { requirePhpOpenTag: true },
+  )).toEqual(['/first.php', '/second.php']);
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    `<?php
+// require __DIR__ . '/expected.php';
+require __DIR__ . $outside;
+`,
+    { requirePhpOpenTag: true },
+  )).toBeNull();
 });
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {

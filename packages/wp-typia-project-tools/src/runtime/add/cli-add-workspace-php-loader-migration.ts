@@ -113,6 +113,39 @@ export function buildLegacyGeneratedVariableAssetEnqueue(options: {
     );
 }
 
+/** Build the generated and historical REST schema helper loader shapes. */
+export function buildRestSchemaHelperCompatibilityFunctions(options: {
+  functionName: string;
+  helperPath: string;
+}): {
+  currentFunctions: string[];
+  legacyFunctions: string[];
+  replacement: string;
+} {
+  const directFunction = `function ${options.functionName}() {
+\tif ( is_readable( __DIR__ . '${options.helperPath}' ) ) {
+\t\trequire_once __DIR__ . '${options.helperPath}';
+\t}
+}`;
+  const generatedTemplateFunction = `function ${options.functionName}() {
+\t$helper_path = __DIR__ . '${options.helperPath}';
+\tif ( is_readable( $helper_path ) ) {
+\t\trequire_once __DIR__ . '${options.helperPath}';
+\t}
+}`;
+  const legacyFunction = `function ${options.functionName}() {
+\t$helper_path = __DIR__ . '${options.helperPath}';
+\tif ( is_readable( $helper_path ) ) {
+\t\trequire_once $helper_path;
+\t}
+}`;
+  return {
+    currentFunctions: [directFunction, generatedTemplateFunction],
+    legacyFunctions: [legacyFunction],
+    replacement: `\n\n${directFunction}\n`,
+  };
+}
+
 type GeneratedPhpFunctionMigrationOptions = {
   bootstrapPath: string;
   functionName: string;

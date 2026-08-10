@@ -2,7 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import {
+  findPhpFunctionRange,
+  hasPhpFunctionDefinition,
+  hasPhpLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobArrayLoader,
+  buildLegacyGeneratedGlobLoader,
+  buildRestSchemaHelperCompatibilityFunctions,
+  isEquivalentGeneratedPhp,
+  migrateGeneratedPhpLoaderFunction,
+  replaceLegacyGeneratedPhpFunction,
+} from '../add/cli-add-workspace-php-loader-migration.js';
 
 export const ENTRYPOINT_MANIFEST_STEM = 'wp-typia-modules';
 const ENTRYPOINT_MANIFEST_BASENAME = `${ENTRYPOINT_MANIFEST_STEM}.php`;
@@ -15,6 +27,7 @@ const GENERATED_MANIFEST_HEADER_LINES = [
 const GENERATED_MANIFEST_HEADER = GENERATED_MANIFEST_HEADER_LINES.join('\n');
 const LEGACY_BLOCK_SERVER_LOADER_PATTERN =
   /foreach\s*\(\s*glob\s*\(\s*__DIR__\s*\.\s*['"]\/src\/blocks\/\*\/server\.php['"]\s*\)\s*\?:\s*array\s*\(\s*\)\s*as\s*\$server_module\s*\)\s*\{\s*require_once\s+\$server_module\s*;\s*\}/u;
+const REST_SCHEMA_HELPER_PATH = '/inc/rest-schema.php';
 
 /** Managed PHP manifest paths for each generated workspace module family. */
 export const WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS = {
@@ -309,15 +322,161 @@ export interface SyncWorkspacePhpEntrypointsResult {
   changed: string[];
 }
 
-async function migrateLegacyBlockServerBootstrap(
+type LegacyWorkspaceLoaderSpec = {
+  functionSuffix: string;
+  id: Exclude<WorkspacePhpEntrypointManifestId, 'blockServers'>;
+  includeKind: 'require' | 'require_once';
+  moduleVariable: string;
+};
+
+const LEGACY_WORKSPACE_LOADER_SPECS: readonly LegacyWorkspaceLoaderSpec[] = [
+  {
+    functionSuffix: 'load_workflow_abilities',
+    id: 'abilities',
+    includeKind: 'require_once',
+    moduleVariable: 'ability_module',
+  },
+  {
+    functionSuffix: 'load_admin_views',
+    id: 'adminViews',
+    includeKind: 'require_once',
+    moduleVariable: 'admin_view_module',
+  },
+  {
+    functionSuffix: 'register_ai_features',
+    id: 'aiFeatures',
+    includeKind: 'require_once',
+    moduleVariable: 'ai_feature_module',
+  },
+  {
+    functionSuffix: 'register_binding_sources',
+    id: 'bindingSources',
+    includeKind: 'require_once',
+    moduleVariable: 'binding_source_module',
+  },
+  {
+    functionSuffix: 'register_patterns',
+    id: 'patterns',
+    includeKind: 'require',
+    moduleVariable: 'pattern_module',
+  },
+  {
+    functionSuffix: 'register_post_meta_contracts',
+    id: 'postMeta',
+    includeKind: 'require_once',
+    moduleVariable: 'post_meta_module',
+  },
+  {
+    functionSuffix: 'register_rest_resources',
+    id: 'restResources',
+    includeKind: 'require_once',
+    moduleVariable: 'rest_resource_module',
+  },
+] as const;
+
+function buildLegacyWorkspaceLoaderFunctions(
+  spec: LegacyWorkspaceLoaderSpec,
+  functionName: string,
+): string[] {
+  if (spec.id === 'patterns') {
+    return [
+      buildLegacyGeneratedGlobLoader({
+        functionName,
+        globPath: '/src/patterns/*.php',
+        includeKind: 'require',
+        moduleVariable: spec.moduleVariable,
+      }),
+      buildLegacyGeneratedGlobArrayLoader({
+        functionName,
+        globPaths: ['/src/patterns/*.php'],
+        includeKind: 'require',
+        moduleVariable: spec.moduleVariable,
+        modulesVariable: 'pattern_modules',
+      }),
+      buildLegacyGeneratedGlobArrayLoader({
+        functionName,
+        globPaths: ['/src/patterns/*.php', '/src/patterns/*/*.php'],
+        includeKind: 'require',
+        moduleVariable: spec.moduleVariable,
+        modulesVariable: 'pattern_modules',
+      }),
+    ];
+  }
+  const sourceDirectory = WORKSPACE_PHP_ENTRYPOINT_MANIFESTS.find(
+    (descriptor) => descriptor.id === spec.id,
+  )?.sourceDirectory;
+  if (!sourceDirectory) {
+    throw new Error(`Missing PHP entrypoint descriptor for ${spec.id}.`);
+  }
+  const globSuffix = spec.id === 'bindingSources' ? '*/server.php' : '*.php';
+  return [
+    buildLegacyGeneratedGlobLoader({
+      functionName,
+      globPath: `/${sourceDirectory}/${globSuffix}`,
+      includeKind: spec.includeKind,
+      moduleVariable: spec.moduleVariable,
+    }),
+  ];
+}
+
+function buildWorkspaceManifestLoaderFunction(
+  spec: LegacyWorkspaceLoaderSpec,
+  functionName: string,
+): string {
+  const manifestPath = `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS[spec.id]}`;
+  return `
+
+function ${functionName}() {
+\t${spec.includeKind} __DIR__ . '${manifestPath}';
+}
+`;
+}
+
+function migrateRestSchemaHelper(
+  source: string,
+  bootstrapPath: string,
+  phpPrefix: string,
+): string {
+  const functionName = `${phpPrefix}_load_rest_schema_helpers`;
+  if (!hasPhpFunctionDefinition(source, functionName)) {
+    return source;
+  }
+  const functionRange = findPhpFunctionRange(source, functionName);
+  const compatibilityFunctions = buildRestSchemaHelperCompatibilityFunctions({
+    functionName,
+    helperPath: REST_SCHEMA_HELPER_PATH,
+  });
+  if (functionRange && compatibilityFunctions.currentFunctions.some(
+    (currentFunction) =>
+      isEquivalentGeneratedPhp(functionRange.source, currentFunction),
+  )) {
+    return source;
+  }
+  return replaceLegacyGeneratedPhpFunction({
+    bootstrapPath,
+    functionName,
+    legacyFunctions: compatibilityFunctions.legacyFunctions,
+    replacement: compatibilityFunctions.replacement,
+    source,
+  });
+}
+
+async function migrateLegacyWorkspaceBootstrap(
   projectDir: string,
+  selectedManifestIds: ReadonlySet<WorkspacePhpEntrypointManifestId> | null,
   check: boolean,
 ): Promise<string | null> {
-  let packageJson: { name?: string };
+  let packageJson: {
+    name?: string;
+    wpTypia?: { phpPrefix?: string };
+  };
   try {
     packageJson = JSON.parse(
       await fsp.readFile(path.join(projectDir, 'package.json'), 'utf8'),
-    ) as { name?: string };
+    ) as {
+      name?: string;
+      wpTypia?: { phpPrefix?: string };
+    };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return null;
@@ -342,28 +501,69 @@ async function migrateLegacyBlockServerBootstrap(
     }
     throw error;
   }
-  const manifestPath = `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers}`;
-  if (hasPhpLiteralDirectoryInclude(source, manifestPath, {
-    requirePhpOpenTag: true,
-  })) {
-    return null;
+  let nextSource = source;
+  if (
+    selectedManifestIds === null ||
+    selectedManifestIds.has('blockServers')
+  ) {
+    const manifestPath = `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers}`;
+    if (!hasPhpLiteralDirectoryInclude(nextSource, manifestPath, {
+      requirePhpOpenTag: true,
+    })) {
+      if (!LEGACY_BLOCK_SERVER_LOADER_PATTERN.test(nextSource)) {
+        if (nextSource.includes('/src/blocks/*/server.php')) {
+          throw new Error(
+            `Unable to migrate customized block server loader in ${bootstrapRelativePath}. Wire ${manifestPath} manually.`,
+          );
+        }
+      } else {
+        nextSource = nextSource.replace(
+          LEGACY_BLOCK_SERVER_LOADER_PATTERN,
+          `require_once __DIR__ . '${manifestPath}';`,
+        );
+      }
+    }
   }
-  if (!LEGACY_BLOCK_SERVER_LOADER_PATTERN.test(source)) {
-    if (source.includes('/src/blocks/*/server.php')) {
-      throw new Error(
-        `Unable to migrate customized block server loader in ${bootstrapRelativePath}. Wire ${manifestPath} manually.`,
+
+  const phpPrefix = packageJson.wpTypia?.phpPrefix;
+  if (phpPrefix) {
+    for (const spec of LEGACY_WORKSPACE_LOADER_SPECS) {
+      if (selectedManifestIds !== null && !selectedManifestIds.has(spec.id)) {
+        continue;
+      }
+      const functionName = `${phpPrefix}_${spec.functionSuffix}`;
+      if (!hasPhpFunctionDefinition(nextSource, functionName)) {
+        continue;
+      }
+      nextSource = migrateGeneratedPhpLoaderFunction({
+        bootstrapPath,
+        functionName,
+        legacyFunctions: buildLegacyWorkspaceLoaderFunctions(
+          spec,
+          functionName,
+        ),
+        manifestPath: `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS[spec.id]}`,
+        replacement: buildWorkspaceManifestLoaderFunction(spec, functionName),
+        source: nextSource,
+      });
+    }
+    if (
+      selectedManifestIds === null ||
+      selectedManifestIds.has('restResources')
+    ) {
+      nextSource = migrateRestSchemaHelper(
+        nextSource,
+        bootstrapPath,
+        phpPrefix,
       );
     }
+  }
+
+  if (nextSource === source) {
     return null;
   }
   if (!check) {
-    await writeFileAtomically(
-      bootstrapPath,
-      source.replace(
-        LEGACY_BLOCK_SERVER_LOADER_PATTERN,
-        `require_once __DIR__ . '${manifestPath}';`,
-      ),
-    );
+    await writeFileAtomically(bootstrapPath, nextSource);
   }
   return bootstrapRelativePath;
 }
@@ -384,17 +584,13 @@ export async function syncWorkspacePhpEntrypoints(
   const selectedManifestIds = options.manifestIds
     ? new Set(options.manifestIds)
     : null;
-  if (
-    selectedManifestIds === null ||
-    selectedManifestIds.has('blockServers')
-  ) {
-    const migratedBootstrap = await migrateLegacyBlockServerBootstrap(
-      projectDir,
-      options.check === true,
-    );
-    if (migratedBootstrap) {
-      changed.push(migratedBootstrap);
-    }
+  const migratedBootstrap = await migrateLegacyWorkspaceBootstrap(
+    projectDir,
+    selectedManifestIds,
+    options.check === true,
+  );
+  if (migratedBootstrap) {
+    changed.push(migratedBootstrap);
   }
 
   for (const descriptor of WORKSPACE_PHP_ENTRYPOINT_MANIFESTS) {
