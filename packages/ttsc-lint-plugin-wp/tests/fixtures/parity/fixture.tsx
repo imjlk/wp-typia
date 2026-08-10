@@ -215,15 +215,30 @@ function closureReferenceCountsAsUsage(number) {
   if (number > 10) return readDeferred();
   return deferred;
 }
+function shorthandReferenceCountsAsUsage(number) {
+  const deferred = doSomeCostlyOperation();
+  const result = { deferred };
+  if (number > 10) return result;
+  return deferred;
+}
+function propertyReferenceCountsAsUsage(number) {
+  const deferred = createMutableResult();
+  deferred.value = number;
+  if (number > 10) return number;
+  return deferred.value;
+}
 function arrayBindingsReportPerVariable(number) {
   const [first, second] = getCostlyPair();
   if (number > 10) return number;
   return first + second;
 }
+const createMutableResult = () => ({ value: 0 });
 const getCostlyPair = () => [1, 2];
 void earlyReturn;
 void excludedEarlyReturn;
 void nestedBlockDeclarationIsNotFunctionScoped;
 void nestedVarDeclarationIsFunctionScoped;
 void closureReferenceCountsAsUsage;
+void shorthandReferenceCountsAsUsage;
+void propertyReferenceCountsAsUsage;
 void arrayBindingsReportPerVariable;

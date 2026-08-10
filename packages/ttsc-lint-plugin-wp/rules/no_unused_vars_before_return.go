@@ -282,7 +282,13 @@ func collectUsedSymbolPositions(
 			node.End() >= returnNode.End() {
 			return
 		}
-		symbol := ctx.Checker.GetSymbolAtLocation(node)
+		var symbol *shimast.Symbol
+		if node.Parent != nil &&
+			node.Parent.Kind == shimast.KindShorthandPropertyAssignment {
+			symbol = ctx.Checker.GetShorthandAssignmentValueSymbol(node.Parent)
+		} else {
+			symbol = ctx.Checker.GetSymbolAtLocation(node)
+		}
 		if symbol == nil {
 			return
 		}
