@@ -41,24 +41,27 @@ function getOpenApiRouteSignatures(document: {
 }
 
 describe('REST contract adapter PoC', () => {
-	test('keeps explicit lint and format scripts despite not using the wp-scripts block toolchain', () => {
-		const packageJson = JSON.parse(
-			fs.readFileSync(
-				path.join(
-					import.meta.dir,
-					'../../examples/api-contract-adapter-poc/package.json',
-				),
-				'utf8',
-			),
-		) as {
-			devDependencies: Record<string, string>;
-			scripts: Record<string, string>;
-		};
+  test('keeps explicit check and format scripts without legacy lint aliases', () => {
+    const packageJson = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          import.meta.dir,
+          '../../examples/api-contract-adapter-poc/package.json',
+        ),
+        'utf8',
+      ),
+    ) as {
+      devDependencies: Record<string, string>;
+      scripts: Record<string, string>;
+    };
 
-		expect(packageJson.scripts.lint).toBe('bun run typecheck');
-		expect(packageJson.scripts.format).toContain('prettier --write');
-		expect(packageJson.devDependencies.prettier).toBe('3.8.2');
-	});
+    expect(packageJson.scripts['check:code']).toContain('ttsc check --noEmit');
+    expect(packageJson.scripts.check).toBe('bun run check:code');
+    expect(packageJson.scripts.lint).toBeUndefined();
+    expect(packageJson.scripts['lint:js']).toBeUndefined();
+    expect(packageJson.scripts.format).toContain('prettier --write');
+    expect(packageJson.devDependencies.prettier).toBe('3.8.2');
+  });
 
 	test('mounts the same route table described by the shared endpoint manifest and OpenAPI document', () => {
 		const adapterRoutes = getCounterAdapterRouteTable()

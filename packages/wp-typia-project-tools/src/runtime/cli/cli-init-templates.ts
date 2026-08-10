@@ -86,7 +86,7 @@ export function buildWordPressTtscLintConfigSource(
 ): string {
   const templatePath = path.join(
     SHARED_BASE_TEMPLATE_ROOT,
-    'lint.config.ts.mustache',
+    'lint.config.mts.mustache',
   );
   const source = fs.readFileSync(templatePath, 'utf8');
   const placeholder = "'{{textDomain}}'";
@@ -297,6 +297,41 @@ main().catch( ( error ) => {
 `;
 }
 
+/** Read the canonical managed ttsc lint compatibility helper source. */
+export function getTtscLintCompatSource(): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  if (/\{\{|\}\}/u.test(source)) {
+    throw new Error(
+      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
+    );
+  }
+  return source;
+}
+
+/** Check whether the generated ttsc compatibility helper is current. */
+export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
+  const compatPath = path.join(
+    projectDir,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs',
+  );
+  try {
+    const normalizeLineEndings = (source: string) =>
+      source.replace(/\r\n/gu, '\n');
+    return (
+      normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
+      normalizeLineEndings(getTtscLintCompatSource())
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Generate the `scripts/sync-project.ts` orchestration helper source.
  *
@@ -414,42 +449,6 @@ main().catch( ( error ) => {
 `;
 }
 
-/** Read the canonical managed ttsc lint compatibility helper source. */
-export function getTtscLintCompatSource(): string {
-  const templatePath = path.join(
-    SHARED_BASE_TEMPLATE_ROOT,
-    'scripts',
-    'apply-ttsc-lint-compat.mjs.mustache',
-  );
-  const source = fs.readFileSync(templatePath, 'utf8');
-  if (/\{\{|\}\}/u.test(source)) {
-    throw new Error(
-      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
-    );
-  }
-
-  return source;
-}
-
-/** Check whether the generated ttsc compatibility helper is current. */
-export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
-  const compatPath = path.join(
-    projectDir,
-    'scripts',
-    'apply-ttsc-lint-compat.mjs',
-  );
-  try {
-    const normalizeLineEndings = (source: string) =>
-      source.replace(/\r\n/gu, '\n');
-    return (
-      normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
-      normalizeLineEndings(getTtscLintCompatSource())
-    );
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Build the helper file source map written by `wp-typia init --apply`.
  *
@@ -474,7 +473,7 @@ export function buildRetrofitHelperFiles(
 			buildRetrofitSyncTypesScriptSource(),
 		...(options && !findTtscLintConfigPath(options.projectDir)
 			? {
-					'lint.config.ts': buildWordPressTtscLintConfigSource(
+					'lint.config.mts': buildWordPressTtscLintConfigSource(
 						options.textDomain,
 					),
 			  }
@@ -501,7 +500,7 @@ export function buildOfficialWorkspaceLintFiles(options: {
     ...(findTtscLintConfigPath(options.projectDir)
       ? {}
       : {
-          'lint.config.ts': buildWordPressTtscLintConfigSource(
+          'lint.config.mts': buildWordPressTtscLintConfigSource(
             options.textDomain,
           ),
         }),

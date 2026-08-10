@@ -204,17 +204,17 @@ export function runExampleProjectSmoke({
 	const [buildCommand, buildArgs] = getRunCommand(packageManager);
 	run(buildCommand, buildArgs, { cwd: exampleDir });
 
-	if (typeof packageJson.scripts?.typecheck !== "string") {
+	if (typeof packageJson.scripts?.check !== "string") {
 		throw new Error(
-			`Missing "typecheck" script in ${path.join(exampleDir, "package.json")} for example-project smoke`,
+			`Missing "check" script in ${path.join(exampleDir, "package.json")} for example-project smoke`,
 		);
 	}
 
-	const [typecheckCommand, typecheckArgs] = getRunScriptCommand(
+	const [checkCommand, checkArgs] = getRunScriptCommand(
 		packageManager,
-		"typecheck",
+		"check",
 	);
-	run(typecheckCommand, typecheckArgs, { cwd: exampleDir });
+	run(checkCommand, checkArgs, { cwd: exampleDir });
 	lintGeneratedProjectPhp(exampleDir, phpVersion);
 
 	assertExampleProjectScaffold(exampleDir, exampleProject);

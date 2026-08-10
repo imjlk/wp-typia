@@ -128,8 +128,7 @@ function buildApplyNextSteps(
 ): string[] {
   return buildInitPlanNextSteps({
     commandMode: 'apply',
-    compatibilitySurfaceChanged:
-      hasTtscLintCompatPlanChanges(previewPlan),
+    compatibilitySurfaceChanged: hasTtscLintCompatPlanChanges(previewPlan),
     dependencyChanges: previewPlan.packageChanges.addDevDependencies,
     hasPlannedChanges: true,
     layoutKind: previewPlan.detectedLayout.kind,

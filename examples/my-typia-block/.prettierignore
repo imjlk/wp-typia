@@ -1,0 +1,15 @@
+**/.ttsc-cache/**
+**/build/**
+**/coverage/**
+**/dist/**
+**/node_modules/**
+**/vendor/**
+**/api-schemas/**/*.json
+**/api.openapi.json
+**/*.abilities.json
+**/*.ai.schema.json
+**/block.json
+**/migrations/**/fixture*.json
+**/typia.manifest.json
+**/typia.openapi.json
+**/typia.schema.json

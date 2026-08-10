@@ -17,24 +17,8 @@ npm install --save-dev \
   typescript
 ```
 
-Add a config such as `lint.config.ts`:
-
-```ts
-import type { ITtscLintConfig } from '@ttsc/lint';
-import wordpress, { configs } from '@wp-typia/ttsc-lint-plugin-wp';
-
-export default {
-  ...configs.recommended,
-  plugins: { wordpress },
-  rules: {
-    ...configs.recommended.rules,
-    'wordpress/i18n-text-domain': ['error', { allowedTextDomain: 'my-plugin' }],
-  },
-} satisfies ITtscLintConfig;
-```
-
-To adopt every currently translatable rule from the ordered upstream
-`recommended` preset, use the compiled preset:
+Add `lint.config.mts` in CommonJS projects so the ESM contributor is loaded
+unambiguously (`lint.config.ts` also works in ESM projects):
 
 ```ts
 import type { ITtscLintConfig } from '@ttsc/lint';
@@ -59,11 +43,26 @@ option payload, the compiled config keeps the severity and records the pair in
 `compiledPresets.recommended.optionDowngrades`. Consumers never receive an
 option tuple that the native host would silently ignore or reject.
 
+Rules that the native engine exposes but cannot yet execute with equivalent
+behavior are omitted and recorded in
+`compiledPresets.recommended.behaviorDowngrades`. The current baseline omits
+`no-shadow` because `@ttsc/lint` panics on catch clauses, and omits
+`jsx-a11y/click-events-have-key-events` plus
+`jsx-a11y/no-static-element-interactions` because imported WordPress
+components are misclassified as native DOM elements. It also omits
+`jsx-a11y/role-supports-aria-props` because the native baseline rejects valid
+`aria-valuemin` usage on `role="progressbar"`. Each rule returns to the compiled
+preset only after its engine or semantic parity regression passes.
+
 Use `ttsc check --noEmit` as the combined TypeScript and lint gate, or `ttsc
 fix` to apply available lint and format fixes. `ttsc` intentionally has no
 lint-only command; consumers should expose the combined gate under a clear
 script name such as `check:code` instead of retaining a misleading lint-only
 alias.
+
+For JavaScript and JSX coverage, set `allowJs: true` and include the relevant
+`.js`, `.jsx`, `.cjs`, and `.mjs` paths in the TypeScript project used by the
+command. Stylelint and non-code formatting remain separate concerns.
 
 ## Native rules
 
@@ -131,7 +130,7 @@ rules and every rule enabled or disabled across the 13 upstream presets in
 - `builtin`: the same rule exists in `@ttsc/lint`;
 - `mapped`: a namespace translation reaches an `@ttsc/lint` rule;
 - `contributor`: this package provides a native Go rule;
-- `runner`: an external command such as `ttsc format` owns the behavior;
+- `runner`: an external formatter such as Prettier owns the behavior;
 - `unsupported`: parity work remains.
 
 ```ts

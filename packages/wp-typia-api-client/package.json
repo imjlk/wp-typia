@@ -63,7 +63,7 @@
     "@typia/interface": "^13.2.0"
   },
   "devDependencies": {
-    "ttsc": "^0.23.0",
+    "ttsc": "^0.26.1",
     "typescript": "^7.0.2"
   }
 }

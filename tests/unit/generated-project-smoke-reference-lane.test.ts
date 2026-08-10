@@ -57,25 +57,22 @@ function addGeneratedLintBoundary(
 ): GeneratedPackageFixture {
   packageJson.devDependencies = {
     ...packageJson.devDependencies,
+    '@ttsc/lint': '0.26.1',
     '@types/react': '^18.3.28',
     '@types/react-dom': '^18.3.7',
-    '@typescript/typescript6': '6.0.2',
-    'eslint-import-resolver-typescript': '^4.4.5',
     react: '^18.3.1',
     'react-dom': '^18.3.1',
   };
   packageJson.scripts = {
     ...packageJson.scripts,
-    'lint:js': 'node scripts/run-wp-scripts-lint-js-compat.mjs',
+    'check:code': 'ttsc check --noEmit',
+    'check:style': 'wp-scripts lint-style --allow-empty-input',
+    'check:format': 'prettier --check .',
+    check: 'bun run check:code && bun run check:style && bun run check:format',
   };
   writeFixtureFile(
     projectDir,
-    'scripts/register-typescript6.cjs',
-    "'use strict';\n",
-  );
-  writeFixtureFile(
-    projectDir,
-    'scripts/run-wp-scripts-lint-js-compat.mjs',
+    'scripts/apply-ttsc-lint-compat.mjs',
     '#!/usr/bin/env node\n',
   );
   writeFixtureFile(projectDir, 'prettier.config.mjs', 'export default {};\n');
@@ -167,9 +164,9 @@ test('generated project smoke script supports a reference example lane', () => {
     'lintGeneratedProjectPhp(projectDir, phpVersion)',
   );
   expect(smokeScript).toContain(
-    "if (typeof packageJson.scripts?.['format:check'] === 'string')",
+    "if (typeof packageJson.scripts?.check === 'string')",
   );
-  expect(exampleHelper).toContain('Missing "typecheck" script in');
+  expect(exampleHelper).toContain('Missing "check" script in');
   expect(exampleHelper).toContain(
     'path.resolve(repoRoot, "examples", exampleProject)',
   );
@@ -390,11 +387,12 @@ test('workspace dependency rewrite seeds local runtime packages for linked Bun r
 					'@wp-typia/block-runtime': 'workspace:*',
 					'@wp-typia/block-types': 'workspace:*',
 					'@wp-typia/rest': 'workspace:*',
+					'@wp-typia/ttsc-lint-plugin-wp': 'workspace:*',
 					'wp-typia': 'workspace:*',
 				},
 			},
 			null,
-			2,
+			'\t',
 		)}\n`,
 		'utf8',
 	);
@@ -411,8 +409,10 @@ test('workspace dependency rewrite seeds local runtime packages for linked Bun r
 	rewriteWorkspaceDependencies(projectDir, 'bun');
 
 	const rewrittenPackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+	const rewrittenPackageJsonSource = fs.readFileSync(packageJsonPath, 'utf8');
 
 	expect(rewrittenPackageJson.packageManager).toBe('bun@1.3.11');
+	expect(rewrittenPackageJsonSource).toContain('\n\t"packageManager"');
 	expect(rewrittenPackageJson.devDependencies['@wp-typia/api-client']).toContain(
 		'packages/wp-typia-api-client',
 	);
@@ -425,12 +425,18 @@ test('workspace dependency rewrite seeds local runtime packages for linked Bun r
 	expect(rewrittenPackageJson.devDependencies['@wp-typia/rest']).toContain(
 		'packages/wp-typia-rest',
 	);
+	expect(
+		rewrittenPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
+	).toContain('packages/ttsc-lint-plugin-wp');
 	expect(rewrittenPackageJson.devDependencies['wp-typia']).toContain(
 		'packages/wp-typia',
 	);
 	expect(rewrittenPackageJson.overrides['@wp-typia/project-tools']).toContain(
 		'packages/wp-typia-project-tools',
 	);
+	expect(
+		rewrittenPackageJson.overrides['@wp-typia/ttsc-lint-plugin-wp'],
+	).toContain('packages/ttsc-lint-plugin-wp');
 	expect(rewrittenPackageJson.resolutions['@wp-typia/project-tools']).toContain(
 		'packages/wp-typia-project-tools',
 	);
@@ -517,6 +523,35 @@ test('generated project smoke assertions accept local project-tools smoke rewrit
 			null,
 			2,
 		)}\n`,
+		'utf8',
+	);
+
+	const { assertGeneratedPackageBoundary } = (await import(
+		new URL('../../scripts/lib/generated-project-smoke-assertions.mjs', import.meta.url).href
+	)) as {
+		assertGeneratedPackageBoundary: (projectDir: string) => void;
+	};
+
+	expect(() => assertGeneratedPackageBoundary(projectDir)).not.toThrow();
+});
+
+test('generated project smoke assertions accept non-Bun aggregate runners', async () => {
+	const projectDir = fs.mkdtempSync(
+		join(os.tmpdir(), 'wp-typia-generated-smoke-npm-boundary-'),
+	);
+	tempDirs.push(projectDir);
+	const packageJson = addGeneratedLintBoundary(projectDir, {
+		name: 'demo-smoke-npm-boundary',
+		private: true,
+	});
+	packageJson.scripts = {
+		...packageJson.scripts,
+		check:
+			'npm run check:code && npm run check:style && npm run check:format',
+	};
+	fs.writeFileSync(
+		join(projectDir, 'package.json'),
+		`${JSON.stringify(packageJson, null, 2)}\n`,
 		'utf8',
 	);
 

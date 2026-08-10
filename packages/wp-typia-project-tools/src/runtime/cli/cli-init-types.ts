@@ -18,12 +18,19 @@ export interface InitDependencyChange {
   requiredValue: string;
 }
 
-export interface InitScriptChange {
-  action: InitPlanAction;
-  currentValue?: string;
-  name: string;
-  requiredValue: string;
-}
+export type InitScriptChange =
+  | {
+      action: InitPlanAction;
+      currentValue?: string;
+      name: string;
+      requiredValue: string;
+    }
+  | {
+      action: 'remove';
+      currentValue: string;
+      name: string;
+      requiredValue?: never;
+    };
 
 export interface InitPackageManagerFieldChange {
   action: InitPlanAction;

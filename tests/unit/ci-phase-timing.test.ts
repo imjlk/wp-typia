@@ -128,8 +128,7 @@ describe('CI phase timing', () => {
       'install project dependencies',
       'synchronize generated artifacts',
       'build project',
-      'lint project',
-      'check project formatting',
+      'check project',
     ]) {
       expectMeasuredPhase(generatedSmoke, phase);
     }
@@ -144,5 +143,9 @@ describe('CI phase timing', () => {
     ]) {
       expectMeasuredPhase(publishInstallSmoke, phase);
     }
+    expect(publishInstallSmoke).toContain('TTSC_GO_CACHE_DIR');
+    expect(publishInstallSmoke).toContain(
+      'path.join(repoRoot, "node_modules", ".cache", "ttsc", "go-build")',
+    );
   });
 });

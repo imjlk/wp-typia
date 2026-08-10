@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +15,7 @@ import {
 import {
   packWorkspacePackage,
   packWorkspacePackageDetailed,
+  removeTempDir,
   withTempDir,
 } from '../../scripts/publish-package-utils.mjs';
 
@@ -73,6 +75,55 @@ function readDeclaredBudgetPackageNames(): string[] {
 }
 
 describe('publish package footprint policy', () => {
+	test('preserves callback failures while cleaning temporary directories', () => {
+		const marker = new Error('callback failed');
+		expect(() =>
+			withTempDir('wp-typia-callback-failure-', () => {
+				throw marker;
+			}),
+		).toThrow(marker);
+	});
+
+	test('rejects cleanup targets outside the OS temporary directory', () => {
+		expect(() => removeTempDir(repoRoot)).toThrow(
+			'Refusing to remove a directory outside',
+		);
+	});
+
+	test('falls back to Node cleanup when the native remover is unavailable', () => {
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'wp-typia-rm-fallback-'),
+		);
+		fs.writeFileSync(path.join(tempDir, 'probe.txt'), 'probe');
+
+		removeTempDir(tempDir, 'wp-typia-missing-rm-command');
+
+		expect(fs.existsSync(tempDir)).toBe(false);
+	});
+
+	test('surfaces cleanup failures after a successful callback', () => {
+		const cleanupFailure = new Error('cleanup failed');
+		let tempDir = '';
+		try {
+			expect(() =>
+				withTempDir(
+					'wp-typia-cleanup-failure-',
+					(directory) => {
+						tempDir = directory;
+						return 'completed';
+					},
+					() => {
+						throw cleanupFailure;
+					},
+				),
+			).toThrow(cleanupFailure);
+		} finally {
+			if (tempDir.length > 0) {
+				fs.rmSync(tempDir, { force: true, recursive: true });
+			}
+		}
+	});
+
 	test('returns npm pack metadata without changing the tarball-only wrapper', () => {
 		withTempDir('wp-typia-pack-metadata-', (tempRoot) => {
 			const packageDir = path.join(tempRoot, 'package');

@@ -52,11 +52,18 @@ export type StructuredInitPlan = {
       action: 'add' | 'update';
       requiredValue: string;
     };
-    scripts: Array<{
-      action: 'add' | 'update';
-      name: string;
-      requiredValue: string;
-    }>;
+    scripts: Array<
+      | {
+          action: 'add' | 'update';
+          name: string;
+          requiredValue: string;
+        }
+      | {
+          action: 'remove';
+          currentValue: string;
+          name: string;
+        }
+    >;
   };
   plannedFiles: Array<{
     action: 'add' | 'update';

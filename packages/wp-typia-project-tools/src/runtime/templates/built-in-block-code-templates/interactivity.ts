@@ -680,13 +680,17 @@ const actions: {{pascalCase}}StoreActions = {
   // Handle hover events
   handleMouseEnter: () => {
     const context = getBlockContext();
-    if (context.animation === 'none') return;
+    if (context.animation === 'none') {
+      return;
+    }
     context.isAnimating = true;
   },
 
   handleMouseLeave: () => {
     const context = getBlockContext();
-    if (context.animation === 'none') return;
+    if (context.animation === 'none') {
+      return;
+    }
     context.isAnimating = false;
   },
 

@@ -20,7 +20,7 @@ bun install
 # Development with hot reload
 bun run start
 
-# Build for production  
+# Build for production
 bun run build
 
 # Type checking
@@ -61,7 +61,7 @@ Edit `src/types.ts` to define your block attributes:
 
 ```typescript
 export interface MyTypiaBlockAttributes {
-	content: string & tags.MinLength<1> & tags.Default<"Hello World">;
+	content: string & tags.MinLength<1> & tags.Default<'Hello World'>;
 	isVisible: boolean & tags.Default<true>;
 	count: number & tags.Minimum<0> & tags.Maximum<100>;
 }
@@ -81,7 +81,11 @@ Frontend interactions are defined in `src/view.ts`:
 ```typescript
 const { state, actions } = store('my-typia-block', {
 	state: { isActive: false },
-	actions: { toggle() { state.isActive = !state.isActive; } }
+	actions: {
+		toggle() {
+			state.isActive = !state.isActive;
+		},
+	},
 });
 ```
 
@@ -101,8 +105,8 @@ Generated rule files now expose both `renameMap` and `transforms`:
 
 ```ts
 export const renameMap = {
-	"content": "headline",
-	"settings.label": "settings.title",
+	content: 'headline',
+	'settings.label': 'settings.title',
 	// "linkTarget.url.href": "cta.href",
 };
 
@@ -129,11 +133,11 @@ Recommended flow:
 4. scaffold the legacy edge
 5. review auto-applied renames and suggested transforms
 6. adjust nested `renameMap` / `transforms` entries if object or union branch leaves changed
-6. edit the generated fixture cases if the real legacy payload is richer
-7. run `bun run migration:doctor`
-8. run `bun run migration:verify`
-9. run `bun run migration:fuzz`
-10. use the admin dashboard for dry-run previews before batch migration
+7. edit the generated fixture cases if the real legacy payload is richer
+8. run `bun run migration:doctor`
+9. run `bun run migration:verify`
+10. run `bun run migration:fuzz`
+11. use the admin dashboard for dry-run previews before batch migration
 
 Example:
 
@@ -173,4 +177,4 @@ The dashboard then shows:
 
 ---
 
-*Generated with `wp-typia` and Typia validation*
+_Generated with `wp-typia` and Typia validation_

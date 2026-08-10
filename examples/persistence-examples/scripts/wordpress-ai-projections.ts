@@ -6,7 +6,7 @@ import type {
   EndpointManifestDefinition,
   EndpointManifestEndpointDefinition,
 } from '@wp-typia/block-runtime/metadata-core';
-import type { JsonSchemaDocument } from '../../../packages/wp-typia-block-runtime/src/schema-core';
+import type { JsonSchemaDocument } from '@wp-typia/block-runtime/schema-core';
 import {
   buildWordPressAiArtifacts,
   syncWordPressAiArtifacts,
@@ -15,7 +15,7 @@ import {
   type AbilitySpec,
   type AbilitySpecCatalog,
   type WordPressAiInputSchemaTransformContext,
-} from '../../../packages/wp-typia-project-tools/src/runtime/ai-artifacts';
+} from '@wp-typia/project-tools/ai-artifacts';
 
 import { BLOCKS } from './block-config';
 export type {
@@ -24,7 +24,7 @@ export type {
   AbilitySpecCatalog,
   ProjectedWordPressAbilitiesDocument,
   ProjectedWordPressAbilityDefinition,
-} from '../../../packages/wp-typia-project-tools/src/runtime/ai-artifacts';
+} from '@wp-typia/project-tools/ai-artifacts';
 
 const WORDPRESS_AI_ROOT = 'wordpress-ai';
 

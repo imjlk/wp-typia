@@ -101,11 +101,75 @@ export function findWorkspaceProtocolLeaks(packageJson) {
 	return leaks;
 }
 
-export function withTempDir(prefix, callback) {
+export function withTempDir(prefix, callback, remove = removeTempDir) {
 	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+	let callbackFailed = false;
+	let callbackError;
+	let callbackResult;
 	try {
-		return callback(tempDir);
-	} finally {
-		fs.rmSync(tempDir, { force: true, recursive: true });
+		callbackResult = callback(tempDir);
+	} catch (error) {
+		callbackFailed = true;
+		callbackError = error;
+	}
+
+	let cleanupError;
+	try {
+		remove(tempDir);
+	} catch (error) {
+		cleanupError = error;
+	}
+	if (callbackFailed) {
+		if (cleanupError !== undefined) {
+			const cleanupDetail =
+				cleanupError instanceof Error
+					? (cleanupError.stack ?? cleanupError.message)
+					: String(cleanupError);
+			process.stderr.write(
+				`Failed to clean up temporary directory ${tempDir}: ${cleanupDetail}\n`,
+			);
+		}
+		throw callbackError;
+	}
+	if (cleanupError !== undefined) {
+		throw cleanupError;
+	}
+	return callbackResult;
+}
+
+export function removeTempDir(tempDir, rmCommand = "rm") {
+	const resolvedTempRoot = path.resolve(os.tmpdir());
+	const resolvedTempDir = path.resolve(tempDir);
+	const relative = path.relative(resolvedTempRoot, resolvedTempDir);
+
+	if (
+		relative.length === 0 ||
+		relative === ".." ||
+		relative.startsWith(`..${path.sep}`) ||
+		path.isAbsolute(relative)
+	) {
+		throw new Error(`Refusing to remove a directory outside ${resolvedTempRoot}.`);
+	}
+
+	if (process.platform === "win32") {
+		fs.rmSync(resolvedTempDir, { force: true, recursive: true });
+		return;
+	}
+
+	// Native rm traverses dependency-heavy npm fixtures substantially faster
+	// than Node's JavaScript recursive remover on macOS and Linux CI runners.
+	try {
+		execFileSync(rmCommand, ["-rf", "--", resolvedTempDir], {
+			stdio: ["ignore", "ignore", "pipe"],
+		});
+	} catch (error) {
+		if (
+			!(error instanceof Error) ||
+			!("code" in error) ||
+			error.code !== "ENOENT"
+		) {
+			throw error;
+		}
+		fs.rmSync(resolvedTempDir, { force: true, recursive: true });
 	}
 }

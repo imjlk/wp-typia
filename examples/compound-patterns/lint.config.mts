@@ -2,10 +2,10 @@ import type { ITtscLintConfig } from '@ttsc/lint';
 import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 
 export default {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   ignores: ['build/**', 'node_modules/**'],
   format: {
-    severity: 'error',
+    severity: 'off',
     printWidth: 80,
     tabWidth: 2,
     useTabs: false,
@@ -17,13 +17,12 @@ export default {
     jsDoc: false,
   },
   rules: {
-    ...configs.recommended.rules,
     'no-var': 'error',
     'prefer-const': 'error',
     eqeqeq: 'error',
     'wordpress/i18n-text-domain': [
       'error',
-      { allowedTextDomain: '{{textDomain}}' },
+      { allowedTextDomain: 'compound_patterns' },
     ],
   },
 } satisfies ITtscLintConfig;

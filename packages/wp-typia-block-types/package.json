@@ -131,7 +131,7 @@
     "@types/wordpress__block-editor": "^11.5.17",
     "@types/wordpress__blocks": "^12.5.18",
     "@wordpress/blocks": "^15.2.0",
-    "ttsc": "^0.23.0",
+    "ttsc": "^0.26.1",
     "typescript": "^7.0.2"
   }
 }

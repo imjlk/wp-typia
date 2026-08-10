@@ -14,18 +14,16 @@
     "build": "wp-scripts build --experimental-modules",
     "start": "wp-scripts start --experimental-modules",
     "dev": "wp-scripts start --experimental-modules",
-    "lint:ts": "ttsc --noEmit",
-    "lint:js": "node scripts/run-wp-scripts-lint-js-compat.mjs",
-    "lint": "bun run lint:ts && bun run lint:js",
-    "format": "ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\" \"*.{cjs,js,mjs}\" \"scripts/**/*.{cjs,js,mjs}\"",
-    "format:check": "prettier --check --no-error-on-unmatched-pattern \"*.{cjs,js,mjs}\" \"scripts/**/*.{cjs,js,mjs}\"",
-    "typecheck": "ttsc --noEmit"
+    "check:code": "ttsc check --noEmit",
+    "check:style": "wp-scripts lint-style --allow-empty-input",
+    "check:format": "prettier --check --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\" \"*.{cjs,js,jsx,mjs}\" \"scripts/**/*.{cjs,js,jsx,mjs}\" \"src/**/*.{cjs,js,jsx,mjs}\"",
+    "check": "bun run check:code && bun run check:style && bun run check:format",
+    "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\" \"*.{cjs,js,jsx,mjs}\" \"scripts/**/*.{cjs,js,jsx,mjs}\" \"src/**/*.{cjs,js,jsx,mjs}\""
   },
   "devDependencies": {
-    "@ttsc/lint": "0.23.0",
+    "@ttsc/lint": "0.26.1",
     "@wp-typia/ttsc-lint-plugin-wp": "{{ttscLintPluginWpPackageVersion}}",
     "@wp-typia/block-types": "{{blockTypesPackageVersion}}",
-    "@typescript/typescript6": "6.0.2",
     "@types/node": "^24.5.2",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
@@ -33,12 +31,10 @@
     "@types/wordpress__blocks": "^12.5.18",
     "@wordpress/browserslist-config": "^6.42.0",
     "@wordpress/scripts": "^30.23.0",
-    "eslint-import-resolver-typescript": "^4.4.5",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
     "prettier": "3.8.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "ttsc": "^0.23.0",
+    "ttsc": "^0.26.1",
     "typescript": "^7.0.2"
   },
   "dependencies": {

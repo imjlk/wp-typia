@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from '@typescript/typescript6';
 
-const TTSC_LINT_VERSION = '0.23.0';
+const TTSC_LINT_VERSION = '0.26.1';
 const TYPIA_VERSION = '13.2.0';
 const TTSC_LINT_FORMAT = Object.freeze({
   severity: 'error',
@@ -19,6 +19,10 @@ const TTSC_LINT_FORMAT = Object.freeze({
   endOfLine: 'lf',
   sortImports: false,
   jsDoc: false,
+});
+const GENERATED_TTSC_LINT_FORMAT = Object.freeze({
+  ...TTSC_LINT_FORMAT,
+  severity: 'off',
 });
 const TTSC_LINT_RULES = Object.freeze({
   'no-var': 'error',
@@ -37,44 +41,56 @@ const GENERATED_PACKAGE_MANIFEST_PATHS = Object.freeze([
   QUERY_LOOP_PACKAGE_MANIFEST_PATH,
   'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/package.json.mustache',
 ]);
-// Query-loop templates have no CSS or SCSS sources, so they intentionally omit
-// the generated WordPress style-lint script.
+// Query-loop has no styles, but --allow-empty-input keeps the shared style
+// gate valid without a special-case manifest exclusion.
 const GENERATED_WP_SCRIPTS_STYLE_LINT_MANIFEST_PATHS = Object.freeze(
-  GENERATED_PACKAGE_MANIFEST_PATHS.filter(
-    (relativePath) => relativePath !== QUERY_LOOP_PACKAGE_MANIFEST_PATH,
-  ),
+  GENERATED_PACKAGE_MANIFEST_PATHS,
 );
+const REMOVED_LEGACY_SCRIPTS = Object.freeze([
+  'lint',
+  'lint:ts',
+  'lint:js',
+  'lint:css',
+  'typecheck',
+  'format:check',
+]);
+const REMOVED_LEGACY_LINT_DEPENDENCIES = Object.freeze([
+  '@typescript/typescript6',
+  'eslint-import-resolver-typescript',
+  'eslint-plugin-jsx-a11y',
+]);
 const GENERATED_LINT_COMPAT_TEMPLATE_ROOTS = Object.freeze([
   'packages/create-workspace-template',
   'packages/wp-typia-project-tools/templates/_shared/base',
   'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates',
 ]);
 const GENERATED_WORDPRESS_TTSC_LINT_CONFIG_PATHS = Object.freeze([
-  'packages/create-workspace-template/lint.config.ts.mustache',
-  'packages/wp-typia-project-tools/templates/_shared/base/lint.config.ts.mustache',
-  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/lint.config.ts.mustache',
+  'packages/create-workspace-template/lint.config.mts.mustache',
+  'packages/wp-typia-project-tools/templates/_shared/base/lint.config.mts.mustache',
+  'packages/wp-typia-project-tools/tests/fixtures/create-block-external/plugin-templates/lint.config.mts.mustache',
 ]);
 
 export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   eslintJsVersion: '9.39.4',
   eslintVersion: '9.39.4',
   eslintConfigPrettierVersion: '10.1.8',
-  exampleWpScriptsEslintVersion: '8.57.1',
-  exampleWpScriptsLintJsScript:
-    'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
-  exampleWpScriptsLintScript:
-    'bun run lint:ts && bun run lint:js && bun run lint:css && bun run format:check',
+  exampleCodeCheckScript: 'bun run sync --check && ttsc check --noEmit',
+  exampleCheckScript:
+    'bun run check:code && bun run check:style && bun run check:format',
+  exampleStyleCheckScript: 'wp-scripts lint-style',
+  exampleFormatCheckScript:
+    'prettier --check --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,jsx,mjs}" "scripts/**/*.{cjs,js,jsx,mjs}" "src/**/*.{cjs,js,jsx,mjs}"',
   exampleWpScriptsFormatScript:
-    'ttsc format --singleThreaded && node ../../scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
-  examplePrettierCheckScript:
-    'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
-  generatedWpScriptsLintJsScript:
-    'node scripts/run-wp-scripts-lint-js-compat.mjs',
+    'ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,jsx,mjs}" "scripts/**/*.{cjs,js,jsx,mjs}" "src/**/*.{cjs,js,jsx,mjs}"',
+  generatedCodeCheckScript: 'bun run sync --check && ttsc check --noEmit',
+  generatedQueryLoopCodeCheckScript: 'ttsc check --noEmit',
+  generatedCheckScript:
+    'bun run check:code && bun run check:style && bun run check:format',
+  generatedStyleCheckScript: 'wp-scripts lint-style --allow-empty-input',
+  generatedFormatCheckScript:
+    'prettier --check --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,jsx,mjs}" "scripts/**/*.{cjs,js,jsx,mjs}" "src/**/*.{cjs,js,jsx,mjs}"',
   generatedWpScriptsFormatScript:
-    'ttsc format --singleThreaded && node scripts/run-wp-scripts-lint-js-compat.mjs --fix && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
-  generatedPrettierCheckScript:
-    'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
-  generatedWpScriptsLintCssScript: 'wp-scripts lint-style --allow-empty-input',
+    'ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern "**/*.{css,json,md,scss,yaml,yml}" "*.{cjs,js,jsx,mjs}" "scripts/**/*.{cjs,js,jsx,mjs}" "src/**/*.{cjs,js,jsx,mjs}"',
   generatedTtscLintCompatScript: 'node scripts/apply-ttsc-lint-compat.mjs',
   generatedTtscLintCompatCanonicalTemplateRoot:
     'packages/wp-typia-project-tools/templates/_shared/base',
@@ -84,13 +100,27 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   generatedReactDomVersion: '^18.3.1',
   generatedReactTypesVersion: '^18.3.28',
   generatedReactVersion: '^18.3.1',
-  generatedTypeScriptImportResolverVersion: '^4.4.5',
   typescript6Version: '6.0.2',
-  wpScriptsLintCompatRegisterPath: 'scripts/register-typescript6.cjs',
-  wpScriptsLintCompatWrapperPath: 'scripts/run-wp-scripts-lint-js-compat.mjs',
-  wpScriptsLintExtensions: 'js,jsx,cjs,mjs',
   prettierVersion: '3.8.2',
   generatedPrettierConfigPath: 'prettier.config.mjs',
+  generatedPrettierIgnorePath: '.prettierignore',
+  generatedPrettierIgnorePatterns: Object.freeze([
+    '**/.ttsc-cache/**',
+    '**/build/**',
+    '**/coverage/**',
+    '**/dist/**',
+    '**/node_modules/**',
+    '**/vendor/**',
+    '**/api-schemas/**/*.json',
+    '**/api.openapi.json',
+    '**/*.abilities.json',
+    '**/*.ai.schema.json',
+    '**/block.json',
+    '**/migrations/**/fixture*.json',
+    '**/typia.manifest.json',
+    '**/typia.openapi.json',
+    '**/typia.schema.json',
+  ]),
   generatedPrettierConfig: Object.freeze({
     useTabs: true,
     tabWidth: 4,
@@ -110,6 +140,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
       }),
     ]),
   }),
+  generatedTtscLintFormat: GENERATED_TTSC_LINT_FORMAT,
   rootFormatWriteScript:
     'ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write',
   rootLintFixScript:
@@ -120,7 +151,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
   ttscLintVersion: TTSC_LINT_VERSION,
-  ttscVersion: '0.23.0',
+  ttscVersion: '0.26.1',
   typiaVersion: TYPIA_VERSION,
   compatibilityPatches: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,
@@ -128,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      '4507ea67551026558bc008094e8ac89f20b275cfbe9a6261396b69e0cb4d2b24',
+      'dcadbe7ebbb6e43a221d76ca6ceb08d83f46fe84cde8af3bc56b5dd64156694c',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
@@ -141,20 +172,29 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   generatedWordPressTtscLintConfigPaths:
     GENERATED_WORDPRESS_TTSC_LINT_CONFIG_PATHS,
   generatedWordPressTtscLintPluginVersion: '{{ttscLintPluginWpPackageVersion}}',
-  generatedWpScriptsLintCompatTemplateRoots: Object.freeze([
-    ...GENERATED_LINT_COMPAT_TEMPLATE_ROOTS,
-  ]),
   workspaceExamplePackagePaths: Object.freeze([
     'examples/api-contract-adapter-poc/package.json',
     'examples/my-typia-block/package.json',
     'examples/persistence-examples/package.json',
     'examples/compound-patterns/package.json',
   ]),
-  workspaceExampleLintConfigPaths: Object.freeze([
+  workspaceExampleStaticLintConfigPaths: Object.freeze([
     'examples/api-contract-adapter-poc/lint.config.ts',
-    'examples/my-typia-block/lint.config.ts',
-    'examples/persistence-examples/lint.config.ts',
-    'examples/compound-patterns/lint.config.ts',
+  ]),
+  workspaceWordPressLintConfigPaths: Object.freeze([
+    'examples/my-typia-block/lint.config.mts',
+    'examples/persistence-examples/lint.config.mts',
+    'examples/compound-patterns/lint.config.mts',
+  ]),
+  workspaceWordPressPrettierConfigPaths: Object.freeze([
+    'examples/my-typia-block/prettier.config.mjs',
+    'examples/persistence-examples/prettier.config.mjs',
+    'examples/compound-patterns/prettier.config.mjs',
+  ]),
+  workspaceWordPressPrettierIgnorePaths: Object.freeze([
+    'examples/my-typia-block/.prettierignore',
+    'examples/persistence-examples/.prettierignore',
+    'examples/compound-patterns/.prettierignore',
   ]),
   wpScriptsExamplePackagePaths: Object.freeze([
     'examples/my-typia-block/package.json',
@@ -342,6 +382,44 @@ function readTsDefaultObjectConfig(sourceText, relativePath) {
   }
 
   return value;
+}
+
+function readTsDefaultObjectProperty(sourceText, relativePath, propertyName) {
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  assertNoParseDiagnostics(sourceFile);
+
+  const exportAssignment = sourceFile.statements.find((statement) =>
+    ts.isExportAssignment(statement),
+  );
+  if (!exportAssignment || exportAssignment.isExportEquals) {
+    throw new Error('missing an `export default` object');
+  }
+
+  const value = unwrapTsExpression(exportAssignment.expression);
+  if (!ts.isObjectLiteralExpression(value)) {
+    throw new Error('default export must be an object');
+  }
+
+  const properties = value.properties.filter(
+    (candidate) =>
+      ts.isPropertyAssignment(candidate) &&
+      readTsPropertyName(candidate.name, sourceFile) === propertyName,
+  );
+  if (properties.length > 1) {
+    throw new Error(`default export defines ${propertyName} more than once`);
+  }
+  const property = properties[0];
+  if (!property || !ts.isPropertyAssignment(property)) {
+    return undefined;
+  }
+
+  return readTsLiteral(property.initializer, sourceFile);
 }
 
 function deepEqualJson(left, right) {
@@ -564,22 +642,12 @@ function validateGeneratedTemplateManifest(
     );
   }
 
-  if (
-    manifest.devDependencies?.['@typescript/typescript6'] !==
-    policy.typescript6Version
-  ) {
-    errors.push(
-      `${relativePath} must declare devDependencies["@typescript/typescript6"]="${policy.typescript6Version}", found ${JSON.stringify(manifest.devDependencies?.['@typescript/typescript6'] ?? null)}.`,
-    );
-  }
-
-  if (
-    manifest.devDependencies?.['eslint-import-resolver-typescript'] !==
-    policy.generatedTypeScriptImportResolverVersion
-  ) {
-    errors.push(
-      `${relativePath} must declare devDependencies["eslint-import-resolver-typescript"]="${policy.generatedTypeScriptImportResolverVersion}" so npm-installed WordPress ESLint does not mistake the TypeScript compiler for an import resolver, found ${JSON.stringify(manifest.devDependencies?.['eslint-import-resolver-typescript'] ?? null)}.`,
-    );
+  for (const removedDependency of REMOVED_LEGACY_LINT_DEPENDENCIES) {
+    if (removedDependency in (manifest.devDependencies ?? {})) {
+      errors.push(
+        `${relativePath} must not declare devDependencies[${JSON.stringify(removedDependency)}]; ttsc check owns generated JavaScript and TypeScript diagnostics without the legacy ESLint compatibility island.`,
+      );
+    }
   }
 
   for (const [dependencyName, expectedVersion] of [
@@ -595,22 +663,38 @@ function validateGeneratedTemplateManifest(
     }
   }
 
-  if (manifest.scripts?.['lint:js'] !== policy.generatedWpScriptsLintJsScript) {
+  const expectedCodeCheck =
+    relativePath === QUERY_LOOP_PACKAGE_MANIFEST_PATH
+      ? policy.generatedQueryLoopCodeCheckScript
+      : policy.generatedCodeCheckScript;
+  if (manifest.scripts?.['check:code'] !== expectedCodeCheck) {
     errors.push(
-      `${relativePath} must keep scripts["lint:js"]="${policy.generatedWpScriptsLintJsScript}", found ${JSON.stringify(manifest.scripts?.['lint:js'] ?? null)}.`,
+      `${relativePath} must keep scripts["check:code"]="${expectedCodeCheck}", found ${JSON.stringify(manifest.scripts?.['check:code'] ?? null)}.`,
+    );
+  }
+  if (manifest.scripts?.check !== policy.generatedCheckScript) {
+    errors.push(
+      `${relativePath} must keep scripts.check="${policy.generatedCheckScript}", found ${JSON.stringify(manifest.scripts?.check ?? null)}.`,
+    );
+  }
+  if (
+    manifest.scripts?.['check:format'] !== policy.generatedFormatCheckScript
+  ) {
+    errors.push(
+      `${relativePath} must keep scripts["check:format"]="${policy.generatedFormatCheckScript}", found ${JSON.stringify(manifest.scripts?.['check:format'] ?? null)}.`,
     );
   }
   if (manifest.scripts?.format !== policy.generatedWpScriptsFormatScript) {
     errors.push(
-      `${relativePath} must keep scripts.format="${policy.generatedWpScriptsFormatScript}" so Prettier owns JS/CJS/MJS and other non-TypeScript formatting, found ${JSON.stringify(manifest.scripts?.format ?? null)}.`,
+      `${relativePath} must keep scripts.format="${policy.generatedWpScriptsFormatScript}" so Prettier remains the single generated-project formatter, found ${JSON.stringify(manifest.scripts?.format ?? null)}.`,
     );
   }
-  if (
-    manifest.scripts?.['format:check'] !== policy.generatedPrettierCheckScript
-  ) {
-    errors.push(
-      `${relativePath} must keep scripts["format:check"]="${policy.generatedPrettierCheckScript}" so generated JavaScript is checked without WordPress ESLint's conflicting prettier rule, found ${JSON.stringify(manifest.scripts?.['format:check'] ?? null)}.`,
-    );
+  for (const removedScript of REMOVED_LEGACY_SCRIPTS) {
+    if (removedScript in (manifest.scripts ?? {})) {
+      errors.push(
+        `${relativePath} must not define the legacy scripts.${removedScript}; generated projects expose check:code and check instead.`,
+      );
+    }
   }
 
   return manifest;
@@ -622,77 +706,9 @@ function validateGeneratedStyleLintManifest(
   policy,
   errors,
 ) {
-  if (
-    manifest.scripts?.['lint:css'] !== policy.generatedWpScriptsLintCssScript
-  ) {
+  if (manifest.scripts?.['check:style'] !== policy.generatedStyleCheckScript) {
     errors.push(
-      `${relativePath} must keep scripts["lint:css"]="${policy.generatedWpScriptsLintCssScript}" so empty workspaces remain lintable, found ${JSON.stringify(manifest.scripts?.['lint:css'] ?? null)}.`,
-    );
-  }
-}
-
-function validateWpScriptsLintCompatSources(
-  repoRoot,
-  wrapperRelativePath,
-  registerRelativePath,
-  policy,
-  errors,
-) {
-  const wrapperPath = path.join(repoRoot, wrapperRelativePath);
-  const registerPath = path.join(repoRoot, registerRelativePath);
-
-  if (!fs.existsSync(wrapperPath)) {
-    errors.push(
-      `${wrapperRelativePath} must exist for the WordPress JavaScript lint compatibility lane.`,
-    );
-    return;
-  }
-  if (!fs.existsSync(registerPath)) {
-    errors.push(
-      `${registerRelativePath} must exist so WordPress ESLint loads the isolated TypeScript 6 compiler API.`,
-    );
-    return;
-  }
-
-  const wrapperSource = fs.readFileSync(wrapperPath, 'utf8');
-  const registerSource = fs.readFileSync(registerPath, 'utf8');
-  const extensionsPattern = new RegExp(
-    `(?:export\\s+)?const\\s+DEFAULT_LINT_EXTENSIONS\\s*=\\s*['"]${policy.wpScriptsLintExtensions}['"]`,
-  );
-
-  if (!extensionsPattern.test(wrapperSource)) {
-    errors.push(
-      `${wrapperRelativePath} must keep DEFAULT_LINT_EXTENSIONS="${policy.wpScriptsLintExtensions}" so ESLint excludes TypeScript and covers CJS/MJS.`,
-    );
-  }
-  if (
-    !wrapperSource.includes(
-      "const PRETTIER_RULE_OVERRIDE = ['--rule', 'prettier/prettier: off']",
-    ) ||
-    !wrapperSource.includes('...PRETTIER_RULE_OVERRIDE')
-  ) {
-    errors.push(
-      `${wrapperRelativePath} must disable WordPress ESLint's prettier/prettier rule so Prettier owns JS/CJS/MJS formatting independently.`,
-    );
-  }
-  if (
-    !wrapperSource.includes(
-      "const TYPESCRIPT6_REGISTER_FILE = 'register-typescript6.cjs'",
-    ) ||
-    !wrapperSource.includes("'--require'")
-  ) {
-    errors.push(
-      `${wrapperRelativePath} must preload register-typescript6.cjs before invoking WordPress ESLint.`,
-    );
-  }
-  if (
-    !/projectRequire\.resolve\(\s*['"]@typescript\/typescript6['"]\s*\)/u.test(
-      registerSource,
-    ) ||
-    !/request\s*===\s*['"]typescript['"]/u.test(registerSource)
-  ) {
-    errors.push(
-      `${registerRelativePath} must redirect TypeScript consumers to @typescript/typescript6.`,
+      `${relativePath} must keep scripts["check:style"]="${policy.generatedStyleCheckScript}" so empty workspaces remain checkable, found ${JSON.stringify(manifest.scripts?.['check:style'] ?? null)}.`,
     );
   }
 }
@@ -1048,7 +1064,7 @@ export function validateFormattingToolchainPolicy(
     }
   }
 
-  for (const relativePath of policy.workspaceExampleLintConfigPaths) {
+  for (const relativePath of policy.workspaceExampleStaticLintConfigPaths) {
     const configPath = path.join(repoRoot, relativePath);
     if (!fs.existsSync(configPath)) {
       errors.push(
@@ -1074,29 +1090,74 @@ export function validateFormattingToolchainPolicy(
     }
   }
 
+  for (const relativePath of policy.workspaceWordPressLintConfigPaths) {
+    const configPath = path.join(repoRoot, relativePath);
+    if (!fs.existsSync(configPath)) {
+      errors.push(
+        `${relativePath} must exist so the example remains independently runnable with @ttsc/lint.`,
+      );
+      continue;
+    }
+    const source = readRelativeText(repoRoot, relativePath);
+    for (const requiredSource of [
+      "from '@wp-typia/ttsc-lint-plugin-wp'",
+      '...configs.wpScriptsRecommended',
+      "'wordpress/i18n-text-domain'",
+      'allowedTextDomain:',
+    ]) {
+      if (!source.includes(requiredSource)) {
+        errors.push(
+          `${relativePath} must include ${JSON.stringify(requiredSource)} for the WordPress ttsc check contract.`,
+        );
+      }
+    }
+  }
+
+  for (const relativePath of policy.workspaceWordPressPrettierConfigPaths) {
+    validateGeneratedPrettierConfig(repoRoot, relativePath, policy, errors);
+  }
+
+  for (const relativePath of policy.workspaceWordPressPrettierIgnorePaths) {
+    try {
+      const actualPatterns = readRelativeText(repoRoot, relativePath)
+        .replace(/\r\n?/gu, '\n')
+        .trimEnd()
+        .split('\n');
+      if (
+        !deepEqualJson(actualPatterns, policy.generatedPrettierIgnorePatterns)
+      ) {
+        errors.push(
+          `${relativePath} must ignore generated metadata and build outputs; found ${JSON.stringify(actualPatterns)}, expected ${JSON.stringify(policy.generatedPrettierIgnorePatterns)}.`,
+        );
+      }
+    } catch (error) {
+      errors.push(
+        `${relativePath} must be readable: ${error instanceof Error ? error.message : String(error)}.`,
+      );
+    }
+  }
+
   for (const relativePath of policy.wpScriptsExamplePackagePaths) {
     const examplePackageJson = readRelativeJson(repoRoot, relativePath);
     const exampleScripts = examplePackageJson.scripts ?? {};
-    const exampleEslint = examplePackageJson.devDependencies?.eslint;
-    const wrapperPath = path.resolve(
-      path.join(repoRoot, path.dirname(relativePath)),
-      policy.exampleWpScriptsLintJsScript.replace(/^node\s+/, ''),
-    );
-
-    if (exampleEslint !== policy.exampleWpScriptsEslintVersion) {
+    if (exampleScripts['check:code'] !== policy.exampleCodeCheckScript) {
       errors.push(
-        `${relativePath} must declare devDependencies.eslint="${policy.exampleWpScriptsEslintVersion}", found ${JSON.stringify(exampleEslint ?? null)}.`,
+        `${relativePath} must keep scripts["check:code"]="${policy.exampleCodeCheckScript}", found ${JSON.stringify(exampleScripts['check:code'] ?? null)}.`,
       );
     }
-
-    if (exampleScripts['lint:js'] !== policy.exampleWpScriptsLintJsScript) {
+    if (exampleScripts.check !== policy.exampleCheckScript) {
       errors.push(
-        `${relativePath} must keep scripts["lint:js"]="${policy.exampleWpScriptsLintJsScript}", found ${JSON.stringify(exampleScripts['lint:js'] ?? null)}.`,
+        `${relativePath} must keep scripts.check="${policy.exampleCheckScript}", found ${JSON.stringify(exampleScripts.check ?? null)}.`,
       );
     }
-    if (exampleScripts.lint !== policy.exampleWpScriptsLintScript) {
+    if (exampleScripts['check:style'] !== policy.exampleStyleCheckScript) {
       errors.push(
-        `${relativePath} must keep scripts.lint="${policy.exampleWpScriptsLintScript}" so JavaScript formatting is checked after the WordPress ESLint prettier rule is disabled, found ${JSON.stringify(exampleScripts.lint ?? null)}.`,
+        `${relativePath} must keep scripts["check:style"]="${policy.exampleStyleCheckScript}", found ${JSON.stringify(exampleScripts['check:style'] ?? null)}.`,
+      );
+    }
+    if (exampleScripts['check:format'] !== policy.exampleFormatCheckScript) {
+      errors.push(
+        `${relativePath} must keep scripts["check:format"]="${policy.exampleFormatCheckScript}", found ${JSON.stringify(exampleScripts['check:format'] ?? null)}.`,
       );
     }
     if (exampleScripts.format !== policy.exampleWpScriptsFormatScript) {
@@ -1104,26 +1165,14 @@ export function validateFormattingToolchainPolicy(
         `${relativePath} must keep scripts.format="${policy.exampleWpScriptsFormatScript}" so Prettier owns JS/CJS/MJS and other non-TypeScript formatting, found ${JSON.stringify(exampleScripts.format ?? null)}.`,
       );
     }
-    if (exampleScripts['format:check'] !== policy.examplePrettierCheckScript) {
-      errors.push(
-        `${relativePath} must keep scripts["format:check"]="${policy.examplePrettierCheckScript}" so JavaScript formatting is checked independently from the WordPress ESLint profile, found ${JSON.stringify(exampleScripts['format:check'] ?? null)}.`,
-      );
-    }
-
-    if (!fs.existsSync(wrapperPath)) {
-      errors.push(
-        `${relativePath} must resolve scripts["lint:js"]="${policy.exampleWpScriptsLintJsScript}" to an existing wrapper file, missing ${JSON.stringify(path.relative(repoRoot, wrapperPath))}.`,
-      );
+    for (const removedScript of REMOVED_LEGACY_SCRIPTS) {
+      if (removedScript in exampleScripts) {
+        errors.push(
+          `${relativePath} must not define the legacy scripts.${removedScript}; examples expose check:code and check instead.`,
+        );
+      }
     }
   }
-
-  validateWpScriptsLintCompatSources(
-    repoRoot,
-    policy.wpScriptsLintCompatWrapperPath,
-    policy.wpScriptsLintCompatRegisterPath,
-    policy,
-    errors,
-  );
 
   const generatedManifests = new Map();
   for (const relativePath of policy.generatedPackageManifestPaths) {
@@ -1156,7 +1205,7 @@ export function validateFormattingToolchainPolicy(
       const source = readRelativeText(repoRoot, relativePath);
       for (const requiredSource of [
         "from '@wp-typia/ttsc-lint-plugin-wp'",
-        '...configs.recommended',
+        '...configs.wpScriptsRecommended',
         "'wordpress/i18n-text-domain'",
         "allowedTextDomain: '{{textDomain}}'",
       ]) {
@@ -1166,6 +1215,16 @@ export function validateFormattingToolchainPolicy(
           );
         }
       }
+      const format = readTsDefaultObjectProperty(
+        source,
+        relativePath,
+        'format',
+      );
+      if (!deepEqualJson(format, policy.generatedTtscLintFormat)) {
+        errors.push(
+          `${relativePath} must keep generated ttsc formatting write-only during check:code; found ${JSON.stringify(format)}, expected ${JSON.stringify(policy.generatedTtscLintFormat)}.`,
+        );
+      }
     } catch (error) {
       errors.push(
         `${relativePath} must be a readable generated WordPress ttsc lint config: ${error instanceof Error ? error.message : String(error)}.`,
@@ -1173,23 +1232,34 @@ export function validateFormattingToolchainPolicy(
     }
   }
 
-  for (const templateRoot of policy.generatedWpScriptsLintCompatTemplateRoots) {
-    validateWpScriptsLintCompatSources(
-      repoRoot,
-      path.join(
-        templateRoot,
-        'scripts/run-wp-scripts-lint-js-compat.mjs.mustache',
-      ),
-      path.join(templateRoot, 'scripts/register-typescript6.cjs.mustache'),
-      policy,
-      errors,
-    );
+  for (const templateRoot of policy.generatedTtscLintCompatTemplateRoots) {
     validateGeneratedPrettierConfig(
       repoRoot,
       path.join(templateRoot, `${policy.generatedPrettierConfigPath}.mustache`),
       policy,
       errors,
     );
+    const prettierIgnorePath = path.join(
+      templateRoot,
+      `${policy.generatedPrettierIgnorePath}.mustache`,
+    );
+    try {
+      const actualPatterns = readRelativeText(repoRoot, prettierIgnorePath)
+        .replace(/\r\n?/gu, '\n')
+        .trimEnd()
+        .split('\n');
+      if (
+        !deepEqualJson(actualPatterns, policy.generatedPrettierIgnorePatterns)
+      ) {
+        errors.push(
+          `${prettierIgnorePath} must ignore generated metadata and build outputs; found ${JSON.stringify(actualPatterns)}, expected ${JSON.stringify(policy.generatedPrettierIgnorePatterns)}.`,
+        );
+      }
+    } catch (error) {
+      errors.push(
+        `${prettierIgnorePath} must be readable: ${error instanceof Error ? error.message : String(error)}.`,
+      );
+    }
   }
 
   const canonicalTtscLintCompatRelativePath = path.join(

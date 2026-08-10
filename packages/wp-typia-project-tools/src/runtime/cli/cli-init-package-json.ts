@@ -20,6 +20,7 @@ import {
   hasPackageRunScriptCommand,
   hasPackageRunScriptInvocation,
   hasTtscLintCompatPostinstallCommand,
+  hasTtscCheckNoEmitCommand,
   hasTtscNoEmitLintCommand,
   removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
@@ -41,8 +42,18 @@ const BASE_RETROFIT_SCRIPTS = {
   postinstall: TTSC_LINT_COMPAT_HELPER_COMMAND,
   sync: 'ttsx scripts/sync-project.ts',
   'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
-  typecheck: 'bun run sync --check && ttsc --noEmit',
+  'check:code': 'bun run sync --check && ttsc check --noEmit',
+  check: 'bun run check:code',
 } as const;
+const LEGACY_RETROFIT_TYPECHECK = 'bun run sync --check && ttsc --noEmit';
+const LEGACY_LINT_JS_COMMAND =
+  'node scripts/run-wp-scripts-lint-js-compat.mjs';
+const LEGACY_LINT_SCRIPT_NAMES = [
+  'lint:ts',
+  'lint:js',
+  'lint:css',
+  'format:check',
+] as const;
 
 const BASE_RETROFIT_DEV_DEPENDENCIES = [
   '@ttsc/lint',
@@ -381,30 +392,39 @@ export function buildScriptChanges(
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
 
-  return Object.entries(BASE_RETROFIT_SCRIPTS).flatMap(
+  const changes = Object.entries(BASE_RETROFIT_SCRIPTS).flatMap(
 		([name, commandSource]) => {
 			const command = transformPackageManagerText(
 				commandSource,
 				packageManager,
 			);
 			const currentValue = scripts[name];
-			let requiredValue = command;
-			if (name === 'postinstall') {
-				requiredValue = mergePostinstallCommand(currentValue, command);
-			}
+			const requiredValue =
+				name === 'postinstall'
+					? mergePostinstallCommand(currentValue, command)
+					: command;
 			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
 	);
+  const legacyTypecheck = transformPackageManagerText(
+    LEGACY_RETROFIT_TYPECHECK,
+    packageManager,
+  );
+  if (scripts.typecheck === legacyTypecheck) {
+    changes.push({
+      action: 'remove',
+      currentValue: legacyTypecheck,
+      name: 'typecheck',
+    });
+  }
+
+  return changes;
 }
 
 /**
- * Add the TypeScript lint lane to an existing official workspace without
- * enabling the incomplete WordPress JavaScript replacement prematurely.
- *
- * Existing aggregate lint commands are preserved after the new `lint:ts`
- * prerequisite, so projects that intentionally run only style lint (or retain
- * a separate JavaScript lane) keep that behavior until upstream exposes a
- * lint-only `ttsc` command.
+ * Add the combined TypeScript and lint gate to an existing official workspace.
+ * Legacy managed lint aliases are removed, while unrelated project-owned
+ * scripts remain untouched.
  */
 export function buildOfficialWorkspaceLintScriptChanges(
   packageJson: ProjectPackageJson | null,
@@ -420,47 +440,104 @@ export function buildOfficialWorkspaceLintScriptChanges(
     currentPostinstall,
     postinstallCommand,
   );
-  const lintTsCommand = 'ttsc --noEmit';
-  const lintTsRun = transformPackageManagerText(
-    'bun run lint:ts',
+  const checkCodeCommand = transformPackageManagerText(
+    'bun run sync --check && ttsc check --noEmit',
     packageManager,
   );
-  const currentLintTs = scripts['lint:ts'];
-  const lintTsSatisfied = hasTtscNoEmitLintCommand(currentLintTs);
-  const currentLint = scripts.lint;
-  let requiredLint = lintTsRun;
-  if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
-    const includesLintTs = hasPackageRunScriptCommand(currentLint, 'lint:ts');
-    if (includesLintTs) {
-      requiredLint = currentLint;
-    } else if (hasPackageRunScriptInvocation(currentLint, 'lint:ts')) {
-      const retainedLint = removePackageRunScriptInvocations(
-        currentLint,
-        'lint:ts',
-      );
-      if (retainedLint === null) {
-        requiredLint = `${lintTsRun} && ${currentLint}`;
-      } else if (retainedLint) {
-        requiredLint = `${lintTsRun} && ${retainedLint}`;
-      } else {
-        requiredLint = lintTsRun;
-      }
-    } else {
-      requiredLint = `${lintTsRun} && ${currentLint}`;
-    }
+  const checkRun = transformPackageManagerText(
+    'bun run check:code',
+    packageManager,
+  );
+  const currentCheck = scripts.check;
+  let requiredCheck = checkRun;
+  if (typeof currentCheck === 'string' && currentCheck.trim().length > 0) {
+    requiredCheck = hasPackageRunScriptCommand(currentCheck, 'check:code')
+      ? currentCheck
+      : insertCommandBeforeTrailingShellComment(currentCheck, checkRun);
   }
-
-  return [
+  const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(
       'postinstall',
       currentPostinstall,
       requiredPostinstall,
     ),
-    ...(lintTsSatisfied
+    ...(hasTtscCheckNoEmitCommand(scripts['check:code'])
       ? []
-      : buildOptionalScriptChange('lint:ts', currentLintTs, lintTsCommand)),
-    ...buildOptionalScriptChange('lint', currentLint, requiredLint),
+      : buildOptionalScriptChange(
+          'check:code',
+          scripts['check:code'],
+          checkCodeCommand,
+        )),
+    ...buildOptionalScriptChange('check', currentCheck, requiredCheck),
   ];
+
+  const legacyLint = scripts.lint;
+  const hasManagedLintInvocation =
+    typeof legacyLint === 'string' &&
+    LEGACY_LINT_SCRIPT_NAMES.some((name) =>
+      hasPackageRunScriptInvocation(legacyLint, name),
+    );
+  const hasRemovableManagedLintCommand =
+    typeof legacyLint === 'string' &&
+    LEGACY_LINT_SCRIPT_NAMES.some((name) =>
+      hasPackageRunScriptCommand(legacyLint, name),
+    );
+  let canRemoveManagedAliases =
+    !hasManagedLintInvocation || hasRemovableManagedLintCommand;
+  if (
+    typeof legacyLint === 'string' &&
+    hasRemovableManagedLintCommand
+  ) {
+    let remaining = legacyLint;
+    for (const name of LEGACY_LINT_SCRIPT_NAMES) {
+      if (
+        hasPackageRunScriptCommand(remaining, name) ||
+        hasPackageRunScriptInvocation(remaining, name)
+      ) {
+        const next = removePackageRunScriptInvocations(remaining, name);
+        if (next === null) {
+          canRemoveManagedAliases = false;
+          break;
+        }
+        remaining = next;
+      }
+    }
+    if (canRemoveManagedAliases && remaining === '') {
+      changes.push({
+        action: 'remove',
+        currentValue: legacyLint,
+        name: 'lint',
+      });
+    } else if (canRemoveManagedAliases && remaining !== legacyLint) {
+      changes.push({
+        action: 'update',
+        currentValue: legacyLint,
+        name: 'lint',
+        requiredValue: remaining,
+      });
+    }
+  }
+  if (canRemoveManagedAliases && hasTtscNoEmitLintCommand(scripts['lint:ts'])) {
+    changes.push({
+      action: 'remove',
+      currentValue: scripts['lint:ts'],
+      name: 'lint:ts',
+    });
+  }
+  // Only delete the exact helper command that wp-typia owned. Variants may
+  // contain project behavior and must remain under the project's control.
+  if (
+    canRemoveManagedAliases &&
+    scripts['lint:js'] === LEGACY_LINT_JS_COMMAND
+  ) {
+    changes.push({
+      action: 'remove',
+      currentValue: scripts['lint:js'],
+      name: 'lint:js',
+    });
+  }
+
+  return changes;
 }
 
 export function buildPackageManagerFieldChange(
@@ -580,7 +657,11 @@ export function buildNextProjectPackageJson(options: {
   }
 
   for (const scriptChange of options.packageChanges.scripts) {
-    nextPackageJson.scripts[scriptChange.name] = scriptChange.requiredValue;
+    if (scriptChange.action === 'remove') {
+      delete nextPackageJson.scripts[scriptChange.name];
+    } else if (scriptChange.requiredValue !== undefined) {
+      nextPackageJson.scripts[scriptChange.name] = scriptChange.requiredValue;
+    }
   }
 
   return nextPackageJson;

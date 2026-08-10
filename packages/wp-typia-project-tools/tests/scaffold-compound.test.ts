@@ -226,8 +226,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/blocks/**/types.ts" "scripts/block-config.ts" --debounce 200 -c "npm run sync-types"',
       );
-      expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && ttsc --noEmit',
+      expect(packageJson.scripts['check:code']).toBe(
+        'npm run sync -- --check && ttsc check --noEmit',
       );
       expect(pluginBootstrap).toContain('build/blocks');
       expect(
@@ -816,8 +816,8 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(packageJson.scripts.build).toBe(
         'npm run sync -- --check && wp-scripts build --experimental-modules',
       );
-      expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && ttsc --noEmit',
+      expect(packageJson.scripts['check:code']).toBe(
+        'npm run sync -- --check && ttsc check --noEmit',
       );
       expect(
         fs.existsSync(path.join(targetDir, 'inc', 'rest-shared.php')),

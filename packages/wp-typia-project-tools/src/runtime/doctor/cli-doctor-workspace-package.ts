@@ -7,14 +7,13 @@ import {
   getWorkspaceBootstrapRelativePath,
 } from './cli-doctor-workspace-shared.js';
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
-import {
-  getTtscLintCompatSource,
-} from '../cli/cli-init-templates.js';
+import { getTtscLintCompatSource } from '../cli/cli-init-templates.js';
 import {
   findManagedWordPressSourcePathsAsync,
+  getTtscJavaScriptCoverageIssue,
   hasPackageRunScriptCommand,
+  hasTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
-  hasTtscNoEmitLintCommand,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
@@ -48,6 +47,8 @@ export interface WorkspacePackageDoctorSnapshot {
   ttscLintConfigSource: string | null;
 	/** Actual block source paths used to validate lint exclusions. */
   ttscLintManagedSourcePaths: string[];
+  /** Effective tsconfig coverage problem for JavaScript, when present. */
+  ttscJavaScriptCoverageIssue: string | null;
   /** Whether the managed ttsc lint compatibility helper is current. */
   ttscLintCompatCurrent: boolean;
 	/** Project-local lint packages that cannot be resolved. */
@@ -175,6 +176,9 @@ export async function prepareWorkspacePackageDoctorSnapshot(
     ttscLintManagedSourcePaths,
     ttscLintCompatCurrent,
     ttscLintMissingInstalledPackages,
+    ttscJavaScriptCoverageIssue: getTtscJavaScriptCoverageIssue(
+      workspace.projectDir,
+    ),
   };
 }
 
@@ -252,11 +256,14 @@ export function getWorkspaceTtscLintCheck(
       `${snapshot.ttscLintConfigRelativePath} does not enable the WordPress contributor and text-domain rule`,
     );
   }
-  if (!hasTtscNoEmitLintCommand(packageJson.scripts?.['lint:ts'])) {
-    issues.push('lint:ts must invoke `ttsc --noEmit`');
+  if (!hasTtscCheckNoEmitCommand(packageJson.scripts?.['check:code'])) {
+    issues.push('check:code must invoke `ttsc check --noEmit`');
   }
-  if (!hasPackageRunScriptCommand(packageJson.scripts?.lint, 'lint:ts')) {
-    issues.push('lint must include the lint:ts lane');
+  if (!hasPackageRunScriptCommand(packageJson.scripts?.check, 'check:code')) {
+    issues.push('check must include the check:code lane');
+  }
+  if (snapshot.ttscJavaScriptCoverageIssue) {
+    issues.push(snapshot.ttscJavaScriptCoverageIssue);
   }
   if (!snapshot.ttscLintCompatCurrent) {
     issues.push('missing or stale scripts/apply-ttsc-lint-compat.mjs');
@@ -271,7 +278,7 @@ export function getWorkspaceTtscLintCheck(
     'WordPress ttsc lint',
     issues.length === 0 ? 'pass' : 'warn',
     issues.length === 0
-      ? `${snapshot.ttscLintConfigRelativePath} enables the WordPress contributor while JavaScript lint remains a separate lane`
+      ? `${snapshot.ttscLintConfigRelativePath} enables the WordPress contributor for the combined ttsc check gate`
       : `${issues.join('; ')}. Preview the non-destructive upgrade with \`wp-typia init\`, then apply it with \`wp-typia init --apply\`.`,
   );
 }

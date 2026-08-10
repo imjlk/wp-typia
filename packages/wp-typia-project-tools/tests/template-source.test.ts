@@ -2038,8 +2038,8 @@ test('official workspace template scaffolds through the local npm template resol
   );
   expect(packageJson.scripts.dev).toBe('npm run start');
   expect(packageJson.packageManager).toBeUndefined();
-  expect(packageJson.scripts.typecheck).toBe(
-    'npm run sync -- --check && ttsc --noEmit',
+  expect(packageJson.scripts['check:code']).toBe(
+    'npm run sync -- --check && ttsc check --noEmit',
   );
   expect(packageJson.devDependencies['wp-typia']).toBe(
     `^${wpTypiaPackageManifest.version}`,

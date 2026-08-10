@@ -200,8 +200,8 @@ The generated `src/transport.ts` is the first place to customize runtime routing
 ```typescript
 import { type EndpointCallOptions, resolveRestRouteUrl } from '@wp-typia/rest';
 
-const FRONTEND_READ_BASE_URL: string | undefined = undefined;
-const FRONTEND_WRITE_BASE_URL: string | undefined = undefined;
+const FRONTEND_READ_BASE_URL = '';
+const FRONTEND_WRITE_BASE_URL = '';
 
 function buildCallOptions(
   endpointPath: string,

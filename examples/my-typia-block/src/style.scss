@@ -3,9 +3,8 @@
  * Generated with Typia validation
  */
 
+/* Default block styles */
 .wp-block-create-block-my-typia-block {
-
-	/* Default block styles */
 	padding: 1rem;
 	margin: 1rem 0;
 
@@ -73,14 +72,13 @@
 }
 
 /* Editor-specific styles */
-.wp-block[data-type="create-block/my-typia-block"] {
 
-	.wp-block-create-block-my-typia-block {
-		border: 1px dashed #ddd;
-		border-radius: 4px;
+/* prettier-ignore */
+.wp-block[data-type="create-block/my-typia-block"] .wp-block-create-block-my-typia-block {
+	border: 1px dashed #ddd;
+	border-radius: 4px;
 
-		&:hover {
-			border-color: #0073aa;
-		}
+	&:hover {
+		border-color: #0073aa;
 	}
 }

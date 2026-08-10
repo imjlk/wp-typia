@@ -29,6 +29,11 @@ export interface CompiledPresetEntry {
 }
 
 export interface CompiledPreset {
+  behaviorDowngrades: readonly {
+    reason: 'engine-failure' | 'semantic-mismatch';
+    source: string;
+    target: string;
+  }[];
   entries: readonly CompiledPresetEntry[];
   optionDowngrades: readonly {
     source: string;
@@ -50,7 +55,7 @@ export interface CompatibilityManifest {
     Record<string, Readonly<Record<string, 'enabled' | 'mixed' | 'off'>>>
   >;
   schemaVersion: 2;
-  ttscRange: '>=0.23.0 <0.26.0';
+  ttscRange: '>=0.23.0 <0.27.0';
   upstream: {
     integrity: string;
     package: '@wordpress/eslint-plugin';

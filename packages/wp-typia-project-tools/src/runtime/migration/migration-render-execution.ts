@@ -18,7 +18,8 @@ export function renderVerifyFile(
     throw new Error(`Unknown migration block target: ${blockKey}`);
   }
   if (entries.length === 0) {
-    return `console.log(
+    return `/* eslint-disable no-console */
+console.log(
   'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before verify.',
 );
 `;
@@ -135,7 +136,8 @@ export function renderFuzzFile(
     throw new Error(`Unknown migration block target: ${blockKey}`);
   }
   if (entries.length === 0) {
-    return `console.log(
+    return `/* eslint-disable no-console */
+console.log(
   'Run \`wp-typia migrate scaffold --from-migration-version <label>\` before fuzz.',
 );
 `;

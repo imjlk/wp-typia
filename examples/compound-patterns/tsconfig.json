@@ -1,9 +1,18 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
+		"allowJs": true,
 		"paths": {},
 		"rootDir": "."
 	},
-	"include": ["src/**/*", "scripts/**/*", "../../types/assets.d.ts"],
+	"include": [
+		"src/**/*",
+		"scripts/**/*",
+		"*.js",
+		"*.jsx",
+		"*.cjs",
+		"*.mjs",
+		"../../types/assets.d.ts"
+	],
 	"exclude": ["node_modules", "build"]
 }

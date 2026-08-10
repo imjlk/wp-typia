@@ -161,7 +161,7 @@ export function buildReadme(
           compoundPersistenceEnabled,
         })}`;
 
-  return `# ${variables.title}
+  const readme = `# ${variables.title}
 
 ${variables.description}
 
@@ -205,6 +205,8 @@ ${getInitialCommitNote()}
 
 ${sourceOfTruthNote}${publicPersistencePolicyNote ? `\n\n${publicPersistencePolicyNote}` : ''}${alternateRenderTargetSection ? `\n\n${alternateRenderTargetSection}` : ''}${compoundInnerBlocksSection ? `\n\n${compoundInnerBlocksSection}` : ''}${migrationSection ? `\n\n${migrationSection}` : ''}${compoundExtensionWorkflowSection ? `\n\n${compoundExtensionWorkflowSection}` : ''}${wpEnvSection ? `\n\n${wpEnvSection}` : ''}${testPresetSection ? `\n\n${testPresetSection}` : ''}${phpRestExtensionPointsSection ? `\n\n${phpRestExtensionPointsSection}` : ''}
 `;
+
+  return readme.replace(/\n{3,}/g, '\n\n');
 }
 
 /**

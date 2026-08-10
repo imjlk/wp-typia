@@ -55,7 +55,6 @@ const config = {
     'no-multi-str': 'error',
     'no-nested-ternary': 'error',
     'no-redeclare': 'error',
-    'no-shadow': 'error',
     'no-undef-init': 'error',
     'no-unreachable': 'error',
     'no-unsafe-negation': 'error',

@@ -516,8 +516,8 @@ const { actions, state } = store('{{slugKebabCase}}', {
     mounted() {
       state.isHydrated = true;
       if (typeof document !== 'undefined') {
-        document.documentElement.dataset['{{slugCamelCase}}Hydrated'] =
-          'true';
+        const hydrationDatasetKey = '{{slugCamelCase}}Hydrated';
+        document.documentElement.dataset[hydrationDatasetKey] = 'true';
       }
       void Promise.allSettled([actions.loadState(), actions.loadBootstrap()]);
     },

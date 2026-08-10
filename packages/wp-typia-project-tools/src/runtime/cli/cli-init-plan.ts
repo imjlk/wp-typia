@@ -52,7 +52,7 @@ import {
 import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
 
 const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
-  'Enable the partial WordPress ttsc preset and bind i18n diagnostics to the project text domain.';
+  'Enable the wp-scripts-compatible ttsc preset and bind i18n diagnostics to the project text domain.';
 
 function buildProjectOwnedLintConfigNote(configPath: string): string {
   return `Existing ${path.basename(configPath)} is project-owned and will not be overwritten. Extend it with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule before applying this plan.`;
@@ -258,7 +258,6 @@ function buildPlannedFiles(
   }
 
   const ttscLintPackageVersion = getPackageVersions().ttscLintPackageVersion;
-
   return [
 		buildTtscLintCompatFilePlan(
 			projectDir,
@@ -318,7 +317,7 @@ function buildWordPressLintConfigFilePlans(
 ): InitFilePlan[] {
   return lintConfigPath
     ? []
-    : [{ action: 'add', path: 'lint.config.ts', purpose }];
+    : [{ action: 'add', path: 'lint.config.mts', purpose }];
 }
 
 function buildOfficialWorkspaceLintFilePlans(
@@ -331,7 +330,7 @@ function buildOfficialWorkspaceLintFilePlans(
       : [
           buildTtscLintCompatFilePlan(
             projectDir,
-            'Keep the exact generated-project @ttsc/lint compatibility fix aligned with the managed toolchain.',
+            'Keep the generated-project @ttsc/lint compatibility fix aligned with the managed toolchain.',
           ),
         ]),
     ...buildWordPressLintConfigFilePlans(
@@ -506,7 +505,7 @@ export function getInitPlan(
               buildProjectOwnedLintConfigNote(existingLintConfigPath),
             ]
           : []),
-        'The TypeScript lane remains `ttsc --noEmit` until upstream exposes the lint-only command tracked by samchon/ttsc#1127. Existing JavaScript and style lint commands are preserved.',
+        '`ttsc check --noEmit` is the combined TypeScript and JavaScript lint gate. Project-owned style and format checks remain separate.',
       ],
       packageChanges: {
         addDevDependencies: dependencyChanges,

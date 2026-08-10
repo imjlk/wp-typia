@@ -1280,7 +1280,7 @@ function hasEffectiveWordPressPlugin(
   for (const property of config.properties) {
     if (ts.isSpreadAssignment(property)) {
       enabled = isWordPressConfigPath(property.expression, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
       ]);
       continue;
     }
@@ -1293,7 +1293,7 @@ function hasEffectiveWordPressPlugin(
     }
     if (
       isWordPressConfigPath(property.initializer, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
         'plugins',
       ])
     ) {
@@ -1310,7 +1310,7 @@ function hasEffectiveWordPressPlugin(
             return isWordPressConfigPath(
               pluginProperty.expression,
               bindings,
-              ['recommended', 'plugins'],
+              ['wpScriptsRecommended', 'plugins'],
             );
           }
           // An explicit wordpress key replaces the contributor supplied by
@@ -1328,7 +1328,7 @@ function hasEffectiveWordPressPlugin(
               bindings,
             ) ||
               isWordPressConfigPath(pluginProperty.initializer, bindings, [
-                'recommended',
+                'wpScriptsRecommended',
                 'plugins',
                 'wordpress',
               ]))
@@ -1405,11 +1405,14 @@ function hasEffectiveRecommendedRule(
   bindings: WordPressLintConfigBindings,
   ruleName: string,
 ): boolean {
-  let enabled = false;
+  // wpScriptsRecommended inherits its generic and WordPress rule map through
+  // `extends`. Treat those rules as enabled unless the local config explicitly
+  // replaces one with an off severity.
+  let enabled = true;
   for (const property of rules.properties) {
     if (ts.isSpreadAssignment(property)) {
       enabled = isWordPressConfigPath(property.expression, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
         'rules',
       ]);
       continue;
@@ -1584,6 +1587,64 @@ export async function findManagedWordPressSourcePathsAsync(
   );
 }
 
+/**
+ * Return a diagnostic when the default ttsc project cannot check JavaScript
+ * WordPress sources alongside TypeScript.
+ */
+export function getTtscJavaScriptCoverageIssue(
+  projectDir: string,
+): string | null {
+  const configPath = ts.findConfigFile(
+    projectDir,
+    ts.sys.fileExists,
+    'tsconfig.json',
+  );
+  if (!configPath) {
+    return 'missing tsconfig.json for JavaScript code coverage';
+  }
+
+  const readResult = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (readResult.error) {
+    return `unable to read tsconfig.json for JavaScript code coverage: ${ts.flattenDiagnosticMessageText(readResult.error.messageText, ' ')}`;
+  }
+  const parsed = ts.parseJsonConfigFileContent(
+    readResult.config,
+    ts.sys,
+    path.dirname(configPath),
+    undefined,
+    configPath,
+  );
+  const configurationError = parsed.errors.find(
+    // TS18003 means the config currently has no input files. That is expected
+    // while doctor is diagnosing a JavaScript-only project without allowJs.
+    (diagnostic) => diagnostic.code !== 18003,
+  );
+  if (configurationError) {
+    return `unable to resolve tsconfig.json for JavaScript code coverage: ${ts.flattenDiagnosticMessageText(configurationError.messageText, ' ')}`;
+  }
+  if (parsed.options.allowJs !== true) {
+    return 'tsconfig.json must enable compilerOptions.allowJs for the combined JavaScript and TypeScript code gate';
+  }
+
+  const javaScriptSources = collectManagedSourcePaths(
+    projectDir,
+    path.join(projectDir, 'src'),
+  ).filter((sourcePath) => /\.(?:[cm]?js|jsx)$/u.test(sourcePath));
+  if (javaScriptSources.length === 0) {
+    return null;
+  }
+  const includedFiles = new Set(
+    parsed.fileNames.map((filePath) => path.resolve(filePath)),
+  );
+  const excludedSources = javaScriptSources.filter(
+    (sourcePath) =>
+      !includedFiles.has(path.resolve(projectDir, sourcePath)),
+  );
+  return excludedSources.length === 0
+    ? null
+    : `tsconfig.json excludes JavaScript source files from the combined code gate: ${excludedSources.slice(0, 3).join(', ')}${excludedSources.length > 3 ? ', ...' : ''}`;
+}
+
 function getStaticStringArray(expression: ts.Expression): string[] | null {
   const current = unwrapExpression(expression);
   if (!ts.isArrayLiteralExpression(current)) {
@@ -1635,7 +1696,9 @@ function hasUsableManagedSourceTree(
   for (const property of config.properties) {
     if (ts.isSpreadAssignment(property)) {
       if (
-        !isWordPressConfigPath(property.expression, bindings, ['recommended'])
+        !isWordPressConfigPath(property.expression, bindings, [
+          'wpScriptsRecommended',
+        ])
       ) {
         ignorePatternsKnown = false;
       }
@@ -1999,7 +2062,10 @@ export function hasWordPressTtscLintConfigSource(
     return false;
   }
   const config = resolveObjectLiteral(exportExpression, sourceFile);
-  if (!config || !hasWordPressConfigSpread(config, bindings, ['recommended'])) {
+  if (
+    !config ||
+    !hasWordPressConfigSpread(config, bindings, ['wpScriptsRecommended'])
+  ) {
     return false;
   }
   const rulesProperty = findEffectiveProperty(config, 'rules');
@@ -2012,11 +2078,6 @@ export function hasWordPressTtscLintConfigSource(
   return Boolean(
     rules &&
       hasEffectiveWordPressPlugin(config, sourceFile, bindings) &&
-      hasWordPressConfigSpread(
-        rules,
-        bindings,
-        ['recommended', 'rules'],
-      ) &&
       hasEffectiveRecommendedRule(
         rules,
         bindings,
@@ -2507,8 +2568,10 @@ function hasEnabledNoEmitOption(args: readonly string[]): boolean {
   return enabled === true;
 }
 
-/** Check whether a project-owned lint command invokes the managed ttsc lane. */
-export function hasTtscNoEmitLintCommand(command: unknown): boolean {
+function hasTtscNoEmitCommand(
+  command: unknown,
+  requireCheckSubcommand: boolean,
+): boolean {
   if (typeof command !== 'string') {
     return false;
   }
@@ -2527,21 +2590,37 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
       packageManager === 'npm' && commandArgs[0] === '--'
         ? commandArgs.slice(1)
         : commandArgs;
+    const checkArgs =
+      args[0]?.toLowerCase() === 'check' ? args.slice(1) : null;
+    if ((checkArgs !== null) !== requireCheckSubcommand) {
+      return false;
+    }
+    const effectiveArgs = checkArgs ?? args;
     return (
-      hasEnabledNoEmitOption(args) &&
-      !args.some((argument) =>
+      hasEnabledNoEmitOption(effectiveArgs) &&
+      !effectiveArgs.some((argument) =>
         TTSC_EXPLICIT_PROJECT_OPTIONS.has(
           argument.split('=', 1)[0]?.toLowerCase() ?? '',
         ),
       ) &&
-      !args.some((argument) =>
+      !effectiveArgs.some((argument) =>
         TTSC_TERMINAL_OPTIONS.has(
           argument.split('=', 1)[0]?.toLowerCase() ?? '',
         ),
       ) &&
-      !hasPositionalTtscInput(args)
+      !hasPositionalTtscInput(effectiveArgs)
     );
   });
+}
+
+/** Check whether a legacy project-owned command invokes `ttsc --noEmit`. */
+export function hasTtscNoEmitLintCommand(command: unknown): boolean {
+  return hasTtscNoEmitCommand(command, false);
+}
+
+/** Check whether a project-owned code gate invokes `ttsc check --noEmit`. */
+export function hasTtscCheckNoEmitCommand(command: unknown): boolean {
+  return hasTtscNoEmitCommand(command, true);
 }
 
 const PACKAGE_MANAGER_TERMINAL_OPTIONS = SHELL_RUNNER_TERMINAL_OPTIONS;

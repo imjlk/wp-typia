@@ -67,6 +67,34 @@ describe('compiled WordPress presets', () => {
     expect(rules['wordpress/valid-sprintf']).toBe('error');
     expect(rules['react/exhaustive-deps']).toBe('warn');
     expect(rules['react/rules-of-hooks']).toBe('error');
+    expect(rules['no-shadow']).toBeUndefined();
+    expect(rules['jsx-a11y/click-events-have-key-events']).toBeUndefined();
+    expect(rules['jsx-a11y/no-static-element-interactions']).toBeUndefined();
+    expect(rules['jsx-a11y/role-supports-aria-props']).toBeUndefined();
+    expect(
+      compatibilityManifest.compiledPresets.recommended.behaviorDowngrades,
+    ).toEqual([
+      {
+        reason: 'semantic-mismatch',
+        source: 'jsx-a11y/click-events-have-key-events',
+        target: 'jsx-a11y/click-events-have-key-events',
+      },
+      {
+        reason: 'semantic-mismatch',
+        source: 'jsx-a11y/no-static-element-interactions',
+        target: 'jsx-a11y/no-static-element-interactions',
+      },
+      {
+        reason: 'semantic-mismatch',
+        source: 'jsx-a11y/role-supports-aria-props',
+        target: 'jsx-a11y/role-supports-aria-props',
+      },
+      {
+        reason: 'engine-failure',
+        source: 'no-shadow',
+        target: 'no-shadow',
+      },
+    ]);
     expect(
       compatibilityManifest.compiledPresets.recommended.optionDowngrades,
     ).toContainEqual({
@@ -145,6 +173,7 @@ describe('compiled WordPress presets', () => {
       expect(`${result.stdout}${result.stderr}`).toContain(
         '[no-var] Unexpected var, use let or const instead.',
       );
+      expect(`${result.stdout}${result.stderr}`).toContain('fixture.js');
       expect(`${result.stdout}${result.stderr}`).toContain(
         '[wordpress/no-wp-process-env] `IS_WORDPRESS_CORE` should not be accessed from process.env.',
       );

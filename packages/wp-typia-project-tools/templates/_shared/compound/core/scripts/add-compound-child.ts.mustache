@@ -1339,12 +1339,12 @@ function main() {
 
   validateAncestorInstantiability(childrenFile, ancestorChain);
   validateNestedAncestorTarget(ancestorChain);
-  const supportsInserter =
-    inserter === 'visible'
-      ? true
-      : inserter === 'hidden'
-        ? false
-        : container || ancestorChain.length > 0;
+  let supportsInserter = container || ancestorChain.length > 0;
+  if (inserter === 'visible') {
+    supportsInserter = true;
+  } else if (inserter === 'hidden') {
+    supportsInserter = false;
+  }
   const placement = ancestorChain.length > 0 ? 'nested' : 'root';
   const seedTemplate =
     supportsInserter || container || ancestorChain.length > 0;

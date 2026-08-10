@@ -14,7 +14,7 @@ const wpExamples = [
 ];
 
 for (const relativePath of wpExamples) {
-  execFileSync('bun', ['run', 'lint'], {
+  execFileSync('bun', ['run', 'check'], {
     cwd: path.join(repoRoot, relativePath),
     stdio: 'inherit',
   });
@@ -22,7 +22,7 @@ for (const relativePath of wpExamples) {
 
 execFileSync(
   'bun',
-  ['run', '--filter', 'api-contract-adapter-poc', '--if-present', 'lint'],
+  ['run', '--filter', 'api-contract-adapter-poc', '--if-present', 'check'],
   {
     cwd: repoRoot,
     stdio: 'inherit',

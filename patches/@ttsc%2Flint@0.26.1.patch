@@ -1,5 +1,4 @@
 diff --git a/linthost/rules_format_trailing_comma.go b/linthost/rules_format_trailing_comma.go
-index 679e57021c03c18c44f021f861a0b51ae5601c1a..6ca5ad4066be801889134845972812beae87232b 100644
 --- a/linthost/rules_format_trailing_comma.go
 +++ b/linthost/rules_format_trailing_comma.go
 @@ -237,6 +237,22 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
