@@ -276,12 +276,21 @@ export type Inferred<Value> =
     );
     const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
     const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    const patchedBufferCount =
+      patchedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1;
+    const unpatchedBufferCount =
+      patchedIndexSource.split(UNPATCHED_TTSC_LINT_BUFFER_TARGET).length - 1;
     expect(
-      patchedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
+      patchedBufferCount + unpatchedBufferCount,
     ).toBe(2);
-    expect(
+    const patchedWindowsBufferCount =
       patchedIndexSource.split(PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET)
-        .length - 1,
+        .length - 1;
+    const unpatchedWindowsBufferCount =
+      patchedIndexSource.split(UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET)
+        .length - 1;
+    expect(
+      patchedWindowsBufferCount + unpatchedWindowsBufferCount,
     ).toBe(2);
     writeText(
       lintIndexPath,
