@@ -819,7 +819,7 @@ describe('wp-typia init', () => {
 			currentValue: 'npm run check:php && npm run check:style',
 			name: 'check',
 			requiredValue:
-				'npm run check:php && npm run check:style && npm run check:code',
+				'npm run check:code && npm run check:php && npm run check:style',
 		});
 
 		const alreadyManaged = buildOfficialWorkspaceLintScriptChanges(
@@ -833,6 +833,32 @@ describe('wp-typia init', () => {
 		expect(alreadyManaged.some((change) => change.name === 'check')).toBe(
 			false,
 		);
+	});
+
+	test('runs managed checks before terminal project-owned aggregates', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'setup; exit 0',
+					'check:code': 'eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'setup; exit 0',
+			name: 'check',
+			requiredValue: 'npm run check:code && setup; exit 0',
+		});
 	});
 
 	test('migrates legacy managed style and format lanes into the new aggregate', () => {
@@ -955,6 +981,32 @@ describe('wp-typia init', () => {
 		expect(projectOwned.some((change) => change.name === 'typecheck')).toBe(
 			false,
 		);
+	});
+
+	test('preserves retrofit check lanes while adding the managed code gate', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'vitest run',
+					'check:code': 'eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'vitest run',
+			name: 'check',
+			requiredValue: 'npm run check:code && vitest run',
+		});
 	});
 
 	test('removes legacy managed lint aliases with supported flags', () => {

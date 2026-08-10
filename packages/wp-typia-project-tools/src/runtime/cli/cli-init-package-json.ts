@@ -311,6 +311,29 @@ function buildOptionalScriptChange(
   ];
 }
 
+function containsOnlyShellComments(command: string): boolean {
+  return command.split(/\r?\n/u).every((line) => {
+    const trimmed = line.trimStart();
+    return trimmed.length === 0 || trimmed.startsWith('#');
+  });
+}
+
+function prependRequiredCommands(
+  currentValue: string | undefined,
+  requiredCommands: readonly string[],
+): string {
+  const requiredValue = requiredCommands.join(' && ');
+  if (typeof currentValue !== 'string' || currentValue.trim().length === 0) {
+    return requiredValue;
+  }
+  if (requiredCommands.length === 0) {
+    return currentValue;
+  }
+  return containsOnlyShellComments(currentValue)
+    ? `${requiredValue} ${currentValue.trimStart()}`
+    : `${requiredValue} && ${currentValue}`;
+}
+
 function mergePostinstallCommand(
   currentValue: string | undefined,
   requiredCommand: string,
@@ -323,13 +346,7 @@ function mergePostinstallCommand(
     // shell parser. Keep comment-only scripts intact after the managed hook;
     // otherwise insert the hook before the last recognized trailing comment.
     if (currentValue.includes('#')) {
-      const containsOnlyComments = currentValue
-        .split(/\r?\n/u)
-        .every((line) => {
-          const trimmed = line.trimStart();
-          return trimmed.length === 0 || trimmed.startsWith('#');
-        });
-      return containsOnlyComments
+      return containsOnlyShellComments(currentValue)
         ? `${requiredCommand} ${currentValue.trimStart()}`
         : insertCommandBeforeTrailingShellComment(
             currentValue,
@@ -461,10 +478,21 @@ export function buildScriptChanges(
 				packageManager,
 			);
 			const currentValue = scripts[name];
-			const requiredValue =
-				name === 'postinstall'
-					? mergePostinstallCommand(currentValue, command)
-					: command;
+			let requiredValue = command;
+			if (name === 'postinstall') {
+				requiredValue = mergePostinstallCommand(currentValue, command);
+			} else if (name === 'check:code') {
+				requiredValue = hasTtscCheckNoEmitCommand(currentValue)
+					? currentValue!
+					: prependRequiredCommands(currentValue, [command]);
+			} else if (name === 'check') {
+				requiredValue = hasPackageRunScriptInvocation(
+					currentValue,
+					'check:code',
+				)
+					? currentValue!
+					: prependRequiredCommands(currentValue, [command]);
+			}
 			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
 	);
@@ -523,29 +551,30 @@ export function buildOfficialWorkspaceLintScriptChanges(
     name,
   }));
   const currentCheck = scripts.check;
-  let requiredCheck = checkLanes.map(({ command }) => command).join(' && ');
-  if (typeof currentCheck === 'string' && currentCheck.trim().length > 0) {
-    requiredCheck = checkLanes.reduce(
-      (aggregate, lane) =>
-        hasPackageRunScriptCommand(aggregate, lane.name)
-          ? aggregate
-          : insertCommandBeforeTrailingShellComment(aggregate, lane.command),
-      currentCheck,
-    );
-  }
+  const missingCheckCommands = checkLanes
+    .filter(
+      (lane) => !hasPackageRunScriptCommand(currentCheck, lane.name),
+    )
+    .map(({ command }) => command);
+  const requiredCheck = prependRequiredCommands(
+    currentCheck,
+    missingCheckCommands,
+  );
+  const currentCheckCode = scripts['check:code'];
+  const requiredCheckCode = hasTtscCheckNoEmitCommand(currentCheckCode)
+    ? currentCheckCode!
+    : prependRequiredCommands(currentCheckCode, [checkCodeCommand]);
   const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(
       'postinstall',
       currentPostinstall,
       requiredPostinstall,
     ),
-    ...(hasTtscCheckNoEmitCommand(scripts['check:code'])
-      ? []
-      : buildOptionalScriptChange(
-          'check:code',
-          scripts['check:code'],
-          checkCodeCommand,
-        )),
+    ...buildOptionalScriptChange(
+      'check:code',
+      currentCheckCode,
+      requiredCheckCode,
+    ),
     ...(scripts['check:style'] || !legacyStyleCommand
       ? []
       : buildOptionalScriptChange(

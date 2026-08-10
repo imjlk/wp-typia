@@ -23,8 +23,8 @@ bun run start
 # Build for production
 bun run build
 
-# Type checking
-bun run typecheck
+# Type and WordPress lint checks
+bun run check:code
 
 # Sync block metadata manually
 bun run sync-types

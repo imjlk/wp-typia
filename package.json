@@ -28,7 +28,7 @@
     "examples:dev:compound": "bun run --filter compound-patterns --if-present dev",
     "examples:lint": "node scripts/run-examples-lint.mjs",
     "examples:format": "bun run --filter my-typia-block --if-present format && bun run --filter persistence-examples --if-present format && bun run --filter compound-patterns --if-present format && bun run --filter api-contract-adapter-poc --if-present format",
-    "examples:typecheck": "bun run --filter my-typia-block --if-present typecheck && bun run --filter persistence-examples --if-present typecheck && bun run --filter compound-patterns --if-present typecheck && bun run --filter api-contract-adapter-poc --if-present typecheck",
+    "examples:check:code": "bun run --filter my-typia-block --if-present check:code && bun run --filter persistence-examples --if-present check:code && bun run --filter compound-patterns --if-present check:code && bun run --filter api-contract-adapter-poc --if-present check:code",
     "examples:test:e2e": "bun run examples:build && bun run examples:wp-env:wait:test && playwright test",
     "examples:test:e2e:ci": "bun run examples:wp-env:wait:test && playwright test",
     "examples:test:e2e:matrix": "bun run examples:build && bun run examples:wp-env:wait:test && PLAYWRIGHT_MATRIX=1 playwright test",

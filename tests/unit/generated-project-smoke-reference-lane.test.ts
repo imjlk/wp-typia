@@ -87,6 +87,13 @@ afterEach(() => {
 });
 
 test('generated project smoke script supports a reference example lane', () => {
+  const rootPackageJson = JSON.parse(
+    fs.readFileSync(join(repoRoot, 'package.json'), 'utf8'),
+  ) as { scripts?: Record<string, string> };
+  const referenceReadme = fs.readFileSync(
+    join(repoRoot, 'examples', 'my-typia-block', 'README.md'),
+    'utf8',
+  );
   const smokeScript = fs.readFileSync(
     join(repoRoot, 'scripts', 'run-generated-project-smoke.mjs'),
     'utf8',
@@ -171,6 +178,15 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(exampleHelper).toContain(
     'path.resolve(repoRoot, "examples", exampleProject)',
   );
+  expect(rootPackageJson.scripts?.['examples:typecheck']).toBeUndefined();
+  expect(rootPackageJson.scripts?.['examples:check:code']).toContain(
+    '--if-present check:code',
+  );
+  expect(rootPackageJson.scripts?.['examples:check:code']).not.toContain(
+    '--if-present typecheck',
+  );
+  expect(referenceReadme).toContain('bun run check:code');
+  expect(referenceReadme).not.toContain('bun run typecheck');
 });
 
 test('reference example workspaces retain shared asset module declarations', async () => {
