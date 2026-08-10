@@ -279,7 +279,7 @@ export function getWorkspaceTtscLintCheck(
     issues.length === 0 ? 'pass' : 'warn',
     issues.length === 0
       ? `${snapshot.ttscLintConfigRelativePath} enables the WordPress contributor for the combined ttsc check gate`
-      : `${issues.join('; ')}. Preview the non-destructive upgrade with \`wp-typia init\`, then apply it with \`wp-typia init --apply\`.`,
+      : `${issues.join('; ')}. Preview the non-destructive upgrade with \`wp-typia init\`, then apply it with \`wp-typia init --apply\`. If init does not plan tsconfig.json, enable compilerOptions.allowJs and include the root JavaScript globs (*.js, *.jsx, *.cjs, *.mjs) manually.`,
   );
 }
 

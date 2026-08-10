@@ -128,6 +128,10 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   expect(missingJavaScriptCoverageCheck?.detail).toContain(
     'compilerOptions.allowJs',
   );
+  expect(missingJavaScriptCoverageCheck?.detail).toContain(
+    'If init does not plan tsconfig.json',
+  );
+  expect(missingJavaScriptCoverageCheck?.detail).toContain('*.mjs');
   fs.writeFileSync(tsconfigPath, tsconfigSource, 'utf8');
 
   const lintConfigPath = path.join(targetDir, 'lint.config.mts');

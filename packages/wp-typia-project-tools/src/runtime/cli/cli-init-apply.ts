@@ -25,6 +25,7 @@ import {
   buildOfficialWorkspaceLintFiles,
   buildRetrofitHelperFiles,
   findTtscLintConfigPath,
+  hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
 } from './cli-init-templates.js';
@@ -171,7 +172,11 @@ export async function applyInitPlan(
   const existingLintConfigPath = findTtscLintConfigPath(previewPlan.projectDir);
   if (
     existingLintConfigPath &&
-    !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain)
+    !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain) &&
+    !hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      expectedTextDomain,
+    )
   ) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,

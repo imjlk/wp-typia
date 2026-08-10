@@ -28,6 +28,8 @@ import {
 import {
   findTtscLintConfigPath,
   hasCurrentTtscLintCompatFile,
+  hasPreviousManagedTtsconfig,
+  hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
 } from './cli-init-templates.js';
@@ -53,9 +55,23 @@ import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
 
 const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
   'Enable the wp-scripts-compatible ttsc preset and bind i18n diagnostics to the project text domain.';
+const WORDPRESS_TTSC_TSCONFIG_PURPOSE =
+  'Include JavaScript in the combined ttsc check gate using the current managed tsconfig baseline.';
 
 function buildProjectOwnedLintConfigNote(configPath: string): string {
   return `Existing ${path.basename(configPath)} is project-owned and will not be overwritten. Extend it with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule before applying this plan.`;
+}
+
+function getProjectOwnedLintConfigPath(
+  lintConfigPath: string | null,
+  wordpressLintIntegrated: boolean,
+  previousManagedLintConfig: boolean,
+): string | null {
+  return lintConfigPath &&
+    !wordpressLintIntegrated &&
+    !previousManagedLintConfig
+    ? lintConfigPath
+    : null;
 }
 
 function normalizeRelativePath(value: string): string {
@@ -252,6 +268,7 @@ export function buildInitLayoutDetails(projectDir: string): {
 function buildPlannedFiles(
 	projectDir: string,
 	layoutKind: InitPlanLayoutKind,
+	textDomain: string,
 ): InitFilePlan[] {
   if (layoutKind === 'unsupported') {
     return [];
@@ -264,7 +281,9 @@ function buildPlannedFiles(
 			`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
 		),
 		...buildWordPressLintConfigFilePlans(
+			projectDir,
 			findTtscLintConfigPath(projectDir),
+			textDomain,
 			WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
 		),
 		{
@@ -312,17 +331,29 @@ function buildTtscLintCompatFilePlan(
 }
 
 function buildWordPressLintConfigFilePlans(
+  projectDir: string,
   lintConfigPath: string | null,
+  textDomain: string,
   purpose: string,
 ): InitFilePlan[] {
-  return lintConfigPath
-    ? []
-    : [{ action: 'add', path: 'lint.config.mts', purpose }];
+  if (!lintConfigPath) {
+    return [{ action: 'add', path: 'lint.config.mts', purpose }];
+  }
+  return hasPreviousManagedWordPressTtscLintConfig(lintConfigPath, textDomain)
+    ? [
+        {
+          action: 'update',
+          path: normalizeRelativePath(path.relative(projectDir, lintConfigPath)),
+          purpose,
+        },
+      ]
+    : [];
 }
 
 function buildOfficialWorkspaceLintFilePlans(
   projectDir: string,
   lintConfigPath: string | null,
+  textDomain: string,
 ): InitFilePlan[] {
   return [
     ...(hasCurrentTtscLintCompatFile(projectDir)
@@ -334,9 +365,20 @@ function buildOfficialWorkspaceLintFilePlans(
           ),
         ]),
     ...buildWordPressLintConfigFilePlans(
+      projectDir,
       lintConfigPath,
+      textDomain,
       WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
     ),
+    ...(hasPreviousManagedTtsconfig(projectDir)
+      ? [
+          {
+            action: 'update' as const,
+            path: 'tsconfig.json',
+            purpose: WORDPRESS_TTSC_TSCONFIG_PURPOSE,
+          },
+        ]
+      : []),
   ];
 }
 
@@ -454,13 +496,24 @@ export function getInitPlan(
       packageManagerFieldChange?.requiredValue,
     );
     const existingLintConfigPath = findTtscLintConfigPath(workspace.projectDir);
+    const previousManagedLintConfig =
+      hasPreviousManagedWordPressTtscLintConfig(
+        existingLintConfigPath,
+        workspace.workspace.textDomain,
+      );
     const wordpressLintIntegrated = hasWordPressTtscLintConfig(
       existingLintConfigPath,
       workspace.workspace.textDomain,
     );
+    const projectOwnedLintConfigPath = getProjectOwnedLintConfigPath(
+      existingLintConfigPath,
+      wordpressLintIntegrated,
+      previousManagedLintConfig,
+    );
     const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
       workspace.projectDir,
       existingLintConfigPath,
+      workspace.workspace.textDomain,
     );
     if (yarnPnpNodeModulesConfig) {
       rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
@@ -500,10 +553,8 @@ export function getInitPlan(
           }
         : {}),
       notes: [
-        ...(existingLintConfigPath && !wordpressLintIntegrated
-          ? [
-              buildProjectOwnedLintConfigNote(existingLintConfigPath),
-            ]
+        ...(projectOwnedLintConfigPath
+          ? [buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath)]
           : []),
         '`ttsc check --noEmit` is the combined TypeScript and JavaScript lint gate. Project-owned style and format checks remain separate.',
       ],
@@ -549,13 +600,24 @@ export function getInitPlan(
     packageManager,
     packageManagerFieldChange?.requiredValue,
   );
+  const expectedTextDomain = resolveRetrofitTextDomain({
+    blockTargets: layout.blockTargets,
+    packageJson,
+    projectDir: resolvedProjectDir,
+  });
+  const previousManagedLintConfig =
+    hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      expectedTextDomain,
+    );
   const rawPlannedFiles: InitFilePlan[] =
 		hasExistingSurface
       ? buildOfficialWorkspaceLintFilePlans(
           resolvedProjectDir,
           existingLintConfigPath,
+          expectedTextDomain,
         )
-      : buildPlannedFiles(resolvedProjectDir, layout.kind);
+      : buildPlannedFiles(resolvedProjectDir, layout.kind, expectedTextDomain);
   if (yarnPnpNodeModulesConfig) {
     rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
   }
@@ -567,14 +629,14 @@ export function getInitPlan(
         'Replace the obsolete @typia/unplugin Webpack loader with @ttsc/unplugin.',
     })),
   );
-  const expectedTextDomain = resolveRetrofitTextDomain({
-    blockTargets: layout.blockTargets,
-    packageJson,
-    projectDir: resolvedProjectDir,
-  });
   const wordpressLintIntegrated = hasWordPressTtscLintConfig(
     existingLintConfigPath,
     expectedTextDomain,
+  );
+  const projectOwnedLintConfigPath = getProjectOwnedLintConfigPath(
+    existingLintConfigPath,
+    wordpressLintIntegrated,
+    previousManagedLintConfig,
   );
   const status: InitPlanStatus =
 		hasExistingSurface &&
@@ -627,9 +689,9 @@ export function getInitPlan(
 							'Webpack imports from `@typia/unplugin/webpack` will be migrated to `@ttsc/unplugin/webpack`.',
 					  ]
 					: []),
-				...(existingLintConfigPath && !wordpressLintIntegrated
+				...(projectOwnedLintConfigPath
 					? [
-							buildProjectOwnedLintConfigNote(existingLintConfigPath),
+							buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath),
 					  ]
 					: []),
 				...layout.notes,

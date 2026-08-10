@@ -10,6 +10,7 @@ import {
   buildScriptChanges,
 } from '../src/runtime/cli/cli-init-package-json.js';
 import {
+  buildPreviousManagedWordPressTtscLintConfigSource,
   buildWordPressTtscLintConfigSource,
   getTtscLintCompatSource,
   hasWordPressTtscLintConfig,
@@ -877,6 +878,54 @@ describe('wp-typia init', () => {
 			expect(changes).toContainEqual(
 				expect.objectContaining({ action: 'remove', name }),
 			);
+		}
+	});
+
+	test('preserves managed lint aliases referenced by retained scripts', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:js && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:js':
+						'node scripts/run-wp-scripts-lint-js-compat.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'format:check': legacyFormatCheck,
+					'ci:style': 'npm run lint:css',
+					'release:check': 'npm run format:check',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint' }),
+		);
+		expect(
+			changes.some((change) => change.name === 'lint:css'),
+		).toBe(false);
+		expect(
+			changes.some((change) => change.name === 'format:check'),
+		).toBe(false);
+
+		const transitivelyReferenced = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'ci:all': 'npm run lint',
+				},
+			},
+			'npm',
+		);
+		for (const name of ['lint', 'lint:ts', 'lint:css']) {
+			expect(
+				transitivelyReferenced.some((change) => change.name === name),
+			).toBe(false);
 		}
 	});
 
@@ -3070,6 +3119,71 @@ let exports;
 			/preserves an existing ttsc lint config/u,
 		);
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
+	});
+
+	test('migrates the preceding managed lint and tsconfig templates', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-managed-config-upgrade');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'managed-upgrade-domain',
+		});
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'managed-upgrade-domain',
+			),
+			'utf8',
+		);
+
+		const previousTsconfig = JSON.parse(
+			fs.readFileSync(
+				path.join(
+					import.meta.dir,
+					'fixtures',
+					'previous-managed-tsconfig.json',
+				),
+				'utf8',
+			),
+		) as {
+			compilerOptions: Record<string, unknown>;
+			include: string[];
+		};
+		fs.writeFileSync(
+			path.join(projectDir, 'tsconfig.json'),
+			`${JSON.stringify(previousTsconfig, null, 2)}\n`,
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).not.toContain(
+			'project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'update', path: 'lint.config.ts' }),
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'update', path: 'tsconfig.json' }),
+		);
+
+		await applyInitPlan(projectDir);
+		const nextLintConfig = fs.readFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			'utf8',
+		);
+		expect(nextLintConfig).toBe(
+			buildWordPressTtscLintConfigSource('managed-upgrade-domain'),
+		);
+		const nextTsconfig = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'tsconfig.json'), 'utf8'),
+		) as {
+			compilerOptions: { allowJs?: boolean };
+			include: string[];
+		};
+		expect(nextTsconfig.compilerOptions.allowJs).toBe(true);
+		expect(nextTsconfig.include).toEqual(
+			expect.arrayContaining(['*.js', '*.jsx', '*.cjs', '*.mjs']),
+		);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
 	});
 
 	test('does not discover unsupported JSON lint configs', async () => {

@@ -58,6 +58,63 @@ const LEGACY_LINT_SCRIPT_NAMES = [
   'lint:css',
   'format:check',
 ] as const;
+const MANAGED_LINT_SCRIPT_NAMES = [
+  'lint',
+  ...LEGACY_LINT_SCRIPT_NAMES,
+] as const;
+
+function findReferencedManagedLintScripts(
+  scripts: Readonly<Record<string, string>>,
+): Set<string> {
+  const managedNames = new Set<string>(MANAGED_LINT_SCRIPT_NAMES);
+  const referenced = new Set<string>();
+
+  for (const [scriptName, command] of Object.entries(scripts)) {
+    if (managedNames.has(scriptName)) {
+      continue;
+    }
+    for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
+      if (hasPackageRunScriptInvocation(command, managedName)) {
+        referenced.add(managedName);
+      }
+    }
+  }
+
+  let discoveredReference = true;
+  while (discoveredReference) {
+    discoveredReference = false;
+    for (const scriptName of Array.from(referenced)) {
+      const command = scripts[scriptName];
+      if (typeof command !== 'string') {
+        continue;
+      }
+      for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
+        if (
+          !referenced.has(managedName) &&
+          hasPackageRunScriptInvocation(command, managedName)
+        ) {
+          referenced.add(managedName);
+          discoveredReference = true;
+        }
+      }
+    }
+  }
+
+  return referenced;
+}
+
+function shouldRemoveManagedLintScript(
+  canRemoveManagedAliases: boolean,
+  referencedManagedScripts: ReadonlySet<string>,
+  scriptName: (typeof MANAGED_LINT_SCRIPT_NAMES)[number],
+  recognizedManagedCommand: boolean,
+): boolean {
+  return (
+    canRemoveManagedAliases &&
+    !referencedManagedScripts.has(scriptName) &&
+    recognizedManagedCommand
+  );
+}
 
 const BASE_RETROFIT_DEV_DEPENDENCIES = [
   '@ttsc/lint',
@@ -436,6 +493,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
   packageManager: PackageManagerId,
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
+  const referencedManagedScripts = findReferencedManagedLintScripts(scripts);
   const postinstallCommand = transformPackageManagerText(
     BASE_RETROFIT_SCRIPTS.postinstall,
     packageManager,
@@ -522,7 +580,12 @@ export function buildOfficialWorkspaceLintScriptChanges(
     !hasManagedLintInvocation || hasRemovableManagedLintCommand;
   if (
     typeof legacyLint === 'string' &&
-    hasRemovableManagedLintCommand
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint',
+      hasRemovableManagedLintCommand,
+    )
   ) {
     let remaining = legacyLint;
     for (const name of LEGACY_LINT_SCRIPT_NAMES) {
@@ -553,7 +616,14 @@ export function buildOfficialWorkspaceLintScriptChanges(
       });
     }
   }
-  if (canRemoveManagedAliases && hasTtscNoEmitLintCommand(scripts['lint:ts'])) {
+  if (
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:ts',
+      hasTtscNoEmitLintCommand(scripts['lint:ts']),
+    )
+  ) {
     changes.push({
       action: 'remove',
       currentValue: scripts['lint:ts'],
@@ -563,8 +633,12 @@ export function buildOfficialWorkspaceLintScriptChanges(
   // Only delete the exact helper command that wp-typia owned. Variants may
   // contain project behavior and must remain under the project's control.
   if (
-    canRemoveManagedAliases &&
-    scripts['lint:js'] === LEGACY_LINT_JS_COMMAND
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:js',
+      scripts['lint:js'] === LEGACY_LINT_JS_COMMAND,
+    )
   ) {
     changes.push({
       action: 'remove',
@@ -572,14 +646,30 @@ export function buildOfficialWorkspaceLintScriptChanges(
       name: 'lint:js',
     });
   }
-  if (canRemoveManagedAliases && legacyStyleCommand) {
+  if (
+    legacyStyleCommand !== undefined &&
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:css',
+      true,
+    )
+  ) {
     changes.push({
       action: 'remove',
       currentValue: legacyStyleCommand,
       name: 'lint:css',
     });
   }
-  if (canRemoveManagedAliases && legacyFormatCommand) {
+  if (
+    legacyFormatCommand !== undefined &&
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'format:check',
+      true,
+    )
+  ) {
     changes.push({
       action: 'remove',
       currentValue: legacyFormatCommand,
