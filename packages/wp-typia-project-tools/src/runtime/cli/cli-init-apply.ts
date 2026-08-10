@@ -67,6 +67,7 @@ async function writeRetrofitFiles(options: {
   helperFiles: Record<string, string>;
   packageJson: ProjectPackageJson;
   projectDir: string;
+  removedFiles: string[];
   webpackChanges: RetrofitWebpackChange[];
   yarnPnpNodeModulesConfig: ReturnType<typeof getYarnPnpNodeModulesConfig>;
 }): Promise<void> {
@@ -85,6 +86,9 @@ async function writeRetrofitFiles(options: {
       source,
       'utf8',
     );
+  }
+  for (const relativePath of options.removedFiles) {
+    await fsp.rm(path.join(options.projectDir, relativePath), { force: true });
   }
   for (const change of options.webpackChanges) {
     await fsp.writeFile(
@@ -222,6 +226,9 @@ export async function applyInitPlan(
     previewPlan.packageManager,
     previewPlan.packageChanges.packageManagerField?.requiredValue,
   );
+  const removedFiles = previewPlan.plannedFiles
+		.filter((file) => file.action === 'remove')
+		.map((file) => file.path);
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
 		...Object.keys(helperFiles).map((relativePath) =>
@@ -229,6 +236,9 @@ export async function applyInitPlan(
 		),
 		...webpackChanges.map((change) =>
 			path.join(previewPlan.projectDir, change.path),
+		),
+		...removedFiles.map((relativePath) =>
+			path.join(previewPlan.projectDir, relativePath),
 		),
 		...(yarnPnpNodeModulesConfig ? [yarnPnpNodeModulesConfig.path] : []),
 	];
@@ -242,6 +252,7 @@ export async function applyInitPlan(
       helperFiles,
       packageJson: nextPackageJson,
       projectDir: previewPlan.projectDir,
+      removedFiles,
       webpackChanges,
       yarnPnpNodeModulesConfig,
     });

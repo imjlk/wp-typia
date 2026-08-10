@@ -137,6 +137,63 @@ function convertEndpointManifestTypeOnlyBindingToRuntime(
   )}`;
 }
 
+function convertEndpointManifestClauseTypeOnlyBindingToRuntime(
+  source: string,
+  sourceFile: ts.SourceFile,
+  statement: ts.ImportDeclaration,
+  namedImports: ts.NamedImports,
+): string {
+  const typeOnlyBinding = namedImports.elements.find(
+    (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
+  );
+  if (!typeOnlyBinding) {
+    return source;
+  }
+
+  const importClause = statement.importClause;
+  if (!importClause) {
+    return source;
+  }
+  if (namedImports.elements.length === 1 && !importClause.name) {
+    const importClauseStart = importClause.getStart(sourceFile);
+    const namedImportsStart = namedImports.getStart(sourceFile);
+    return `${source.slice(0, importClauseStart)}${source.slice(
+      namedImportsStart,
+    )}`;
+  }
+
+  const bindingIndex = namedImports.elements.indexOf(typeOnlyBinding);
+  const previousBinding = namedImports.elements[bindingIndex - 1];
+  const nextBinding = namedImports.elements[bindingIndex + 1];
+  const removingOnlyNamedBinding =
+    namedImports.elements.length === 1 && importClause.name !== undefined;
+  const removeStart = removingOnlyNamedBinding
+    ? importClause.name.getEnd()
+    : nextBinding
+      ? typeOnlyBinding.getStart(sourceFile)
+      : (previousBinding?.getEnd() ?? typeOnlyBinding.getStart(sourceFile));
+  const removeEnd = removingOnlyNamedBinding
+    ? namedImports.getEnd()
+    : nextBinding
+      ? nextBinding.getStart(sourceFile)
+      : typeOnlyBinding.getEnd();
+  const runtimeSpecifier = source.slice(
+    typeOnlyBinding.getStart(sourceFile),
+    typeOnlyBinding.getEnd(),
+  );
+  const lineEnding = detectSourceLineEnding(source);
+  const runtimeImport =
+    `import { ${runtimeSpecifier} } from '${METADATA_CORE_MODULE}';`;
+  const remainingSource = `${source.slice(0, removeStart)}${source.slice(
+    removeEnd,
+  )}`;
+  const statementStart = statement.getStart(sourceFile);
+  return `${remainingSource.slice(
+    0,
+    statementStart,
+  )}${runtimeImport}${lineEnding}${remainingSource.slice(statementStart)}`;
+}
+
 export function ensureBlockConfigCanAddRestManifests(source: string): string {
   const importLine =
 		`import { ${ENDPOINT_MANIFEST_IMPORT} } from '${METADATA_CORE_MODULE}';`;
@@ -149,6 +206,9 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
   );
   let mergeCandidate: ts.NamedImports | undefined;
   let typeOnlyCandidate: ts.NamedImports | undefined;
+  let clauseTypeOnlyCandidate:
+    | { namedImports: ts.NamedImports; statement: ts.ImportDeclaration }
+    | undefined;
 
   for (const statement of sourceFile.statements) {
     if (
@@ -161,12 +221,18 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
 
     const importClause = statement.importClause;
     const namedBindings = importClause?.namedBindings;
-    if (
-      !importClause ||
-      importClause.isTypeOnly ||
-      !namedBindings ||
-      !ts.isNamedImports(namedBindings)
-    ) {
+    if (!importClause || !namedBindings || !ts.isNamedImports(namedBindings)) {
+      continue;
+    }
+
+    if (importClause.isTypeOnly) {
+      if (
+        namedBindings.elements.some(
+          (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
+        )
+      ) {
+        clauseTypeOnlyCandidate ??= { namedImports: namedBindings, statement };
+      }
       continue;
     }
 
@@ -193,6 +259,14 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
       source,
       sourceFile,
       typeOnlyCandidate,
+    );
+  }
+  if (clauseTypeOnlyCandidate) {
+    return convertEndpointManifestClauseTypeOnlyBindingToRuntime(
+      source,
+      sourceFile,
+      clauseTypeOnlyCandidate.statement,
+      clauseTypeOnlyCandidate.namedImports,
     );
   }
   if (mergeCandidate) {

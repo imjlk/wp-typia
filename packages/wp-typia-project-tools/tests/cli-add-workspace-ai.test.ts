@@ -45,6 +45,48 @@ test('REST manifest support repairs unusual metadata-core named imports', () => 
     "import { defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n",
   );
 
+  const clauseTypeOnlySource =
+    "import type { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(clauseTypeOnlySource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const compactClauseTypeOnlySource =
+    "import /* keep type context */ type{ defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(compactClauseTypeOnlySource)).toBe(
+    "import /* keep type context */ { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const defaultClauseTypeOnlySource =
+    "import type MetadataCore, { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(defaultClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type MetadataCore from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const mixedClauseTypeOnlySource =
+    "import type { MetadataCoreOptions, defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(mixedClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type { MetadataCoreOptions } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const middleClauseTypeOnlySource =
+    "import type { MetadataCoreOptions, defineEndpointManifest, RuntimeOptions } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(middleClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type { MetadataCoreOptions, RuntimeOptions } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
   const commentedEmptySource = [
     'import {',
     '  /* generated imports */',

@@ -27,6 +27,7 @@ import {
 } from './cli-init-package-json.js';
 import {
   findTtscLintConfigPath,
+  getManagedLintConfigOutputFilename,
   hasCurrentTtscLintCompatFile,
   hasPreviousManagedTtsconfig,
   hasPreviousManagedWordPressTtscLintConfig,
@@ -339,15 +340,23 @@ function buildWordPressLintConfigFilePlans(
   if (!lintConfigPath) {
     return [{ action: 'add', path: 'lint.config.mts', purpose }];
   }
-  return hasPreviousManagedWordPressTtscLintConfig(lintConfigPath, textDomain)
-    ? [
+  if (!hasPreviousManagedWordPressTtscLintConfig(lintConfigPath, textDomain)) {
+    return [];
+  }
+  const currentPath = normalizeRelativePath(
+    path.relative(projectDir, lintConfigPath),
+  );
+  const outputPath = getManagedLintConfigOutputFilename(lintConfigPath, true);
+  return currentPath === outputPath
+    ? [{ action: 'update', path: currentPath, purpose }]
+    : [
         {
-          action: 'update',
-          path: normalizeRelativePath(path.relative(projectDir, lintConfigPath)),
-          purpose,
+          action: 'remove',
+          path: currentPath,
+          purpose: 'Remove the superseded managed lint config.',
         },
-      ]
-    : [];
+        { action: 'add', path: outputPath, purpose },
+      ];
 }
 
 function buildOfficialWorkspaceLintFilePlans(

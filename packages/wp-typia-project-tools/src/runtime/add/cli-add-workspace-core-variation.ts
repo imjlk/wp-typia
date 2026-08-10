@@ -18,7 +18,11 @@ import {
   resolveEditorPluginRegistryPath,
   writeEditorPluginRegistry,
 } from './cli-add-workspace-editor-plugin.js';
-import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
+import {
+  collectGeneratedTypeScriptModulePaths,
+  isGeneratedTypeScriptModuleFilename,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
 import { pathExists } from '../shared/fs-async.js';
 import {
   toCollisionSafeCamelCase,
@@ -527,13 +531,13 @@ async function readCoreVariationModuleRefs(
         withFileTypes: true,
       });
       for (const variationEntry of variationEntries) {
-        if (!variationEntry.isFile() || !variationEntry.name.endsWith('.ts')) {
+        if (
+          !variationEntry.isFile() ||
+          !isGeneratedTypeScriptModuleFilename(variationEntry.name)
+        ) {
           continue;
         }
         const variationSlug = variationEntry.name.replace(/\.ts$/u, '');
-        if (variationSlug === 'index') {
-          continue;
-        }
 
         refs.push({
           targetBlockName: `${namespaceEntry.name}/${blockEntry.name}`,
@@ -557,7 +561,7 @@ async function buildCoreVariationIndexSource(
   const bindings = await Promise.all(
     refs.map(async (ref) => ({
       ref,
-      variationConstName: await resolveGeneratedExportedConstName(
+      variationConstName: await resolveAndMigrateGeneratedExportedConstName(
         getCoreVariationFilePath(
           projectDir,
           ref.targetBlockName,
@@ -730,6 +734,8 @@ export async function runAddCoreVariationCommand({
 		!shouldRemoveCoreVariationsDir &&
 		!shouldRemoveTargetNamespaceDir &&
 		!(await pathExists(targetBlockDir));
+  const existingCoreVariationModulePaths =
+    await collectGeneratedTypeScriptModulePaths(coreVariationsDir, true);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			bootstrapPath,
@@ -737,6 +743,7 @@ export async function runAddCoreVariationCommand({
 			editorPluginsIndexPath,
 			webpackConfigPath,
 			coreVariationsIndexPath,
+			...existingCoreVariationModulePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

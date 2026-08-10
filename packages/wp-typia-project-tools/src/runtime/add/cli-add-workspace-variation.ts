@@ -14,7 +14,11 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
-import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
+import {
+  collectGeneratedTypeScriptModulePaths,
+  isGeneratedTypeScriptModuleFilename,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -77,7 +81,7 @@ async function getVariationConstBindings(
 
   const bindings = await Promise.all(
     variationSlugs.map(async (variationSlug) => ({
-      constName: await resolveGeneratedExportedConstName(
+      constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(variationsDir, `${variationSlug}.ts`),
         [
           buildVariationConstName(variationSlug),
@@ -183,7 +187,7 @@ async function writeVariationRegistry(
   await fsp.mkdir(variationsDir, { recursive: true });
 
   const existingVariationSlugs = (await fsp.readdir(variationsDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+		.filter(isGeneratedTypeScriptModuleFilename)
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextVariationSlugs = Array.from(new Set([...existingVariationSlugs, variationSlug])).sort();
   const variationBindings = await getVariationConstBindings(
@@ -263,11 +267,14 @@ export async function runAddVariationCommand({
   const shouldRemoveVariationsDirOnRollback = !(await pathExists(
     variationsDir,
   ));
+  const existingVariationModulePaths =
+    await collectGeneratedTypeScriptModulePaths(variationsDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			variationsIndexPath,
+			...existingVariationModulePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

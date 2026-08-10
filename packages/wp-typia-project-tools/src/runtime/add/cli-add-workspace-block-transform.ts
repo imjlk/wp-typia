@@ -18,7 +18,11 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-registration-hooks.js';
-import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
+import {
+  collectGeneratedTypeScriptModulePaths,
+  isGeneratedTypeScriptModuleFilename,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -68,7 +72,7 @@ async function getBlockTransformConstBindings(
 
   const bindings = await Promise.all(
     transformSlugs.map(async (transformSlug) => ({
-      constName: await resolveGeneratedExportedConstName(
+      constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(transformsDir, `${transformSlug}.ts`),
         [
           buildWorkspaceConstName('BlockTransform', transformSlug),
@@ -190,7 +194,7 @@ async function writeBlockTransformRegistry(
   await fsp.mkdir(transformsDir, { recursive: true });
 
   const existingTransformSlugs = (await fsp.readdir(transformsDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+		.filter(isGeneratedTypeScriptModuleFilename)
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextTransformSlugs = Array.from(
 		new Set([...existingTransformSlugs, transformSlug]),
@@ -288,11 +292,14 @@ export async function runAddBlockTransformCommand({
   const shouldRemoveTransformsDirOnRollback = !(await pathExists(
     transformsDir,
   ));
+  const existingTransformModulePaths =
+    await collectGeneratedTypeScriptModulePaths(transformsDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			transformsIndexPath,
+			...existingTransformModulePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

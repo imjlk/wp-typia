@@ -87,14 +87,23 @@ function isManagedCheckCodeCommand(command: string | undefined): boolean {
   );
 }
 
-function isManagedCheckAggregate(
+function isManagedCheckAggregateSubset(
   command: string | undefined,
   laneNames: readonly string[],
 ): boolean {
-  return PACKAGE_MANAGER_IDS.some(
-    (packageManager) =>
-      command === buildManagedCheckAggregate(laneNames, packageManager),
-  );
+  if (!command) {
+    return false;
+  }
+  const subsetCount = 1 << laneNames.length;
+  return PACKAGE_MANAGER_IDS.some((packageManager) => {
+    for (let mask = 1; mask < subsetCount; mask += 1) {
+      const subset = laneNames.filter((_, index) => (mask & (1 << index)) !== 0);
+      if (command === buildManagedCheckAggregate(subset, packageManager)) {
+        return true;
+      }
+    }
+    return false;
+  });
 }
 
 function findReferencedManagedLintScripts(
@@ -352,6 +361,62 @@ function containsOnlyShellComments(command: string): boolean {
   });
 }
 
+function hasTopLevelFallbackOperator(command: string): boolean {
+  let escaped = false;
+  let quote: "'" | '"' | '`' | null = null;
+  let groupingDepth = 0;
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command.charAt(index);
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      quote = character;
+      continue;
+    }
+    if (
+      character === '#' &&
+      (index === 0 || /[\s;&|(){}]/u.test(command[index - 1]))
+    ) {
+      const lineEnd = command.indexOf('\n', index + 1);
+      if (lineEnd === -1) {
+        return false;
+      }
+      index = lineEnd;
+      continue;
+    }
+    // Parenthesis depth also covers $() command substitution and ((...))
+    // arithmetic expansion. Backtick substitutions are handled as quotes.
+    if (character === '(' || character === '{') {
+      groupingDepth += 1;
+      continue;
+    }
+    if (character === ')' || character === '}') {
+      groupingDepth = Math.max(0, groupingDepth - 1);
+      continue;
+    }
+    if (
+      groupingDepth === 0 &&
+      character === '|' &&
+      command.charAt(index + 1) === '|'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function prependRequiredCommands(
   currentValue: string | undefined,
   requiredCommands: readonly string[],
@@ -363,9 +428,12 @@ function prependRequiredCommands(
   if (requiredCommands.length === 0) {
     return currentValue;
   }
+  const projectOwnedCommand = hasTopLevelFallbackOperator(currentValue)
+    ? `(${currentValue})`
+    : currentValue;
   return containsOnlyShellComments(currentValue)
     ? `${requiredValue} ${currentValue.trimStart()}`
-    : `${requiredValue}${SHELL_AND_SEPARATOR}${currentValue}`;
+    : `${requiredValue}${SHELL_AND_SEPARATOR}${projectOwnedCommand}`;
 }
 
 function mergePostinstallCommand(
@@ -591,7 +659,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
       (lane) => !hasPackageRunScriptCommand(currentCheck, lane.name),
     )
     .map(({ command }) => command);
-  const requiredCheck = isManagedCheckAggregate(
+  const requiredCheck = isManagedCheckAggregateSubset(
     currentCheck,
     requiredCheckLanes,
   )

@@ -136,6 +136,7 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(smokeScript).toContain("packageManager === 'npm'");
   expect(smokeScript).toContain('Expected npm scaffolds to omit packageManager');
   expect(exampleHelper).toContain('ensureCopiedExampleSupportDependencies');
+  expect(exampleHelper).toContain('apply-ttsc-lint-compat.mjs.mustache');
   expect(exampleHelper).toContain('formatCopiedExampleConfigFiles');
   expect(exampleHelper).toContain('runExampleProjectSmoke');
   expect(exampleHelper).toContain('shouldRunMigrationSmoke');
@@ -187,6 +188,72 @@ test('generated project smoke script supports a reference example lane', () => {
   );
   expect(referenceReadme).toContain('bun run check:code');
   expect(referenceReadme).not.toContain('bun run typecheck');
+});
+
+test('reference example copies pin and apply the standalone lint repair', async () => {
+  const projectDir = fs.mkdtempSync(
+    join(os.tmpdir(), 'wp-typia-reference-lint-repair-'),
+  );
+  tempDirs.push(projectDir);
+  fs.writeFileSync(
+    join(projectDir, 'package.json'),
+    `${JSON.stringify(
+      {
+        devDependencies: { '@ttsc/lint': '^0.26.1' },
+        scripts: {
+          postinstall:
+            'echo node scripts/apply-ttsc-lint-compat.mjs || true',
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+
+  const helper = await import(
+    new URL(
+      '../../scripts/lib/generated-project-smoke-example.mjs',
+      import.meta.url,
+    ).href
+  );
+  helper.ensureCopiedExampleSupportDependencies(projectDir);
+
+  const rootPackageJson = JSON.parse(
+    fs.readFileSync(join(repoRoot, 'package.json'), 'utf8'),
+  ) as { devDependencies: Record<string, string> };
+  const packageJson = JSON.parse(
+    fs.readFileSync(join(projectDir, 'package.json'), 'utf8'),
+  ) as {
+    devDependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+  expect(packageJson.devDependencies['@ttsc/lint']).toBe(
+    rootPackageJson.devDependencies['@ttsc/lint'],
+  );
+  expect(packageJson.scripts.postinstall).toBe(
+    '(echo node scripts/apply-ttsc-lint-compat.mjs || true) && node scripts/apply-ttsc-lint-compat.mjs',
+  );
+  expect(
+    fs.readFileSync(
+      join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
+      'utf8',
+    ),
+  ).toBe(
+    fs.readFileSync(
+      join(
+        repoRoot,
+        'packages',
+        'wp-typia-project-tools',
+        'templates',
+        '_shared',
+        'base',
+        'scripts',
+        'apply-ttsc-lint-compat.mjs.mustache',
+      ),
+      'utf8',
+    ),
+  );
 });
 
 test('reference example workspaces retain shared asset module declarations', async () => {

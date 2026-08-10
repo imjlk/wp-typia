@@ -42,7 +42,6 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
       }
     }
 `;
-const TTSC_LINT_BUFFER_TARGET_PATTERN = /    for \(const entry of fs\.readdirSync\(location, \{\n      encoding: "buffer",\n      withFileTypes: true,\n    \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);\n      if \(entry\.isSymbolicLink\(\)\) \{\n        try \{\n          target = fs\.readlinkSync\(/gu;
 const UNPATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
       encoding: "buffer",
       withFileTypes: true,
@@ -59,7 +58,6 @@ const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(
       if (entry.isSymbolicLink()) {
         try {
           target = fs.readlinkSync(`;
-const TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN = /  if \(process\.platform === "win32"\) \{\n    for \(const entry of fs\.readdirSync\(location, \{ withFileTypes: true \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);/gu;
 const UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
       let target = Buffer.alloc(0);`;
@@ -67,6 +65,38 @@ const PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win
     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
       let target: Buffer = Buffer.alloc(0);`;
 let tempDirs: string[] = [];
+
+function normalizeTtscLintBufferTargets(source: string): string {
+  let normalized = source;
+  for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
+    const functionStart = normalized.indexOf(`function ${functionName}(`);
+    const functionEnd = normalized.indexOf(
+      `function ${functionName}Record(`,
+      functionStart,
+    );
+    if (functionStart === -1 || functionEnd === -1) {
+      throw new Error(`Unable to locate ${functionName} compatibility scope.`);
+    }
+    const functionSource = normalized.slice(functionStart, functionEnd);
+    const targetPattern =
+      /let target(?:\s*:\s*[^=\n]+)?\s*=\s*Buffer\.alloc\(0\);/gu;
+    const targetCount = functionSource.match(targetPattern)?.length ?? 0;
+    if (targetCount !== 2) {
+      throw new Error(
+        `Expected two target buffers in ${functionName}, found ${targetCount}.`,
+      );
+    }
+    const normalizedFunction = functionSource.replace(
+      targetPattern,
+      'let target = Buffer.alloc(0);',
+    );
+    normalized = `${normalized.slice(
+      0,
+      functionStart,
+    )}${normalizedFunction}${normalized.slice(functionEnd)}`;
+  }
+  return normalized;
+}
 
 afterEach(() => {
   for (const tempDir of tempDirs) {
@@ -278,15 +308,8 @@ export type Inferred<Value> =
     );
     const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
     const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
-    const unpatchedIndexSource = patchedIndexSource
-      .replace(
-        TTSC_LINT_BUFFER_TARGET_PATTERN,
-        UNPATCHED_TTSC_LINT_BUFFER_TARGET,
-      )
-      .replace(
-        TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN,
-        UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
-      );
+    const unpatchedIndexSource =
+      normalizeTtscLintBufferTargets(patchedIndexSource);
     writeText(lintIndexPath, unpatchedIndexSource);
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {

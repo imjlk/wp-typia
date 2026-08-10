@@ -1043,7 +1043,7 @@ test('variation workflow keeps registry identifiers unique for similar slugs', a
   runCli('npm', ['run', 'build'], { cwd: targetDir });
 }, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
 
-test('add workflows preserve historical generated registry identifiers', async () => {
+test('add workflows migrate historical generated registry identifiers', async () => {
   const targetDir = path.join(
     tempRoot,
     'demo-workspace-add-historical-registry-identifiers',
@@ -1156,12 +1156,12 @@ test('add workflows preserve historical generated registry identifiers', async (
     const source = fs.readFileSync(historicalModule.filePath, 'utf8');
     fs.writeFileSync(
       historicalModule.filePath,
-      replaceFixtureSource(
+      `${replaceFixtureSource(
         source,
         historicalModule.managedName,
         historicalModule.historicalName,
         `historical export ${historicalModule.historicalName}`,
-      ),
+      )}\nexport default ${historicalModule.historicalName};\nexport const compatibilityShape = { ${historicalModule.historicalName} };\n`,
       'utf8',
     );
   }
@@ -1242,8 +1242,24 @@ test('add workflows preserve historical generated registry identifiers', async (
     ),
   ];
   for (const [index, historicalModule] of historicalModules.entries()) {
-    expect(registrySources[index]).toContain(historicalModule.historicalName);
-    expect(registrySources[index]).not.toContain(historicalModule.managedName);
+    expect(registrySources[index]).toContain(historicalModule.managedName);
+    expect(registrySources[index]).not.toContain(
+      historicalModule.historicalName,
+    );
+    const migratedModuleSource = fs.readFileSync(
+      historicalModule.filePath,
+      'utf8',
+    );
+    expect(migratedModuleSource).toContain(historicalModule.managedName);
+    expect(migratedModuleSource).toContain(
+      `export default ${historicalModule.managedName};`,
+    );
+    expect(migratedModuleSource).toContain(
+      `${historicalModule.historicalName}: ${historicalModule.managedName}`,
+    );
+    expect(migratedModuleSource).not.toContain(
+      `export const ${historicalModule.historicalName}`,
+    );
   }
 }, 60_000);
 

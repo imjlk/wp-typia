@@ -45,13 +45,13 @@ function normalizeLineEndings(source: string): string {
   return source.replace(/\r\n/gu, '\n');
 }
 
-function getManagedLintConfigOutputFilename(
+export function getManagedLintConfigOutputFilename(
   existingLintConfigPath: string | null,
   previousManagedLintConfig: boolean,
 ): string {
   if (previousManagedLintConfig && existingLintConfigPath) {
     const basename = path.basename(existingLintConfigPath);
-    if (/\.(?:c|m)?ts$/u.test(basename)) {
+    if (/\.mts$/u.test(basename)) {
       return basename;
     }
   }

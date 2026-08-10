@@ -1061,6 +1061,73 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('isolates project-owned fallback chains from managed checks', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'echo optional || true',
+					'check:code': 'eslint src || true',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						'npm run sync -- --check && ttsc check --noEmit && (eslint src || true)',
+			}),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'check',
+				requiredValue: 'npm run check:code && (echo optional || true)',
+			}),
+		);
+	});
+
+	test('does not treat fallback operators inside substitutions as top level', () => {
+		for (const currentValue of [
+			'echo "$(false || echo recovered)"',
+			'echo $(false || echo recovered)',
+			'echo `false || echo recovered`',
+		]) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{ scripts: { 'check:code': currentValue } },
+				'npm',
+			);
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						`npm run sync -- --check && ttsc check --noEmit && ${currentValue}`,
+				}),
+			);
+		}
+	});
+
+	test('normalizes managed check subsets before adding discovered lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'lint:css': 'stylelint custom/**/*.scss',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'check',
+				requiredValue: 'npm run check:code && npm run check:style',
+			}),
+		);
+	});
+
 	test('migrates customized legacy style and format lanes without orphaning them', () => {
 		const customStyle = 'stylelint custom/**/*.scss';
 		const customFormat = 'prettier --check custom-config.yml';
@@ -3255,15 +3322,19 @@ let exports;
 			'project-owned and will not be overwritten',
 		);
 		expect(preview.plannedFiles).toContainEqual(
-			expect.objectContaining({ action: 'update', path: 'lint.config.ts' }),
+			expect.objectContaining({ action: 'remove', path: 'lint.config.ts' }),
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'add', path: 'lint.config.mts' }),
 		);
 		expect(preview.plannedFiles).toContainEqual(
 			expect.objectContaining({ action: 'update', path: 'tsconfig.json' }),
 		);
 
 		await applyInitPlan(projectDir);
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(false);
 		const nextLintConfig = fs.readFileSync(
-			path.join(projectDir, 'lint.config.ts'),
+			path.join(projectDir, 'lint.config.mts'),
 			'utf8',
 		);
 		expect(nextLintConfig).toBe(

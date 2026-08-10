@@ -66,7 +66,7 @@ export type StructuredInitPlan = {
     >;
   };
   plannedFiles: Array<{
-    action: 'add' | 'update';
+    action: 'add' | 'remove' | 'update';
     path: string;
     purpose: string;
   }>;

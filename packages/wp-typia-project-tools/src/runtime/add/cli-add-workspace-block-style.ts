@@ -14,7 +14,11 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
-import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
+import {
+  collectGeneratedTypeScriptModulePaths,
+  isGeneratedTypeScriptModuleFilename,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
@@ -55,7 +59,7 @@ async function getBlockStyleConstBindings(
 
   const bindings = await Promise.all(
     styleSlugs.map(async (styleSlug) => ({
-      constName: await resolveGeneratedExportedConstName(
+      constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(stylesDir, `${styleSlug}.ts`),
         [
           buildWorkspaceConstName('BlockStyle', styleSlug),
@@ -139,7 +143,7 @@ async function writeBlockStyleRegistry(
   await fsp.mkdir(stylesDir, { recursive: true });
 
   const existingStyleSlugs = (await fsp.readdir(stylesDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+		.filter(isGeneratedTypeScriptModuleFilename)
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextStyleSlugs = Array.from(new Set([...existingStyleSlugs, styleSlug])).sort();
   const styleBindings = await getBlockStyleConstBindings(
@@ -217,11 +221,14 @@ export async function runAddBlockStyleCommand({
   const styleFilePath = path.join(stylesDir, `${styleSlug}.ts`);
   const stylesIndexPath = path.join(stylesDir, 'index.ts');
   const shouldRemoveStylesDirOnRollback = !(await pathExists(stylesDir));
+  const existingStyleModulePaths =
+    await collectGeneratedTypeScriptModulePaths(stylesDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			stylesIndexPath,
+			...existingStyleModulePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [
