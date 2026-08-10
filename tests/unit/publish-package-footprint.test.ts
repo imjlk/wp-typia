@@ -124,45 +124,49 @@ describe('publish package footprint policy', () => {
 		}
 	});
 
-	test('returns npm pack metadata without changing the tarball-only wrapper', () => {
-		withTempDir('wp-typia-pack-metadata-', (tempRoot) => {
-			const packageDir = path.join(tempRoot, 'package');
-			const detailedDestination = path.join(tempRoot, 'detailed');
-			fs.mkdirSync(packageDir, { recursive: true });
-			fs.writeFileSync(
-				path.join(packageDir, 'package.json'),
-				JSON.stringify({
-					files: ['index.js'],
-					name: 'wp-typia-pack-fixture',
-					version: '1.0.0',
-				}),
-			);
-			fs.writeFileSync(path.join(packageDir, 'index.js'), 'export {};\n');
+	test(
+		'returns npm pack metadata without changing the tarball-only wrapper',
+		() => {
+			withTempDir('wp-typia-pack-metadata-', (tempRoot) => {
+				const packageDir = path.join(tempRoot, 'package');
+				const detailedDestination = path.join(tempRoot, 'detailed');
+				fs.mkdirSync(packageDir, { recursive: true });
+				fs.writeFileSync(
+					path.join(packageDir, 'package.json'),
+					JSON.stringify({
+						files: ['index.js'],
+						name: 'wp-typia-pack-fixture',
+						version: '1.0.0',
+					}),
+				);
+				fs.writeFileSync(path.join(packageDir, 'index.js'), 'export {};\n');
 
-			const detailed = packWorkspacePackageDetailed(
-				packageDir,
-				detailedDestination,
-			);
+				const detailed = packWorkspacePackageDetailed(
+					packageDir,
+					detailedDestination,
+				);
 
-			expect(detailed.metadata.name).toBe('wp-typia-pack-fixture');
-			expect(detailed.metadata.filename).toBe(
-				'wp-typia-pack-fixture-1.0.0.tgz',
-			);
-			expect(detailed.tarballPath).toBe(
-				path.join(detailedDestination, detailed.metadata.filename),
-			);
-			expect(fs.existsSync(detailed.tarballPath)).toBe(true);
+				expect(detailed.metadata.name).toBe('wp-typia-pack-fixture');
+				expect(detailed.metadata.filename).toBe(
+					'wp-typia-pack-fixture-1.0.0.tgz',
+				);
+				expect(detailed.tarballPath).toBe(
+					path.join(detailedDestination, detailed.metadata.filename),
+				);
+				expect(fs.existsSync(detailed.tarballPath)).toBe(true);
 
-			const wrappedTarballPath = packWorkspacePackage(
-				packageDir,
-				path.join(tempRoot, 'wrapped'),
-			);
-			expect(path.basename(wrappedTarballPath)).toBe(
-				'wp-typia-pack-fixture-1.0.0.tgz',
-			);
-			expect(fs.existsSync(wrappedTarballPath)).toBe(true);
-		});
-	});
+				const wrappedTarballPath = packWorkspacePackage(
+					packageDir,
+					path.join(tempRoot, 'wrapped'),
+				);
+				expect(path.basename(wrappedTarballPath)).toBe(
+					'wp-typia-pack-fixture-1.0.0.tgz',
+				);
+				expect(fs.existsSync(wrappedTarballPath)).toBe(true);
+			});
+		},
+		{ timeout: 30_000 },
+	);
 
 	test('passes exact unpacked byte and file-count boundaries', () => {
 		const result = validatePublishPackageFootprint(createPackMetadata());

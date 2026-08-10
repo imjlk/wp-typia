@@ -405,8 +405,8 @@ describe('validateFormattingToolchainPolicy', () => {
       fs
         .readFileSync(configPath, 'utf8')
         .replace(
-          'rules: {',
-          "format: { severity: 'error' },\n  rules: {",
+          '"severity":"off"',
+          '"severity":"error"',
         ),
     );
 
@@ -414,7 +414,7 @@ describe('validateFormattingToolchainPolicy', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      `${relativePath} must keep generated ttsc formatting write-only during check:code; found {"severity":"error"}, expected {"severity":"off","printWidth":80,"tabWidth":2,"useTabs":false,"semi":true,"singleQuote":true,"trailingComma":"all","endOfLine":"lf","sortImports":false,"jsDoc":false}.`,
+      `${relativePath} must keep generated ttsc formatting write-only during check:code; found {"severity":"error","printWidth":80,"tabWidth":2,"useTabs":false,"semi":true,"singleQuote":true,"trailingComma":"all","endOfLine":"lf","sortImports":false,"jsDoc":false}, expected {"severity":"off","printWidth":80,"tabWidth":2,"useTabs":false,"semi":true,"singleQuote":true,"trailingComma":"all","endOfLine":"lf","sortImports":false,"jsDoc":false}.`,
     );
   });
 
