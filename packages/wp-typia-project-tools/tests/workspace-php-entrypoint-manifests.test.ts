@@ -206,6 +206,87 @@ describe('workspace PHP entrypoint manifests', () => {
     );
   });
 
+  test('validates every manifest before migrating the workspace bootstrap', async () => {
+    const projectDir = path.join(tempRoot, 'atomic-bootstrap-migration');
+    const packageName = 'atomic-bootstrap-migration';
+    fs.mkdirSync(path.join(projectDir, 'src/blocks/example'), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(projectDir, 'inc/rest'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      `${JSON.stringify({ name: packageName })}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'src/blocks/example/server.php'),
+      '<?php\n',
+      'utf8',
+    );
+    const bootstrapPath = path.join(projectDir, `${packageName}.php`);
+    const legacyBootstrap = `<?php
+foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+\trequire_once $server_module;
+}
+`;
+    fs.writeFileSync(bootstrapPath, legacyBootstrap, 'utf8');
+    fs.writeFileSync(
+      path.join(
+        projectDir,
+        WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+      ),
+      '<?php\ncustom_bootstrap();\n',
+      'utf8',
+    );
+
+    await expect(syncWorkspacePhpEntrypoints(projectDir)).rejects.toThrow(
+      'Refusing to overwrite unmanaged PHP entrypoint manifest',
+    );
+    expect(fs.readFileSync(bootstrapPath, 'utf8')).toBe(legacyBootstrap);
+    expect(fs.existsSync(
+      path.join(
+        projectDir,
+        WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers,
+      ),
+    )).toBe(false);
+  });
+
+  test('recreates empty manifests referenced by the workspace bootstrap', async () => {
+    const projectDir = path.join(tempRoot, 'missing-manifest-directory');
+    const packageName = 'missing-manifest-directory';
+    fs.mkdirSync(projectDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      `${JSON.stringify({ name: packageName })}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, `${packageName}.php`),
+      `<?php
+require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+`,
+      'utf8',
+    );
+
+    const result = await syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['restResources'],
+    });
+    const manifestPath = path.join(
+      projectDir,
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+    );
+    expect(result.changed).toEqual([
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+    ]);
+    expect(fs.readFileSync(manifestPath, 'utf8')).toContain(
+      'No generated PHP modules are currently registered.',
+    );
+    await expect(syncWorkspacePhpEntrypoints(projectDir, {
+      check: true,
+      manifestIds: ['restResources'],
+    })).resolves.toEqual({ changed: [] });
+  });
+
   test('migrates the exact generated block server loader', async () => {
     const projectDir = path.join(tempRoot, 'legacy-block-loader');
     fs.mkdirSync(path.join(projectDir, 'src/blocks/example'), {

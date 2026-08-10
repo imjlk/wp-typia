@@ -1018,10 +1018,17 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
 
   await executeSyncCommand({ cwd: projectDir });
 
-  expect(fs.readFileSync(path.join(projectDir, `${name}.php`), 'utf8'))
-    .toContain(
+  const bootstrap = fs.readFileSync(
+    path.join(projectDir, `${name}.php`),
+    'utf8',
+  );
+  expect(bootstrap).toContain(
       "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
     );
+  expect(bootstrap).not.toMatch(/\bglob\s*\(/iu);
+  expect(bootstrap).not.toMatch(
+    /\brequire_once\s+\$server_module\b/iu,
+  );
   expect(fs.existsSync(
     path.join(projectDir, 'src/blocks/wp-typia-modules.php'),
   )).toBe(true);

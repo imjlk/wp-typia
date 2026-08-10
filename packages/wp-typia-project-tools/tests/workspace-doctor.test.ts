@@ -3012,6 +3012,33 @@ test('doctor validates orphan PHP manifests against empty inventories', async ()
     title: 'Doctor Empty PHP Inventories',
   });
   linkWorkspaceNodeModules(targetDir);
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['abilities', 'bindingSources'],
+  });
+  const baselineChecks = await getDoctorChecks(targetDir);
+  expect(
+    baselineChecks.find((check) => check.label === 'Binding bootstrap')
+      ?.status,
+  ).toBe('pass');
+  const bootstrapPath = path.join(
+    targetDir,
+    'doctor-empty-php-inventories.php',
+  );
+  const bootstrapSource = fs.readFileSync(bootstrapPath, 'utf8');
+  fs.writeFileSync(
+    bootstrapPath,
+    bootstrapSource.replace(
+      "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+      "// require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    ),
+    'utf8',
+  );
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Block server bootstrap',
+    )?.status,
+  ).toBe('fail');
+  fs.writeFileSync(bootstrapPath, bootstrapSource, 'utf8');
   for (const modulePath of [
     'src/bindings/orphan/server.php',
     'inc/abilities/orphan.php',
@@ -3024,6 +3051,10 @@ test('doctor validates orphan PHP manifests against empty inventories', async ()
   await syncWorkspacePhpEntrypoints(targetDir, {
     manifestIds: ['abilities', 'bindingSources'],
   });
+  expect(fs.readFileSync(
+    path.join(targetDir, 'inc/abilities/wp-typia-modules.php'),
+    'utf8',
+  )).toContain("require_once __DIR__ . '/orphan.php';");
 
   const checks = await getDoctorChecks(targetDir);
 

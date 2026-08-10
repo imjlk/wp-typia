@@ -2,9 +2,10 @@ import { describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { hasPhpVariableIncludeExpression } from '../src/runtime/shared/php-utils.js';
-
-const PHP_GLOB_PATTERN = /\bglob\s*\(/u;
+import {
+  hasPhpFunctionCall,
+  hasPhpVariableIncludeExpression,
+} from '../src/runtime/shared/php-utils.js';
 const LEGACY_MIGRATION_SOURCE_PATHS = new Set([
   'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-binding-source-anchors.ts',
   'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-editor-plugin-anchors.ts',
@@ -63,13 +64,25 @@ describe('generated PHP entrypoint policy', () => {
         hasPhpVariableIncludeExpression(source, {
           requirePhpOpenTag: true,
         }) ||
-        PHP_GLOB_PATTERN.test(source)
+        hasPhpFunctionCall(source, 'glob', { requirePhpOpenTag: true })
       ) {
         violations.push(relativePath);
       }
     }
 
     expect(violations).toEqual([]);
+  });
+
+  test('detects mixed-case multiline PHP glob calls', () => {
+    expect(hasPhpFunctionCall(
+      `<?php
+GLoB
+(
+	__DIR__ . '/src/*.php'
+);`,
+      'glob',
+      { requirePhpOpenTag: true },
+    )).toBe(true);
   });
 
   test('example validator loading keeps both supported build layouts literal', () => {

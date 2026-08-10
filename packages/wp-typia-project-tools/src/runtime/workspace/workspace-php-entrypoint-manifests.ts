@@ -464,8 +464,12 @@ function migrateRestSchemaHelper(
 async function migrateLegacyWorkspaceBootstrap(
   projectDir: string,
   selectedManifestIds: ReadonlySet<WorkspacePhpEntrypointManifestId> | null,
-  check: boolean,
-): Promise<string | null> {
+): Promise<{
+  bootstrapPath: string;
+  currentSource: string;
+  nextSource: string;
+  relativePath: string;
+} | null> {
   let packageJson: {
     name?: string;
     wpTypia?: { phpPrefix?: string };
@@ -559,13 +563,60 @@ async function migrateLegacyWorkspaceBootstrap(
     }
   }
 
-  if (nextSource === source) {
-    return null;
+  return {
+    bootstrapPath,
+    currentSource: source,
+    nextSource,
+    relativePath: bootstrapRelativePath,
+  };
+}
+
+async function assertMissingSourceDirectoryIsSafe(
+  projectDir: string,
+  projectRealPath: string,
+  sourceDirectory: string,
+): Promise<void> {
+  let ancestorPath = path.join(projectDir, sourceDirectory);
+  while (true) {
+    const ancestorRelativePath = path.relative(projectDir, ancestorPath);
+    if (
+      ancestorRelativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(ancestorRelativePath)
+    ) {
+      break;
+    }
+    try {
+      const ancestorStat = await fsp.lstat(ancestorPath);
+      if (ancestorStat.isSymbolicLink()) {
+        throw new Error(
+          `Cannot generate a PHP entrypoint manifest through a symbolic path: ${sourceDirectory}`,
+        );
+      }
+      const ancestorRealPath = await fsp.realpath(ancestorPath);
+      const expectedRealPath = path.resolve(
+        projectRealPath,
+        ancestorRelativePath,
+      );
+      if (ancestorRealPath !== expectedRealPath) {
+        throw new Error(
+          `Cannot generate a PHP entrypoint manifest through a symbolic path: ${sourceDirectory}`,
+        );
+      }
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
+    const parentPath = path.dirname(ancestorPath);
+    if (parentPath === ancestorPath) {
+      break;
+    }
+    ancestorPath = parentPath;
   }
-  if (!check) {
-    await writeFileAtomically(bootstrapPath, nextSource);
-  }
-  return bootstrapRelativePath;
+  throw new Error(
+    `Cannot validate the PHP entrypoint manifest path: ${sourceDirectory}`,
+  );
 }
 
 /**
@@ -584,14 +635,22 @@ export async function syncWorkspacePhpEntrypoints(
   const selectedManifestIds = options.manifestIds
     ? new Set(options.manifestIds)
     : null;
-  const migratedBootstrap = await migrateLegacyWorkspaceBootstrap(
+  const bootstrapMigration = await migrateLegacyWorkspaceBootstrap(
     projectDir,
     selectedManifestIds,
-    options.check === true,
   );
-  if (migratedBootstrap) {
-    changed.push(migratedBootstrap);
+  const bootstrapChanged = Boolean(
+    bootstrapMigration &&
+      bootstrapMigration.currentSource !== bootstrapMigration.nextSource,
+  );
+  if (bootstrapChanged && bootstrapMigration) {
+    changed.push(bootstrapMigration.relativePath);
   }
+  const manifestWrites: Array<{
+    manifestPath: string;
+    sourceDirectoryPath: string;
+    source: string;
+  }> = [];
 
   for (const descriptor of WORKSPACE_PHP_ENTRYPOINT_MANIFESTS) {
     if (selectedManifestIds !== null && !selectedManifestIds.has(
@@ -603,16 +662,19 @@ export async function syncWorkspacePhpEntrypoints(
       projectDir,
       descriptor.sourceDirectory,
     );
-    let sourceDirectoryRealPath: string;
+    let sourceDirectoryExists = true;
+    let sourceDirectoryRealPath: string | null = null;
     try {
       sourceDirectoryRealPath = await fsp.realpath(sourceDirectoryPath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        continue;
+        sourceDirectoryExists = false;
+      } else {
+        throw error;
       }
-      throw error;
     }
     if (
+      sourceDirectoryExists &&
       sourceDirectoryRealPath !==
       path.resolve(projectRealPath, descriptor.sourceDirectory)
     ) {
@@ -620,10 +682,29 @@ export async function syncWorkspacePhpEntrypoints(
         `Cannot generate a PHP entrypoint manifest through a symbolic path: ${descriptor.sourceDirectory}`,
       );
     }
-    const modulePaths = await discoverManifestModules(
-      descriptor,
-      sourceDirectoryPath,
+    const manifestIncludePath =
+      `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS[descriptor.id]}`;
+    const bootstrapReferencesManifest = Boolean(
+      bootstrapMigration &&
+        hasPhpLiteralDirectoryInclude(
+          bootstrapMigration.nextSource,
+          manifestIncludePath,
+          { requirePhpOpenTag: true },
+        ),
     );
+    if (!sourceDirectoryExists && !bootstrapReferencesManifest) {
+      continue;
+    }
+    if (!sourceDirectoryExists) {
+      await assertMissingSourceDirectoryIsSafe(
+        projectDir,
+        projectRealPath,
+        descriptor.sourceDirectory,
+      );
+    }
+    const modulePaths = sourceDirectoryExists
+      ? await discoverManifestModules(descriptor, sourceDirectoryPath)
+      : [];
     const expectedSource = renderManifest(descriptor, modulePaths);
     const manifestRelativePath =
       WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS[descriptor.id];
@@ -658,9 +739,11 @@ export async function syncWorkspacePhpEntrypoints(
       );
     }
 
-    if (!options.check) {
-      await writeFileAtomically(manifestPath, expectedSource);
-    }
+    manifestWrites.push({
+      manifestPath,
+      source: expectedSource,
+      sourceDirectoryPath,
+    });
     changed.push(manifestRelativePath);
   }
 
@@ -668,6 +751,21 @@ export async function syncWorkspacePhpEntrypoints(
     throw new Error(
       `Generated PHP entrypoints are stale: ${changed.join(', ')}. Run the project sync command.`,
     );
+  }
+  if (!options.check) {
+    for (const manifestWrite of manifestWrites) {
+      await fsp.mkdir(manifestWrite.sourceDirectoryPath, { recursive: true });
+      await writeFileAtomically(
+        manifestWrite.manifestPath,
+        manifestWrite.source,
+      );
+    }
+    if (bootstrapChanged && bootstrapMigration) {
+      await writeFileAtomically(
+        bootstrapMigration.bootstrapPath,
+        bootstrapMigration.nextSource,
+      );
+    }
   }
   return { changed };
 }

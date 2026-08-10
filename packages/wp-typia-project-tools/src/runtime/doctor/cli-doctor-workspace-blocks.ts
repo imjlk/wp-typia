@@ -16,6 +16,7 @@ import {
   resolveWorkspaceBootstrapPath,
   WORKSPACE_BLOCK_SERVER_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -50,8 +51,10 @@ function checkWorkspaceBlockServerBootstrap(
         ),
       ),
     );
-  const hasBlockServerManifest = bootstrapSource.includes(
+  const hasBlockServerManifest = hasPhpLiteralDirectoryInclude(
+    bootstrapSource,
     WORKSPACE_BLOCK_SERVER_MANIFEST,
+    { requirePhpOpenTag: true },
   );
   if (
     serverBlockSlugs.length === 0 &&

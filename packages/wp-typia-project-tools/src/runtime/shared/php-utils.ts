@@ -235,7 +235,10 @@ function matchesPhpFunctionCallAt(
 	index: number,
 	functionName: string,
 ): boolean {
-  if (!source.startsWith(functionName, index)) {
+  if (
+    source.slice(index, index + functionName.length).toLowerCase() !==
+      functionName.toLowerCase()
+  ) {
     return false;
   }
   if (isPhpIdentifierPart(source[index - 1])) {
@@ -290,6 +293,16 @@ function parsePhpQuotedStringLiteralAt(
         end: cursor + 1,
         value,
       };
+    }
+
+    if (
+      quote === '"' &&
+      ((character === '$' &&
+        (isPhpIdentifierStart(source[cursor + 1]) ||
+          source[cursor + 1] === '{')) ||
+        (character === '{' && source[cursor + 1] === '$'))
+    ) {
+      return null;
     }
 
     value += character;
@@ -788,6 +801,14 @@ export function hasPhpVariableIncludeExpression(
   let includeExpression = false;
   let index = 0;
   while (index < source.length) {
+    if (
+      includeExpression &&
+      scanner.mode === 'code' &&
+      source[index] === '"' &&
+      parsePhpQuotedStringLiteralAt(source, index) === null
+    ) {
+      return true;
+    }
     const scan = advancePhpScanner(source, index, scanner);
     if (scan.ambiguous) {
       return true;

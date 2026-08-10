@@ -77,6 +77,22 @@ REQUIRE_ONCE __dir__ . '/inc/rest/wp-typia-modules.php';
     '<?php REQuire_onCE (\n__DIR__ . $modulePath\n);',
     { requirePhpOpenTag: true },
   )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://$host/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://${host}/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://\\$host/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    '<?php require_once __DIR__ . "/$module.php";',
+    { requirePhpOpenTag: true },
+  )).toBeNull();
   expect(collectPhpLiteralDirectoryIncludePaths(
     `<?php
 // require __DIR__ . '/commented.php';
