@@ -505,7 +505,7 @@ Generated projects now expose `sync` as the common-case metadata refresh
 entrypoint, with `sync-types` still available for advanced/manual runs. `sync`
 supports `--check` for verification runs and `--dry-run` for command previews
 without executing the generated sync scripts, while still orchestrating the
-same generated sync steps that `build`, `start`, and `typecheck` expect when it
+same generated sync steps that `build`, `start`, and `check:code` expect when it
 does run. `sync-types` stays warn-only by default, supports `-- --fail-on-lossy`
 when CI should fail only on lossy WordPress projections, and supports
 `-- --strict --report json` when CI should fail on all warnings while reading a

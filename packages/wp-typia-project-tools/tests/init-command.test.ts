@@ -1009,6 +1009,50 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('migrates customized legacy style and format lanes without orphaning them', () => {
+		const customStyle = 'stylelint custom/**/*.scss';
+		const customFormat = 'prettier --check custom-config.yml';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:css && npm run format:check',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': customStyle,
+					'format:check': customFormat,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: customStyle,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: customFormat,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts && npm run lint:css && npm run format:check',
+			name: 'lint',
+			requiredValue: 'npm run lint:css && npm run format:check',
+		});
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
 	test('recognizes package runners without matching ttsc arguments', () => {
 		const plansLintTsRemoval = (command: string): boolean =>
 			buildOfficialWorkspaceLintScriptChanges(

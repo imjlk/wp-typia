@@ -507,14 +507,12 @@ export function buildOfficialWorkspaceLintScriptChanges(
     'bun run sync --check && ttsc check --noEmit',
     packageManager,
   );
-  const legacyStyleCommand =
-    scripts['lint:css'] === LEGACY_LINT_CSS_COMMAND
-      ? scripts['lint:css']
-      : undefined;
-  const legacyFormatCommand =
-    scripts['format:check'] === LEGACY_FORMAT_CHECK_COMMAND
-      ? scripts['format:check']
-      : undefined;
+  const legacyStyleCommand = scripts['lint:css'];
+  const legacyFormatCommand = scripts['format:check'];
+  const hasManagedLegacyStyleCommand =
+    legacyStyleCommand === LEGACY_LINT_CSS_COMMAND;
+  const hasManagedLegacyFormatCommand =
+    legacyFormatCommand === LEGACY_FORMAT_CHECK_COMMAND;
   const requiredCheckLanes = [
     'check:code',
     ...(scripts['check:style'] || legacyStyleCommand ? ['check:style'] : []),
@@ -578,6 +576,24 @@ export function buildOfficialWorkspaceLintScriptChanges(
     );
   let canRemoveManagedAliases =
     !hasManagedLintInvocation || hasRemovableManagedLintCommand;
+  const removableLegacyLintInvocations = new Set(
+    LEGACY_LINT_SCRIPT_NAMES.filter((name) => {
+      const command = scripts[name];
+      if (command === undefined) {
+        return true;
+      }
+      if (name === 'lint:ts') {
+        return hasTtscNoEmitLintCommand(command);
+      }
+      if (name === 'lint:js') {
+        return command === LEGACY_LINT_JS_COMMAND;
+      }
+      if (name === 'lint:css') {
+        return hasManagedLegacyStyleCommand;
+      }
+      return hasManagedLegacyFormatCommand;
+    }),
+  );
   if (
     typeof legacyLint === 'string' &&
     shouldRemoveManagedLintScript(
@@ -589,6 +605,9 @@ export function buildOfficialWorkspaceLintScriptChanges(
   ) {
     let remaining = legacyLint;
     for (const name of LEGACY_LINT_SCRIPT_NAMES) {
+      if (!removableLegacyLintInvocations.has(name)) {
+        continue;
+      }
       if (
         hasPackageRunScriptCommand(remaining, name) ||
         hasPackageRunScriptInvocation(remaining, name)
@@ -647,12 +666,12 @@ export function buildOfficialWorkspaceLintScriptChanges(
     });
   }
   if (
-    legacyStyleCommand !== undefined &&
+    hasManagedLegacyStyleCommand &&
     shouldRemoveManagedLintScript(
       canRemoveManagedAliases,
       referencedManagedScripts,
       'lint:css',
-      true,
+      hasManagedLegacyStyleCommand,
     )
   ) {
     changes.push({
@@ -662,12 +681,12 @@ export function buildOfficialWorkspaceLintScriptChanges(
     });
   }
   if (
-    legacyFormatCommand !== undefined &&
+    hasManagedLegacyFormatCommand &&
     shouldRemoveManagedLintScript(
       canRemoveManagedAliases,
       referencedManagedScripts,
       'format:check',
-      true,
+      hasManagedLegacyFormatCommand,
     )
   ) {
     changes.push({
