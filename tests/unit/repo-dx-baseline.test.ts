@@ -103,6 +103,15 @@ describe('repository DX baseline', () => {
     expect(
       fs.existsSync(path.join(repoRoot, 'scripts', 'run-examples-lint.mjs')),
     ).toBe(true);
+    const examplesLintRunner = fs.readFileSync(
+      path.join(repoRoot, 'scripts', 'run-examples-lint.mjs'),
+      'utf8',
+    );
+    expect(examplesLintRunner).toContain(
+      "['run', '--filter', '@wp-typia/ttsc-lint-plugin-wp', 'build']",
+    );
+    expect(examplesLintRunner.indexOf("'@wp-typia/ttsc-lint-plugin-wp'"))
+      .toBeLessThan(examplesLintRunner.indexOf('for (const relativePath'));
   });
 
   test('fast repo test lane avoids build-oriented coverage paths', () => {

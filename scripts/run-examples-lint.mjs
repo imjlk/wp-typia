@@ -13,6 +13,18 @@ const wpExamples = [
   'examples/compound-patterns',
 ];
 
+// The examples import the workspace contributor from its published entrypoint.
+// Build that entrypoint in this lane so a clean checkout cannot depend on a
+// locally hoisted or previously built dist directory.
+execFileSync(
+  'bun',
+  ['run', '--filter', '@wp-typia/ttsc-lint-plugin-wp', 'build'],
+  {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  },
+);
+
 for (const relativePath of wpExamples) {
   execFileSync('bun', ['run', 'check'], {
     cwd: path.join(repoRoot, relativePath),
