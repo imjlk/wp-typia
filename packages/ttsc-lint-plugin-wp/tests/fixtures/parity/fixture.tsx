@@ -2,6 +2,8 @@ import {
   __experimentalBlocked,
   __unstableAllowed,
 } from '@wordpress/components';
+import { Link, Text, VisuallyHidden } from '@wordpress/ui';
+import { Link as LocalLink, Text as LocalText } from './local-ui.js';
 
 const __ = (text = '', domain = '') => `${text}${domain}`;
 const _n = (single = '', plural = '', count = 0, domain = '') =>
@@ -142,3 +144,86 @@ process.env.IS_GUTENBERG_PLUGIN;
 process.env['SCRIPT_DEBUG'];
 process['env'][`IS_WORDPRESS_CORE`];
 process.env.GUTENBERG_PHASE;
+
+const tokenSuffix = 'md';
+const knownTokenDeclaration =
+  '--wpds-color-foreground-content-neutral: red;';
+const unknownToken = 'var(--wpds-nonexistent-token)';
+const bareToken = '--wpds-color-foreground-content-neutral';
+const dynamicToken = `var(--wpds-dimension-gap-${tokenSuffix})`;
+const dynamicDeclaration = `--wpds-color-${tokenSuffix}: red;`;
+const tokenStyles = {
+  '--wpds-color-foreground-content-neutral': 'red',
+};
+const computedTokenStyles = {
+  ['--wpds-color-foreground-content-neutral']: 'red',
+};
+const tokenMethods = {
+  '--wpds-color-foreground-content-neutral'() {
+    return 'red';
+  },
+};
+void knownTokenDeclaration;
+void unknownToken;
+void bareToken;
+void dynamicToken;
+void dynamicDeclaration;
+void tokenStyles;
+void computedTokenStyles;
+void tokenMethods;
+
+const CustomThing = (_properties) => null;
+<CustomThing render={<VisuallyHidden />}>Hidden content</CustomThing>;
+<Link render={<Text />}>Read more</Link>;
+<LocalLink render={<LocalText />}>Local read more</LocalLink>;
+
+const doSomeCostlyOperation = () => 1;
+const ignoreCostlyOperation = () => 1;
+function earlyReturn(number) {
+  const deferred = doSomeCostlyOperation();
+  if (number > 10) {
+    return number + 1;
+  }
+  return number + deferred;
+}
+function excludedEarlyReturn(number) {
+  const deferred = ignoreCostlyOperation();
+  if (number > 10) {
+    return number + 1;
+  }
+  return number + deferred;
+}
+function nestedBlockDeclarationIsNotFunctionScoped(number) {
+  if (number > 0) {
+    const nestedValue = doSomeCostlyOperation();
+    if (number > 10) return number;
+    return nestedValue;
+  }
+  return number;
+}
+function nestedVarDeclarationIsFunctionScoped(number) {
+  if (number > 0) {
+    var nestedValue = doSomeCostlyOperation();
+    if (number > 10) return number;
+    return nestedValue;
+  }
+  return number;
+}
+function closureReferenceCountsAsUsage(number) {
+  const deferred = doSomeCostlyOperation();
+  const readDeferred = () => deferred;
+  if (number > 10) return readDeferred();
+  return deferred;
+}
+function arrayBindingsReportPerVariable(number) {
+  const [first, second] = getCostlyPair();
+  if (number > 10) return number;
+  return first + second;
+}
+const getCostlyPair = () => [1, 2];
+void earlyReturn;
+void excludedEarlyReturn;
+void nestedBlockDeclarationIsNotFunctionScoped;
+void nestedVarDeclarationIsFunctionScoped;
+void closureReferenceCountsAsUsage;
+void arrayBindingsReportPerVariable;

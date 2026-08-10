@@ -33,6 +33,13 @@ assert.ok(
 const contributorRules = compatibilityManifest.wordpressRules.filter(
   ({ kind }) => kind === 'contributor',
 );
+assert.equal(contributorRules.length, 19);
+assert.deepEqual(
+  compatibilityManifest.compiledPresets.recommended.unsupportedRules.filter(
+    (name) => name.startsWith('@wordpress/'),
+  ),
+  [],
+);
 assert.deepEqual(
   contributorRules
     .map(({ target }) => target?.replace('wordpress/', ''))

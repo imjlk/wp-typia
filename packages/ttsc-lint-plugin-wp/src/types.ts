@@ -5,3 +5,11 @@ export interface I18nTextDomainOptions {
 export type NoUnsafeWpApisOptions = Readonly<
   Record<`@wordpress/${string}`, readonly string[] | undefined>
 >;
+
+export interface NoUnsafeRenderOrderOptions {
+  checkLocalImports?: boolean;
+}
+
+export interface NoUnusedVarsBeforeReturnOptions {
+  excludePattern?: string;
+}

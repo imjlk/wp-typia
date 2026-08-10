@@ -32,8 +32,12 @@ registerImplementedRule('i18n-translator-comments');
 registerImplementedRule('no-base-control-with-label-without-id');
 registerImplementedRule('no-global-active-element');
 registerImplementedRule('no-global-get-selection');
+registerImplementedRule('no-setting-ds-tokens');
 registerImplementedRule('no-unguarded-get-range-at');
+registerImplementedRule('no-unknown-ds-tokens');
+registerImplementedRule('no-unsafe-render-order');
 registerImplementedRule('no-unsafe-wp-apis');
+registerImplementedRule('no-unused-vars-before-return');
 registerImplementedRule('no-wp-process-env');
 registerImplementedRule('valid-sprintf');
 

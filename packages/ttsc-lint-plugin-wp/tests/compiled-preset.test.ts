@@ -55,7 +55,14 @@ describe('compiled WordPress presets', () => {
       rules['wordpress/no-base-control-with-label-without-id'],
     ).toBe('error');
     expect(rules['wordpress/no-unguarded-get-range-at']).toBe('error');
+    expect(rules['wordpress/no-setting-ds-tokens']).toBe('error');
+    expect(rules['wordpress/no-unknown-ds-tokens']).toBe('error');
+    expect(rules['wordpress/no-unsafe-render-order']).toBe('error');
     expect(rules['wordpress/no-unsafe-wp-apis']).toBe('error');
+    expect(rules['wordpress/no-unused-vars-before-return']).toEqual([
+      'error',
+      { excludePattern: '^use' },
+    ]);
     expect(rules['wordpress/no-wp-process-env']).toBe('error');
     expect(rules['wordpress/valid-sprintf']).toBe('error');
     expect(rules['react/exhaustive-deps']).toBe('warn');

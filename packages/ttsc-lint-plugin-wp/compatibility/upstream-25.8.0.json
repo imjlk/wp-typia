@@ -108,8 +108,9 @@
       "source": "@wordpress/no-non-module-stylesheet-imports"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-setting-ds-tokens"
+      "kind": "contributor",
+      "source": "@wordpress/no-setting-ds-tokens",
+      "target": "wordpress/no-setting-ds-tokens"
     },
     {
       "kind": "contributor",
@@ -117,16 +118,18 @@
       "target": "wordpress/no-unguarded-get-range-at"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unknown-ds-tokens"
+      "kind": "contributor",
+      "source": "@wordpress/no-unknown-ds-tokens",
+      "target": "wordpress/no-unknown-ds-tokens"
     },
     {
       "kind": "unsupported",
       "source": "@wordpress/no-unmerged-classname"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unsafe-render-order"
+      "kind": "contributor",
+      "source": "@wordpress/no-unsafe-render-order",
+      "target": "wordpress/no-unsafe-render-order"
     },
     {
       "kind": "contributor",
@@ -134,8 +137,9 @@
       "target": "wordpress/no-unsafe-wp-apis"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unused-vars-before-return"
+      "kind": "contributor",
+      "source": "@wordpress/no-unused-vars-before-return",
+      "target": "wordpress/no-unused-vars-before-return"
     },
     {
       "kind": "contributor",
@@ -2327,8 +2331,9 @@
       "target": "wordpress/no-global-get-selection"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-setting-ds-tokens"
+      "kind": "contributor",
+      "source": "@wordpress/no-setting-ds-tokens",
+      "target": "wordpress/no-setting-ds-tokens"
     },
     {
       "kind": "contributor",
@@ -2336,12 +2341,14 @@
       "target": "wordpress/no-unguarded-get-range-at"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unknown-ds-tokens"
+      "kind": "contributor",
+      "source": "@wordpress/no-unknown-ds-tokens",
+      "target": "wordpress/no-unknown-ds-tokens"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unsafe-render-order"
+      "kind": "contributor",
+      "source": "@wordpress/no-unsafe-render-order",
+      "target": "wordpress/no-unsafe-render-order"
     },
     {
       "kind": "contributor",
@@ -2349,8 +2356,9 @@
       "target": "wordpress/no-unsafe-wp-apis"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unused-vars-before-return"
+      "kind": "contributor",
+      "source": "@wordpress/no-unused-vars-before-return",
+      "target": "wordpress/no-unused-vars-before-return"
     },
     {
       "kind": "contributor",
@@ -4106,8 +4114,12 @@
             "wordpress/no-base-control-with-label-without-id": "error",
             "wordpress/no-global-active-element": "error",
             "wordpress/no-global-get-selection": "error",
+            "wordpress/no-setting-ds-tokens": "error",
             "wordpress/no-unguarded-get-range-at": "error",
+            "wordpress/no-unknown-ds-tokens": "error",
+            "wordpress/no-unsafe-render-order": "error",
             "wordpress/no-unsafe-wp-apis": "error",
+            "wordpress/no-unused-vars-before-return": "error",
             "wordpress/no-wp-process-env": "error"
           },
           "sourceNames": [
@@ -4140,6 +4152,12 @@
             "react/no-unescaped-entities": "error",
             "react/exhaustive-deps": "warn",
             "react/rules-of-hooks": "error",
+            "wordpress/no-unused-vars-before-return": [
+              "error",
+              {
+                "excludePattern": "^use"
+              }
+            ],
             "jsdoc/check-tag-names": "error",
             "jsdoc/check-values": "off",
             "jsdoc/empty-tags": "error",
@@ -4328,8 +4346,12 @@
         "@wordpress/no-base-control-with-label-without-id",
         "@wordpress/no-global-active-element",
         "@wordpress/no-global-get-selection",
+        "@wordpress/no-setting-ds-tokens",
         "@wordpress/no-unguarded-get-range-at",
+        "@wordpress/no-unknown-ds-tokens",
+        "@wordpress/no-unsafe-render-order",
         "@wordpress/no-unsafe-wp-apis",
+        "@wordpress/no-unused-vars-before-return",
         "@wordpress/no-wp-process-env",
         "@wordpress/valid-sprintf",
         "camelcase",
@@ -4429,10 +4451,6 @@
       "unsupportedRules": [
         "@typescript-eslint/no-shadow",
         "@typescript-eslint/no-unused-vars",
-        "@wordpress/no-setting-ds-tokens",
-        "@wordpress/no-unknown-ds-tokens",
-        "@wordpress/no-unsafe-render-order",
-        "@wordpress/no-unused-vars-before-return",
         "array-bracket-spacing",
         "array-callback-return",
         "arrow-parens",

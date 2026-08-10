@@ -78,14 +78,27 @@ alias.
 - `wordpress/no-base-control-with-label-without-id`
 - `wordpress/no-global-active-element`
 - `wordpress/no-global-get-selection`
+- `wordpress/no-setting-ds-tokens`
 - `wordpress/no-unguarded-get-range-at`
+- `wordpress/no-unknown-ds-tokens`
+- `wordpress/no-unsafe-render-order`
 - `wordpress/no-unsafe-wp-apis`
+- `wordpress/no-unused-vars-before-return`
 - `wordpress/no-wp-process-env`
 - `wordpress/valid-sprintf`
 
 `i18n-text-domain` accepts the upstream `allowedTextDomain` string or string
 array. `no-unsafe-wp-apis` accepts a map from an `@wordpress/*` package to the
 unstable or experimental named imports allowed from that package.
+`no-unsafe-render-order` accepts `checkLocalImports` to include tracked
+components imported from relative paths. `no-unused-vars-before-return`
+accepts an `excludePattern` for call names that should not be treated as
+expensive initializers.
+
+The Design System token rules embed the 167-token list from
+`@wordpress/theme` 1.1.0 used by the pinned ESLint oracle. The parity harness
+verifies that the embedded ordered list remains exactly equivalent while the
+published contributor retains no runtime dependency on the theme package.
 
 The upstream `react-hooks/rules-of-hooks` and
 `react-hooks/exhaustive-deps` identifiers map to the native
@@ -99,9 +112,11 @@ standard React dependency hooks remain enabled.
 The exported `configs.custom`, `configs.i18n`, and `configs.recommended`
 objects enable the native rules currently implemented by this package.
 `configs.i18n` has full parity with the WordPress-owned rules in the upstream
-`i18n` preset. The broader `custom` and `recommended` presets remain partial;
-`presetCompatibility` labels each status explicitly rather than silently
-claiming complete WordPress coverage.
+`i18n` preset. All 19 WordPress-owned rules enabled by the upstream
+`recommended` preset now have native contributors. The broader `custom` and
+`recommended` preset labels remain partial because they also contain scoped
+overrides and generic ecosystem rules; `presetCompatibility` does not claim
+that those wider contracts are complete.
 
 `configs.wpScriptsRecommended` compiles the supported portion of the full
 upstream `recommended` entry chain. It is also marked partial until every
@@ -123,12 +138,12 @@ import { compatibilityManifest } from '@wp-typia/ttsc-lint-plugin-wp';
 ```
 
 The manifest pins the upstream package version and npm integrity. Parity tests
-download that exact tarball, verify its SHA-512 integrity, run the real ESLint
-rules as the oracle, and compare their diagnostics with a linked `ttsc`
-contributor host. Unsafe upstream fix behavior is intentionally not reproduced:
-native fixes preserve template delimiters, non-range hyphens, concatenation
-separators, and quote escaping. Dedicated regressions pin those safety
-guarantees.
+download that exact tarball plus its pinned `@wordpress/theme` token source,
+verify both SHA-512 integrities, run the real ESLint rules as the oracle, and
+compare their diagnostics with a linked `ttsc` contributor host. Unsafe
+upstream fix behavior is intentionally not reproduced: native fixes preserve
+template delimiters, non-range hyphens, concatenation separators, and quote
+escaping. Dedicated regressions pin those safety guarantees.
 
 ## Contributor boundary
 

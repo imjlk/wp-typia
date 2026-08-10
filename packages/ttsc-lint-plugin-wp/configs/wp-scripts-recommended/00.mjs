@@ -38,8 +38,12 @@ export default {
     'wordpress/no-base-control-with-label-without-id': 'error',
     'wordpress/no-global-active-element': 'error',
     'wordpress/no-global-get-selection': 'error',
+    'wordpress/no-setting-ds-tokens': 'error',
     'wordpress/no-unguarded-get-range-at': 'error',
+    'wordpress/no-unknown-ds-tokens': 'error',
+    'wordpress/no-unsafe-render-order': 'error',
     'wordpress/no-unsafe-wp-apis': 'error',
+    'wordpress/no-unused-vars-before-return': 'error',
     'wordpress/no-wp-process-env': 'error',
   },
 };

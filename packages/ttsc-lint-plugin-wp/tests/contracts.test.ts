@@ -76,19 +76,24 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
       compatibilityManifest.wordpressRules.filter(
         ({ kind }) => kind === 'contributor',
       ),
-    ).toHaveLength(15);
+    ).toHaveLength(19);
     expect(
       compatibilityManifest.compiledPresets.recommended.supportedRules,
-    ).toHaveLength(109);
+    ).toHaveLength(113);
     expect(
       compatibilityManifest.compiledPresets.recommended.unsupportedRules,
-    ).toHaveLength(89);
+    ).toHaveLength(85);
     expect(
       compatibilityManifest.compiledPresets.recommended.optionDowngrades,
     ).toHaveLength(12);
     expect(
       compatibilityManifest.compiledPresets.recommended.sourceEntryCount,
     ).toBe(17);
+    expect(
+      compatibilityManifest.compiledPresets.recommended.unsupportedRules.filter(
+        (name) => name.startsWith('@wordpress/'),
+      ),
+    ).toEqual([]);
     expect(
       compatibilityManifest.compatibility.find(
         ({ source }) => source === 'react-hooks/exhaustive-deps',
@@ -121,6 +126,11 @@ const typedConfig = {
     'wordpress/no-unsafe-wp-apis': [
       'warning',
       { '@wordpress/components': ['__unstableAllowed'] },
+    ],
+    'wordpress/no-unsafe-render-order': ['error', { checkLocalImports: true }],
+    'wordpress/no-unused-vars-before-return': [
+      'error',
+      { excludePattern: '^use' },
     ],
     'wordpress/valid-sprintf': 'error',
   },
