@@ -3056,6 +3056,21 @@ test('doctor validates orphan PHP manifests against empty inventories', async ()
     )?.status,
   ).toBe('fail');
   fs.writeFileSync(bootstrapPath, bootstrapSource, 'utf8');
+  fs.appendFileSync(
+    bootstrapPath,
+    `
+foreach ( glob( __DIR__ . '/custom-blocks/*/server.php' ) as $server_module ) {
+	require_once $server_module;
+}
+`,
+    'utf8',
+  );
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Block server bootstrap',
+    )?.status,
+  ).toBe('fail');
+  fs.writeFileSync(bootstrapPath, bootstrapSource, 'utf8');
   for (const modulePath of [
     'src/bindings/orphan/server.php',
     'inc/abilities/orphan.php',

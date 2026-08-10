@@ -12,11 +12,12 @@ import {
   checkExistingFiles,
   createDoctorCheck,
   isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_REST_RESOURCE_MANIFEST,
   workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -179,26 +180,35 @@ function checkWorkspaceRestResourceBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_rest_resources`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    registerFunctionName,
     WORKSPACE_REST_RESOURCE_MANIFEST,
     { requirePhpOpenTag: true },
   );
-  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
-    projectDir,
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
     WORKSPACE_REST_RESOURCE_MANIFEST,
     restResources
       .filter((restResource) => !isManualRestResource(restResource))
       .map((restResource) => restResource.phpFile)
-      .filter((phpFile): phpFile is string => phpFile !== undefined)
-      .map((phpFile) => path.basename(phpFile)),
+      .filter((phpFile): phpFile is string => phpFile !== undefined),
+  );
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_REST_RESOURCE_MANIFEST,
+    expectedManifestTargets ?? [],
   );
   const hasRegisterHook = source.includes(registerHook);
+  const hasValidBootstrap =
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest &&
+    hasRegisterHook;
 
   return createDoctorCheck(
     'REST resource bootstrap',
-    hasServerManifest && hasValidManifest && hasRegisterHook ? 'pass' : 'fail',
-    hasServerManifest && hasValidManifest && hasRegisterHook
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
       ? 'REST resource PHP manifest hook is present'
       : 'Missing or stale REST resource PHP manifest or init hook',
   );

@@ -16,7 +16,11 @@ import {
   resolveWorkspaceBootstrapPath,
   WORKSPACE_BLOCK_SERVER_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import {
+  hasPhpFunctionCall,
+  hasPhpLiteralDirectoryInclude,
+  hasPhpVariableIncludeExpression,
+} from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -56,6 +60,13 @@ function checkWorkspaceBlockServerBootstrap(
     WORKSPACE_BLOCK_SERVER_MANIFEST,
     { requirePhpOpenTag: true },
   );
+  const hasDynamicPhpDiscovery =
+    hasPhpFunctionCall(bootstrapSource, 'glob', {
+      requirePhpOpenTag: true,
+    }) ||
+    hasPhpVariableIncludeExpression(bootstrapSource, {
+      requirePhpOpenTag: true,
+    });
   if (
     serverBlockSlugs.length === 0 &&
     !hasBlockServerManifest &&
@@ -75,13 +86,15 @@ function checkWorkspaceBlockServerBootstrap(
     serverBlockSlugs.map((blockSlug) => `${blockSlug}/server.php`),
   );
   const isBlockServerSynchronized =
-    hasBlockServerManifest && hasValidBlockServerManifest;
+    hasBlockServerManifest &&
+    hasValidBlockServerManifest &&
+    !hasDynamicPhpDiscovery;
   return createDoctorCheck(
     'Block server bootstrap',
     isBlockServerSynchronized ? 'pass' : 'fail',
     isBlockServerSynchronized
       ? 'Block server PHP manifest is synchronized'
-      : 'Missing or stale block server PHP manifest',
+      : 'Missing or stale block server PHP manifest, or dynamic PHP discovery remains',
   );
 }
 

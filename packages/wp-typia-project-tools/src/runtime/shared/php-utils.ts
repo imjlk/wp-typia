@@ -674,6 +674,7 @@ function scanPhpLiteralDirectoryIncludes(
   visit: (relativePath: string) => boolean,
 ): boolean | null {
   const scanner = createPhpScannerState(options);
+  let matched = false;
   let index = 0;
   while (index < source.length) {
     const scan = advancePhpScanner(source, index, scanner);
@@ -748,12 +749,13 @@ function scanPhpLiteralDirectoryIncludes(
       index += includeKeyword.length;
       continue;
     }
-    if (visit(literal.value)) {
-      return true;
-    }
+    matched = visit(literal.value) || matched;
     index = cursor + 1;
   }
-  return false;
+  if (scanner.mode !== 'code' && scanner.mode !== 'line-comment') {
+    return null;
+  }
+  return matched;
 }
 
 /**
@@ -771,6 +773,18 @@ export function hasPhpLiteralDirectoryInclude(
     false,
     (candidate) => candidate === relativePath,
   ) === true;
+}
+
+/** Detect a literal directory include inside one named PHP function body. */
+export function hasPhpFunctionLiteralDirectoryInclude(
+  source: string,
+  functionName: string,
+  relativePath: string,
+  options: PhpFunctionRangeOptions = {},
+): boolean {
+  const functionRange = findPhpFunctionRange(source, functionName, options);
+  return functionRange !== null &&
+    hasPhpLiteralDirectoryInclude(functionRange.source, relativePath);
 }
 
 /**

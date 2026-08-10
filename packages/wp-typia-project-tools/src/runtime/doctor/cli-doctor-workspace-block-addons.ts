@@ -15,7 +15,7 @@ import {
   resolvePatternCatalogContentFile,
   validatePatternCatalog,
 } from '../add/pattern-catalog.js';
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 import {
   hasExecutablePattern,
   hasUncommentedPattern,
@@ -40,6 +40,7 @@ const WORKSPACE_BLOCK_TRANSFORMS_CALL_PATTERN =
 function checkWorkspacePatternBootstrap(
 	projectDir: string,
 	packageName: string,
+	phpPrefix: string,
 	patterns: WorkspaceInventory['patterns'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
@@ -52,8 +53,9 @@ function checkWorkspacePatternBootstrap(
   }
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const hasCategoryAnchor = source.includes('register_block_pattern_category');
-  const hasPatternManifest = hasPhpLiteralDirectoryInclude(
+  const hasPatternManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    `${phpPrefix}_register_patterns`,
     WORKSPACE_PATTERN_MANIFEST,
     { requirePhpOpenTag: true },
   );
@@ -324,6 +326,7 @@ export function getWorkspaceBlockAddonDoctorChecks(
       checkWorkspacePatternBootstrap(
         workspace.projectDir,
         workspace.packageName,
+        workspace.workspace.phpPrefix,
         inventory.patterns,
       ),
     );

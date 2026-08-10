@@ -94,6 +94,36 @@ function hasUnsafeModulePath(modulePath: string): boolean {
   );
 }
 
+/** Resolve project-relative inventory files to canonical manifest targets. */
+export function resolveWorkspacePhpManifestModulePaths(
+  manifestPath: string,
+  projectRelativePaths: readonly string[],
+): string[] | null {
+  const manifestRelativePath = manifestPath.startsWith('/')
+    ? manifestPath.slice(1)
+    : manifestPath;
+  const manifestDirectory = path.posix.dirname(manifestRelativePath);
+  const modulePaths: string[] = [];
+  for (const configuredPath of projectRelativePaths) {
+    const normalizedPath = configuredPath.replace(/\\/gu, '/');
+    if (
+      path.posix.isAbsolute(normalizedPath) ||
+      path.posix.normalize(normalizedPath) !== normalizedPath
+    ) {
+      return null;
+    }
+    const modulePath = path.posix.relative(manifestDirectory, normalizedPath);
+    if (
+      hasUnsafeModulePath(modulePath) ||
+      path.posix.join(manifestDirectory, modulePath) !== normalizedPath
+    ) {
+      return null;
+    }
+    modulePaths.push(modulePath);
+  }
+  return modulePaths;
+}
+
 function isPathInside(parentPath: string, candidatePath: string): boolean {
   const relativePath = path.normalize(
     path.relative(path.resolve(parentPath), path.resolve(candidatePath)),

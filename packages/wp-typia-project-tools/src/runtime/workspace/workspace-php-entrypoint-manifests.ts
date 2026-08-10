@@ -4,8 +4,10 @@ import path from 'node:path';
 
 import {
   findPhpFunctionRange,
+  hasPhpFunctionCall,
   hasPhpFunctionDefinition,
   hasPhpLiteralDirectoryInclude,
+  hasPhpVariableIncludeExpression,
 } from '../shared/php-utils.js';
 import {
   buildLegacyGeneratedGlobArrayLoader,
@@ -563,6 +565,29 @@ async function migrateLegacyWorkspaceBootstrap(
     }
   }
 
+  if (
+    selectedManifestIds === null ||
+    selectedManifestIds.has('blockServers')
+  ) {
+    const hasDynamicLoader =
+      hasPhpFunctionCall(nextSource, 'glob', { requirePhpOpenTag: true }) ||
+      hasPhpVariableIncludeExpression(nextSource, {
+        requirePhpOpenTag: true,
+      });
+    const canAttributeDynamicLoaderToBlockServers =
+      /(?:server\.php|\$server_module)/u.test(nextSource);
+    if (
+      hasDynamicLoader &&
+      (selectedManifestIds === null ||
+        canAttributeDynamicLoaderToBlockServers)
+    ) {
+      const manifestPath = `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers}`;
+      throw new Error(
+        `Unable to migrate customized block server loader in ${bootstrapRelativePath}. Wire ${manifestPath} manually.`,
+      );
+    }
+  }
+
   return {
     bootstrapPath,
     currentSource: source,
@@ -587,7 +612,10 @@ async function assertMissingSourceDirectoryIsSafe(
     }
     try {
       const ancestorStat = await fsp.lstat(ancestorPath);
-      if (ancestorStat.isSymbolicLink()) {
+      if (
+        ancestorRelativePath !== '' &&
+        ancestorStat.isSymbolicLink()
+      ) {
         throw new Error(
           `Cannot generate a PHP entrypoint manifest through a symbolic path: ${sourceDirectory}`,
         );

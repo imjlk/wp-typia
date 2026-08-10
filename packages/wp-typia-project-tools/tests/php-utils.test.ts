@@ -13,6 +13,7 @@ import {
   hasPhpFunctionCallWithStringArgumentPrefix,
   hasPhpFunctionCallWithStringArguments,
   hasPhpFunctionDefinition,
+  hasPhpFunctionLiteralDirectoryInclude,
   hasPhpLiteralDirectoryInclude,
   hasPhpVariableIncludeExpression,
   quotePhpString,
@@ -97,6 +98,22 @@ REQUIRE_ONCE __dir__ . '/inc/rest/wp-typia-modules.php';
     '<?php require_once __DIR__ . "/\\x65xample.php";',
     { requirePhpOpenTag: true },
   )).toBeNull();
+  for (const unterminatedSuffix of [
+    "'unterminated",
+    '/* unterminated',
+    '<<<PHP\nunterminated',
+  ]) {
+    const source = `<?php require_once __DIR__ . '/example.php';\n${unterminatedSuffix}`;
+    expect(collectPhpLiteralDirectoryIncludePaths(
+      source,
+      { requirePhpOpenTag: true },
+    )).toBeNull();
+    expect(hasPhpLiteralDirectoryInclude(
+      source,
+      '/example.php',
+      { requirePhpOpenTag: true },
+    )).toBe(false);
+  }
   expect(collectPhpLiteralDirectoryIncludePaths(
     `<?php
 // require __DIR__ . '/commented.php';
@@ -112,6 +129,31 @@ require __DIR__ . $outside;
 `,
     { requirePhpOpenTag: true },
   )).toBeNull();
+});
+
+test('function include helper scopes manifest includes to the callback', () => {
+  const outsideOnly = `<?php
+require_once __DIR__ . '/inc/abilities/wp-typia-modules.php';
+function demo_load_abilities() {}
+`;
+  expect(hasPhpFunctionLiteralDirectoryInclude(
+    outsideOnly,
+    'demo_load_abilities',
+    '/inc/abilities/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+
+  const inside = `<?php
+function demo_load_abilities() {
+	require_once __DIR__ . '/inc/abilities/wp-typia-modules.php';
+}
+`;
+  expect(hasPhpFunctionLiteralDirectoryInclude(
+    inside,
+    'demo_load_abilities',
+    '/inc/abilities/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
 });
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {

@@ -6,11 +6,12 @@ import {
   checkExistingFiles,
   createDoctorCheck,
   isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_AI_FEATURE_MANIFEST,
   workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -82,19 +83,27 @@ function checkWorkspaceAiFeatureBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_ai_features`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    registerFunctionName,
     WORKSPACE_AI_FEATURE_MANIFEST,
     { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_AI_FEATURE_MANIFEST,
+    aiFeatures.map((aiFeature) => aiFeature.phpFile),
   );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_AI_FEATURE_MANIFEST,
-    aiFeatures.map((aiFeature) => path.basename(aiFeature.phpFile)),
+    expectedManifestTargets ?? [],
   );
   const hasRegisterHook = source.includes(registerHook);
   const hasValidBootstrap =
-    hasServerManifest && hasValidManifest && hasRegisterHook;
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest &&
+    hasRegisterHook;
 
   return createDoctorCheck(
     'AI feature bootstrap',

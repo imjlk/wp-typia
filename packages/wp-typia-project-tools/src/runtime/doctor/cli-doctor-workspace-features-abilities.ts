@@ -5,6 +5,7 @@ import {
   checkExistingFiles,
   createDoctorCheck,
   isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_ABILITY_EDITOR_ASSET,
   WORKSPACE_ABILITY_EDITOR_SCRIPT,
@@ -14,7 +15,7 @@ import {
 import { readJsonFileSync } from '../shared/json-utils.js';
 import {
   escapeRegex,
-  hasPhpLiteralDirectoryInclude,
+  hasPhpFunctionLiteralDirectoryInclude,
 } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -106,15 +107,20 @@ function checkWorkspaceAbilityBootstrap(
   const hasLoaderHook = source.includes(loadHook);
   const hasAdminEnqueueHook = source.includes(adminEnqueueHook);
   const hasEditorEnqueueHook = source.includes(editorEnqueueHook);
-  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    loadFunctionName,
     WORKSPACE_ABILITY_MANIFEST,
     { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_ABILITY_MANIFEST,
+    abilities.map((ability) => ability.phpFile),
   );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_ABILITY_MANIFEST,
-    abilities.map((ability) => path.basename(ability.phpFile)),
+    expectedManifestTargets ?? [],
   );
   const hasEditorScript = source.includes(WORKSPACE_ABILITY_EDITOR_SCRIPT);
   const hasEditorAsset = source.includes(WORKSPACE_ABILITY_EDITOR_ASSET);
@@ -124,6 +130,7 @@ function checkWorkspaceAbilityBootstrap(
     hasAdminEnqueueHook &&
     hasEditorEnqueueHook &&
     hasServerManifest &&
+    expectedManifestTargets !== null &&
     hasValidManifest &&
     hasEditorScript &&
     hasEditorAsset &&

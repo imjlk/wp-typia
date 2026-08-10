@@ -6,11 +6,12 @@ import {
   checkExistingFiles,
   createDoctorCheck,
   isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_POST_META_MANIFEST,
   workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
-import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -68,22 +69,32 @@ function checkWorkspacePostMetaBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_post_meta_contracts`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    registerFunctionName,
     WORKSPACE_POST_META_MANIFEST,
     { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_POST_META_MANIFEST,
+    postMetaEntries.map((postMeta) => postMeta.phpFile),
   );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_POST_META_MANIFEST,
-    postMetaEntries.map((postMeta) => path.basename(postMeta.phpFile)),
+    expectedManifestTargets ?? [],
   );
   const hasRegisterHook = source.includes(registerHook);
+  const hasValidBootstrap =
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest &&
+    hasRegisterHook;
 
   return createDoctorCheck(
     'Post meta bootstrap',
-    hasServerManifest && hasValidManifest && hasRegisterHook ? 'pass' : 'fail',
-    hasServerManifest && hasValidManifest && hasRegisterHook
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
       ? 'Post meta PHP manifest hook is present'
       : 'Missing or stale post meta PHP manifest or init hook',
   );

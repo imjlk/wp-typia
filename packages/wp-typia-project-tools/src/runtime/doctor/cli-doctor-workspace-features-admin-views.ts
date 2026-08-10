@@ -9,6 +9,7 @@ import {
   checkExistingFiles,
   createDoctorCheck,
   isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_ADMIN_VIEW_ASSET,
   WORKSPACE_ADMIN_VIEW_MANIFEST,
@@ -18,7 +19,7 @@ import {
 } from './cli-doctor-workspace-shared.js';
 import {
   escapeRegex,
-  hasPhpLiteralDirectoryInclude,
+  hasPhpFunctionLiteralDirectoryInclude,
 } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -113,18 +114,26 @@ function checkWorkspaceAdminViewBootstrap(
   const loadFunctionName = `${phpPrefix}_load_admin_views`;
   const loadHook = `add_action( 'plugins_loaded', '${loadFunctionName}' );`;
   const hasLoaderHook = source.includes(loadHook);
-  const hasServerManifest = hasPhpLiteralDirectoryInclude(
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
     source,
+    loadFunctionName,
     WORKSPACE_ADMIN_VIEW_MANIFEST,
     { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    adminViews.map((adminView) => adminView.phpFile),
   );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_ADMIN_VIEW_MANIFEST,
-    adminViews.map((adminView) => path.basename(adminView.phpFile)),
+    expectedManifestTargets ?? [],
   );
   const hasValidBootstrap =
-    hasLoaderHook && hasServerManifest && hasValidManifest;
+    hasLoaderHook &&
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest;
 
   return createDoctorCheck(
     'Admin view bootstrap',

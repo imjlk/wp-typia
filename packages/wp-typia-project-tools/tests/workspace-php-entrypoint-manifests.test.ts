@@ -10,7 +10,10 @@ import {
   syncWorkspacePhpEntrypoints,
   WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
 } from '../src/runtime/workspace/workspace-php-entrypoint-manifests.js';
-import { isWorkspacePhpEntrypointManifestValid } from '../src/runtime/doctor/cli-doctor-workspace-shared.js';
+import {
+  isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
+} from '../src/runtime/doctor/cli-doctor-workspace-shared.js';
 import {
   buildLegacyGeneratedGlobArrayLoader,
   buildLegacyGeneratedGlobLoader,
@@ -21,6 +24,21 @@ describe('workspace PHP entrypoint manifests', () => {
 
   afterAll(() => {
     cleanupScaffoldTempRoot(tempRoot);
+  });
+
+  test('resolves only canonical inventory paths inside a manifest family', () => {
+    expect(resolveWorkspacePhpManifestModulePaths(
+      '/inc/abilities/wp-typia-modules.php',
+      ['inc/abilities/review.php'],
+    )).toEqual(['review.php']);
+    expect(resolveWorkspacePhpManifestModulePaths(
+      '/inc/abilities/wp-typia-modules.php',
+      ['custom/review.php'],
+    )).toBeNull();
+    expect(resolveWorkspacePhpManifestModulePaths(
+      '/inc/abilities/wp-typia-modules.php',
+      ['inc/abilities/../rest/review.php'],
+    )).toBeNull();
   });
 
   test('emits sorted literal module includes and detects drift', async () => {
@@ -328,6 +346,39 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     );
   });
 
+  test('rejects additional dynamic block server discovery during migration', async () => {
+    const projectDir = path.join(tempRoot, 'custom-block-loader');
+    fs.mkdirSync(path.join(projectDir, 'src/blocks/example'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      `${JSON.stringify({ name: 'custom-block-loader' })}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'src/blocks/example/server.php'),
+      '<?php\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'custom-block-loader.php'),
+      `<?php
+foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+	require_once $server_module;
+}
+foreach ( glob( __DIR__ . '/custom-blocks/*/server.php' ) ?: array() as $custom_server_module ) {
+	require_once $custom_server_module;
+}
+`,
+      'utf8',
+    );
+
+    await expect(syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['blockServers'],
+    })).rejects.toThrow('Unable to migrate customized block server loader');
+  });
+
   test('full sync migrates every exact historical workspace PHP loader', async () => {
     const projectDir = path.join(tempRoot, 'legacy-workspace-loaders');
     const phpPrefix = 'legacy_workspace';
@@ -502,6 +553,35 @@ foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_mod
     await expect(syncWorkspacePhpEntrypoints(projectDir)).rejects.toThrow(
       'manifest through a symbolic link',
     );
+  });
+
+  test('allows a symlinked project root while validating its real ancestors', async () => {
+    const realProjectDir = path.join(tempRoot, 'real-project-root');
+    const linkedProjectDir = path.join(tempRoot, 'linked-project-root');
+    fs.mkdirSync(realProjectDir);
+    fs.writeFileSync(
+      path.join(realProjectDir, 'package.json'),
+      `${JSON.stringify({ name: 'real-project-root' })}\n`,
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(realProjectDir, 'real-project-root.php'),
+      `<?php
+require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+`,
+      'utf8',
+    );
+    fs.symlinkSync(realProjectDir, linkedProjectDir);
+
+    await expect(syncWorkspacePhpEntrypoints(linkedProjectDir, {
+      manifestIds: ['restResources'],
+    })).resolves.toEqual({
+      changed: [WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources],
+    });
+    expect(fs.statSync(path.join(
+      realProjectDir,
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+    )).isFile()).toBe(true);
   });
 
   test('doctor validation fails closed for unexpected, duplicate, or missing targets', async () => {
