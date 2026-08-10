@@ -122,7 +122,7 @@ function checkWorkspaceAbilityBootstrap(
     hasScriptModuleEnqueue;
   const bootstrapDetail = hasValidBootstrap
     ? 'Ability loader and admin/editor script-module bootstrap hooks are present'
-    : 'Missing ability loader hook, script-module enqueue, or build/abilities asset references';
+    : 'Missing ability loader hook, stale ability PHP manifest, script-module enqueue, or build/abilities asset references';
 
   return createDoctorCheck(
     'Ability bootstrap',

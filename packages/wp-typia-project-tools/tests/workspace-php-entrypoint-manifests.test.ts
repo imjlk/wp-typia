@@ -165,6 +165,79 @@ describe('workspace PHP entrypoint manifests', () => {
     );
   });
 
+  test('preserves nested patterns named like the root manifest', async () => {
+    const projectDir = path.join(tempRoot, 'nested-manifest-name');
+    fs.mkdirSync(path.join(projectDir, 'src/patterns/collection'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(projectDir, 'src/patterns/collection/wp-typia-modules.php'),
+      '<?php\n',
+      'utf8',
+    );
+
+    await syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['patterns'],
+    });
+    expect(fs.readFileSync(
+      path.join(projectDir, WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns),
+      'utf8',
+    )).toContain("require __DIR__ . '/collection/wp-typia-modules.php';");
+  });
+
+  test('refuses to overwrite an unmanaged root manifest', async () => {
+    const projectDir = path.join(tempRoot, 'unmanaged-manifest');
+    const manifestPath = path.join(
+      projectDir,
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.restResources,
+    );
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, '<?php\ncustom_bootstrap();\n', 'utf8');
+
+    await expect(syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['restResources'],
+    })).rejects.toThrow('Refusing to overwrite unmanaged PHP entrypoint manifest');
+    expect(fs.readFileSync(manifestPath, 'utf8')).toBe(
+      '<?php\ncustom_bootstrap();\n',
+    );
+  });
+
+  test('migrates the exact generated block server loader', async () => {
+    const projectDir = path.join(tempRoot, 'legacy-block-loader');
+    fs.mkdirSync(path.join(projectDir, 'src/blocks/example'), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
+      '{"name":"legacy-block-loader"}\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'src/blocks/example/server.php'),
+      '<?php\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'legacy-block-loader.php'),
+      `<?php
+foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+\trequire_once $server_module;
+}
+`,
+      'utf8',
+    );
+
+    await syncWorkspacePhpEntrypoints(projectDir, {
+      manifestIds: ['blockServers'],
+    });
+    expect(fs.readFileSync(
+      path.join(projectDir, 'legacy-block-loader.php'),
+      'utf8',
+    )).toContain(
+      "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    );
+  });
+
   test('rejects symbolic links in generated entrypoint inventories', async () => {
     const projectDir = path.join(tempRoot, 'symlink-manifest');
     const externalPath = path.join(tempRoot, 'external.php');
@@ -230,6 +303,16 @@ describe('workspace PHP entrypoint manifests', () => {
         'example.php',
       ]),
     ).toBe(true);
+    fs.appendFileSync(
+      path.join(projectDir, manifestPath),
+      'require_once __DIR__ . $modulePath;\n',
+      'utf8',
+    );
+    expect(
+      isWorkspacePhpEntrypointManifestValid(projectDir, manifestPath, [
+        'example.php',
+      ]),
+    ).toBe(false);
     await syncWorkspacePhpEntrypoints(projectDir, {
       manifestIds: ['restResources'],
     });

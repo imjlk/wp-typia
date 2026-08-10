@@ -12,6 +12,8 @@ import {
   hasPhpFunctionCallWithStringArgumentPrefix,
   hasPhpFunctionCallWithStringArguments,
   hasPhpFunctionDefinition,
+  hasPhpLiteralDirectoryInclude,
+  hasPhpVariableIncludeExpression,
   quotePhpString,
   replacePhpFunctionDefinition,
 } from '../src/runtime/php-utils.js';
@@ -31,6 +33,37 @@ require __DIR__ . '/module.php';
       { requirePhpOpenTag: true },
     ),
   ).toBe(1);
+});
+
+test('PHP include helpers require executable literal directory expressions', () => {
+  const source = `<?php
+// require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+$message = "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';";
+require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+require_once __DIR__ . $module_path;
+`;
+
+  expect(hasPhpLiteralDirectoryInclude(
+    source,
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpLiteralDirectoryInclude(
+    source.replace(
+      "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';\nrequire_once",
+      'require_once',
+    ),
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+  expect(hasPhpVariableIncludeExpression(
+    source,
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    "<?php require_once __DIR__ . '/literal.php';",
+    { requirePhpOpenTag: true },
+  )).toBe(false);
 });
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {

@@ -1,6 +1,6 @@
 import {
   assertAbilityDoesNotExist,
-  assertValidGeneratedSlug,
+  assertValidGeneratedPhpModuleSlug,
   normalizeBlockSlug,
   type RunAddAbilityCommandOptions,
 } from './cli-add-shared.js';
@@ -27,7 +27,7 @@ export async function runAddAbilityCommand({
   warnings: string[];
 }> {
   const workspace = resolveWorkspaceProject(cwd);
-  const abilitySlug = assertValidGeneratedSlug(
+  const abilitySlug = assertValidGeneratedPhpModuleSlug(
     'Ability name',
     normalizeBlockSlug(abilityName),
     'wp-typia add ability <name>',

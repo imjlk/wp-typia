@@ -6,11 +6,13 @@ import {
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
 import {
-  findPhpFunctionRange,
   hasPhpFunctionDefinition,
-  hasPhpFunctionCall,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobArrayLoader,
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import { toTitleCase } from '../shared/string-case.js';
 import {
   syncWorkspacePhpEntrypoints,
@@ -81,35 +83,38 @@ ${patternRegistrationFunction.trimStart()}`;
 			);
 		}
 
-		const registrationRange = findPhpFunctionRange(
-			nextSource,
-			patternRegistrationFunctionName,
-		);
-		if (!registrationRange) {
-			throw new Error(
-				`Unable to parse ${patternRegistrationFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-			);
-		}
-		const registrationSource = registrationRange.source;
-		if (!registrationSource.includes(patternManifestPath)) {
-			if (!hasPhpFunctionCall(registrationSource, 'glob')) {
-				throw new Error(
-					`Unable to migrate customized ${patternRegistrationFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${patternManifestPath} manually.`,
-				);
-			}
-			const replacedSource = replacePhpFunctionDefinition(
-				nextSource,
-				patternRegistrationFunctionName,
-				patternRegistrationFunction,
-				{ trimReplacementStart: true },
-			);
-			if (!replacedSource) {
-				throw new Error(
-					`Unable to repair ${path.basename(bootstrapPath)} for ${patternRegistrationFunctionName}.`,
-				);
-			}
-			nextSource = replacedSource;
-		}
+		nextSource = migrateGeneratedPhpLoaderFunction({
+			bootstrapPath,
+			functionName: patternRegistrationFunctionName,
+			legacyFunctions: [
+				buildLegacyGeneratedGlobLoader({
+					functionName: patternRegistrationFunctionName,
+					globPath: '/src/patterns/*.php',
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+				}),
+				buildLegacyGeneratedGlobArrayLoader({
+					functionName: patternRegistrationFunctionName,
+					globPaths: ['/src/patterns/*.php'],
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+					modulesVariable: 'pattern_modules',
+				}),
+				buildLegacyGeneratedGlobArrayLoader({
+					functionName: patternRegistrationFunctionName,
+					globPaths: [
+						'/src/patterns/*.php',
+						'/src/patterns/*/*.php',
+					],
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+					modulesVariable: 'pattern_modules',
+				}),
+			],
+			manifestPath: patternManifestPath,
+			replacement: patternRegistrationFunction,
+			source: nextSource,
+		});
 
 		if (!nextSource.includes(patternCategoryHook)) {
 			nextSource = appendPhpSnippetBeforeClosingTag(

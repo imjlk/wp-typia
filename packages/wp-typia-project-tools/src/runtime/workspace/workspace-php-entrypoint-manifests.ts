@@ -2,9 +2,21 @@ import { randomUUID } from 'node:crypto';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
-const ENTRYPOINT_MANIFEST_BASENAME = 'wp-typia-modules.php';
-const SAFE_PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/u;
+import { hasPhpLiteralDirectoryInclude } from '../shared/php-utils.js';
 
+export const ENTRYPOINT_MANIFEST_STEM = 'wp-typia-modules';
+const ENTRYPOINT_MANIFEST_BASENAME = `${ENTRYPOINT_MANIFEST_STEM}.php`;
+const SAFE_PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/u;
+const GENERATED_MANIFEST_HEADER_LINES = [
+  '<?php',
+  '/**',
+  ' * Generated WordPress PHP module entrypoints.',
+] as const;
+const GENERATED_MANIFEST_HEADER = GENERATED_MANIFEST_HEADER_LINES.join('\n');
+const LEGACY_BLOCK_SERVER_LOADER_PATTERN =
+  /foreach\s*\(\s*glob\s*\(\s*__DIR__\s*\.\s*['"]\/src\/blocks\/\*\/server\.php['"]\s*\)\s*\?:\s*array\s*\(\s*\)\s*as\s*\$server_module\s*\)\s*\{\s*require_once\s+\$server_module\s*;\s*\}/u;
+
+/** Managed PHP manifest paths for each generated workspace module family. */
 export const WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS = {
   abilities: 'inc/abilities/wp-typia-modules.php',
   adminViews: 'inc/admin-views/wp-typia-modules.php',
@@ -16,6 +28,7 @@ export const WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS = {
   restResources: 'inc/rest/wp-typia-modules.php',
 } as const;
 
+/** Identifier for one managed workspace PHP entrypoint manifest family. */
 export type WorkspacePhpEntrypointManifestId =
   keyof typeof WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS;
 
@@ -218,9 +231,6 @@ async function discoverNestedPhpFiles(directoryPath: string): Promise<string[]> 
       if (!nestedEntry.isFile() || !nestedEntry.name.endsWith('.php')) {
         continue;
       }
-      if (nestedEntry.name === ENTRYPOINT_MANIFEST_BASENAME) {
-        continue;
-      }
       assertSafePathSegment(nestedEntry.name, 'nested pattern');
       modulePaths.push(`${directoryName}/${nestedEntry.name}`);
     }
@@ -250,9 +260,7 @@ function renderManifest(
       `${descriptor.includeKind} __DIR__ . '/${modulePath}';`,
   );
   return [
-    '<?php',
-    '/**',
-    ' * Generated WordPress PHP module entrypoints.',
+    ...GENERATED_MANIFEST_HEADER_LINES,
     ' *',
     ' * This file is managed by wp-typia. Run the project sync command',
     ' * after adding or removing a generated server module.',
@@ -269,17 +277,17 @@ function renderManifest(
   ].join('\n');
 }
 
-async function writeManifestAtomically(
-  manifestPath: string,
+async function writeFileAtomically(
+  targetPath: string,
   source: string,
 ): Promise<void> {
-  const temporaryPath = `${manifestPath}.${process.pid}.${randomUUID()}.tmp`;
+  const temporaryPath = `${targetPath}.${process.pid}.${randomUUID()}.tmp`;
   try {
     await fsp.writeFile(temporaryPath, source, {
       encoding: 'utf8',
       flag: 'wx',
     });
-    await fsp.rename(temporaryPath, manifestPath);
+    await fsp.rename(temporaryPath, targetPath);
   } finally {
     try {
       await fsp.rm(temporaryPath, { force: true });
@@ -301,6 +309,65 @@ export interface SyncWorkspacePhpEntrypointsResult {
   changed: string[];
 }
 
+async function migrateLegacyBlockServerBootstrap(
+  projectDir: string,
+  check: boolean,
+): Promise<string | null> {
+  let packageJson: { name?: string };
+  try {
+    packageJson = JSON.parse(
+      await fsp.readFile(path.join(projectDir, 'package.json'), 'utf8'),
+    ) as { name?: string };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+  const packageBaseName = (packageJson.name ?? path.basename(projectDir))
+    .split('/')
+    .pop();
+  if (!packageBaseName) {
+    return null;
+  }
+  assertSafePathSegment(packageBaseName, 'package basename');
+  const bootstrapRelativePath = `${packageBaseName}.php`;
+  const bootstrapPath = path.join(projectDir, bootstrapRelativePath);
+  let source: string;
+  try {
+    source = await fsp.readFile(bootstrapPath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+  const manifestPath = `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.blockServers}`;
+  if (hasPhpLiteralDirectoryInclude(source, manifestPath, {
+    requirePhpOpenTag: true,
+  })) {
+    return null;
+  }
+  if (!LEGACY_BLOCK_SERVER_LOADER_PATTERN.test(source)) {
+    if (source.includes('/src/blocks/*/server.php')) {
+      throw new Error(
+        `Unable to migrate customized block server loader in ${bootstrapRelativePath}. Wire ${manifestPath} manually.`,
+      );
+    }
+    return null;
+  }
+  if (!check) {
+    await writeFileAtomically(
+      bootstrapPath,
+      source.replace(
+        LEGACY_BLOCK_SERVER_LOADER_PATTERN,
+        `require_once __DIR__ . '${manifestPath}';`,
+      ),
+    );
+  }
+  return bootstrapRelativePath;
+}
+
 /**
  * Synchronize literal PHP module manifests for a generated WordPress workspace.
  *
@@ -317,6 +384,18 @@ export async function syncWorkspacePhpEntrypoints(
   const selectedManifestIds = options.manifestIds
     ? new Set(options.manifestIds)
     : null;
+  if (
+    selectedManifestIds === null ||
+    selectedManifestIds.has('blockServers')
+  ) {
+    const migratedBootstrap = await migrateLegacyBlockServerBootstrap(
+      projectDir,
+      options.check === true,
+    );
+    if (migratedBootstrap) {
+      changed.push(migratedBootstrap);
+    }
+  }
 
   for (const descriptor of WORKSPACE_PHP_ENTRYPOINT_MANIFESTS) {
     if (selectedManifestIds !== null && !selectedManifestIds.has(
@@ -374,15 +453,24 @@ export async function syncWorkspacePhpEntrypoints(
       continue;
     }
 
+    if (
+      currentSource !== null &&
+      !currentSource.startsWith(GENERATED_MANIFEST_HEADER)
+    ) {
+      throw new Error(
+        `Refusing to overwrite unmanaged PHP entrypoint manifest: ${manifestRelativePath}`,
+      );
+    }
+
     if (!options.check) {
-      await writeManifestAtomically(manifestPath, expectedSource);
+      await writeFileAtomically(manifestPath, expectedSource);
     }
     changed.push(manifestRelativePath);
   }
 
   if (options.check && changed.length > 0) {
     throw new Error(
-      `Generated PHP entrypoint manifests are stale: ${changed.join(', ')}. Run the project sync command.`,
+      `Generated PHP entrypoints are stale: ${changed.join(', ')}. Run the project sync command.`,
     );
   }
   return { changed };

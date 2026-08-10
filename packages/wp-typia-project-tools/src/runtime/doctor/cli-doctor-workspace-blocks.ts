@@ -53,6 +53,19 @@ function checkWorkspaceBlockServerBootstrap(
   const hasBlockServerManifest = bootstrapSource.includes(
     WORKSPACE_BLOCK_SERVER_MANIFEST,
   );
+  if (
+    serverBlockSlugs.length === 0 &&
+    !hasBlockServerManifest &&
+    !fs.existsSync(
+      path.join(workspace.projectDir, WORKSPACE_BLOCK_SERVER_MANIFEST.slice(1)),
+    )
+  ) {
+    return createDoctorCheck(
+      'Block server bootstrap',
+      'pass',
+      'No block server PHP modules require a manifest',
+    );
+  }
   const hasValidBlockServerManifest = isWorkspacePhpEntrypointManifestValid(
     workspace.projectDir,
     WORKSPACE_BLOCK_SERVER_MANIFEST,

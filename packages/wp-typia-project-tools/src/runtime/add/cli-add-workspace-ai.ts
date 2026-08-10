@@ -1,6 +1,6 @@
 import {
   assertAiFeatureDoesNotExist,
-  assertValidGeneratedSlug,
+  assertValidGeneratedPhpModuleSlug,
   normalizeBlockSlug,
   resolveRestResourceNamespace,
   type RunAddAiFeatureCommandOptions,
@@ -31,7 +31,7 @@ export async function runAddAiFeatureCommand({
   warnings: string[];
 }> {
   const workspace = resolveWorkspaceProject(cwd);
-  const aiFeatureSlug = assertValidGeneratedSlug(
+  const aiFeatureSlug = assertValidGeneratedPhpModuleSlug(
     'AI feature name',
     normalizeBlockSlug(aiFeatureName),
     'wp-typia add ai-feature <name> [--namespace <vendor/v1>]',

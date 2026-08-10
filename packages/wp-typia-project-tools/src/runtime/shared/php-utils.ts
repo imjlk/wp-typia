@@ -48,6 +48,13 @@ type PhpScannerAdvanceResult = {
   index: number;
 };
 
+const PHP_INCLUDE_KEYWORDS = [
+  'require_once',
+  'include_once',
+  'require',
+  'include',
+] as const;
+
 export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
@@ -583,7 +590,12 @@ export function hasPhpFunctionCall(
   return false;
 }
 
-/** Count selected PHP identifiers in code while ignoring strings and comments. */
+/**
+ * Count selected PHP identifiers in code while ignoring strings and comments.
+ *
+ * @returns The identifier count, or `-1` when malformed PHP makes the scan
+ * ambiguous.
+ */
 export function countPhpCodeIdentifiers(
   source: string,
   identifiers: readonly string[],
@@ -624,6 +636,126 @@ export function countPhpCodeIdentifiers(
     index = end;
   }
   return count;
+}
+
+function matchesPhpIdentifierAt(
+  source: string,
+  index: number,
+  identifier: string,
+): boolean {
+  return (
+    source.startsWith(identifier, index) &&
+    !isPhpIdentifierPart(source[index - 1]) &&
+    !isPhpIdentifierPart(source[index + identifier.length])
+  );
+}
+
+/**
+ * Detect an executable PHP include whose complete expression is one literal
+ * `__DIR__` concatenation.
+ */
+export function hasPhpLiteralDirectoryInclude(
+  source: string,
+  relativePath: string,
+  options: PhpFunctionCallScanOptions = {},
+): boolean {
+  const scanner = createPhpScannerState(options);
+  let index = 0;
+  while (index < source.length) {
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return false;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+
+    const includeKeyword = PHP_INCLUDE_KEYWORDS
+      .find((candidate) => matchesPhpIdentifierAt(source, index, candidate));
+    if (!includeKeyword) {
+      index += 1;
+      continue;
+    }
+
+    let cursor = skipPhpCallTrivia(source, index + includeKeyword.length);
+    if (cursor === null) {
+      return false;
+    }
+    const parenthesized = source[cursor] === '(';
+    if (parenthesized) {
+      cursor = skipPhpCallTrivia(source, cursor + 1);
+    }
+    if (
+      cursor === null ||
+      !matchesPhpIdentifierAt(source, cursor, '__DIR__')
+    ) {
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, cursor + '__DIR__'.length);
+    if (cursor === null || source[cursor] !== '.') {
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, cursor + 1);
+    const literal = cursor === null
+      ? null
+      : parsePhpQuotedStringLiteralAt(source, cursor);
+    if (!literal || literal.value !== relativePath) {
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, literal.end);
+    if (parenthesized) {
+      if (cursor === null || source[cursor] !== ')') {
+        index += includeKeyword.length;
+        continue;
+      }
+      cursor = skipPhpCallTrivia(source, cursor + 1);
+    }
+    if (cursor !== null && source[cursor] === ';') {
+      return true;
+    }
+    index += includeKeyword.length;
+  }
+  return false;
+}
+
+/** Detect an executable PHP include expression that contains a variable. */
+export function hasPhpVariableIncludeExpression(
+  source: string,
+  options: PhpFunctionCallScanOptions = {},
+): boolean {
+  const scanner = createPhpScannerState(options);
+  let includeExpression = false;
+  let index = 0;
+  while (index < source.length) {
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return true;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+    if (!includeExpression) {
+      const includeKeyword = PHP_INCLUDE_KEYWORDS.find((candidate) =>
+        matchesPhpIdentifierAt(source, index, candidate),
+      );
+      if (includeKeyword) {
+        includeExpression = true;
+        index += includeKeyword.length;
+        continue;
+      }
+    } else if (source[index] === '$') {
+      return true;
+    } else if (source[index] === ';') {
+      includeExpression = false;
+    }
+    index += 1;
+  }
+  return includeExpression;
 }
 
 /**

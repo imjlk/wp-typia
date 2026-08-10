@@ -9,10 +9,15 @@ import {
 import { pathExists } from '../shared/fs-async.js';
 import {
   findPhpFunctionRange,
+  hasPhpLiteralDirectoryInclude,
   hasPhpFunctionDefinition,
-  hasPhpFunctionCall,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobLoader,
+  buildLegacyGeneratedVariableAssetEnqueue,
+  migrateGeneratedPhpLoaderFunction,
+  replaceLegacyGeneratedPhpFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import {
   syncWorkspacePhpEntrypoints,
   WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
@@ -87,41 +92,53 @@ function ${bindingEditorEnqueueFunctionName}() {
 				bindingRegistrationFunction,
 			);
 		} else {
-			const functionRange = findPhpFunctionRange(
-				nextSource,
-				bindingRegistrationFunctionName,
-			);
-			if (!functionRange) {
-				throw new Error(
-					`Unable to parse ${bindingRegistrationFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-				);
-			}
-			const functionSource = functionRange.source;
-			if (!functionSource.includes(bindingSourceManifestPath)) {
-				if (!hasPhpFunctionCall(functionSource, 'glob')) {
-					throw new Error(
-						`Unable to migrate customized ${bindingRegistrationFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${bindingSourceManifestPath} manually.`,
-					);
-				}
-				const replacedSource = replacePhpFunctionDefinition(
-					nextSource,
-					bindingRegistrationFunctionName,
-					bindingRegistrationFunction,
-					{ trimReplacementStart: true },
-				);
-				if (!replacedSource) {
-					throw new Error(
-						`Unable to repair ${path.basename(bootstrapPath)} for ${bindingRegistrationFunctionName}.`,
-					);
-				}
-				nextSource = replacedSource;
-			}
+			nextSource = migrateGeneratedPhpLoaderFunction({
+				bootstrapPath,
+				functionName: bindingRegistrationFunctionName,
+				legacyFunctions: [buildLegacyGeneratedGlobLoader({
+					functionName: bindingRegistrationFunctionName,
+					globPath: '/src/bindings/*/server.php',
+					includeKind: 'require_once',
+					moduleVariable: 'binding_source_module',
+				})],
+				manifestPath: bindingSourceManifestPath,
+				replacement: bindingRegistrationFunction,
+				source: nextSource,
+			});
 		}
 		if (!hasPhpFunctionDefinition(nextSource, bindingEditorEnqueueFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(
 				nextSource,
 				bindingEditorEnqueueFunction,
 			);
+		} else {
+			const functionRange = findPhpFunctionRange(
+				nextSource,
+				bindingEditorEnqueueFunctionName,
+			);
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${bindingEditorEnqueueFunctionName}() in ${path.basename(bootstrapPath)}.`,
+				);
+			}
+			if (!hasPhpLiteralDirectoryInclude(
+				functionRange.source,
+				`/${BINDING_SOURCE_EDITOR_ASSET}`,
+			)) {
+				const legacyEnqueueFunction =
+					buildLegacyGeneratedVariableAssetEnqueue({
+						assetPath: BINDING_SOURCE_EDITOR_ASSET,
+						currentFunction: bindingEditorEnqueueFunction,
+						scriptPath: BINDING_SOURCE_EDITOR_SCRIPT,
+					});
+				nextSource = replaceLegacyGeneratedPhpFunction({
+					bootstrapPath,
+					functionName: bindingEditorEnqueueFunctionName,
+					legacyFunctions: [legacyEnqueueFunction],
+					replacement: bindingEditorEnqueueFunction,
+					source: nextSource,
+				});
+			}
 		}
 
 		if (!nextSource.includes(bindingRegistrationHook)) {

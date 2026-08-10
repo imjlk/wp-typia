@@ -3,8 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const VARIABLE_INCLUDE_PATTERN =
-  /\b(?:require|require_once|include|include_once)\s*(?:\(\s*)?\$[A-Za-z_]/u;
+  /\b(?:require|require_once|include|include_once)\b[^;\n]*\$[A-Za-z_]/u;
 const PHP_GLOB_PATTERN = /\bglob\s*\(/u;
+const LEGACY_MIGRATION_SOURCE_PATHS = new Set([
+  'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-binding-source-anchors.ts',
+  'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-editor-plugin-anchors.ts',
+  'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-pattern-anchors.ts',
+  'packages/wp-typia-project-tools/src/runtime/add/cli-add-workspace-php-loader-migration.ts',
+  'packages/wp-typia-project-tools/src/runtime/workspace/workspace-php-entrypoint-manifests.ts',
+]);
 
 function collectFiles(directoryPath: string): string[] {
   const files: string[] = [];
@@ -45,12 +52,16 @@ describe('generated PHP entrypoint policy', () => {
     const violations: string[] = [];
 
     for (const filePath of roots.flatMap(collectFiles)) {
+      const relativePath = path.relative(repositoryRoot, filePath);
+      if (LEGACY_MIGRATION_SOURCE_PATHS.has(relativePath)) {
+        continue;
+      }
       const source = fs.readFileSync(filePath, 'utf8');
       if (
         VARIABLE_INCLUDE_PATTERN.test(source) ||
         PHP_GLOB_PATTERN.test(source)
       ) {
-        violations.push(path.relative(repositoryRoot, filePath));
+        violations.push(relativePath);
       }
     }
 

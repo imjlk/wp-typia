@@ -9,11 +9,12 @@ import {
 } from './cli-add-workspace-mutation.js';
 import { readJsonFile } from '../shared/json-utils.js';
 import {
-  findPhpFunctionRange,
   hasPhpFunctionDefinition,
-  hasPhpFunctionCall,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import {
   detectSourceLineEnding,
   findExecutablePatternMatch,
@@ -57,32 +58,19 @@ function ${registerFunctionName}() {
 		if (!hasPhpFunctionDefinition(nextSource, registerFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, registerFunction);
 		} else {
-			const functionRange = findPhpFunctionRange(nextSource, registerFunctionName);
-			if (!functionRange) {
-				throw new Error(
-					`Unable to parse ${registerFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-				);
-			}
-			const functionSource = functionRange.source;
-			if (!functionSource.includes(aiFeatureManifestPath)) {
-				if (!hasPhpFunctionCall(functionSource, 'glob')) {
-					throw new Error(
-						`Unable to migrate customized ${registerFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${aiFeatureManifestPath} manually.`,
-					);
-				}
-				const replacedSource = replacePhpFunctionDefinition(
-					nextSource,
-					registerFunctionName,
-					registerFunction,
-					{ trimReplacementStart: true },
-				);
-				if (!replacedSource) {
-					throw new Error(
-						`Unable to repair ${path.basename(bootstrapPath)} for ${registerFunctionName}.`,
-					);
-				}
-				nextSource = replacedSource;
-			}
+			nextSource = migrateGeneratedPhpLoaderFunction({
+				bootstrapPath,
+				functionName: registerFunctionName,
+				legacyFunctions: [buildLegacyGeneratedGlobLoader({
+					functionName: registerFunctionName,
+					globPath: '/inc/ai-features/*.php',
+					includeKind: 'require_once',
+					moduleVariable: 'ai_feature_module',
+				})],
+				manifestPath: aiFeatureManifestPath,
+				replacement: registerFunction,
+				source: nextSource,
+			});
 		}
 
 		if (!nextSource.includes(registerHook)) {

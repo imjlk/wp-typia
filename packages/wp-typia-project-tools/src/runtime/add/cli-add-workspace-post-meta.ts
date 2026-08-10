@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathExists } from '../shared/fs-async.js';
 import {
   assertPostMetaDoesNotExist,
-  assertValidGeneratedSlug,
+  assertValidGeneratedPhpModuleSlug,
   assertValidPostMetaPostType,
   assertValidTypeScriptIdentifier,
   getWorkspaceBootstrapPath,
@@ -60,7 +60,7 @@ export async function runAddPostMetaCommand({
   typesFile: string;
 }> {
   const workspace = resolveWorkspaceProject(cwd);
-  const postMetaSlug = assertValidGeneratedSlug(
+  const postMetaSlug = assertValidGeneratedPhpModuleSlug(
     'Post meta name',
     normalizeBlockSlug(postMetaName),
     ADD_POST_META_USAGE,

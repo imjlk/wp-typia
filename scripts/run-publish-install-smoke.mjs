@@ -826,10 +826,15 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		path.join(adminViewDir, "inc/admin-views/wp-typia-modules.php"),
 		"utf8",
 	);
+	const adminViewIncludeStatements = [
+		...adminViewManifest.matchAll(
+			/\b(?:require|require_once|include|include_once)\b[^;]*;/gu,
+		),
+	].map((match) => match[0].replace(/\s+/gu, " ").trim());
 	if (
-		!adminViewManifest.includes(
-			"require_once __DIR__ . '/snapshots.php';",
-		) ||
+		adminViewIncludeStatements.length !== 1 ||
+		adminViewIncludeStatements[0] !==
+			"require_once __DIR__ . '/snapshots.php';" ||
 		/\bglob\s*\(/u.test(adminViewManifest) ||
 		/\b(?:require|require_once|include|include_once)\s*(?:\(\s*)?\$/u.test(
 			adminViewManifest,

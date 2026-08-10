@@ -26,6 +26,10 @@ import {
   replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
 import {
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
+import {
   detectSourceLineEnding,
   findExecutablePatternMatch,
   findUncommentedPatternMatch,
@@ -137,32 +141,19 @@ function ${enqueueFunctionName}() {
 		if (!hasPhpFunctionDefinition(nextSource, loadFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, loadFunction);
 		} else {
-			const functionRange = findPhpFunctionRange(nextSource, loadFunctionName);
-			if (!functionRange) {
-				throw new Error(
-					`Unable to parse ${loadFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-				);
-			}
-			const functionSource = functionRange.source;
-			if (!functionSource.includes(abilityManifestPath)) {
-				if (!hasPhpFunctionCall(functionSource, 'glob')) {
-					throw new Error(
-						`Unable to migrate customized ${loadFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${abilityManifestPath} manually.`,
-					);
-				}
-				const replacedSource = replacePhpFunctionDefinition(
-					nextSource,
-					loadFunctionName,
-					loadFunction,
-					{ trimReplacementStart: true },
-				);
-				if (!replacedSource) {
-					throw new Error(
-						`Unable to repair ${path.basename(bootstrapPath)} for ${loadFunctionName}.`,
-					);
-				}
-				nextSource = replacedSource;
-			}
+			nextSource = migrateGeneratedPhpLoaderFunction({
+				bootstrapPath,
+				functionName: loadFunctionName,
+				legacyFunctions: [buildLegacyGeneratedGlobLoader({
+					functionName: loadFunctionName,
+					globPath: '/inc/abilities/*.php',
+					includeKind: 'require_once',
+					moduleVariable: 'ability_module',
+				})],
+				manifestPath: abilityManifestPath,
+				replacement: loadFunction,
+				source: nextSource,
+			});
 		}
 		if (!hasPhpFunctionDefinition(nextSource, enqueueFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(

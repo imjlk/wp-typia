@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { countPhpCodeIdentifiers } from '../shared/php-utils.js';
+import {
+  countPhpCodeIdentifiers,
+  hasPhpVariableIncludeExpression,
+} from '../shared/php-utils.js';
 import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
@@ -127,6 +130,7 @@ export function isWorkspacePhpEntrypointManifestValid(
     const source = fs.readFileSync(absoluteManifestPath, 'utf8');
     if (
       PHP_ENTRYPOINT_VARIABLE_INCLUDE_PATTERN.test(source) ||
+      hasPhpVariableIncludeExpression(source, { requirePhpOpenTag: true }) ||
       /\bglob\s*\(/u.test(source)
     ) {
       return false;

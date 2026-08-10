@@ -72,12 +72,10 @@ demo_space_load_rest_schema_helpers();
 	);
 });
 
-test('REST resource bootstrap migration replaces an existing glob loader', async () => {
+test('REST resource bootstrap migration replaces the generated glob loader', async () => {
 	const workspace = createWorkspaceFixture(`<?php
-// The expected REST glob may appear elsewhere without making the loader valid.
-// /inc/rest/*.php
 function demo_space_register_rest_resources() {
-\tforeach ( glob( __DIR__ . '/inc/not-rest/*.php' ) ?: array() as $rest_resource_module ) {
+\tforeach ( glob( __DIR__ . '/inc/rest/*.php' ) ?: array() as $rest_resource_module ) {
 \t\trequire_once $rest_resource_module;
 \t}
 }
@@ -94,7 +92,7 @@ add_action( 'init', 'demo_space_register_rest_resources', 20 );
 	expect(bootstrapSource).toContain(
 		"require_once __DIR__ . '/inc/rest/wp-typia-modules.php';",
 	);
-	expect(bootstrapSource).not.toContain('/inc/not-rest/*.php');
+	expect(bootstrapSource).not.toContain('/inc/rest/*.php');
 });
 
 test('REST resource bootstrap validation accepts spaced PHP function declarations', async () => {
@@ -114,7 +112,9 @@ add_action( 'init', 'demo_space_register_rest_resources', 20 );
 test('REST resource bootstrap migration preserves customized loaders', async () => {
 	const source = `<?php
 function demo_space_register_rest_resources() {
-	// This loader mentioned glob() historically but is now intentionally custom.
+	foreach ( glob( __DIR__ . '/inc/rest/*.php' ) ?: array() as $rest_resource_module ) {
+\t\trequire_once $rest_resource_module;
+\t}
 \tdemo_space_register_custom_rest_resources();
 }
 add_action( 'init', 'demo_space_register_rest_resources', 20 );

@@ -90,6 +90,17 @@ export async function runAddPatternCommand({
     tags,
     thumbnailUrl,
   });
+  if (
+    path.resolve(workspace.projectDir, patternCatalogOptions.contentFile) ===
+    path.resolve(
+      workspace.projectDir,
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns,
+    )
+  ) {
+    throw new Error(
+      'Pattern contentFile must not overwrite the managed wp-typia-modules.php manifest.',
+    );
+  }
 
   const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
   assertPatternDoesNotExist(workspace.projectDir, patternSlug, inventory);

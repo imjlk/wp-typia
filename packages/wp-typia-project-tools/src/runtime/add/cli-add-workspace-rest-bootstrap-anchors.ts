@@ -6,11 +6,12 @@ import {
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
 import {
-  findPhpFunctionRange,
   hasPhpFunctionDefinition,
-  hasPhpFunctionCall,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import {
   syncWorkspacePhpEntrypoints,
   WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
@@ -138,32 +139,19 @@ function ${registerFunctionName}() {
 		if (!hasPhpFunctionDefinition(nextSource, registerFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, registerFunction);
 		} else {
-			const functionRange = findPhpFunctionRange(nextSource, registerFunctionName);
-			if (!functionRange) {
-				throw new Error(
-					`Unable to parse ${registerFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-				);
-			}
-			const functionSource = functionRange.source;
-			if (!functionSource.includes(restResourceManifestPath)) {
-				if (!hasPhpFunctionCall(functionSource, 'glob')) {
-					throw new Error(
-						`Unable to migrate customized ${registerFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${restResourceManifestPath} manually.`,
-					);
-				}
-				const replacedSource = replacePhpFunctionDefinition(
-					nextSource,
-					registerFunctionName,
-					registerFunction,
-					{ trimReplacementStart: true },
-				);
-				if (!replacedSource) {
-					throw new Error(
-						`Unable to repair ${path.basename(bootstrapPath)} for ${registerFunctionName}.`,
-					);
-				}
-				nextSource = replacedSource;
-			}
+			nextSource = migrateGeneratedPhpLoaderFunction({
+				bootstrapPath,
+				functionName: registerFunctionName,
+				legacyFunctions: [buildLegacyGeneratedGlobLoader({
+					functionName: registerFunctionName,
+					globPath: '/inc/rest/*.php',
+					includeKind: 'require_once',
+					moduleVariable: 'rest_resource_module',
+				})],
+				manifestPath: restResourceManifestPath,
+				replacement: registerFunction,
+				source: nextSource,
+			});
 		}
 
 		if (!nextSource.includes(registerHook)) {

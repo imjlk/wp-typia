@@ -13,7 +13,14 @@ import {
   WORKSPACE_BINDING_SERVER_MANIFEST,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
-import { escapeRegex } from '../shared/php-utils.js';
+import {
+  escapeRegex,
+  findPhpFunctionRange,
+  hasPhpFunctionCall,
+  hasPhpFunctionCallWithStringArgument,
+  hasPhpFunctionCallWithStringArguments,
+  hasPhpLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
 import {
   assertPostMetaBindingPath,
   loadPostMetaBindingFieldsSync,
@@ -26,6 +33,7 @@ import type { WorkspaceProject } from '../workspace/workspace-project.js';
 function checkWorkspaceBindingBootstrap(
   projectDir: string,
   packageName: string,
+  phpPrefix: string,
   bindingSources: WorkspaceInventory['bindingSources'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
@@ -38,21 +46,46 @@ function checkWorkspaceBindingBootstrap(
   }
 
   const source = fs.readFileSync(bootstrapPath, 'utf8');
-  const hasServerManifest = source.includes(WORKSPACE_BINDING_SERVER_MANIFEST);
+  const registerFunctionName = `${phpPrefix}_register_binding_sources`;
+  const enqueueFunctionName = `${phpPrefix}_enqueue_binding_sources_editor`;
+  const registerFunction = findPhpFunctionRange(source, registerFunctionName);
+  const enqueueFunction = findPhpFunctionRange(source, enqueueFunctionName);
+  const hasServerManifest = registerFunction !== null &&
+    hasPhpLiteralDirectoryInclude(
+      registerFunction.source,
+      WORKSPACE_BINDING_SERVER_MANIFEST,
+    );
   const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
     projectDir,
     WORKSPACE_BINDING_SERVER_MANIFEST,
     bindingSources.map((bindingSource) => `${bindingSource.slug}/server.php`),
   );
-  const hasEditorEnqueueHook = source.includes('enqueue_block_editor_assets');
-  const hasEditorScript = source.includes(WORKSPACE_BINDING_EDITOR_SCRIPT);
-  const hasEditorAsset = source.includes(WORKSPACE_BINDING_EDITOR_ASSET);
+  const hasEditorEnqueueHook = hasPhpFunctionCallWithStringArguments(
+    source,
+    'add_action',
+    ['enqueue_block_editor_assets', enqueueFunctionName],
+    { requirePhpOpenTag: true },
+  );
+  const hasEditorScript = enqueueFunction !== null &&
+    hasPhpFunctionCallWithStringArgument(
+      enqueueFunction.source,
+      'plugins_url',
+      WORKSPACE_BINDING_EDITOR_SCRIPT,
+    );
+  const hasEditorAsset = enqueueFunction !== null &&
+    hasPhpLiteralDirectoryInclude(
+      enqueueFunction.source,
+      `/${WORKSPACE_BINDING_EDITOR_ASSET}`,
+    );
+  const hasEditorEnqueueCall = enqueueFunction !== null &&
+    hasPhpFunctionCall(enqueueFunction.source, 'wp_enqueue_script');
   const hasValidBootstrap =
     hasServerManifest &&
     hasValidManifest &&
     hasEditorEnqueueHook &&
     hasEditorScript &&
-    hasEditorAsset;
+    hasEditorAsset &&
+    hasEditorEnqueueCall;
 
   return createDoctorCheck(
     'Binding bootstrap',
@@ -327,6 +360,7 @@ export function getWorkspaceBindingDoctorChecks(
       checkWorkspaceBindingBootstrap(
         workspace.projectDir,
         workspace.packageName,
+        workspace.workspace.phpPrefix,
         inventory.bindingSources,
       ),
     );

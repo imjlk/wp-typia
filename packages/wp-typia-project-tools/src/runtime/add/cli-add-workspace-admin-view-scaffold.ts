@@ -49,11 +49,12 @@ import {
   resolveManagedPackageVersionRange,
 } from '../shared/package-versions.js';
 import {
-  findPhpFunctionRange,
   hasPhpFunctionDefinition,
-  hasPhpFunctionCall,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import {
   syncWorkspacePhpEntrypoints,
   WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
@@ -221,32 +222,19 @@ function ${loadFunctionName}() {
     if (!hasPhpFunctionDefinition(nextSource, loadFunctionName)) {
       nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, loadFunction);
     } else {
-      const functionRange = findPhpFunctionRange(nextSource, loadFunctionName);
-      if (!functionRange) {
-        throw new Error(
-          `Unable to parse ${loadFunctionName}() in ${path.basename(bootstrapPath)} for deterministic manifest migration.`,
-        );
-      }
-      const functionSource = functionRange.source;
-      if (!functionSource.includes(adminViewManifestPath)) {
-        if (!hasPhpFunctionCall(functionSource, 'glob')) {
-          throw new Error(
-            `Unable to migrate customized ${loadFunctionName}() in ${path.basename(bootstrapPath)}. Restore the generated glob loader or wire ${adminViewManifestPath} manually.`,
-          );
-        }
-        const replacedSource = replacePhpFunctionDefinition(
-          nextSource,
-          loadFunctionName,
-          loadFunction,
-          { trimReplacementStart: true },
-        );
-        if (!replacedSource) {
-          throw new Error(
-            `Unable to repair ${path.basename(bootstrapPath)} for ${loadFunctionName}.`,
-          );
-        }
-        nextSource = replacedSource;
-      }
+      nextSource = migrateGeneratedPhpLoaderFunction({
+        bootstrapPath,
+        functionName: loadFunctionName,
+        legacyFunctions: [buildLegacyGeneratedGlobLoader({
+          functionName: loadFunctionName,
+          globPath: '/inc/admin-views/*.php',
+          includeKind: 'require_once',
+          moduleVariable: 'admin_view_module',
+        })],
+        manifestPath: adminViewManifestPath,
+        replacement: loadFunction,
+        source: nextSource,
+      });
     }
 
     if (!loadHookPattern.test(nextSource)) {

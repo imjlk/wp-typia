@@ -44,6 +44,7 @@ function {{phpPrefix}}_register_blocks() {
 	if ( file_exists( $child_block_dir . '/block.json' ) ) {
 		register_block_type( $child_block_dir );
 	}
+	// add-child: register generated child blocks here
 }
 
 add_action( 'init', '{{phpPrefix}}_load_textdomain' );
