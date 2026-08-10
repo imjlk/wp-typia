@@ -60,14 +60,10 @@ const patchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
       if (entry.isSymbolicLink()) {
         try {
           target = fs.readlinkSync(`;
-const unpatchedLoaderBufferTarget = `function configDirectoryDigest(location: string): string {
-  const entries: Buffer[] = [];
-  if (process.platform === "win32") {
+const unpatchedWindowsBufferTarget = `  if (process.platform === "win32") {
     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
       let target = Buffer.alloc(0);`;
-const patchedLoaderBufferTarget = `function configDirectoryDigest(location: string): string {
-  const entries: Buffer[] = [];
-  if (process.platform === "win32") {
+const patchedWindowsBufferTarget = `  if (process.platform === "win32") {
     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
       let target: Buffer = Buffer.alloc(0);`;
 
@@ -144,9 +140,9 @@ const repairs = [
 				unpatchedSource: unpatchedBufferTarget,
 			},
 			{
-				expectedOccurrences: 1,
-				patchedSource: patchedLoaderBufferTarget,
-				unpatchedSource: unpatchedLoaderBufferTarget,
+				expectedOccurrences: 2,
+				patchedSource: patchedWindowsBufferTarget,
+				unpatchedSource: unpatchedWindowsBufferTarget,
 			},
 		],
 		sourcePath: lintIndexPath,
