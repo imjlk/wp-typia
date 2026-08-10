@@ -23,8 +23,8 @@ export const PUBLISH_PACKAGE_CHAIN = Object.freeze([
 /** Maximum installed footprint allowed for each published package. */
 export const PUBLISH_PACKAGE_FOOTPRINT_BUDGETS = Object.freeze({
 	"@wp-typia/ttsc-lint-plugin-wp": Object.freeze({
-		maxFileCount: 36,
-		maxUnpackedBytes: 250_000,
+		maxFileCount: 40,
+		maxUnpackedBytes: 275_000,
 	}),
 	"@wp-typia/api-client": Object.freeze({
 		maxFileCount: 17,

@@ -17,6 +17,12 @@ const config = {
     'react/no-unescaped-entities': 'error',
     'react/exhaustive-deps': 'warn',
     'react/rules-of-hooks': 'error',
+    'wordpress/no-unused-vars-before-return': [
+      'error',
+      {
+        excludePattern: '^use',
+      },
+    ],
     'jsdoc/check-tag-names': 'error',
     'jsdoc/check-values': 'off',
     'jsdoc/empty-tags': 'error',

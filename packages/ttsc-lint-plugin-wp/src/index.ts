@@ -4,7 +4,12 @@ import type {
   TtscLintRuleSetting,
 } from '@ttsc/lint';
 
-import type { I18nTextDomainOptions, NoUnsafeWpApisOptions } from './types.js';
+import type {
+  I18nTextDomainOptions,
+  NoUnsafeRenderOrderOptions,
+  NoUnsafeWpApisOptions,
+  NoUnusedVarsBeforeReturnOptions,
+} from './types.js';
 
 declare module '@ttsc/lint' {
   interface ITtscLintContributorRules {
@@ -18,14 +23,18 @@ declare module '@ttsc/lint' {
     'wordpress/no-base-control-with-label-without-id'?: TtscLintRuleSetting;
     'wordpress/no-global-active-element'?: TtscLintRuleSetting;
     'wordpress/no-global-get-selection'?: TtscLintRuleSetting;
+    'wordpress/no-setting-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-unguarded-get-range-at'?: TtscLintRuleSetting;
+    'wordpress/no-unknown-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-wp-process-env'?: TtscLintRuleSetting;
     'wordpress/valid-sprintf'?: TtscLintRuleSetting;
   }
 
   interface ITtscLintRuleOptionsMap {
     'wordpress/i18n-text-domain': I18nTextDomainOptions;
+    'wordpress/no-unsafe-render-order': NoUnsafeRenderOrderOptions;
     'wordpress/no-unsafe-wp-apis': NoUnsafeWpApisOptions;
+    'wordpress/no-unused-vars-before-return': NoUnusedVarsBeforeReturnOptions;
   }
 }
 
@@ -42,4 +51,9 @@ export {
 } from './compatibility.js';
 export { configs, presetCompatibility } from './configs.js';
 export { default, plugin, ruleNames } from './plugin.js';
-export type { I18nTextDomainOptions, NoUnsafeWpApisOptions } from './types.js';
+export type {
+  I18nTextDomainOptions,
+  NoUnsafeRenderOrderOptions,
+  NoUnsafeWpApisOptions,
+  NoUnusedVarsBeforeReturnOptions,
+} from './types.js';

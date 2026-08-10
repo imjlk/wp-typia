@@ -15,8 +15,12 @@ export const ruleNames = [
   'no-base-control-with-label-without-id',
   'no-global-active-element',
   'no-global-get-selection',
+  'no-setting-ds-tokens',
   'no-unguarded-get-range-at',
+  'no-unknown-ds-tokens',
+  'no-unsafe-render-order',
   'no-unsafe-wp-apis',
+  'no-unused-vars-before-return',
   'no-wp-process-env',
   'valid-sprintf',
 ] as const;

@@ -484,7 +484,6 @@ const { actions, state } = store('{{slugKebabCase}}', {
     },
     async increment() {
       const context = getContext<{{pascalCase}}Context>();
-      const clientState = getClientState(context);
       if (context.postId <= 0 || !context.resourceKey) {
         return;
       }
@@ -495,6 +494,7 @@ const { actions, state } = store('{{slugKebabCase}}', {
         context.error = 'Write access is still initializing.';
         return;
       }
+      const clientState = getClientState(context);
       if (
         context.persistencePolicy === 'public' &&
         hasExpiredPublicWriteToken(clientState.writeExpiry)

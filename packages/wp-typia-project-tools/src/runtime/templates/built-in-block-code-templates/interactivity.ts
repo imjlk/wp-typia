@@ -632,13 +632,13 @@ function getBlockContext() {
 const actions: {{pascalCase}}StoreActions = {
   // Handle block click
   handleClick: () => {
-    const context = getBlockContext();
     const { ref } = getElement();
 
     if (!ref) {
       return;
     }
 
+    const context = getBlockContext();
     if (context.maxClicks > 0 && context.clicks >= context.maxClicks) {
       return;
     }

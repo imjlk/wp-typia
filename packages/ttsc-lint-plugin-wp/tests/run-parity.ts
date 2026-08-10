@@ -11,6 +11,10 @@ const UPSTREAM_VERSION = '25.8.0';
 const UPSTREAM_INTEGRITY =
   'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==';
 const UPSTREAM_TARBALL = `https://registry.npmjs.org/@wordpress/eslint-plugin/-/eslint-plugin-${UPSTREAM_VERSION}.tgz`;
+const UPSTREAM_THEME_VERSION = '1.1.0';
+const UPSTREAM_THEME_INTEGRITY =
+  'sha512-SWEGYY/HnSzmKDJnDhWVfxUDyLlJkz9EtpfAWhgPcCLSaZVc/pp99Fxr+/ueB2mHlQ9gpaWCPAMBxq8knDCbXw==';
+const UPSTREAM_THEME_TARBALL = `https://registry.npmjs.org/@wordpress/theme/-/theme-${UPSTREAM_THEME_VERSION}.tgz`;
 const TTSC_CONSUMER_VERSION = process.env.TTSC_CONSUMER_VERSION ?? '0.23.0';
 const NETWORK_TIMEOUT_MS = 60_000;
 const PACKAGE_INSTALL_TIMEOUT_MS = 300_000;
@@ -35,6 +39,7 @@ const fixtureSource = fs.readFileSync(
 
 const upstreamRoot = await prepareUpstreamPackage();
 const require = createRequire(import.meta.url);
+verifyEmbeddedDesignTokens(upstreamRoot, require);
 const upstreamRules = {
   'i18n-ellipsis': require(path.join(upstreamRoot, 'rules/i18n-ellipsis.js')),
   'i18n-hyphenated-range': require(
@@ -70,11 +75,23 @@ const upstreamRules = {
   'no-global-get-selection': require(
     path.join(upstreamRoot, 'rules/no-global-get-selection.js'),
   ),
+  'no-setting-ds-tokens': require(
+    path.join(upstreamRoot, 'rules/no-setting-ds-tokens.js'),
+  ),
+  'no-unknown-ds-tokens': require(
+    path.join(upstreamRoot, 'rules/no-unknown-ds-tokens.js'),
+  ),
   'no-unguarded-get-range-at': require(
     path.join(upstreamRoot, 'rules/no-unguarded-get-range-at.js'),
   ),
+  'no-unsafe-render-order': require(
+    path.join(upstreamRoot, 'rules/no-unsafe-render-order.js'),
+  ),
   'no-wp-process-env': require(
     path.join(upstreamRoot, 'rules/no-wp-process-env.js'),
+  ),
+  'no-unused-vars-before-return': require(
+    path.join(upstreamRoot, 'rules/no-unused-vars-before-return.js'),
   ),
   'valid-sprintf': require(path.join(upstreamRoot, 'rules/valid-sprintf.js')),
 };
@@ -197,10 +214,20 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress/no-base-control-with-label-without-id': 'error',
         '@wordpress/no-global-active-element': 'error',
         '@wordpress/no-global-get-selection': 'error',
+        '@wordpress/no-setting-ds-tokens': 'error',
+        '@wordpress/no-unknown-ds-tokens': 'error',
         '@wordpress/no-unguarded-get-range-at': 'error',
+        '@wordpress/no-unsafe-render-order': [
+          'error',
+          { checkLocalImports: true },
+        ],
         '@wordpress/no-unsafe-wp-apis': [
           'error',
           { '@wordpress/components': ['__unstableAllowed'] },
+        ],
+        '@wordpress/no-unused-vars-before-return': [
+          'error',
+          { excludePattern: '^ignore' },
         ],
         '@wordpress/no-wp-process-env': 'error',
         '@wordpress/valid-sprintf': 'error',
@@ -292,6 +319,10 @@ function prepareConsumerProject(): {
     path.join(sourceFixtureRoot, 'wordpress-components.d.ts'),
     path.join(fixtureRoot, 'wordpress-components.d.ts'),
   );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'local-ui.js'),
+    path.join(fixtureRoot, 'local-ui.js'),
+  );
   fs.writeFileSync(
     path.join(fixtureRoot, 'tsconfig.json'),
     `${JSON.stringify(
@@ -301,13 +332,18 @@ function prepareConsumerProject(): {
           moduleResolution: 'bundler',
           noEmit: true,
           noImplicitAny: false,
+          allowJs: true,
           jsx: 'preserve',
           plugins: [{ transform: '@ttsc/lint' }],
           skipLibCheck: true,
           target: 'ES2020',
           types: [],
         },
-        files: ['./fixture.tsx', './wordpress-components.d.ts'],
+        files: [
+          './fixture.tsx',
+          './local-ui.js',
+          './wordpress-components.d.ts',
+        ],
       },
       null,
       2,
@@ -334,10 +370,20 @@ export default {
     'wordpress/no-base-control-with-label-without-id': 'error',
     'wordpress/no-global-active-element': 'error',
     'wordpress/no-global-get-selection': 'error',
+    'wordpress/no-setting-ds-tokens': 'error',
+    'wordpress/no-unknown-ds-tokens': 'error',
     'wordpress/no-unguarded-get-range-at': 'error',
+    'wordpress/no-unsafe-render-order': [
+      'error',
+      { checkLocalImports: true },
+    ],
     'wordpress/no-unsafe-wp-apis': [
       'error',
       { '@wordpress/components': ['__unstableAllowed'] },
+    ],
+    'wordpress/no-unused-vars-before-return': [
+      'error',
+      { excludePattern: '^ignore' },
     ],
     'wordpress/no-wp-process-env': 'error',
     'wordpress/valid-sprintf': 'error',
@@ -424,7 +470,9 @@ async function prepareUpstreamPackage(): Promise<string> {
   );
   fs.mkdirSync(cacheParent, { recursive: true });
   if (fs.existsSync(cacheRoot)) {
-    return validateUpstreamCache(cacheRoot);
+    const extractedRoot = validateUpstreamCache(cacheRoot);
+    await prepareUpstreamTheme(cacheRoot, extractedRoot);
+    return extractedRoot;
   }
 
   const stagingRoot = fs.mkdtempSync(
@@ -460,7 +508,86 @@ async function prepareUpstreamPackage(): Promise<string> {
       fs.rmSync(stagingRoot, { force: true, recursive: true });
     }
   }
-  return validateUpstreamCache(cacheRoot);
+  const extractedRoot = validateUpstreamCache(cacheRoot);
+  await prepareUpstreamTheme(cacheRoot, extractedRoot);
+  return extractedRoot;
+}
+
+async function prepareUpstreamTheme(
+  cacheRoot: string,
+  upstreamRoot: string,
+): Promise<void> {
+  const tarballPath = path.join(
+    cacheRoot,
+    `theme-${UPSTREAM_THEME_VERSION}.tgz`,
+  );
+  const themeRoot = path.join(upstreamRoot, 'node_modules/@wordpress/theme');
+  const hasTheme = fs.existsSync(themeRoot);
+  if (hasTheme) {
+    const metadata = JSON.parse(
+      fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
+    ) as { name?: string; version?: string };
+    assert.equal(metadata.name, '@wordpress/theme');
+    assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
+  }
+
+  let tarball: Buffer;
+  if (fs.existsSync(tarballPath)) {
+    tarball = fs.readFileSync(tarballPath);
+  } else {
+    const response = await fetch(UPSTREAM_THEME_TARBALL, {
+      signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
+    });
+    assert.equal(
+      response.ok,
+      true,
+      `Unable to download ${UPSTREAM_THEME_TARBALL}`,
+    );
+    tarball = Buffer.from(await response.arrayBuffer());
+  }
+  const integrity = `sha512-${crypto.createHash('sha512').update(tarball).digest('base64')}`;
+  assert.equal(
+    integrity,
+    UPSTREAM_THEME_INTEGRITY,
+    `@wordpress/theme ${UPSTREAM_THEME_VERSION} tarball integrity mismatch`,
+  );
+  if (hasTheme) {
+    if (!fs.existsSync(tarballPath)) fs.writeFileSync(tarballPath, tarball);
+    return;
+  }
+
+  const stagingRoot = fs.mkdtempSync(
+    path.join(cacheRoot, `.wp-typia-theme-${UPSTREAM_THEME_VERSION}-`),
+  );
+  try {
+    const stagingTarballPath = path.join(stagingRoot, 'package.tgz');
+    fs.writeFileSync(stagingTarballPath, tarball);
+    execFileSync('tar', ['-xzf', stagingTarballPath, '-C', stagingRoot], {
+      timeout: NETWORK_TIMEOUT_MS,
+    });
+    const metadata = JSON.parse(
+      fs.readFileSync(path.join(stagingRoot, 'package/package.json'), 'utf8'),
+    ) as { name?: string; version?: string };
+    assert.equal(metadata.name, '@wordpress/theme');
+    assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
+    fs.mkdirSync(path.dirname(themeRoot), { recursive: true });
+    try {
+      fs.renameSync(path.join(stagingRoot, 'package'), themeRoot);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
+        throw error;
+      }
+      const installedMetadata = JSON.parse(
+        fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
+      ) as { name?: string; version?: string };
+      assert.equal(installedMetadata.name, '@wordpress/theme');
+      assert.equal(installedMetadata.version, UPSTREAM_THEME_VERSION);
+    }
+    fs.writeFileSync(tarballPath, tarball);
+  } finally {
+    fs.rmSync(stagingRoot, { force: true, recursive: true });
+  }
 }
 
 function validateUpstreamCache(cacheRoot: string): string {
@@ -487,6 +614,39 @@ function validateUpstreamCache(cacheRoot: string): string {
   return extractedRoot;
 }
 
+function verifyEmbeddedDesignTokens(
+  upstreamRoot: string,
+  require: NodeJS.Require,
+): void {
+  const modulePath = require.resolve('@wordpress/theme/design-tokens.js', {
+    paths: [upstreamRoot],
+  });
+  const tokenModule = require(modulePath) as
+    | { default?: readonly string[] }
+    | readonly string[];
+  const upstreamTokens =
+    (tokenModule as { default?: readonly string[] }).default ??
+    (tokenModule as readonly string[]);
+  assert.ok(Array.isArray(upstreamTokens));
+
+  const contributorSource = fs.readFileSync(
+    path.join(packageRoot, 'rules/ds_token_rules.go'),
+    'utf8',
+  );
+  const match = /const knownWpdsTokenList = `\n([\s\S]*?)\n`/u.exec(
+    contributorSource,
+  );
+  assert.ok(
+    match?.[1],
+    'Could not extract knownWpdsTokenList from ds_token_rules.go.',
+  );
+  assert.deepEqual(
+    match[1].split('\n'),
+    upstreamTokens,
+    'embedded Design System tokens must match @wordpress/theme from the pinned ESLint oracle',
+  );
+}
+
 function verifyInvalidOptionsFailClosed(
   fixtureRoot: string,
   ttscBinary: string,
@@ -507,6 +667,14 @@ export default {
       { allowedTextDomain: 42 },
     ],
     'wordpress/no-unsafe-wp-apis': ['error', 'invalid'],
+    'wordpress/no-unsafe-render-order': [
+      'error',
+      { checkLocalImports: 'yes' },
+    ],
+    'wordpress/no-unused-vars-before-return': [
+      'error',
+      { excludePattern: '[' },
+    ],
   },
 };
 `,
@@ -536,6 +704,14 @@ export default {
     assert.match(
       output,
       /\[wordpress\/no-unsafe-wp-apis\] Usage of `__experimentalBlocked`/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/no-unsafe-render-order\] Invalid wordpress\/no-unsafe-render-order options/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/no-unused-vars-before-return\] Invalid wordpress\/no-unused-vars-before-return options/u,
     );
   } finally {
     fs.writeFileSync(configPath, validConfig);
