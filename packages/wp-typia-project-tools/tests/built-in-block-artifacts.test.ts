@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { check as checkPrettier } from 'prettier';
 
 import {
   cleanupScaffoldTempRoot,
@@ -659,11 +660,39 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
     'src/blocks/demo-compound/render.php': '05fca82de42a0bb4',
     'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
-    'src/blocks/demo-compound/style.scss': '5a079051191f8cb7',
+    'src/blocks/demo-compound/style.scss': '5e27ad008fa543d9',
     'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',
     'src/hooks.ts': 'e95dea31e16a6ec7',
   },
 };
+
+test('compound styles stay formatter-stable for long generated slugs', async () => {
+  const answers = {
+    ...buildAnswers('compound'),
+    slug: 'long-compound-parent-block-name-for-format-regression',
+  };
+  const spec = createBuiltInBlockSpec({
+    answers,
+    dataStorageMode: answers.dataStorageMode,
+    persistencePolicy: answers.persistencePolicy,
+    templateId: 'compound',
+  });
+  const variables = buildTemplateVariablesFromBlockSpec(spec);
+  const styleArtifact = buildBuiltInCodeArtifacts({
+    templateId: 'compound',
+    variables,
+  }).find((artifact) => artifact.relativePath.endsWith('/style.scss'));
+
+  expect(styleArtifact).toBeDefined();
+  expect(
+    await checkPrettier(styleArtifact!.source, {
+      filepath: styleArtifact!.relativePath,
+      printWidth: 80,
+      tabWidth: 2,
+      useTabs: true,
+    }),
+  ).toBe(true);
+});
 
 describe('built-in block artifacts', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-built-in-artifacts-');

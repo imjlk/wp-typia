@@ -2007,6 +2007,7 @@ test('official workspace template scaffolds through the local npm template resol
     textDomain: 'demo-space',
     phpPrefix: 'demo_space',
   });
+  expect(fs.existsSync(path.join(targetDir, 'CHANGELOG.md'))).toBe(false);
   expect(blockConfigSource).toContain('// wp-typia add block entries');
   expect(blockConfigSource).toContain('// wp-typia add variation entries');
   expect(blockConfigSource).toContain('// wp-typia add pattern entries');

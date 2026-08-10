@@ -22,6 +22,7 @@ import {
   quoteTypeScriptString,
   renderTypeScriptPropertyKey,
 } from '../shared/ts-string-literals.js';
+import { isOfficialWorkspaceTemplateSeedAsync } from './template-source-seeds.js';
 import type {
   ResolvedTemplateSource,
   SeedSource,
@@ -280,8 +281,18 @@ export async function normalizeWpTypiaTemplateSeed(
   );
   const normalizedDir = path.join(tempRoot, 'template');
   try {
+    const isOfficialWorkspaceTemplate =
+      await isOfficialWorkspaceTemplateSeedAsync(seed);
     await copyRawDirectory(seed.blockDir, normalizedDir, {
       filter: async (sourcePath, _targetPath, entry) => {
+        const relativePath = path.relative(seed.blockDir, sourcePath);
+        if (
+          isOfficialWorkspaceTemplate &&
+          entry.isFile() &&
+          relativePath === 'CHANGELOG.md'
+        ) {
+          return false;
+        }
         const mustacheVariantPath = path.join(
           path.dirname(sourcePath),
           `${entry.name}.mustache`,

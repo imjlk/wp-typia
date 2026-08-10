@@ -126,6 +126,21 @@ export function prepareExampleProject(exampleProject, projectDir) {
 	ensureCopiedExampleSupportDependencies(projectDir);
 }
 
+export function formatCopiedExampleConfigFiles(projectDir) {
+	const prettierPath = path.join(
+		repoRoot,
+		"node_modules",
+		"prettier",
+		"bin",
+		"prettier.cjs",
+	);
+	run(
+		process.execPath,
+		[prettierPath, "--write", "package.json", "tsconfig.json"],
+		{ cwd: projectDir },
+	);
+}
+
 function readCurrentMigrationVersion(projectDir) {
 	const configPath = path.join(projectDir, "src", "migrations", "config.ts");
 	if (!fs.existsSync(configPath)) {
@@ -152,6 +167,7 @@ export function runExampleProjectSmoke({
 	prepareExampleWorkspaceRoot(workspaceRoot);
 	prepareExampleProject(exampleProject, exampleDir);
 	rewriteWorkspaceDependencies(exampleDir, packageManager);
+	formatCopiedExampleConfigFiles(exampleDir);
 
 	const packageJson = JSON.parse(
 		fs.readFileSync(path.join(exampleDir, "package.json"), "utf8"),

@@ -129,6 +129,7 @@ test('generated project smoke script supports a reference example lane', () => {
   expect(smokeScript).toContain("packageManager === 'npm'");
   expect(smokeScript).toContain('Expected npm scaffolds to omit packageManager');
   expect(exampleHelper).toContain('ensureCopiedExampleSupportDependencies');
+  expect(exampleHelper).toContain('formatCopiedExampleConfigFiles');
   expect(exampleHelper).toContain('runExampleProjectSmoke');
   expect(exampleHelper).toContain('shouldRunMigrationSmoke');
   expect(exampleHelper).toContain(
@@ -210,6 +211,53 @@ test('reference example workspaces retain shared asset module declarations', asy
   expect(tsconfig.include).toContain('*.mjs');
   expect(tsconfig.compilerOptions?.allowJs).toBe(true);
   expect(tsconfig.compilerOptions?.rootDir).toBe('../..');
+});
+
+test('reference example config rewrites are normalized before format checks', async () => {
+  const projectDir = fs.mkdtempSync(
+    join(os.tmpdir(), 'wp-typia-reference-format-'),
+  );
+  tempDirs.push(projectDir);
+  fs.writeFileSync(
+    join(projectDir, 'package.json'),
+    '{"scripts":{"check":"ttsc check --noEmit"}}\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    join(projectDir, 'tsconfig.json'),
+    '{"compilerOptions":{"types":["node","bun-types"]}}\n',
+    'utf8',
+  );
+
+  const helper = await import(
+    new URL(
+      '../../scripts/lib/generated-project-smoke-example.mjs',
+      import.meta.url,
+    ).href,
+  );
+  helper.formatCopiedExampleConfigFiles(projectDir);
+  const formattedPackageJson = fs.readFileSync(
+    join(projectDir, 'package.json'),
+    'utf8',
+  );
+  const formattedTsconfig = fs.readFileSync(
+    join(projectDir, 'tsconfig.json'),
+    'utf8',
+  );
+  helper.formatCopiedExampleConfigFiles(projectDir);
+
+  expect(JSON.parse(formattedPackageJson)).toEqual({
+    scripts: { check: 'ttsc check --noEmit' },
+  });
+  expect(JSON.parse(formattedTsconfig)).toEqual({
+    compilerOptions: { types: ['node', 'bun-types'] },
+  });
+  expect(fs.readFileSync(join(projectDir, 'package.json'), 'utf8')).toBe(
+    formattedPackageJson,
+  );
+  expect(fs.readFileSync(join(projectDir, 'tsconfig.json'), 'utf8')).toBe(
+    formattedTsconfig,
+  );
 });
 
 test('CI generated smoke matrix includes the checked-in example lanes', () => {
