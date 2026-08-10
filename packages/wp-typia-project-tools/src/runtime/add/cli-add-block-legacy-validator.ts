@@ -32,16 +32,175 @@ const COMPATIBLE_COMPOUND_TOOLKIT_PATTERNS = [
   /createTemplateValidatorToolkit\s*<\s*T\s+extends\s+object\s*>\s*\(\s*\{/u,
 ] as const;
 
-const REST_MANIFEST_IMPORT_PATTERN =
-	/import\s*\{[^}]*\bdefineEndpointManifest\b[^}]*\}\s*from\s*["']@wp-typia\/block-runtime\/metadata-core["'];?/m;
+const METADATA_CORE_MODULE = '@wp-typia/block-runtime/metadata-core';
+const ENDPOINT_MANIFEST_IMPORT = 'defineEndpointManifest';
+
+function detectLeadingLineEnding(value: string): string {
+  if (value.startsWith('\r\n')) {
+    return '\r\n';
+  }
+  if (value.startsWith('\n')) {
+    return '\n';
+  }
+  return '';
+}
+
+function hasCommaOutsideComments(value: string): boolean {
+  return value
+    .replace(/\/\/[^\r\n]*/gu, '')
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .includes(',');
+}
+
+function addEndpointManifestToNamedImport(
+	source: string,
+	sourceFile: ts.SourceFile,
+	namedImports: ts.NamedImports,
+): string {
+  const openBraceEnd = namedImports.getStart(sourceFile) + 1;
+  const closeBraceStart = namedImports.getEnd() - 1;
+  const currentBindings = source.slice(openBraceEnd, closeBraceStart);
+
+  if (!currentBindings.includes('\n') && !currentBindings.includes('\r')) {
+    if (currentBindings.trim() === '') {
+      return `${source.slice(0, openBraceEnd)} ${ENDPOINT_MANIFEST_IMPORT} ${source.slice(closeBraceStart)}`;
+    }
+
+    const trailingWhitespace = currentBindings.match(/\s*$/u)?.[0] ?? '';
+    const insertionIndex = closeBraceStart - trailingWhitespace.length;
+    const lastBinding = namedImports.elements[namedImports.elements.length - 1];
+    const trailingBindings = lastBinding
+      ? source.slice(lastBinding.getEnd(), closeBraceStart)
+      : currentBindings;
+    const separator = hasCommaOutsideComments(trailingBindings) ? ' ' : ', ';
+    return `${source.slice(0, insertionIndex)}${separator}${ENDPOINT_MANIFEST_IMPORT}${source.slice(insertionIndex)}`;
+  }
+
+  const lineEnding = detectSourceLineEnding(source);
+  const firstBinding = namedImports.elements[0];
+  const lastBinding = namedImports.elements[namedImports.elements.length - 1];
+  if (!firstBinding || !lastBinding) {
+    const initialLineEnding = detectLeadingLineEnding(currentBindings);
+    const contentIndentation = currentBindings.match(
+      /(?:\r?\n)([ \t]*)(?=\S)/u,
+    )?.[1];
+    const closingLineStart = source.lastIndexOf('\n', closeBraceStart - 1) + 1;
+    const closingIndentation = source.slice(closingLineStart, closeBraceStart);
+    const indentationUnit = closingIndentation.includes('\t') ? '\t' : '  ';
+    const indentation =
+      contentIndentation ?? `${closingIndentation}${indentationUnit}`;
+    const insertionIndex = openBraceEnd + initialLineEnding.length;
+    return `${source.slice(0, insertionIndex)}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${source.slice(insertionIndex)}`;
+  }
+
+  const lastBindingStart = lastBinding.getStart(sourceFile);
+  const bindingLineStart = source.lastIndexOf('\n', lastBindingStart - 1) + 1;
+  const candidateIndentation = source.slice(bindingLineStart, lastBindingStart);
+  const openBraceLineStart = source.lastIndexOf('\n', openBraceEnd - 1) + 1;
+  const importLinePrefix = source.slice(openBraceLineStart, openBraceEnd);
+  const importIndentation = importLinePrefix.match(/^[ \t]*/u)?.[0] ?? '';
+  const indentation = /^[ \t]*$/u.test(candidateIndentation)
+    ? candidateIndentation
+    : `${importIndentation}  `;
+  const lastBindingEnd = lastBinding.getEnd();
+  const trailingBindings = source.slice(lastBindingEnd, closeBraceStart);
+  const missingComma = hasCommaOutsideComments(trailingBindings) ? '' : ',';
+
+  if (!trailingBindings.includes('\n') && !trailingBindings.includes('\r')) {
+    return `${source.slice(0, lastBindingEnd)}${missingComma}${trailingBindings.trimEnd()}${lineEnding}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${importIndentation}${source.slice(closeBraceStart)}`;
+  }
+
+  return `${source.slice(0, lastBindingEnd)}${missingComma}${source.slice(
+    lastBindingEnd,
+    closeBraceStart,
+  )}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${source.slice(
+    closeBraceStart,
+  )}`;
+}
+
+function convertEndpointManifestTypeOnlyBindingToRuntime(
+	source: string,
+	sourceFile: ts.SourceFile,
+	namedImports: ts.NamedImports,
+): string {
+  const typeOnlyBinding = namedImports.elements.find(
+    (element) =>
+      element.isTypeOnly && element.name.text === ENDPOINT_MANIFEST_IMPORT,
+  );
+  if (!typeOnlyBinding) {
+    return source;
+  }
+
+  const importedName = typeOnlyBinding.propertyName ?? typeOnlyBinding.name;
+  return `${source.slice(0, typeOnlyBinding.getStart(sourceFile))}${source.slice(
+    importedName.getStart(sourceFile),
+  )}`;
+}
 
 export function ensureBlockConfigCanAddRestManifests(source: string): string {
   const importLine =
-		"import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';";
-  if (REST_MANIFEST_IMPORT_PATTERN.test(source)) {
-    return source;
+		`import { ${ENDPOINT_MANIFEST_IMPORT} } from '${METADATA_CORE_MODULE}';`;
+  const sourceFile = ts.createSourceFile(
+    'block-config.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
+  let mergeCandidate: ts.NamedImports | undefined;
+  let typeOnlyCandidate: ts.NamedImports | undefined;
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== METADATA_CORE_MODULE
+    ) {
+      continue;
+    }
+
+    const importClause = statement.importClause;
+    const namedBindings = importClause?.namedBindings;
+    if (
+      !importClause ||
+      importClause.isTypeOnly ||
+      !namedBindings ||
+      !ts.isNamedImports(namedBindings)
+    ) {
+      continue;
+    }
+
+    const hasRuntimeBinding = namedBindings.elements.some(
+      (element) =>
+        !element.isTypeOnly && element.name.text === ENDPOINT_MANIFEST_IMPORT,
+    );
+    if (hasRuntimeBinding) {
+      return source;
+    }
+
+    const hasTypeOnlyBinding = namedBindings.elements.some(
+      (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
+    );
+    if (hasTypeOnlyBinding) {
+      typeOnlyCandidate ??= namedBindings;
+    } else {
+      mergeCandidate ??= namedBindings;
+    }
   }
-  return `${importLine}\n\n${source}`;
+
+  if (typeOnlyCandidate) {
+    return convertEndpointManifestTypeOnlyBindingToRuntime(
+      source,
+      sourceFile,
+      typeOnlyCandidate,
+    );
+  }
+  if (mergeCandidate) {
+    return addEndpointManifestToNamedImport(source, sourceFile, mergeCandidate);
+  }
+
+  const lineEnding = detectSourceLineEnding(source);
+  return `${importLine}${lineEnding}${lineEnding}${source}`;
 }
 
 function shouldRefreshCompoundValidatorToolkit(source: string | null): boolean {

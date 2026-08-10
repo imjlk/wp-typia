@@ -14,12 +14,17 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
+import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toKebabCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 import { TYPESCRIPT_PRINT_WIDTH } from '../shared/ts-string-literals.js';
 
 const VARIATIONS_IMPORT_LINE =
@@ -40,11 +45,7 @@ function buildVariationConfigEntry(blockSlug: string, variationSlug: string): st
 }
 
 function buildVariationConstName(variationSlug: string): string {
-  const identifierSegments = toKebabCase(variationSlug)
-		.split('-')
-		.filter(Boolean);
-
-  return `workspaceVariation_${identifierSegments.join('_')}`;
+  return `workspaceVariation${toCollisionSafePascalCase(variationSlug)}`;
 }
 
 function buildVariationTranslationProperty(
@@ -68,13 +69,25 @@ function buildVariationTranslationProperty(
   ].join('\n');
 }
 
-function getVariationConstBindings(
+async function getVariationConstBindings(
+	variationsDir: string,
 	variationSlugs: string[],
-): Array<{ constName: string; variationSlug: string }> {
+): Promise<Array<{ constName: string; variationSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return variationSlugs.map((variationSlug) => {
-    const constName = buildVariationConstName(variationSlug);
+  const bindings = await Promise.all(
+    variationSlugs.map(async (variationSlug) => ({
+      constName: await resolveGeneratedExportedConstName(
+        path.join(variationsDir, `${variationSlug}.ts`),
+        [
+          buildVariationConstName(variationSlug),
+          `workspaceVariation_${toSnakeCase(variationSlug)}`,
+        ],
+      ),
+      variationSlug,
+    })),
+  );
+  for (const { constName, variationSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== variationSlug) {
@@ -84,8 +97,8 @@ function getVariationConstBindings(
     }
 
     seenConstNames.set(constName, variationSlug);
-    return { constName, variationSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildVariationSource(variationSlug: string, textDomain: string): string {
@@ -115,8 +128,9 @@ ${descriptionProperty}
 `;
 }
 
-function buildVariationIndexSource(variationSlugs: string[]): string {
-  const variationBindings = getVariationConstBindings(variationSlugs);
+function buildVariationIndexSource(
+	variationBindings: Array<{ constName: string; variationSlug: string }>,
+): string {
   const importLines = variationBindings
 		.map(({ constName, variationSlug }) => {
 			return `import { ${constName} } from './${variationSlug}';`;
@@ -172,9 +186,13 @@ async function writeVariationRegistry(
 		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextVariationSlugs = Array.from(new Set([...existingVariationSlugs, variationSlug])).sort();
+  const variationBindings = await getVariationConstBindings(
+    variationsDir,
+    nextVariationSlugs,
+  );
   await fsp.writeFile(
     variationsIndexPath,
-    buildVariationIndexSource(nextVariationSlugs),
+    buildVariationIndexSource(variationBindings),
     'utf8',
   );
 }

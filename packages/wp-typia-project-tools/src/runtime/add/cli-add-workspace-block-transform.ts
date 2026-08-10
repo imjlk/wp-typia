@@ -18,12 +18,17 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-registration-hooks.js';
+import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 const BLOCK_TRANSFORMS_IMPORT_LINE =
 	"import { applyWorkspaceBlockTransforms } from './transforms';";
@@ -35,7 +40,7 @@ const BLOCK_TRANSFORMS_CALL_PATTERN =
 	/applyWorkspaceBlockTransforms\s*\(\s*registration\s*\.\s*settings\s*\)\s*;?/u;
 
 function buildWorkspaceConstName(prefix: string, slug: string): string {
-  return `workspace${prefix}_${toSnakeCase(slug)}`;
+  return `workspace${prefix}${toCollisionSafePascalCase(slug)}`;
 }
 
 function buildBlockTransformConfigEntry(options: {
@@ -55,13 +60,25 @@ function buildBlockTransformConfigEntry(options: {
 	].join('\n');
 }
 
-function getBlockTransformConstBindings(
+async function getBlockTransformConstBindings(
+	transformsDir: string,
 	transformSlugs: string[],
-): Array<{ constName: string; transformSlug: string }> {
+): Promise<Array<{ constName: string; transformSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return transformSlugs.map((transformSlug) => {
-    const constName = buildWorkspaceConstName('BlockTransform', transformSlug);
+  const bindings = await Promise.all(
+    transformSlugs.map(async (transformSlug) => ({
+      constName: await resolveGeneratedExportedConstName(
+        path.join(transformsDir, `${transformSlug}.ts`),
+        [
+          buildWorkspaceConstName('BlockTransform', transformSlug),
+          `workspaceBlockTransform_${toSnakeCase(transformSlug)}`,
+        ],
+      ),
+      transformSlug,
+    })),
+  );
+  for (const { constName, transformSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== transformSlug) {
@@ -71,8 +88,8 @@ function getBlockTransformConstBindings(
     }
 
     seenConstNames.set(constName, transformSlug);
-    return { constName, transformSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildBlockTransformSource(options: {
@@ -111,8 +128,9 @@ export const ${transformConstName} = {
 `;
 }
 
-function buildBlockTransformIndexSource(transformSlugs: string[]): string {
-  const transformBindings = getBlockTransformConstBindings(transformSlugs);
+function buildBlockTransformIndexSource(
+	transformBindings: Array<{ constName: string; transformSlug: string }>,
+): string {
   const importLines = transformBindings
 		.map(
 			({ constName, transformSlug }) =>
@@ -177,9 +195,13 @@ async function writeBlockTransformRegistry(
   const nextTransformSlugs = Array.from(
 		new Set([...existingTransformSlugs, transformSlug]),
 	).sort();
+  const transformBindings = await getBlockTransformConstBindings(
+    transformsDir,
+    nextTransformSlugs,
+  );
   await fsp.writeFile(
     transformsIndexPath,
-    buildBlockTransformIndexSource(nextTransformSlugs),
+    buildBlockTransformIndexSource(transformBindings),
     'utf8',
   );
 }

@@ -14,12 +14,17 @@ import {
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
+import { resolveGeneratedExportedConstName } from './cli-add-workspace-generated-exports.js';
 import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 const BLOCK_STYLES_IMPORT_LINE =
 	"import { registerWorkspaceBlockStyles } from './styles';";
@@ -29,7 +34,7 @@ const BLOCK_STYLES_CALL_LINE = 'registerWorkspaceBlockStyles();';
 const BLOCK_STYLES_CALL_PATTERN = /registerWorkspaceBlockStyles\s*\(\s*\)\s*;?/u;
 
 function buildWorkspaceConstName(prefix: string, slug: string): string {
-  return `workspace${prefix}_${toSnakeCase(slug)}`;
+  return `workspace${prefix}${toCollisionSafePascalCase(slug)}`;
 }
 
 function buildBlockStyleConfigEntry(blockSlug: string, styleSlug: string): string {
@@ -42,13 +47,25 @@ function buildBlockStyleConfigEntry(blockSlug: string, styleSlug: string): strin
 	].join('\n');
 }
 
-function getBlockStyleConstBindings(
+async function getBlockStyleConstBindings(
+	stylesDir: string,
 	styleSlugs: string[],
-): Array<{ constName: string; styleSlug: string }> {
+): Promise<Array<{ constName: string; styleSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return styleSlugs.map((styleSlug) => {
-    const constName = buildWorkspaceConstName('BlockStyle', styleSlug);
+  const bindings = await Promise.all(
+    styleSlugs.map(async (styleSlug) => ({
+      constName: await resolveGeneratedExportedConstName(
+        path.join(stylesDir, `${styleSlug}.ts`),
+        [
+          buildWorkspaceConstName('BlockStyle', styleSlug),
+          `workspaceBlockStyle_${toSnakeCase(styleSlug)}`,
+        ],
+      ),
+      styleSlug,
+    })),
+  );
+  for (const { constName, styleSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== styleSlug) {
@@ -58,8 +75,8 @@ function getBlockStyleConstBindings(
     }
 
     seenConstNames.set(constName, styleSlug);
-    return { constName, styleSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildBlockStyleSource(styleSlug: string, textDomain: string): string {
@@ -75,8 +92,9 @@ export const ${styleConstName} = {
 `;
 }
 
-function buildBlockStyleIndexSource(styleSlugs: string[]): string {
-  const styleBindings = getBlockStyleConstBindings(styleSlugs);
+function buildBlockStyleIndexSource(
+	styleBindings: Array<{ constName: string; styleSlug: string }>,
+): string {
   const importLines = styleBindings
 		.map(({ constName, styleSlug }) => `import { ${constName} } from './${styleSlug}';`)
 		.join('\n');
@@ -124,9 +142,13 @@ async function writeBlockStyleRegistry(
 		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextStyleSlugs = Array.from(new Set([...existingStyleSlugs, styleSlug])).sort();
+  const styleBindings = await getBlockStyleConstBindings(
+    stylesDir,
+    nextStyleSlugs,
+  );
   await fsp.writeFile(
     stylesIndexPath,
-    buildBlockStyleIndexSource(nextStyleSlugs),
+    buildBlockStyleIndexSource(styleBindings),
     'utf8',
   );
 }

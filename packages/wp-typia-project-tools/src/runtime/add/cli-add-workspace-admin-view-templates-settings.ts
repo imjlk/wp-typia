@@ -172,8 +172,9 @@ export function buildRestSettingsAdminViewDataSource(
   ).replace(/\n/gu, '\n  ');
   const requestBodySource = restResource.secretFieldName && secretPreserveOnEmpty
     ? `\tconst requestBody = { ...form } as Record<string, unknown>;
-\tif (requestBody[${quoteTsString(restResource.secretFieldName)}] === '') {
-\t\tdelete requestBody[${quoteTsString(restResource.secretFieldName)}];
+\tconst secretFieldName = ${quoteTsString(restResource.secretFieldName)};
+\tif (requestBody[secretFieldName] === '') {
+\t\tdelete requestBody[secretFieldName];
 \t}
 `
     : `\tconst requestBody = form as Record<string, unknown>;

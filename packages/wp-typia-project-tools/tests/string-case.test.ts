@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test';
 
 import {
   toCamelCase,
+  toCollisionSafeCamelCase,
+  toCollisionSafePascalCase,
   toKebabCase,
   toPascalCase,
   toSnakeCase,
@@ -70,4 +72,11 @@ test('string case helpers continue to derive WordPress-safe identifiers', () => 
   expect(toPascalCase('hero-cta-block')).toBe('HeroCtaBlock');
   expect(toCamelCase('hero-cta-block')).toBe('heroCtaBlock');
   expect(toTitleCase('hero-cta-block')).toBe('Hero Cta Block');
+});
+
+test('toCollisionSafePascalCase preserves normalized slug boundaries', () => {
+  expect(toCollisionSafePascalCase('hero-2-card')).toBe('Hero2CardL4L1L4');
+  expect(toCollisionSafePascalCase('hero2-card')).toBe('Hero2CardL5L4');
+  expect(toCollisionSafeCamelCase('hero-2-card')).toBe('hero2CardL4L1L4');
+  expect(toCollisionSafeCamelCase('hero2-card')).toBe('hero2CardL5L4');
 });

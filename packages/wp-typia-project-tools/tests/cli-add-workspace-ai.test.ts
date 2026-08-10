@@ -14,7 +14,132 @@ import {
   scaffoldOfficialWorkspace,
   typecheckGeneratedProject,
 } from './helpers/scaffold-test-harness.js';
+import { ensureBlockConfigCanAddRestManifests } from '../src/runtime/add/cli-add-block-legacy-validator.js';
 import { readWorkspaceInventory } from '../src/runtime/workspace-inventory.js';
+
+test('REST manifest support reuses the managed metadata-core import', () => {
+  const source = [
+    'import {',
+    '  defineBlockNesting,',
+    '  defineInnerBlocksTemplates,',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated.match(/@wp-typia\/block-runtime\/metadata-core/gu)).toHaveLength(
+    1,
+  );
+  expect(updated).toContain('  defineEndpointManifest,');
+  expect(ensureBlockConfigCanAddRestManifests(updated)).toBe(updated);
+});
+
+test('REST manifest support repairs unusual metadata-core named imports', () => {
+  const inlineTypeOnlySource =
+    "import { type defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedTypeOnlySource =
+    ensureBlockConfigCanAddRestManifests(inlineTypeOnlySource);
+
+  expect(repairedTypeOnlySource).toBe(
+    "import { defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const commentedEmptySource = [
+    'import {',
+    '  /* generated imports */',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  const repairedEmptySource =
+    ensureBlockConfigCanAddRestManifests(commentedEmptySource);
+
+  expect(repairedEmptySource).toContain('  defineEndpointManifest,\n');
+  expect(repairedEmptySource).toContain('  /* generated imports */');
+  expect(ensureBlockConfigCanAddRestManifests(repairedEmptySource)).toBe(
+    repairedEmptySource,
+  );
+
+  const inlineEmptySource =
+    "import { } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(inlineEmptySource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const trailingCommaSource =
+    "import { defineBlockNesting, } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(trailingCommaSource)).toBe(
+    "import { defineBlockNesting, defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const commaInCommentSource = [
+    'import {',
+    '  defineBlockNesting // keep this, generated',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(commaInCommentSource)).toContain(
+    'defineBlockNesting, // keep this, generated\n  defineEndpointManifest,',
+  );
+
+  const mixedBindingLayoutSource = [
+    'import { defineBlockNesting,',
+    "  defineInnerBlocksTemplates } from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(mixedBindingLayoutSource)).toBe(
+    [
+      'import { defineBlockNesting,',
+      '  defineInnerBlocksTemplates,',
+      '  defineEndpointManifest,',
+      "} from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const mixedIndentationSource = [
+    'function example() {',
+    '\treturn true;',
+    '}',
+    'import {',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(mixedIndentationSource)).toContain(
+    '{\n  defineEndpointManifest,\n}',
+  );
+
+  const aliasedExportSource =
+    "import { type defineEndpointManifest as EndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedAliasedExport =
+    ensureBlockConfigCanAddRestManifests(aliasedExportSource);
+  expect(repairedAliasedExport).toContain(
+    'type defineEndpointManifest as EndpointManifest, defineBlockNesting, defineEndpointManifest',
+  );
+
+  const aliasedLocalBindingSource =
+    "import { type endpointManifest as defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(aliasedLocalBindingSource)).toBe(
+    "import { endpointManifest as defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+});
+
+test('REST manifest support scans every metadata-core import before mutating', () => {
+  const source = [
+    "import type { MetadataCoreOptions } from '@wp-typia/block-runtime/metadata-core';",
+    'import {',
+    '  defineBlockNesting,',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated).toContain('  defineEndpointManifest,');
+  expect(updated).not.toContain(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+  );
+});
 
 describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 	const tempRoot = createScaffoldTempRoot('wp-typia-add-ai-feature-');

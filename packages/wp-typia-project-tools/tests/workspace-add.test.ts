@@ -770,7 +770,7 @@ test('canonical CLI can add a variation to an official workspace template', asyn
   expect(blockConfigSource).toContain("slug: 'hero-card'");
   expect(blockIndexSource).toContain('registerWorkspaceVariations');
   expect(blockIndexSource).toContain('registerWorkspaceVariations();');
-  expect(variationsIndexSource).toContain('workspaceVariation_hero_card');
+  expect(variationsIndexSource).toContain('workspaceVariationHeroCardL4L4');
   expect(variationSource).toContain('BlockVariation');
   expect(variationSource).toContain(
     '@wp-typia/block-types/blocks/registration',
@@ -929,7 +929,7 @@ test('canonical CLI can add core block variations without generating block manif
   expect(coreVariationsIndexSource).toContain('core/group');
   expect(coreVariationsIndexSource).toContain('core/paragraph');
   expect(coreVariationsIndexSource).toContain(
-    'coreVariation_core_group_section_hero',
+    'coreVariationCoreGroupSectionHeroL4L5L7L4',
   );
   expect(groupVariationSource).toContain('BlockVariation');
   expect(groupVariationSource).toContain('BlockTemplate');
@@ -1034,14 +1034,218 @@ test('variation workflow keeps registry identifiers unique for similar slugs', a
   );
 
   expect(variationsIndexSource).toContain(
-    "import { workspaceVariation_hero_2_card } from './hero-2-card';",
+    "import { workspaceVariationHero2CardL4L1L4 } from './hero-2-card';",
   );
   expect(variationsIndexSource).toContain(
-    "import { workspaceVariation_hero2_card } from './hero2-card';",
+    "import { workspaceVariationHero2CardL5L4 } from './hero2-card';",
   );
 
   runCli('npm', ['run', 'build'], { cwd: targetDir });
 }, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
+
+test('add workflows preserve historical generated registry identifiers', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'demo-workspace-add-historical-registry-identifiers',
+  );
+
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace historical registry identifiers',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'demo-workspace-add-historical-registry-identifiers',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Historical Registry Identifiers',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'hero-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'style', 'callout-emphasis', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [
+      entryPath,
+      'add',
+      'transform',
+      'quote-to-counter',
+      '--from',
+      'core/quote',
+      '--to',
+      'counter-card',
+    ],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'core-variation', 'core/group', 'section-hero'],
+    { cwd: targetDir },
+  );
+
+  const historicalModules = [
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'variations',
+        'hero-card.ts',
+      ),
+      historicalName: 'workspaceVariation_hero_card',
+      managedName: 'workspaceVariationHeroCardL4L4',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'styles',
+        'callout-emphasis.ts',
+      ),
+      historicalName: 'workspaceBlockStyle_callout_emphasis',
+      managedName: 'workspaceBlockStyleCalloutEmphasisL7L8',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'transforms',
+        'quote-to-counter.ts',
+      ),
+      historicalName: 'workspaceBlockTransform_quote_to_counter',
+      managedName: 'workspaceBlockTransformQuoteToCounterL5L2L7',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'editor-plugins',
+        'core-variations',
+        'core',
+        'group',
+        'section-hero.ts',
+      ),
+      historicalName: 'coreVariation_core_group_section_hero',
+      managedName: 'coreVariationCoreGroupSectionHeroL4L5L7L4',
+    },
+  ] as const;
+  for (const historicalModule of historicalModules) {
+    const source = fs.readFileSync(historicalModule.filePath, 'utf8');
+    fs.writeFileSync(
+      historicalModule.filePath,
+      replaceFixtureSource(
+        source,
+        historicalModule.managedName,
+        historicalModule.historicalName,
+        `historical export ${historicalModule.historicalName}`,
+      ),
+      'utf8',
+    );
+  }
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'gallery-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'style', 'soft-border', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [
+      entryPath,
+      'add',
+      'transform',
+      'paragraph-to-counter',
+      '--from',
+      'core/paragraph',
+      '--to',
+      'counter-card',
+    ],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'core-variation', 'core/group', 'feature-panel'],
+    { cwd: targetDir },
+  );
+
+  const registrySources = [
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'variations',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'styles',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'transforms',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'editor-plugins',
+        'core-variations',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+  ];
+  for (const [index, historicalModule] of historicalModules.entries()) {
+    expect(registrySources[index]).toContain(historicalModule.historicalName);
+    expect(registrySources[index]).not.toContain(historicalModule.managedName);
+  }
+}, 60_000);
 
 test('canonical CLI can add block styles and transforms to an official workspace block', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-style-transform');
@@ -1201,7 +1405,7 @@ const copiedStyleImport = \`import { registerWorkspaceBlockStyles } from './styl
   ).toBe(1);
   expect(stylesIndexSource).toContain('registerBlockStyle(metadata.name, style)');
   expect(stylesIndexSource).toContain(
-    'workspaceBlockStyle_callout_emphasis',
+    'workspaceBlockStyleCalloutEmphasisL7L8',
   );
   expect(styleSource).toContain("name: 'callout-emphasis'");
   expect(styleSource).toContain('Callout Emphasis');
@@ -4491,7 +4695,8 @@ test('canonical CLI can add a type-only manual REST contract to an official work
   expect(clientSource).toContain(
     "const pathParams = rawPathParams && typeof rawPathParams === 'object'",
   );
-  expect(clientSource).toContain("const pathParam0 = pathParams['post_id'];");
+  expect(clientSource).toContain("const pathParam0Name = 'post_id';");
+  expect(clientSource).toContain('const pathParam0 = pathParams[pathParam0Name];');
   expect(clientSource).toContain(
     'path: `/legacy/v1/records/${encodeURIComponent( String( pathParam0 ) )}`',
   );
@@ -4747,7 +4952,8 @@ test('canonical CLI can add a typed admin settings screen from a manual REST con
   expect(dataSource).toContain('callManualRestContract');
   expect(dataSource).toContain('saveIntegrationSettingsSettings');
   expect(dataSource).not.toContain("apiKey: ''");
-  expect(dataSource).toContain("delete requestBody['apiKey']");
+  expect(dataSource).toContain("const secretFieldName = 'apiKey';");
+  expect(dataSource).toContain('delete requestBody[secretFieldName]');
   expect(dataSource).toContain('if (!result.isValid)');
   expect(dataSource).not.toContain('!result.data');
   expect(dataSource).toContain(

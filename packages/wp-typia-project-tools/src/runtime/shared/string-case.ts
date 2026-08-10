@@ -127,6 +127,34 @@ export function toCamelCase(input: string): string {
 }
 
 /**
+ * Build a readable PascalCase identifier that preserves slug boundaries.
+ * The segment-length signature prevents normalized identifiers such as
+ * `hero-2-card` and `hero2-card` from colliding without using underscores.
+ *
+ * @param input Raw text that may contain spaces, punctuation, or camelCase.
+ * @returns A PascalCase identifier with a deterministic segment signature.
+ */
+export function toCollisionSafePascalCase(input: string): string {
+  const segments = toKebabCase(input).split('-').filter(Boolean);
+  const readable = segments.map(capitalizeSegment).join('');
+  const signature = segments.map((segment) => `L${segment.length}`).join('');
+  return `${readable}${signature}`;
+}
+
+/**
+ * Build a readable camelCase identifier that preserves normalized slug
+ * boundaries with the same deterministic signature as
+ * {@link toCollisionSafePascalCase}.
+ *
+ * @param input Raw text that may contain spaces, punctuation, or camelCase.
+ * @returns A collision-safe camelCase identifier.
+ */
+export function toCollisionSafeCamelCase(input: string): string {
+  const pascalCase = toCollisionSafePascalCase(input);
+  return `${pascalCase.charAt(0).toLowerCase()}${pascalCase.slice(1)}`;
+}
+
+/**
  * Convert delimited text to PascalCase while preserving each segment's
  * existing internal casing.
  *

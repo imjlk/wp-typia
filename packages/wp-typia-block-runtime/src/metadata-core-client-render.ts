@@ -410,7 +410,7 @@ function buildEndpointPathRequestOptionLines(options: {
 					`      : {};`,
 					...pathParameterNames.map(
 						(name, index) =>
-							`    const pathParam${index} = pathParams[${toJavaScriptStringLiteral(name)}];`,
+							`    const pathParam${index}Name = ${toJavaScriptStringLiteral(name)};\n    const pathParam${index} = pathParams[pathParam${index}Name];`,
 					),
 				]
 			: []),
