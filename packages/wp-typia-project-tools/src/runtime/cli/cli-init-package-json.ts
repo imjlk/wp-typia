@@ -7,6 +7,7 @@ import {
 } from './cli-diagnostics.js';
 import {
   getPackageManager,
+  PACKAGE_MANAGER_IDS,
   transformPackageManagerText,
   type PackageManagerId,
 } from '../shared/package-managers.js';
@@ -62,6 +63,39 @@ const MANAGED_LINT_SCRIPT_NAMES = [
   'lint',
   ...LEGACY_LINT_SCRIPT_NAMES,
 ] as const;
+const SHELL_AND_SEPARATOR = ' && ';
+
+function buildManagedCheckAggregate(
+  laneNames: readonly string[],
+  packageManager: PackageManagerId,
+): string {
+  return laneNames
+    .map((name) =>
+      transformPackageManagerText(`bun run ${name}`, packageManager),
+    )
+    .join(SHELL_AND_SEPARATOR);
+}
+
+function isManagedCheckCodeCommand(command: string | undefined): boolean {
+  return PACKAGE_MANAGER_IDS.some(
+    (packageManager) =>
+      command ===
+      transformPackageManagerText(
+        BASE_RETROFIT_SCRIPTS['check:code'],
+        packageManager,
+      ),
+  );
+}
+
+function isManagedCheckAggregate(
+  command: string | undefined,
+  laneNames: readonly string[],
+): boolean {
+  return PACKAGE_MANAGER_IDS.some(
+    (packageManager) =>
+      command === buildManagedCheckAggregate(laneNames, packageManager),
+  );
+}
 
 function findReferencedManagedLintScripts(
   scripts: Readonly<Record<string, string>>,
@@ -322,7 +356,7 @@ function prependRequiredCommands(
   currentValue: string | undefined,
   requiredCommands: readonly string[],
 ): string {
-  const requiredValue = requiredCommands.join(' && ');
+  const requiredValue = requiredCommands.join(SHELL_AND_SEPARATOR);
   if (typeof currentValue !== 'string' || currentValue.trim().length === 0) {
     return requiredValue;
   }
@@ -331,7 +365,7 @@ function prependRequiredCommands(
   }
   return containsOnlyShellComments(currentValue)
     ? `${requiredValue} ${currentValue.trimStart()}`
-    : `${requiredValue} && ${currentValue}`;
+    : `${requiredValue}${SHELL_AND_SEPARATOR}${currentValue}`;
 }
 
 function mergePostinstallCommand(
@@ -482,16 +516,17 @@ export function buildScriptChanges(
 			if (name === 'postinstall') {
 				requiredValue = mergePostinstallCommand(currentValue, command);
 			} else if (name === 'check:code') {
-				requiredValue = hasTtscCheckNoEmitCommand(currentValue)
-					? currentValue!
-					: prependRequiredCommands(currentValue, [command]);
+				requiredValue =
+					typeof currentValue === 'string' &&
+					hasTtscCheckNoEmitCommand(currentValue)
+						? currentValue
+						: prependRequiredCommands(currentValue, [command]);
 			} else if (name === 'check') {
-				requiredValue = hasPackageRunScriptInvocation(
-					currentValue,
-					'check:code',
-				)
-					? currentValue!
-					: prependRequiredCommands(currentValue, [command]);
+				requiredValue =
+					typeof currentValue === 'string' &&
+					hasPackageRunScriptInvocation(currentValue, 'check:code')
+						? currentValue
+						: prependRequiredCommands(currentValue, [command]);
 			}
 			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},
@@ -556,14 +591,26 @@ export function buildOfficialWorkspaceLintScriptChanges(
       (lane) => !hasPackageRunScriptCommand(currentCheck, lane.name),
     )
     .map(({ command }) => command);
-  const requiredCheck = prependRequiredCommands(
+  const requiredCheck = isManagedCheckAggregate(
     currentCheck,
-    missingCheckCommands,
-  );
+    requiredCheckLanes,
+  )
+    ? buildManagedCheckAggregate(requiredCheckLanes, packageManager)
+    : prependRequiredCommands(currentCheck, missingCheckCommands);
   const currentCheckCode = scripts['check:code'];
-  const requiredCheckCode = hasTtscCheckNoEmitCommand(currentCheckCode)
-    ? currentCheckCode!
-    : prependRequiredCommands(currentCheckCode, [checkCodeCommand]);
+  let requiredCheckCode: string;
+  if (isManagedCheckCodeCommand(currentCheckCode)) {
+    requiredCheckCode = checkCodeCommand;
+  } else if (
+    typeof currentCheckCode === 'string' &&
+    hasTtscCheckNoEmitCommand(currentCheckCode)
+  ) {
+    requiredCheckCode = currentCheckCode;
+  } else {
+    requiredCheckCode = prependRequiredCommands(currentCheckCode, [
+      checkCodeCommand,
+    ]);
+  }
   const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(
       'postinstall',

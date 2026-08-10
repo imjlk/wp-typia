@@ -3156,12 +3156,12 @@ let exports;
 			expect(nextPackageJson.scripts.typecheck).toBe(
 				'pnpm run sync --check && ttsc --noEmit && bun test',
 			);
-			expect(nextPackageJson.scripts['check:code']).toBe(
-				'npm run sync -- --check && ttsc check --noEmit',
-			);
-			expect(nextPackageJson.scripts.check).toBe(
-				'npm run check:code && npm run check:style && npm run check:format',
-			);
+		expect(nextPackageJson.scripts['check:code']).toBe(
+			'pnpm run sync --check && ttsc check --noEmit',
+		);
+		expect(nextPackageJson.scripts.check).toBe(
+			'pnpm run check:code && pnpm run check:style && pnpm run check:format',
+		);
 			expect(nextPackageJson.scripts['lint:ts']).toBeUndefined();
 			expect(nextPackageJson.scripts.lint).toBeUndefined();
 		expect(lintConfigSource).toContain(
