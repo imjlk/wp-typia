@@ -408,7 +408,9 @@ test('cli-add-workspace delegates workspace add workflows to focused helpers', (
   expect(patternAnchorsSource).toContain(
     'export async function ensurePatternBootstrapAnchors(',
   );
-  expect(patternAnchorsSource).toContain(
+  expect(patternAnchorsSource).toContain('syncWorkspacePhpEntrypoints(');
+  expect(patternAnchorsSource).toContain("manifestIds: ['patterns']");
+  expect(patternAnchorsSource).not.toContain(
     'function ensureNestedPatternLoaderSource(',
   );
   expect(patternAnchorsSource).not.toContain('function buildPatternSource(');

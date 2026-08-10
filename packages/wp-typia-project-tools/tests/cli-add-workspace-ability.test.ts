@@ -249,7 +249,16 @@ function demo_space_enqueue_workflow_abilities() {
 		expect(blockConfigSource).toContain('@wordpress/core-abilities');
 		expect(bootstrapSource).toContain('Requires at least: 7.0');
 		expect(bootstrapSource).toContain('Tested up to:      7.0');
-		expect(bootstrapSource).toContain('inc/abilities/*.php');
+		expect(bootstrapSource).toContain(
+			"require_once __DIR__ . '/inc/abilities/wp-typia-modules.php';",
+		);
+		const abilityManifestSource = fs.readFileSync(
+			path.join(targetDir, 'inc', 'abilities', 'wp-typia-modules.php'),
+			'utf8',
+		);
+		expect(abilityManifestSource).toContain(
+			"require_once __DIR__ . '/review-workflow.php';",
+		);
 		expect(bootstrapSource).toContain('build/abilities/index.js');
 		expect(bootstrapSource).toContain('wp_enqueue_script_module');
 		expect(bootstrapSource).toContain('@wordpress/core-abilities');

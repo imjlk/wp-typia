@@ -27,7 +27,6 @@ import {
   buildRestSettingsAdminViewTypesSource,
 } from './cli-add-workspace-admin-view-templates.js';
 import {
-  ADMIN_VIEWS_PHP_GLOB,
   isAdminViewCoreDataSource,
   isAdminViewManualSettingsRestResource,
   type AdminViewCoreDataSource,
@@ -50,10 +49,16 @@ import {
   resolveManagedPackageVersionRange,
 } from '../shared/package-versions.js';
 import {
-  findPhpFunctionRange,
   hasPhpFunctionDefinition,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 
 const LEGACY_MANUAL_REST_API_SOURCE_PATTERN =
   /^\s*export\s+\*\s+from\s+["']\.\/api-client["'];?\s*$/u;
@@ -206,34 +211,30 @@ async function ensureAdminViewBootstrapAnchors(
       `add_action\\(\\s*['"]plugins_loaded['"]\\s*,\\s*['"]${loadFunctionName}['"]\\s*\\)\\s*;`,
       'u',
     );
+    const adminViewManifestPath =
+      `/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews}`;
     const loadFunction = `
 
 function ${loadFunctionName}() {
-\tforeach ( glob( __DIR__ . '${ADMIN_VIEWS_PHP_GLOB}' ) ?: array() as $admin_view_module ) {
-\t\trequire_once $admin_view_module;
-\t}
+\trequire_once __DIR__ . '${adminViewManifestPath}';
 }
 `;
     if (!hasPhpFunctionDefinition(nextSource, loadFunctionName)) {
       nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, loadFunction);
     } else {
-      const functionRange = findPhpFunctionRange(nextSource, loadFunctionName);
-      const functionSource = functionRange
-        ? nextSource.slice(functionRange.start, functionRange.end)
-        : '';
-      if (!functionSource.includes(ADMIN_VIEWS_PHP_GLOB)) {
-        const replacedSource = replacePhpFunctionDefinition(
-          nextSource,
-          loadFunctionName,
-          loadFunction,
-        );
-        if (!replacedSource) {
-          throw new Error(
-            `Unable to repair ${path.basename(bootstrapPath)} for ${loadFunctionName}.`,
-          );
-        }
-        nextSource = replacedSource;
-      }
+      nextSource = migrateGeneratedPhpLoaderFunction({
+        bootstrapPath,
+        functionName: loadFunctionName,
+        legacyFunctions: [buildLegacyGeneratedGlobLoader({
+          functionName: loadFunctionName,
+          globPath: '/inc/admin-views/*.php',
+          includeKind: 'require_once',
+          moduleVariable: 'admin_view_module',
+        })],
+        manifestPath: adminViewManifestPath,
+        replacement: loadFunction,
+        source: nextSource,
+      });
     }
 
     if (!loadHookPattern.test(nextSource)) {
@@ -241,6 +242,9 @@ function ${loadFunctionName}() {
     }
 
     return nextSource;
+  });
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['adminViews'],
   });
 }
 
@@ -449,6 +453,10 @@ export async function scaffoldAdminViewWorkspace(options: {
       buildScriptPath,
       packageJsonPath,
       webpackConfigPath,
+      path.join(
+        workspace.projectDir,
+        WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.adminViews,
+      ),
       ...(manualSettingsRestApiPath ? [manualSettingsRestApiPath] : []),
     ],
     targetPaths: [adminViewDir, adminViewPhpPath],
@@ -456,7 +464,6 @@ export async function scaffoldAdminViewWorkspace(options: {
       await fsp.mkdir(adminViewDir, { recursive: true });
       await fsp.mkdir(path.dirname(adminViewPhpPath), { recursive: true });
       await ensureAdminViewPackageDependencies(workspace, parsedSource, restResource);
-      await ensureAdminViewBootstrapAnchors(workspace);
       await ensureAdminViewBuildScriptAnchors(workspace);
       await ensureAdminViewWebpackAnchors(workspace);
       if (manualSettingsRestResource) {
@@ -563,6 +570,7 @@ export async function scaffoldAdminViewWorkspace(options: {
         buildAdminViewPhpSource(adminViewSlug, workspace),
         'utf8',
       );
+      await ensureAdminViewBootstrapAnchors(workspace);
       await writeAdminViewRegistry(workspace.projectDir, adminViewSlug);
       await appendWorkspaceInventoryEntries(workspace.projectDir, {
         adminViewEntries: [

@@ -1,6 +1,6 @@
 import {
   assertRestResourceDoesNotExist,
-  assertValidGeneratedSlug,
+  assertValidGeneratedPhpModuleSlug,
   normalizeBlockSlug,
   resolveRestResourceNamespace,
   type RunAddRestResourceCommandOptions,
@@ -41,7 +41,7 @@ export async function runAddRestResourceCommand({
 	secretStateFieldName,
 }: RunAddRestResourceCommandOptions): Promise<RunAddRestResourceCommandResult> {
   const workspace = resolveWorkspaceProject(cwd);
-  const restResourceSlug = assertValidGeneratedSlug(
+  const restResourceSlug = assertValidGeneratedPhpModuleSlug(
     'REST resource name',
     normalizeBlockSlug(restResourceName),
     'wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <list,read,create>]',

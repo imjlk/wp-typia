@@ -23,6 +23,7 @@ import {
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 
 /**
  * Add one PHP block pattern shell to an official workspace project.
@@ -89,6 +90,17 @@ export async function runAddPatternCommand({
     tags,
     thumbnailUrl,
   });
+  if (
+    path.resolve(workspace.projectDir, patternCatalogOptions.contentFile) ===
+    path.resolve(
+      workspace.projectDir,
+      WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns,
+    )
+  ) {
+    throw new Error(
+      'Pattern contentFile must not overwrite the managed wp-typia-modules.php manifest.',
+    );
+  }
 
   const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
   assertPatternDoesNotExist(workspace.projectDir, patternSlug, inventory);
@@ -120,14 +132,20 @@ export async function runAddPatternCommand({
   const bootstrapPath = getWorkspaceBootstrapPath(workspace);
   const patternFilePath = contentFilePath;
   const mutationSnapshot: WorkspaceMutationSnapshot = {
-    fileSources: await snapshotWorkspaceFiles([blockConfigPath, bootstrapPath]),
+    fileSources: await snapshotWorkspaceFiles([
+      blockConfigPath,
+      bootstrapPath,
+      path.join(
+        workspace.projectDir,
+        WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns,
+      ),
+    ]),
     snapshotDirs: [],
     targetPaths: [patternFilePath],
   };
 
   try {
     await fsp.mkdir(path.dirname(patternFilePath), { recursive: true });
-    await ensurePatternBootstrapAnchors(workspace);
     await fsp.writeFile(
       patternFilePath,
       buildPatternSource(
@@ -139,6 +157,7 @@ export async function runAddPatternCommand({
       ),
       'utf8',
     );
+    await ensurePatternBootstrapAnchors(workspace);
     await appendWorkspaceInventoryEntries(workspace.projectDir, {
       patternEntries: [
         buildPatternConfigEntry(patternSlug, patternCatalogOptions),

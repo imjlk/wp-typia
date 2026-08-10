@@ -23,6 +23,7 @@ import {
 import { buildAiFeaturePhpSource } from './cli-add-workspace-ai-templates.js';
 import { buildTypiaLlmToolEndpointPhpSource } from './cli-add-workspace-ai-templates.js';
 import { appendWorkspaceInventoryEntries } from '../workspace/workspace-inventory.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 import { getWorkspaceBootstrapPath, patchFile } from './cli-add-shared.js';
 import { executeWorkspaceMutationPlan } from './cli-add-workspace-mutation.js';
 import { updatePluginHeaderCompatibility } from '../templates/scaffold-compatibility.js';
@@ -108,6 +109,10 @@ export async function scaffoldAiFeatureWorkspace({
 			blockConfigPath,
 			bootstrapPath,
 			packageJsonPath,
+			path.join(
+				workspace.projectDir,
+				WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.aiFeatures,
+			),
 			syncAiScriptPath,
 			syncProjectScriptPath,
 			syncRestScriptPath,
@@ -121,7 +126,6 @@ export async function scaffoldAiFeatureWorkspace({
 		run: async () => {
 			await fsp.mkdir(aiFeatureDir, { recursive: true });
 			await fsp.mkdir(path.dirname(phpFilePath), { recursive: true });
-			await ensureAiFeatureBootstrapAnchors(workspace);
 			await patchFile(bootstrapPath, (source) =>
 				updatePluginHeaderCompatibility(source, compatibilityPolicy, {
 					onWarning: (warning) => {
@@ -155,6 +159,7 @@ export async function scaffoldAiFeatureWorkspace({
 				),
 				'utf8',
 			);
+			await ensureAiFeatureBootstrapAnchors(workspace);
 
 			await fsp.writeFile(
 				llmToolEndpointPath,

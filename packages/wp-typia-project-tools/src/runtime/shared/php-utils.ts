@@ -48,6 +48,13 @@ type PhpScannerAdvanceResult = {
   index: number;
 };
 
+const PHP_INCLUDE_KEYWORDS = [
+  'require_once',
+  'include_once',
+  'require',
+  'include',
+] as const;
+
 export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
@@ -228,7 +235,10 @@ function matchesPhpFunctionCallAt(
 	index: number,
 	functionName: string,
 ): boolean {
-  if (!source.startsWith(functionName, index)) {
+  if (
+    source.slice(index, index + functionName.length).toLowerCase() !==
+      functionName.toLowerCase()
+  ) {
     return false;
   }
   if (isPhpIdentifierPart(source[index - 1])) {
@@ -258,13 +268,14 @@ function matchesPhpFunctionCallAt(
 function parsePhpQuotedStringLiteralAt(
 	source: string,
 	index: number,
-): { end: number; value: string } | null {
+): { end: number; hasEscape: boolean; value: string } | null {
   const quote = source[index];
   if (quote !== "'" && quote !== '"') {
     return null;
   }
 
   let cursor = index + 1;
+  let hasEscape = false;
   let value = '';
   while (cursor < source.length) {
     const character = source[cursor];
@@ -273,6 +284,7 @@ function parsePhpQuotedStringLiteralAt(
       if (escapedCharacter === undefined) {
         return null;
       }
+      hasEscape = true;
       value += escapedCharacter;
       cursor += 2;
       continue;
@@ -281,8 +293,19 @@ function parsePhpQuotedStringLiteralAt(
     if (character === quote) {
       return {
         end: cursor + 1,
+        hasEscape,
         value,
       };
+    }
+
+    if (
+      quote === '"' &&
+      ((character === '$' &&
+        (isPhpIdentifierStart(source[cursor + 1]) ||
+          source[cursor + 1] === '{')) ||
+        (character === '{' && source[cursor + 1] === '$'))
+    ) {
+      return null;
     }
 
     value += character;
@@ -581,6 +604,253 @@ export function hasPhpFunctionCall(
   }
 
   return false;
+}
+
+/**
+ * Count selected PHP identifiers in code while ignoring strings and comments.
+ *
+ * @returns The identifier count, or `-1` when malformed PHP makes the scan
+ * ambiguous.
+ */
+export function countPhpCodeIdentifiers(
+  source: string,
+  identifiers: readonly string[],
+  options: PhpFunctionCallScanOptions = {},
+): number {
+  const expected = new Set(identifiers);
+  const scanner = createPhpScannerState(options);
+  let count = 0;
+  let index = 0;
+  while (index < source.length) {
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return -1;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+    if (source[index] === '$') {
+      index += 1;
+      while (isPhpIdentifierPart(source[index])) {
+        index += 1;
+      }
+      continue;
+    }
+    if (!isPhpIdentifierStart(source[index])) {
+      index += 1;
+      continue;
+    }
+
+    let end = index + 1;
+    while (isPhpIdentifierPart(source[end])) {
+      end += 1;
+    }
+    if (expected.has(source.slice(index, end))) {
+      count += 1;
+    }
+    index = end;
+  }
+  return count;
+}
+
+function matchesPhpIdentifierIgnoringCaseAt(
+  source: string,
+  index: number,
+  identifier: string,
+): boolean {
+  return (
+    source.slice(index, index + identifier.length).toLowerCase() ===
+      identifier.toLowerCase() &&
+    !isPhpIdentifierPart(source[index - 1]) &&
+    !isPhpIdentifierPart(source[index + identifier.length])
+  );
+}
+
+function scanPhpLiteralDirectoryIncludes(
+  source: string,
+  options: PhpFunctionCallScanOptions,
+  strict: boolean,
+  visit: (relativePath: string) => boolean,
+): boolean | null {
+  const scanner = createPhpScannerState(options);
+  let matched = false;
+  let index = 0;
+  while (index < source.length) {
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return null;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+
+    const includeKeyword = PHP_INCLUDE_KEYWORDS.find((candidate) =>
+      matchesPhpIdentifierIgnoringCaseAt(source, index, candidate),
+    );
+    if (!includeKeyword) {
+      index += 1;
+      continue;
+    }
+
+    let cursor = skipPhpCallTrivia(source, index + includeKeyword.length);
+    if (cursor === null) {
+      return null;
+    }
+    const parenthesized = source[cursor] === '(';
+    if (parenthesized) {
+      cursor = skipPhpCallTrivia(source, cursor + 1);
+    }
+    if (
+      cursor === null ||
+      !matchesPhpIdentifierIgnoringCaseAt(source, cursor, '__DIR__')
+    ) {
+      if (strict) {
+        return null;
+      }
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, cursor + '__DIR__'.length);
+    if (cursor === null || source[cursor] !== '.') {
+      if (strict) {
+        return null;
+      }
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, cursor + 1);
+    const literal = cursor === null
+      ? null
+      : parsePhpQuotedStringLiteralAt(source, cursor);
+    if (!literal || literal.hasEscape) {
+      if (strict) {
+        return null;
+      }
+      index += includeKeyword.length;
+      continue;
+    }
+    cursor = skipPhpCallTrivia(source, literal.end);
+    if (parenthesized) {
+      if (cursor === null || source[cursor] !== ')') {
+        if (strict) {
+          return null;
+        }
+        index += includeKeyword.length;
+        continue;
+      }
+      cursor = skipPhpCallTrivia(source, cursor + 1);
+    }
+    if (cursor === null || source[cursor] !== ';') {
+      if (strict) {
+        return null;
+      }
+      index += includeKeyword.length;
+      continue;
+    }
+    matched = visit(literal.value) || matched;
+    index = cursor + 1;
+  }
+  if (scanner.mode !== 'code' && scanner.mode !== 'line-comment') {
+    return null;
+  }
+  return matched;
+}
+
+/**
+ * Detect an executable PHP include whose complete expression is one literal
+ * `__DIR__` concatenation.
+ */
+export function hasPhpLiteralDirectoryInclude(
+  source: string,
+  relativePath: string,
+  options: PhpFunctionCallScanOptions = {},
+): boolean {
+  return scanPhpLiteralDirectoryIncludes(
+    source,
+    options,
+    false,
+    (candidate) => candidate === relativePath,
+  ) === true;
+}
+
+/** Detect a literal directory include inside one named PHP function body. */
+export function hasPhpFunctionLiteralDirectoryInclude(
+  source: string,
+  functionName: string,
+  relativePath: string,
+  options: PhpFunctionRangeOptions = {},
+): boolean {
+  const functionRange = findPhpFunctionRange(source, functionName, options);
+  return functionRange !== null &&
+    hasPhpLiteralDirectoryInclude(functionRange.source, relativePath);
+}
+
+/**
+ * Collect executable includes whose complete target is one literal `__DIR__`
+ * concatenation. Returns `null` when any include expression is dynamic,
+ * malformed, or ambiguous.
+ */
+export function collectPhpLiteralDirectoryIncludePaths(
+  source: string,
+  options: PhpFunctionCallScanOptions = {},
+): string[] | null {
+  const paths: string[] = [];
+  const scan = scanPhpLiteralDirectoryIncludes(
+    source,
+    options,
+    true,
+    (path) => {
+      paths.push(path);
+      return false;
+    },
+  );
+  return scan === null ? null : paths;
+}
+
+/** Detect an executable PHP include expression that contains a variable. */
+export function hasPhpVariableIncludeExpression(
+  source: string,
+  options: PhpFunctionCallScanOptions = {},
+): boolean {
+  const scanner = createPhpScannerState(options);
+  let includeExpression = false;
+  let index = 0;
+  while (index < source.length) {
+    if (
+      includeExpression &&
+      scanner.mode === 'code' &&
+      source[index] === '"' &&
+      parsePhpQuotedStringLiteralAt(source, index) === null
+    ) {
+      return true;
+    }
+    const scan = advancePhpScanner(source, index, scanner);
+    if (scan.ambiguous) {
+      return true;
+    }
+    if (!scan.inCode) {
+      index = scan.index;
+      continue;
+    }
+    if (!includeExpression) {
+      const includeKeyword = PHP_INCLUDE_KEYWORDS.find((candidate) =>
+        matchesPhpIdentifierIgnoringCaseAt(source, index, candidate),
+      );
+      if (includeKeyword) {
+        includeExpression = true;
+        index += includeKeyword.length;
+        continue;
+      }
+    } else if (source[index] === '$') {
+      return true;
+    } else if (source[index] === ';') {
+      includeExpression = false;
+    }
+    index += 1;
+  }
+  return includeExpression;
 }
 
 /**

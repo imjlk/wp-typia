@@ -1,6 +1,6 @@
 import {
   assertAdminViewDoesNotExist,
-  assertValidGeneratedSlug,
+  assertValidGeneratedPhpModuleSlug,
   normalizeBlockSlug,
   type RunAddAdminViewCommandOptions,
 } from './cli-add-shared.js';
@@ -33,7 +33,7 @@ export async function runAddAdminViewCommand({
 }> {
   const workspace = resolveWorkspaceProject(cwd);
   assertAdminViewPackageAvailability();
-  const adminViewSlug = assertValidGeneratedSlug(
+  const adminViewSlug = assertValidGeneratedPhpModuleSlug(
     'Admin view name',
     normalizeBlockSlug(adminViewName),
     ADD_ADMIN_VIEW_USAGE,

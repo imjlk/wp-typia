@@ -85,8 +85,13 @@ async function main() {
     'scripts',
     'sync-types-to-block-json.ts',
   );
+  const syncPhpEntrypointsScriptPath = path.join(
+    'scripts',
+    'sync-php-entrypoints.ts',
+  );
   const syncRestScriptPath = path.join('scripts', 'sync-rest-contracts.ts');
 
+  runSyncScript(syncPhpEntrypointsScriptPath, options);
   runSyncScript(syncTypesScriptPath, options);
 
   if (fs.existsSync(path.resolve(process.cwd(), syncRestScriptPath))) {
@@ -95,8 +100,8 @@ async function main() {
 
   console.log(
     options.check
-      ? '✅ Generated project metadata and REST artifacts are already synchronized.'
-      : '✅ Generated project metadata and REST artifacts were synchronized.',
+      ? '✅ Generated PHP entrypoints, project metadata, and REST artifacts are already synchronized.'
+      : '✅ Generated PHP entrypoints, project metadata, and REST artifacts were synchronized.',
   );
 }
 

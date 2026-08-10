@@ -4,14 +4,18 @@ import path from 'node:path';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_FULL_BLOCK_NAME_PATTERN,
+  WORKSPACE_PATTERN_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
 import {
   formatPatternCatalogDiagnostics,
   resolvePatternCatalogContentFile,
   validatePatternCatalog,
 } from '../add/pattern-catalog.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 import {
   hasExecutablePattern,
   hasUncommentedPattern,
@@ -33,21 +37,11 @@ const WORKSPACE_BLOCK_TRANSFORMS_IMPORT_PATTERN =
 const WORKSPACE_BLOCK_TRANSFORMS_CALL_PATTERN =
 	/applyWorkspaceBlockTransforms\s*\(\s*registration\s*\.\s*settings\s*\)\s*;?/u;
 
-function isNestedPatternContentFile(patternFile: string | undefined): boolean {
-  if (!patternFile) {
-    return false;
-  }
-  const normalizedPath = patternFile.replace(/\\/gu, '/');
-  return (
-		normalizedPath.startsWith('src/patterns/') &&
-		normalizedPath.slice('src/patterns/'.length).includes('/')
-	);
-}
-
 function checkWorkspacePatternBootstrap(
 	projectDir: string,
 	packageName: string,
-	requiresNestedPatternGlob: boolean,
+	phpPrefix: string,
+	patterns: WorkspaceInventory['patterns'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -59,18 +53,30 @@ function checkWorkspacePatternBootstrap(
   }
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const hasCategoryAnchor = source.includes('register_block_pattern_category');
-  const hasPatternGlob = source.includes('/src/patterns/*.php');
-  const hasNestedPatternGlob = source.includes('/src/patterns/*/*.php');
-  const hasRequiredPatternGlobs =
-		hasPatternGlob && (!requiresNestedPatternGlob || hasNestedPatternGlob);
+  const hasPatternManifest = hasPhpFunctionLiteralDirectoryInclude(
+    source,
+    `${phpPrefix}_register_patterns`,
+    WORKSPACE_PATTERN_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_PATTERN_MANIFEST,
+    patterns.map((pattern) =>
+      (resolvePatternCatalogContentFile(pattern) ??
+        `src/patterns/${pattern.slug}.php`)
+        .replace(/\\/gu, '/')
+        .replace(/^src\/patterns\//u, ''),
+    ),
+  );
   return createDoctorCheck(
     'Pattern bootstrap',
-    hasCategoryAnchor && hasRequiredPatternGlobs ? 'pass' : 'fail',
-    hasCategoryAnchor && hasRequiredPatternGlobs
-      ? 'Pattern category and loader hooks are present'
-      : requiresNestedPatternGlob
-        ? 'Missing pattern category registration or nested src/patterns loader hook'
-        : 'Missing pattern category registration or src/patterns loader hook',
+    hasCategoryAnchor && hasPatternManifest && hasValidManifest
+      ? 'pass'
+      : 'fail',
+    hasCategoryAnchor && hasPatternManifest && hasValidManifest
+      ? 'Pattern category and literal manifest hooks are present'
+      : 'Missing pattern category registration or stale pattern manifest hook',
   );
 }
 
@@ -309,16 +315,19 @@ export function getWorkspaceBlockAddonDoctorChecks(
 
   const shouldCheckPatternBootstrap =
 		inventory.patterns.length > 0 ||
-		fs.existsSync(path.join(workspace.projectDir, 'src', 'patterns'));
-  if (shouldCheckPatternBootstrap) {
-    const requiresNestedPatternGlob = inventory.patterns.some((pattern) =>
-      isNestedPatternContentFile(resolvePatternCatalogContentFile(pattern)),
+		fs.existsSync(path.join(workspace.projectDir, 'src', 'patterns')) ||
+		workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_PATTERN_MANIFEST,
     );
+  if (shouldCheckPatternBootstrap) {
     checks.push(
       checkWorkspacePatternBootstrap(
         workspace.projectDir,
         workspace.packageName,
-        requiresNestedPatternGlob,
+        workspace.workspace.phpPrefix,
+        inventory.patterns,
       ),
     );
   }

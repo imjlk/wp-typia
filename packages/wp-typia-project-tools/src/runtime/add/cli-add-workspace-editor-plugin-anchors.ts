@@ -9,9 +9,13 @@ import {
 import { pathExists, readOptionalUtf8File } from '../shared/fs-async.js';
 import {
   findPhpFunctionRange,
+  hasPhpLiteralDirectoryInclude,
   hasPhpFunctionDefinition,
-  replacePhpFunctionDefinition,
 } from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedVariableAssetEnqueue,
+  replaceLegacyGeneratedPhpFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import { readWorkspaceInventoryAsync } from '../workspace/workspace-inventory.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
@@ -48,15 +52,14 @@ export async function ensureEditorPluginBootstrapAnchors(
 
 function ${enqueueFunctionName}() {
 \t$script_path = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_SCRIPT}';
-\t$asset_path  = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}';
 \t$style_path  = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_STYLE}';
 \t$style_rtl_path = __DIR__ . '/${EDITOR_PLUGIN_EDITOR_STYLE_RTL}';
 
-\tif ( ! file_exists( $script_path ) || ! file_exists( $asset_path ) ) {
+\tif ( ! file_exists( $script_path ) || ! file_exists( __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}' ) ) {
 \t\treturn;
 \t}
 
-\t$asset = require $asset_path;
+\t$asset = require __DIR__ . '/${EDITOR_PLUGIN_EDITOR_ASSET}';
 \tif ( ! is_array( $asset ) ) {
 \t\t$asset = array();
 \t}
@@ -86,32 +89,29 @@ function ${enqueueFunctionName}() {
 		if (!hasPhpFunctionDefinition(nextSource, enqueueFunctionName)) {
 			nextSource = insertPhpSnippetBeforeWorkspaceAnchors(nextSource, enqueueFunction);
 		} else {
-			const requiredReferences = [
-				EDITOR_PLUGIN_EDITOR_SCRIPT,
-				EDITOR_PLUGIN_EDITOR_ASSET,
-				EDITOR_PLUGIN_EDITOR_STYLE,
-				EDITOR_PLUGIN_EDITOR_STYLE_RTL,
-				'wp_style_add_data',
-			];
 			const functionRange = findPhpFunctionRange(nextSource, enqueueFunctionName);
-			const functionSource = functionRange
-				? nextSource.slice(functionRange.start, functionRange.end)
-				: '';
-			const missingReferences = requiredReferences.filter(
-				(reference) => !functionSource.includes(reference),
-			);
-			if (missingReferences.length > 0) {
-				const replacedSource = replacePhpFunctionDefinition(
-					nextSource,
-					enqueueFunctionName,
-					enqueueFunction,
+			if (!functionRange) {
+				throw new Error(
+					`Unable to parse ${enqueueFunctionName}() in ${path.basename(bootstrapPath)}.`,
 				);
-				if (!replacedSource) {
-					throw new Error(
-						`Unable to repair ${path.basename(bootstrapPath)} for ${enqueueFunctionName}.`,
-					);
-				}
-				nextSource = replacedSource;
+			}
+			if (!hasPhpLiteralDirectoryInclude(
+				functionRange.source,
+				`/${EDITOR_PLUGIN_EDITOR_ASSET}`,
+			)) {
+				const legacyEnqueueFunction =
+					buildLegacyGeneratedVariableAssetEnqueue({
+						assetPath: EDITOR_PLUGIN_EDITOR_ASSET,
+						currentFunction: enqueueFunction,
+						scriptPath: EDITOR_PLUGIN_EDITOR_SCRIPT,
+					});
+				nextSource = replaceLegacyGeneratedPhpFunction({
+					bootstrapPath,
+					functionName: enqueueFunctionName,
+					legacyFunctions: [legacyEnqueueFunction],
+					replacement: enqueueFunction,
+					source: nextSource,
+				});
 			}
 		}
 

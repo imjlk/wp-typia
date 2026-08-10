@@ -5,9 +5,13 @@ import { assertValidPostMetaPostType } from '../add/cli-add-shared.js';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
-  WORKSPACE_POST_META_GLOB,
+  WORKSPACE_POST_META_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
+import { hasPhpFunctionLiteralDirectoryInclude } from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -51,6 +55,7 @@ function checkWorkspacePostMetaBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	postMetaEntries: WorkspaceInventory['postMeta'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -64,15 +69,34 @@ function checkWorkspacePostMetaBootstrap(
   const source = fs.readFileSync(bootstrapPath, 'utf8');
   const registerFunctionName = `${phpPrefix}_register_post_meta_contracts`;
   const registerHook = `add_action( 'init', '${registerFunctionName}', 20 );`;
-  const hasServerGlob = source.includes(WORKSPACE_POST_META_GLOB);
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
+    source,
+    registerFunctionName,
+    WORKSPACE_POST_META_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_POST_META_MANIFEST,
+    postMetaEntries.map((postMeta) => postMeta.phpFile),
+  );
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_POST_META_MANIFEST,
+    expectedManifestTargets ?? [],
+  );
   const hasRegisterHook = source.includes(registerHook);
+  const hasValidBootstrap =
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest &&
+    hasRegisterHook;
 
   return createDoctorCheck(
     'Post meta bootstrap',
-    hasServerGlob && hasRegisterHook ? 'pass' : 'fail',
-    hasServerGlob && hasRegisterHook
-      ? 'Post meta PHP loader hook is present'
-      : 'Missing post meta PHP require glob or init hook',
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
+      ? 'Post meta PHP manifest hook is present'
+      : 'Missing or stale post meta PHP manifest or init hook',
   );
 }
 
@@ -120,12 +144,26 @@ export function getWorkspacePostMetaDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (postMetaEntries.length > 0) {
+  const hasPostMetaManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_POST_META_MANIFEST.slice(1)),
+  );
+  const bootstrapReferencesPostMetaManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_POST_META_MANIFEST,
+    );
+  if (
+    postMetaEntries.length > 0 ||
+    hasPostMetaManifest ||
+    bootstrapReferencesPostMetaManifest
+  ) {
     checks.push(
       checkWorkspacePostMetaBootstrap(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        postMetaEntries,
       ),
     );
   }

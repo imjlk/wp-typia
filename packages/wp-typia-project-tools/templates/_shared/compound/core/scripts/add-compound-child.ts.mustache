@@ -7,6 +7,8 @@ const PROJECT_ROOT = process.cwd();
 const CHILD_SPEC_MARKER = '// add-child: insert new child specs here';
 const BLOCK_CONFIG_MARKER =
   '// add-child: insert new block config entries here';
+const PHP_BLOCK_REGISTRATION_MARKER =
+  '// add-child: register generated child blocks here';
 const CHILD_PLACEHOLDER = 'Add supporting details for this internal item.';
 const BLOCK_SLUG_PATTERN = /^[a-z][a-z0-9-]*$/;
 
@@ -431,6 +433,24 @@ function insertBeforeMarker(
     source.replace(markerPattern, `${insertion}\n${markerLine}`),
     'utf8',
   );
+}
+
+function resolvePhpBootstrapFile(): string {
+  const candidates = fs
+    .readdirSync(PROJECT_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.php'))
+    .map((entry) => path.join(PROJECT_ROOT, entry.name))
+    .filter((candidatePath) =>
+      fs.readFileSync(candidatePath, 'utf8').includes(
+        PHP_BLOCK_REGISTRATION_MARKER,
+      ),
+    );
+  if (candidates.length !== 1) {
+    throw new Error(
+      `Unable to resolve the compound PHP bootstrap. Expected exactly one root PHP file with ${PHP_BLOCK_REGISTRATION_MARKER}, found ${candidates.length}.`,
+    );
+  }
+  return candidates[0];
 }
 
 function readBlockJsonDocument(filePath: string): Record<string, unknown> {
@@ -1301,6 +1321,7 @@ function main() {
     'children.ts',
   );
   const blockConfigFile = path.join(PROJECT_ROOT, 'scripts', 'block-config.ts');
+  const phpBootstrapFile = resolvePhpBootstrapFile();
 
   if (ancestorChain.some((ancestor) => ancestor.key === normalizedSlug)) {
     throw new Error('A child block cannot list itself as an ancestor.');
@@ -1345,6 +1366,7 @@ function main() {
     formatProjectRelativePath(path.join(childDir, 'index.tsx')),
     formatProjectRelativePath(childrenFile),
     formatProjectRelativePath(blockConfigFile),
+    formatProjectRelativePath(phpBootstrapFile),
     formatProjectRelativePath(
       placement === 'root'
         ? PARENT_BLOCK_JSON_PATH
@@ -1458,6 +1480,11 @@ function main() {
     `  attributeTypeName: '${childTypeName}',`,
     `  typesFile: 'src/blocks/${childFolderSlug}/types.ts',`,
     '},',
+  ]);
+  insertBeforeMarker(phpBootstrapFile, PHP_BLOCK_REGISTRATION_MARKER, [
+    `if ( file_exists( $build_root . '/${childFolderSlug}/block.json' ) ) {`,
+    `\tregister_block_type( $build_root . '/${childFolderSlug}' );`,
+    '}',
   ]);
 
   if (placement === 'root') {

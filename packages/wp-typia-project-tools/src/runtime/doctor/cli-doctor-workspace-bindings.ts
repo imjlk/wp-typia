@@ -6,13 +6,22 @@ import { parseScaffoldBlockMetadata } from '@wp-typia/block-runtime/blocks';
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_BINDING_EDITOR_ASSET,
   WORKSPACE_BINDING_EDITOR_SCRIPT,
-  WORKSPACE_BINDING_SERVER_GLOB,
+  WORKSPACE_BINDING_SERVER_MANIFEST,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
 import { readJsonFileSync } from '../shared/json-utils.js';
-import { escapeRegex } from '../shared/php-utils.js';
+import {
+  escapeRegex,
+  findPhpFunctionRange,
+  hasPhpFunctionCall,
+  hasPhpFunctionCallWithStringArgument,
+  hasPhpFunctionCallWithStringArguments,
+  hasPhpLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
 import {
   assertPostMetaBindingPath,
   loadPostMetaBindingFieldsSync,
@@ -22,7 +31,12 @@ import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-function checkWorkspaceBindingBootstrap(projectDir: string, packageName: string): DoctorCheck {
+function checkWorkspaceBindingBootstrap(
+  projectDir: string,
+  packageName: string,
+  phpPrefix: string,
+  bindingSources: WorkspaceInventory['bindingSources'],
+): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
     return createDoctorCheck(
@@ -33,19 +47,53 @@ function checkWorkspaceBindingBootstrap(projectDir: string, packageName: string)
   }
 
   const source = fs.readFileSync(bootstrapPath, 'utf8');
-  const hasServerGlob = source.includes(WORKSPACE_BINDING_SERVER_GLOB);
-  const hasEditorEnqueueHook = source.includes('enqueue_block_editor_assets');
-  const hasEditorScript = source.includes(WORKSPACE_BINDING_EDITOR_SCRIPT);
-  const hasEditorAsset = source.includes(WORKSPACE_BINDING_EDITOR_ASSET);
+  const registerFunctionName = `${phpPrefix}_register_binding_sources`;
+  const enqueueFunctionName = `${phpPrefix}_enqueue_binding_sources_editor`;
+  const registerFunction = findPhpFunctionRange(source, registerFunctionName);
+  const enqueueFunction = findPhpFunctionRange(source, enqueueFunctionName);
+  const hasServerManifest = registerFunction !== null &&
+    hasPhpLiteralDirectoryInclude(
+      registerFunction.source,
+      WORKSPACE_BINDING_SERVER_MANIFEST,
+    );
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_BINDING_SERVER_MANIFEST,
+    bindingSources.map((bindingSource) => `${bindingSource.slug}/server.php`),
+  );
+  const hasEditorEnqueueHook = hasPhpFunctionCallWithStringArguments(
+    source,
+    'add_action',
+    ['enqueue_block_editor_assets', enqueueFunctionName],
+    { requirePhpOpenTag: true },
+  );
+  const hasEditorScript = enqueueFunction !== null &&
+    hasPhpFunctionCallWithStringArgument(
+      enqueueFunction.source,
+      'plugins_url',
+      WORKSPACE_BINDING_EDITOR_SCRIPT,
+    );
+  const hasEditorAsset = enqueueFunction !== null &&
+    hasPhpLiteralDirectoryInclude(
+      enqueueFunction.source,
+      `/${WORKSPACE_BINDING_EDITOR_ASSET}`,
+    );
+  const hasEditorEnqueueCall = enqueueFunction !== null &&
+    hasPhpFunctionCall(enqueueFunction.source, 'wp_enqueue_script');
+  const hasValidBootstrap =
+    hasServerManifest &&
+    hasValidManifest &&
+    hasEditorEnqueueHook &&
+    hasEditorScript &&
+    hasEditorAsset &&
+    hasEditorEnqueueCall;
 
   return createDoctorCheck(
     'Binding bootstrap',
-    hasServerGlob && hasEditorEnqueueHook && hasEditorScript && hasEditorAsset
-      ? 'pass'
-      : 'fail',
-    hasServerGlob && hasEditorEnqueueHook && hasEditorScript && hasEditorAsset
-      ? 'Binding source PHP and editor bootstrap hooks are present'
-      : 'Missing binding source PHP require glob or editor enqueue hook',
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
+      ? 'Binding source PHP manifest and editor bootstrap hooks are present'
+      : 'Missing or stale binding source PHP manifest or editor enqueue hook',
   );
 }
 
@@ -308,19 +356,36 @@ export function getWorkspaceBindingDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (inventory.bindingSources.length > 0) {
+  const hasBindingManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_BINDING_SERVER_MANIFEST.slice(1)),
+  );
+  const bootstrapReferencesBindingManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_BINDING_SERVER_MANIFEST,
+    );
+  if (
+    inventory.bindingSources.length > 0 ||
+    hasBindingManifest ||
+    bootstrapReferencesBindingManifest
+  ) {
     checks.push(
       checkWorkspaceBindingBootstrap(
         workspace.projectDir,
         workspace.packageName,
-      ),
-    );
-    checks.push(
-      checkWorkspaceBindingSourcesIndex(
-        workspace.projectDir,
+        workspace.workspace.phpPrefix,
         inventory.bindingSources,
       ),
     );
+    if (inventory.bindingSources.length > 0) {
+      checks.push(
+        checkWorkspaceBindingSourcesIndex(
+          workspace.projectDir,
+          inventory.bindingSources,
+        ),
+      );
+    }
   }
 
   const registeredBlockSlugs = new Set(

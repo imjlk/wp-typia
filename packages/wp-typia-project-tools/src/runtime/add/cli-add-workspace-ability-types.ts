@@ -1,8 +1,6 @@
 import type { ScaffoldCompatibilityPolicy } from '../templates/scaffold-compatibility.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-/** Glob used to load generated ability PHP modules from the workspace bootstrap. */
-export const ABILITY_SERVER_GLOB = '/inc/abilities/*.php';
 /** Relative path to the generated ability editor script bundle. */
 export const ABILITY_EDITOR_SCRIPT = 'build/abilities/index.js';
 /** Relative path to the generated asset metadata for the ability bundle. */

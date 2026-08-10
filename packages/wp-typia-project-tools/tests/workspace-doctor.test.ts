@@ -14,7 +14,10 @@ import {
   stripPhpFunction,
   workspaceTemplatePackageManifest,
 } from './helpers/scaffold-test-harness.js';
-import { scaffoldProject } from '../src/runtime/index.js';
+import {
+  scaffoldProject,
+  syncWorkspacePhpEntrypoints,
+} from '../src/runtime/index.js';
 import { getPackageVersions } from '../src/runtime/package-versions.js';
 import {
   createDoctorRunSummary,
@@ -1763,7 +1766,19 @@ test('binding source workflow repairs missing bootstrap functions even when hook
   expect(
     repairedBootstrap.slice(repairedBootstrap.lastIndexOf('?>') + 2).trim(),
   ).toBe('');
-  expect(repairedBootstrap).toContain('src/bindings/*/server.php');
+  expect(repairedBootstrap).toContain(
+    "require_once __DIR__ . '/src/bindings/wp-typia-modules.php';",
+  );
+  const bindingManifestSource = fs.readFileSync(
+    path.join(targetDir, 'src', 'bindings', 'wp-typia-modules.php'),
+    'utf8',
+  );
+  expect(bindingManifestSource).toContain(
+    "require_once __DIR__ . '/hero-data/server.php';",
+  );
+  expect(bindingManifestSource).toContain(
+    "require_once __DIR__ . '/news-data/server.php';",
+  );
   expect(repairedBootstrap).toContain('build/bindings/index.js');
 }, 15_000);
 
@@ -2535,7 +2550,7 @@ test('doctor passes on a healthy multi-block workspace', async () => {
   ).toBe('pass');
 }, 20_000);
 
-test('doctor accepts flat-only legacy pattern loaders for flat catalog files', async () => {
+test('doctor rejects legacy pattern glob loaders in place of the literal manifest', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-doctor-flat-patterns');
 
   await scaffoldOfficialWorkspace(targetDir, {
@@ -2555,19 +2570,18 @@ test('doctor accepts flat-only legacy pattern loaders for flat catalog files', a
     targetDir,
     'demo-workspace-doctor-flat-patterns.php',
   );
-  const nestedPatternLoader = [
-    '\t$pattern_modules = array_merge(',
-    "\t\tglob( __DIR__ . '/src/patterns/*.php' ) ?: array(),",
-    "\t\tglob( __DIR__ . '/src/patterns/*/*.php' ) ?: array()",
-    '\t);',
+  const literalPatternLoader =
+    "\trequire __DIR__ . '/src/patterns/wp-typia-modules.php';";
+  const legacyPatternLoader = [
+    "\tforeach ( glob( __DIR__ . '/src/patterns/*.php' ) ?: array() as $pattern_module ) {",
+    '\t\trequire $pattern_module;',
+    '\t}',
   ].join('\n');
-  const flatPatternLoader =
-    "\t$pattern_modules = glob( __DIR__ . '/src/patterns/*.php' ) ?: array();";
   fs.writeFileSync(
     bootstrapPath,
     fs.readFileSync(bootstrapPath, 'utf8').replace(
-      nestedPatternLoader,
-      flatPatternLoader,
+      literalPatternLoader,
+      legacyPatternLoader,
     ),
     'utf8',
   );
@@ -2576,7 +2590,7 @@ test('doctor accepts flat-only legacy pattern loaders for flat catalog files', a
 
   expect(
     checks.find((check) => check.label === 'Pattern bootstrap')?.status,
-  ).toBe('pass');
+  ).toBe('fail');
   expect(
     checks.find((check) => check.label === 'Pattern catalog')?.status,
   ).toBe('pass');
@@ -2989,6 +3003,100 @@ test('doctor fails when workspace inventory entries are malformed', async () => 
   expect(errorMessage).toContain('Pattern catalog');
   expect(errorMessage).toContain('invalid-pattern-content-file');
 });
+
+test('doctor validates orphan PHP manifests against empty inventories', async () => {
+  const targetDir = path.join(tempRoot, 'doctor-empty-php-inventories');
+  await scaffoldOfficialWorkspace(targetDir, {
+    description: 'Doctor empty PHP inventories',
+    slug: 'doctor-empty-php-inventories',
+    title: 'Doctor Empty PHP Inventories',
+  });
+  linkWorkspaceNodeModules(targetDir);
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['abilities', 'bindingSources'],
+  });
+  const baselineChecks = await getDoctorChecks(targetDir);
+  expect(
+    baselineChecks.find((check) => check.label === 'Binding bootstrap')
+      ?.status,
+  ).toBe('pass');
+  fs.rmSync(path.join(targetDir, 'src', 'bindings'), {
+    force: true,
+    recursive: true,
+  });
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Binding bootstrap',
+    )?.status,
+  ).toBe('fail');
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['bindingSources'],
+  });
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Binding bootstrap',
+    )?.status,
+  ).toBe('pass');
+  const bootstrapPath = path.join(
+    targetDir,
+    'doctor-empty-php-inventories.php',
+  );
+  const bootstrapSource = fs.readFileSync(bootstrapPath, 'utf8');
+  fs.writeFileSync(
+    bootstrapPath,
+    bootstrapSource.replace(
+      "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+      "// require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    ),
+    'utf8',
+  );
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Block server bootstrap',
+    )?.status,
+  ).toBe('fail');
+  fs.writeFileSync(bootstrapPath, bootstrapSource, 'utf8');
+  fs.appendFileSync(
+    bootstrapPath,
+    `
+foreach ( glob( __DIR__ . '/custom-blocks/*/server.php' ) as $server_module ) {
+	require_once $server_module;
+}
+`,
+    'utf8',
+  );
+  expect(
+    (await getDoctorChecks(targetDir)).find(
+      (check) => check.label === 'Block server bootstrap',
+    )?.status,
+  ).toBe('fail');
+  fs.writeFileSync(bootstrapPath, bootstrapSource, 'utf8');
+  for (const modulePath of [
+    'src/bindings/orphan/server.php',
+    'inc/abilities/orphan.php',
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(targetDir, modulePath)), {
+      recursive: true,
+    });
+    fs.writeFileSync(path.join(targetDir, modulePath), '<?php\n', 'utf8');
+  }
+  await syncWorkspacePhpEntrypoints(targetDir, {
+    manifestIds: ['abilities', 'bindingSources'],
+  });
+  expect(fs.readFileSync(
+    path.join(targetDir, 'inc/abilities/wp-typia-modules.php'),
+    'utf8',
+  )).toContain("require_once __DIR__ . '/orphan.php';");
+
+  const checks = await getDoctorChecks(targetDir);
+
+  expect(
+    checks.find((check) => check.label === 'Binding bootstrap')?.status,
+  ).toBe('fail');
+  expect(
+    checks.find((check) => check.label === 'Ability bootstrap')?.status,
+  ).toBe('fail');
+}, 20_000);
 
 test('doctor fails when workspace inventory exports use non-array initializers', async () => {
   const targetDir = path.join(

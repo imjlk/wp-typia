@@ -22,6 +22,7 @@ import {
   type RestResourceMethodId,
   resolveEditorPluginSlotAlias,
 } from './cli-add-types.js';
+import { ENTRYPOINT_MANIFEST_STEM } from '../workspace/workspace-php-entrypoint-manifests.js';
 
 const WORKSPACE_GENERATED_SLUG_PATTERN = /^[a-z][a-z0-9-]*$/;
 const WORDPRESS_POST_TYPE_PATTERN = /^[a-z0-9_][a-z0-9_-]*$/u;
@@ -146,6 +147,21 @@ export function assertValidGeneratedSlug(label: string, slug: string, usage: str
   }
 
   return slug;
+}
+
+/** Reject slugs that would overwrite a managed PHP entrypoint manifest. */
+export function assertValidGeneratedPhpModuleSlug(
+  label: string,
+  slug: string,
+  usage: string,
+): string {
+  const validatedSlug = assertValidGeneratedSlug(label, slug, usage);
+  if (validatedSlug === ENTRYPOINT_MANIFEST_STEM) {
+    throw new Error(
+      `${label} must not use the reserved ${ENTRYPOINT_MANIFEST_STEM} manifest name.`,
+    );
+  }
+  return validatedSlug;
 }
 
 /**

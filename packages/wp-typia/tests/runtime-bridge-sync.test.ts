@@ -15,6 +15,7 @@ function writeSyncFixture(options: {
   packageManager?: string | null;
   scripts: Record<string, string>;
   withInstallMarker?: boolean;
+  wpTypia?: Record<string, string>;
 }) {
   const projectDir = path.join(tempRoot, options.name);
   fs.mkdirSync(projectDir, { recursive: true });
@@ -27,6 +28,7 @@ function writeSyncFixture(options: {
           ? {}
           : { packageManager: options.packageManager ?? 'npm@10.9.0' }),
         scripts: options.scripts,
+        ...(options.wpTypia ? { wpTypia: options.wpTypia } : {}),
       },
       null,
       2,
@@ -979,4 +981,55 @@ test('sync ai preserves the legacy sync-wordpress-ai script key when needed', as
   expect(result.executedCommands?.[0]?.stdout).toContain(
     'ran:sync-wordpress-ai\n',
   );
+});
+
+test('sync upgrades deterministic PHP entrypoints for existing official workspaces', async () => {
+  const name = 'demo-sync-existing-workspace';
+  const projectDir = writeSyncFixture({
+    name,
+    scripts: {
+      sync: 'node -e "process.exit(0)"',
+    },
+    wpTypia: {
+      namespace: 'demo',
+      phpPrefix: 'demo_sync',
+      projectType: 'workspace',
+      templatePackage: '@wp-typia/create-workspace-template',
+      textDomain: 'demo-sync',
+    },
+  });
+  fs.mkdirSync(path.join(projectDir, 'src/blocks/example'), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(projectDir, 'src/blocks/example/server.php'),
+    '<?php\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(projectDir, `${name}.php`),
+    `<?php
+foreach ( glob( __DIR__ . '/src/blocks/*/server.php' ) ?: array() as $server_module ) {
+\trequire_once $server_module;
+}
+`,
+    'utf8',
+  );
+
+  await executeSyncCommand({ cwd: projectDir });
+
+  const bootstrap = fs.readFileSync(
+    path.join(projectDir, `${name}.php`),
+    'utf8',
+  );
+  expect(bootstrap).toContain(
+      "require_once __DIR__ . '/src/blocks/wp-typia-modules.php';",
+    );
+  expect(bootstrap).not.toMatch(/\bglob\s*\(/iu);
+  expect(bootstrap).not.toMatch(
+    /\brequire_once\s+\$server_module\b/iu,
+  );
+  expect(fs.existsSync(
+    path.join(projectDir, 'src/blocks/wp-typia-modules.php'),
+  )).toBe(true);
 });

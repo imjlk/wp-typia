@@ -16,7 +16,6 @@ export const ADMIN_VIEWS_SCRIPT = 'build/admin-views/index.js';
 export const ADMIN_VIEWS_ASSET = 'build/admin-views/index.asset.php';
 export const ADMIN_VIEWS_STYLE = 'build/admin-views/style-index.css';
 export const ADMIN_VIEWS_STYLE_RTL = 'build/admin-views/style-index-rtl.css';
-export const ADMIN_VIEWS_PHP_GLOB = '/inc/admin-views/*.php';
 const ADMIN_VIEW_MANUAL_REST_ROUTE_PARAMETER_PATTERN =
   /(?:^|[^\\])\(/u;
 

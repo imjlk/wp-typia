@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
 
 import {
+  collectPhpLiteralDirectoryIncludePaths,
+  countPhpCodeIdentifiers,
   escapeRegex,
   findPhpFunctionCallEnd,
   findPhpFunctionRange,
@@ -11,9 +13,148 @@ import {
   hasPhpFunctionCallWithStringArgumentPrefix,
   hasPhpFunctionCallWithStringArguments,
   hasPhpFunctionDefinition,
+  hasPhpFunctionLiteralDirectoryInclude,
+  hasPhpLiteralDirectoryInclude,
+  hasPhpVariableIncludeExpression,
   quotePhpString,
   replacePhpFunctionDefinition,
 } from '../src/runtime/php-utils.js';
+
+test('countPhpCodeIdentifiers ignores variables, strings, and comments', () => {
+  const source = `<?php
+$_require = 'include';
+// require include_once
+$value = "require_once";
+require __DIR__ . '/module.php';
+`;
+
+  expect(
+    countPhpCodeIdentifiers(
+      source,
+      ['require', 'require_once', 'include', 'include_once'],
+      { requirePhpOpenTag: true },
+    ),
+  ).toBe(1);
+});
+
+test('PHP include helpers require executable literal directory expressions', () => {
+  const source = `<?php
+// require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+$message = "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';";
+require_once __DIR__ . '/inc/rest/wp-typia-modules.php';
+require_once __DIR__ . $module_path;
+`;
+
+  expect(hasPhpLiteralDirectoryInclude(
+    source,
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpLiteralDirectoryInclude(
+    `<?php
+require_once ABSPATH . 'wp-admin/admin.php';
+REQUIRE_ONCE __dir__ . '/inc/rest/wp-typia-modules.php';
+`,
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpLiteralDirectoryInclude(
+    source.replace(
+      "require_once __DIR__ . '/inc/rest/wp-typia-modules.php';\nrequire_once",
+      'require_once',
+    ),
+    '/inc/rest/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+  expect(hasPhpVariableIncludeExpression(
+    source,
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    "<?php require_once __DIR__ . '/literal.php';",
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php REQuire_onCE (\n__DIR__ . $modulePath\n);',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://$host/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://${host}/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+  expect(hasPhpVariableIncludeExpression(
+    '<?php require_once "https://\\$host/module.php";',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    '<?php require_once __DIR__ . "/$module.php";',
+    { requirePhpOpenTag: true },
+  )).toBeNull();
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    '<?php require_once __DIR__ . "/\\x65xample.php";',
+    { requirePhpOpenTag: true },
+  )).toBeNull();
+  for (const unterminatedSuffix of [
+    "'unterminated",
+    '/* unterminated',
+    '<<<PHP\nunterminated',
+  ]) {
+    const source = `<?php require_once __DIR__ . '/example.php';\n${unterminatedSuffix}`;
+    expect(collectPhpLiteralDirectoryIncludePaths(
+      source,
+      { requirePhpOpenTag: true },
+    )).toBeNull();
+    expect(hasPhpLiteralDirectoryInclude(
+      source,
+      '/example.php',
+      { requirePhpOpenTag: true },
+    )).toBe(false);
+  }
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    `<?php
+// require __DIR__ . '/commented.php';
+REQuire_onCE __dir__ . '/first.php';
+include( __DIR__ . "/second.php" );
+`,
+    { requirePhpOpenTag: true },
+  )).toEqual(['/first.php', '/second.php']);
+  expect(collectPhpLiteralDirectoryIncludePaths(
+    `<?php
+// require __DIR__ . '/expected.php';
+require __DIR__ . $outside;
+`,
+    { requirePhpOpenTag: true },
+  )).toBeNull();
+});
+
+test('function include helper scopes manifest includes to the callback', () => {
+  const outsideOnly = `<?php
+require_once __DIR__ . '/inc/abilities/wp-typia-modules.php';
+function demo_load_abilities() {}
+`;
+  expect(hasPhpFunctionLiteralDirectoryInclude(
+    outsideOnly,
+    'demo_load_abilities',
+    '/inc/abilities/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(false);
+
+  const inside = `<?php
+function demo_load_abilities() {
+	require_once __DIR__ . '/inc/abilities/wp-typia-modules.php';
+}
+`;
+  expect(hasPhpFunctionLiteralDirectoryInclude(
+    inside,
+    'demo_load_abilities',
+    '/inc/abilities/wp-typia-modules.php',
+    { requirePhpOpenTag: true },
+  )).toBe(true);
+});
 
 test('quotePhpString escapes single quotes and backslashes for generated PHP', () => {
   expect(quotePhpString("Bob's \\ path")).toBe("'Bob\\'s \\\\ path'");

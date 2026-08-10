@@ -1,0 +1,27 @@
+/* eslint-disable no-console */
+import { syncWorkspacePhpEntrypoints } from '@wp-typia/project-tools';
+
+function parseCheckFlag(argv: string[]): boolean {
+  if (argv.length === 0) {
+    return false;
+  }
+  if (argv.length === 1 && argv[0] === '--check') {
+    return true;
+  }
+  throw new Error(`Unknown PHP entrypoint sync flags: ${argv.join(' ')}`);
+}
+
+async function main() {
+  const check = parseCheckFlag(process.argv.slice(2));
+  const result = await syncWorkspacePhpEntrypoints(process.cwd(), { check });
+  console.log(
+    check
+      ? '✅ Generated PHP entrypoint manifests are synchronized.'
+      : `✅ Synchronized ${result.changed.length} generated PHP entrypoint manifest(s).`,
+  );
+}
+
+main().catch((error) => {
+  console.error('❌ PHP entrypoint sync failed:', error);
+  process.exit(1);
+});

@@ -8,6 +8,7 @@
   "scripts": {
     "postinstall": "node scripts/apply-ttsc-lint-compat.mjs",
     "sync": "ttsx scripts/sync-project.ts",
+    "sync-php-entrypoints": "ttsx scripts/sync-php-entrypoints.ts",
     "sync-types": "ttsx scripts/sync-types-to-block-json.ts",
     "sync-rest": "ttsx scripts/sync-rest-contracts.ts",
     "build": "bun run sync --check && node scripts/build-workspace.mjs build",
@@ -32,6 +33,7 @@
     "@wp-typia/api-client": "{{apiClientPackageVersion}}",
     "@wp-typia/block-runtime": "{{blockRuntimePackageVersion}}",
     "@wp-typia/block-types": "{{blockTypesPackageVersion}}",
+    "@wp-typia/project-tools": "{{projectToolsPackageVersion}}",
     "@wp-typia/rest": "{{restPackageVersion}}",
     "@ttsc/lint": "0.23.0",
     "@wp-typia/ttsc-lint-plugin-wp": "{{ttscLintPluginWpPackageVersion}}",

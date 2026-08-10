@@ -5,65 +5,24 @@ import {
   appendPhpSnippetBeforeClosingTag,
   insertPhpSnippetBeforeWorkspaceAnchors,
 } from './cli-add-workspace-mutation.js';
-import { hasPhpFunctionDefinition } from '../shared/php-utils.js';
+import {
+  hasPhpFunctionDefinition,
+} from '../shared/php-utils.js';
+import {
+  buildLegacyGeneratedGlobArrayLoader,
+  buildLegacyGeneratedGlobLoader,
+  migrateGeneratedPhpLoaderFunction,
+} from './cli-add-workspace-php-loader-migration.js';
 import { toTitleCase } from '../shared/string-case.js';
+import {
+  syncWorkspacePhpEntrypoints,
+  WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS,
+} from '../workspace/workspace-php-entrypoint-manifests.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
-const FLAT_PATTERN_GLOB = "glob( __DIR__ . '/src/patterns/*.php' ) ?: array()";
-const NESTED_PATTERN_GLOB =
-	"glob( __DIR__ . '/src/patterns/*/*.php' ) ?: array()";
-const LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN =
-	/^[ \t]*\$pattern_modules\s*=\s*glob\( __DIR__ \. '\/src\/patterns\/\*\.php' \) \?: array\(\);\s*$/mu;
-const LEGACY_FLAT_PATTERN_FOREACH_PATTERN =
-	/^[ \t]*foreach\s*\(\s*glob\( __DIR__ \. '\/src\/patterns\/\*\.php' \) \?: array\(\)\s+as\s+\$pattern_module\s*\)\s*\{\r?\n[ \t]*require\s+\$pattern_module;\r?\n[ \t]*\}/mu;
-
-function buildNestedPatternModulesAssignment(): string {
-  return [
-		'\t$pattern_modules = array_merge(',
-		`\t\t${FLAT_PATTERN_GLOB},`,
-		`\t\t${NESTED_PATTERN_GLOB}`,
-		'\t);',
-	].join('\n');
-}
-
-function ensureNestedPatternLoaderSource(
-	source: string,
-	bootstrapPath: string,
-): string {
-  if (source.includes(NESTED_PATTERN_GLOB)) {
-    return source;
-  }
-  if (LEGACY_FLAT_PATTERN_FOREACH_PATTERN.test(source)) {
-    return source.replace(
-			LEGACY_FLAT_PATTERN_FOREACH_PATTERN,
-			[
-				buildNestedPatternModulesAssignment(),
-				'\tforeach ( $pattern_modules as $pattern_module ) {',
-				'\t\trequire $pattern_module;',
-				'\t}',
-			].join('\n'),
-		);
-  }
-  if (LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN.test(source)) {
-    return source.replace(
-      LEGACY_FLAT_PATTERN_MODULES_ASSIGNMENT_PATTERN,
-      buildNestedPatternModulesAssignment(),
-    );
-  }
-  if (source.includes('array_merge(') && source.includes(FLAT_PATTERN_GLOB)) {
-    return source.replace(
-      FLAT_PATTERN_GLOB,
-      `${FLAT_PATTERN_GLOB},\n\t\t${NESTED_PATTERN_GLOB}`,
-    );
-  }
-  throw new Error(
-    `Unable to repair ${path.basename(bootstrapPath)} pattern loader for nested src/patterns directories.`,
-  );
-}
-
 /**
- * Ensure workspace bootstrap PHP registers pattern categories and loads
- * generated pattern modules from both flat and nested pattern directories.
+ * Ensure workspace bootstrap PHP registers pattern categories and loads the
+ * deterministic generated pattern module manifest.
  *
  * @param workspace Resolved official workspace project metadata.
  * @returns A promise that resolves after the workspace bootstrap is patched.
@@ -81,7 +40,15 @@ export async function ensurePatternBootstrapAnchors(
 		const patternRegistrationFunctionName = `${workspace.workspace.phpPrefix}_register_patterns`;
 		const patternCategoryHook = `add_action( 'init', '${patternCategoryFunctionName}' );`;
 		const patternRegistrationHook = `add_action( 'init', '${patternRegistrationFunctionName}', 20 );`;
-		const patternFunctions = `
+		const patternManifestPath =
+			`/${WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.patterns}`;
+		const patternRegistrationFunction = `
+
+function ${patternRegistrationFunctionName}() {
+	require __DIR__ . '${patternManifestPath}';
+}
+`;
+		const patternCategoryFunction = `
 
 function ${patternCategoryFunctionName}() {
 	if ( function_exists( 'register_block_pattern_category' ) ) {
@@ -93,17 +60,9 @@ function ${patternCategoryFunctionName}() {
 		);
 	}
 }
-
-function ${patternRegistrationFunctionName}() {
-	$pattern_modules = array_merge(
-		${FLAT_PATTERN_GLOB},
-		${NESTED_PATTERN_GLOB}
-	);
-	foreach ( $pattern_modules as $pattern_module ) {
-		require $pattern_module;
-	}
-}
 `;
+		const patternFunctions = `${patternCategoryFunction}
+${patternRegistrationFunction.trimStart()}`;
 
 		if (
 			!hasPhpFunctionDefinition(nextSource, patternCategoryFunctionName) &&
@@ -124,7 +83,38 @@ function ${patternRegistrationFunctionName}() {
 			);
 		}
 
-		nextSource = ensureNestedPatternLoaderSource(nextSource, bootstrapPath);
+		nextSource = migrateGeneratedPhpLoaderFunction({
+			bootstrapPath,
+			functionName: patternRegistrationFunctionName,
+			legacyFunctions: [
+				buildLegacyGeneratedGlobLoader({
+					functionName: patternRegistrationFunctionName,
+					globPath: '/src/patterns/*.php',
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+				}),
+				buildLegacyGeneratedGlobArrayLoader({
+					functionName: patternRegistrationFunctionName,
+					globPaths: ['/src/patterns/*.php'],
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+					modulesVariable: 'pattern_modules',
+				}),
+				buildLegacyGeneratedGlobArrayLoader({
+					functionName: patternRegistrationFunctionName,
+					globPaths: [
+						'/src/patterns/*.php',
+						'/src/patterns/*/*.php',
+					],
+					includeKind: 'require',
+					moduleVariable: 'pattern_module',
+					modulesVariable: 'pattern_modules',
+				}),
+			],
+			manifestPath: patternManifestPath,
+			replacement: patternRegistrationFunction,
+			source: nextSource,
+		});
 
 		if (!nextSource.includes(patternCategoryHook)) {
 			nextSource = appendPhpSnippetBeforeClosingTag(
@@ -141,4 +131,7 @@ function ${patternRegistrationFunctionName}() {
 
 		return nextSource;
 	});
+  await syncWorkspacePhpEntrypoints(workspace.projectDir, {
+    manifestIds: ['patterns'],
+  });
 }

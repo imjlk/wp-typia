@@ -1234,6 +1234,10 @@ describe('@wp-typia/project-tools scaffold compound', () => {
         'demo-compound-add-child-faq-item',
       );
       const blockConfig = fs.readFileSync(blockConfigPath, 'utf8');
+      const phpBootstrap = fs.readFileSync(
+        path.join(targetDir, 'demo-compound-add-child.php'),
+        'utf8',
+      );
       const childrenRegistry = fs.readFileSync(childrenRegistryPath, 'utf8');
       const newChildBlockJson = JSON.parse(
         fs.readFileSync(path.join(newChildDir, 'block.json'), 'utf8'),
@@ -1273,6 +1277,14 @@ describe('@wp-typia/project-tools scaffold compound', () => {
       expect(newChildBlockJson.category).toBe('widgets');
       expect(newChildBlockJson.icon).toBe('excerpt-view');
       expect(blockConfig).toContain('demo-compound-add-child-faq-item');
+      expect(phpBootstrap).toContain(
+        "$build_root . '/demo-compound-add-child-faq-item/block.json'",
+      );
+      expect(
+        phpBootstrap.match(
+          /register_block_type\( \$build_root \. '\/demo-compound-add-child-faq-item' \);/gu,
+        ),
+      ).toHaveLength(1);
       expect(blockConfig).toContain('DemoCompoundAddChildFaqItemAttributes');
       expect(childrenRegistry).toMatch(
         /blockName:\s*["']create-block\/demo-compound-add-child-faq-item["'][\s\S]*?placement:\s*["']root["'][\s\S]*?templateInstances:\s*\[\]/u,

@@ -633,7 +633,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/interactivity.ts': 'a4fade855fea075f',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
-    'src/render.php': '7c378bd44328c706',
+    'src/render.php': 'c6e4856afbed615a',
     'src/save.tsx': '512a513b9145e649',
     'src/style.scss': 'a48f3de45038a032',
     'src/validators.ts': 'b419801aff987f63',
@@ -657,7 +657,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
-    'src/blocks/demo-compound/render.php': '945ae15d97cb040d',
+    'src/blocks/demo-compound/render.php': '05fca82de42a0bb4',
     'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
     'src/blocks/demo-compound/style.scss': '5a079051191f8cb7',
     'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',

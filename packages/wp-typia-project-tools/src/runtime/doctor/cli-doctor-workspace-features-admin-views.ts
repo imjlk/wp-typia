@@ -8,13 +8,19 @@ import {
 import {
   checkExistingFiles,
   createDoctorCheck,
+  isWorkspacePhpEntrypointManifestValid,
+  resolveWorkspacePhpManifestModulePaths,
   resolveWorkspaceBootstrapPath,
   WORKSPACE_ADMIN_VIEW_ASSET,
-  WORKSPACE_ADMIN_VIEW_GLOB,
+  WORKSPACE_ADMIN_VIEW_MANIFEST,
   WORKSPACE_ADMIN_VIEW_SCRIPT,
   WORKSPACE_ADMIN_VIEW_STYLE,
+  workspaceBootstrapHasLiteralManifestInclude,
 } from './cli-doctor-workspace-shared.js';
-import { escapeRegex } from '../shared/php-utils.js';
+import {
+  escapeRegex,
+  hasPhpFunctionLiteralDirectoryInclude,
+} from '../shared/php-utils.js';
 
 import type { DoctorCheck } from './cli-doctor.js';
 import type { WorkspaceInventory } from '../workspace/workspace-inventory.js';
@@ -93,6 +99,7 @@ function checkWorkspaceAdminViewBootstrap(
 	projectDir: string,
 	packageName: string,
 	phpPrefix: string,
+	adminViews: WorkspaceInventory['adminViews'],
 ): DoctorCheck {
   const bootstrapPath = resolveWorkspaceBootstrapPath(projectDir, packageName);
   if (!fs.existsSync(bootstrapPath)) {
@@ -107,14 +114,33 @@ function checkWorkspaceAdminViewBootstrap(
   const loadFunctionName = `${phpPrefix}_load_admin_views`;
   const loadHook = `add_action( 'plugins_loaded', '${loadFunctionName}' );`;
   const hasLoaderHook = source.includes(loadHook);
-  const hasServerGlob = source.includes(WORKSPACE_ADMIN_VIEW_GLOB);
+  const hasServerManifest = hasPhpFunctionLiteralDirectoryInclude(
+    source,
+    loadFunctionName,
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    { requirePhpOpenTag: true },
+  );
+  const expectedManifestTargets = resolveWorkspacePhpManifestModulePaths(
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    adminViews.map((adminView) => adminView.phpFile),
+  );
+  const hasValidManifest = isWorkspacePhpEntrypointManifestValid(
+    projectDir,
+    WORKSPACE_ADMIN_VIEW_MANIFEST,
+    expectedManifestTargets ?? [],
+  );
+  const hasValidBootstrap =
+    hasLoaderHook &&
+    hasServerManifest &&
+    expectedManifestTargets !== null &&
+    hasValidManifest;
 
   return createDoctorCheck(
     'Admin view bootstrap',
-    hasLoaderHook && hasServerGlob ? 'pass' : 'fail',
-    hasLoaderHook && hasServerGlob
-      ? 'Admin view PHP loader hook is present'
-      : 'Missing admin view PHP require glob or plugins_loaded hook',
+    hasValidBootstrap ? 'pass' : 'fail',
+    hasValidBootstrap
+      ? 'Admin view PHP manifest hook is present'
+      : 'Missing or stale admin view PHP manifest or plugins_loaded hook',
   );
 }
 
@@ -211,17 +237,36 @@ export function getWorkspaceAdminViewDoctorChecks(
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
 
-  if (inventory.adminViews.length > 0) {
+  const hasAdminViewManifest = fs.existsSync(
+    path.join(workspace.projectDir, WORKSPACE_ADMIN_VIEW_MANIFEST.slice(1)),
+  );
+  const bootstrapReferencesAdminViewManifest =
+    workspaceBootstrapHasLiteralManifestInclude(
+      workspace.projectDir,
+      workspace.packageName,
+      WORKSPACE_ADMIN_VIEW_MANIFEST,
+    );
+  if (
+    inventory.adminViews.length > 0 ||
+    hasAdminViewManifest ||
+    bootstrapReferencesAdminViewManifest
+  ) {
     checks.push(
       checkWorkspaceAdminViewBootstrap(
         workspace.projectDir,
         workspace.packageName,
         workspace.workspace.phpPrefix,
+        inventory.adminViews,
       ),
     );
-    checks.push(
-      checkWorkspaceAdminViewIndex(workspace.projectDir, inventory.adminViews),
-    );
+    if (inventory.adminViews.length > 0) {
+      checks.push(
+        checkWorkspaceAdminViewIndex(
+          workspace.projectDir,
+          inventory.adminViews,
+        ),
+      );
+    }
   }
   for (const adminView of inventory.adminViews) {
     checks.push(checkWorkspaceAdminViewConfig(adminView, inventory));

@@ -6,6 +6,7 @@ import { syncTypeSchemas } from '@wp-typia/block-runtime/metadata-core';
 import {
 	appendWorkspaceInventoryEntries,
 } from '../workspace/workspace-inventory.js';
+import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
 import {
   ensureAbilityBootstrapAnchors,
   ensureAbilityBuildScriptAnchors,
@@ -98,6 +99,10 @@ export async function scaffoldAbilityWorkspace({
 			bootstrapPath,
 			buildScriptPath,
 			packageJsonPath,
+			path.join(
+				workspace.projectDir,
+				WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS.abilities,
+			),
 			syncAbilitiesScriptPath,
 			syncProjectScriptPath,
 			webpackConfigPath,
@@ -107,7 +112,6 @@ export async function scaffoldAbilityWorkspace({
 		run: async () => {
 			await fsp.mkdir(abilityDir, { recursive: true });
 			await fsp.mkdir(path.dirname(phpFilePath), { recursive: true });
-			await ensureAbilityBootstrapAnchors(workspace);
 			await patchFile(bootstrapPath, (source) =>
 				updatePluginHeaderCompatibility(source, compatibilityPolicy, {
 					onWarning: (warning) => {
@@ -133,6 +137,7 @@ export async function scaffoldAbilityWorkspace({
 				buildAbilityPhpSource(abilitySlug, workspace),
 				'utf8',
 			);
+			await ensureAbilityBootstrapAnchors(workspace);
 
 			const pascalCase = toPascalCase(abilitySlug);
 			await syncTypeSchemas({

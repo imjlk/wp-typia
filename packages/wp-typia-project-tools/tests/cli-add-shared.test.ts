@@ -21,6 +21,7 @@ import {
 import { readOptionalFile } from '../src/runtime/cli-add-filesystem.js';
 import {
   assertValidManualRestContractAuth,
+  assertValidGeneratedPhpModuleSlug,
   assertValidGeneratedSlug,
   assertValidRestResourceMethods,
   assertValidRestResourceNamespace,
@@ -45,6 +46,23 @@ const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-typia-add-shared-'));
 
 afterAll(() => {
   fs.rmSync(tempRoot, { force: true, recursive: true });
+});
+
+test('generated PHP module slugs reserve the managed manifest basename', () => {
+  expect(
+    assertValidGeneratedPhpModuleSlug(
+      'Ability name',
+      'review-workflow',
+      'wp-typia add ability <name>',
+    ),
+  ).toBe('review-workflow');
+  expect(() =>
+    assertValidGeneratedPhpModuleSlug(
+      'Ability name',
+      'wp-typia-modules',
+      'wp-typia add ability <name>',
+    ),
+  ).toThrow('reserved wp-typia-modules manifest name');
 });
 
 function readRuntimeSource(fileName: string): string {

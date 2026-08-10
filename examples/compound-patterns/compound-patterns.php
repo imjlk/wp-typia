@@ -35,15 +35,14 @@ function compound_patterns_register_blocks() {
 		return;
 	}
 
-	$block_dirs = glob( $build_root . '/*', GLOB_ONLYDIR );
-	if ( ! is_array( $block_dirs ) ) {
-		return;
-	}
+	$parent_block_dir = $build_root . '/compound-patterns';
+	$child_block_dir  = $build_root . '/compound-patterns-item';
 
-	foreach ( $block_dirs as $block_dir ) {
-		if ( file_exists( $block_dir . '/block.json' ) ) {
-			register_block_type( $block_dir );
-		}
+	if ( file_exists( $parent_block_dir . '/block.json' ) ) {
+		register_block_type( $parent_block_dir );
+	}
+	if ( file_exists( $child_block_dir . '/block.json' ) ) {
+		register_block_type( $child_block_dir );
 	}
 }
 
