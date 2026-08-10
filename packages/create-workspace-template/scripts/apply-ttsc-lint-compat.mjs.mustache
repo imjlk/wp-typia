@@ -60,6 +60,16 @@ const patchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
       if (entry.isSymbolicLink()) {
         try {
           target = fs.readlinkSync(`;
+const unpatchedLoaderBufferTarget = `function configDirectoryDigest(location: string): string {
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);`;
+const patchedLoaderBufferTarget = `function configDirectoryDigest(location: string): string {
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target: Buffer = Buffer.alloc(0);`;
 
 function countOccurrences(source, needle) {
 	let count = 0;
@@ -71,25 +81,41 @@ function countOccurrences(source, needle) {
 	return count;
 }
 
-function prepareSourcePatch({
-	description,
-	expectedOccurrences,
-	patchedSource,
-	sourcePath,
-	unpatchedSource,
-}) {
+function prepareSourcePatches({ description, replacements, sourcePath }) {
 	const source = fs.readFileSync(sourcePath, 'utf8');
-	const patchedCount = countOccurrences(source, patchedSource);
-	const unpatchedCount = countOccurrences(
-		source.replaceAll(patchedSource, ''),
-		unpatchedSource
-	);
-	if (patchedCount === expectedOccurrences && unpatchedCount === 0) {
+	const states = replacements.map((replacement) => ({
+		...replacement,
+		patchedCount: countOccurrences(source, replacement.patchedSource),
+		unpatchedCount: countOccurrences(
+			source.replaceAll(replacement.patchedSource, ''),
+			replacement.unpatchedSource
+		),
+	}));
+	if (
+		states.every(
+			(state) =>
+				state.patchedCount === state.expectedOccurrences &&
+				state.unpatchedCount === 0
+		)
+	) {
 		return { nextSource: source, sourcePath };
 	}
-	if (patchedCount === 0 && unpatchedCount === expectedOccurrences) {
+	if (
+		states.every(
+			(state) =>
+				state.patchedCount === 0 &&
+				state.unpatchedCount === state.expectedOccurrences
+		)
+	) {
 		return {
-			nextSource: source.replaceAll(unpatchedSource, patchedSource),
+			nextSource: replacements.reduce(
+				(current, replacement) =>
+					current.replaceAll(
+						replacement.unpatchedSource,
+						replacement.patchedSource
+					),
+				source
+			),
 			sourcePath,
 		};
 	}
@@ -97,21 +123,33 @@ function prepareSourcePatch({
 		`Refusing to apply the ${description} compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
 	);
 }
-
 const repairs = [
-	prepareSourcePatch({
+	prepareSourcePatches({
 		description: 'mapped/infer type-parameter',
-		expectedOccurrences: 1,
-		patchedSource: patchedParentGuard,
+		replacements: [
+			{
+				expectedOccurrences: 1,
+				patchedSource: patchedParentGuard,
+				unpatchedSource: unpatchedParentGuard,
+			},
+		],
 		sourcePath: lintRulePath,
-		unpatchedSource: unpatchedParentGuard,
 	}),
-	prepareSourcePatch({
+	prepareSourcePatches({
 		description: 'Node Buffer generic',
-		expectedOccurrences: 2,
-		patchedSource: patchedBufferTarget,
+		replacements: [
+			{
+				expectedOccurrences: 2,
+				patchedSource: patchedBufferTarget,
+				unpatchedSource: unpatchedBufferTarget,
+			},
+			{
+				expectedOccurrences: 1,
+				patchedSource: patchedLoaderBufferTarget,
+				unpatchedSource: unpatchedLoaderBufferTarget,
+			},
+		],
 		sourcePath: lintIndexPath,
-		unpatchedSource: unpatchedBufferTarget,
 	}),
 ];
 

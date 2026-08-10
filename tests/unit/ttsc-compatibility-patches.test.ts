@@ -58,6 +58,16 @@ const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(
       if (entry.isSymbolicLink()) {
         try {
           target = fs.readlinkSync(`;
+const UNPATCHED_TTSC_LINT_LOADER_BUFFER_TARGET = `function configDirectoryDigest(location: string): string {
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target = Buffer.alloc(0);`;
+const PATCHED_TTSC_LINT_LOADER_BUFFER_TARGET = `function configDirectoryDigest(location: string): string {
+  const entries: Buffer[] = [];
+  if (process.platform === "win32") {
+    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+      let target: Buffer = Buffer.alloc(0);`;
 let tempDirs: string[] = [];
 
 afterEach(() => {
@@ -277,7 +287,11 @@ export type Inferred<Value> =
       lintIndexPath,
       patchedIndexSource
         .split(PATCHED_TTSC_LINT_BUFFER_TARGET)
-        .join(UNPATCHED_TTSC_LINT_BUFFER_TARGET),
+        .join(UNPATCHED_TTSC_LINT_BUFFER_TARGET)
+        .replace(
+          PATCHED_TTSC_LINT_LOADER_BUFFER_TARGET,
+          UNPATCHED_TTSC_LINT_LOADER_BUFFER_TARGET,
+        ),
     );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
@@ -346,8 +360,14 @@ export type Inferred<Value> =
     expect(
       repairedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
     ).toBe(2);
+    expect(repairedIndexSource).toContain(
+      PATCHED_TTSC_LINT_LOADER_BUFFER_TARGET,
+    );
     expect(repairedIndexSource).not.toContain(
       UNPATCHED_TTSC_LINT_BUFFER_TARGET,
+    );
+    expect(repairedIndexSource).not.toContain(
+      UNPATCHED_TTSC_LINT_LOADER_BUFFER_TARGET,
     );
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,

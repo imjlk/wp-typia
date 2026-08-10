@@ -36,6 +36,14 @@ diff --git a/src/index.ts b/src/index.ts
        if (entry.isSymbolicLink()) {
          try {
            target = fs.readlinkSync(
+@@ -2088,6 +2088,6 @@ function configDirectoryDigest(location: string): string {
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
 @@ -2108,7 +2108,7 @@ function configDirectoryDigest(location: string): string {
        encoding: "buffer",
        withFileTypes: true,

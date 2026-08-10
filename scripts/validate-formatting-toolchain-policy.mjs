@@ -159,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      '9037a22d71c134dd42ee55b6a61868f3799282cbfb9a4d09324c9f1141125dc6',
+      '93b81569eb727a58558af69b26c6b3afa15494f44a1effede01f6241e2cc7981',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
@@ -760,9 +760,14 @@ function validateGeneratedTtscLintCompatSource(
       pattern: /^\s*let target: Buffer = Buffer\.alloc\(0\);$/mu,
     },
     {
-      description: 'the two expected Node Buffer repair sites',
+      description: 'the two runtime Node Buffer repair sites',
       pattern:
-        /description: ['"]Node Buffer generic['"],[\s\S]*?expectedOccurrences: 2,/u,
+        /expectedOccurrences: 2,[\s\S]*?patchedSource: patchedBufferTarget,/u,
+    },
+    {
+      description: 'the generated loader Node Buffer repair site',
+      pattern:
+        /expectedOccurrences: 1,[\s\S]*?patchedSource: patchedLoaderBufferTarget,/u,
     },
     {
       description: 'the atomic temporary-file write',

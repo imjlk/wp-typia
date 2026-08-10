@@ -108,7 +108,7 @@ The root Bun workspace carries two exact-version development-tool patches:
   `--strict` reach the tsgo program used by typia transforms
 - `@ttsc/lint@0.26.1` guards mapped and `infer` type parameters while formatting
   trailing commas, preventing a TypeScript-Go declaration lookup panic, and
-  widens two symlink-target buffers so executable lint configs compile across
+  widens all three affected symlink-target buffers so executable lint configs compile across
   the supported Node 24 type-definition range
 
 Registry `@ttsc/lint@0.26.1` still reproduces both lint-host failures. Generated

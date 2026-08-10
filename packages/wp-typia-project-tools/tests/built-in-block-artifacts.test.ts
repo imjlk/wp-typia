@@ -660,7 +660,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
     'src/blocks/demo-compound/render.php': '05fca82de42a0bb4',
     'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
-    'src/blocks/demo-compound/style.scss': '5e27ad008fa543d9',
+    'src/blocks/demo-compound/style.scss': 'd8ce3ab161da23fe',
     'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',
     'src/hooks.ts': 'e95dea31e16a6ec7',
   },
