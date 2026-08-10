@@ -11,21 +11,22 @@ if (manifest.version !== REQUIRED_VERSION) {
 	throw new Error(
 		`Expected @ttsc/lint ${REQUIRED_VERSION}, found ${String(
 			manifest.version
-		)}. Remove this compatibility hook only after the mapped/infer regression passes on the replacement version.`
+		)}. Remove this compatibility hook only after the mapped/infer and Node Buffer regressions pass on the replacement version.`
 	);
 }
 
-const sourcePath = path.join(
-	path.dirname(manifestPath),
+const packageRoot = path.dirname(manifestPath);
+const lintRulePath = path.join(
+	packageRoot,
 	'linthost',
 	'rules_format_trailing_comma.go'
 );
-const source = fs.readFileSync(sourcePath, 'utf8');
-const unpatchedSource = `    list := node.Parent.TypeParameterList()
+const lintIndexPath = path.join(packageRoot, 'src', 'index.ts');
+const unpatchedParentGuard = `    list := node.Parent.TypeParameterList()
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
     }`;
-const patchedSource = `    switch node.Parent.Kind {
+const patchedParentGuard = `    switch node.Parent.Kind {
     case shimast.KindClassDeclaration,
       shimast.KindClassExpression,
       shimast.KindInterfaceDeclaration,
@@ -43,27 +44,90 @@ const patchedSource = `    switch node.Parent.Kind {
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
     }`;
+const unpatchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
+const patchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target: Buffer = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
 
-if (source.includes(patchedSource)) {
-	process.exit(0);
+function countOccurrences(source, needle) {
+	let count = 0;
+	let offset = 0;
+	while ((offset = source.indexOf(needle, offset)) !== -1) {
+		count += 1;
+		offset += needle.length;
+	}
+	return count;
 }
-if (!source.includes(unpatchedSource)) {
+
+function prepareSourcePatch({
+	description,
+	expectedOccurrences,
+	patchedSource,
+	sourcePath,
+	unpatchedSource,
+}) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	const patchedCount = countOccurrences(source, patchedSource);
+	const unpatchedCount = countOccurrences(
+		source.replaceAll(patchedSource, ''),
+		unpatchedSource
+	);
+	if (patchedCount === expectedOccurrences && unpatchedCount === 0) {
+		return { nextSource: source, sourcePath };
+	}
+	if (patchedCount === 0 && unpatchedCount === expectedOccurrences) {
+		return {
+			nextSource: source.replaceAll(unpatchedSource, patchedSource),
+			sourcePath,
+		};
+	}
 	throw new Error(
-		`Refusing to patch unexpected @ttsc/lint source at ${sourcePath}.`
+		`Refusing to apply the ${description} compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
 	);
 }
 
-const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
-try {
-	fs.writeFileSync(
-		temporaryPath,
-		source.replace(unpatchedSource, patchedSource),
-		{
+const repairs = [
+	prepareSourcePatch({
+		description: 'mapped/infer type-parameter',
+		expectedOccurrences: 1,
+		patchedSource: patchedParentGuard,
+		sourcePath: lintRulePath,
+		unpatchedSource: unpatchedParentGuard,
+	}),
+	prepareSourcePatch({
+		description: 'Node Buffer generic',
+		expectedOccurrences: 2,
+		patchedSource: patchedBufferTarget,
+		sourcePath: lintIndexPath,
+		unpatchedSource: unpatchedBufferTarget,
+	}),
+];
+
+for (const { nextSource, sourcePath } of repairs) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	if (source === nextSource) {
+		continue;
+	}
+	const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
+	try {
+		fs.writeFileSync(temporaryPath, nextSource, {
 			encoding: 'utf8',
 			mode: fs.statSync(sourcePath).mode,
-		}
-	);
-	fs.renameSync(temporaryPath, sourcePath);
-} finally {
-	fs.rmSync(temporaryPath, { force: true });
+		});
+		fs.renameSync(temporaryPath, sourcePath);
+	} finally {
+		fs.rmSync(temporaryPath, { force: true });
+	}
 }

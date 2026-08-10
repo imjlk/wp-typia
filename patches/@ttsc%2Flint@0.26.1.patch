@@ -24,3 +24,24 @@ diff --git a/linthost/rules_format_trailing_comma.go b/linthost/rules_format_tra
      list := node.Parent.TypeParameterList()
      if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
        return
+diff --git a/src/index.ts b/src/index.ts
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -783,7 +783,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+@@ -2108,7 +2108,7 @@ function configDirectoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(

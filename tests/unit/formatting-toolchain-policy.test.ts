@@ -197,12 +197,22 @@ export default {
         policy.generatedTtscLintCompatTemplatePath,
       ),
       `const REQUIRED_VERSION = '${policy.ttscLintVersion}';
-const sourcePath = path.join('linthost', 'rules_format_trailing_comma.go');
+const packageRoot = path.dirname(manifestPath);
+const lintRulePath = path.join(packageRoot, 'linthost', 'rules_format_trailing_comma.go');
+const lintIndexPath = path.join(packageRoot, 'src', 'index.ts');
 if node.Parent.FunctionLikeData() == nil {
 }
+const patchedBufferTarget = \`
+      let target: Buffer = Buffer.alloc(0);
+\`;
+const repair = {
+  description: 'Node Buffer generic',
+  expectedOccurrences: 2,
+};
 fs.writeFileSync(
-  sourcePath,
-  source,
+  temporaryPath,
+  nextSource,
+  { encoding: 'utf8' },
 );
 fs.renameSync(temporaryPath, sourcePath);
 `,

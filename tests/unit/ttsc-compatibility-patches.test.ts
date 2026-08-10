@@ -42,6 +42,22 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
       }
     }
 `;
+const UNPATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
+const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
+      encoding: "buffer",
+      withFileTypes: true,
+    })) {
+      let target: Buffer = Buffer.alloc(0);
+      if (entry.isSymbolicLink()) {
+        try {
+          target = fs.readlinkSync(`;
 let tempDirs: string[] = [];
 
 afterEach(() => {
@@ -252,6 +268,17 @@ export type Inferred<Value> =
       lintRulePath,
       patchedRuleSource.replace(PATCHED_TTSC_LINT_PARENT_GUARD, ''),
     );
+    const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
+    const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    expect(
+      patchedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
+    ).toBe(2);
+    writeText(
+      lintIndexPath,
+      patchedIndexSource
+        .split(PATCHED_TTSC_LINT_BUFFER_TARGET)
+        .join(UNPATCHED_TTSC_LINT_BUFFER_TARGET),
+    );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
         '@ttsc/lint': '0.26.1',
@@ -314,6 +341,13 @@ export type Inferred<Value> =
     ).toBe(0);
     expect(fs.readFileSync(lintRulePath, 'utf8')).toContain(
       'Mapped and infer type parameters do not expose TypeParameterList.',
+    );
+    const repairedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    expect(
+      repairedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
+    ).toBe(2);
+    expect(repairedIndexSource).not.toContain(
+      UNPATCHED_TTSC_LINT_BUFFER_TARGET,
     );
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,

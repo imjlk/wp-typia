@@ -107,14 +107,17 @@ The root Bun workspace carries two exact-version development-tool patches:
 - `typia@13.2.0` forwards the JSON `--tsgo-args` envelope so CLI flags such as
   `--strict` reach the tsgo program used by typia transforms
 - `@ttsc/lint@0.26.1` guards mapped and `infer` type parameters while formatting
-  trailing commas, preventing a TypeScript-Go declaration lookup panic
+  trailing commas, preventing a TypeScript-Go declaration lookup panic, and
+  widens two symlink-target buffers so executable lint configs compile across
+  the supported Node 24 type-definition range
 
-Registry `@ttsc/lint@0.26.1` still reproduces the second failure. Generated and
-retrofitted projects therefore exact-pin that version and run
+Registry `@ttsc/lint@0.26.1` still reproduces both lint-host failures. Generated
+and retrofitted projects therefore exact-pin that version and run
 `scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
-package version and expected source, applies the same narrow guard atomically,
-and fails closed if the upstream layout changes. Yarn scaffolds use the
-`node-modules` linker so the helper never edits a shared Plug'n'Play archive.
+package version and expected sources, applies the same narrow repairs
+atomically, and fails closed if the upstream layout changes. Yarn scaffolds use
+the `node-modules` linker so the helper never edits a shared Plug'n'Play
+archive.
 
 The generated helper is a development compiler repair, not a WordPress runtime
 dependency. It does not inherit Bun's root `patchedDependencies`; publish and
@@ -125,7 +128,8 @@ exact package version. To upgrade either dependency:
 
 1. install the unpatched release and run the compatibility regressions;
 2. remove the patch and generated helper only when CLI option forwarding,
-   typia transforms, and mapped/`infer` formatting all pass;
+   typia transforms, mapped/`infer` formatting, and executable lint-config
+   evaluation with Node 24 typings all pass;
 3. otherwise port the narrow patch, update the exact version and digest, and
    rerun installed generated-project smoke.
 

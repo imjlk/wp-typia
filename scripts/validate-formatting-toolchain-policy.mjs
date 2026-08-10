@@ -159,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      'dcadbe7ebbb6e43a221d76ca6ceb08d83f46fe84cde8af3bc56b5dd64156694c',
+      '9037a22d71c134dd42ee55b6a61868f3799282cbfb9a4d09324c9f1141125dc6',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
@@ -744,15 +744,29 @@ function validateGeneratedTtscLintCompatSource(
     {
       description: 'the @ttsc/lint trailing-comma source path',
       pattern:
-        /const sourcePath = path\.join\([\s\S]*?['"]linthost['"],[\s\S]*?['"]rules_format_trailing_comma\.go['"][\s\S]*?\);/u,
+        /const lintRulePath = path\.join\([\s\S]*?['"]linthost['"],[\s\S]*?['"]rules_format_trailing_comma\.go['"][\s\S]*?\);/u,
+    },
+    {
+      description: 'the @ttsc/lint TypeScript loader source path',
+      pattern:
+        /const lintIndexPath = path\.join\(packageRoot, ['"]src['"], ['"]index\.ts['"]\);/u,
     },
     {
       description: 'the mapped/infer FunctionLikeData guard',
       pattern: /^\s*if node\.Parent\.FunctionLikeData\(\) == nil \{$/mu,
     },
     {
+      description: 'the Node Buffer generic annotation repair',
+      pattern: /^\s*let target: Buffer = Buffer\.alloc\(0\);$/mu,
+    },
+    {
+      description: 'the two expected Node Buffer repair sites',
+      pattern:
+        /description: ['"]Node Buffer generic['"],[\s\S]*?expectedOccurrences: 2,/u,
+    },
+    {
       description: 'the atomic temporary-file write',
-      pattern: /^\s*fs\.writeFileSync\($/mu,
+      pattern: /^\s*fs\.writeFileSync\(\s*temporaryPath,\s*nextSource,\s*\{/mu,
     },
     {
       description: 'the atomic rename into the installed package',
@@ -761,7 +775,7 @@ function validateGeneratedTtscLintCompatSource(
   ]) {
     if (!pattern.test(source)) {
       errors.push(
-        `${relativePath} must include ${description} for the guarded @ttsc/lint mapped/infer compatibility patch.`,
+        `${relativePath} must include ${description} for the guarded @ttsc/lint compatibility repairs.`,
       );
     }
   }
