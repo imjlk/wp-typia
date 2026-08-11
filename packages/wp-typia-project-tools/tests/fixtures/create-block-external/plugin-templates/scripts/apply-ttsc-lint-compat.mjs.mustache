@@ -44,28 +44,8 @@ const patchedParentGuard = `    switch node.Parent.Kind {
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
     }`;
-const unpatchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
-      encoding: "buffer",
-      withFileTypes: true,
-    })) {
-      let target = Buffer.alloc(0);
-      if (entry.isSymbolicLink()) {
-        try {
-          target = fs.readlinkSync(`;
-const patchedBufferTarget = `    for (const entry of fs.readdirSync(location, {
-      encoding: "buffer",
-      withFileTypes: true,
-    })) {
-      let target: Buffer = Buffer.alloc(0);
-      if (entry.isSymbolicLink()) {
-        try {
-          target = fs.readlinkSync(`;
-const unpatchedWindowsBufferTarget = `  if (process.platform === "win32") {
-    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
-      let target = Buffer.alloc(0);`;
-const patchedWindowsBufferTarget = `  if (process.platform === "win32") {
-    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
-      let target: Buffer = Buffer.alloc(0);`;
+const bufferTargetPattern =
+	/let target(?:: ([^=\r\n]+))? = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 
 function countOccurrences(source, needle) {
 	let count = 0;
@@ -119,6 +99,64 @@ function prepareSourcePatches({ description, replacements, sourcePath }) {
 		`Refusing to apply the ${description} compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
 	);
 }
+
+function prepareBufferTargetRepair(sourcePath) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	let nextSource = source;
+	let patchedCount = 0;
+	let unpatchedCount = 0;
+	for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
+		const functionStart = nextSource.indexOf(`function ${functionName}(`);
+		const functionEnd = nextSource.indexOf(
+			`function ${functionName}Record(`,
+			functionStart
+		);
+		if (functionStart === -1 || functionEnd === -1) {
+			throw new Error(
+				`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+			);
+		}
+		let functionSource = nextSource.slice(functionStart, functionEnd);
+		const matches = [...functionSource.matchAll(bufferTargetPattern)];
+		if (matches.length !== 2) {
+			throw new Error(
+				`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+			);
+		}
+		for (const match of matches) {
+			const annotation = match[1]?.trim();
+			if (annotation === undefined) {
+				unpatchedCount += 1;
+			} else if (/^Buffer(?:<.+>)?$/u.test(annotation)) {
+				patchedCount += 1;
+			} else {
+				throw new Error(
+					`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+				);
+			}
+		}
+		functionSource = functionSource.replace(
+			bufferTargetPattern,
+			(match, annotation) =>
+				annotation === undefined
+					? 'let target: Buffer = Buffer.alloc(0);'
+					: match
+		);
+		nextSource = `${nextSource.slice(
+			0,
+			functionStart
+		)}${functionSource}${nextSource.slice(functionEnd)}`;
+	}
+	if (patchedCount === 4 && unpatchedCount === 0) {
+		return { nextSource: source, sourcePath };
+	}
+	if (patchedCount === 0 && unpatchedCount === 4) {
+		return { nextSource, sourcePath };
+	}
+	throw new Error(
+		`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+	);
+}
 const repairs = [
 	prepareSourcePatches({
 		description: 'mapped/infer type-parameter',
@@ -131,22 +169,7 @@ const repairs = [
 		],
 		sourcePath: lintRulePath,
 	}),
-	prepareSourcePatches({
-		description: 'Node Buffer generic',
-		replacements: [
-			{
-				expectedOccurrences: 2,
-				patchedSource: patchedBufferTarget,
-				unpatchedSource: unpatchedBufferTarget,
-			},
-			{
-				expectedOccurrences: 2,
-				patchedSource: patchedWindowsBufferTarget,
-				unpatchedSource: unpatchedWindowsBufferTarget,
-			},
-		],
-		sourcePath: lintIndexPath,
-	}),
+	prepareBufferTargetRepair(lintIndexPath),
 ];
 
 for (const { nextSource, sourcePath } of repairs) {

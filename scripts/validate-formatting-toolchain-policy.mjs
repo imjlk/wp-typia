@@ -757,17 +757,20 @@ function validateGeneratedTtscLintCompatSource(
     },
     {
       description: 'the Node Buffer generic annotation repair',
-      pattern: /^\s*let target: Buffer = Buffer\.alloc\(0\);$/mu,
+      pattern: /'let target: Buffer = Buffer\.alloc\(0\);'/u,
     },
     {
-      description: 'the two runtime Node Buffer repair sites',
+      description: 'the two scoped digest functions',
       pattern:
-        /expectedOccurrences: 2,[\s\S]*?patchedSource: patchedBufferTarget,/u,
+        /for \(const functionName of \['directoryDigest', 'configDirectoryDigest'\]\)/u,
     },
     {
-      description: 'the two Windows and generated-loader Node Buffer sites',
-      pattern:
-        /expectedOccurrences: 2,[\s\S]*?patchedSource: patchedWindowsBufferTarget,/u,
+      description: 'the two Node Buffer targets per digest function',
+      pattern: /if \(matches\.length !== 2\)/u,
+    },
+    {
+      description: 'the guarded unpatched-to-patched state transition',
+      pattern: /patchedCount === 0 && unpatchedCount === 4/u,
     },
     {
       description: 'the atomic temporary-file write',

@@ -1706,7 +1706,7 @@ describe('wp-typia init', () => {
 
 	test('validates ignores against actual compound block sources', async () => {
 		const projectDir = path.join(tempRoot, 'compound-lint-ignore');
-		const configPath = path.join(projectDir, 'lint.config.ts');
+		const configPath = path.join(projectDir, 'lint.config.mts');
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
 		fs.mkdirSync(path.join(projectDir, 'src', 'blocks', 'container'), {
 			recursive: true,

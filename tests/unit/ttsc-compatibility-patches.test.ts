@@ -44,28 +44,10 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
 `;
 const TTSC_LINT_BUFFER_TARGET_PATTERN =
   /let target(?:: [^=\r\n]+)? = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
-const UNPATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
-      encoding: "buffer",
-      withFileTypes: true,
-    })) {
-      let target = Buffer.alloc(0);
-      if (entry.isSymbolicLink()) {
-        try {
-          target = fs.readlinkSync(`;
-const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
-      encoding: "buffer",
-      withFileTypes: true,
-    })) {
-      let target: Buffer = Buffer.alloc(0);
-      if (entry.isSymbolicLink()) {
-        try {
-          target = fs.readlinkSync(`;
-const UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
-    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
-      let target = Buffer.alloc(0);`;
-const PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
-    for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
-      let target: Buffer = Buffer.alloc(0);`;
+const PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target: Buffer = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
+const UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 let tempDirs: string[] = [];
 
 function normalizeTtscLintBufferTargets(source: string): string {
@@ -381,17 +363,15 @@ export type Inferred<Value> =
     );
     const repairedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
     expect(
-      repairedIndexSource.split(PATCHED_TTSC_LINT_BUFFER_TARGET).length - 1,
-    ).toBe(2);
+      repairedIndexSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(4);
     expect(
-      repairedIndexSource.split(PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET)
-        .length - 1,
-    ).toBe(2);
+      repairedIndexSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(0);
     expect(repairedIndexSource).not.toContain(
-      UNPATCHED_TTSC_LINT_BUFFER_TARGET,
-    );
-    expect(repairedIndexSource).not.toContain(
-      UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
+      'Buffer<ArrayBufferLike<ArrayBuffer>>',
     );
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
