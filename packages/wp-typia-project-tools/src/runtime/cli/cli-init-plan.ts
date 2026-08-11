@@ -27,6 +27,7 @@ import {
 } from './cli-init-package-json.js';
 import {
   findTtscLintConfigPath,
+  findManagedLintConfigOutputConflict,
   getManagedLintConfigOutputFilename,
   hasCurrentTtscLintCompatFile,
   hasPreviousManagedTtsconfig,
@@ -347,6 +348,11 @@ function buildWordPressLintConfigFilePlans(
     path.relative(projectDir, lintConfigPath),
   );
   const outputPath = getManagedLintConfigOutputFilename(lintConfigPath, true);
+  if (
+    findManagedLintConfigOutputConflict(projectDir, lintConfigPath, true)
+  ) {
+    return [];
+  }
   return currentPath === outputPath
     ? [{ action: 'update', path: currentPath, purpose }]
     : [
@@ -514,11 +520,17 @@ export function getInitPlan(
       existingLintConfigPath,
       workspace.workspace.textDomain,
     );
-    const projectOwnedLintConfigPath = getProjectOwnedLintConfigPath(
-      existingLintConfigPath,
-      wordpressLintIntegrated,
-      previousManagedLintConfig,
-    );
+    const projectOwnedLintConfigPath =
+      findManagedLintConfigOutputConflict(
+        workspace.projectDir,
+        existingLintConfigPath,
+        previousManagedLintConfig,
+      ) ??
+      getProjectOwnedLintConfigPath(
+        existingLintConfigPath,
+        wordpressLintIntegrated,
+        previousManagedLintConfig,
+      );
     const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
       workspace.projectDir,
       existingLintConfigPath,
@@ -642,11 +654,17 @@ export function getInitPlan(
     existingLintConfigPath,
     expectedTextDomain,
   );
-  const projectOwnedLintConfigPath = getProjectOwnedLintConfigPath(
-    existingLintConfigPath,
-    wordpressLintIntegrated,
-    previousManagedLintConfig,
-  );
+  const projectOwnedLintConfigPath =
+    findManagedLintConfigOutputConflict(
+      resolvedProjectDir,
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    ) ??
+    getProjectOwnedLintConfigPath(
+      existingLintConfigPath,
+      wordpressLintIntegrated,
+      previousManagedLintConfig,
+    );
   const status: InitPlanStatus =
 		hasExistingSurface &&
 		dependencyChanges.length === 0 &&

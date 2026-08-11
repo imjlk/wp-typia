@@ -20,6 +20,7 @@ import {
 import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-registration-hooks.js';
 import {
   collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceTypeScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -65,23 +66,28 @@ function buildBlockTransformConfigEntry(options: {
 }
 
 async function getBlockTransformConstBindings(
+	projectDir: string,
 	transformsDir: string,
 	transformSlugs: string[],
 ): Promise<Array<{ constName: string; transformSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  const bindings = await Promise.all(
-    transformSlugs.map(async (transformSlug) => ({
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; transformSlug: string }> = [];
+  for (const transformSlug of transformSlugs) {
+    bindings.push({
       constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(transformsDir, `${transformSlug}.ts`),
         [
           buildWorkspaceConstName('BlockTransform', transformSlug),
           `workspaceBlockTransform_${toSnakeCase(transformSlug)}`,
         ],
+        projectDir,
       ),
       transformSlug,
-    })),
-  );
+    });
+  }
   for (const { constName, transformSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
@@ -200,6 +206,7 @@ async function writeBlockTransformRegistry(
 		new Set([...existingTransformSlugs, transformSlug]),
 	).sort();
   const transformBindings = await getBlockTransformConstBindings(
+    projectDir,
     transformsDir,
     nextTransformSlugs,
   );
@@ -294,12 +301,15 @@ export async function runAddBlockTransformCommand({
   ));
   const existingTransformModulePaths =
     await collectGeneratedTypeScriptModulePaths(transformsDir);
+  const workspaceTypeScriptFilePaths =
+    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			transformsIndexPath,
 			...existingTransformModulePaths,
+			...workspaceTypeScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

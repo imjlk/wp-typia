@@ -16,6 +16,7 @@ import {
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
 import {
   collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceTypeScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -74,23 +75,28 @@ function buildVariationTranslationProperty(
 }
 
 async function getVariationConstBindings(
+	projectDir: string,
 	variationsDir: string,
 	variationSlugs: string[],
 ): Promise<Array<{ constName: string; variationSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  const bindings = await Promise.all(
-    variationSlugs.map(async (variationSlug) => ({
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; variationSlug: string }> = [];
+  for (const variationSlug of variationSlugs) {
+    bindings.push({
       constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(variationsDir, `${variationSlug}.ts`),
         [
           buildVariationConstName(variationSlug),
           `workspaceVariation_${toSnakeCase(variationSlug)}`,
         ],
+        projectDir,
       ),
       variationSlug,
-    })),
-  );
+    });
+  }
   for (const { constName, variationSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
@@ -191,6 +197,7 @@ async function writeVariationRegistry(
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextVariationSlugs = Array.from(new Set([...existingVariationSlugs, variationSlug])).sort();
   const variationBindings = await getVariationConstBindings(
+    projectDir,
     variationsDir,
     nextVariationSlugs,
   );
@@ -269,12 +276,15 @@ export async function runAddVariationCommand({
   ));
   const existingVariationModulePaths =
     await collectGeneratedTypeScriptModulePaths(variationsDir);
+  const workspaceTypeScriptFilePaths =
+    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			variationsIndexPath,
 			...existingVariationModulePaths,
+			...workspaceTypeScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

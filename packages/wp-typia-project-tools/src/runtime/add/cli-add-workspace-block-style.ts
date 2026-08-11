@@ -16,6 +16,7 @@ import {
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
 import {
   collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceTypeScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -52,23 +53,28 @@ function buildBlockStyleConfigEntry(blockSlug: string, styleSlug: string): strin
 }
 
 async function getBlockStyleConstBindings(
+	projectDir: string,
 	stylesDir: string,
 	styleSlugs: string[],
 ): Promise<Array<{ constName: string; styleSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  const bindings = await Promise.all(
-    styleSlugs.map(async (styleSlug) => ({
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; styleSlug: string }> = [];
+  for (const styleSlug of styleSlugs) {
+    bindings.push({
       constName: await resolveAndMigrateGeneratedExportedConstName(
         path.join(stylesDir, `${styleSlug}.ts`),
         [
           buildWorkspaceConstName('BlockStyle', styleSlug),
           `workspaceBlockStyle_${toSnakeCase(styleSlug)}`,
         ],
+        projectDir,
       ),
       styleSlug,
-    })),
-  );
+    });
+  }
   for (const { constName, styleSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
@@ -147,6 +153,7 @@ async function writeBlockStyleRegistry(
 		.map((entry) => entry.replace(/\.ts$/u, ''));
   const nextStyleSlugs = Array.from(new Set([...existingStyleSlugs, styleSlug])).sort();
   const styleBindings = await getBlockStyleConstBindings(
+    projectDir,
     stylesDir,
     nextStyleSlugs,
   );
@@ -223,12 +230,15 @@ export async function runAddBlockStyleCommand({
   const shouldRemoveStylesDirOnRollback = !(await pathExists(stylesDir));
   const existingStyleModulePaths =
     await collectGeneratedTypeScriptModulePaths(stylesDir);
+  const workspaceTypeScriptFilePaths =
+    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			stylesIndexPath,
 			...existingStyleModulePaths,
+			...workspaceTypeScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

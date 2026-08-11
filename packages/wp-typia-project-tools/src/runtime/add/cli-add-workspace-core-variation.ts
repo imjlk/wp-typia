@@ -20,6 +20,7 @@ import {
 } from './cli-add-workspace-editor-plugin.js';
 import {
   collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceTypeScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -558,8 +559,14 @@ async function buildCoreVariationIndexSource(
 	projectDir: string,
 	refs: readonly CoreVariationModuleRef[],
 ): Promise<string> {
-  const bindings = await Promise.all(
-    refs.map(async (ref) => ({
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{
+    ref: CoreVariationModuleRef;
+    variationConstName: string;
+  }> = [];
+  for (const ref of refs) {
+    bindings.push({
       ref,
       variationConstName: await resolveAndMigrateGeneratedExportedConstName(
         getCoreVariationFilePath(
@@ -574,9 +581,10 @@ async function buildCoreVariationIndexSource(
             ref.variationSlug,
           )}`,
         ],
+        projectDir,
       ),
-    })),
-  );
+    });
+  }
   const importLines = bindings
 		.map(({ ref, variationConstName }, index) => {
 			const blockConstName = buildCoreVariationBlockConstName(
@@ -736,6 +744,8 @@ export async function runAddCoreVariationCommand({
 		!(await pathExists(targetBlockDir));
   const existingCoreVariationModulePaths =
     await collectGeneratedTypeScriptModulePaths(coreVariationsDir, true);
+  const workspaceTypeScriptFilePaths =
+    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			bootstrapPath,
@@ -744,6 +754,7 @@ export async function runAddCoreVariationCommand({
 			webpackConfigPath,
 			coreVariationsIndexPath,
 			...existingCoreVariationModulePaths,
+			...workspaceTypeScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

@@ -58,6 +58,27 @@ export function getManagedLintConfigOutputFilename(
   return 'lint.config.mts';
 }
 
+export function findManagedLintConfigOutputConflict(
+  projectDir: string,
+  existingLintConfigPath: string | null,
+  previousManagedLintConfig: boolean,
+): string | null {
+  if (!existingLintConfigPath || !previousManagedLintConfig) {
+    return null;
+  }
+  const outputPath = path.join(
+    projectDir,
+    getManagedLintConfigOutputFilename(
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    ),
+  );
+  return path.resolve(outputPath) !== path.resolve(existingLintConfigPath) &&
+    fs.existsSync(outputPath)
+    ? outputPath
+    : null;
+}
+
 /** Find the first ttsc lint config using the shared discovery precedence. */
 export function findTtscLintConfigPath(projectDir: string): string | null {
   for (const filename of TTSC_LINT_CONFIG_FILENAMES) {
@@ -598,6 +619,13 @@ export function buildRetrofitHelperFiles(
         options.textDomain,
       )
     : false;
+  const managedLintConfigOutputConflict = options
+    ? findManagedLintConfigOutputConflict(
+        options.projectDir,
+        existingLintConfigPath,
+        previousManagedLintConfig,
+      )
+    : null;
   return {
 		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
 			getTtscLintCompatSource(),
@@ -607,7 +635,9 @@ export function buildRetrofitHelperFiles(
 			buildRetrofitSyncProjectScriptSource(),
 		[path.join('scripts', 'sync-types-to-block-json.ts')]:
 			buildRetrofitSyncTypesScriptSource(),
-		...(options && (!existingLintConfigPath || previousManagedLintConfig)
+		...(options &&
+    !managedLintConfigOutputConflict &&
+    (!existingLintConfigPath || previousManagedLintConfig)
 			? {
 					[getManagedLintConfigOutputFilename(
 						existingLintConfigPath,
@@ -635,6 +665,11 @@ export function buildOfficialWorkspaceLintFiles(options: {
       existingLintConfigPath,
       options.textDomain,
     );
+  const managedLintConfigOutputConflict = findManagedLintConfigOutputConflict(
+    options.projectDir,
+    existingLintConfigPath,
+    previousManagedLintConfig,
+  );
   return {
     ...(hasCurrentTtscLintCompatFile(options.projectDir)
       ? {}
@@ -642,7 +677,8 @@ export function buildOfficialWorkspaceLintFiles(options: {
           [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
             getTtscLintCompatSource(),
         }),
-    ...(existingLintConfigPath && !previousManagedLintConfig
+    ...(managedLintConfigOutputConflict ||
+    (existingLintConfigPath && !previousManagedLintConfig)
       ? {}
       : {
           [getManagedLintConfigOutputFilename(

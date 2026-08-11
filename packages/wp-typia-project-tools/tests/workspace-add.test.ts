@@ -1165,6 +1165,16 @@ test('add workflows migrate historical generated registry identifiers', async ()
       'utf8',
     );
   }
+  const externalHistoricalConsumerPath = path.join(
+    targetDir,
+    'src',
+    'historical-variation-consumer.ts',
+  );
+  fs.writeFileSync(
+    externalHistoricalConsumerPath,
+    `import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\n\nexport const historicalVariationConsumer = workspaceVariation_hero_card;\n`,
+    'utf8',
+  );
 
   runCli(
     'node',
@@ -1261,6 +1271,108 @@ test('add workflows migrate historical generated registry identifiers', async ()
       `export const ${historicalModule.historicalName}`,
     );
   }
+  const externalHistoricalConsumerSource = fs.readFileSync(
+    externalHistoricalConsumerPath,
+    'utf8',
+  );
+  expect(externalHistoricalConsumerSource).toContain(
+    'workspaceVariationHeroCardL4L4',
+  );
+  expect(externalHistoricalConsumerSource).not.toContain(
+    'workspaceVariation_hero_card',
+  );
+}, 60_000);
+
+test('failed registry rebuild rolls back completed historical export migrations', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'demo-workspace-add-historical-registry-rollback',
+  );
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace historical registry rollback',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'demo-workspace-add-historical-registry-rollback',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Historical Registry Rollback',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+  for (const variationSlug of ['alpha-card', 'zeta-card']) {
+    runCli(
+      'node',
+      [
+        entryPath,
+        'add',
+        'variation',
+        variationSlug,
+        '--block',
+        'counter-card',
+      ],
+      { cwd: targetDir },
+    );
+  }
+
+  const variationsDir = path.join(
+    targetDir,
+    'src',
+    'blocks',
+    'counter-card',
+    'variations',
+  );
+  const alphaPath = path.join(variationsDir, 'alpha-card.ts');
+  const alphaManagedSource = fs.readFileSync(alphaPath, 'utf8');
+  const alphaManagedName =
+    alphaManagedSource.match(/export const (\w+)/u)?.[1];
+  expect(alphaManagedName).toBeTruthy();
+  const alphaHistoricalSource = replaceFixtureSource(
+    alphaManagedSource,
+    alphaManagedName ?? '',
+    'workspaceVariation_alpha_card',
+    'historical alpha variation export',
+  );
+  fs.writeFileSync(alphaPath, alphaHistoricalSource, 'utf8');
+
+  const zetaPath = path.join(variationsDir, 'zeta-card.ts');
+  const zetaManagedSource = fs.readFileSync(zetaPath, 'utf8');
+  const zetaManagedName = zetaManagedSource.match(/export const (\w+)/u)?.[1];
+  expect(zetaManagedName).toBeTruthy();
+  const zetaUnsupportedSource = replaceFixtureSource(
+    zetaManagedSource,
+    zetaManagedName ?? '',
+    'projectOwnedVariation',
+    'unsupported zeta variation export',
+  );
+  fs.writeFileSync(zetaPath, zetaUnsupportedSource, 'utf8');
+
+  expect(() =>
+    runCli(
+      'node',
+      [
+        entryPath,
+        'add',
+        'variation',
+        'beta-card',
+        '--block',
+        'counter-card',
+      ],
+      { cwd: targetDir },
+    ),
+  ).toThrow(/Unable to resolve a compatible generated export/u);
+  expect(fs.readFileSync(alphaPath, 'utf8')).toBe(alphaHistoricalSource);
+  expect(fs.readFileSync(zetaPath, 'utf8')).toBe(zetaUnsupportedSource);
+  expect(fs.existsSync(path.join(variationsDir, 'beta-card.ts'))).toBe(false);
 }, 60_000);
 
 test('canonical CLI can add block styles and transforms to an official workspace block', async () => {

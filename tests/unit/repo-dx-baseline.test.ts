@@ -108,8 +108,16 @@ describe('repository DX baseline', () => {
       'utf8',
     );
     expect(examplesLintRunner).toContain(
-      "['run', '--filter', '@wp-typia/ttsc-lint-plugin-wp', 'build']",
+      "'@wp-typia/project-tools',",
     );
+    expect(examplesLintRunner).toContain(
+      "'@wp-typia/ttsc-lint-plugin-wp',",
+    );
+    expect(examplesLintRunner).toContain(
+      "['run', '--filter', packageName, 'build']",
+    );
+    expect(examplesLintRunner.indexOf("'@wp-typia/project-tools'"))
+      .toBeLessThan(examplesLintRunner.indexOf('for (const relativePath'));
     expect(examplesLintRunner.indexOf("'@wp-typia/ttsc-lint-plugin-wp'"))
       .toBeLessThan(examplesLintRunner.indexOf('for (const relativePath'));
   });

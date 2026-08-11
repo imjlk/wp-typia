@@ -3353,6 +3353,35 @@ let exports;
 		expect(getInitPlan(projectDir).status).toBe('already-initialized');
 	});
 
+	test('refuses a managed lint rename that conflicts with a project-owned destination', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-managed-config-conflict');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'managed-conflict-domain',
+		});
+		const destinationPath = path.join(projectDir, 'lint.config.mts');
+		const projectOwnedSource =
+			`export default { rules: { eqeqeq: 'warning' } };\n`;
+		fs.writeFileSync(destinationPath, projectOwnedSource, 'utf8');
+		const previousPath = path.join(projectDir, 'lint.config.ts');
+		const previousSource = buildPreviousManagedWordPressTtscLintConfigSource(
+			'managed-conflict-domain',
+		);
+		fs.writeFileSync(previousPath, previousSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'lint.config.mts is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'lint.config.mts' }),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/conflicts with the destination required to migrate lint\.config\.ts/u,
+		);
+		expect(fs.readFileSync(destinationPath, 'utf8')).toBe(projectOwnedSource);
+		expect(fs.readFileSync(previousPath, 'utf8')).toBe(previousSource);
+	});
+
 	test('does not discover unsupported JSON lint configs', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-json-lint-config');
 		await scaffoldOfficialWorkspace(projectDir);

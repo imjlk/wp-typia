@@ -24,6 +24,7 @@ import {
 import {
   buildOfficialWorkspaceLintFiles,
   buildRetrofitHelperFiles,
+  findManagedLintConfigOutputConflict,
   findTtscLintConfigPath,
   hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
@@ -174,13 +175,27 @@ export async function applyInitPlan(
     projectDir: previewPlan.projectDir,
   });
   const existingLintConfigPath = findTtscLintConfigPath(previewPlan.projectDir);
+  const previousManagedLintConfig =
+    hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      expectedTextDomain,
+    );
+  const managedLintConfigOutputConflict =
+    findManagedLintConfigOutputConflict(
+      previewPlan.projectDir,
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    );
+  if (managedLintConfigOutputConflict) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      `\`wp-typia init --apply\` preserves the existing ${path.basename(managedLintConfigOutputConflict)} because it conflicts with the destination required to migrate ${path.basename(existingLintConfigPath ?? '')}. Reconcile the two lint configs, then rerun the command.`,
+    );
+  }
   if (
     existingLintConfigPath &&
     !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain) &&
-    !hasPreviousManagedWordPressTtscLintConfig(
-      existingLintConfigPath,
-      expectedTextDomain,
-    )
+    !previousManagedLintConfig
   ) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
