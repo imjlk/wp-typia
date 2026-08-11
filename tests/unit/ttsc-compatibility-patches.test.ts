@@ -53,9 +53,10 @@ let tempDirs: string[] = [];
 function rewriteTtscLintBufferTargets(
   source: string,
   targetSource: string,
+  functionNames = ['directoryDigest', 'configDirectoryDigest'],
 ): string {
   let normalized = source;
-  for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
+  for (const functionName of functionNames) {
     const functionStart = normalized.indexOf(`function ${functionName}(`);
     const functionEnd = normalized.indexOf(
       `function ${functionName}Record(`,
@@ -299,6 +300,25 @@ export type Inferred<Value> =
       'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
     );
     writeText(lintIndexPath, cachedPatchedIndexSource);
+    const lintRuntimePath = path.join(
+      scopedTtscDir,
+      'lint',
+      'lib',
+      'index.js',
+    );
+    const patchedRuntimeSource = fs.readFileSync(lintRuntimePath, 'utf8');
+    expect(
+      patchedRuntimeSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(2);
+    writeText(
+      lintRuntimePath,
+      rewriteTtscLintBufferTargets(
+        patchedRuntimeSource,
+        'let target = Buffer.alloc(0);',
+        ['directoryDigest'],
+      ),
+    );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
         '@ttsc/lint': '0.26.1',
@@ -369,6 +389,15 @@ export type Inferred<Value> =
     ).toBe(4);
     expect(
       repairedIndexSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(0);
+    const repairedRuntimeSource = fs.readFileSync(lintRuntimePath, 'utf8');
+    expect(
+      repairedRuntimeSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(2);
+    expect(
+      repairedRuntimeSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
         ?.length ?? 0,
     ).toBe(0);
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {

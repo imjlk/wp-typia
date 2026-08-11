@@ -1313,6 +1313,28 @@ test('workspace rename discovery includes JavaScript module variants', async () 
     fs.writeFileSync(path.join(targetDir, 'src', filename), '', 'utf8');
   }
   fs.writeFileSync(path.join(targetDir, 'src', 'types.d.ts'), '', 'utf8');
+  for (const cacheDirectory of [
+    '.bun',
+    '.cache',
+    '.npm',
+    '.pnpm-store',
+    '.yarn',
+  ]) {
+    const cachePath = path.join(targetDir, cacheDirectory);
+    fs.mkdirSync(cachePath, { recursive: true });
+    fs.writeFileSync(
+      path.join(cachePath, 'dependency.ts'),
+      'export const cached = true;\n',
+      'utf8',
+    );
+  }
+  for (const cacheFile of ['.pnp.cjs', '.pnp.loader.mjs']) {
+    fs.writeFileSync(
+      path.join(targetDir, cacheFile),
+      'module.exports = {};\n',
+      'utf8',
+    );
+  }
 
   expect(
 		(await collectWorkspaceScriptFilePaths(targetDir)).map((filePath) =>

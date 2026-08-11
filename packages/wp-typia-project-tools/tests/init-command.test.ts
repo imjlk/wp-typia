@@ -7,6 +7,7 @@ import { runInitCommand } from '../src/runtime/cli-init.js';
 import { getInitPlan } from '../src/runtime/cli-init-plan.js';
 import {
   buildOfficialWorkspaceLintScriptChanges,
+  buildProjectPackageJsonSource,
   buildScriptChanges,
 } from '../src/runtime/cli/cli-init-package-json.js';
 import {
@@ -102,6 +103,21 @@ describe('wp-typia init', () => {
 
 	afterAll(() => {
 		cleanupScaffoldTempRoot(tempRoot);
+	});
+
+	test('preserves package manifest indentation and line endings', () => {
+		const packageJson = {
+			name: 'format-preserving-project',
+			scripts: { check: 'npm run check:code' },
+		};
+		const currentSource =
+			'{\r\n\t"name": "format-preserving-project",\r\n\t"scripts": {}\r\n}\r\n';
+
+		expect(
+			buildProjectPackageJsonSource(packageJson, currentSource),
+		).toBe(
+			'{\r\n\t"name": "format-preserving-project",\r\n\t"scripts": {\r\n\t\t"check": "npm run check:code"\r\n\t}\r\n}\r\n',
+		);
 	});
 
 	test('detects single-block retrofit candidates and plans the minimum sync surface', () => {
@@ -808,7 +824,7 @@ describe('wp-typia init', () => {
 		const changes = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
-					check: 'npm run check:php && npm run check:style',
+					check: 'npm run check:php && npm run check:custom',
 				},
 			},
 			'npm',
@@ -816,10 +832,10 @@ describe('wp-typia init', () => {
 
 		expect(changes).toContainEqual({
 			action: 'update',
-			currentValue: 'npm run check:php && npm run check:style',
+			currentValue: 'npm run check:php && npm run check:custom',
 			name: 'check',
 			requiredValue:
-				'npm run check:code && npm run check:php && npm run check:style',
+				'npm run check:code && npm run check:php && npm run check:custom',
 		});
 
 		const alreadyManaged = buildOfficialWorkspaceLintScriptChanges(
@@ -1256,6 +1272,41 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('keeps an existing ttsc gate outside project fallback grouping', () => {
+		const currentValue =
+			'eslint src || true && ttsc check --noEmit';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code': currentValue,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue,
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && (eslint src || true) && ttsc check --noEmit',
+		});
+		const repairedValue =
+			'npm run sync -- --check && (eslint src || true) && ttsc check --noEmit';
+		expect(
+			buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						check: 'npm run check:code',
+						'check:code': repairedValue,
+					},
+				},
+				'npm',
+			).some((change) => change.name === 'check:code'),
+		).toBe(false);
+	});
+
 	test('keeps grouped project-owned fallback chains idempotent', () => {
 		const scripts = {
 			check: 'npm run check:code && (echo optional || true)',
@@ -1313,6 +1364,52 @@ describe('wp-typia init', () => {
 			currentValue: 'bun run sync --check && ttsc check --noEmit',
 			name: 'check:code',
 			requiredValue: 'npm run sync -- --check && ttsc check --noEmit',
+		});
+	});
+
+	test('normalizes managed runners in customized complete check aggregates', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'bun run check:code && bun run check:style && echo report',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'check:style': 'stylelint "src/**/*.scss"',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'bun run check:code && bun run check:style && echo report',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && echo report',
+		});
+	});
+
+	test('removes dangling managed lanes from an existing check aggregate', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'npm run check:code && npm run check:style && npm run check:format',
+					'check:code':
+						'npm run sync -- --check && ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+			name: 'check',
+			requiredValue: 'npm run check:code',
 		});
 	});
 

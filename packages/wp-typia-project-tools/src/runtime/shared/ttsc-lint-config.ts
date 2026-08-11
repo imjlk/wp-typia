@@ -2720,6 +2720,67 @@ export function hasTtscCheckNoEmitCommand(command: unknown): boolean {
   return hasTtscNoEmitCommand(command, true);
 }
 
+/**
+ * Insert the managed sync gate before an existing top-level ttsc check while
+ * keeping any earlier fallback chain outside the opaque ttsc segment.
+ */
+export function prependManagedSyncBeforeTtscCheckNoEmitCommand(
+  command: string,
+  requiredSyncCommand: string,
+): string | null {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid || command.includes('#')) {
+    return null;
+  }
+  const ttscIndex = parsed.segments.findIndex(
+    (segment, segmentIndex) =>
+      isPropagatingShellSegment(parsed.segments, segmentIndex) &&
+      isTtscNoEmitCommandTokens(segment.tokens, true),
+  );
+  if (ttscIndex === -1) {
+    return null;
+  }
+
+  const earlierSegments = parsed.segments.slice(0, ttscIndex);
+  if (
+    earlierSegments.some(
+      (segment) =>
+        (segment.operatorBefore !== null &&
+          segment.operatorBefore !== '&&' &&
+          segment.operatorBefore !== '||') ||
+        (segment.operatorAfter !== '&&' &&
+          segment.operatorAfter !== '||'),
+    )
+  ) {
+    return null;
+  }
+
+  const renderSegments = (
+    segments: readonly SimpleShellSegment[],
+  ): string =>
+    segments
+      .map((segment, segmentIndex) => {
+        const isLast = segmentIndex === segments.length - 1;
+        return `${segment.source}${
+          isLast || segment.operatorAfter === null
+            ? ''
+            : ` ${segment.operatorAfter} `
+        }`;
+      })
+      .join('');
+  const earlierSource = renderSegments(earlierSegments);
+  const remainingSource = renderSegments(parsed.segments.slice(ttscIndex));
+  const projectPrefix = earlierSegments.some(
+    (segment) =>
+      segment.operatorBefore === '||' || segment.operatorAfter === '||',
+  )
+    ? `(${earlierSource})`
+    : earlierSource;
+  return [requiredSyncCommand, projectPrefix, remainingSource]
+    .filter((source) => source.length > 0)
+    .join(' && ');
+}
+
 const MANAGED_SYNC_CHECK_COMMANDS = new Set([
   'bun run sync --check',
   'npm run sync -- --check',
@@ -2860,6 +2921,36 @@ export function hasPackageRunScriptInvocation(
       isPackageRunScriptInvocation(segment.tokens, scriptName, true),
     )
   );
+}
+
+/** Normalize exact managed package-script invocations to selected runners. */
+export function normalizePackageRunScriptCommands(
+  command: string,
+  requiredCommands: Readonly<Record<string, string>>,
+): string {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid || command.includes('#')) {
+    return command;
+  }
+  let changed = false;
+  const normalized = parsed.segments
+    .map((segment) => {
+      const requiredCommand = Object.entries(requiredCommands).find(
+        ([scriptName]) =>
+          ['bun', 'npm', 'pnpm', 'yarn'].some(
+            (packageManager) =>
+              segment.source === `${packageManager} run ${scriptName}`,
+          ),
+      )?.[1];
+      const source = requiredCommand ?? segment.source;
+      changed ||= source !== segment.source;
+      return `${source}${
+        segment.operatorAfter === null ? '' : ` ${segment.operatorAfter} `
+      }`;
+    })
+    .join('')
+    .trimEnd();
+  return changed ? normalized : command;
 }
 
 /** Remove package-script invocations from a simple failure-propagating chain. */

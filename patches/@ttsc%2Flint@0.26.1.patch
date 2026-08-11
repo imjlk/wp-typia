@@ -24,10 +24,31 @@ diff --git a/linthost/rules_format_trailing_comma.go b/linthost/rules_format_tra
      list := node.Parent.TypeParameterList()
      if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
        return
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -662,7 +662,7 @@ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -680,7 +680,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
 diff --git a/src/index.ts b/src/index.ts
 --- a/src/index.ts
 +++ b/src/index.ts
-@@ -765,6 +765,6 @@ function directoryDigest(location: string): string {
+@@ -766,6 +766,6 @@ function directoryDigest(location: string): string {
    if (process.platform === "win32") {
      for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
 -      let target = Buffer.alloc(0);
@@ -44,7 +65,7 @@ diff --git a/src/index.ts b/src/index.ts
        if (entry.isSymbolicLink()) {
          try {
            target = fs.readlinkSync(
-@@ -2088,6 +2088,6 @@ function configDirectoryDigest(location: string): string {
+@@ -2089,6 +2089,6 @@ function configDirectoryDigest(location: string): string {
    if (process.platform === "win32") {
      for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
 -      let target = Buffer.alloc(0);

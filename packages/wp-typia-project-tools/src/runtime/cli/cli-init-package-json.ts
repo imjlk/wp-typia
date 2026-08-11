@@ -26,6 +26,8 @@ import {
   hasTtscCheckNoEmitCommand,
   hasTtscNoEmitLintCommand,
   normalizeManagedSyncCheckCommand,
+  normalizePackageRunScriptCommands,
+  prependManagedSyncBeforeTtscCheckNoEmitCommand,
   removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
 import type {
@@ -178,7 +180,15 @@ function buildRequiredCheckCodeCommand(
       : `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`;
   }
   if (hasTtscCommand) {
-    return prependRequiredCommands(currentValue, [syncCommand]);
+    return (
+      prependManagedSyncBeforeTtscCheckNoEmitCommand(
+        currentValue ?? '',
+        syncCommand,
+      ) ??
+      prependRequiredCommands(currentValue, [
+        `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`,
+      ])
+    );
   }
   return prependRequiredCommands(currentValue, [
     `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`,
@@ -730,17 +740,45 @@ export function buildOfficialWorkspaceLintScriptChanges(
     name,
   }));
   const currentCheck = scripts.check;
+  let repairedCurrentCheck = currentCheck;
+  for (const [laneName, requiredValue] of [
+    ['check:style', requiredCheckStyle],
+    ['check:format', requiredCheckFormat],
+  ] as const) {
+    if (
+      requiredValue === undefined &&
+      repairedCurrentCheck &&
+      hasPackageRunScriptInvocation(repairedCurrentCheck, laneName)
+    ) {
+      const withoutDanglingLane = removePackageRunScriptInvocations(
+        repairedCurrentCheck,
+        laneName,
+      );
+      if (withoutDanglingLane !== null) {
+        repairedCurrentCheck = withoutDanglingLane;
+      }
+    }
+  }
+  if (repairedCurrentCheck) {
+    repairedCurrentCheck = normalizePackageRunScriptCommands(
+      repairedCurrentCheck,
+      Object.fromEntries(
+        checkLanes.map(({ command, name }) => [name, command]),
+      ),
+    );
+  }
   const missingCheckCommands = checkLanes
     .filter(
-      (lane) => !hasPackageRunScriptCommand(currentCheck, lane.name),
+      (lane) =>
+        !hasPackageRunScriptCommand(repairedCurrentCheck, lane.name),
     )
     .map(({ command }) => command);
   const requiredCheck = isManagedCheckAggregateSubset(
-    currentCheck,
+    repairedCurrentCheck,
     requiredCheckLanes,
   )
     ? buildManagedCheckAggregate(requiredCheckLanes, packageManager)
-    : prependRequiredCommands(currentCheck, missingCheckCommands);
+    : prependRequiredCommands(repairedCurrentCheck, missingCheckCommands);
   const currentCheckCode = scripts['check:code'];
   let requiredCheckCode: string;
   if (isManagedCheckCodeCommand(currentCheckCode)) {
@@ -1047,6 +1085,11 @@ export function buildNextProjectPackageJson(options: {
 
 export function buildProjectPackageJsonSource(
 	packageJson: ProjectPackageJson,
+  currentSource?: string,
 ): string {
-  return `${JSON.stringify(packageJson, null, 2)}\n`;
+  const indentation =
+    currentSource?.match(/(?:^|\r?\n)([\t ]+)"/u)?.[1] ?? '  ';
+  const lineEnding = currentSource?.includes('\r\n') ? '\r\n' : '\n';
+  const source = JSON.stringify(packageJson, null, indentation);
+  return `${source.split('\n').join(lineEnding)}${lineEnding}`;
 }

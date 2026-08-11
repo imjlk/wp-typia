@@ -71,6 +71,7 @@ async function createRetrofitMutationSnapshot(
 async function writeRetrofitFiles(options: {
   helperFiles: Record<string, string>;
   packageJson: ProjectPackageJson;
+  packageJsonSource: string;
   projectDir: string;
   removedFiles: string[];
   webpackChanges: RetrofitWebpackChange[];
@@ -81,7 +82,10 @@ async function writeRetrofitFiles(options: {
   await fsp.mkdir(scriptsDir, { recursive: true });
   await fsp.writeFile(
     path.join(options.projectDir, 'package.json'),
-    buildProjectPackageJsonSource(options.packageJson),
+    buildProjectPackageJsonSource(
+      options.packageJson,
+      options.packageJsonSource,
+    ),
     'utf8',
   );
 
@@ -174,6 +178,10 @@ export async function applyInitPlan(
   }
 
   const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
+  const currentPackageJsonSource = fs.readFileSync(
+    path.join(previewPlan.projectDir, 'package.json'),
+    'utf8',
+  );
   const expectedTextDomain = resolveRetrofitTextDomain({
     blockTargets: previewPlan.blockTargets,
     packageJson: currentPackageJson,
@@ -276,6 +284,7 @@ export async function applyInitPlan(
     await writeRetrofitFiles({
       helperFiles,
       packageJson: nextPackageJson,
+      packageJsonSource: currentPackageJsonSource,
       projectDir: previewPlan.projectDir,
       removedFiles,
       webpackChanges,

@@ -218,12 +218,21 @@ const WORKSPACE_SCRIPT_EXTENSIONS = [
   '.cjs',
 ];
 const WORKSPACE_SCRIPT_EXCLUDED_DIRECTORIES = new Set([
+  '.bun',
+  '.cache',
   '.git',
+  '.npm',
+  '.pnpm-store',
   '.turbo',
+  '.yarn',
   'build',
   'coverage',
   'dist',
   'node_modules',
+]);
+const WORKSPACE_SCRIPT_EXCLUDED_FILES = new Set([
+  '.pnp.cjs',
+  '.pnp.loader.mjs',
 ]);
 
 export async function collectWorkspaceScriptFilePaths(
@@ -242,6 +251,7 @@ export async function collectWorkspaceScriptFilePaths(
           : collectWorkspaceScriptFilePaths(entryPath);
       }
       return entry.isFile() &&
+        !WORKSPACE_SCRIPT_EXCLUDED_FILES.has(entry.name) &&
         WORKSPACE_SCRIPT_EXTENSIONS.some((extension) =>
           entry.name.endsWith(extension),
         ) &&

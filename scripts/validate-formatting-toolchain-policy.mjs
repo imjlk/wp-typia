@@ -159,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      'b7af04a25247a3b5e36b53910f2a8ed0c255296e502a42e3e4d0a0b9c004e10c',
+      '39ab0732163138e1614fde7fa4c052fba773ebce6a80cb73f06b5e13e04cfea8',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
@@ -752,6 +752,11 @@ function validateGeneratedTtscLintCompatSource(
         /const lintIndexPath = path\.join\(packageRoot, ['"]src['"], ['"]index\.ts['"]\);/u,
     },
     {
+      description: 'the distributed @ttsc/lint loader runtime path',
+      pattern:
+        /const lintRuntimePath = path\.join\(packageRoot, ['"]lib['"], ['"]index\.js['"]\);/u,
+    },
+    {
       description: 'the mapped/infer FunctionLikeData guard',
       pattern: /^\s*if node\.Parent\.FunctionLikeData\(\) == nil \{$/mu,
     },
@@ -760,9 +765,14 @@ function validateGeneratedTtscLintCompatSource(
       pattern: /'let target: Buffer = Buffer\.alloc\(0\);'/u,
     },
     {
-      description: 'the two scoped digest functions',
+      description: 'the TypeScript source digest scopes',
       pattern:
-        /for \(const functionName of \['directoryDigest', 'configDirectoryDigest'\]\)/u,
+        /prepareBufferTargetRepair\(lintIndexPath, \[\s*['"]directoryDigest['"],\s*['"]configDirectoryDigest['"],?\s*\]\)/u,
+    },
+    {
+      description: 'the distributed loader digest scope',
+      pattern:
+        /prepareBufferTargetRepair\(lintRuntimePath, \[['"]directoryDigest['"]\]\)/u,
     },
     {
       description: 'the two Node Buffer targets per digest function',

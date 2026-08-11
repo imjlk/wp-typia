@@ -22,6 +22,7 @@ const lintRulePath = path.join(
 	'rules_format_trailing_comma.go'
 );
 const lintIndexPath = path.join(packageRoot, 'src', 'index.ts');
+const lintRuntimePath = path.join(packageRoot, 'lib', 'index.js');
 const unpatchedParentGuard = `    list := node.Parent.TypeParameterList()
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
@@ -100,10 +101,10 @@ function prepareSourcePatches({ description, replacements, sourcePath }) {
 	);
 }
 
-function prepareBufferTargetRepair(sourcePath) {
+function prepareBufferTargetRepair(sourcePath, functionNames) {
 	const source = fs.readFileSync(sourcePath, 'utf8');
 	let nextSource = source;
-	for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
+	for (const functionName of functionNames) {
 		const functionStart = nextSource.indexOf(`function ${functionName}(`);
 		const functionEnd = nextSource.indexOf(
 			`function ${functionName}Record(`,
@@ -155,7 +156,11 @@ const repairs = [
 		],
 		sourcePath: lintRulePath,
 	}),
-	prepareBufferTargetRepair(lintIndexPath),
+	prepareBufferTargetRepair(lintIndexPath, [
+		'directoryDigest',
+		'configDirectoryDigest',
+	]),
+	prepareBufferTargetRepair(lintRuntimePath, ['directoryDigest']),
 ];
 
 for (const { nextSource, sourcePath } of repairs) {
