@@ -29,11 +29,12 @@ import {
   findTtscLintConfigPath,
   findManagedLintConfigOutputConflict,
   getManagedLintConfigOutputFilename,
-  hasCurrentTtscLintCompatFile,
+  inspectTtscLintCompatFile,
   hasPreviousManagedTtsconfig,
   hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
+  type TtscLintCompatFileState,
 } from './cli-init-templates.js';
 import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
@@ -63,6 +64,10 @@ const WORDPRESS_TTSC_TSCONFIG_PURPOSE =
 
 function buildProjectOwnedLintConfigNote(configPath: string): string {
   return `Existing ${path.basename(configPath)} is project-owned and will not be overwritten. Extend it with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule before applying this plan.`;
+}
+
+function buildProjectOwnedTtscLintCompatNote(): string {
+  return 'Existing scripts/apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten. Move it or reconcile it with the managed compatibility helper before applying this plan.';
 }
 
 function getProjectOwnedLintConfigPath(
@@ -272,6 +277,7 @@ function buildPlannedFiles(
 	projectDir: string,
 	layoutKind: InitPlanLayoutKind,
 	textDomain: string,
+	ttscLintCompatFileState: TtscLintCompatFileState,
 ): InitFilePlan[] {
   if (layoutKind === 'unsupported') {
     return [];
@@ -279,10 +285,14 @@ function buildPlannedFiles(
 
   const ttscLintPackageVersion = getPackageVersions().ttscLintPackageVersion;
   return [
-		buildTtscLintCompatFilePlan(
-			projectDir,
-			`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
-		),
+		...(ttscLintCompatFileState.conflictPath
+			? []
+			: [
+					buildTtscLintCompatFilePlan(
+						projectDir,
+						`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
+					),
+				]),
 		...buildWordPressLintConfigFilePlans(
 			projectDir,
 			findTtscLintConfigPath(projectDir),
@@ -370,9 +380,11 @@ function buildOfficialWorkspaceLintFilePlans(
   projectDir: string,
   lintConfigPath: string | null,
   textDomain: string,
+  ttscLintCompatFileState: TtscLintCompatFileState,
 ): InitFilePlan[] {
   return [
-    ...(hasCurrentTtscLintCompatFile(projectDir)
+    ...(ttscLintCompatFileState.current ||
+      ttscLintCompatFileState.conflictPath
       ? []
       : [
           buildTtscLintCompatFilePlan(
@@ -532,10 +544,14 @@ export function getInitPlan(
         wordpressLintIntegrated,
         previousManagedLintConfig,
       );
+    const ttscLintCompatFileState = inspectTtscLintCompatFile(
+      workspace.projectDir,
+    );
     const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
       workspace.projectDir,
       existingLintConfigPath,
       workspace.workspace.textDomain,
+      ttscLintCompatFileState,
     );
     if (yarnPnpNodeModulesConfig) {
       rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
@@ -549,6 +565,7 @@ export function getInitPlan(
       yarnPnpNodeModulesConfig === undefined &&
       rawPlannedFiles.length === 0 &&
       wordpressLintIntegrated &&
+      !ttscLintCompatFileState.conflictPath &&
       !historicalGeneratedExports
         ? 'already-initialized'
         : 'preview';
@@ -580,6 +597,9 @@ export function getInitPlan(
       notes: [
         ...(projectOwnedLintConfigPath
           ? [buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath)]
+          : []),
+        ...(ttscLintCompatFileState.conflictPath
+          ? [buildProjectOwnedTtscLintCompatNote()]
           : []),
         ...(historicalGeneratedExports
           ? [
@@ -640,14 +660,21 @@ export function getInitPlan(
       existingLintConfigPath,
       expectedTextDomain,
     );
+  const ttscLintCompatFileState = inspectTtscLintCompatFile(resolvedProjectDir);
   const rawPlannedFiles: InitFilePlan[] =
 		hasExistingSurface
       ? buildOfficialWorkspaceLintFilePlans(
           resolvedProjectDir,
           existingLintConfigPath,
           expectedTextDomain,
+          ttscLintCompatFileState,
         )
-      : buildPlannedFiles(resolvedProjectDir, layout.kind, expectedTextDomain);
+      : buildPlannedFiles(
+          resolvedProjectDir,
+          layout.kind,
+          expectedTextDomain,
+          ttscLintCompatFileState,
+        );
   if (yarnPnpNodeModulesConfig) {
     rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
   }
@@ -683,7 +710,8 @@ export function getInitPlan(
 		packageManagerFieldChange === undefined &&
 		yarnPnpNodeModulesConfig === undefined &&
 		rawPlannedFiles.length === 0 &&
-		wordpressLintIntegrated
+		wordpressLintIntegrated &&
+		!ttscLintCompatFileState.conflictPath
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;
@@ -729,6 +757,9 @@ export function getInitPlan(
 					? [
 							buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath),
 					  ]
+					: []),
+				...(ttscLintCompatFileState.conflictPath
+					? [buildProjectOwnedTtscLintCompatNote()]
 					: []),
 				...layout.notes,
 			]),

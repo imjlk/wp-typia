@@ -25,6 +25,7 @@ import {
   buildOfficialWorkspaceLintFiles,
   buildRetrofitHelperFiles,
   findManagedLintConfigOutputConflict,
+  findTtscLintCompatOutputConflict,
   findTtscLintConfigPath,
   hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
@@ -193,6 +194,15 @@ export async function applyInitPlan(
       existingLintConfigPath,
       expectedTextDomain,
     );
+  const ttscLintCompatOutputConflict = findTtscLintCompatOutputConflict(
+    previewPlan.projectDir,
+  );
+  if (ttscLintCompatOutputConflict) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      '`wp-typia init --apply` preserves the existing scripts/apply-ttsc-lint-compat.mjs because it is project-owned. Move it or reconcile it with the managed compatibility helper, then rerun the command.',
+    );
+  }
   const managedLintConfigOutputConflict =
     findManagedLintConfigOutputConflict(
       previewPlan.projectDir,

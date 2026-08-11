@@ -851,6 +851,28 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('normalizes supported managed runner forms without dropping project commands', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'env CI=1 pnpm --silent run check:code && pnpm --silent check:style && echo report',
+					'check:style': 'stylelint "src/**/*.scss"',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'env CI=1 pnpm --silent run check:code && pnpm --silent check:style && echo report',
+			name: 'check',
+			requiredValue:
+				'env CI=1 npm run check:code && npm run check:style && echo report',
+		});
+	});
+
 	test('runs managed checks before terminal project-owned aggregates', () => {
 		const changes = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -1207,6 +1229,21 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('preserves custom work appended to a legacy lint:ts lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit && eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes.some((change) => change.name === 'lint')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+	});
+
 	test('isolates project-owned fallback chains from managed checks', () => {
 		const changes = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -1503,16 +1540,10 @@ describe('wp-typia init', () => {
 			'npm exec --silent ttsc -- --noEmit',
 			['ttsc \\', '--noEmit'].join('\n'),
 			['ttsc \\', '--noEmit'].join('\r\n'),
-			'echo label#value && ttsc --noEmit',
-			'echo escaped\\ #value && ttsc --noEmit',
 			'ttsc --noEmit;',
 			'ttsc --noEmit\n',
 			'ttsc --noEmit 2>&1',
 			'ttsc --noEmit &>lint.log',
-			'echo setup &&\nttsc --noEmit',
-			'exit 0 | cat && ttsc --noEmit',
-			'exit 0 & ttsc --noEmit',
-			'env WP_TYPIA_SKIP=1 exit; ttsc --noEmit',
 			'ttsc --noEmit # managed lint\n',
 			'ttsc --noEmit false --noEmit',
 			'ttsc --noEmit=false --noEmit=true',
@@ -1520,7 +1551,7 @@ describe('wp-typia init', () => {
 		]) {
 			expect(plansLintTsRemoval(command)).toBe(true);
 		}
-		for (const command of [
+		const rejectedCommands = [
 			'echo ttsc --noEmit',
 			`echo 'next: && ttsc --noEmit'`,
 			'npx echo ttsc --noEmit',
@@ -1558,12 +1589,19 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit -- --project custom.tsconfig',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
+			'echo label#value && ttsc --noEmit',
+			'echo escaped\\ #value && ttsc --noEmit',
+			'echo setup &&\nttsc --noEmit',
+			'exit 0 | cat && ttsc --noEmit',
+			'exit 0 & ttsc --noEmit',
+			'env WP_TYPIA_SKIP=1 exit; ttsc --noEmit',
 			'exit 0 && ttsc --noEmit',
 			'exit 0; ttsc --noEmit',
 			'WP_TYPIA_SKIP=1 exit 0 && ttsc --noEmit',
-		]) {
-			expect(plansLintTsRemoval(command)).toBe(false);
-		}
+		];
+		expect(
+			rejectedCommands.filter((command) => plansLintTsRemoval(command)),
+		).toEqual([]);
 
 		const noncanonicalAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -3729,6 +3767,35 @@ let exports;
 			/preserves an existing ttsc lint config/u,
 		);
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
+	});
+
+	test('refuses to overwrite a project-owned ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-custom-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		const customSource = 'export const projectOwned = true;\n';
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(compatPath, customSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.readFileSync(compatPath, 'utf8')).toBe(customSource);
 	});
 
 	test('rejects ESM-style TypeScript lint configs in CommonJS workspaces', async () => {

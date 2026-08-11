@@ -2260,6 +2260,7 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
 interface SimpleShellSegment {
   operatorAfter: '&&' | '||' | '&' | ';' | '|' | null;
   operatorBefore: '&&' | '||' | '&' | ';' | '|' | null;
+  rawTokens: string[];
   source: string;
   tokens: string[];
 }
@@ -2284,7 +2285,13 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       buffer.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
     const tokens = rawTokens.map((token) => normalizeShellToken(token));
     if (tokens.length > 0) {
-      segments.push({ operatorAfter: null, operatorBefore, source, tokens });
+      segments.push({
+        operatorAfter: null,
+        operatorBefore,
+        rawTokens,
+        source,
+        tokens,
+      });
     }
     atTokenBoundary = true;
     buffer = '';
@@ -2715,6 +2722,23 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
   return hasTtscNoEmitCommand(command, false);
 }
 
+/** Check whether an entire legacy lint lane is one managed ttsc command. */
+export function isStandaloneTtscNoEmitLintCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  return (
+    parsed.valid &&
+    parsed.segments.length === 1 &&
+    (parsed.segments[0]?.operatorAfter === null ||
+      parsed.segments[0]?.operatorAfter === ';') &&
+    isTtscNoEmitCommandTokens(parsed.segments[0]?.tokens ?? [], false)
+  );
+}
+
 /** Check whether a project-owned code gate invokes `ttsc check --noEmit`. */
 export function hasTtscCheckNoEmitCommand(command: unknown): boolean {
   return hasTtscNoEmitCommand(command, true);
@@ -2937,12 +2961,17 @@ export function normalizePackageRunScriptCommands(
     .map((segment) => {
       const requiredCommand = Object.entries(requiredCommands).find(
         ([scriptName]) =>
-          ['bun', 'npm', 'pnpm', 'yarn'].some(
-            (packageManager) =>
-              segment.source === `${packageManager} run ${scriptName}`,
-          ),
+          isPackageRunScriptInvocation(segment.tokens, scriptName, false),
       )?.[1];
-      const source = requiredCommand ?? segment.source;
+      const commandIndex = getShellCommandStartIndex(segment.tokens);
+      const source = requiredCommand
+        ? [
+            segment.rawTokens.slice(0, commandIndex).join(' '),
+            requiredCommand,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : segment.source;
       changed ||= source !== segment.source;
       return `${source}${
         segment.operatorAfter === null ? '' : ` ${segment.operatorAfter} `

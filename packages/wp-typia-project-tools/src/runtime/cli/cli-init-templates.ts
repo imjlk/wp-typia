@@ -461,8 +461,15 @@ export function getTtscLintCompatSource(): string {
   return source;
 }
 
-/** Check whether the generated ttsc compatibility helper is current. */
-export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
+export interface TtscLintCompatFileState {
+  conflictPath: string | null;
+  current: boolean;
+}
+
+/** Inspect the managed compatibility helper with one project-file read. */
+export function inspectTtscLintCompatFile(
+  projectDir: string,
+): TtscLintCompatFileState {
   const compatPath = path.join(
     projectDir,
     'scripts',
@@ -471,13 +478,31 @@ export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
   try {
     const normalizeLineEndings = (source: string) =>
       source.replace(/\r\n/gu, '\n');
-    return (
+    const current =
       normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
-      normalizeLineEndings(getTtscLintCompatSource())
-    );
+      normalizeLineEndings(getTtscLintCompatSource());
+    return {
+      conflictPath: current ? null : compatPath,
+      current,
+    };
   } catch {
-    return false;
+    return {
+      conflictPath: fs.existsSync(compatPath) ? compatPath : null,
+      current: false,
+    };
   }
+}
+
+/** Check whether the generated ttsc compatibility helper is current. */
+export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
+  return inspectTtscLintCompatFile(projectDir).current;
+}
+
+/** Find a project-owned compatibility helper that init must not overwrite. */
+export function findTtscLintCompatOutputConflict(
+  projectDir: string,
+): string | null {
+  return inspectTtscLintCompatFile(projectDir).conflictPath;
 }
 
 /**
@@ -626,9 +651,16 @@ export function buildRetrofitHelperFiles(
         previousManagedLintConfig,
       )
     : null;
+  const ttscLintCompatOutputConflict = options
+    ? inspectTtscLintCompatFile(options.projectDir).conflictPath
+    : null;
   return {
-		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
-			getTtscLintCompatSource(),
+		...(ttscLintCompatOutputConflict
+      ? {}
+      : {
+          [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
+            getTtscLintCompatSource(),
+        }),
 		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
 		[path.join('scripts', 'sync-project.ts')]:
@@ -670,8 +702,10 @@ export function buildOfficialWorkspaceLintFiles(options: {
     existingLintConfigPath,
     previousManagedLintConfig,
   );
+  const ttscLintCompatFileState = inspectTtscLintCompatFile(options.projectDir);
   return {
-    ...(hasCurrentTtscLintCompatFile(options.projectDir)
+    ...(ttscLintCompatFileState.current ||
+      ttscLintCompatFileState.conflictPath
       ? {}
       : {
           [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:

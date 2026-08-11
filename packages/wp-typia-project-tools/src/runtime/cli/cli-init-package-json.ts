@@ -24,7 +24,7 @@ import {
   hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscCheckNoEmitCommand,
-  hasTtscNoEmitLintCommand,
+  isStandaloneTtscNoEmitLintCommand,
   normalizeManagedSyncCheckCommand,
   normalizePackageRunScriptCommands,
   prependManagedSyncBeforeTtscCheckNoEmitCommand,
@@ -840,7 +840,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
         return true;
       }
       if (name === 'lint:ts') {
-        return hasTtscNoEmitLintCommand(command);
+        return isStandaloneTtscNoEmitLintCommand(command);
       }
       if (name === 'lint:js') {
         return command === LEGACY_LINT_JS_COMMAND;
@@ -897,7 +897,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
       canRemoveManagedAliases,
       referencedManagedScripts,
       'lint:ts',
-      hasTtscNoEmitLintCommand(scripts['lint:ts']),
+      isStandaloneTtscNoEmitLintCommand(scripts['lint:ts']),
     )
   ) {
     changes.push({
