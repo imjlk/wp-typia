@@ -79,6 +79,8 @@ function addGeneratedLintBoundary(
     projectDir,
     '.prettierignore',
     [
+      '**/.pnpm-store/**',
+      '**/.yarn/**',
       '**/bun.lock',
       '**/bun.lockb',
       '**/npm-shrinkwrap.json',

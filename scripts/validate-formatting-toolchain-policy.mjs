@@ -109,6 +109,8 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
     '**/build/**',
     '**/coverage/**',
     '**/dist/**',
+    '**/.pnpm-store/**',
+    '**/.yarn/**',
     '**/node_modules/**',
     '**/vendor/**',
     '**/bun.lock',

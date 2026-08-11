@@ -266,13 +266,10 @@ export async function collectWorkspaceScriptFilePaths(
   return paths.flat().sort();
 }
 
-function getGeneratedExportRenameLocations(
-  filePath: string,
+function createWorkspaceLanguageService(
   sources: ReadonlyMap<string, string>,
-  position: number,
   workspaceDir: string,
-): readonly ts.RenameLocation[] {
-  const resolvedFilePath = path.resolve(filePath);
+): ts.LanguageService {
   const compilerOptions: ts.CompilerOptions = {
     ...getWorkspaceCompilerOptions(workspaceDir),
     noLib: true,
@@ -301,7 +298,17 @@ function getGeneratedExportRenameLocations(
     readDirectory: ts.sys.readDirectory,
     readFile: readWorkspaceSource,
   };
-  const languageService = ts.createLanguageService(host);
+  return ts.createLanguageService(host);
+}
+
+function getGeneratedExportRenameLocations(
+  filePath: string,
+  sources: ReadonlyMap<string, string>,
+  position: number,
+  workspaceDir: string,
+): readonly ts.RenameLocation[] {
+  const resolvedFilePath = path.resolve(filePath);
+  const languageService = createWorkspaceLanguageService(sources, workspaceDir);
   try {
     const locations = languageService.findRenameLocations(
       resolvedFilePath,
@@ -317,6 +324,59 @@ function getGeneratedExportRenameLocations(
   } finally {
     languageService.dispose();
   }
+}
+
+function getSemanticDiagnosticsByFile(
+  filePaths: readonly string[],
+  sources: ReadonlyMap<string, string>,
+  workspaceDir: string,
+): ReadonlyMap<string, readonly ts.Diagnostic[]> {
+  const languageService = createWorkspaceLanguageService(sources, workspaceDir);
+  try {
+    return new Map(
+      filePaths.map((filePath) => [
+        filePath,
+        languageService.getSemanticDiagnostics(path.resolve(filePath)),
+      ]),
+    );
+  } finally {
+    languageService.dispose();
+  }
+}
+
+function mapMigratedPositionToOriginal(
+  position: number | undefined,
+  locations: readonly ts.RenameLocation[],
+  preferredName: string,
+): number | undefined {
+  if (position === undefined) {
+    return undefined;
+  }
+  let delta = 0;
+  for (const location of [...locations].sort(
+    (left, right) => left.textSpan.start - right.textSpan.start,
+  )) {
+    const replacementLength =
+      (location.prefixText?.length ?? 0) +
+      preferredName.length +
+      (location.suffixText?.length ?? 0);
+    const migratedStart = location.textSpan.start + delta;
+    if (position < migratedStart) {
+      return position - delta;
+    }
+    if (position < migratedStart + replacementLength) {
+      return location.textSpan.start;
+    }
+    delta += replacementLength - location.textSpan.length;
+  }
+  return position - delta;
+}
+
+function getDiagnosticIdentity(
+  diagnostic: ts.Diagnostic,
+  originalPosition = diagnostic.start,
+): string {
+  return `${diagnostic.code}:${originalPosition ?? -1}`;
 }
 
 function getWorkspaceCompilerOptions(
@@ -376,6 +436,7 @@ async function migrateGeneratedExportRenameLocations(options: {
   locations: readonly ts.RenameLocation[];
   preferredName: string;
   sources: ReadonlyMap<string, string>;
+  workspaceDir: string;
 }): Promise<void> {
   const locationsByFile = new Map<string, ts.RenameLocation[]>();
   for (const location of options.locations) {
@@ -418,8 +479,60 @@ async function migrateGeneratedExportRenameLocations(options: {
         `Renaming "${options.historicalName}" to "${options.preferredName}" in "${filePath}" produced an invalid workspace source file.`,
       );
     }
-    return { filePath, migratedSource };
+    return { filePath, locations, migratedSource };
   });
+  const updatedFilePaths = updates.map((update) => update.filePath);
+  const baselineDiagnostics = getSemanticDiagnosticsByFile(
+    updatedFilePaths,
+    options.sources,
+    options.workspaceDir,
+  );
+  const migratedSources = new Map(options.sources);
+  for (const update of updates) {
+    migratedSources.set(update.filePath, update.migratedSource);
+  }
+  const migratedDiagnostics = getSemanticDiagnosticsByFile(
+    updatedFilePaths,
+    migratedSources,
+    options.workspaceDir,
+  );
+  for (const update of updates) {
+    const baselineIdentityCounts = new Map<string, number>();
+    for (const diagnostic of baselineDiagnostics.get(update.filePath) ?? []) {
+      const identity = getDiagnosticIdentity(diagnostic);
+      baselineIdentityCounts.set(
+        identity,
+        (baselineIdentityCounts.get(identity) ?? 0) + 1,
+      );
+    }
+    const introducedDiagnostics = (
+      migratedDiagnostics.get(update.filePath) ?? []
+    ).filter((diagnostic) => {
+      const identity = getDiagnosticIdentity(
+        diagnostic,
+        mapMigratedPositionToOriginal(
+          diagnostic.start,
+          update.locations,
+          options.preferredName,
+        ),
+      );
+      const remainingBaselineCount = baselineIdentityCounts.get(identity) ?? 0;
+      if (remainingBaselineCount === 0) {
+        return true;
+      }
+      baselineIdentityCounts.set(identity, remainingBaselineCount - 1);
+      return false;
+    });
+    if (introducedDiagnostics.length > 0) {
+      const diagnosticDetails = introducedDiagnostics.map(
+        (diagnostic) =>
+          `TS${diagnostic.code} at offset ${diagnostic.start ?? 'unknown'}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')}`,
+      );
+      throw new Error(
+        `Renaming "${options.historicalName}" to "${options.preferredName}" in "${update.filePath}" produced new semantic diagnostics: ${diagnosticDetails.join('; ')}.`,
+      );
+    }
+  }
   const temporaryPaths: string[] = [];
   try {
     for (const [index, update] of updates.entries()) {
@@ -552,6 +665,7 @@ export async function resolveAndMigrateGeneratedExportedConstName(
       locations: renameLocations,
       preferredName,
       sources,
+      workspaceDir,
     });
     return preferredName;
   }

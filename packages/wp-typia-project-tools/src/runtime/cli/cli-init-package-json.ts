@@ -696,41 +696,24 @@ export function buildScriptChanges(
 	packageManager: PackageManagerId,
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
-
-  const changes = Object.entries(BASE_RETROFIT_SCRIPTS).flatMap(
-		([name, commandSource]) => {
-			const command = transformPackageManagerText(
-				commandSource,
-				packageManager,
-			);
-			const currentValue = scripts[name];
-			let requiredValue = command;
-			if (name === 'postinstall') {
-				requiredValue = mergePostinstallCommand(currentValue, command);
-			} else if (name === 'check:code') {
-				requiredValue = buildRequiredCheckCodeCommand(
-					currentValue,
-					packageManager,
-				);
-			} else if (name === 'check') {
-				const normalizedCurrentValue =
-					typeof currentValue === 'string'
-						? normalizePackageRunScriptCommands(currentValue, {
-								'check:code': command,
-							})
-						: currentValue;
-				requiredValue =
-					typeof normalizedCurrentValue === 'string' &&
-					hasPackageRunScriptCommand(
-						normalizedCurrentValue,
-						'check:code',
-					)
-						? normalizedCurrentValue
-						: prependRequiredCommands(normalizedCurrentValue, [command]);
-			}
-			return buildOptionalScriptChange(name, currentValue, requiredValue);
-		},
-	);
+  const lintChanges = buildOfficialWorkspaceLintScriptChanges(
+    packageJson,
+    packageManager,
+  );
+  const syncChanges = Object.entries(BASE_RETROFIT_SCRIPTS)
+    .filter(([name]) => name === 'sync' || name === 'sync-types')
+    .flatMap(([name, commandSource]) =>
+      buildOptionalScriptChange(
+        name,
+        scripts[name],
+        transformPackageManagerText(commandSource, packageManager),
+      ),
+    );
+  const changes = [
+    ...lintChanges.filter((change) => change.name === 'postinstall'),
+    ...syncChanges,
+    ...lintChanges.filter((change) => change.name !== 'postinstall'),
+  ];
   const legacyTypecheck = transformPackageManagerText(
     LEGACY_RETROFIT_TYPECHECK,
     packageManager,

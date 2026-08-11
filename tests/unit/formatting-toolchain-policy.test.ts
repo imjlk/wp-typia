@@ -228,8 +228,10 @@ export default {
 }
 
 describe('validateFormattingToolchainPolicy', () => {
-  test('keeps package-manager lockfiles outside the Prettier contract', () => {
-    for (const lockfilePattern of [
+  test('keeps package-manager artifacts outside the Prettier contract', () => {
+    for (const packageManagerArtifactPattern of [
+      '**/.pnpm-store/**',
+      '**/.yarn/**',
       '**/bun.lock',
       '**/bun.lockb',
       '**/npm-shrinkwrap.json',
@@ -239,7 +241,7 @@ describe('validateFormattingToolchainPolicy', () => {
     ]) {
       expect(
         FORMATTING_TOOLCHAIN_POLICY.generatedPrettierIgnorePatterns,
-      ).toContain(lockfilePattern);
+      ).toContain(packageManagerArtifactPattern);
     }
 
     const repoRoot = createFormattingPolicyRepo();
@@ -251,7 +253,7 @@ describe('validateFormattingToolchainPolicy', () => {
       prettierIgnorePath,
       fs
         .readFileSync(prettierIgnorePath, 'utf8')
-        .replace('**/pnpm-lock.yaml\n', ''),
+        .replace('**/.pnpm-store/**\n', ''),
     );
 
     const result = validateFormattingToolchainPolicy(repoRoot);

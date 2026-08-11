@@ -24,7 +24,10 @@ import {
   runAddPatternCommand,
 } from '../src/runtime/cli-core.js';
 import { scaffoldProject } from '../src/runtime/index.js';
-import { collectWorkspaceScriptFilePaths } from '../src/runtime/add/cli-add-workspace-generated-exports.js';
+import {
+  collectWorkspaceScriptFilePaths,
+  resolveAndMigrateGeneratedExportedConstName,
+} from '../src/runtime/add/cli-add-workspace-generated-exports.js';
 
 const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;
 const sharedWebpackEntryLoopSource =
@@ -1360,6 +1363,46 @@ test('workspace rename discovery includes JavaScript module variants', async () 
 			path.basename(filePath),
 		),
 	).toEqual(filenames);
+});
+
+test('generated export migration rejects preferred binding collisions', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-rename-collision');
+  const modulePath = path.join(targetDir, 'src', 'variation.ts');
+  const historicalSource =
+    'const workspaceVariationHeroL4 = 1;\nexport const workspaceVariation_hero = { name: "hero" };\n';
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(modulePath, historicalSource, 'utf8');
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'workspaceVariation_hero'],
+      targetDir,
+    ),
+  ).rejects.toThrow(/produced new semantic diagnostics: TS2451/u);
+  expect(fs.readFileSync(modulePath, 'utf8')).toBe(historicalSource);
+});
+
+test('generated export migration preserves relocated existing diagnostics', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-rename-offset');
+  const modulePath = path.join(targetDir, 'src', 'variation.ts');
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(
+    modulePath,
+    'export const oldName = { name: "hero" };\nconst existingError: string = 1;\n',
+    'utf8',
+  );
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'oldName'],
+      targetDir,
+    ),
+  ).resolves.toBe('workspaceVariationHeroL4');
+  expect(fs.readFileSync(modulePath, 'utf8')).toContain(
+    'export const workspaceVariationHeroL4',
+  );
 });
 
 test('registry rebuilds preserve symlinked generated-module neighbors', async () => {

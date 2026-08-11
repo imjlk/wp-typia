@@ -1548,6 +1548,63 @@ async function collectManagedSourcePathsAsync(
   return sourcePathGroups.flat();
 }
 
+function isManagedJavaScriptSourcePath(sourcePath: string): boolean {
+  return /\.(?:[cm]?js|jsx)$/u.test(sourcePath);
+}
+
+function getRootManagedJavaScriptSourcePaths(
+  projectDir: string,
+  entries: readonly fs.Dirent[],
+): string[] {
+  return entries.flatMap((entry) => {
+    const sourcePath = getManagedSourcePath(
+      projectDir,
+      path.join(projectDir, entry.name),
+      entry,
+    );
+    return sourcePath !== null && isManagedJavaScriptSourcePath(sourcePath)
+      ? [sourcePath]
+      : [];
+  });
+}
+
+function findManagedJavaScriptToolingSourcePaths(projectDir: string): string[] {
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+  } catch {
+    // The source-tree fallback below still provides deterministic validation.
+  }
+  return [
+    ...getRootManagedJavaScriptSourcePaths(projectDir, rootEntries),
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'scripts')).filter(
+      isManagedJavaScriptSourcePath,
+    ),
+  ];
+}
+
+async function findManagedJavaScriptToolingSourcePathsAsync(
+  projectDir: string,
+): Promise<string[]> {
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = await fs.promises.readdir(projectDir, {
+      withFileTypes: true,
+    });
+  } catch {
+    // The source-tree fallback below still provides deterministic validation.
+  }
+  return [
+    ...getRootManagedJavaScriptSourcePaths(projectDir, rootEntries),
+    ...(
+      await collectManagedSourcePathsAsync(
+        projectDir,
+        path.join(projectDir, 'scripts'),
+      )
+    ).filter(isManagedJavaScriptSourcePath),
+  ];
+}
+
 /** Discover actual WordPress source files used to validate lint exclusions. */
 export function findManagedWordPressSourcePaths(projectDir: string): string[] {
   const sourceRoot = path.join(projectDir, 'src');
@@ -1564,10 +1621,10 @@ export function findManagedWordPressSourcePaths(projectDir: string): string[] {
   const blockSourcePaths = blockDirectories.flatMap((blockDir) =>
     collectManagedSourcePaths(projectDir, blockDir),
   );
-  return selectManagedSourcePaths(
-    blockSourcePaths,
-    collectManagedSourcePaths(projectDir, sourceRoot),
-  );
+  return selectManagedSourcePaths(blockSourcePaths, [
+    ...collectManagedSourcePaths(projectDir, sourceRoot),
+    ...findManagedJavaScriptToolingSourcePaths(projectDir),
+  ]);
 }
 
 /** Asynchronously discover source files for workspace doctor validation. */
@@ -1593,10 +1650,10 @@ export async function findManagedWordPressSourcePathsAsync(
       ),
     )
   ).flat();
-  return selectManagedSourcePaths(
-    blockSourcePaths,
-    await collectManagedSourcePathsAsync(projectDir, sourceRoot),
-  );
+  return selectManagedSourcePaths(blockSourcePaths, [
+    ...(await collectManagedSourcePathsAsync(projectDir, sourceRoot)),
+    ...(await findManagedJavaScriptToolingSourcePathsAsync(projectDir)),
+  ]);
 }
 
 /**
@@ -1656,7 +1713,7 @@ export function getTtscJavaScriptCoverageIssue(
     ...rootSourcePaths,
     ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'scripts')),
     ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'src')),
-  ].filter((sourcePath) => /\.(?:[cm]?js|jsx)$/u.test(sourcePath));
+  ].filter(isManagedJavaScriptSourcePath);
   if (javaScriptSources.length === 0) {
     return null;
   }

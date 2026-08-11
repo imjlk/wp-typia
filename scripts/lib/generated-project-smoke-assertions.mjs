@@ -341,7 +341,9 @@ export function assertGeneratedPackageBoundary(projectDir) {
       .split(/\r?\n/gu)
       .filter(Boolean),
   );
-  for (const lockfilePattern of [
+  for (const packageManagerArtifactPattern of [
+    '**/.pnpm-store/**',
+    '**/.yarn/**',
     '**/bun.lock',
     '**/bun.lockb',
     '**/npm-shrinkwrap.json',
@@ -349,9 +351,9 @@ export function assertGeneratedPackageBoundary(projectDir) {
     '**/pnpm-lock.yaml',
     '**/yarn.lock',
   ]) {
-    if (!prettierIgnorePatterns.has(lockfilePattern)) {
+    if (!prettierIgnorePatterns.has(packageManagerArtifactPattern)) {
       throw new Error(
-        `Expected generated .prettierignore to exclude package-manager lockfile pattern ${lockfilePattern}`,
+        `Expected generated .prettierignore to exclude package-manager artifact pattern ${packageManagerArtifactPattern}`,
       );
     }
   }

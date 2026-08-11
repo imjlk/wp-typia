@@ -1275,6 +1275,47 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('carries managed legacy style and format lanes into retrofit check', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'format:check':
+						'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'wp-scripts lint-style --allow-empty-input',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue:
+				'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run check:code',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint:css' }),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'format:check' }),
+		);
+	});
+
 	test('repairs swallowed retrofit check invocations', () => {
 		const changes = buildScriptChanges(
 			{
@@ -2241,6 +2282,15 @@ describe('wp-typia init', () => {
 			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
 			'export const Reports = () => null;\n',
 		);
+		fs.mkdirSync(path.join(projectDir, 'scripts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'scripts', 'configure.mjs'),
+			'export {};\n',
+		);
 		fs.writeFileSync(
 			configPath,
 			canonicalSource.replace(
@@ -2261,6 +2311,27 @@ describe('wp-typia init', () => {
 			),
 		);
 		expect(hasWordPressTtscLintConfig(configPath, 'fixture-domain')).toBe(false);
+		expect(findManagedWordPressSourcePaths(projectDir)).toEqual(
+			expect.arrayContaining([
+				'scripts/configure.mjs',
+				'webpack.config.js',
+			]),
+		);
+		for (const ignoredToolingPath of [
+			'scripts/**',
+			'webpack.config.js',
+		]) {
+			fs.writeFileSync(
+				configPath,
+				canonicalSource.replace(
+					"  ignores: ['build/**', 'node_modules/**'],",
+					`  ignores: ['${ignoredToolingPath}'],`,
+				),
+			);
+			expect(
+				hasWordPressTtscLintConfig(configPath, 'fixture-domain'),
+			).toBe(false);
+		}
 
 		fs.unlinkSync(
 			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
@@ -2268,6 +2339,8 @@ describe('wp-typia init', () => {
 		fs.unlinkSync(
 			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
 		);
+		fs.unlinkSync(path.join(projectDir, 'webpack.config.js'));
+		fs.rmSync(path.join(projectDir, 'scripts'), { recursive: true });
 		fs.mkdirSync(
 			path.join(
 				projectDir,
