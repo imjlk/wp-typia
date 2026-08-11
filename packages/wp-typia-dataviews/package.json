@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/dataviews",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Opt-in typed compatibility facade for WordPress DataViews and DataForm integrations",
   "type": "module",
   "main": "dist/index.js",
