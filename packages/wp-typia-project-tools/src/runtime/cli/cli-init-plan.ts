@@ -56,7 +56,7 @@ import {
   type RetrofitInitPlan,
 } from './cli-init-types.js';
 import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { hasHistoricalGeneratedExportNames } from '../add/cli-add-workspace-generated-exports.js';
+import { collectHistoricalGeneratedExportFilePaths } from '../add/cli-add-workspace-generated-exports.js';
 
 const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
   'Enable the wp-scripts-compatible ttsc preset and bind i18n diagnostics to the project text domain.';
@@ -557,8 +557,17 @@ export function getInitPlan(
     if (yarnPnpNodeModulesConfig) {
       rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
     }
+    const historicalGeneratedExportFilePaths =
+      collectHistoricalGeneratedExportFilePaths(workspace.projectDir);
     const historicalGeneratedExports =
-      hasHistoricalGeneratedExportNames(workspace.projectDir);
+      historicalGeneratedExportFilePaths.length > 0;
+    rawPlannedFiles.push(
+      ...historicalGeneratedExportFilePaths.map((filePath) => ({
+        action: 'update' as const,
+        path: path.relative(workspace.projectDir, filePath).split(path.sep).join('/'),
+        purpose: 'Migrate the historical generated export identifier.',
+      })),
+    );
     const javascriptCoverageIssue = rawPlannedFiles.some(
       (file) => file.path === 'tsconfig.json',
     )

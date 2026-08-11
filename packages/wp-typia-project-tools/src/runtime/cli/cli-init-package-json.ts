@@ -714,11 +714,15 @@ export function buildScriptChanges(
     ...syncChanges,
     ...lintChanges.filter((change) => change.name !== 'postinstall'),
   ];
-  const legacyTypecheck = transformPackageManagerText(
-    LEGACY_RETROFIT_TYPECHECK,
-    packageManager,
+  const legacyTypecheck = PACKAGE_MANAGER_IDS.map((candidatePackageManager) =>
+    transformPackageManagerText(
+      LEGACY_RETROFIT_TYPECHECK,
+      candidatePackageManager,
+    ),
+  ).find(
+    (candidateTypecheck) => scripts.typecheck === candidateTypecheck,
   );
-  if (scripts.typecheck === legacyTypecheck) {
+  if (legacyTypecheck) {
     if (isPackageScriptReferenced(scripts, 'typecheck')) {
       changes.push({
         action: 'update',

@@ -1227,6 +1227,36 @@ describe('wp-typia init', () => {
 			name: 'typecheck',
 			requiredValue: 'npm run check:code',
 		});
+
+		const crossRunnerReferenced = buildScriptChanges(
+			{
+				scripts: {
+					ci: 'npm run typecheck',
+					typecheck: 'bun run sync --check && ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+		expect(crossRunnerReferenced).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run sync --check && ttsc --noEmit',
+			name: 'typecheck',
+			requiredValue: 'npm run check:code',
+		});
+		expect(
+			buildScriptChanges(
+				{
+					scripts: {
+						typecheck: 'bun run sync --check && ttsc --noEmit',
+					},
+				},
+				'npm',
+			),
+		).toContainEqual({
+			action: 'remove',
+			currentValue: 'bun run sync --check && ttsc --noEmit',
+			name: 'typecheck',
+		});
 	});
 
 	test('preserves retrofit check lanes while adding the managed code gate', () => {
@@ -3986,6 +4016,48 @@ let exports;
 		expect(fs.existsSync(compatPath)).toBe(true);
 	});
 
+	test('reports export-only workspace migrations as planned changes', async () => {
+		const projectDir = path.join(
+			tempRoot,
+			'workspace-historical-export-only',
+		);
+		await scaffoldOfficialWorkspace(projectDir);
+		await applyInitPlan(projectDir);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
+
+		const variationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'hero-card.ts',
+		);
+		fs.mkdirSync(path.dirname(variationPath), { recursive: true });
+		fs.writeFileSync(
+			variationPath,
+			"export const workspaceVariation_hero_card = { name: 'hero-card' };\n",
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.packageChanges.addDevDependencies).toEqual([]);
+		expect(preview.packageChanges.scripts).toEqual([]);
+		expect(preview.plannedFiles).toContainEqual({
+			action: 'update',
+			path: 'src/blocks/counter-card/variations/hero-card.ts',
+			purpose: 'Migrate the historical generated export identifier.',
+		});
+		expect(preview.nextSteps[0]).toContain('wp-typia init --apply');
+
+		await applyInitPlan(projectDir);
+		expect(fs.readFileSync(variationPath, 'utf8')).toContain(
+			'workspaceVariationHeroCardL4L4',
+		);
+	});
+
 	test('rolls back historical export migrations when workspace init cannot finish', async () => {
 		const projectDir = path.join(
 			tempRoot,
@@ -4108,6 +4180,41 @@ let exports;
 			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
 		);
 		expect(fs.readFileSync(compatPath, 'utf8')).toBe(customSource);
+	});
+
+	test('refuses to upgrade a symlinked ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		const sharedTargetPath = path.join(
+			tempRoot,
+			'shared-previous-ttsc-helper.mjs',
+		);
+		const sharedTargetSource = getPreviousTtscLintCompatSource();
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(sharedTargetPath, sharedTargetSource, 'utf8');
+		fs.rmSync(compatPath, { force: true });
+		fs.symlinkSync(sharedTargetPath, compatPath);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.lstatSync(compatPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(sharedTargetPath, 'utf8')).toBe(sharedTargetSource);
 	});
 
 	test('upgrades the exact preceding managed ttsc compatibility helper', async () => {

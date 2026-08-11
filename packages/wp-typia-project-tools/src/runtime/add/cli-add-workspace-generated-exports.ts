@@ -184,13 +184,20 @@ function hasHistoricalBinding(
   );
 }
 
+/** Return generated modules that still use the preceding export convention. */
+export function collectHistoricalGeneratedExportFilePaths(
+  workspaceDir: string,
+): string[] {
+  return collectHistoricalGeneratedExportDescriptors(workspaceDir)
+    .filter(hasHistoricalBinding)
+    .map((descriptor) => descriptor.filePath);
+}
+
 /** Return whether init must migrate a preceding generated-export convention. */
 export function hasHistoricalGeneratedExportNames(
   workspaceDir: string,
 ): boolean {
-  return collectHistoricalGeneratedExportDescriptors(workspaceDir).some(
-    hasHistoricalBinding,
-  );
+  return collectHistoricalGeneratedExportFilePaths(workspaceDir).length > 0;
 }
 
 /** Transactionally migrate every known historical generated export in a workspace. */

@@ -491,6 +491,9 @@ export function inspectTtscLintCompatFile(
     'apply-ttsc-lint-compat.mjs',
   );
   try {
+    if (!fs.lstatSync(compatPath).isFile()) {
+      return { conflictPath: compatPath, current: false };
+    }
     const normalizeLineEndings = (source: string) =>
       source.replace(/\r\n/gu, '\n');
     const source = normalizeLineEndings(fs.readFileSync(compatPath, 'utf8'));
