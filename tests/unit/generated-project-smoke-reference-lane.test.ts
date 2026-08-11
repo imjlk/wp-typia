@@ -75,6 +75,19 @@ function addGeneratedLintBoundary(
     'scripts/apply-ttsc-lint-compat.mjs',
     '#!/usr/bin/env node\n',
   );
+  writeFixtureFile(
+    projectDir,
+    '.prettierignore',
+    [
+      '**/bun.lock',
+      '**/bun.lockb',
+      '**/npm-shrinkwrap.json',
+      '**/package-lock.json',
+      '**/pnpm-lock.yaml',
+      '**/yarn.lock',
+      '',
+    ].join('\n'),
+  );
   writeFixtureFile(projectDir, 'prettier.config.mjs', 'export default {};\n');
   return packageJson;
 }
