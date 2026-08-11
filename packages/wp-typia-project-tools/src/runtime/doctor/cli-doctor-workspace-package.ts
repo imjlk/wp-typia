@@ -11,6 +11,7 @@ import { getTtscLintCompatSource } from '../cli/cli-init-templates.js';
 import {
   findManagedWordPressSourcePathsAsync,
   getTtscJavaScriptCoverageIssue,
+  hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasPackageRunScriptCommand,
   hasTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
@@ -258,6 +259,12 @@ export function getWorkspaceTtscLintCheck(
   }
   if (!hasTtscCheckNoEmitCommand(packageJson.scripts?.['check:code'])) {
     issues.push('check:code must invoke `ttsc check --noEmit`');
+  } else if (
+    !hasManagedSyncBeforeTtscCheckNoEmitCommand(
+      packageJson.scripts?.['check:code'],
+    )
+  ) {
+    issues.push('check:code must run `sync --check` before the ttsc gate');
   }
   if (!hasPackageRunScriptCommand(packageJson.scripts?.check, 'check:code')) {
     issues.push('check must include the check:code lane');

@@ -72,7 +72,6 @@ Linting ownership is intentionally split:
 
 - `ttsc` and the root `lint.config.ts` own TypeScript/TSX type, lint, unused, and formatting diagnostics
 - root ESLint covers JavaScript, CJS, and MJS infrastructure such as `scripts/**`, root config files, and package-side non-example sources
-- example and generated-project JavaScript continues to use the `@wordpress/scripts` compatibility lane
 - `@wp-typia/api-client/internal/runtime-primitives` is the single maintained home for shared client-runtime validation/object helpers consumed by `@wp-typia/rest`; avoid reintroducing local helper copies in either package
 
 Formatting ownership is also explicit:

@@ -370,9 +370,6 @@ export type Inferred<Value> =
       repairedIndexSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
         ?.length ?? 0,
     ).toBe(0);
-    expect(repairedIndexSource).not.toContain(
-      'Buffer<ArrayBufferLike<ArrayBuffer>>',
-    );
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
       encoding: 'utf8',

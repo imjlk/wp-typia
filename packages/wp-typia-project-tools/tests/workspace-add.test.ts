@@ -1166,6 +1166,18 @@ test('add workflows migrate historical generated registry identifiers', async ()
       'utf8',
     );
   }
+  const tsconfigPath = path.join(targetDir, 'tsconfig.json');
+  const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf8')) as {
+    compilerOptions: Record<string, unknown>;
+  };
+  tsconfig.compilerOptions.paths = {
+    '@workspace/*': ['./src/*'],
+  };
+  fs.writeFileSync(
+    tsconfigPath,
+    `${JSON.stringify(tsconfig, null, 2)}\n`,
+    'utf8',
+  );
   const externalHistoricalConsumerPath = path.join(
     targetDir,
     'src',
@@ -1173,7 +1185,7 @@ test('add workflows migrate historical generated registry identifiers', async ()
   );
   fs.writeFileSync(
     externalHistoricalConsumerPath,
-    `import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\n\nexport const HistoricalVariationConsumer = () => <div>{workspaceVariation_hero_card.name}</div>;\n`,
+    `import { workspaceVariation_hero_card } from '@workspace/blocks/counter-card/variations/hero-card';\n\nexport const HistoricalVariationConsumer = () => <div>{workspaceVariation_hero_card.name}</div>;\n`,
     'utf8',
   );
 

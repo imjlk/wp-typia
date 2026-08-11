@@ -266,6 +266,20 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     expect(terminalRunnerCheck?.detail).toContain(
       'package.json check:code must invoke `ttsc check --noEmit`',
     );
+
+    executionPackageJson.scripts['check:code'] = 'ttsc check --noEmit';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(executionPackageJson, null, 2),
+    );
+    const missingSyncCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(missingSyncCheck?.status).toBe('fail');
+    expect(missingSyncCheck?.detail).toContain(
+      'package.json check:code must run `sync --check` before the ttsc gate',
+    );
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
     fs.writeFileSync(compatPath, compatSource);
 

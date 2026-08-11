@@ -1018,6 +1018,22 @@ describe('wp-typia init', () => {
 		expect(projectOwned.some((change) => change.name === 'typecheck')).toBe(
 			false,
 		);
+
+		const referenced = buildScriptChanges(
+			{
+				scripts: {
+					ci: 'npm run typecheck',
+					typecheck: 'npm run sync -- --check && ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+		expect(referenced).toContainEqual({
+			action: 'update',
+			currentValue: 'npm run sync -- --check && ttsc --noEmit',
+			name: 'typecheck',
+			requiredValue: 'npm run check:code',
+		});
 	});
 
 	test('preserves retrofit check lanes while adding the managed code gate', () => {
@@ -1043,6 +1059,33 @@ describe('wp-typia init', () => {
 			currentValue: 'vitest run',
 			name: 'check',
 			requiredValue: 'npm run check:code && vitest run',
+		});
+	});
+
+	test('repairs swallowed retrofit check invocations', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code || true',
+					'check:code': 'ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'npm run check:code || true',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && (npm run check:code || true)',
 		});
 	});
 
@@ -1122,6 +1165,45 @@ describe('wp-typia init', () => {
 				requiredValue: 'npm run check:code && (echo optional || true)',
 			}),
 		);
+	});
+
+	test('repairs a partially adopted official check:code lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code': 'ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit',
+		});
+
+		const wrongOrder = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code':
+						'ttsc check --noEmit && npm run sync -- --check',
+				},
+			},
+			'npm',
+		);
+		expect(wrongOrder).toContainEqual({
+			action: 'update',
+			currentValue:
+				'ttsc check --noEmit && npm run sync -- --check',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && npm run sync -- --check',
+		});
 	});
 
 	test('keeps grouped project-owned fallback chains idempotent', () => {

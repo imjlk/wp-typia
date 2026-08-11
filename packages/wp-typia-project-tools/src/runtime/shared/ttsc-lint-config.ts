@@ -2456,6 +2456,21 @@ export function hasExactShellCommand(
   );
 }
 
+/** Check whether a valid shell chain runs an exact command and propagates failure. */
+export function hasPropagatingExactShellCommand(
+  command: unknown,
+  expectedCommand: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const expectedSource = expectedCommand.trim();
+  return hasPropagatingShellSegment(
+    command,
+    (_tokens, segment) => segment.source === expectedSource,
+  );
+}
+
 function doesShellSegmentPropagateFailure(
   segments: readonly SimpleShellSegment[],
   segmentIndex: number,
@@ -2490,19 +2505,29 @@ function doesShellSegmentPropagateFailure(
 
 function hasPropagatingShellSegment(
   command: string,
-  predicate: (tokens: readonly string[]) => boolean,
+  predicate: (
+    tokens: readonly string[],
+    segment: SimpleShellSegment,
+  ) => boolean,
 ): boolean {
   const parsed = getSimpleShellSegments(command);
-  return parsed.valid && parsed.segments.some(
-    (segment, segmentIndex) =>
-      !parsed.segments
-        .slice(0, segmentIndex)
-        .some(isTerminatingShellSegment) &&
-      doesShellSegmentPropagateFailure(
-        parsed.segments,
-        segmentIndex,
-      ) &&
-      predicate(segment.tokens),
+  return (
+    parsed.valid &&
+    parsed.segments.some(
+      (segment, segmentIndex) =>
+        isPropagatingShellSegment(parsed.segments, segmentIndex) &&
+        predicate(segment.tokens, segment),
+    )
+  );
+}
+
+function isPropagatingShellSegment(
+  segments: readonly SimpleShellSegment[],
+  segmentIndex: number,
+): boolean {
+  return (
+    !segments.slice(0, segmentIndex).some(isTerminatingShellSegment) &&
+    doesShellSegmentPropagateFailure(segments, segmentIndex)
   );
 }
 
@@ -2639,6 +2664,42 @@ function hasEnabledNoEmitOption(args: readonly string[]): boolean {
   return enabled === true;
 }
 
+function isTtscNoEmitCommandTokens(
+  tokens: readonly string[],
+  requireCheckSubcommand: boolean,
+): boolean {
+  const commandIndex = getTtscCommandIndex(tokens);
+  if (commandIndex === null) {
+    return false;
+  }
+  const commandArgs = tokens.slice(commandIndex + 1);
+  const packageManager = getShellExecutableName(
+    tokens[getShellCommandStartIndex(tokens)],
+  );
+  const args =
+    packageManager === 'npm' && commandArgs[0] === '--'
+      ? commandArgs.slice(1)
+      : commandArgs;
+  const checkArgs =
+    args[0]?.toLowerCase() === 'check' ? args.slice(1) : null;
+  if ((checkArgs !== null) !== requireCheckSubcommand) {
+    return false;
+  }
+  const effectiveArgs = checkArgs ?? args;
+  return (
+    hasEnabledNoEmitOption(effectiveArgs) &&
+    !effectiveArgs.some((argument) =>
+      TTSC_EXPLICIT_PROJECT_OPTIONS.has(
+        argument.split('=', 1)[0]?.toLowerCase() ?? '',
+      ),
+    ) &&
+    !effectiveArgs.some((argument) =>
+      TTSC_TERMINAL_OPTIONS.has(argument.split('=', 1)[0]?.toLowerCase() ?? ''),
+    ) &&
+    !hasPositionalTtscInput(effectiveArgs)
+  );
+}
+
 function hasTtscNoEmitCommand(
   command: unknown,
   requireCheckSubcommand: boolean,
@@ -2648,40 +2709,9 @@ function hasTtscNoEmitCommand(
   }
   // This intentionally recognizes only simple top-level shell segments and
   // quoted tokens. Grouped commands remain opaque to the command predicate.
-  return hasPropagatingShellSegment(command, (tokens) => {
-    const commandIndex = getTtscCommandIndex(tokens);
-    if (commandIndex === null) {
-      return false;
-    }
-    const commandArgs = tokens.slice(commandIndex + 1);
-    const packageManager = getShellExecutableName(
-      tokens[getShellCommandStartIndex(tokens)],
-    );
-    const args =
-      packageManager === 'npm' && commandArgs[0] === '--'
-        ? commandArgs.slice(1)
-        : commandArgs;
-    const checkArgs =
-      args[0]?.toLowerCase() === 'check' ? args.slice(1) : null;
-    if ((checkArgs !== null) !== requireCheckSubcommand) {
-      return false;
-    }
-    const effectiveArgs = checkArgs ?? args;
-    return (
-      hasEnabledNoEmitOption(effectiveArgs) &&
-      !effectiveArgs.some((argument) =>
-        TTSC_EXPLICIT_PROJECT_OPTIONS.has(
-          argument.split('=', 1)[0]?.toLowerCase() ?? '',
-        ),
-      ) &&
-      !effectiveArgs.some((argument) =>
-        TTSC_TERMINAL_OPTIONS.has(
-          argument.split('=', 1)[0]?.toLowerCase() ?? '',
-        ),
-      ) &&
-      !hasPositionalTtscInput(effectiveArgs)
-    );
-  });
+  return hasPropagatingShellSegment(command, (tokens) =>
+    isTtscNoEmitCommandTokens(tokens, requireCheckSubcommand),
+  );
 }
 
 /** Check whether a legacy project-owned command invokes `ttsc --noEmit`. */
@@ -2692,6 +2722,36 @@ export function hasTtscNoEmitLintCommand(command: unknown): boolean {
 /** Check whether a project-owned code gate invokes `ttsc check --noEmit`. */
 export function hasTtscCheckNoEmitCommand(command: unknown): boolean {
   return hasTtscNoEmitCommand(command, true);
+}
+
+const MANAGED_SYNC_CHECK_COMMANDS = new Set([
+  'bun run sync --check',
+  'npm run sync -- --check',
+  'pnpm run sync --check',
+  'yarn run sync --check',
+]);
+
+/** Check that managed sync runs and propagates failure before the ttsc gate. */
+export function hasManagedSyncBeforeTtscCheckNoEmitCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid) {
+    return false;
+  }
+  return parsed.segments.some(
+    (segment, ttscIndex) =>
+      isPropagatingShellSegment(parsed.segments, ttscIndex) &&
+      isTtscNoEmitCommandTokens(segment.tokens, true) &&
+      parsed.segments.slice(0, ttscIndex).some(
+        (earlierSegment, syncIndex) =>
+          MANAGED_SYNC_CHECK_COMMANDS.has(earlierSegment.source) &&
+          isPropagatingShellSegment(parsed.segments, syncIndex),
+      ),
+  );
 }
 
 const PACKAGE_MANAGER_TERMINAL_OPTIONS = SHELL_RUNNER_TERMINAL_OPTIONS;

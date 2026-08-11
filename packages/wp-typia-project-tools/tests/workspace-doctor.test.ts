@@ -339,6 +339,21 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     'check:code must invoke `ttsc check --noEmit`',
   );
 
+  packageJson.scripts['check:code'] = 'ttsc check --noEmit';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const missingSyncChecks = await getDoctorChecks(targetDir);
+  const missingSyncLintCheck = missingSyncChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingSyncLintCheck?.status).toBe('warn');
+  expect(missingSyncLintCheck?.detail).toContain(
+    'check:code must run `sync --check` before the ttsc gate',
+  );
+
   packageJson.scripts['check:code'] = managedCheckCode;
   packageJson.scripts.postinstall = 'echo apply-ttsc-lint-compat.mjs';
   fs.writeFileSync(

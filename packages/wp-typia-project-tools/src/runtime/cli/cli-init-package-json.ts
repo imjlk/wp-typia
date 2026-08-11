@@ -21,6 +21,7 @@ import {
   hasPackageRunScriptCommand,
   hasPackageRunScriptInvocation,
   hasExactShellCommand,
+  hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscCheckNoEmitCommand,
   hasTtscNoEmitLintCommand,
@@ -145,6 +146,40 @@ function findReferencedManagedLintScripts(
   }
 
   return referenced;
+}
+
+function isPackageScriptReferenced(
+  scripts: Readonly<Record<string, string>>,
+  referencedName: string,
+): boolean {
+  return Object.entries(scripts).some(
+    ([scriptName, command]) =>
+      scriptName !== referencedName &&
+      hasPackageRunScriptInvocation(command, referencedName),
+  );
+}
+
+function buildRequiredCheckCodeCommand(
+  currentValue: string | undefined,
+  packageManager: PackageManagerId,
+): string {
+  const syncCommand = transformPackageManagerText(
+    'bun run sync --check',
+    packageManager,
+  );
+  const ttscCommand = 'ttsc check --noEmit';
+  const hasRequiredSequence =
+    hasManagedSyncBeforeTtscCheckNoEmitCommand(currentValue);
+  const hasTtscCommand = hasTtscCheckNoEmitCommand(currentValue);
+  if (hasRequiredSequence) {
+    return currentValue ?? `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`;
+  }
+  if (hasTtscCommand) {
+    return prependRequiredCommands(currentValue, [syncCommand]);
+  }
+  return prependRequiredCommands(currentValue, [
+    `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`,
+  ]);
 }
 
 function shouldRemoveManagedLintScript(
@@ -598,15 +633,14 @@ export function buildScriptChanges(
 			if (name === 'postinstall') {
 				requiredValue = mergePostinstallCommand(currentValue, command);
 			} else if (name === 'check:code') {
-				requiredValue =
-					typeof currentValue === 'string' &&
-					hasTtscCheckNoEmitCommand(currentValue)
-						? currentValue
-						: prependRequiredCommands(currentValue, [command]);
+				requiredValue = buildRequiredCheckCodeCommand(
+					currentValue,
+					packageManager,
+				);
 			} else if (name === 'check') {
 				requiredValue =
 					typeof currentValue === 'string' &&
-					hasPackageRunScriptInvocation(currentValue, 'check:code')
+					hasPackageRunScriptCommand(currentValue, 'check:code')
 						? currentValue
 						: prependRequiredCommands(currentValue, [command]);
 			}
@@ -618,11 +652,23 @@ export function buildScriptChanges(
     packageManager,
   );
   if (scripts.typecheck === legacyTypecheck) {
-    changes.push({
-      action: 'remove',
-      currentValue: legacyTypecheck,
-      name: 'typecheck',
-    });
+    if (isPackageScriptReferenced(scripts, 'typecheck')) {
+      changes.push({
+        action: 'update',
+        currentValue: legacyTypecheck,
+        name: 'typecheck',
+        requiredValue: transformPackageManagerText(
+          'bun run check:code',
+          packageManager,
+        ),
+      });
+    } else {
+      changes.push({
+        action: 'remove',
+        currentValue: legacyTypecheck,
+        name: 'typecheck',
+      });
+    }
   }
 
   return changes;
@@ -647,10 +693,6 @@ export function buildOfficialWorkspaceLintScriptChanges(
   const requiredPostinstall = mergePostinstallCommand(
     currentPostinstall,
     postinstallCommand,
-  );
-  const checkCodeCommand = transformPackageManagerText(
-    'bun run sync --check && ttsc check --noEmit',
-    packageManager,
   );
   const legacyStyleCommand = scripts['lint:css'];
   const legacyFormatCommand = scripts['format:check'];
@@ -690,16 +732,15 @@ export function buildOfficialWorkspaceLintScriptChanges(
   const currentCheckCode = scripts['check:code'];
   let requiredCheckCode: string;
   if (isManagedCheckCodeCommand(currentCheckCode)) {
-    requiredCheckCode = checkCodeCommand;
-  } else if (
-    typeof currentCheckCode === 'string' &&
-    hasTtscCheckNoEmitCommand(currentCheckCode)
-  ) {
-    requiredCheckCode = currentCheckCode;
+    requiredCheckCode = buildRequiredCheckCodeCommand(
+      undefined,
+      packageManager,
+    );
   } else {
-    requiredCheckCode = prependRequiredCommands(currentCheckCode, [
-      checkCodeCommand,
-    ]);
+    requiredCheckCode = buildRequiredCheckCodeCommand(
+      currentCheckCode,
+      packageManager,
+    );
   }
   const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(

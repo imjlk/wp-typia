@@ -100,12 +100,7 @@ function getGeneratedExportRenameLocations(
   workspaceDir: string,
 ): readonly ts.RenameLocation[] {
   const resolvedFilePath = path.resolve(filePath);
-  const compilerOptions: ts.CompilerOptions = {
-    allowJs: true,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    target: ts.ScriptTarget.Latest,
-  };
+  const compilerOptions = getWorkspaceCompilerOptions(workspaceDir);
   const host: ts.LanguageServiceHost = {
     fileExists: ts.sys.fileExists,
     getCompilationSettings: () => compilerOptions,
@@ -143,6 +138,43 @@ function getGeneratedExportRenameLocations(
   } finally {
     languageService.dispose();
   }
+}
+
+function getWorkspaceCompilerOptions(
+  workspaceDir: string,
+): ts.CompilerOptions {
+  const fallbackOptions: ts.CompilerOptions = {
+    allowJs: true,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    target: ts.ScriptTarget.Latest,
+  };
+  const configPath = ts.findConfigFile(
+    workspaceDir,
+    ts.sys.fileExists,
+    'tsconfig.json',
+  );
+  if (!configPath) {
+    return fallbackOptions;
+  }
+  const config = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (config.error) {
+    throw new Error(
+      `Unable to read workspace compiler options from "${configPath}": ${ts.flattenDiagnosticMessageText(config.error.messageText, '\n')}`,
+    );
+  }
+  const parsed = ts.parseJsonConfigFileContent(
+    config.config,
+    ts.sys,
+    path.dirname(configPath),
+    { allowJs: true },
+    configPath,
+  );
+  return {
+    ...fallbackOptions,
+    ...parsed.options,
+    allowJs: true,
+  };
 }
 
 function getWorkspaceScriptKind(filePath: string): ts.ScriptKind {

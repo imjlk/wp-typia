@@ -32,6 +32,7 @@ import {
 import {
   findManagedWordPressSourcePaths,
   getTtscJavaScriptCoverageIssue,
+  hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasPackageRunScriptCommand,
   hasTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
@@ -3008,6 +3009,14 @@ function getStandaloneTtscLintExecutionIssues(
     !hasTtscCheckNoEmitCommand(project.packageJson.scripts?.['check:code'])
   ) {
     issues.push('package.json check:code must invoke `ttsc check --noEmit`');
+  } else if (
+    !hasManagedSyncBeforeTtscCheckNoEmitCommand(
+      project.packageJson.scripts?.['check:code'],
+    )
+  ) {
+    issues.push(
+      'package.json check:code must run `sync --check` before the ttsc gate',
+    );
   }
   if (!hasPackageRunScriptCommand(
     project.packageJson.scripts?.check,
