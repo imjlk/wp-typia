@@ -760,6 +760,25 @@ describe('wp-typia init', () => {
 		}
 	});
 
+	test('applies a retrofit plan when package.json does not exist yet', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-without-package-json');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitWithoutPackageJsonAttributes',
+		});
+		fs.rmSync(path.join(projectDir, 'package.json'));
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.status).toBe('preview');
+
+		const applied = await applyInitPlan(projectDir);
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+		) as { name?: string };
+
+		expect(applied.status).toBe('applied');
+		expect(packageJson.name).toBe('retrofit-without-package-json');
+	});
+
 	test('resolves official workspace package-manager guidance from the workspace root', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-init-package-manager');
 		await scaffoldOfficialWorkspace(projectDir);
@@ -1345,6 +1364,48 @@ describe('wp-typia init', () => {
 		expect(changes.some((change) => change.name === 'lint')).toBe(false);
 		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
 		expect(changes.some((change) => change.name === 'lint:css')).toBe(false);
+
+		const transitiveAliasChanges =
+			buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: 'npm run lint:ts',
+						'lint:ts': 'ttsc --noEmit && npm run style',
+						style: 'npm run lint:css',
+						'lint:css':
+							'wp-scripts lint-style --allow-empty-input',
+					},
+				},
+				'npm',
+			);
+		expect(
+			transitiveAliasChanges.some(
+				(change) => change.name === 'lint:css',
+			),
+		).toBe(false);
+	});
+
+	test('preserves arguments on customized legacy aggregate invocations', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:css -- --custom-formatter',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts && npm run lint:css -- --custom-formatter',
+			name: 'lint',
+			requiredValue: 'npm run lint:css -- --custom-formatter',
+		});
+		expect(changes.some((change) => change.name === 'lint:css')).toBe(false);
 	});
 
 	test('isolates project-owned fallback chains from managed checks', () => {
@@ -1828,9 +1889,13 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(mixedForwardedAggregate).toContainEqual(
-			expect.objectContaining({ action: 'remove', name: 'lint' }),
-		);
+		expect(mixedForwardedAggregate).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:css && npm run lint:ts -- --noEmit false',
+			name: 'lint',
+			requiredValue: 'npm run lint:ts -- --noEmit false',
+		});
 		const scopedForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -1843,9 +1908,13 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(scopedForwardedAggregate).toContainEqual(
-			expect.objectContaining({ action: 'remove', name: 'lint' }),
-		);
+		expect(scopedForwardedAggregate).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts -- --workspace other && npm run lint:css',
+			name: 'lint',
+			requiredValue: 'npm run lint:ts -- --workspace other',
+		});
 		const complexForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -3865,6 +3934,13 @@ let exports;
 			historicalCoreVariationSource,
 			'utf8',
 		);
+		const executableScriptPath = path.join(
+			projectDir,
+			'scripts',
+			'project-tool.mjs',
+		);
+		fs.writeFileSync(executableScriptPath, '#!/usr/bin/env node\n', 'utf8');
+		fs.chmodSync(executableScriptPath, 0o755);
 		fs.chmodSync(coreVariationDir, 0o555);
 
 		try {
@@ -3883,6 +3959,7 @@ let exports;
 		expect(fs.readFileSync(coreVariationPath, 'utf8')).toBe(
 			historicalCoreVariationSource,
 		);
+		expect(fs.statSync(executableScriptPath).mode & 0o777).toBe(0o755);
 		expect(getInitPlan(projectDir).status).toBe('preview');
 	});
 

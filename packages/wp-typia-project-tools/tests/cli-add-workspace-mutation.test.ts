@@ -41,7 +41,9 @@ describe('workspace add mutation executor', () => {
 		targetPaths.push(path.join(projectDir, 'later-target'));
 
 		expect(mutationSnapshot).toEqual({
-			fileSources: [{ filePath: existingPath, source: 'before' }],
+			fileSources: [
+				{ filePath: existingPath, mode: 0o644, source: 'before' },
+			],
 			snapshotDirs: [snapshotDir],
 			targetPaths: [targetPath],
 		});

@@ -483,6 +483,8 @@ export interface WorkspaceMutationSnapshot {
   fileSources: Array<{
 		/** Absolute file path recorded for rollback. */
     filePath: string;
+		/** Previous permission bits, or `null` when the file did not exist. */
+    mode: number | null;
 		/** Previous file contents, or `null` when the file did not exist. */
     source: string | null;
   }>;

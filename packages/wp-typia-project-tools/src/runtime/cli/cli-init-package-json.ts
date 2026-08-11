@@ -29,6 +29,7 @@ import {
   normalizeManagedSyncCheckCommand,
   normalizePackageRunScriptCommands,
   prependManagedSyncBeforeTtscCheckNoEmitCommand,
+  removeExactPackageRunScriptCommands,
   removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
 import type {
@@ -114,23 +115,26 @@ function isManagedCheckAggregateSubset(
 
 function findReferencedManagedLintScripts(
   scripts: Readonly<Record<string, string>>,
-  retainedManagedRoots: ReadonlySet<string>,
+  retainedManagedRoots: ReadonlyMap<string, string>,
 ): Set<string> {
   const managedNames = new Set<string>(MANAGED_LINT_SCRIPT_NAMES);
   const referenced = new Set<string>();
-
-  for (const [scriptName, command] of Object.entries(scripts)) {
-    if (
-      managedNames.has(scriptName) &&
-      !retainedManagedRoots.has(scriptName)
-    ) {
-      continue;
-    }
+  const recordManagedReferences = (command: string): void => {
     for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
       if (hasPackageRunScriptInvocation(command, managedName)) {
         referenced.add(managedName);
       }
     }
+  };
+
+  for (const [scriptName, command] of Object.entries(scripts)) {
+    if (managedNames.has(scriptName)) {
+      continue;
+    }
+    recordManagedReferences(command);
+  }
+  for (const command of retainedManagedRoots.values()) {
+    recordManagedReferences(command);
   }
 
   let discoveredReference = true;
@@ -903,18 +907,49 @@ export function buildOfficialWorkspaceLintScriptChanges(
       return hasManagedLegacyFormatCommand;
     }),
   );
-  const retainedManagedRoots = new Set<string>(
-    LEGACY_LINT_SCRIPT_NAMES.filter(
-      (name) =>
-        scripts[name] !== undefined &&
-        !removableLegacyLintInvocations.has(name),
-    ),
+  let remainingLegacyLint = legacyLint;
+  if (
+    typeof remainingLegacyLint === 'string' &&
+    canRemoveManagedAliases &&
+    hasRemovableManagedLintCommand
+  ) {
+    for (const name of removableLegacyLintInvocations) {
+      if (!hasPackageRunScriptCommand(remainingLegacyLint, name)) {
+        continue;
+      }
+      const next = removeExactPackageRunScriptCommands(
+        remainingLegacyLint,
+        name,
+      );
+      if (next === null) {
+        canRemoveManagedAliases = false;
+        break;
+      }
+      remainingLegacyLint = next;
+    }
+  }
+  const retainedManagedRoots = new Map<string, string>(
+    LEGACY_LINT_SCRIPT_NAMES.flatMap((name) => {
+      const command = scripts[name];
+      return command !== undefined &&
+        !removableLegacyLintInvocations.has(name)
+        ? [[name, command] as const]
+        : [];
+    }),
   );
   if (
     typeof legacyLint === 'string' &&
-    !(canRemoveManagedAliases && hasRemovableManagedLintCommand)
+    typeof remainingLegacyLint === 'string' &&
+    (!canRemoveManagedAliases ||
+      !hasRemovableManagedLintCommand ||
+      remainingLegacyLint !== '')
   ) {
-    retainedManagedRoots.add('lint');
+    retainedManagedRoots.set(
+      'lint',
+      canRemoveManagedAliases && hasRemovableManagedLintCommand
+        ? remainingLegacyLint
+        : legacyLint,
+    );
   }
   const referencedManagedScripts = findReferencedManagedLintScripts(
     scripts,
@@ -922,6 +957,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
   );
   if (
     typeof legacyLint === 'string' &&
+    typeof remainingLegacyLint === 'string' &&
     shouldRemoveManagedLintScript(
       canRemoveManagedAliases,
       referencedManagedScripts,
@@ -929,23 +965,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
       hasRemovableManagedLintCommand,
     )
   ) {
-    let remaining = legacyLint;
-    for (const name of LEGACY_LINT_SCRIPT_NAMES) {
-      if (!removableLegacyLintInvocations.has(name)) {
-        continue;
-      }
-      if (
-        hasPackageRunScriptCommand(remaining, name) ||
-        hasPackageRunScriptInvocation(remaining, name)
-      ) {
-        const next = removePackageRunScriptInvocations(remaining, name);
-        if (next === null) {
-          canRemoveManagedAliases = false;
-          break;
-        }
-        remaining = next;
-      }
-    }
+    const remaining = remainingLegacyLint;
     if (canRemoveManagedAliases && remaining === '') {
       changes.push({
         action: 'remove',

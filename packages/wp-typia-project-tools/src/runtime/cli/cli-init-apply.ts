@@ -179,10 +179,10 @@ export async function applyInitPlan(
   }
 
   const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
-  const currentPackageJsonSource = fs.readFileSync(
-    path.join(previewPlan.projectDir, 'package.json'),
-    'utf8',
-  );
+  const packageJsonPath = path.join(previewPlan.projectDir, 'package.json');
+  const currentPackageJsonSource = fs.existsSync(packageJsonPath)
+    ? fs.readFileSync(packageJsonPath, 'utf8')
+    : '';
   const expectedTextDomain = resolveRetrofitTextDomain({
     blockTargets: previewPlan.blockTargets,
     packageJson: currentPackageJson,

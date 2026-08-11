@@ -3044,6 +3044,22 @@ export function removePackageRunScriptInvocations(
   command: string,
   scriptName: string,
 ): string | null {
+  return removePackageRunScriptSegments(command, scriptName, true);
+}
+
+/** Remove only argument-free package-script commands from a simple chain. */
+export function removeExactPackageRunScriptCommands(
+  command: string,
+  scriptName: string,
+): string | null {
+  return removePackageRunScriptSegments(command, scriptName, false);
+}
+
+function removePackageRunScriptSegments(
+  command: string,
+  scriptName: string,
+  allowArguments: boolean,
+): string | null {
   const parsed = getSimpleShellSegments(command);
   if (
     !parsed.valid ||
@@ -3061,7 +3077,11 @@ export function removePackageRunScriptInvocations(
   return parsed.segments
     .filter(
       (segment) =>
-        !isPackageRunScriptInvocation(segment.tokens, scriptName, true),
+        !isPackageRunScriptInvocation(
+          segment.tokens,
+          scriptName,
+          allowArguments,
+        ),
     )
     .map((segment) => segment.source)
     .join(' && ');
