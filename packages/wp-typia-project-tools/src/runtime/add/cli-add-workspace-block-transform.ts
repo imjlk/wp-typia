@@ -21,7 +21,6 @@ import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-reg
 import {
   collectGeneratedTypeScriptModulePaths,
   collectWorkspaceScriptFilePaths,
-  isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
 import {
@@ -199,9 +198,9 @@ async function writeBlockTransformRegistry(
   const transformsIndexPath = path.join(transformsDir, 'index.ts');
   await fsp.mkdir(transformsDir, { recursive: true });
 
-  const existingTransformSlugs = (await fsp.readdir(transformsDir))
-		.filter(isGeneratedTypeScriptModuleFilename)
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingTransformSlugs = (
+    await collectGeneratedTypeScriptModulePaths(transformsDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextTransformSlugs = Array.from(
 		new Set([...existingTransformSlugs, transformSlug]),
 	).sort();

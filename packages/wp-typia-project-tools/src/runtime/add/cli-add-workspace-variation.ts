@@ -17,7 +17,6 @@ import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-
 import {
   collectGeneratedTypeScriptModulePaths,
   collectWorkspaceScriptFilePaths,
-  isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
 import {
@@ -192,9 +191,9 @@ async function writeVariationRegistry(
   const variationsIndexPath = path.join(variationsDir, 'index.ts');
   await fsp.mkdir(variationsDir, { recursive: true });
 
-  const existingVariationSlugs = (await fsp.readdir(variationsDir))
-		.filter(isGeneratedTypeScriptModuleFilename)
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingVariationSlugs = (
+    await collectGeneratedTypeScriptModulePaths(variationsDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextVariationSlugs = Array.from(new Set([...existingVariationSlugs, variationSlug])).sort();
   const variationBindings = await getVariationConstBindings(
     projectDir,

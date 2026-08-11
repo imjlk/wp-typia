@@ -17,7 +17,6 @@ import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-
 import {
   collectGeneratedTypeScriptModulePaths,
   collectWorkspaceScriptFilePaths,
-  isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
 import {
@@ -148,9 +147,9 @@ async function writeBlockStyleRegistry(
   const stylesIndexPath = path.join(stylesDir, 'index.ts');
   await fsp.mkdir(stylesDir, { recursive: true });
 
-  const existingStyleSlugs = (await fsp.readdir(stylesDir))
-		.filter(isGeneratedTypeScriptModuleFilename)
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingStyleSlugs = (
+    await collectGeneratedTypeScriptModulePaths(stylesDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextStyleSlugs = Array.from(new Set([...existingStyleSlugs, styleSlug])).sort();
   const styleBindings = await getBlockStyleConstBindings(
     projectDir,

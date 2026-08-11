@@ -410,7 +410,7 @@ function containsOnlyShellComments(command: string): boolean {
   });
 }
 
-function hasTopLevelFallbackOperator(command: string): boolean {
+function hasTopLevelStatusOverridingOperator(command: string): boolean {
   let escaped = false;
   let quote: "'" | '"' | '`' | null = null;
   let groupingDepth = 0;
@@ -442,6 +442,9 @@ function hasTopLevelFallbackOperator(command: string): boolean {
       if (lineEnd === -1) {
         return false;
       }
+      if (groupingDepth === 0) {
+        return true;
+      }
       index = lineEnd;
       continue;
     }
@@ -455,12 +458,20 @@ function hasTopLevelFallbackOperator(command: string): boolean {
       groupingDepth = Math.max(0, groupingDepth - 1);
       continue;
     }
-    if (
-      groupingDepth === 0 &&
-      character === '|' &&
-      command.charAt(index + 1) === '|'
-    ) {
-      return true;
+    if (groupingDepth === 0) {
+      if (character === '|' || character === ';' || character === '\n') {
+        return true;
+      }
+      if (
+        character === '&' &&
+        command.charAt(index + 1) !== '&' &&
+        command.charAt(index + 1) !== '>' &&
+        command.charAt(index - 1) !== '&' &&
+        command.charAt(index - 1) !== '>' &&
+        command.charAt(index - 1) !== '<'
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -477,7 +488,7 @@ function prependRequiredCommands(
   if (requiredCommands.length === 0) {
     return currentValue;
   }
-  const projectOwnedCommand = hasTopLevelFallbackOperator(currentValue)
+  const projectOwnedCommand = hasTopLevelStatusOverridingOperator(currentValue)
     ? `(${currentValue})`
     : currentValue;
   return containsOnlyShellComments(currentValue)

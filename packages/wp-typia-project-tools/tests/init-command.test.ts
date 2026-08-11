@@ -895,7 +895,7 @@ describe('wp-typia init', () => {
 			action: 'update',
 			currentValue: 'setup; exit 0',
 			name: 'check',
-			requiredValue: 'npm run check:code && setup; exit 0',
+			requiredValue: 'npm run check:code && (setup; exit 0)',
 		});
 	});
 
@@ -1268,6 +1268,39 @@ describe('wp-typia init', () => {
 				requiredValue: 'npm run check:code && (echo optional || true)',
 			}),
 		);
+	});
+
+	test('isolates project-owned sequences that can override managed failures', () => {
+		for (const currentValue of [
+			'eslint src; echo done',
+			'eslint src\necho done',
+			'eslint src &',
+			'eslint src | cat',
+		]) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						check: currentValue,
+						'check:code': currentValue,
+					},
+				},
+				'npm',
+			);
+
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						`npm run sync -- --check && ttsc check --noEmit && (${currentValue})`,
+				}),
+			);
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check',
+					requiredValue: `npm run check:code && (${currentValue})`,
+				}),
+			);
+		}
 	});
 
 	test('repairs a partially adopted official check:code lane', () => {

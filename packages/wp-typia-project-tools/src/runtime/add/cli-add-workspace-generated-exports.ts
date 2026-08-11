@@ -254,8 +254,7 @@ export async function collectWorkspaceScriptFilePaths(
         !WORKSPACE_SCRIPT_EXCLUDED_FILES.has(entry.name) &&
         WORKSPACE_SCRIPT_EXTENSIONS.some((extension) =>
           entry.name.endsWith(extension),
-        ) &&
-        !/\.d\.(?:cts|mts|ts)$/u.test(entry.name)
+        )
         ? [entryPath]
         : [];
     }),

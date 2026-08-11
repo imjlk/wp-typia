@@ -1188,6 +1188,16 @@ test('add workflows migrate historical generated registry identifiers', async ()
     `import { workspaceVariation_hero_card } from '@workspace/blocks/counter-card/variations/hero-card';\n\nexport const HistoricalVariationConsumer = () => <div>{workspaceVariation_hero_card.name}</div>;\n`,
     'utf8',
   );
+  const historicalDeclarationConsumerPath = path.join(
+    targetDir,
+    'src',
+    'historical-variation-consumer.d.ts',
+  );
+  fs.writeFileSync(
+    historicalDeclarationConsumerPath,
+    `export { workspaceVariation_hero_card } from '@workspace/blocks/counter-card/variations/hero-card';\n`,
+    'utf8',
+  );
 
   runCli(
     'node',
@@ -1294,6 +1304,13 @@ test('add workflows migrate historical generated registry identifiers', async ()
   expect(externalHistoricalConsumerSource).not.toContain(
     'workspaceVariation_hero_card',
   );
+  const historicalDeclarationConsumerSource = fs.readFileSync(
+    historicalDeclarationConsumerPath,
+    'utf8',
+  );
+  expect(historicalDeclarationConsumerSource).toContain(
+    'workspaceVariationHeroCardL4L4 as workspaceVariation_hero_card',
+  );
 }, 60_000);
 
 test('workspace rename discovery includes JavaScript module variants', async () => {
@@ -1308,11 +1325,13 @@ test('workspace rename discovery includes JavaScript module variants', async () 
     'consumer.mts',
     'consumer.ts',
     'consumer.tsx',
+    'types.d.cts',
+    'types.d.mts',
+    'types.d.ts',
   ];
   for (const filename of filenames) {
     fs.writeFileSync(path.join(targetDir, 'src', filename), '', 'utf8');
   }
-  fs.writeFileSync(path.join(targetDir, 'src', 'types.d.ts'), '', 'utf8');
   for (const cacheDirectory of [
     '.bun',
     '.cache',
@@ -1342,6 +1361,58 @@ test('workspace rename discovery includes JavaScript module variants', async () 
 		),
 	).toEqual(filenames);
 });
+
+test('registry rebuilds preserve symlinked generated-module neighbors', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-add-symlinked-variation');
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace symlinked variation',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'workspace-add-symlinked-variation',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Symlinked Variation',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+
+  const variationsDir = path.join(
+    targetDir,
+    'src',
+    'blocks',
+    'counter-card',
+    'variations',
+  );
+  fs.mkdirSync(variationsDir, { recursive: true });
+  const externalPath = path.join(tempRoot, 'linked-variation-target.ts');
+  const externalSource =
+    'export const workspaceVariation_linked_card = { name: "linked-card" };\n';
+  fs.writeFileSync(externalPath, externalSource, 'utf8');
+  const symlinkPath = path.join(variationsDir, 'linked-card.ts');
+  fs.symlinkSync(externalPath, symlinkPath);
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'new-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+
+  expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
+  expect(fs.readFileSync(externalPath, 'utf8')).toBe(externalSource);
+  expect(
+    fs.readFileSync(path.join(variationsDir, 'index.ts'), 'utf8'),
+  ).not.toContain('linked-card');
+}, 60_000);
 
 test('failed registry rebuild rolls back completed historical export migrations', async () => {
   const targetDir = path.join(
