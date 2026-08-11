@@ -179,10 +179,13 @@ export function ensureCorepackPackageManager(packageManager) {
 
 export function rewriteWorkspaceDependencies(projectDir, packageManager) {
 	const packageJsonPath = path.join(projectDir, "package.json");
-	const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+	const packageJsonSource = fs.readFileSync(packageJsonPath, "utf8");
+	const packageJsonIndent = packageJsonSource.match(/\n([ \t]+)"/)?.[1] ?? "  ";
+	const packageJson = JSON.parse(packageJsonSource);
 	const localApiClientDependency = `file:${path.resolve(repoRoot, "packages/wp-typia-api-client")}`;
 	const localBlockRuntimeDependency = `file:${path.resolve(repoRoot, "packages/wp-typia-block-runtime")}`;
 	const localBlockTypesDependency = `file:${path.resolve(repoRoot, "packages/wp-typia-block-types")}`;
+	const localLintPluginDependency = `file:${path.resolve(repoRoot, "packages/ttsc-lint-plugin-wp")}`;
 	const localProjectToolsDependency = `file:${path.resolve(repoRoot, "packages/wp-typia-project-tools")}`;
 	const localRestDependency = `file:${path.resolve(repoRoot, "packages/wp-typia-rest")}`;
 	const localCliDependency = `file:${path.resolve(repoRoot, "packages/wp-typia")}`;
@@ -203,6 +206,14 @@ export function rewriteWorkspaceDependencies(projectDir, packageManager) {
 	}
 	if (packageJson.devDependencies?.["@wp-typia/block-types"]) {
 		packageJson.devDependencies["@wp-typia/block-types"] = localBlockTypesDependency;
+	}
+	if (packageJson.devDependencies?.["@wp-typia/ttsc-lint-plugin-wp"]) {
+		packageJson.devDependencies["@wp-typia/ttsc-lint-plugin-wp"] =
+			localLintPluginDependency;
+	}
+	if (packageJson.dependencies?.["@wp-typia/ttsc-lint-plugin-wp"]) {
+		packageJson.dependencies["@wp-typia/ttsc-lint-plugin-wp"] =
+			localLintPluginDependency;
 	}
 	if (packageJson.devDependencies?.["@wp-typia/rest"]) {
 		packageJson.devDependencies["@wp-typia/rest"] = localRestDependency;
@@ -285,6 +296,7 @@ export function rewriteWorkspaceDependencies(projectDir, packageManager) {
 		"@wp-typia/block-runtime": localBlockRuntimeDependency,
 		"@wp-typia/api-client": localApiClientDependency,
 		"@wp-typia/block-types": localBlockTypesDependency,
+		"@wp-typia/ttsc-lint-plugin-wp": localLintPluginDependency,
 		"@wp-typia/project-tools": localProjectToolsDependency,
 		"@wp-typia/rest": localRestDependency,
 		"wp-typia": localCliDependency,
@@ -296,6 +308,7 @@ export function rewriteWorkspaceDependencies(projectDir, packageManager) {
 			"@wp-typia/block-runtime": localBlockRuntimeDependency,
 			"@wp-typia/api-client": localApiClientDependency,
 			"@wp-typia/block-types": localBlockTypesDependency,
+			"@wp-typia/ttsc-lint-plugin-wp": localLintPluginDependency,
 			"@wp-typia/project-tools": localProjectToolsDependency,
 			"@wp-typia/rest": localRestDependency,
 			"wp-typia": localCliDependency,
@@ -306,10 +319,15 @@ export function rewriteWorkspaceDependencies(projectDir, packageManager) {
 		"@wp-typia/block-runtime": localBlockRuntimeDependency,
 		"@wp-typia/api-client": localApiClientDependency,
 		"@wp-typia/block-types": localBlockTypesDependency,
+		"@wp-typia/ttsc-lint-plugin-wp": localLintPluginDependency,
 		"@wp-typia/project-tools": localProjectToolsDependency,
 		"@wp-typia/rest": localRestDependency,
 		"wp-typia": localCliDependency,
 	};
 
-	fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
+	fs.writeFileSync(
+		packageJsonPath,
+		`${JSON.stringify(packageJson, null, packageJsonIndent)}\n`,
+		"utf8",
+	);
 }

@@ -7,6 +7,7 @@ export { getInitPlan } from './cli-init-plan.js';
 export type {
   InitCommandMode,
   InitDependencyChange,
+  InitFileAction,
   InitFilePlan,
   InitPackageManagerFieldChange,
   InitPlanAction,

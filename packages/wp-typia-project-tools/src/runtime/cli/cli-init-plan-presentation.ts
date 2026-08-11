@@ -42,7 +42,9 @@ export function buildInitPlanChangeSummary(
 
   for (const scriptChange of changes.packageChanges.scripts) {
     lines.push(
-      `script ${scriptChange.action} ${scriptChange.name} -> ${scriptChange.requiredValue}`,
+      scriptChange.action === 'remove'
+        ? `script remove ${scriptChange.name}`
+        : `script ${scriptChange.action} ${scriptChange.name} -> ${scriptChange.requiredValue}`,
     );
   }
 
@@ -63,7 +65,7 @@ export function buildInitPlanChangeSummary(
 
 export function buildInitPlanNextSteps(options: {
   commandMode: InitCommandMode;
-  compatibilitySurfaceChanged: boolean;
+  compatibilitySurfaceChanged?: boolean;
   dependencyChanges: readonly InitDependencyChange[];
   hasPlannedChanges: boolean;
   layoutKind: InitPlanLayoutKind;
@@ -89,7 +91,8 @@ export function buildInitPlanNextSteps(options: {
     ),
   );
   const requiresDirectCompatibilityRun =
-    options.compatibilitySurfaceChanged && options.dependencyChanges.length === 0;
+    options.compatibilitySurfaceChanged === true &&
+    options.dependencyChanges.length === 0;
 
   if (options.layoutKind === 'unsupported') {
     return [
@@ -146,7 +149,7 @@ export function hasTtscLintCompatPlanChanges(
     plan.packageChanges.scripts.some(
       (change) =>
         change.name === 'postinstall' &&
-        change.requiredValue.includes(TTSC_LINT_COMPAT_HELPER_PATH),
+        change.requiredValue?.includes(TTSC_LINT_COMPAT_HELPER_PATH) === true,
     ) ||
     plan.plannedFiles.some(
       (file) =>

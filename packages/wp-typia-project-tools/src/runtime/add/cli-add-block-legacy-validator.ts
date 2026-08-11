@@ -32,16 +32,380 @@ const COMPATIBLE_COMPOUND_TOOLKIT_PATTERNS = [
   /createTemplateValidatorToolkit\s*<\s*T\s+extends\s+object\s*>\s*\(\s*\{/u,
 ] as const;
 
-const REST_MANIFEST_IMPORT_PATTERN =
-	/import\s*\{[^}]*\bdefineEndpointManifest\b[^}]*\}\s*from\s*["']@wp-typia\/block-runtime\/metadata-core["'];?/m;
+const METADATA_CORE_MODULE = '@wp-typia/block-runtime/metadata-core';
+const ENDPOINT_MANIFEST_IMPORT = 'defineEndpointManifest';
+
+function getImportedBindingName(binding: ts.ImportSpecifier): string {
+  return (binding.propertyName ?? binding.name).text;
+}
+
+function isEndpointManifestBinding(binding: ts.ImportSpecifier): boolean {
+  return (
+    getImportedBindingName(binding) === ENDPOINT_MANIFEST_IMPORT &&
+    binding.name.text === ENDPOINT_MANIFEST_IMPORT
+  );
+}
+
+function bindingNameContainsEndpointManifest(name: ts.BindingName): boolean {
+  if (ts.isIdentifier(name)) {
+    return name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  if (!ts.isObjectBindingPattern(name) && !ts.isArrayBindingPattern(name)) {
+    return false;
+  }
+  return name.elements.some(
+    (element) =>
+      !ts.isOmittedExpression(element) &&
+      bindingNameContainsEndpointManifest(element.name),
+  );
+}
+
+function importDeclarationConflictsWithEndpointManifest(
+  statement: ts.ImportDeclaration,
+): boolean {
+  const importClause = statement.importClause;
+  if (!importClause) {
+    return false;
+  }
+  if (importClause.name?.text === ENDPOINT_MANIFEST_IMPORT) {
+    return true;
+  }
+  const namedBindings = importClause.namedBindings;
+  if (!namedBindings) {
+    return false;
+  }
+  if (ts.isNamespaceImport(namedBindings)) {
+    return namedBindings.name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  const isMetadataCoreImport =
+    ts.isStringLiteral(statement.moduleSpecifier) &&
+    statement.moduleSpecifier.text === METADATA_CORE_MODULE;
+  // A type-only import alias still produces TS2300 when another import reuses
+  // its local name. Only an exact metadata-core binding can be promoted in place.
+  return namedBindings.elements.some(
+    (binding) =>
+      binding.name.text === ENDPOINT_MANIFEST_IMPORT &&
+      (!isMetadataCoreImport || !isEndpointManifestBinding(binding)),
+  );
+}
+
+function statementConflictsWithEndpointManifest(statement: ts.Statement): boolean {
+  if (ts.isImportDeclaration(statement)) {
+    return importDeclarationConflictsWithEndpointManifest(statement);
+  }
+  if (ts.isImportEqualsDeclaration(statement)) {
+    return statement.name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  if (ts.isVariableStatement(statement)) {
+    return statement.declarationList.declarations.some((declaration) =>
+      bindingNameContainsEndpointManifest(declaration.name),
+    );
+  }
+  if (
+    ts.isFunctionDeclaration(statement) ||
+    ts.isClassDeclaration(statement) ||
+    ts.isEnumDeclaration(statement) ||
+    ts.isModuleDeclaration(statement)
+  ) {
+    return (
+      statement.name !== undefined &&
+      ts.isIdentifier(statement.name) &&
+      statement.name.text === ENDPOINT_MANIFEST_IMPORT
+    );
+  }
+  return false;
+}
+
+function assertEndpointManifestLocalBindingIsAvailable(
+  sourceFile: ts.SourceFile,
+): void {
+  if (!sourceFile.statements.some(statementConflictsWithEndpointManifest)) {
+    return;
+  }
+  throw new Error(
+    `Unable to add REST manifest support because the local name "${ENDPOINT_MANIFEST_IMPORT}" is already bound outside the canonical "${METADATA_CORE_MODULE}" import. Rename that local binding before retrying.`,
+  );
+}
+
+function detectLeadingLineEnding(value: string): string {
+  if (value.startsWith('\r\n')) {
+    return '\r\n';
+  }
+  if (value.startsWith('\n')) {
+    return '\n';
+  }
+  return '';
+}
+
+function hasCommaOutsideComments(value: string): boolean {
+  return value
+    .replace(/\/\/[^\r\n]*/gu, '')
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .includes(',');
+}
+
+function addEndpointManifestToNamedImport(
+	source: string,
+	sourceFile: ts.SourceFile,
+	namedImports: ts.NamedImports,
+): string {
+  const openBraceEnd = namedImports.getStart(sourceFile) + 1;
+  const closeBraceStart = namedImports.getEnd() - 1;
+  const currentBindings = source.slice(openBraceEnd, closeBraceStart);
+
+  if (!currentBindings.includes('\n') && !currentBindings.includes('\r')) {
+    if (currentBindings.trim() === '') {
+      return `${source.slice(0, openBraceEnd)} ${ENDPOINT_MANIFEST_IMPORT} ${source.slice(closeBraceStart)}`;
+    }
+
+    if (namedImports.elements.length === 0) {
+      const trailingWhitespace = currentBindings.match(/\s*$/u)?.[0] ?? '';
+      const insertionIndex = closeBraceStart - trailingWhitespace.length;
+      return `${source.slice(0, insertionIndex)} ${ENDPOINT_MANIFEST_IMPORT}${source.slice(insertionIndex)}`;
+    }
+
+    const trailingWhitespace = currentBindings.match(/\s*$/u)?.[0] ?? '';
+    const insertionIndex = closeBraceStart - trailingWhitespace.length;
+    const lastBinding = namedImports.elements[namedImports.elements.length - 1];
+    const trailingBindings = lastBinding
+      ? source.slice(lastBinding.getEnd(), closeBraceStart)
+      : currentBindings;
+    const separator = hasCommaOutsideComments(trailingBindings) ? ' ' : ', ';
+    return `${source.slice(0, insertionIndex)}${separator}${ENDPOINT_MANIFEST_IMPORT}${source.slice(insertionIndex)}`;
+  }
+
+  const lineEnding = detectSourceLineEnding(source);
+  const firstBinding = namedImports.elements[0];
+  const lastBinding = namedImports.elements[namedImports.elements.length - 1];
+  if (!firstBinding || !lastBinding) {
+    const initialLineEnding = detectLeadingLineEnding(currentBindings);
+    const contentIndentation = currentBindings.match(
+      /(?:\r?\n)([ \t]*)(?=\S)/u,
+    )?.[1];
+    const closingLineStart = source.lastIndexOf('\n', closeBraceStart - 1) + 1;
+    const closingIndentation = source.slice(closingLineStart, closeBraceStart);
+    const indentationUnit = closingIndentation.includes('\t') ? '\t' : '  ';
+    const indentation =
+      contentIndentation ?? `${closingIndentation}${indentationUnit}`;
+    const insertionIndex = openBraceEnd + initialLineEnding.length;
+    return `${source.slice(0, insertionIndex)}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${source.slice(insertionIndex)}`;
+  }
+
+  const lastBindingStart = lastBinding.getStart(sourceFile);
+  const bindingLineStart = source.lastIndexOf('\n', lastBindingStart - 1) + 1;
+  const candidateIndentation = source.slice(bindingLineStart, lastBindingStart);
+  const openBraceLineStart = source.lastIndexOf('\n', openBraceEnd - 1) + 1;
+  const importLinePrefix = source.slice(openBraceLineStart, openBraceEnd);
+  const importIndentation = importLinePrefix.match(/^[ \t]*/u)?.[0] ?? '';
+  const indentation = /^[ \t]*$/u.test(candidateIndentation)
+    ? candidateIndentation
+    : `${importIndentation}  `;
+  const lastBindingEnd = lastBinding.getEnd();
+  const trailingBindings = source.slice(lastBindingEnd, closeBraceStart);
+  const missingComma = hasCommaOutsideComments(trailingBindings) ? '' : ',';
+
+  if (!trailingBindings.includes('\n') && !trailingBindings.includes('\r')) {
+    return `${source.slice(0, lastBindingEnd)}${missingComma}${trailingBindings.trimEnd()}${lineEnding}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${importIndentation}${source.slice(closeBraceStart)}`;
+  }
+
+  return `${source.slice(0, lastBindingEnd)}${missingComma}${source.slice(
+    lastBindingEnd,
+    closeBraceStart,
+  )}${indentation}${ENDPOINT_MANIFEST_IMPORT},${lineEnding}${source.slice(
+    closeBraceStart,
+  )}`;
+}
+
+function convertEndpointManifestTypeOnlyBindingToRuntime(
+	source: string,
+	sourceFile: ts.SourceFile,
+	namedImports: ts.NamedImports,
+): string {
+  const typeOnlyBinding = namedImports.elements.find(
+    (element) =>
+      element.isTypeOnly && isEndpointManifestBinding(element),
+  );
+  if (!typeOnlyBinding) {
+    return source;
+  }
+
+  const importedName = typeOnlyBinding.propertyName ?? typeOnlyBinding.name;
+  return `${source.slice(0, typeOnlyBinding.getStart(sourceFile))}${source.slice(
+    importedName.getStart(sourceFile),
+  )}`;
+}
+
+function convertEndpointManifestClauseTypeOnlyBindingToRuntime(
+  source: string,
+  sourceFile: ts.SourceFile,
+  statement: ts.ImportDeclaration,
+  namedImports: ts.NamedImports,
+): string {
+  const typeOnlyBinding = namedImports.elements.find(isEndpointManifestBinding);
+  if (!typeOnlyBinding) {
+    return source;
+  }
+
+  const importClause = statement.importClause;
+  if (!importClause) {
+    return source;
+  }
+  if (namedImports.elements.length === 1 && !importClause.name) {
+    const importClauseStart = importClause.getStart(sourceFile);
+    const namedImportsStart = namedImports.getStart(sourceFile);
+    return `${source.slice(0, importClauseStart)}${source.slice(
+      namedImportsStart,
+    )}`;
+  }
+
+  const bindingIndex = namedImports.elements.indexOf(typeOnlyBinding);
+  const previousBinding = namedImports.elements[bindingIndex - 1];
+  const nextBinding = namedImports.elements[bindingIndex + 1];
+  const removingOnlyNamedBinding =
+    namedImports.elements.length === 1 && importClause.name !== undefined;
+  const removeStart = removingOnlyNamedBinding
+    ? importClause.name.getEnd()
+    : nextBinding
+      ? typeOnlyBinding.getStart(sourceFile)
+      : (previousBinding?.getEnd() ?? typeOnlyBinding.getStart(sourceFile));
+  const removeEnd = removingOnlyNamedBinding
+    ? namedImports.getEnd()
+    : nextBinding
+      ? nextBinding.getStart(sourceFile)
+      : typeOnlyBinding.getEnd();
+  const runtimeSpecifier = source.slice(
+    typeOnlyBinding.getStart(sourceFile),
+    typeOnlyBinding.getEnd(),
+  );
+  const lineEnding = detectSourceLineEnding(source);
+  const runtimeImport =
+    `import { ${runtimeSpecifier} } from '${METADATA_CORE_MODULE}';`;
+  const remainingSource = `${source.slice(0, removeStart)}${source.slice(
+    removeEnd,
+  )}`;
+  const statementStart = statement.getStart(sourceFile);
+  return `${remainingSource.slice(
+    0,
+    statementStart,
+  )}${runtimeImport}${lineEnding}${remainingSource.slice(statementStart)}`;
+}
 
 export function ensureBlockConfigCanAddRestManifests(source: string): string {
   const importLine =
-		"import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';";
-  if (REST_MANIFEST_IMPORT_PATTERN.test(source)) {
-    return source;
+		`import { ${ENDPOINT_MANIFEST_IMPORT} } from '${METADATA_CORE_MODULE}';`;
+  const sourceFile = ts.createSourceFile(
+    'block-config.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
+  let mergeCandidate: ts.NamedImports | undefined;
+  let typeOnlyCandidate: ts.NamedImports | undefined;
+  let clauseTypeOnlyCandidate:
+    | { namedImports: ts.NamedImports; statement: ts.ImportDeclaration }
+    | undefined;
+
+  assertEndpointManifestLocalBindingIsAvailable(sourceFile);
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== METADATA_CORE_MODULE
+    ) {
+      continue;
+    }
+
+    const importClause = statement.importClause;
+    const namedBindings = importClause?.namedBindings;
+    if (!importClause || !namedBindings || !ts.isNamedImports(namedBindings)) {
+      continue;
+    }
+
+    if (importClause.isTypeOnly) {
+      if (
+        namedBindings.elements.some(isEndpointManifestBinding)
+      ) {
+        clauseTypeOnlyCandidate ??= { namedImports: namedBindings, statement };
+      }
+      continue;
+    }
+
+    const hasRuntimeBinding = namedBindings.elements.some(
+      (element) =>
+        !element.isTypeOnly && isEndpointManifestBinding(element),
+    );
+    if (hasRuntimeBinding) {
+      return source;
+    }
+
+    const hasTypeOnlyBinding = namedBindings.elements.some(
+      isEndpointManifestBinding,
+    );
+    if (hasTypeOnlyBinding) {
+      typeOnlyCandidate ??= namedBindings;
+    } else {
+      mergeCandidate ??= namedBindings;
+    }
   }
-  return `${importLine}\n\n${source}`;
+
+  if (typeOnlyCandidate) {
+    return convertEndpointManifestTypeOnlyBindingToRuntime(
+      source,
+      sourceFile,
+      typeOnlyCandidate,
+    );
+  }
+  if (clauseTypeOnlyCandidate) {
+    return convertEndpointManifestClauseTypeOnlyBindingToRuntime(
+      source,
+      sourceFile,
+      clauseTypeOnlyCandidate.statement,
+      clauseTypeOnlyCandidate.namedImports,
+    );
+  }
+  if (mergeCandidate) {
+    return addEndpointManifestToNamedImport(source, sourceFile, mergeCandidate);
+  }
+
+  const lineEnding = detectSourceLineEnding(source);
+  const insertionOffset = getImportInsertionOffset(source, sourceFile);
+  if (insertionOffset === 0) {
+    return `${importLine}${lineEnding}${lineEnding}${source}`;
+  }
+  const prefix = source.slice(0, insertionOffset);
+  const suffix = source.slice(insertionOffset);
+  const beforeImport = prefix.endsWith('\n') ? '' : lineEnding;
+  const beforeSource = suffix.startsWith(lineEnding) ? '' : lineEnding;
+  return `${prefix}${beforeImport}${importLine}${lineEnding}${beforeSource}${suffix}`;
+}
+
+function getImportInsertionOffset(
+  source: string,
+  sourceFile: ts.SourceFile,
+): number {
+  let insertionOffset = 0;
+  if (source.startsWith('#!')) {
+    const lineEndingIndex = source.indexOf('\n');
+    insertionOffset =
+      lineEndingIndex === -1 ? source.length : lineEndingIndex + 1;
+  }
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isExpressionStatement(statement) ||
+      !ts.isStringLiteral(statement.expression)
+    ) {
+      break;
+    }
+    insertionOffset = statement.end;
+    if (source.startsWith('\r\n', insertionOffset)) {
+      insertionOffset += 2;
+    } else if (source.startsWith('\n', insertionOffset)) {
+      insertionOffset += 1;
+    }
+  }
+  return insertionOffset;
 }
 
 function shouldRefreshCompoundValidatorToolkit(source: string | null): boolean {

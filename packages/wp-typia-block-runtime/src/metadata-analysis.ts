@@ -98,6 +98,8 @@ const MAX_RECURSIVE_DEPTH_LIMIT = 15;
  * Hard upper bound on total attribute nodes produced during a single
  * analysis run. Prevents exponential expansion from multi-branch recursive
  * types (e.g. binary trees at depth 15 would produce 2^15 nodes per branch).
+ *
+ * @category Schema
  */
 export const MAX_TOTAL_NODE_COUNT = 5000;
 const TYPESCRIPT_LIB_DIRECTORY = path.dirname(ts.getDefaultLibFilePath({}));

@@ -22,7 +22,7 @@ import type {
 } from './template-source-contracts.js';
 
 export function getTemplateVariableContext(variables: {
-  [key: string]: string
+  [key: string]: string;
 }): TemplateVariableContext {
   const {
     apiClientPackageVersion,

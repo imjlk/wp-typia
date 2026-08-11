@@ -24,6 +24,11 @@ import {
   runAddPatternCommand,
 } from '../src/runtime/cli-core.js';
 import { scaffoldProject } from '../src/runtime/index.js';
+import {
+  collectWorkspaceScriptFilePaths,
+  migrateHistoricalGeneratedExportNames,
+  resolveAndMigrateGeneratedExportedConstName,
+} from '../src/runtime/add/cli-add-workspace-generated-exports.js';
 
 const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;
 const sharedWebpackEntryLoopSource =
@@ -770,7 +775,7 @@ test('canonical CLI can add a variation to an official workspace template', asyn
   expect(blockConfigSource).toContain("slug: 'hero-card'");
   expect(blockIndexSource).toContain('registerWorkspaceVariations');
   expect(blockIndexSource).toContain('registerWorkspaceVariations();');
-  expect(variationsIndexSource).toContain('workspaceVariation_hero_card');
+  expect(variationsIndexSource).toContain('workspaceVariationHeroCardL4L4');
   expect(variationSource).toContain('BlockVariation');
   expect(variationSource).toContain(
     '@wp-typia/block-types/blocks/registration',
@@ -929,7 +934,7 @@ test('canonical CLI can add core block variations without generating block manif
   expect(coreVariationsIndexSource).toContain('core/group');
   expect(coreVariationsIndexSource).toContain('core/paragraph');
   expect(coreVariationsIndexSource).toContain(
-    'coreVariation_core_group_section_hero',
+    'coreVariationCoreGroupSectionHeroL4L5L7L4',
   );
   expect(groupVariationSource).toContain('BlockVariation');
   expect(groupVariationSource).toContain('BlockTemplate');
@@ -1034,14 +1039,655 @@ test('variation workflow keeps registry identifiers unique for similar slugs', a
   );
 
   expect(variationsIndexSource).toContain(
-    "import { workspaceVariation_hero_2_card } from './hero-2-card';",
+    "import { workspaceVariationHero2CardL4L1L4 } from './hero-2-card';",
   );
   expect(variationsIndexSource).toContain(
-    "import { workspaceVariation_hero2_card } from './hero2-card';",
+    "import { workspaceVariationHero2CardL5L4 } from './hero2-card';",
   );
 
   runCli('npm', ['run', 'build'], { cwd: targetDir });
 }, GENERATED_PROJECT_BUILD_TIMEOUT_MS);
+
+test('add workflows migrate historical generated registry identifiers', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'demo-workspace-add-historical-registry-identifiers',
+  );
+
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace historical registry identifiers',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'demo-workspace-add-historical-registry-identifiers',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Historical Registry Identifiers',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'hero-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'style', 'callout-emphasis', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [
+      entryPath,
+      'add',
+      'transform',
+      'quote-to-counter',
+      '--from',
+      'core/quote',
+      '--to',
+      'counter-card',
+    ],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'core-variation', 'core/group', 'section-hero'],
+    { cwd: targetDir },
+  );
+
+  const historicalModules = [
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'variations',
+        'hero-card.ts',
+      ),
+      historicalName: 'workspaceVariation_hero_card',
+      managedName: 'workspaceVariationHeroCardL4L4',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'styles',
+        'callout-emphasis.ts',
+      ),
+      historicalName: 'workspaceBlockStyle_callout_emphasis',
+      managedName: 'workspaceBlockStyleCalloutEmphasisL7L8',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'transforms',
+        'quote-to-counter.ts',
+      ),
+      historicalName: 'workspaceBlockTransform_quote_to_counter',
+      managedName: 'workspaceBlockTransformQuoteToCounterL5L2L7',
+    },
+    {
+      filePath: path.join(
+        targetDir,
+        'src',
+        'editor-plugins',
+        'core-variations',
+        'core',
+        'group',
+        'section-hero.ts',
+      ),
+      historicalName: 'coreVariation_core_group_section_hero',
+      managedName: 'coreVariationCoreGroupSectionHeroL4L5L7L4',
+    },
+  ] as const;
+  for (const historicalModule of historicalModules) {
+    const source = fs.readFileSync(historicalModule.filePath, 'utf8');
+    fs.writeFileSync(
+      historicalModule.filePath,
+      `${replaceFixtureSource(
+        source,
+        historicalModule.managedName,
+        historicalModule.historicalName,
+        `historical export ${historicalModule.historicalName}`,
+      )}\nexport default ${historicalModule.historicalName};\nexport const compatibilityShape = { ${historicalModule.historicalName} };\n`,
+      'utf8',
+    );
+  }
+  const tsconfigPath = path.join(targetDir, 'tsconfig.json');
+  const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf8')) as {
+    compilerOptions: Record<string, unknown>;
+  };
+  tsconfig.compilerOptions.paths = {
+    '@workspace/*': ['./src/*'],
+  };
+  fs.writeFileSync(
+    tsconfigPath,
+    `${JSON.stringify(tsconfig, null, 2)}\n`,
+    'utf8',
+  );
+  const externalHistoricalConsumerPath = path.join(
+    targetDir,
+    'src',
+    'historical-variation-consumer.jsx',
+  );
+  fs.writeFileSync(
+    externalHistoricalConsumerPath,
+    `import { workspaceVariation_hero_card } from '@workspace/blocks/counter-card/variations/hero-card';\n\nexport const HistoricalVariationConsumer = () => <div>{workspaceVariation_hero_card.name}</div>;\n`,
+    'utf8',
+  );
+  const historicalDeclarationConsumerPath = path.join(
+    targetDir,
+    'src',
+    'historical-variation-consumer.d.ts',
+  );
+  fs.writeFileSync(
+    historicalDeclarationConsumerPath,
+    `export { workspaceVariation_hero_card } from '@workspace/blocks/counter-card/variations/hero-card';\n`,
+    'utf8',
+  );
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'gallery-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'style', 'soft-border', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [
+      entryPath,
+      'add',
+      'transform',
+      'paragraph-to-counter',
+      '--from',
+      'core/paragraph',
+      '--to',
+      'counter-card',
+    ],
+    { cwd: targetDir },
+  );
+  runCli(
+    'node',
+    [entryPath, 'add', 'core-variation', 'core/group', 'feature-panel'],
+    { cwd: targetDir },
+  );
+
+  const registrySources = [
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'variations',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'styles',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'blocks',
+        'counter-card',
+        'transforms',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+    fs.readFileSync(
+      path.join(
+        targetDir,
+        'src',
+        'editor-plugins',
+        'core-variations',
+        'index.ts',
+      ),
+      'utf8',
+    ),
+  ];
+  for (const [index, historicalModule] of historicalModules.entries()) {
+    expect(registrySources[index]).toContain(historicalModule.managedName);
+    expect(registrySources[index]).not.toContain(
+      historicalModule.historicalName,
+    );
+    const migratedModuleSource = fs.readFileSync(
+      historicalModule.filePath,
+      'utf8',
+    );
+    expect(migratedModuleSource).toContain(historicalModule.managedName);
+    expect(migratedModuleSource).toContain(
+      `export default ${historicalModule.managedName};`,
+    );
+    expect(migratedModuleSource).toContain(
+      `${historicalModule.historicalName}: ${historicalModule.managedName}`,
+    );
+    expect(migratedModuleSource).not.toContain(
+      `export const ${historicalModule.historicalName}`,
+    );
+  }
+  const externalHistoricalConsumerSource = fs.readFileSync(
+    externalHistoricalConsumerPath,
+    'utf8',
+  );
+  expect(externalHistoricalConsumerSource).toContain(
+    'workspaceVariationHeroCardL4L4',
+  );
+  expect(externalHistoricalConsumerSource).not.toContain(
+    'workspaceVariation_hero_card',
+  );
+  const historicalDeclarationConsumerSource = fs.readFileSync(
+    historicalDeclarationConsumerPath,
+    'utf8',
+  );
+  expect(historicalDeclarationConsumerSource).toContain(
+    'workspaceVariationHeroCardL4L4 as workspaceVariation_hero_card',
+  );
+}, 60_000);
+
+test('historical core variation migration covers supporting exports', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'workspace-core-variation-supporting-export-migration',
+  );
+  const modulePath = path.join(
+    targetDir,
+    'src',
+    'editor-plugins',
+    'core-variations',
+    'core',
+    'group',
+    'section-hero.ts',
+  );
+  const consumerPath = path.join(targetDir, 'src', 'variation-consumer.ts');
+  const historicalNames = {
+    attributes: 'core_group_section_heroAttributes',
+    innerBlocks: 'core_group_section_heroInnerBlocks',
+    variation: 'coreVariation_core_group_section_hero',
+  } as const;
+  const preferredNames = {
+    attributes: 'coreGroupSectionHeroL4L5L7L4Attributes',
+    innerBlocks: 'coreGroupSectionHeroL4L5L7L4InnerBlocks',
+    variation: 'coreVariationCoreGroupSectionHeroL4L5L7L4',
+  } as const;
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(
+    modulePath,
+    [
+      `export const ${historicalNames.attributes} = { className: 'hero' };`,
+      `export const ${historicalNames.innerBlocks} = [];`,
+      `export const ${historicalNames.variation} = {`,
+      `  attributes: ${historicalNames.attributes},`,
+      `  innerBlocks: ${historicalNames.innerBlocks},`,
+      '};',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    consumerPath,
+    [
+      'import {',
+      `  ${historicalNames.attributes},`,
+      `  ${historicalNames.innerBlocks},`,
+      `  ${historicalNames.variation},`,
+      "} from './editor-plugins/core-variations/core/group/section-hero';",
+      '',
+      'export const variationFixture = [',
+      `  ${historicalNames.attributes},`,
+      `  ${historicalNames.innerBlocks},`,
+      `  ${historicalNames.variation},`,
+      '];',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await migrateHistoricalGeneratedExportNames(targetDir);
+
+  const migratedSource = [
+    fs.readFileSync(modulePath, 'utf8'),
+    fs.readFileSync(consumerPath, 'utf8'),
+  ].join('\n');
+  for (const preferredName of Object.values(preferredNames)) {
+    expect(migratedSource).toContain(preferredName);
+  }
+  for (const historicalName of Object.values(historicalNames)) {
+    expect(migratedSource).not.toContain(historicalName);
+  }
+});
+
+test('workspace rename discovery includes JavaScript module variants', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-script-discovery');
+  fs.mkdirSync(path.join(targetDir, 'src'), { recursive: true });
+  const filenames = [
+    'consumer.cjs',
+    'consumer.cts',
+    'consumer.js',
+    'consumer.jsx',
+    'consumer.mjs',
+    'consumer.mts',
+    'consumer.ts',
+    'consumer.tsx',
+    'types.d.cts',
+    'types.d.mts',
+    'types.d.ts',
+  ];
+  for (const filename of filenames) {
+    fs.writeFileSync(path.join(targetDir, 'src', filename), '', 'utf8');
+  }
+  for (const cacheDirectory of [
+    '.bun',
+    '.cache',
+    '.npm',
+    '.pnpm-store',
+    '.yarn',
+  ]) {
+    const cachePath = path.join(targetDir, cacheDirectory);
+    fs.mkdirSync(cachePath, { recursive: true });
+    fs.writeFileSync(
+      path.join(cachePath, 'dependency.ts'),
+      'export const cached = true;\n',
+      'utf8',
+    );
+  }
+  for (const cacheFile of ['.pnp.cjs', '.pnp.loader.mjs']) {
+    fs.writeFileSync(
+      path.join(targetDir, cacheFile),
+      'module.exports = {};\n',
+      'utf8',
+    );
+  }
+
+  expect(
+		(await collectWorkspaceScriptFilePaths(targetDir)).map((filePath) =>
+			path.basename(filePath),
+		),
+	).toEqual(filenames);
+});
+
+test('generated export migration rejects preferred binding collisions', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-rename-collision');
+  const modulePath = path.join(targetDir, 'src', 'variation.ts');
+  const historicalSource =
+    'const workspaceVariationHeroL4 = 1;\nexport const workspaceVariation_hero = { name: "hero" };\n';
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(modulePath, historicalSource, 'utf8');
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'workspaceVariation_hero'],
+      targetDir,
+    ),
+  ).rejects.toThrow(/produced new semantic diagnostics: TS2451/u);
+  expect(fs.readFileSync(modulePath, 'utf8')).toBe(historicalSource);
+});
+
+test('generated export migration preserves relocated existing diagnostics', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-rename-offset');
+  const modulePath = path.join(targetDir, 'src', 'variation.ts');
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(
+    modulePath,
+    'export const oldName = { name: "hero" };\nconst existingError: string = 1;\n',
+    'utf8',
+  );
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'oldName'],
+      targetDir,
+    ),
+  ).resolves.toBe('workspaceVariationHeroL4');
+  expect(fs.readFileSync(modulePath, 'utf8')).toContain(
+    'export const workspaceVariationHeroL4',
+  );
+});
+
+test('generated export migration resolves workspace package imports', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-package-imports');
+  const sourceDir = path.join(targetDir, 'src');
+  const modulePath = path.join(sourceDir, 'variation.ts');
+  const consumerPath = path.join(sourceDir, 'consumer.ts');
+  fs.mkdirSync(sourceDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(targetDir, 'package.json'),
+    `${JSON.stringify(
+      {
+        imports: { '#variation': './src/variation.ts' },
+        name: 'workspace-export-package-imports',
+        private: true,
+        type: 'module',
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(targetDir, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          target: 'ES2020',
+        },
+        include: ['src/**/*.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    modulePath,
+    'export const workspaceVariation_hero = { name: "hero" };\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    consumerPath,
+    "import { workspaceVariation_hero } from '#variation';\n\nexport const variationName = workspaceVariation_hero.name;\n",
+    'utf8',
+  );
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'workspaceVariation_hero'],
+      targetDir,
+    ),
+  ).resolves.toBe('workspaceVariationHeroL4');
+  expect(fs.readFileSync(modulePath, 'utf8')).toContain(
+    'export const workspaceVariationHeroL4',
+  );
+  const consumerSource = fs.readFileSync(consumerPath, 'utf8');
+  expect(consumerSource).toContain('workspaceVariationHeroL4');
+  expect(consumerSource).not.toContain('workspaceVariation_hero');
+});
+
+test('registry rebuilds preserve symlinked generated-module neighbors', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-add-symlinked-variation');
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace symlinked variation',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'workspace-add-symlinked-variation',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Symlinked Variation',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+
+  const variationsDir = path.join(
+    targetDir,
+    'src',
+    'blocks',
+    'counter-card',
+    'variations',
+  );
+  fs.mkdirSync(variationsDir, { recursive: true });
+  const externalPath = path.join(tempRoot, 'linked-variation-target.ts');
+  const externalSource =
+    'export const workspaceVariation_linked_card = { name: "linked-card" };\n';
+  fs.writeFileSync(externalPath, externalSource, 'utf8');
+  const symlinkPath = path.join(variationsDir, 'linked-card.ts');
+  fs.symlinkSync(externalPath, symlinkPath);
+
+  runCli(
+    'node',
+    [entryPath, 'add', 'variation', 'new-card', '--block', 'counter-card'],
+    { cwd: targetDir },
+  );
+
+  expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
+  expect(fs.readFileSync(externalPath, 'utf8')).toBe(externalSource);
+  expect(
+    fs.readFileSync(path.join(variationsDir, 'index.ts'), 'utf8'),
+  ).not.toContain('linked-card');
+}, 60_000);
+
+test('failed registry rebuild rolls back completed historical export migrations', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'demo-workspace-add-historical-registry-rollback',
+  );
+  await scaffoldProject({
+    projectDir: targetDir,
+    templateId: workspaceTemplatePackageManifest.name,
+    packageManager: 'npm',
+    noInstall: true,
+    answers: {
+      author: 'Test Runner',
+      description: 'Demo workspace historical registry rollback',
+      namespace: 'demo-space',
+      phpPrefix: 'demo_space',
+      slug: 'demo-workspace-add-historical-registry-rollback',
+      textDomain: 'demo-space',
+      title: 'Demo Workspace Historical Registry Rollback',
+    },
+  });
+  linkWorkspaceNodeModules(targetDir);
+  runCli(
+    'node',
+    [entryPath, 'add', 'block', 'counter-card', '--template', 'basic'],
+    { cwd: targetDir },
+  );
+  for (const variationSlug of ['alpha-card', 'zeta-card']) {
+    runCli(
+      'node',
+      [
+        entryPath,
+        'add',
+        'variation',
+        variationSlug,
+        '--block',
+        'counter-card',
+      ],
+      { cwd: targetDir },
+    );
+  }
+
+  const variationsDir = path.join(
+    targetDir,
+    'src',
+    'blocks',
+    'counter-card',
+    'variations',
+  );
+  const alphaPath = path.join(variationsDir, 'alpha-card.ts');
+  const alphaManagedSource = fs.readFileSync(alphaPath, 'utf8');
+  const alphaManagedName =
+    alphaManagedSource.match(/export const (\w+)/u)?.[1];
+  expect(alphaManagedName).toBeTruthy();
+  const alphaHistoricalSource = replaceFixtureSource(
+    alphaManagedSource,
+    alphaManagedName ?? '',
+    'workspaceVariation_alpha_card',
+    'historical alpha variation export',
+  );
+  fs.writeFileSync(alphaPath, alphaHistoricalSource, 'utf8');
+  const alphaConsumerPath = path.join(targetDir, 'src', 'alpha-consumer.js');
+  const alphaConsumerSource =
+    `import { workspaceVariation_alpha_card } from './blocks/counter-card/variations/alpha-card';\nexport const alphaConsumer = workspaceVariation_alpha_card;\n`;
+  fs.writeFileSync(alphaConsumerPath, alphaConsumerSource, 'utf8');
+
+  const zetaPath = path.join(variationsDir, 'zeta-card.ts');
+  const zetaManagedSource = fs.readFileSync(zetaPath, 'utf8');
+  const zetaManagedName = zetaManagedSource.match(/export const (\w+)/u)?.[1];
+  expect(zetaManagedName).toBeTruthy();
+  const zetaUnsupportedSource = replaceFixtureSource(
+    zetaManagedSource,
+    zetaManagedName ?? '',
+    'projectOwnedVariation',
+    'unsupported zeta variation export',
+  );
+  fs.writeFileSync(zetaPath, zetaUnsupportedSource, 'utf8');
+
+  expect(() =>
+    runCli(
+      'node',
+      [
+        entryPath,
+        'add',
+        'variation',
+        'beta-card',
+        '--block',
+        'counter-card',
+      ],
+      { cwd: targetDir },
+    ),
+  ).toThrow(/Unable to resolve a compatible generated export/u);
+  expect(fs.readFileSync(alphaPath, 'utf8')).toBe(alphaHistoricalSource);
+  expect(fs.readFileSync(alphaConsumerPath, 'utf8')).toBe(alphaConsumerSource);
+  expect(fs.readFileSync(zetaPath, 'utf8')).toBe(zetaUnsupportedSource);
+  expect(fs.existsSync(path.join(variationsDir, 'beta-card.ts'))).toBe(false);
+}, 60_000);
 
 test('canonical CLI can add block styles and transforms to an official workspace block', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-style-transform');
@@ -1201,7 +1847,7 @@ const copiedStyleImport = \`import { registerWorkspaceBlockStyles } from './styl
   ).toBe(1);
   expect(stylesIndexSource).toContain('registerBlockStyle(metadata.name, style)');
   expect(stylesIndexSource).toContain(
-    'workspaceBlockStyle_callout_emphasis',
+    'workspaceBlockStyleCalloutEmphasisL7L8',
   );
   expect(styleSource).toContain("name: 'callout-emphasis'");
   expect(styleSource).toContain('Callout Emphasis');
@@ -4491,7 +5137,8 @@ test('canonical CLI can add a type-only manual REST contract to an official work
   expect(clientSource).toContain(
     "const pathParams = rawPathParams && typeof rawPathParams === 'object'",
   );
-  expect(clientSource).toContain("const pathParam0 = pathParams['post_id'];");
+  expect(clientSource).toContain("const pathParam0Name = 'post_id';");
+  expect(clientSource).toContain('const pathParam0 = pathParams[pathParam0Name];');
   expect(clientSource).toContain(
     'path: `/legacy/v1/records/${encodeURIComponent( String( pathParam0 ) )}`',
   );
@@ -4747,7 +5394,8 @@ test('canonical CLI can add a typed admin settings screen from a manual REST con
   expect(dataSource).toContain('callManualRestContract');
   expect(dataSource).toContain('saveIntegrationSettingsSettings');
   expect(dataSource).not.toContain("apiKey: ''");
-  expect(dataSource).toContain("delete requestBody['apiKey']");
+  expect(dataSource).toContain("const secretFieldName = 'apiKey';");
+  expect(dataSource).toContain('delete requestBody[secretFieldName]');
   expect(dataSource).toContain('if (!result.isValid)');
   expect(dataSource).not.toContain('!result.data');
   expect(dataSource).toContain(

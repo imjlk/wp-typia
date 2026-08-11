@@ -13,6 +13,7 @@ import {
 } from '../shared/package-managers.js';
 import { getPackageVersions } from '../shared/package-versions.js';
 import { toPascalCase } from '../shared/string-case.js';
+import { getTtscJavaScriptCoverageIssue } from '../shared/ttsc-lint-config.js';
 import {
   buildDependencyChanges,
   buildOfficialWorkspaceLintDependencyChanges,
@@ -27,9 +28,14 @@ import {
 } from './cli-init-package-json.js';
 import {
   findTtscLintConfigPath,
-  hasCurrentTtscLintCompatFile,
+  findManagedLintConfigOutputConflict,
+  getManagedLintConfigOutputFilename,
+  inspectTtscLintCompatFile,
+  hasPreviousManagedTtsconfig,
+  hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
+  type TtscLintCompatFileState,
 } from './cli-init-templates.js';
 import { getYarnPnpNodeModulesConfig } from './cli-init-yarn.js';
 import { collectRetrofitWebpackChanges } from './cli-init-webpack.js';
@@ -50,12 +56,31 @@ import {
   type RetrofitInitPlan,
 } from './cli-init-types.js';
 import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
+import { collectHistoricalGeneratedExportFilePaths } from '../add/cli-add-workspace-generated-exports.js';
 
 const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
-  'Enable the partial WordPress ttsc preset and bind i18n diagnostics to the project text domain.';
+  'Enable the wp-scripts-compatible ttsc preset and bind i18n diagnostics to the project text domain.';
+const WORDPRESS_TTSC_TSCONFIG_PURPOSE =
+  'Include JavaScript in the combined ttsc check gate using the current managed tsconfig baseline.';
 
 function buildProjectOwnedLintConfigNote(configPath: string): string {
   return `Existing ${path.basename(configPath)} is project-owned and will not be overwritten. Extend it with @wp-typia/ttsc-lint-plugin-wp and the wordpress/i18n-text-domain rule before applying this plan.`;
+}
+
+function buildProjectOwnedTtscLintCompatNote(): string {
+  return 'Existing scripts/apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten. Move it or reconcile it with the managed compatibility helper before applying this plan.';
+}
+
+function getProjectOwnedLintConfigPath(
+  lintConfigPath: string | null,
+  wordpressLintIntegrated: boolean,
+  previousManagedLintConfig: boolean,
+): string | null {
+  return lintConfigPath &&
+    !wordpressLintIntegrated &&
+    !previousManagedLintConfig
+    ? lintConfigPath
+    : null;
 }
 
 function normalizeRelativePath(value: string): string {
@@ -252,20 +277,27 @@ export function buildInitLayoutDetails(projectDir: string): {
 function buildPlannedFiles(
 	projectDir: string,
 	layoutKind: InitPlanLayoutKind,
+	textDomain: string,
+	ttscLintCompatFileState: TtscLintCompatFileState,
 ): InitFilePlan[] {
   if (layoutKind === 'unsupported') {
     return [];
   }
 
   const ttscLintPackageVersion = getPackageVersions().ttscLintPackageVersion;
-
   return [
-		buildTtscLintCompatFilePlan(
-			projectDir,
-			`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
-		),
+		...(ttscLintCompatFileState.conflictPath
+			? []
+			: [
+					buildTtscLintCompatFilePlan(
+						projectDir,
+						`Apply the exact @ttsc/lint ${ttscLintPackageVersion} mapped/infer compatibility fix after dependency installation.`,
+					),
+				]),
 		...buildWordPressLintConfigFilePlans(
+			projectDir,
 			findTtscLintConfigPath(projectDir),
+			textDomain,
 			WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
 		),
 		{
@@ -313,31 +345,69 @@ function buildTtscLintCompatFilePlan(
 }
 
 function buildWordPressLintConfigFilePlans(
+  projectDir: string,
   lintConfigPath: string | null,
+  textDomain: string,
   purpose: string,
 ): InitFilePlan[] {
-  return lintConfigPath
-    ? []
-    : [{ action: 'add', path: 'lint.config.ts', purpose }];
+  if (!lintConfigPath) {
+    return [{ action: 'add', path: 'lint.config.mts', purpose }];
+  }
+  if (!hasPreviousManagedWordPressTtscLintConfig(lintConfigPath, textDomain)) {
+    return [];
+  }
+  const currentPath = normalizeRelativePath(
+    path.relative(projectDir, lintConfigPath),
+  );
+  const outputPath = getManagedLintConfigOutputFilename(lintConfigPath, true);
+  if (
+    findManagedLintConfigOutputConflict(projectDir, lintConfigPath, true)
+  ) {
+    return [];
+  }
+  return currentPath === outputPath
+    ? [{ action: 'update', path: currentPath, purpose }]
+    : [
+        {
+          action: 'remove',
+          path: currentPath,
+          purpose: 'Remove the superseded managed lint config.',
+        },
+        { action: 'add', path: outputPath, purpose },
+      ];
 }
 
 function buildOfficialWorkspaceLintFilePlans(
   projectDir: string,
   lintConfigPath: string | null,
+  textDomain: string,
+  ttscLintCompatFileState: TtscLintCompatFileState,
 ): InitFilePlan[] {
   return [
-    ...(hasCurrentTtscLintCompatFile(projectDir)
+    ...(ttscLintCompatFileState.current ||
+      ttscLintCompatFileState.conflictPath
       ? []
       : [
           buildTtscLintCompatFilePlan(
             projectDir,
-            'Keep the exact generated-project @ttsc/lint compatibility fix aligned with the managed toolchain.',
+            'Keep the generated-project @ttsc/lint compatibility fix aligned with the managed toolchain.',
           ),
         ]),
     ...buildWordPressLintConfigFilePlans(
+      projectDir,
       lintConfigPath,
+      textDomain,
       WORDPRESS_TTSC_LINT_CONFIG_PURPOSE,
     ),
+    ...(hasPreviousManagedTtsconfig(projectDir)
+      ? [
+          {
+            action: 'update' as const,
+            path: 'tsconfig.json',
+            purpose: WORDPRESS_TTSC_TSCONFIG_PURPOSE,
+          },
+        ]
+      : []),
   ];
 }
 
@@ -455,24 +525,64 @@ export function getInitPlan(
       packageManagerFieldChange?.requiredValue,
     );
     const existingLintConfigPath = findTtscLintConfigPath(workspace.projectDir);
+    const previousManagedLintConfig =
+      hasPreviousManagedWordPressTtscLintConfig(
+        existingLintConfigPath,
+        workspace.workspace.textDomain,
+      );
     const wordpressLintIntegrated = hasWordPressTtscLintConfig(
       existingLintConfigPath,
       workspace.workspace.textDomain,
     );
+    const projectOwnedLintConfigPath =
+      findManagedLintConfigOutputConflict(
+        workspace.projectDir,
+        existingLintConfigPath,
+        previousManagedLintConfig,
+      ) ??
+      getProjectOwnedLintConfigPath(
+        existingLintConfigPath,
+        wordpressLintIntegrated,
+        previousManagedLintConfig,
+      );
+    const ttscLintCompatFileState = inspectTtscLintCompatFile(
+      workspace.projectDir,
+    );
     const rawPlannedFiles = buildOfficialWorkspaceLintFilePlans(
       workspace.projectDir,
       existingLintConfigPath,
+      workspace.workspace.textDomain,
+      ttscLintCompatFileState,
     );
     if (yarnPnpNodeModulesConfig) {
       rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
     }
+    const historicalGeneratedExportFilePaths =
+      collectHistoricalGeneratedExportFilePaths(workspace.projectDir);
+    const historicalGeneratedExports =
+      historicalGeneratedExportFilePaths.length > 0;
+    rawPlannedFiles.push(
+      ...historicalGeneratedExportFilePaths.map((filePath) => ({
+        action: 'update' as const,
+        path: path.relative(workspace.projectDir, filePath).split(path.sep).join('/'),
+        purpose: 'Migrate the historical generated export identifier.',
+      })),
+    );
+    const javascriptCoverageIssue = rawPlannedFiles.some(
+      (file) => file.path === 'tsconfig.json',
+    )
+      ? null
+      : getTtscJavaScriptCoverageIssue(workspace.projectDir);
     const status: InitPlanStatus =
       dependencyChanges.length === 0 &&
       scriptChanges.length === 0 &&
       packageManagerFieldChange === undefined &&
       yarnPnpNodeModulesConfig === undefined &&
       rawPlannedFiles.length === 0 &&
-      wordpressLintIntegrated
+      wordpressLintIntegrated &&
+      !ttscLintCompatFileState.conflictPath &&
+      !historicalGeneratedExports &&
+      javascriptCoverageIssue === null
         ? 'already-initialized'
         : 'preview';
     return createRetrofitPlan({
@@ -501,12 +611,19 @@ export function getInitPlan(
           }
         : {}),
       notes: [
-        ...(existingLintConfigPath && !wordpressLintIntegrated
+        ...(projectOwnedLintConfigPath
+          ? [buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath)]
+          : []),
+        ...(ttscLintCompatFileState.conflictPath
+          ? [buildProjectOwnedTtscLintCompatNote()]
+          : []),
+        ...(historicalGeneratedExports
           ? [
-              buildProjectOwnedLintConfigNote(existingLintConfigPath),
+              'Historical generated export identifiers will be migrated transactionally before the combined code gate becomes current.',
             ]
           : []),
-        'The TypeScript lane remains `ttsc --noEmit` until upstream exposes the lint-only command tracked by samchon/ttsc#1127. Existing JavaScript and style lint commands are preserved.',
+        ...(javascriptCoverageIssue ? [javascriptCoverageIssue] : []),
+        '`ttsc check --noEmit` is the combined TypeScript and JavaScript lint gate. Project-owned style and format checks remain separate.',
       ],
       packageChanges: {
         addDevDependencies: dependencyChanges,
@@ -550,13 +667,31 @@ export function getInitPlan(
     packageManager,
     packageManagerFieldChange?.requiredValue,
   );
+  const expectedTextDomain = resolveRetrofitTextDomain({
+    blockTargets: layout.blockTargets,
+    packageJson,
+    projectDir: resolvedProjectDir,
+  });
+  const previousManagedLintConfig =
+    hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      expectedTextDomain,
+    );
+  const ttscLintCompatFileState = inspectTtscLintCompatFile(resolvedProjectDir);
   const rawPlannedFiles: InitFilePlan[] =
 		hasExistingSurface
       ? buildOfficialWorkspaceLintFilePlans(
           resolvedProjectDir,
           existingLintConfigPath,
+          expectedTextDomain,
+          ttscLintCompatFileState,
         )
-      : buildPlannedFiles(resolvedProjectDir, layout.kind);
+      : buildPlannedFiles(
+          resolvedProjectDir,
+          layout.kind,
+          expectedTextDomain,
+          ttscLintCompatFileState,
+        );
   if (yarnPnpNodeModulesConfig) {
     rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
   }
@@ -568,15 +703,26 @@ export function getInitPlan(
         'Replace the obsolete @typia/unplugin Webpack loader with @ttsc/unplugin.',
     })),
   );
-  const expectedTextDomain = resolveRetrofitTextDomain({
-    blockTargets: layout.blockTargets,
-    packageJson,
-    projectDir: resolvedProjectDir,
-  });
   const wordpressLintIntegrated = hasWordPressTtscLintConfig(
     existingLintConfigPath,
     expectedTextDomain,
   );
+  const projectOwnedLintConfigPath =
+    findManagedLintConfigOutputConflict(
+      resolvedProjectDir,
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    ) ??
+    getProjectOwnedLintConfigPath(
+      existingLintConfigPath,
+      wordpressLintIntegrated,
+      previousManagedLintConfig,
+    );
+  const javascriptCoverageIssue =
+    hasExistingSurface &&
+    !rawPlannedFiles.some((file) => file.path === 'tsconfig.json')
+      ? getTtscJavaScriptCoverageIssue(resolvedProjectDir)
+      : null;
   const status: InitPlanStatus =
 		hasExistingSurface &&
 		dependencyChanges.length === 0 &&
@@ -586,7 +732,9 @@ export function getInitPlan(
 		packageManagerFieldChange === undefined &&
 		yarnPnpNodeModulesConfig === undefined &&
 		rawPlannedFiles.length === 0 &&
-		wordpressLintIntegrated
+		wordpressLintIntegrated &&
+		!ttscLintCompatFileState.conflictPath &&
+		javascriptCoverageIssue === null
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;
@@ -628,11 +776,15 @@ export function getInitPlan(
 							'Webpack imports from `@typia/unplugin/webpack` will be migrated to `@ttsc/unplugin/webpack`.',
 					  ]
 					: []),
-				...(existingLintConfigPath && !wordpressLintIntegrated
+				...(projectOwnedLintConfigPath
 					? [
-							buildProjectOwnedLintConfigNote(existingLintConfigPath),
+							buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath),
 					  ]
 					: []),
+				...(ttscLintCompatFileState.conflictPath
+					? [buildProjectOwnedTtscLintCompatNote()]
+					: []),
+				...(javascriptCoverageIssue ? [javascriptCoverageIssue] : []),
 				...layout.notes,
 			]),
 		),

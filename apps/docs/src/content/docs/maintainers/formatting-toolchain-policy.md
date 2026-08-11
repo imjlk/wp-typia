@@ -2,209 +2,143 @@
 title: 'Formatting Toolchain Policy'
 ---
 
-`wp-typia` keeps formatting expectations explicit instead of leaving them to drift package by package.
+`wp-typia` keeps code diagnostics and formatting ownership explicit instead of
+allowing each package to assemble a different lint stack.
 
 ## Current baseline
 
 - the repository root owns TypeScript `7.0.2`
-- the repository root owns `ttsc` and `@ttsc/lint` at `0.23.0`
+- the repository root owns `ttsc`, `@ttsc/lint`, and `@ttsc/unplugin` at
+  `0.26.2`
 - packaged project tools fall back to `@wp-typia/ttsc-lint-plugin-wp` `^0.2.0`
-  as the WordPress-specific contributor baseline
-- the repository root owns `eslint` at `9.39.4`
-- the repository root owns `@eslint/js` at `9.39.4`
-- the repository root owns `prettier` at `3.8.2`
-- the repository root owns `eslint-config-prettier` at `10.1.8`
-- `bun run typecheck` runs `ttsc --noEmit`, so TypeScript type, lint, unused,
-  and formatting diagnostics fail together
-- `bun run format:check` is the canonical non-mutating Prettier gate for
-  repo-owned non-TypeScript files
-- `bun run format:write` runs `ttsc format` for TypeScript and Prettier for
-  repo-owned non-TypeScript files
-- `bun run lint:fix` runs ESLint fixes for JavaScript and `ttsc fix` for
-  TypeScript
-- `bun run formatting-policy:validate` checks that package manifests and CI wiring still match the documented formatter baseline
+- the repository root owns ESLint `9.39.4` for repo JavaScript and Prettier
+  `3.8.2` for selected non-TypeScript files
+- `bun run typecheck` is the root TypeScript, lint, unused, and format gate
+- `bun run formatting-policy:validate` checks package manifests, generated
+  templates, patches, examples, and CI against this policy
 
-## TypeScript ownership
+## Repository ownership
 
-`ttsc` owns every repo TypeScript and TSX source that participates in the root
-TypeScript project. The root `lint.config.ts` enables:
+The root `lint.config.ts` and TypeScript project are owned by `ttsc`. ESLint
+does not parse TypeScript or TSX in this repository. The root configuration
+enables compiler unused diagnostics, formatting diagnostics, and safe rules
+such as `no-var`, `prefer-const`, and `eqeqeq`.
 
-- `no-var`, `prefer-const`, and `eqeqeq` as errors
-- compiler unused diagnostics through the repository TypeScript configuration
-- format diagnostics as errors at 80 columns, two spaces, semicolons, single
-  quotes, trailing commas, and LF endings
+JavaScript, CJS, and MJS used by repository infrastructure remain under
+ESLint. Prettier owns Markdown, JSON, YAML, styles, and the other explicitly
+listed non-TypeScript inputs. Generated artifacts stay under their generator
+or synchronizer rather than being rewritten by a blanket formatter pass.
 
-Run `bun run typecheck` for the non-mutating gate, `ttsc format` for
-format-only writes, or `ttsc fix` for all enabled TypeScript fixes. ESLint does
-not parse or lint TypeScript in this repository.
+Use:
 
-## Scope of Prettier `format:check`
+- `bun run typecheck` for the root non-mutating TypeScript and lint gate
+- `bun run lint:repo` for root JavaScript diagnostics
+- `bun run format:check` for the non-mutating non-TypeScript format gate
+- `bun run lint:fix` for ESLint and `ttsc fix`
+- `bun run format:write` for `ttsc format` and Prettier writes
 
-`bun run format:check` is intentionally scoped to repo-owned documentation, configuration, workflow, and policy files such as:
+## Generated projects and examples
 
-- root docs and meta docs
-- `apps/docs/src/content/docs/**/*.md` plus the repo-owned Starlight config files
-- generated API outputs stay out of scope under `apps/docs/src/content/docs/api/**`
-- root config and workspace metadata
-- `.github` workflow and markdown files
-- repo policy/validation scripts that define the formatter baseline itself
+New projects, retrofit plans, and WordPress examples expose the same contract:
 
-It is not a blanket formatter pass over every source file in the monorepo.
+- `check:code` runs the project sync check followed by
+  `ttsc check --noEmit`
+- `check:style` retains `@wordpress/scripts` Stylelint behavior
+- `check:format` uses Prettier for JavaScript and non-code files
+- `check` combines those three gates
+- `format` uses `ttsc format` for code, then Prettier restores the WordPress
+  JavaScript and non-code formatting contract
 
-Why the scope stays narrow:
+Generated lint configs set `format.severity` to `off`. This keeps `ttsc check
+--noEmit` focused on compiler and lint diagnostics while `ttsc format` remains
+the TypeScript write path. Prettier gates JavaScript, JSON, Markdown, YAML, and
+styles and restores the WordPress JavaScript contract after a format write.
+Generated metadata artifacts remain formatter-ignored because their owning
+synchronizer produces them deterministically.
 
-- TypeScript and TSX already have stronger ownership through `ttsc`
-- JavaScript, CJS, and MJS linting stays with ESLint
-- generated and emitter-owned TypeScript must satisfy the same `ttsc` contract
-  when generated-project smoke tests compile it
-- repo-owned prose, workflow, and policy files are the places where style drift hurts maintainer velocity the fastest
+There is intentionally no `lint:js` compatibility alias. The code gate also
+performs TypeScript checking, so `check:code` describes its behavior without
+claiming to be lint-only.
 
-## Autofix commands
+Generated TypeScript configurations set `allowJs: true` and include project
+JavaScript, JSX, CJS, and MJS entrypoints. Consequently the compiled
+`configs.wpScriptsRecommended` preset applies supported WordPress, React,
+import, and TypeScript diagnostics across both JavaScript and TypeScript source
+files. The text-domain rule is specialized to the generated plugin slug.
 
-Use the root autofix scripts when you are changing repo-owned infrastructure,
-docs, or policy files:
+The compiled preset records intentional behavior downgrades when a nominally
+available native rule cannot safely reproduce WordPress behavior. The current
+baseline omits `no-shadow` because its native implementation panics on catch
+clauses, omits two JSX accessibility rules that misclassify imported WordPress
+components as DOM elements, and omits `role-supports-aria-props` because it
+rejects valid progressbar value properties. These omissions are manifest-backed
+and must be removed when their dedicated regressions pass on a newer toolchain.
 
-- `bun run lint:fix` for root JavaScript ESLint fixes followed by TypeScript
-  `ttsc fix`
-- `bun run format:write` for the TypeScript `ttsc format` pass followed by the
-  repo-owned non-TypeScript Prettier write pass
+CommonJS package manifests use `lint.config.mts`. This makes the configuration
+module unambiguously ESM when `ttsc` loads the ESM WordPress contributor.
+Existing project-owned lint configurations are never overwritten; `wp-typia
+init --apply` stops with merge guidance when it cannot prove a safe managed
+upgrade.
 
-`lint:repo` remains JavaScript-only. Example and generated package scripts use
-the same ownership split: `ttsc` handles TypeScript/TSX,
-`@wordpress/scripts` ESLint handles JavaScript/CJS/MJS correctness, while
-Prettier owns formatting for handwritten JavaScript/CJS/MJS. Generated JSON,
-Markdown, and metadata stay under their respective generators and synchronizer
-checks so a formatter write cannot invalidate their exact generated output.
+The generated package does not install the TypeScript 6 compatibility package,
+ESLint, the WordPress ESLint plugin, resolver shims, or JSX accessibility
+plugins. TypeScript 6 remains limited to repository tools that directly need
+the JavaScript Compiler API. React and its type packages remain direct
+generated dependencies so TS7 JSX resolution is reproducible across supported
+package managers.
 
-## Example apps and built-in templates
+## Native plugin cache and CI
 
-Example apps and built-in scaffold package manifests stay aligned on
-`ttsc` `0.23.0` and `prettier` `3.8.2` ranges when they declare those direct
-development dependencies. Generated manifests pin `@ttsc/lint` to exact
-`0.23.0` while its compatibility hook targets that source.
+CI stores content-addressed `ttsc` source-plugin binaries in
+`.ttsc-cache/plugins`. Preparation happens once and the finished plugin cache
+and built workspace packages are shared with downstream project-tool and
+generated-project jobs. Large Go build caches are runner-local and are not
+uploaded for every matrix entry.
 
-Their formatter scripts run `ttsc format` for TypeScript/TSX, the WordPress
-ESLint compatibility wrapper with `--fix` for JavaScript/CJS/MJS correctness,
-and then Prettier over their handwritten JavaScript/CJS/MJS sources; the
-existing Prettier write scope remains responsible for opted-in non-TypeScript
-inputs. `format:check` independently checks only the handwritten JavaScript
-lane in generated-project smoke, intentionally excluding emitted block and
-typia JSON artifacts.
-Generated TypeScript and JavaScript are expected to be clean on first emission
-rather than relying on a consumer-side write pass.
-The compatibility wrapper explicitly disables WordPress ESLint's embedded
-`prettier/prettier` rule: its punctuation preferences differ from the generated
-Prettier config, and enabling both would make a clean generated `.mjs` or
-`.cjs` file fail linting.
+Generated smoke coverage is intentionally representative rather than a full
+Cartesian product. Unit and template-source tests cover deterministic manifest
+differences; installed smoke lanes cover every template family, package-manager
+boundary, and workspace add workflow at least once.
 
-The repo-root ESLint 9 upgrade does not automatically move example apps onto the
-same lane. Example block workspaces still defer to `@wordpress/scripts` for
-their non-TypeScript JavaScript linting, and they currently keep a local
-`eslint` 8 compatibility pin until the WordPress lint stack fully supports
-ESLint 9. Their `lint:js` scripts flow through
-`scripts/run-wp-scripts-lint-js-compat.mjs`, which keeps the
-`@wordpress/scripts` default config/ignore behavior but resolves the
-example-local ESLint 8 binary instead of the repo-root ESLint 9 install.
+## Compatibility patches
 
-Generated projects include the same wrapper locally. Because they do not pin
-ESLint directly, it resolves the version owned by `@wordpress/scripts`.
-Both paths preload `register-typescript6.cjs`, which redirects legacy ESLint
-Compiler API consumers to exact `@typescript/typescript6@6.0.2` while TS/TSX
-remain under `ttsc`. Generated manifests also declare React 18 and its type
-packages directly so TS7 JSX resolution is reproducible under npm, Bun, pnpm,
-and Yarn rather than depending on transitive hoisting.
+The root Bun workspace carries two exact-version development-tool patches:
 
-Generated lint configs extend the supported portion of the WordPress
-`recommended` preset from `@wp-typia/ttsc-lint-plugin-wp`. The complete
-WordPress-owned `i18n` preset is native, including translator comments,
-literal safety, whitespace, punctuation, placeholder, text-domain, and
-`sprintf` checks. The `wordpress/i18n-text-domain` rule is bound to the
-scaffold's normalized text domain, while `wordpress/no-unsafe-wp-apis` remains
-enabled through the broader partial preset. Existing projects can preview the
-same dependency, config, and script adoption with `wp-typia init`;
-`wp-typia init --apply` writes it with rollback protection and refuses to
-overwrite a project-owned lint config.
+- `typia@13.2.0` forwards the JSON `--tsgo-args` envelope so CLI flags such as
+  `--strict` reach the tsgo program used by typia transforms
+- `@ttsc/lint@0.26.2` guards mapped and `infer` type parameters while formatting
+  trailing commas, preventing a TypeScript-Go declaration lookup panic, and
+  widens the affected symlink-target buffers in the TypeScript source, the
+  distributed JavaScript runtime, and the native sidecar's embedded TypeScript
+  config loader so executable lint configs compile across the supported Node 24
+  type-definition range
 
-The TypeScript lane still uses `ttsc --noEmit`, so compiler and lint diagnostics
-remain combined. `lint:js` continues to own only JavaScript/CJS/MJS through the
-WordPress ESLint compatibility wrapper. A true lint-only split waits for
-[samchon/ttsc#1127](https://github.com/samchon/ttsc/issues/1127); the scaffold
-must not advertise `ttsc lint` before that command exists upstream.
+Registry `@ttsc/lint@0.26.2` still reproduces both lint-host failures. Generated
+and retrofitted projects therefore exact-pin that version and run
+`scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
+package version and expected source/runtime/sidecar files, applies the same narrow
+repairs atomically per file, and fails closed if the upstream layout changes.
+Yarn scaffolds use the `node-modules` linker so the helper never edits a shared
+Plug'n'Play archive.
 
-CI stores content-addressed `ttsc` source-plugin binaries outside
-`node_modules` in `.ttsc-cache/plugins`. Workspace and generated-project
-lanes use separate cache keys, each derived from `bun.lock`, the compatibility
-patch files, and Go module inputs. Each runner's large Go-object cache stays
-in its temporary directory rather than being uploaded to every matrix job.
-This keeps cache transfer bounded while warm runs reuse matching typia and
-`@ttsc/lint` binaries without restoring source-plugin output built from an old
-patch.
-On a cold run, the prepare job also shares only the completed source-plugin
-binaries with the project-tools matrix, avoiding five identical native builds
-without uploading the much larger Go-object cache.
+The generated helper is a development compiler repair, not a WordPress runtime
+dependency. It does not inherit Bun's root `patchedDependencies`; publish and
+generated-install smoke independently prove the consumer path.
 
-## Root compatibility patches
+The formatting policy validator pins each patch path and SHA-256 digest to the
+exact package version. To upgrade either dependency:
 
-The root Bun workspace carries two exact-version build-tool patches:
-
-- `typia@13.2.0` accepts the JSON-encoded `--tsgo-args` envelope in its native
-  `ttsc-typia` build and transform hosts. Without the patch, TypeScript CLI
-  options forwarded by `ttsc`, such as `--strict`, do not reach the tsgo
-  program used by the typia transform.
-- `@ttsc/lint@0.23.0` avoids asking the TypeScript-Go shim for a declaration
-  type-parameter list when formatting mapped-type and `infer` type parameters.
-  Without the patch, trailing-comma formatting can panic on those nodes.
-
-The Bun `patchedDependencies` mappings belong only to the root development and
-build toolchain. Published packages and generated projects do not inherit
-them; publish-install smoke must pass against registry typia and ttsc packages.
-
-Registry `@ttsc/lint@0.23.0` still reproduces the mapped/`infer` panic outside
-the root. Generated projects therefore include
-`scripts/apply-ttsc-lint-compat.mjs` and run it from `postinstall`. The script:
-
-- requires exact `@ttsc/lint@0.23.0`
-- verifies the expected unpatched or already-patched source before writing
-- atomically applies only the mapped/`infer` parent guard used by the root
-  patch, so pnpm-style content-addressed stores are not modified through a
-  shared file inode
-- works after npm, Bun, pnpm, or Yarn node-modules installs without adding a
-  runtime dependency
-- fails closed when the package version or source layout changes
-
-Yarn Plug'n'Play stores package sources in read-only archives, so the hook
-cannot safely run through that linker. New Yarn scaffolds already set
-`nodeLinker: node-modules`; when `wp-typia init --apply` detects an existing
-PnP install, it updates only that top-level `.yarnrc.yml` setting before the
-next install. Other Yarn settings and comments stay intact, and the next
-postinstall writes the private mutable copy under `node_modules` rather than a
-shared archive.
-
-This is a generated development-tool compatibility hook, not a WordPress
-runtime dependency. Generated-project smoke owns the create, install, doctor,
-and build proof for this root-patch-free consumer path.
-
-The formatting policy validator ties each patch path and SHA-256 digest to its
-exact package version and fails when the package version, mapping, file, or
-contents change. To upgrade either dependency:
-
-1. install the new unpatched version and run the ttsc compatibility regression
-   tests;
-2. remove the root patch and generated compatibility hook only when CLI option
-   forwarding, typia transformation, and mapped/`infer` formatting all pass
-   without them;
-3. otherwise port the root patch and generated hook to the exact new version,
-   update the documented mapping, and rerun generated-project and
-   publish-install smoke tests.
+1. install the unpatched release and run the compatibility regressions;
+2. remove the patch and generated helper only when CLI option forwarding,
+   typia transforms, mapped/`infer` formatting, and executable lint-config
+   evaluation with Node 24 typings all pass;
+3. otherwise port the narrow patch, update the exact version and digest, and
+   rerun installed generated-project smoke.
 
 ## CI posture
 
-Formatting is a first-class CI expectation.
-
-- the main lint job runs `bun run formatting-policy:validate`
-- the same lint job runs `bun run format:check`
-- the typecheck job runs `ttsc --noEmit`, which also enforces TypeScript lint
-  and format diagnostics
-- `bun run ci:local` includes both commands before the broader lint/type/test/build pass
-
-If we decide to widen or narrow formatter scope later, change this document, the validator, and the CI step in the same PR so the policy remains intentional.
+The primary lint job validates this policy, runs the non-TypeScript format
+gate, checks examples with their combined `check` command, and runs the root
+TypeScript gate. Local development should run the narrow tests relevant to a
+change first; the full CI matrix remains the release and cross-environment
+proof.

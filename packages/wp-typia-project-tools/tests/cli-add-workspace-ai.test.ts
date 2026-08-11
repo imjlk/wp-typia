@@ -14,7 +14,256 @@ import {
   scaffoldOfficialWorkspace,
   typecheckGeneratedProject,
 } from './helpers/scaffold-test-harness.js';
+import { ensureBlockConfigCanAddRestManifests } from '../src/runtime/add/cli-add-block-legacy-validator.js';
 import { readWorkspaceInventory } from '../src/runtime/workspace-inventory.js';
+
+test('REST manifest support reuses the managed metadata-core import', () => {
+  const source = [
+    'import {',
+    '  defineBlockNesting,',
+    '  defineInnerBlocksTemplates,',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated.match(/@wp-typia\/block-runtime\/metadata-core/gu)).toHaveLength(
+    1,
+  );
+  expect(updated).toContain('  defineEndpointManifest,');
+  expect(ensureBlockConfigCanAddRestManifests(updated)).toBe(updated);
+});
+
+test('REST manifest support repairs unusual metadata-core named imports', () => {
+  const inlineTypeOnlySource =
+    "import { type defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedTypeOnlySource =
+    ensureBlockConfigCanAddRestManifests(inlineTypeOnlySource);
+
+  expect(repairedTypeOnlySource).toBe(
+    "import { defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const clauseTypeOnlySource =
+    "import type { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(clauseTypeOnlySource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const compactClauseTypeOnlySource =
+    "import /* keep type context */ type{ defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(compactClauseTypeOnlySource)).toBe(
+    "import /* keep type context */ { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const defaultClauseTypeOnlySource =
+    "import type MetadataCore, { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(defaultClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type MetadataCore from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const mixedClauseTypeOnlySource =
+    "import type { MetadataCoreOptions, defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(mixedClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type { MetadataCoreOptions } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const middleClauseTypeOnlySource =
+    "import type { MetadataCoreOptions, defineEndpointManifest, RuntimeOptions } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(middleClauseTypeOnlySource)).toBe(
+    [
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      "import type { MetadataCoreOptions, RuntimeOptions } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const commentedEmptySource = [
+    'import {',
+    '  /* generated imports */',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  const repairedEmptySource =
+    ensureBlockConfigCanAddRestManifests(commentedEmptySource);
+
+  expect(repairedEmptySource).toContain('  defineEndpointManifest,\n');
+  expect(repairedEmptySource).toContain('  /* generated imports */');
+  expect(ensureBlockConfigCanAddRestManifests(repairedEmptySource)).toBe(
+    repairedEmptySource,
+  );
+
+  const inlineEmptySource =
+    "import { } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(inlineEmptySource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const inlineCommentOnlySource =
+    "import { /* generated imports */ } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedInlineCommentOnlySource =
+    ensureBlockConfigCanAddRestManifests(inlineCommentOnlySource);
+  expect(repairedInlineCommentOnlySource).toBe(
+    "import { /* generated imports */ defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+  expect(
+    ensureBlockConfigCanAddRestManifests(repairedInlineCommentOnlySource),
+  ).toBe(repairedInlineCommentOnlySource);
+
+  const trailingCommaSource =
+    "import { defineBlockNesting, } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(ensureBlockConfigCanAddRestManifests(trailingCommaSource)).toBe(
+    "import { defineBlockNesting, defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+
+  const commaInCommentSource = [
+    'import {',
+    '  defineBlockNesting // keep this, generated',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(commaInCommentSource)).toContain(
+    'defineBlockNesting, // keep this, generated\n  defineEndpointManifest,',
+  );
+
+  const mixedBindingLayoutSource = [
+    'import { defineBlockNesting,',
+    "  defineInnerBlocksTemplates } from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(mixedBindingLayoutSource)).toBe(
+    [
+      'import { defineBlockNesting,',
+      '  defineInnerBlocksTemplates,',
+      '  defineEndpointManifest,',
+      "} from '@wp-typia/block-runtime/metadata-core';",
+      '',
+    ].join('\n'),
+  );
+
+  const mixedIndentationSource = [
+    'function example() {',
+    '\treturn true;',
+    '}',
+    'import {',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+  expect(ensureBlockConfigCanAddRestManifests(mixedIndentationSource)).toContain(
+    '{\n  defineEndpointManifest,\n}',
+  );
+
+  const aliasedExportSource =
+    "import { type defineEndpointManifest as EndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedAliasedExport =
+    ensureBlockConfigCanAddRestManifests(aliasedExportSource);
+  expect(repairedAliasedExport).toContain(
+    'type defineEndpointManifest as EndpointManifest, defineBlockNesting, defineEndpointManifest',
+  );
+
+  const aliasedLocalBindingSource =
+    "import { type endpointManifest as defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(aliasedLocalBindingSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const externalAliasedBindingSource =
+    "import { helper as defineEndpointManifest } from './helpers';\n";
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(externalAliasedBindingSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const externalTypeOnlyBindingSource =
+    "import type { defineEndpointManifest } from './helpers';\n";
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(externalTypeOnlyBindingSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const localTypeAliasSource =
+    'type defineEndpointManifest = <T>(value: T) => T;\n';
+  expect(ensureBlockConfigCanAddRestManifests(localTypeAliasSource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n\ntype defineEndpointManifest = <T>(value: T) => T;\n",
+  );
+
+  const localDeclarationSource =
+    'const defineEndpointManifest = <T>(value: T): T => value;\n';
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(localDeclarationSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const destructuredLocalDeclarationSource =
+    'const [defineEndpointManifest] = helpers;\n';
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(destructuredLocalDeclarationSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+});
+
+test('REST manifest support scans every metadata-core import before mutating', () => {
+  const source = [
+    "import type { MetadataCoreOptions } from '@wp-typia/block-runtime/metadata-core';",
+    'import {',
+    '  defineBlockNesting,',
+    "} from '@wp-typia/block-runtime/metadata-core';",
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated).toContain('  defineEndpointManifest,');
+  expect(updated).not.toContain(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+  );
+});
+
+test('REST manifest support preserves a script prologue before imports', () => {
+  const source = [
+    '#!/usr/bin/env node',
+    "'use strict';",
+    "'use client';",
+    '',
+    'export const config = {};',
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated).toBe(
+    [
+      '#!/usr/bin/env node',
+      "'use strict';",
+      "'use client';",
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+      'export const config = {};',
+      '',
+    ].join('\n'),
+  );
+  expect(ensureBlockConfigCanAddRestManifests(updated)).toBe(updated);
+
+  const windowsSource = source.replace(/\n/gu, '\r\n');
+  expect(ensureBlockConfigCanAddRestManifests(windowsSource)).toBe(
+    updated.replace(/\n/gu, '\r\n'),
+  );
+});
 
 describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 	const tempRoot = createScaffoldTempRoot('wp-typia-add-ai-feature-');

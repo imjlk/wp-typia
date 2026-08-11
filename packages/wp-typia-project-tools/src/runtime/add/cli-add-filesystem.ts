@@ -44,7 +44,11 @@ export async function readOptionalFile(filePath: string): Promise<string | null>
 /**
  * Restore a file to its captured source, deleting it when the snapshot was `null`.
  */
-export async function restoreOptionalFile(filePath: string, source: string | null): Promise<void> {
+export async function restoreOptionalFile(
+	filePath: string,
+	source: string | null,
+	mode: number | null = null,
+): Promise<void> {
   if (source === null) {
     await fsp.rm(filePath, { force: true });
     return;
@@ -52,6 +56,9 @@ export async function restoreOptionalFile(filePath: string, source: string | nul
 
   await fsp.mkdir(path.dirname(filePath), { recursive: true });
   await fsp.writeFile(filePath, source, 'utf8');
+  if (mode !== null) {
+    await fsp.chmod(filePath, mode);
+  }
 }
 
 /**
@@ -62,10 +69,15 @@ export async function snapshotWorkspaceFiles(
 ): Promise<WorkspaceMutationSnapshot['fileSources']> {
   const uniquePaths = Array.from(new Set(filePaths));
   return Promise.all(
-    uniquePaths.map(async (filePath) => ({
-      filePath,
-      source: await readOptionalFile(filePath),
-    })),
+    uniquePaths.map(async (filePath) => {
+      const source = await readOptionalFile(filePath);
+      return {
+        filePath,
+        mode:
+          source === null ? null : (await fsp.stat(filePath)).mode & 0o7777,
+        source,
+      };
+    }),
   );
 }
 
@@ -79,7 +91,7 @@ export async function rollbackWorkspaceMutation(snapshot: WorkspaceMutationSnaps
   for (const snapshotDir of snapshot.snapshotDirs) {
     await fsp.rm(snapshotDir, { force: true, recursive: true });
   }
-  for (const { filePath, source } of snapshot.fileSources) {
-    await restoreOptionalFile(filePath, source);
+  for (const { filePath, mode, source } of snapshot.fileSources) {
+    await restoreOptionalFile(filePath, source, mode);
   }
 }

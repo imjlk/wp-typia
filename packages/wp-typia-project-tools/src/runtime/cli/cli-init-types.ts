@@ -3,6 +3,7 @@ import type { WorkspacePackageJson } from '../workspace/workspace-project.js';
 
 export type InitCommandMode = 'apply' | 'preview-only';
 export type InitPlanAction = 'add' | 'update';
+export type InitFileAction = InitPlanAction | 'remove';
 export type InitPlanStatus = 'already-initialized' | 'applied' | 'preview';
 export type InitPlanLayoutKind =
 	| 'generated-project'
@@ -18,12 +19,19 @@ export interface InitDependencyChange {
   requiredValue: string;
 }
 
-export interface InitScriptChange {
-  action: InitPlanAction;
-  currentValue?: string;
-  name: string;
-  requiredValue: string;
-}
+export type InitScriptChange =
+  | {
+      action: InitPlanAction;
+      currentValue?: string;
+      name: string;
+      requiredValue: string;
+    }
+  | {
+      action: 'remove';
+      currentValue: string;
+      name: string;
+      requiredValue?: never;
+    };
 
 export interface InitPackageManagerFieldChange {
   action: InitPlanAction;
@@ -32,7 +40,7 @@ export interface InitPackageManagerFieldChange {
 }
 
 export interface InitFilePlan {
-  action: InitPlanAction;
+  action: InitFileAction;
   path: string;
   purpose: string;
 }

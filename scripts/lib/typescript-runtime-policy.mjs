@@ -33,6 +33,7 @@ export const TYPESCRIPT_RUNTIME_PACKAGE_POLICIES = [
 		requiredTypeScriptImportFiles: [
 			"src/runtime/add/cli-add-block-legacy-validator.ts",
 			"src/runtime/add/cli-add-workspace-binding-source.ts",
+			"src/runtime/add/cli-add-workspace-generated-exports.ts",
 			"src/runtime/cli/cli-init-plan.ts",
 			"src/runtime/doctor/cli-doctor-standalone-control-flow.ts",
 			"src/runtime/doctor/cli-doctor-standalone-rest.ts",

@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { check as checkPrettier } from 'prettier';
 
 import {
   cleanupScaffoldTempRoot,
@@ -618,7 +619,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/hooks.ts': 'e95dea31e16a6ec7',
     'src/index.tsx': '339921f3d9acdafe',
     'src/interactivity-store.ts': '1fd02a161c5c86fa',
-    'src/interactivity.ts': 'ddb27b2a41ab1892',
+    'src/interactivity.ts': '76e784a85c9e96fc',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
     'src/save.tsx': '9e3f69db9ff3ed24',
@@ -630,7 +631,7 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/edit.tsx': 'daee524b53c70327',
     'src/hooks.ts': 'e95dea31e16a6ec7',
     'src/index.tsx': 'b18acd5e44a4c395',
-    'src/interactivity.ts': 'a4fade855fea075f',
+    'src/interactivity.ts': 'a28e2ea34ec0a154',
     'src/manifest-defaults-document.ts': '16818959f3d5a7d6',
     'src/manifest-document.ts': 'b8fffee2c728488e',
     'src/render.php': 'c6e4856afbed615a',
@@ -653,17 +654,45 @@ const EXPECTED_CODE_ARTIFACT_HASH_SUMMARIES: Record<
     'src/blocks/demo-compound/edit.tsx': '92a0bfc9f42d58c4',
     'src/blocks/demo-compound/hooks.ts': '35d4b1ace23be502',
     'src/blocks/demo-compound/index.tsx': 'e41dfb0b954670a5',
-    'src/blocks/demo-compound/interactivity.ts': '698d0c898a53df02',
+    'src/blocks/demo-compound/interactivity.ts': '03f87ab6c56b23f1',
     'src/blocks/demo-compound/manifest-defaults-document.ts':
       '16818959f3d5a7d6',
     'src/blocks/demo-compound/manifest-document.ts': 'b8fffee2c728488e',
     'src/blocks/demo-compound/render.php': '05fca82de42a0bb4',
     'src/blocks/demo-compound/save.tsx': 'fa8ce0becc59866b',
-    'src/blocks/demo-compound/style.scss': '5a079051191f8cb7',
+    'src/blocks/demo-compound/style.scss': 'd8ce3ab161da23fe',
     'src/blocks/demo-compound/validators.ts': '1f30c9542389b9f0',
     'src/hooks.ts': 'e95dea31e16a6ec7',
   },
 };
+
+test('compound styles stay formatter-stable for long generated slugs', async () => {
+  const answers = {
+    ...buildAnswers('compound'),
+    slug: 'long-compound-parent-block-name-for-format-regression',
+  };
+  const spec = createBuiltInBlockSpec({
+    answers,
+    dataStorageMode: answers.dataStorageMode,
+    persistencePolicy: answers.persistencePolicy,
+    templateId: 'compound',
+  });
+  const variables = buildTemplateVariablesFromBlockSpec(spec);
+  const styleArtifact = buildBuiltInCodeArtifacts({
+    templateId: 'compound',
+    variables,
+  }).find((artifact) => artifact.relativePath.endsWith('/style.scss'));
+
+  expect(styleArtifact).toBeDefined();
+  expect(
+    await checkPrettier(styleArtifact!.source, {
+      filepath: styleArtifact!.relativePath,
+      printWidth: 80,
+      tabWidth: 2,
+      useTabs: true,
+    }),
+  ).toBe(true);
+});
 
 describe('built-in block artifacts', () => {
   const tempRoot = createScaffoldTempRoot('wp-typia-built-in-artifacts-');

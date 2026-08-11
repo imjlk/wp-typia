@@ -126,8 +126,8 @@ export function replaceGeneratedTransportBaseUrls(
   for (const name of names) {
     const previousSource = source;
     source = source.replace(
-      new RegExp(`const ${name}: string \\| undefined = undefined;`, 'u'),
-      `const ${name}: string | undefined = ${JSON.stringify(baseUrl)};`,
+      new RegExp(`const ${name} = '';`, 'u'),
+      `const ${name} = ${JSON.stringify(baseUrl)};`,
     );
     if (source === previousSource) {
       throw new Error(`Unable to rewrite ${name} inside ${transportPath}.`);

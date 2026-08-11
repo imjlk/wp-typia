@@ -283,11 +283,13 @@ export const COMPOUND_STYLE_TEMPLATE = `.{{cssClassName}} {
 	gap: 0.75rem;
 }
 
+/* prettier-ignore */
 .{{cssClassName}}[data-show-dividers="true"] .{{compoundChildCssClassName}} {
 	border-top: 1px solid #dcdcde;
 	padding-top: 0.75rem;
 }
 
+/* prettier-ignore */
 .{{cssClassName}}[data-show-dividers="true"] .{{compoundChildCssClassName}}:first-child {
 	border-top: 0;
 	padding-top: 0;

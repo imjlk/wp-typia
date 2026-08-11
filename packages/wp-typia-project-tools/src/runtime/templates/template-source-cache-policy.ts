@@ -105,8 +105,8 @@ function parseExternalTemplateCacheTtlDays(value: unknown): number | null {
 
 export function resolveExternalTemplateCacheTtlMs(
   options: {
-    env?: NodeJS.ProcessEnv
-    ttlDays?: number
+    env?: NodeJS.ProcessEnv;
+    ttlDays?: number;
   } = {},
 ): number | null {
   const env = options.env ?? process.env;
@@ -142,8 +142,8 @@ function parseExternalTemplateCachePruneIntervalMs(
 
 export function resolveExternalTemplateCachePruneIntervalMs(
   options: {
-    env?: NodeJS.ProcessEnv
-    pruneIntervalMs?: number
+    env?: NodeJS.ProcessEnv;
+    pruneIntervalMs?: number;
   } = {},
 ): number | null {
   if (options.pruneIntervalMs !== undefined) {

@@ -7,6 +7,7 @@ import {
 } from './cli-diagnostics.js';
 import {
   getPackageManager,
+  PACKAGE_MANAGER_IDS,
   transformPackageManagerText,
   type PackageManagerId,
 } from '../shared/package-managers.js';
@@ -19,8 +20,16 @@ import { readJsonFileSync } from '../shared/json-utils.js';
 import {
   hasPackageRunScriptCommand,
   hasPackageRunScriptInvocation,
+  hasExactShellCommand,
+  hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
-  hasTtscNoEmitLintCommand,
+  hasTtscCheckNoEmitCommand,
+  hasTopLevelTerminatingShellCommand,
+  isStandaloneTtscNoEmitLintCommand,
+  normalizeManagedSyncCheckCommand,
+  normalizePackageRunScriptCommands,
+  prependManagedSyncBeforeTtscCheckNoEmitCommand,
+  removeExactPackageRunScriptCommands,
   removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
 import type {
@@ -41,8 +50,203 @@ const BASE_RETROFIT_SCRIPTS = {
   postinstall: TTSC_LINT_COMPAT_HELPER_COMMAND,
   sync: 'ttsx scripts/sync-project.ts',
   'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
-  typecheck: 'bun run sync --check && ttsc --noEmit',
+  'check:code': 'bun run sync --check && ttsc check --noEmit',
+  check: 'bun run check:code',
 } as const;
+const LEGACY_RETROFIT_TYPECHECK = 'bun run sync --check && ttsc --noEmit';
+const LEGACY_LINT_JS_COMMAND =
+  'node scripts/run-wp-scripts-lint-js-compat.mjs';
+const LEGACY_LINT_CSS_COMMAND =
+  'wp-scripts lint-style --allow-empty-input';
+const LEGACY_FORMAT_CHECK_COMMAND =
+  'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+const LEGACY_LINT_SCRIPT_NAMES = [
+  'lint:ts',
+  'lint:js',
+  'lint:css',
+  'format:check',
+] as const;
+const MANAGED_LINT_SCRIPT_NAMES = [
+  'lint',
+  ...LEGACY_LINT_SCRIPT_NAMES,
+] as const;
+const SHELL_AND_SEPARATOR = ' && ';
+
+function buildManagedCheckAggregate(
+  laneNames: readonly string[],
+  packageManager: PackageManagerId,
+): string {
+  return laneNames
+    .map((name) =>
+      transformPackageManagerText(`bun run ${name}`, packageManager),
+    )
+    .join(SHELL_AND_SEPARATOR);
+}
+
+function isManagedCheckCodeCommand(command: string | undefined): boolean {
+  return PACKAGE_MANAGER_IDS.some(
+    (packageManager) =>
+      command ===
+      transformPackageManagerText(
+        BASE_RETROFIT_SCRIPTS['check:code'],
+        packageManager,
+      ),
+  );
+}
+
+function isManagedCheckAggregateSubset(
+  command: string | undefined,
+  laneNames: readonly string[],
+): boolean {
+  if (!command) {
+    return false;
+  }
+  const subsetCount = 1 << laneNames.length;
+  return PACKAGE_MANAGER_IDS.some((packageManager) => {
+    for (let mask = 1; mask < subsetCount; mask += 1) {
+      const subset = laneNames.filter((_, index) => (mask & (1 << index)) !== 0);
+      if (command === buildManagedCheckAggregate(subset, packageManager)) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+function findReferencedManagedLintScripts(
+  scripts: Readonly<Record<string, string>>,
+  retainedManagedRoots: ReadonlyMap<string, string>,
+): Set<string> {
+  const managedNames = new Set<string>(MANAGED_LINT_SCRIPT_NAMES);
+  const referenced = new Set<string>();
+  const recordManagedReferences = (command: string): void => {
+    for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
+      if (hasPackageRunScriptInvocation(command, managedName)) {
+        referenced.add(managedName);
+      }
+    }
+  };
+
+  for (const [scriptName, command] of Object.entries(scripts)) {
+    if (managedNames.has(scriptName)) {
+      continue;
+    }
+    recordManagedReferences(command);
+  }
+  for (const command of retainedManagedRoots.values()) {
+    recordManagedReferences(command);
+  }
+
+  let discoveredReference = true;
+  while (discoveredReference) {
+    discoveredReference = false;
+    for (const scriptName of Array.from(referenced)) {
+      const command = scripts[scriptName];
+      if (typeof command !== 'string') {
+        continue;
+      }
+      for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
+        if (
+          !referenced.has(managedName) &&
+          hasPackageRunScriptInvocation(command, managedName)
+        ) {
+          referenced.add(managedName);
+          discoveredReference = true;
+        }
+      }
+    }
+  }
+
+  return referenced;
+}
+
+function packageScriptTransitivelyInvokes(
+  scripts: Readonly<Record<string, string>>,
+  command: string,
+  targetName: string,
+  visited = new Set<string>(),
+): boolean {
+  if (hasPackageRunScriptInvocation(command, targetName)) {
+    return true;
+  }
+  for (const [scriptName, scriptCommand] of Object.entries(scripts)) {
+    if (
+      visited.has(scriptName) ||
+      !hasPackageRunScriptInvocation(command, scriptName)
+    ) {
+      continue;
+    }
+    visited.add(scriptName);
+    if (
+      packageScriptTransitivelyInvokes(
+        scripts,
+        scriptCommand,
+        targetName,
+        visited,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isPackageScriptReferenced(
+  scripts: Readonly<Record<string, string>>,
+  referencedName: string,
+): boolean {
+  return Object.entries(scripts).some(
+    ([scriptName, command]) =>
+      scriptName !== referencedName &&
+      hasPackageRunScriptInvocation(command, referencedName),
+  );
+}
+
+function buildRequiredCheckCodeCommand(
+  currentValue: string | undefined,
+  packageManager: PackageManagerId,
+): string {
+  const syncCommand = transformPackageManagerText(
+    'bun run sync --check',
+    packageManager,
+  );
+  const ttscCommand = 'ttsc check --noEmit';
+  const hasRequiredSequence =
+    hasManagedSyncBeforeTtscCheckNoEmitCommand(currentValue);
+  const hasTtscCommand = hasTtscCheckNoEmitCommand(currentValue);
+  if (hasRequiredSequence) {
+    return currentValue
+      ? normalizeManagedSyncCheckCommand(currentValue, syncCommand)
+      : `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`;
+  }
+  if (hasTtscCommand) {
+    return (
+      prependManagedSyncBeforeTtscCheckNoEmitCommand(
+        currentValue ?? '',
+        syncCommand,
+      ) ??
+      prependRequiredCommands(currentValue, [
+        `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`,
+      ])
+    );
+  }
+  return prependRequiredCommands(currentValue, [
+    `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`,
+  ]);
+}
+
+function shouldRemoveManagedLintScript(
+  canRemoveManagedAliases: boolean,
+  referencedManagedScripts: ReadonlySet<string>,
+  scriptName: (typeof MANAGED_LINT_SCRIPT_NAMES)[number],
+  recognizedManagedCommand: boolean,
+): boolean {
+  return (
+    canRemoveManagedAliases &&
+    !referencedManagedScripts.has(scriptName) &&
+    recognizedManagedCommand
+  );
+}
 
 const BASE_RETROFIT_DEV_DEPENDENCIES = [
   '@ttsc/lint',
@@ -59,6 +263,7 @@ const BASE_RETROFIT_DEV_DEPENDENCIES = [
 
 const OFFICIAL_WORKSPACE_LINT_DEV_DEPENDENCIES = [
   '@ttsc/lint',
+  '@ttsc/unplugin',
   '@wp-typia/ttsc-lint-plugin-wp',
   'ttsc',
   'typescript',
@@ -238,6 +443,133 @@ function buildOptionalScriptChange(
   ];
 }
 
+function containsOnlyShellComments(command: string): boolean {
+  return command.split(/\r?\n/u).every((line) => {
+    const trimmed = line.trimStart();
+    return trimmed.length === 0 || trimmed.startsWith('#');
+  });
+}
+
+function hasTopLevelStatusOverridingOperator(command: string): boolean {
+  let escaped = false;
+  let quote: "'" | '"' | '`' | null = null;
+  let groupingDepth = 0;
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command.charAt(index);
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'" || character === '"' || character === '`') {
+      quote = character;
+      continue;
+    }
+    if (
+      character === '#' &&
+      (index === 0 || /[\s;&|(){}]/u.test(command[index - 1]))
+    ) {
+      const lineEnd = command.indexOf('\n', index + 1);
+      if (lineEnd === -1) {
+        return false;
+      }
+      if (groupingDepth === 0) {
+        return true;
+      }
+      index = lineEnd;
+      continue;
+    }
+    // Parenthesis depth also covers $() command substitution and ((...))
+    // arithmetic expansion. Backtick substitutions are handled as quotes.
+    if (character === '(' || character === '{') {
+      groupingDepth += 1;
+      continue;
+    }
+    if (character === ')' || character === '}') {
+      groupingDepth = Math.max(0, groupingDepth - 1);
+      continue;
+    }
+    if (groupingDepth === 0) {
+      if (character === '|' || character === ';' || character === '\n') {
+        return true;
+      }
+      if (
+        character === '&' &&
+        command.charAt(index + 1) !== '&' &&
+        command.charAt(index + 1) !== '>' &&
+        command.charAt(index - 1) !== '&' &&
+        command.charAt(index - 1) !== '>' &&
+        command.charAt(index - 1) !== '<'
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function prependRequiredCommands(
+  currentValue: string | undefined,
+  requiredCommands: readonly string[],
+): string {
+  const requiredValue = requiredCommands.join(SHELL_AND_SEPARATOR);
+  if (typeof currentValue !== 'string' || currentValue.trim().length === 0) {
+    return requiredValue;
+  }
+  if (requiredCommands.length === 0) {
+    return currentValue;
+  }
+  const projectOwnedCommand = hasTopLevelStatusOverridingOperator(currentValue)
+    ? `(${currentValue})`
+    : currentValue;
+  return containsOnlyShellComments(currentValue)
+    ? `${requiredValue} ${currentValue.trimStart()}`
+    : `${requiredValue}${SHELL_AND_SEPARATOR}${projectOwnedCommand}`;
+}
+
+function mergeLegacyCommandIntoCheckLane(
+  scripts: Readonly<Record<string, string>>,
+  currentValue: string | undefined,
+  legacyCommand: string | undefined,
+  legacyName: 'format:check' | 'lint:css',
+  destinationName: 'check:format' | 'check:style',
+): string | undefined {
+  if (!legacyCommand) {
+    return currentValue;
+  }
+  if (
+    (currentValue !== undefined &&
+      packageScriptTransitivelyInvokes(scripts, currentValue, legacyName)) ||
+    packageScriptTransitivelyInvokes(scripts, legacyCommand, destinationName) ||
+    packageScriptTransitivelyInvokes(scripts, legacyCommand, 'check')
+  ) {
+    return currentValue;
+  }
+  if (hasExactShellCommand(currentValue, legacyCommand)) {
+    return currentValue;
+  }
+  return prependRequiredCommands(currentValue, [legacyCommand]);
+}
+
+function hasPackageScriptLifecycleHooks(
+  scripts: Readonly<Record<string, string>>,
+  scriptName: string,
+): boolean {
+  return (
+    typeof scripts[`pre${scriptName}`] === 'string' ||
+    typeof scripts[`post${scriptName}`] === 'string'
+  );
+}
+
 function mergePostinstallCommand(
   currentValue: string | undefined,
   requiredCommand: string,
@@ -246,17 +578,14 @@ function mergePostinstallCommand(
     if (hasTtscLintCompatPostinstallCommand(currentValue)) {
       return currentValue;
     }
+    if (hasTopLevelTerminatingShellCommand(currentValue)) {
+      return prependRequiredCommands(currentValue, [requiredCommand]);
+    }
     // Correctly parsing comments inside command substitutions requires a full
     // shell parser. Keep comment-only scripts intact after the managed hook;
     // otherwise insert the hook before the last recognized trailing comment.
     if (currentValue.includes('#')) {
-      const containsOnlyComments = currentValue
-        .split(/\r?\n/u)
-        .every((line) => {
-          const trimmed = line.trimStart();
-          return trimmed.length === 0 || trimmed.startsWith('#');
-        });
-      return containsOnlyComments
+      return containsOnlyShellComments(currentValue)
         ? `${requiredCommand} ${currentValue.trimStart()}`
         : insertCommandBeforeTrailingShellComment(
             currentValue,
@@ -380,31 +709,59 @@ export function buildScriptChanges(
 	packageManager: PackageManagerId,
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
+  const lintChanges = buildOfficialWorkspaceLintScriptChanges(
+    packageJson,
+    packageManager,
+  );
+  const syncChanges = Object.entries(BASE_RETROFIT_SCRIPTS)
+    .filter(([name]) => name === 'sync' || name === 'sync-types')
+    .flatMap(([name, commandSource]) =>
+      buildOptionalScriptChange(
+        name,
+        scripts[name],
+        transformPackageManagerText(commandSource, packageManager),
+      ),
+    );
+  const changes = [
+    ...lintChanges.filter((change) => change.name === 'postinstall'),
+    ...syncChanges,
+    ...lintChanges.filter((change) => change.name !== 'postinstall'),
+  ];
+  const legacyTypecheck = PACKAGE_MANAGER_IDS.map((candidatePackageManager) =>
+    transformPackageManagerText(
+      LEGACY_RETROFIT_TYPECHECK,
+      candidatePackageManager,
+    ),
+  ).find(
+    (candidateTypecheck) => scripts.typecheck === candidateTypecheck,
+  );
+  if (legacyTypecheck) {
+    if (isPackageScriptReferenced(scripts, 'typecheck')) {
+      changes.push({
+        action: 'update',
+        currentValue: legacyTypecheck,
+        name: 'typecheck',
+        requiredValue: transformPackageManagerText(
+          'bun run check:code',
+          packageManager,
+        ),
+      });
+    } else {
+      changes.push({
+        action: 'remove',
+        currentValue: legacyTypecheck,
+        name: 'typecheck',
+      });
+    }
+  }
 
-  return Object.entries(BASE_RETROFIT_SCRIPTS).flatMap(
-		([name, commandSource]) => {
-			const command = transformPackageManagerText(
-				commandSource,
-				packageManager,
-			);
-			const currentValue = scripts[name];
-			let requiredValue = command;
-			if (name === 'postinstall') {
-				requiredValue = mergePostinstallCommand(currentValue, command);
-			}
-			return buildOptionalScriptChange(name, currentValue, requiredValue);
-		},
-	);
+  return changes;
 }
 
 /**
- * Add the TypeScript lint lane to an existing official workspace without
- * enabling the incomplete WordPress JavaScript replacement prematurely.
- *
- * Existing aggregate lint commands are preserved after the new `lint:ts`
- * prerequisite, so projects that intentionally run only style lint (or retain
- * a separate JavaScript lane) keep that behavior until upstream exposes a
- * lint-only `ttsc` command.
+ * Add the combined TypeScript and lint gate to an existing official workspace.
+ * Legacy managed lint aliases are removed, while unrelated project-owned
+ * scripts remain untouched.
  */
 export function buildOfficialWorkspaceLintScriptChanges(
   packageJson: ProjectPackageJson | null,
@@ -420,47 +777,297 @@ export function buildOfficialWorkspaceLintScriptChanges(
     currentPostinstall,
     postinstallCommand,
   );
-  const lintTsCommand = 'ttsc --noEmit';
-  const lintTsRun = transformPackageManagerText(
-    'bun run lint:ts',
-    packageManager,
+  const legacyStyleCommand = scripts['lint:css'];
+  const legacyFormatCommand = scripts['format:check'];
+  const hasManagedLegacyStyleCommand =
+    legacyStyleCommand === LEGACY_LINT_CSS_COMMAND;
+  const hasManagedLegacyFormatCommand =
+    legacyFormatCommand === LEGACY_FORMAT_CHECK_COMMAND;
+  const hasLegacyStyleLifecycleHooks = hasPackageScriptLifecycleHooks(
+    scripts,
+    'lint:css',
   );
-  const currentLintTs = scripts['lint:ts'];
-  const lintTsSatisfied = hasTtscNoEmitLintCommand(currentLintTs);
-  const currentLint = scripts.lint;
-  let requiredLint = lintTsRun;
-  if (typeof currentLint === 'string' && currentLint.trim().length > 0) {
-    const includesLintTs = hasPackageRunScriptCommand(currentLint, 'lint:ts');
-    if (includesLintTs) {
-      requiredLint = currentLint;
-    } else if (hasPackageRunScriptInvocation(currentLint, 'lint:ts')) {
-      const retainedLint = removePackageRunScriptInvocations(
-        currentLint,
-        'lint:ts',
+  const hasLegacyFormatLifecycleHooks = hasPackageScriptLifecycleHooks(
+    scripts,
+    'format:check',
+  );
+  const requiredCheckStyle = mergeLegacyCommandIntoCheckLane(
+    scripts,
+    scripts['check:style'],
+    hasLegacyStyleLifecycleHooks && legacyStyleCommand
+      ? transformPackageManagerText('bun run lint:css', packageManager)
+      : legacyStyleCommand,
+    'lint:css',
+    'check:style',
+  );
+  const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
+    scripts,
+    scripts['check:format'],
+    hasLegacyFormatLifecycleHooks && legacyFormatCommand
+      ? transformPackageManagerText('bun run format:check', packageManager)
+      : legacyFormatCommand,
+    'format:check',
+    'check:format',
+  );
+  const requiredCheckLanes = [
+    'check:code',
+    ...(requiredCheckStyle ? ['check:style'] : []),
+    ...(requiredCheckFormat ? ['check:format'] : []),
+  ];
+  const checkLanes = requiredCheckLanes.map((name) => ({
+    command: transformPackageManagerText(`bun run ${name}`, packageManager),
+    name,
+  }));
+  const currentCheck = scripts.check;
+  let repairedCurrentCheck = currentCheck;
+  for (const [laneName, requiredValue] of [
+    ['check:style', requiredCheckStyle],
+    ['check:format', requiredCheckFormat],
+  ] as const) {
+    if (
+      requiredValue === undefined &&
+      repairedCurrentCheck &&
+      hasPackageRunScriptInvocation(repairedCurrentCheck, laneName)
+    ) {
+      const withoutDanglingLane = removePackageRunScriptInvocations(
+        repairedCurrentCheck,
+        laneName,
       );
-      if (retainedLint === null) {
-        requiredLint = `${lintTsRun} && ${currentLint}`;
-      } else if (retainedLint) {
-        requiredLint = `${lintTsRun} && ${retainedLint}`;
-      } else {
-        requiredLint = lintTsRun;
+      if (withoutDanglingLane !== null) {
+        repairedCurrentCheck = withoutDanglingLane;
       }
-    } else {
-      requiredLint = `${lintTsRun} && ${currentLint}`;
     }
   }
-
-  return [
+  if (repairedCurrentCheck) {
+    repairedCurrentCheck = normalizePackageRunScriptCommands(
+      repairedCurrentCheck,
+      Object.fromEntries(
+        checkLanes.map(({ command, name }) => [name, command]),
+      ),
+    );
+  }
+  const missingCheckCommands = checkLanes
+    .filter(
+      (lane) =>
+        !hasPackageRunScriptCommand(repairedCurrentCheck, lane.name),
+    )
+    .map(({ command }) => command);
+  const requiredCheck = isManagedCheckAggregateSubset(
+    repairedCurrentCheck,
+    requiredCheckLanes,
+  )
+    ? buildManagedCheckAggregate(requiredCheckLanes, packageManager)
+    : prependRequiredCommands(repairedCurrentCheck, missingCheckCommands);
+  const currentCheckCode = scripts['check:code'];
+  let requiredCheckCode: string;
+  if (isManagedCheckCodeCommand(currentCheckCode)) {
+    requiredCheckCode = buildRequiredCheckCodeCommand(
+      undefined,
+      packageManager,
+    );
+  } else {
+    requiredCheckCode = buildRequiredCheckCodeCommand(
+      currentCheckCode,
+      packageManager,
+    );
+  }
+  const changes: InitScriptChange[] = [
     ...buildOptionalScriptChange(
       'postinstall',
       currentPostinstall,
       requiredPostinstall,
     ),
-    ...(lintTsSatisfied
+    ...buildOptionalScriptChange(
+      'check:code',
+      currentCheckCode,
+      requiredCheckCode,
+    ),
+    ...(requiredCheckStyle === undefined
       ? []
-      : buildOptionalScriptChange('lint:ts', currentLintTs, lintTsCommand)),
-    ...buildOptionalScriptChange('lint', currentLint, requiredLint),
+      : buildOptionalScriptChange(
+          'check:style',
+          scripts['check:style'],
+          requiredCheckStyle,
+        )),
+    ...(requiredCheckFormat === undefined
+      ? []
+      : buildOptionalScriptChange(
+          'check:format',
+          scripts['check:format'],
+          requiredCheckFormat,
+        )),
+    ...buildOptionalScriptChange('check', currentCheck, requiredCheck),
   ];
+
+  const legacyLint = scripts.lint;
+  const hasManagedLintInvocation =
+    typeof legacyLint === 'string' &&
+    LEGACY_LINT_SCRIPT_NAMES.some((name) =>
+      hasPackageRunScriptInvocation(legacyLint, name),
+    );
+  const hasRemovableManagedLintCommand =
+    typeof legacyLint === 'string' &&
+    LEGACY_LINT_SCRIPT_NAMES.some((name) =>
+      hasPackageRunScriptCommand(legacyLint, name),
+    );
+  let canRemoveManagedAliases =
+    !hasManagedLintInvocation || hasRemovableManagedLintCommand;
+  const removableLegacyLintInvocations = new Set(
+    LEGACY_LINT_SCRIPT_NAMES.filter((name) => {
+      const command = scripts[name];
+      if (command === undefined) {
+        return true;
+      }
+      if (name === 'lint:ts') {
+        return isStandaloneTtscNoEmitLintCommand(command);
+      }
+      if (name === 'lint:js') {
+        return command === LEGACY_LINT_JS_COMMAND;
+      }
+      if (name === 'lint:css') {
+        return hasManagedLegacyStyleCommand;
+      }
+      return hasManagedLegacyFormatCommand;
+    }),
+  );
+  let remainingLegacyLint = legacyLint;
+  if (
+    typeof remainingLegacyLint === 'string' &&
+    canRemoveManagedAliases &&
+    hasRemovableManagedLintCommand
+  ) {
+    for (const name of removableLegacyLintInvocations) {
+      if (!hasPackageRunScriptCommand(remainingLegacyLint, name)) {
+        continue;
+      }
+      const next = removeExactPackageRunScriptCommands(
+        remainingLegacyLint,
+        name,
+      );
+      if (next === null) {
+        canRemoveManagedAliases = false;
+        break;
+      }
+      remainingLegacyLint = next;
+    }
+  }
+  const retainedManagedRoots = new Map<string, string>(
+    LEGACY_LINT_SCRIPT_NAMES.flatMap((name) => {
+      const command = scripts[name];
+      return command !== undefined &&
+        !removableLegacyLintInvocations.has(name)
+        ? [[name, command] as const]
+        : [];
+    }),
+  );
+  if (
+    typeof legacyLint === 'string' &&
+    typeof remainingLegacyLint === 'string' &&
+    (!canRemoveManagedAliases ||
+      !hasRemovableManagedLintCommand ||
+      remainingLegacyLint !== '')
+  ) {
+    retainedManagedRoots.set(
+      'lint',
+      canRemoveManagedAliases && hasRemovableManagedLintCommand
+        ? remainingLegacyLint
+        : legacyLint,
+    );
+  }
+  const referencedManagedScripts = findReferencedManagedLintScripts(
+    scripts,
+    retainedManagedRoots,
+  );
+  if (
+    typeof legacyLint === 'string' &&
+    typeof remainingLegacyLint === 'string' &&
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint',
+      hasRemovableManagedLintCommand,
+    )
+  ) {
+    const remaining = remainingLegacyLint;
+    if (canRemoveManagedAliases && remaining === '') {
+      changes.push({
+        action: 'remove',
+        currentValue: legacyLint,
+        name: 'lint',
+      });
+    } else if (canRemoveManagedAliases && remaining !== legacyLint) {
+      changes.push({
+        action: 'update',
+        currentValue: legacyLint,
+        name: 'lint',
+        requiredValue: remaining,
+      });
+    }
+  }
+  if (
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:ts',
+      isStandaloneTtscNoEmitLintCommand(scripts['lint:ts']),
+    )
+  ) {
+    changes.push({
+      action: 'remove',
+      currentValue: scripts['lint:ts'],
+      name: 'lint:ts',
+    });
+  }
+  // Only delete the exact helper command that wp-typia owned. Variants may
+  // contain project behavior and must remain under the project's control.
+  if (
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:js',
+      scripts['lint:js'] === LEGACY_LINT_JS_COMMAND,
+    )
+  ) {
+    changes.push({
+      action: 'remove',
+      currentValue: scripts['lint:js'],
+      name: 'lint:js',
+    });
+  }
+  if (
+    hasManagedLegacyStyleCommand &&
+    !hasLegacyStyleLifecycleHooks &&
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'lint:css',
+      hasManagedLegacyStyleCommand,
+    )
+  ) {
+    changes.push({
+      action: 'remove',
+      currentValue: legacyStyleCommand,
+      name: 'lint:css',
+    });
+  }
+  if (
+    hasManagedLegacyFormatCommand &&
+    !hasLegacyFormatLifecycleHooks &&
+    shouldRemoveManagedLintScript(
+      canRemoveManagedAliases,
+      referencedManagedScripts,
+      'format:check',
+      hasManagedLegacyFormatCommand,
+    )
+  ) {
+    changes.push({
+      action: 'remove',
+      currentValue: legacyFormatCommand,
+      name: 'format:check',
+    });
+  }
+
+  return changes;
 }
 
 export function buildPackageManagerFieldChange(
@@ -580,7 +1187,11 @@ export function buildNextProjectPackageJson(options: {
   }
 
   for (const scriptChange of options.packageChanges.scripts) {
-    nextPackageJson.scripts[scriptChange.name] = scriptChange.requiredValue;
+    if (scriptChange.action === 'remove') {
+      delete nextPackageJson.scripts[scriptChange.name];
+    } else if (scriptChange.requiredValue !== undefined) {
+      nextPackageJson.scripts[scriptChange.name] = scriptChange.requiredValue;
+    }
   }
 
   return nextPackageJson;
@@ -588,6 +1199,11 @@ export function buildNextProjectPackageJson(options: {
 
 export function buildProjectPackageJsonSource(
 	packageJson: ProjectPackageJson,
+  currentSource?: string,
 ): string {
-  return `${JSON.stringify(packageJson, null, 2)}\n`;
+  const indentation =
+    currentSource?.match(/(?:^|\r?\n)([\t ]+)"/u)?.[1] ?? '  ';
+  const lineEnding = currentSource?.includes('\r\n') ? '\r\n' : '\n';
+  const source = JSON.stringify(packageJson, null, indentation);
+  return `${source.split('\n').join(lineEnding)}${lineEnding}`;
 }

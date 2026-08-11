@@ -252,35 +252,67 @@ export function assertGeneratedPackageBoundary(projectDir) {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const allowWorkspaceCliHelperScripts =
     isOfficialWorkspaceTemplatePackage(packageJson);
-  const expectedLintScript = 'node scripts/run-wp-scripts-lint-js-compat.mjs';
-  const expectedLintCssScript =
-    'wp-scripts lint-style --allow-empty-input';
+  const expectedStyleCheckScript = 'wp-scripts lint-style --allow-empty-input';
 
-  if (packageJson.scripts?.['lint:js'] !== expectedLintScript) {
+  if (
+    typeof packageJson.scripts?.['check:code'] !== 'string' ||
+    !packageJson.scripts['check:code'].includes('ttsc check --noEmit')
+  ) {
     throw new Error(
-      `Expected generated project lint:js to use "${expectedLintScript}", found ${JSON.stringify(packageJson.scripts?.['lint:js'] ?? null)}`,
+      `Expected generated project check:code to invoke ttsc check --noEmit, found ${JSON.stringify(packageJson.scripts?.['check:code'] ?? null)}`,
+    );
+  }
+  if (packageJson.scripts?.['check:style'] !== expectedStyleCheckScript) {
+    throw new Error(
+      `Expected generated project check:style to use "${expectedStyleCheckScript}", found ${JSON.stringify(packageJson.scripts?.['check:style'] ?? null)}`,
     );
   }
   if (
-    typeof packageJson.scripts?.['lint:css'] === 'string' &&
-    packageJson.scripts['lint:css'] !== expectedLintCssScript
+    typeof packageJson.scripts?.['check:format'] !== 'string' ||
+    !packageJson.scripts['check:format'].includes('prettier --check')
   ) {
     throw new Error(
-      `Expected generated project lint:css to use "${expectedLintCssScript}", found ${JSON.stringify(packageJson.scripts['lint:css'])}`,
+      `Expected generated project check:format to invoke prettier --check, found ${JSON.stringify(packageJson.scripts?.['check:format'] ?? null)}`,
     );
   }
-  if (packageJson.devDependencies?.['@typescript/typescript6'] !== '6.0.2') {
-    throw new Error(
-      `Expected generated project to pin @typescript/typescript6@6.0.2 for WordPress ESLint, found ${JSON.stringify(packageJson.devDependencies?.['@typescript/typescript6'] ?? null)}`,
-    );
-  }
+  const aggregateCheck = packageJson.scripts?.check;
   if (
-    packageJson.devDependencies?.['eslint-import-resolver-typescript'] !==
-    '^4.4.5'
+    typeof aggregateCheck !== 'string' ||
+    !['check:code', 'check:style', 'check:format'].every((scriptName) =>
+      aggregateCheck.includes(`run ${scriptName}`),
+    )
   ) {
     throw new Error(
-      `Expected generated project to declare eslint-import-resolver-typescript@^4.4.5 for npm-installed WordPress ESLint, found ${JSON.stringify(packageJson.devDependencies?.['eslint-import-resolver-typescript'] ?? null)}`,
+      `Expected generated project check to aggregate code, style, and format gates, found ${JSON.stringify(packageJson.scripts?.check ?? null)}`,
     );
+  }
+  for (const removedScript of [
+    'lint',
+    'lint:ts',
+    'lint:js',
+    'lint:css',
+    'typecheck',
+    'format:check',
+  ]) {
+    if (removedScript in (packageJson.scripts ?? {})) {
+      throw new Error(
+        `Expected generated project to omit legacy script ${removedScript}`,
+      );
+    }
+  }
+  for (const removedDependency of [
+    '@typescript/typescript6',
+    'eslint-import-resolver-typescript',
+    'eslint-plugin-jsx-a11y',
+  ]) {
+    if (
+      removedDependency in (packageJson.dependencies ?? {}) ||
+      removedDependency in (packageJson.devDependencies ?? {})
+    ) {
+      throw new Error(
+        `Expected generated project to omit legacy lint dependency ${removedDependency}`,
+      );
+    }
   }
   for (const [dependencyName, expectedVersion] of [
     ['@types/react', '^18.3.28'],
@@ -295,12 +327,34 @@ export function assertGeneratedPackageBoundary(projectDir) {
     }
   }
   for (const relativePath of [
+    '.prettierignore',
     'prettier.config.mjs',
-    'scripts/register-typescript6.cjs',
-    'scripts/run-wp-scripts-lint-js-compat.mjs',
+    'scripts/apply-ttsc-lint-compat.mjs',
   ]) {
     if (!fs.existsSync(path.join(projectDir, relativePath))) {
       throw new Error(`Expected generated project to include ${relativePath}`);
+    }
+  }
+  const prettierIgnorePatterns = new Set(
+    fs
+      .readFileSync(path.join(projectDir, '.prettierignore'), 'utf8')
+      .split(/\r?\n/gu)
+      .filter(Boolean),
+  );
+  for (const packageManagerArtifactPattern of [
+    '**/.pnpm-store/**',
+    '**/.yarn/**',
+    '**/bun.lock',
+    '**/bun.lockb',
+    '**/npm-shrinkwrap.json',
+    '**/package-lock.json',
+    '**/pnpm-lock.yaml',
+    '**/yarn.lock',
+  ]) {
+    if (!prettierIgnorePatterns.has(packageManagerArtifactPattern)) {
+      throw new Error(
+        `Expected generated .prettierignore to exclude package-manager artifact pattern ${packageManagerArtifactPattern}`,
+      );
     }
   }
 

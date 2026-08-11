@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +15,7 @@ import {
 import {
   packWorkspacePackage,
   packWorkspacePackageDetailed,
+  removeTempDir,
   withTempDir,
 } from '../../scripts/publish-package-utils.mjs';
 
@@ -73,45 +75,125 @@ function readDeclaredBudgetPackageNames(): string[] {
 }
 
 describe('publish package footprint policy', () => {
-	test('returns npm pack metadata without changing the tarball-only wrapper', () => {
-		withTempDir('wp-typia-pack-metadata-', (tempRoot) => {
-			const packageDir = path.join(tempRoot, 'package');
-			const detailedDestination = path.join(tempRoot, 'detailed');
-			fs.mkdirSync(packageDir, { recursive: true });
-			fs.writeFileSync(
-				path.join(packageDir, 'package.json'),
-				JSON.stringify({
-					files: ['index.js'],
-					name: 'wp-typia-pack-fixture',
-					version: '1.0.0',
-				}),
-			);
-			fs.writeFileSync(path.join(packageDir, 'index.js'), 'export {};\n');
-
-			const detailed = packWorkspacePackageDetailed(
-				packageDir,
-				detailedDestination,
-			);
-
-			expect(detailed.metadata.name).toBe('wp-typia-pack-fixture');
-			expect(detailed.metadata.filename).toBe(
-				'wp-typia-pack-fixture-1.0.0.tgz',
-			);
-			expect(detailed.tarballPath).toBe(
-				path.join(detailedDestination, detailed.metadata.filename),
-			);
-			expect(fs.existsSync(detailed.tarballPath)).toBe(true);
-
-			const wrappedTarballPath = packWorkspacePackage(
-				packageDir,
-				path.join(tempRoot, 'wrapped'),
-			);
-			expect(path.basename(wrappedTarballPath)).toBe(
-				'wp-typia-pack-fixture-1.0.0.tgz',
-			);
-			expect(fs.existsSync(wrappedTarballPath)).toBe(true);
-		});
+	test('preserves callback failures while cleaning temporary directories', () => {
+		const marker = new Error('callback failed');
+		expect(() =>
+			withTempDir('wp-typia-callback-failure-', () => {
+				throw marker;
+			}),
+		).toThrow(marker);
 	});
+
+	test('rejects cleanup targets outside the OS temporary directory', () => {
+		expect(() => removeTempDir(repoRoot)).toThrow(
+			'Refusing to remove a directory outside',
+		);
+	});
+
+	test('rejects cleanup targets reached through an escaping symlink', () => {
+		const outsideDir = fs.mkdtempSync(
+			path.join(repoRoot, '.publish-cleanup-boundary-'),
+		);
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'wp-typia-rm-symlink-'),
+		);
+		const linkedDir = path.join(tempDir, 'outside');
+		const cleanupTarget = path.join(linkedDir, 'fixture');
+		try {
+			fs.mkdirSync(path.join(outsideDir, 'fixture'));
+			fs.writeFileSync(
+				path.join(outsideDir, 'fixture', 'probe.txt'),
+				'probe',
+			);
+			fs.symlinkSync(outsideDir, linkedDir, 'dir');
+
+			expect(() => removeTempDir(cleanupTarget)).toThrow(
+				'Refusing to remove a directory outside',
+			);
+			expect(fs.existsSync(path.join(cleanupTarget, 'probe.txt'))).toBe(true);
+		} finally {
+			fs.rmSync(tempDir, { force: true, recursive: true });
+			fs.rmSync(outsideDir, { force: true, recursive: true });
+		}
+	});
+
+	test('falls back to Node cleanup when the native remover is unavailable', () => {
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'wp-typia-rm-fallback-'),
+		);
+		fs.writeFileSync(path.join(tempDir, 'probe.txt'), 'probe');
+
+		removeTempDir(tempDir, 'wp-typia-missing-rm-command');
+
+		expect(fs.existsSync(tempDir)).toBe(false);
+	});
+
+	test('surfaces cleanup failures after a successful callback', () => {
+		const cleanupFailure = new Error('cleanup failed');
+		let tempDir = '';
+		try {
+			expect(() =>
+				withTempDir(
+					'wp-typia-cleanup-failure-',
+					(directory) => {
+						tempDir = directory;
+						return 'completed';
+					},
+					() => {
+						throw cleanupFailure;
+					},
+				),
+			).toThrow(cleanupFailure);
+		} finally {
+			if (tempDir.length > 0) {
+				fs.rmSync(tempDir, { force: true, recursive: true });
+			}
+		}
+	});
+
+	test(
+		'returns npm pack metadata without changing the tarball-only wrapper',
+		() => {
+			withTempDir('wp-typia-pack-metadata-', (tempRoot) => {
+				const packageDir = path.join(tempRoot, 'package');
+				const detailedDestination = path.join(tempRoot, 'detailed');
+				fs.mkdirSync(packageDir, { recursive: true });
+				fs.writeFileSync(
+					path.join(packageDir, 'package.json'),
+					JSON.stringify({
+						files: ['index.js'],
+						name: 'wp-typia-pack-fixture',
+						version: '1.0.0',
+					}),
+				);
+				fs.writeFileSync(path.join(packageDir, 'index.js'), 'export {};\n');
+
+				const detailed = packWorkspacePackageDetailed(
+					packageDir,
+					detailedDestination,
+				);
+
+				expect(detailed.metadata.name).toBe('wp-typia-pack-fixture');
+				expect(detailed.metadata.filename).toBe(
+					'wp-typia-pack-fixture-1.0.0.tgz',
+				);
+				expect(detailed.tarballPath).toBe(
+					path.join(detailedDestination, detailed.metadata.filename),
+				);
+				expect(fs.existsSync(detailed.tarballPath)).toBe(true);
+
+				const wrappedTarballPath = packWorkspacePackage(
+					packageDir,
+					path.join(tempRoot, 'wrapped'),
+				);
+				expect(path.basename(wrappedTarballPath)).toBe(
+					'wp-typia-pack-fixture-1.0.0.tgz',
+				);
+				expect(fs.existsSync(wrappedTarballPath)).toBe(true);
+			});
+		},
+		{ timeout: 30_000 },
+	);
 
 	test('passes exact unpacked byte and file-count boundaries', () => {
 		const result = validatePublishPackageFootprint(createPackMetadata());

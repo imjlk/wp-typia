@@ -79,7 +79,7 @@ describe('@wp-typia/project-tools scaffold query-loop', () => {
 			expect(packageJson.scripts['watch:sync-types']).toBeUndefined();
 			expect(packageJson.scripts.start).toBe('wp-scripts start --experimental-modules');
 			expect(packageJson.scripts.dev).toBe('wp-scripts start --experimental-modules');
-			expect(packageJson.scripts.typecheck).toBe('ttsc --noEmit');
+			expect(packageJson.scripts['check:code']).toBe('ttsc check --noEmit');
 			expect(packageJson.packageManager).toBeUndefined();
 			expect(fs.existsSync(path.join(targetDir, 'src', 'block.json'))).toBe(false);
 			expect(fs.existsSync(path.join(targetDir, 'src', 'typia.manifest.json'))).toBe(false);
@@ -88,16 +88,7 @@ describe('@wp-typia/project-tools scaffold query-loop', () => {
 			).toBe(false);
 			expect(
 				fs.existsSync(
-					path.join(targetDir, 'scripts', 'register-typescript6.cjs'),
-				),
-			).toBe(true);
-			expect(
-				fs.existsSync(
-					path.join(
-						targetDir,
-						'scripts',
-						'run-wp-scripts-lint-js-compat.mjs',
-					),
+					path.join(targetDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
 				),
 			).toBe(true);
 			for (const staleScript of [

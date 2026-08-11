@@ -185,7 +185,7 @@ export function createProjectShell(projectDir: string) {
 
 export function installMigrationCompilerFixture(projectDir: string) {
   writeFile(
-    path.join(projectDir, 'lint.config.ts'),
+    path.join(projectDir, 'lint.config.mts'),
     `export default {
   format: {
     severity: 'error',

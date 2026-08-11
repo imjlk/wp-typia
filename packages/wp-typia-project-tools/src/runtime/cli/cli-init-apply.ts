@@ -24,7 +24,10 @@ import {
 import {
   buildOfficialWorkspaceLintFiles,
   buildRetrofitHelperFiles,
+  findManagedLintConfigOutputConflict,
+  findTtscLintCompatOutputConflict,
   findTtscLintConfigPath,
+  hasPreviousManagedWordPressTtscLintConfig,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
 } from './cli-init-templates.js';
@@ -39,6 +42,10 @@ import {
   type ProjectPackageJson,
   type RetrofitInitPlan,
 } from './cli-init-types.js';
+import {
+  collectWorkspaceScriptFilePaths,
+  migrateHistoricalGeneratedExportNames,
+} from '../add/cli-add-workspace-generated-exports.js';
 
 async function createRetrofitMutationSnapshot(
 	projectDir: string,
@@ -65,7 +72,9 @@ async function createRetrofitMutationSnapshot(
 async function writeRetrofitFiles(options: {
   helperFiles: Record<string, string>;
   packageJson: ProjectPackageJson;
+  packageJsonSource: string;
   projectDir: string;
+  removedFiles: string[];
   webpackChanges: RetrofitWebpackChange[];
   yarnPnpNodeModulesConfig: ReturnType<typeof getYarnPnpNodeModulesConfig>;
 }): Promise<void> {
@@ -74,7 +83,10 @@ async function writeRetrofitFiles(options: {
   await fsp.mkdir(scriptsDir, { recursive: true });
   await fsp.writeFile(
     path.join(options.projectDir, 'package.json'),
-    buildProjectPackageJsonSource(options.packageJson),
+    buildProjectPackageJsonSource(
+      options.packageJson,
+      options.packageJsonSource,
+    ),
     'utf8',
   );
 
@@ -84,6 +96,9 @@ async function writeRetrofitFiles(options: {
       source,
       'utf8',
     );
+  }
+  for (const relativePath of options.removedFiles) {
+    await fsp.rm(path.join(options.projectDir, relativePath), { force: true });
   }
   for (const change of options.webpackChanges) {
     await fsp.writeFile(
@@ -128,8 +143,7 @@ function buildApplyNextSteps(
 ): string[] {
   return buildInitPlanNextSteps({
     commandMode: 'apply',
-    compatibilitySurfaceChanged:
-      hasTtscLintCompatPlanChanges(previewPlan),
+    compatibilitySurfaceChanged: hasTtscLintCompatPlanChanges(previewPlan),
     dependencyChanges: previewPlan.packageChanges.addDevDependencies,
     hasPlannedChanges: true,
     layoutKind: previewPlan.detectedLayout.kind,
@@ -140,8 +154,9 @@ function buildApplyNextSteps(
 /**
  * Apply the previewed retrofit init plan to disk.
  *
- * The command snapshots package.json and generated helper targets before
- * writing, then rolls those files back automatically if any write fails.
+ * The command snapshots package.json, generated helper targets, and workspace
+ * script consumers before writing, then rolls those files back automatically
+ * if any write or historical-export migration fails.
  *
  * @param projectDir Project root that should receive the retrofit surface.
  * @param options Optional package-manager override used for emitted scripts and
@@ -164,15 +179,46 @@ export async function applyInitPlan(
   }
 
   const currentPackageJson = readProjectPackageJson(previewPlan.projectDir);
+  const packageJsonPath = path.join(previewPlan.projectDir, 'package.json');
+  const currentPackageJsonSource = fs.existsSync(packageJsonPath)
+    ? fs.readFileSync(packageJsonPath, 'utf8')
+    : '';
   const expectedTextDomain = resolveRetrofitTextDomain({
     blockTargets: previewPlan.blockTargets,
     packageJson: currentPackageJson,
     projectDir: previewPlan.projectDir,
   });
   const existingLintConfigPath = findTtscLintConfigPath(previewPlan.projectDir);
+  const previousManagedLintConfig =
+    hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      expectedTextDomain,
+    );
+  const ttscLintCompatOutputConflict = findTtscLintCompatOutputConflict(
+    previewPlan.projectDir,
+  );
+  if (ttscLintCompatOutputConflict) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      '`wp-typia init --apply` preserves the existing scripts/apply-ttsc-lint-compat.mjs because it is project-owned. Move it or reconcile it with the managed compatibility helper, then rerun the command.',
+    );
+  }
+  const managedLintConfigOutputConflict =
+    findManagedLintConfigOutputConflict(
+      previewPlan.projectDir,
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    );
+  if (managedLintConfigOutputConflict) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      `\`wp-typia init --apply\` preserves the existing ${path.basename(managedLintConfigOutputConflict)} because it conflicts with the destination required to migrate ${path.basename(existingLintConfigPath ?? '')}. Reconcile the two lint configs, then rerun the command.`,
+    );
+  }
   if (
     existingLintConfigPath &&
-    !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain)
+    !hasWordPressTtscLintConfig(existingLintConfigPath, expectedTextDomain) &&
+    !previousManagedLintConfig
   ) {
     throw createCliDiagnosticCodeError(
       CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
@@ -218,6 +264,13 @@ export async function applyInitPlan(
     previewPlan.packageManager,
     previewPlan.packageChanges.packageManagerField?.requiredValue,
   );
+  const removedFiles = previewPlan.plannedFiles
+		.filter((file) => file.action === 'remove')
+		.map((file) => file.path);
+  const historicalMigrationFilePaths =
+    previewPlan.detectedLayout.kind === 'official-workspace'
+      ? await collectWorkspaceScriptFilePaths(previewPlan.projectDir)
+      : [];
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
 		...Object.keys(helperFiles).map((relativePath) =>
@@ -226,7 +279,11 @@ export async function applyInitPlan(
 		...webpackChanges.map((change) =>
 			path.join(previewPlan.projectDir, change.path),
 		),
+		...removedFiles.map((relativePath) =>
+			path.join(previewPlan.projectDir, relativePath),
+		),
 		...(yarnPnpNodeModulesConfig ? [yarnPnpNodeModulesConfig.path] : []),
+		...historicalMigrationFilePaths,
 	];
   const mutationSnapshot = await createRetrofitMutationSnapshot(
     previewPlan.projectDir,
@@ -237,10 +294,15 @@ export async function applyInitPlan(
     await writeRetrofitFiles({
       helperFiles,
       packageJson: nextPackageJson,
+      packageJsonSource: currentPackageJsonSource,
       projectDir: previewPlan.projectDir,
+      removedFiles,
       webpackChanges,
       yarnPnpNodeModulesConfig,
     });
+    if (previewPlan.detectedLayout.kind === 'official-workspace') {
+      await migrateHistoricalGeneratedExportNames(previewPlan.projectDir);
+    }
   } catch (error) {
     await rollbackWorkspaceMutation(mutationSnapshot);
     throw buildApplyFailureError(error);

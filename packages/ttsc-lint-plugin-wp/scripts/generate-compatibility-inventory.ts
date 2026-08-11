@@ -16,7 +16,7 @@ const UPSTREAM_VERSION = '25.8.0';
 const UPSTREAM_INTEGRITY =
   'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==';
 const TTSC_BASELINE = '0.23.0';
-const TTSC_NEXT_UNSUPPORTED = '0.26.0';
+const TTSC_NEXT_UNSUPPORTED = '0.27.0';
 const IMPLEMENTED_RULES = new Map<string, string>();
 const registerImplementedRule = (name: string): void => {
   IMPLEMENTED_RULES.set(`@wordpress/${name}`, `wordpress/${name}`);
@@ -59,9 +59,17 @@ const SEVERITY_ONLY_TRANSLATIONS = new Set([
   'jsx-a11y/no-noninteractive-element-interactions',
   'jsx-a11y/no-noninteractive-element-to-interactive-role',
   'jsx-a11y/no-noninteractive-tabindex',
-  'jsx-a11y/no-static-element-interactions',
   'no-cond-assign',
   'react/exhaustive-deps',
+]);
+const COMPILED_BEHAVIOR_DOWNGRADES = new Map<
+  string,
+  'engine-failure' | 'semantic-mismatch'
+>([
+  ['no-shadow', 'engine-failure'],
+  ['jsx-a11y/click-events-have-key-events', 'semantic-mismatch'],
+  ['jsx-a11y/no-static-element-interactions', 'semantic-mismatch'],
+  ['jsx-a11y/role-supports-aria-props', 'semantic-mismatch'],
 ]);
 
 interface FlatConfigEntry {
@@ -97,7 +105,9 @@ if (
 
 const require = createRequire(import.meta.url);
 const plugin = require(packageRoot) as WordPressEslintPlugin;
-const ttscLintPackageJsonPath = require.resolve('@ttsc/lint/package.json');
+const ttscLintPackageJsonPath = require.resolve(
+  '@ttsc/lint-baseline/package.json',
+);
 const ttscLintRoot = path.dirname(ttscLintPackageJsonPath);
 const ttscLintPackageJson = JSON.parse(
   fs.readFileSync(ttscLintPackageJsonPath, 'utf8'),
@@ -206,6 +216,13 @@ function compilePreset(
   const supportedRules = new Set<string>();
   const unsupportedRules = new Set<string>();
   const optionDowngrades = new Map<string, string>();
+  const behaviorDowngrades = new Map<
+    string,
+    {
+      reason: 'engine-failure' | 'semantic-mismatch';
+      target: string;
+    }
+  >();
   const compiledEntries: CompiledPresetEntry[] = [];
 
   for (const entry of entries) {
@@ -221,6 +238,17 @@ function compilePreset(
       }
       if (ruleCompatibility.kind === 'runner') {
         if (!isOff(setting)) runnerRules.add(source);
+        continue;
+      }
+      const behaviorDowngrade = COMPILED_BEHAVIOR_DOWNGRADES.get(source);
+      if (behaviorDowngrade) {
+        if (!isOff(setting)) {
+          unsupportedRules.add(source);
+          behaviorDowngrades.set(source, {
+            reason: behaviorDowngrade,
+            target: ruleCompatibility.target,
+          });
+        }
         continue;
       }
       const normalizedSetting = normalizeSeverity(setting);
@@ -252,6 +280,9 @@ function compilePreset(
   }
 
   return {
+    behaviorDowngrades: [...behaviorDowngrades]
+      .sort(([left], [right]) => compareCodeUnits(left, right))
+      .map(([source, value]) => ({ source, ...value })),
     entries: compiledEntries,
     optionDowngrades: [...optionDowngrades]
       .sort(([left], [right]) => compareCodeUnits(left, right))

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import { quoteTsString } from '../add/cli-add-shared.js';
 import {
@@ -7,7 +8,10 @@ import {
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
-import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
+import {
+  SHARED_BASE_TEMPLATE_ROOT,
+  SHARED_TEMPLATE_ROOT,
+} from '../templates/template-registry.js';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
@@ -17,6 +21,66 @@ import type {
   RetrofitInitBlockTarget,
 } from './cli-init-types.js';
 import { updateWorkspaceInventorySource } from '../workspace/workspace-inventory.js';
+
+const PREVIOUS_MANAGED_TSCONFIG = {
+  compilerOptions: {
+    target: 'ES2020',
+    module: 'ESNext',
+    lib: ['ES2020', 'DOM', 'DOM.Iterable'],
+    jsx: 'react-jsx',
+    strict: true,
+    esModuleInterop: true,
+    allowSyntheticDefaultImports: true,
+    skipLibCheck: true,
+    forceConsistentCasingInFileNames: true,
+    moduleResolution: 'bundler',
+    resolveJsonModule: true,
+    isolatedModules: true,
+    noEmit: true,
+    rootDir: '.',
+    types: ['node', 'wordpress__block-editor', 'wordpress__blocks'],
+  },
+  include: ['src/**/*', 'scripts/**/*'],
+  exclude: ['node_modules', 'build'],
+};
+
+function normalizeLineEndings(source: string): string {
+  return source.replace(/\r\n/gu, '\n');
+}
+
+export function getManagedLintConfigOutputFilename(
+  existingLintConfigPath: string | null,
+  previousManagedLintConfig: boolean,
+): string {
+  if (previousManagedLintConfig && existingLintConfigPath) {
+    const basename = path.basename(existingLintConfigPath);
+    if (/\.mts$/u.test(basename)) {
+      return basename;
+    }
+  }
+  return 'lint.config.mts';
+}
+
+export function findManagedLintConfigOutputConflict(
+  projectDir: string,
+  existingLintConfigPath: string | null,
+  previousManagedLintConfig: boolean,
+): string | null {
+  if (!existingLintConfigPath || !previousManagedLintConfig) {
+    return null;
+  }
+  const outputPath = path.join(
+    projectDir,
+    getManagedLintConfigOutputFilename(
+      existingLintConfigPath,
+      previousManagedLintConfig,
+    ),
+  );
+  return path.resolve(outputPath) !== path.resolve(existingLintConfigPath) &&
+    fs.existsSync(outputPath)
+    ? outputPath
+    : null;
+}
 
 /** Find the first ttsc lint config using the shared discovery precedence. */
 export function findTtscLintConfigPath(projectDir: string): string | null {
@@ -86,7 +150,7 @@ export function buildWordPressTtscLintConfigSource(
 ): string {
   const templatePath = path.join(
     SHARED_BASE_TEMPLATE_ROOT,
-    'lint.config.ts.mustache',
+    'lint.config.mts.mustache',
   );
   const source = fs.readFileSync(templatePath, 'utf8');
   const placeholder = "'{{textDomain}}'";
@@ -102,6 +166,97 @@ export function buildWordPressTtscLintConfigSource(
     );
   }
   return rendered;
+}
+
+/** Recreate the exact WordPress lint config emitted by the previous template. */
+export function buildPreviousManagedWordPressTtscLintConfigSource(
+  textDomain: string,
+): string {
+  return `import type { ITtscLintConfig } from '@ttsc/lint';
+import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
+
+export default {
+  ...configs.recommended,
+  ignores: ['build/**', 'node_modules/**'],
+  format: {
+    severity: 'error',
+    printWidth: 80,
+    tabWidth: 2,
+    useTabs: false,
+    semi: true,
+    singleQuote: true,
+    trailingComma: 'all',
+    endOfLine: 'lf',
+    sortImports: false,
+    jsDoc: false,
+  },
+  rules: {
+    ...configs.recommended.rules,
+    'no-var': 'error',
+    'prefer-const': 'error',
+    eqeqeq: 'error',
+    'wordpress/i18n-text-domain': [
+      'error',
+      { allowedTextDomain: ${quoteTsString(textDomain)} },
+    ],
+  },
+} satisfies ITtscLintConfig;
+`;
+}
+
+/** Check whether a lint config is the untouched preceding managed template. */
+export function hasPreviousManagedWordPressTtscLintConfig(
+  configPath: string | null,
+  expectedTextDomain: string,
+): boolean {
+  if (!configPath) {
+    return false;
+  }
+  if (!/\.(?:c|m)?ts$/u.test(path.basename(configPath))) {
+    return false;
+  }
+  try {
+    if (!fs.lstatSync(configPath).isFile()) {
+      return false;
+    }
+    return (
+      normalizeLineEndings(fs.readFileSync(configPath, 'utf8')) ===
+      normalizeLineEndings(
+        buildPreviousManagedWordPressTtscLintConfigSource(expectedTextDomain),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Check whether tsconfig.json is the untouched preceding managed template. */
+export function hasPreviousManagedTtsconfig(projectDir: string): boolean {
+  const configPath = path.join(projectDir, 'tsconfig.json');
+  try {
+    if (!fs.lstatSync(configPath).isFile()) {
+      return false;
+    }
+    const source = fs.readFileSync(configPath, 'utf8');
+    return isDeepStrictEqual(JSON.parse(source), PREVIOUS_MANAGED_TSCONFIG);
+  } catch {
+    return false;
+  }
+}
+
+/** Read the current managed tsconfig source used for a safe baseline upgrade. */
+export function getCurrentManagedTtsconfigSource(): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'tsconfig.json.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  if (/\{\{|\}\}/u.test(source)) {
+    throw new Error(
+      `${templatePath} must remain interpolation-free for managed upgrades.`,
+    );
+  }
+  return source;
 }
 
 /**
@@ -297,6 +452,122 @@ main().catch( ( error ) => {
 `;
 }
 
+/** Read the canonical managed ttsc lint compatibility helper source. */
+export function getTtscLintCompatSource(): string {
+  const templatePath = path.join(
+    SHARED_BASE_TEMPLATE_ROOT,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs.mustache',
+  );
+  const source = fs.readFileSync(templatePath, 'utf8');
+  if (/\{\{|\}\}/u.test(source)) {
+    throw new Error(
+      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
+    );
+  }
+  return source;
+}
+
+/** Read the exact helper emitted by the preceding managed release. */
+export function getPreviousTtscLintCompatSource(): string {
+  return fs.readFileSync(
+    path.join(
+      SHARED_TEMPLATE_ROOT,
+      'history',
+      'apply-ttsc-lint-compat.0.23.0.mjs',
+    ),
+    'utf8',
+  );
+}
+
+export interface TtscLintCompatFileState {
+  conflictPath: string | null;
+  current: boolean;
+}
+
+function hasUnsafeExistingParent(
+  projectDir: string,
+  targetPath: string,
+): boolean {
+  const relativePath = path.relative(projectDir, targetPath);
+  if (
+    relativePath === '' ||
+    path.isAbsolute(relativePath) ||
+    relativePath.split(path.sep).includes('..')
+  ) {
+    return true;
+  }
+  let currentPath = projectDir;
+  for (const segment of path.dirname(relativePath).split(path.sep)) {
+    if (!segment || segment === '.') {
+      continue;
+    }
+    currentPath = path.join(currentPath, segment);
+    try {
+      const entry = fs.lstatSync(currentPath);
+      if (entry.isSymbolicLink() || !entry.isDirectory()) {
+        return true;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Inspect the managed compatibility helper with one project-file read. */
+export function inspectTtscLintCompatFile(
+  projectDir: string,
+): TtscLintCompatFileState {
+  const compatPath = path.join(
+    projectDir,
+    'scripts',
+    'apply-ttsc-lint-compat.mjs',
+  );
+  if (hasUnsafeExistingParent(projectDir, compatPath)) {
+    return { conflictPath: compatPath, current: false };
+  }
+  try {
+    if (!fs.lstatSync(compatPath).isFile()) {
+      return { conflictPath: compatPath, current: false };
+    }
+    const normalizeLineEndings = (source: string) =>
+      source.replace(/\r\n/gu, '\n');
+    const source = normalizeLineEndings(fs.readFileSync(compatPath, 'utf8'));
+    const current =
+      source === normalizeLineEndings(getTtscLintCompatSource());
+    if (current) {
+      return { conflictPath: null, current: true };
+    }
+    const precedingManaged =
+      source === normalizeLineEndings(getPreviousTtscLintCompatSource());
+    return {
+      conflictPath: precedingManaged ? null : compatPath,
+      current: false,
+    };
+  } catch {
+    return {
+      conflictPath: fs.existsSync(compatPath) ? compatPath : null,
+      current: false,
+    };
+  }
+}
+
+/** Check whether the generated ttsc compatibility helper is current. */
+export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
+  return inspectTtscLintCompatFile(projectDir).current;
+}
+
+/** Find a project-owned compatibility helper that init must not overwrite. */
+export function findTtscLintCompatOutputConflict(
+  projectDir: string,
+): string | null {
+  return inspectTtscLintCompatFile(projectDir).conflictPath;
+}
+
 /**
  * Generate the `scripts/sync-project.ts` orchestration helper source.
  *
@@ -414,42 +685,6 @@ main().catch( ( error ) => {
 `;
 }
 
-/** Read the canonical managed ttsc lint compatibility helper source. */
-export function getTtscLintCompatSource(): string {
-  const templatePath = path.join(
-    SHARED_BASE_TEMPLATE_ROOT,
-    'scripts',
-    'apply-ttsc-lint-compat.mjs.mustache',
-  );
-  const source = fs.readFileSync(templatePath, 'utf8');
-  if (/\{\{|\}\}/u.test(source)) {
-    throw new Error(
-      `${templatePath} must remain interpolation-free because retrofit init writes it without Mustache rendering.`,
-    );
-  }
-
-  return source;
-}
-
-/** Check whether the generated ttsc compatibility helper is current. */
-export function hasCurrentTtscLintCompatFile(projectDir: string): boolean {
-  const compatPath = path.join(
-    projectDir,
-    'scripts',
-    'apply-ttsc-lint-compat.mjs',
-  );
-  try {
-    const normalizeLineEndings = (source: string) =>
-      source.replace(/\r\n/gu, '\n');
-    return (
-      normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
-      normalizeLineEndings(getTtscLintCompatSource())
-    );
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Build the helper file source map written by `wp-typia init --apply`.
  *
@@ -463,18 +698,46 @@ export function buildRetrofitHelperFiles(
 		textDomain: string;
 	},
 ): Record<string, string> {
+  const existingLintConfigPath = options
+    ? findTtscLintConfigPath(options.projectDir)
+    : null;
+  const previousManagedLintConfig = options
+    ? hasPreviousManagedWordPressTtscLintConfig(
+        existingLintConfigPath,
+        options.textDomain,
+      )
+    : false;
+  const managedLintConfigOutputConflict = options
+    ? findManagedLintConfigOutputConflict(
+        options.projectDir,
+        existingLintConfigPath,
+        previousManagedLintConfig,
+      )
+    : null;
+  const ttscLintCompatOutputConflict = options
+    ? inspectTtscLintCompatFile(options.projectDir).conflictPath
+    : null;
   return {
-		[path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
-			getTtscLintCompatSource(),
+		...(ttscLintCompatOutputConflict
+      ? {}
+      : {
+          [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
+            getTtscLintCompatSource(),
+        }),
 		[path.join('scripts', 'block-config.ts')]:
 			buildRetrofitBlockConfigSource(blockTargets),
 		[path.join('scripts', 'sync-project.ts')]:
 			buildRetrofitSyncProjectScriptSource(),
 		[path.join('scripts', 'sync-types-to-block-json.ts')]:
 			buildRetrofitSyncTypesScriptSource(),
-		...(options && !findTtscLintConfigPath(options.projectDir)
+		...(options &&
+    !managedLintConfigOutputConflict &&
+    (!existingLintConfigPath || previousManagedLintConfig)
 			? {
-					'lint.config.ts': buildWordPressTtscLintConfigSource(
+					[getManagedLintConfigOutputFilename(
+						existingLintConfigPath,
+						previousManagedLintConfig,
+					)]: buildWordPressTtscLintConfigSource(
 						options.textDomain,
 					),
 			  }
@@ -483,27 +746,46 @@ export function buildRetrofitHelperFiles(
 }
 
 /**
- * Build only the lint files that are safe to add to an official workspace.
- * Existing lint configs are never overwritten because they can contain
- * project-owned contributor rules or file routing.
+ * Build only the managed code-quality files that are safe to add to an
+ * official workspace. Exact preceding lint and tsconfig templates are
+ * upgraded; all project-owned variants remain untouched.
  */
 export function buildOfficialWorkspaceLintFiles(options: {
   projectDir: string;
   textDomain: string;
 }): Record<string, string> {
+  const existingLintConfigPath = findTtscLintConfigPath(options.projectDir);
+  const previousManagedLintConfig =
+    hasPreviousManagedWordPressTtscLintConfig(
+      existingLintConfigPath,
+      options.textDomain,
+    );
+  const managedLintConfigOutputConflict = findManagedLintConfigOutputConflict(
+    options.projectDir,
+    existingLintConfigPath,
+    previousManagedLintConfig,
+  );
+  const ttscLintCompatFileState = inspectTtscLintCompatFile(options.projectDir);
   return {
-    ...(hasCurrentTtscLintCompatFile(options.projectDir)
+    ...(ttscLintCompatFileState.current ||
+      ttscLintCompatFileState.conflictPath
       ? {}
       : {
           [path.join('scripts', 'apply-ttsc-lint-compat.mjs')]:
             getTtscLintCompatSource(),
         }),
-    ...(findTtscLintConfigPath(options.projectDir)
+    ...(managedLintConfigOutputConflict ||
+    (existingLintConfigPath && !previousManagedLintConfig)
       ? {}
       : {
-          'lint.config.ts': buildWordPressTtscLintConfigSource(
-            options.textDomain,
-          ),
+          [getManagedLintConfigOutputFilename(
+            existingLintConfigPath,
+            previousManagedLintConfig,
+          )]:
+            buildWordPressTtscLintConfigSource(options.textDomain),
         }),
+    ...(hasPreviousManagedTtsconfig(options.projectDir)
+      ? { 'tsconfig.json': getCurrentManagedTtsconfigSource() }
+      : {}),
   };
 }

@@ -27,7 +27,9 @@ export function buildInitCompletionPayload(
       : []),
     ...plan.packageChanges.scripts.map(
       (script) =>
-        `script ${script.action} ${script.name} -> ${script.requiredValue}`,
+        script.action === 'remove'
+          ? `script remove ${script.name}`
+          : `script ${script.action} ${script.name} -> ${script.requiredValue}`,
     ),
     ...plan.plannedFiles.map(
       (filePlan) =>

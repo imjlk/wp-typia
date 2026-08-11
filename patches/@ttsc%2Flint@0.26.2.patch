@@ -1,0 +1,111 @@
+diff --git a/lib/index.js b/lib/index.js
+index e6e4f72d80c8928a7104516a4a23376936ac933d..38f57d815e1c14c46873fe585dab031538b03436 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -662,7 +662,7 @@ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -680,7 +680,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+diff --git a/linthost/config.go b/linthost/config.go
+index 3ae4da41cae32df05afc8d027686ca42117215e1..89b944d6438ccb427d7becbb38632db19275261d 100644
+--- a/linthost/config.go
++++ b/linthost/config.go
+@@ -3422,7 +3422,7 @@ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -3440,7 +3440,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+diff --git a/linthost/rules_format_trailing_comma.go b/linthost/rules_format_trailing_comma.go
+index 679e57021c03c18c44f021f861a0b51ae5601c1a..6ca5ad4066be801889134845972812beae87232b 100644
+--- a/linthost/rules_format_trailing_comma.go
++++ b/linthost/rules_format_trailing_comma.go
+@@ -237,6 +237,22 @@ func (formatTrailingComma) Check(ctx *Context, node *shimast.Node) {
+     if node.Parent == nil {
+       return
+     }
++    switch node.Parent.Kind {
++    case shimast.KindClassDeclaration,
++      shimast.KindClassExpression,
++      shimast.KindInterfaceDeclaration,
++      shimast.KindTypeAliasDeclaration,
++      shimast.KindJSTypeAliasDeclaration,
++      shimast.KindJSDocTemplateTag:
++      // These declaration kinds own an actual type-parameter list.
++    default:
++      if node.Parent.FunctionLikeData() == nil {
++        // Type parameters used by mapped and infer types are represented by
++        // the same node kind, but their parents do not expose
++        // TypeParameterList and the TypeScript-Go shim panics when asked.
++        return
++      }
++    }
+     list := node.Parent.TypeParameterList()
+     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
+       return
+diff --git a/src/index.ts b/src/index.ts
+index 40131a93b62d2e1644824a4f01edccd4f8c4ceea..939508da9aac801e21c518a831cb9e0bb648f216 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -765,7 +765,7 @@ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -783,7 +783,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+@@ -2088,7 +2088,7 @@ function configDirectoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -2108,7 +2108,7 @@ function configDirectoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(

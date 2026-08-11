@@ -28,7 +28,7 @@
     "examples:dev:compound": "bun run --filter compound-patterns --if-present dev",
     "examples:lint": "node scripts/run-examples-lint.mjs",
     "examples:format": "bun run --filter my-typia-block --if-present format && bun run --filter persistence-examples --if-present format && bun run --filter compound-patterns --if-present format && bun run --filter api-contract-adapter-poc --if-present format",
-    "examples:typecheck": "bun run --filter my-typia-block --if-present typecheck && bun run --filter persistence-examples --if-present typecheck && bun run --filter compound-patterns --if-present typecheck && bun run --filter api-contract-adapter-poc --if-present typecheck",
+    "examples:check:code": "bun run --filter my-typia-block --if-present check:code && bun run --filter persistence-examples --if-present check:code && bun run --filter compound-patterns --if-present check:code && bun run --filter api-contract-adapter-poc --if-present check:code",
     "examples:test:e2e": "bun run examples:build && bun run examples:wp-env:wait:test && playwright test",
     "examples:test:e2e:ci": "bun run examples:wp-env:wait:test && playwright test",
     "examples:test:e2e:matrix": "bun run examples:build && bun run examples:wp-env:wait:test && PLAYWRIGHT_MATRIX=1 playwright test",
@@ -132,8 +132,8 @@
     "@eslint/js": "9.39.4",
     "@playwright/test": "^1.40.0",
     "@samchon/graph": "0.1.0",
-    "@ttsc/lint": "0.23.0",
-    "@ttsc/unplugin": "0.23.0",
+    "@ttsc/lint": "0.26.2",
+    "@ttsc/unplugin": "0.26.2",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -157,7 +157,7 @@
     "prettier": "3.8.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "ttsc": "0.23.0",
+    "ttsc": "0.26.2",
     "typescript": "7.0.2"
   },
   "dependencies": {
@@ -169,7 +169,7 @@
     "bun": ">=1.3.11"
   },
   "patchedDependencies": {
-    "@ttsc/lint@0.23.0": "patches/@ttsc%2Flint@0.23.0.patch",
+    "@ttsc/lint@0.26.2": "patches/@ttsc%2Flint@0.26.2.patch",
     "typia@13.2.0": "patches/typia@13.2.0.patch"
   }
 }

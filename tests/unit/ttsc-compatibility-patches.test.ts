@@ -42,7 +42,55 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
       }
     }
 `;
+const TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target(?:: [^=\r\n]+)? = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
+const PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target: Buffer = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
+const UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 let tempDirs: string[] = [];
+
+function rewriteTtscLintBufferTargets(
+  source: string,
+  targetSource: string,
+  functionNames = ['directoryDigest', 'configDirectoryDigest'],
+  scopeMarker?: string,
+): string {
+  let normalized = source;
+  const searchStart =
+    scopeMarker === undefined ? 0 : normalized.indexOf(scopeMarker);
+  expect(searchStart).not.toBe(-1);
+  for (const functionName of functionNames) {
+    const functionStart = normalized.indexOf(
+      `function ${functionName}(`,
+      searchStart,
+    );
+    const functionEnd = normalized.indexOf(
+      `function ${functionName}Record(`,
+      functionStart,
+    );
+    if (functionStart === -1 || functionEnd === -1) {
+      throw new Error(`Unable to locate ${functionName} compatibility scope.`);
+    }
+    let functionSource = normalized.slice(functionStart, functionEnd);
+    const targetCount =
+      functionSource.match(TTSC_LINT_BUFFER_TARGET_PATTERN)?.length ?? 0;
+    if (targetCount !== 2) {
+      throw new Error(
+        `Expected two compatibility targets in ${functionName}, found ${targetCount}.`,
+      );
+    }
+    functionSource = functionSource.replace(
+      TTSC_LINT_BUFFER_TARGET_PATTERN,
+      targetSource,
+    );
+    normalized = `${normalized.slice(
+      0,
+      functionStart,
+    )}${functionSource}${normalized.slice(functionEnd)}`;
+  }
+  return normalized;
+}
 
 afterEach(() => {
   for (const tempDir of tempDirs) {
@@ -168,7 +216,7 @@ export function acceptsImplicitAny(value) {
     const projectDir = createTtscFixture('wp-typia-ttsc-lint-patch-');
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.23.0',
+        '@ttsc/lint': '0.26.2',
       },
       private: true,
       type: 'module',
@@ -252,10 +300,61 @@ export type Inferred<Value> =
       lintRulePath,
       patchedRuleSource.replace(PATCHED_TTSC_LINT_PARENT_GUARD, ''),
     );
+    const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
+    const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    const cachedPatchedIndexSource = rewriteTtscLintBufferTargets(
+      patchedIndexSource,
+      'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
+    );
+    writeText(lintIndexPath, cachedPatchedIndexSource);
+    const lintRuntimePath = path.join(
+      scopedTtscDir,
+      'lint',
+      'lib',
+      'index.js',
+    );
+    const patchedRuntimeSource = fs.readFileSync(lintRuntimePath, 'utf8');
+    expect(
+      patchedRuntimeSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(2);
+    writeText(
+      lintRuntimePath,
+      rewriteTtscLintBufferTargets(
+        patchedRuntimeSource,
+        'let target = Buffer.alloc(0);',
+        ['directoryDigest'],
+      ),
+    );
+    const lintHostConfigPath = path.join(
+      scopedTtscDir,
+      'lint',
+      'linthost',
+      'config.go',
+    );
+    const patchedLintHostConfigSource = fs.readFileSync(
+      lintHostConfigPath,
+      'utf8',
+    );
+    const typeScriptLoaderMarker = 'func typeScriptConfigLoaderSource(';
+    expect(
+      patchedLintHostConfigSource
+        .slice(patchedLintHostConfigSource.indexOf(typeScriptLoaderMarker))
+        .match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)?.length ?? 0,
+    ).toBe(2);
+    writeText(
+      lintHostConfigPath,
+      rewriteTtscLintBufferTargets(
+        patchedLintHostConfigSource,
+        'let target = Buffer.alloc(0);',
+        ['directoryDigest'],
+        typeScriptLoaderMarker,
+      ),
+    );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.23.0',
-        ttsc: '0.23.0',
+        '@ttsc/lint': '0.26.2',
+        ttsc: '0.26.2',
         typescript: '7.0.2',
       },
       private: true,
@@ -315,6 +414,41 @@ export type Inferred<Value> =
     expect(fs.readFileSync(lintRulePath, 'utf8')).toContain(
       'Mapped and infer type parameters do not expose TypeParameterList.',
     );
+    const repairedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    expect(
+      repairedIndexSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(4);
+    expect(
+      repairedIndexSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(0);
+    const repairedRuntimeSource = fs.readFileSync(lintRuntimePath, 'utf8');
+    expect(
+      repairedRuntimeSource.match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(2);
+    expect(
+      repairedRuntimeSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
+        ?.length ?? 0,
+    ).toBe(0);
+    const repairedLintHostConfigSource = fs.readFileSync(
+      lintHostConfigPath,
+      'utf8',
+    );
+    const repairedTypeScriptLoaderSource = repairedLintHostConfigSource.slice(
+      repairedLintHostConfigSource.indexOf(typeScriptLoaderMarker),
+    );
+    expect(
+      repairedTypeScriptLoaderSource.match(
+        PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN,
+      )?.length ?? 0,
+    ).toBe(2);
+    expect(
+      repairedTypeScriptLoaderSource.match(
+        UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN,
+      )?.length ?? 0,
+    ).toBe(0);
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
       encoding: 'utf8',

@@ -161,8 +161,8 @@ test(
     expect(packageJson.scripts['watch:sync-rest']).toBe(
       'chokidar "src/api-types.ts" --debounce 200 -c "npm run sync-rest"',
     );
-    expect(packageJson.scripts.typecheck).toBe(
-      'npm run sync -- --check && ttsc --noEmit',
+    expect(packageJson.scripts['check:code']).toBe(
+      'npm run sync -- --check && ttsc check --noEmit',
     );
     expect(blockJson.textdomain).toBe('demo-persistence-public');
     expect(blockJson.version).toBe('0.1.0');
@@ -256,10 +256,10 @@ test(
     expect(generatedData).toContain("transportTarget = 'editor'");
     expect(generatedData).toContain('useDemoPersistencePublicBootstrapQuery');
     expect(generatedTransport).toContain(
-      'const EDITOR_READ_BASE_URL: string | undefined = undefined;',
+      "const EDITOR_READ_BASE_URL = '';",
     );
     expect(generatedTransport).toContain(
-      'const FRONTEND_WRITE_BASE_URL: string | undefined = undefined;',
+      "const FRONTEND_WRITE_BASE_URL = '';",
     );
     expect(generatedTransport).toContain('resolveTransportCallOptions');
     expect(generatedTransport).not.toContain('includeRestNonce: true');

@@ -72,19 +72,17 @@ Linting ownership is intentionally split:
 
 - `ttsc` and the root `lint.config.ts` own TypeScript/TSX type, lint, unused, and formatting diagnostics
 - root ESLint covers JavaScript, CJS, and MJS infrastructure such as `scripts/**`, root config files, and package-side non-example sources
-- example and generated-project JavaScript continues to use the `@wordpress/scripts` compatibility lane
 - `@wp-typia/api-client/internal/runtime-primitives` is the single maintained home for shared client-runtime validation/object helpers consumed by `@wp-typia/rest`; avoid reintroducing local helper copies in either package
 
 Formatting ownership is also explicit:
 
-- the repo root uses TypeScript `7.0.2`, `ttsc`/`@ttsc/lint` `0.23.0`, ESLint `9.39.4`, and `@eslint/js` `9.39.4`
+- the repo root uses TypeScript `7.0.2`, `ttsc`/`@ttsc/lint` `0.26.2`, ESLint `9.39.4`, and `@eslint/js` `9.39.4`
 - `ttsc` formats TypeScript/TSX at 80 columns, two spaces, semicolons, single quotes, trailing commas, and LF endings
 - the repo root uses Prettier `3.8.2` for repo-owned non-TypeScript docs, config, workflow, and policy files
 - example apps and built-in scaffold package manifests stay aligned on compatible `ttsc`/`@ttsc/lint` and Prettier ranges when they declare direct formatter dependencies
-- package, example, and generated-project TypeScript formatting is owned by `ttsc`; `@wordpress/scripts` remains the compatibility lint lane for WordPress JavaScript
-- the current example block workspaces keep a local `eslint` 8 pin so the `@wordpress/scripts` lint lane stays stable while the repo root uses ESLint 9 for infrastructure code
-- example and generated `lint:js` scripts route through `run-wp-scripts-lint-js-compat.mjs`; examples resolve their explicit ESLint 8 pin, while generated projects resolve the ESLint bundled with `@wordpress/scripts`
-- the compatibility wrapper preloads `register-typescript6.cjs`, redirecting legacy WordPress ESLint Compiler API consumers to the exact `@typescript/typescript6@6.0.2` island without widening ESLint into TS/TSX
+- package, example, and generated-project code formatting is owned by `ttsc`; `@wordpress/scripts` remains only for WordPress style linting
+- example and generated `check:code` scripts run sync validation followed by `ttsc check --noEmit` across TypeScript and JavaScript code
+- generated CommonJS packages use `lint.config.mts` for the ESM WordPress contributor; TypeScript 6 remains limited to internal Compiler API tools
 - generated projects declare React 18 and its types directly so TS7 JSX resolution does not depend on package-manager hoisting
 - GitHub Actions now runs both `bun run formatting-policy:validate` and `bun run format:check` in the main lint job
 
@@ -159,8 +157,8 @@ same PR.
 Generated project Webpack defaults are currently regression-covered against:
 
 - `typia` 13.x
-- TypeScript 7.x with `ttsc` 0.23.x
-- `@ttsc/unplugin` 0.23.x
+- TypeScript 7.x with `ttsc` 0.26.x
+- `@ttsc/unplugin` 0.26.x
 - `@wordpress/scripts` 30.x with Webpack 5
 
 The generated Webpack helpers now fail fast outside that matrix so broken

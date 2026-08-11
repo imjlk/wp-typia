@@ -1245,16 +1245,32 @@ function findEffectiveProperty(
   return property && ts.isPropertyAssignment(property) ? property : null;
 }
 
-function hasWordPressConfigSpread(
+function hasEffectiveWordPressConfigExtends(
   objectLiteral: ts.ObjectLiteralExpression,
   bindings: WordPressLintConfigBindings,
-  suffix: readonly string[],
 ): boolean {
-  return objectLiteral.properties.some(
-    (property) =>
-      ts.isSpreadAssignment(property) &&
-      isWordPressConfigPath(property.expression, bindings, suffix),
-  );
+  let enabled = false;
+  for (const property of objectLiteral.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      // An unknown later spread may replace `extends`; stay fail-closed. A
+      // later preset spread restores the known compiled preset path.
+      enabled = isWordPressConfigPath(property.expression, bindings, [
+        'wpScriptsRecommended',
+      ]);
+      continue;
+    }
+    if (getObjectLiteralElementName(property) !== 'extends') {
+      continue;
+    }
+    enabled = Boolean(
+      ts.isPropertyAssignment(property) &&
+        isWordPressConfigPath(property.initializer, bindings, [
+          'wpScriptsRecommended',
+          'extends',
+        ]),
+    );
+  }
+  return enabled;
 }
 
 function isWordPressDefaultPlugin(
@@ -1280,7 +1296,7 @@ function hasEffectiveWordPressPlugin(
   for (const property of config.properties) {
     if (ts.isSpreadAssignment(property)) {
       enabled = isWordPressConfigPath(property.expression, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
       ]);
       continue;
     }
@@ -1293,7 +1309,7 @@ function hasEffectiveWordPressPlugin(
     }
     if (
       isWordPressConfigPath(property.initializer, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
         'plugins',
       ])
     ) {
@@ -1310,7 +1326,7 @@ function hasEffectiveWordPressPlugin(
             return isWordPressConfigPath(
               pluginProperty.expression,
               bindings,
-              ['recommended', 'plugins'],
+              ['wpScriptsRecommended', 'plugins'],
             );
           }
           // An explicit wordpress key replaces the contributor supplied by
@@ -1328,7 +1344,7 @@ function hasEffectiveWordPressPlugin(
               bindings,
             ) ||
               isWordPressConfigPath(pluginProperty.initializer, bindings, [
-                'recommended',
+                'wpScriptsRecommended',
                 'plugins',
                 'wordpress',
               ]))
@@ -1405,11 +1421,14 @@ function hasEffectiveRecommendedRule(
   bindings: WordPressLintConfigBindings,
   ruleName: string,
 ): boolean {
-  let enabled = false;
+  // wpScriptsRecommended inherits its generic and WordPress rule map through
+  // `extends`. Treat those rules as enabled unless the local config explicitly
+  // replaces one with an off severity.
+  let enabled = true;
   for (const property of rules.properties) {
     if (ts.isSpreadAssignment(property)) {
       enabled = isWordPressConfigPath(property.expression, bindings, [
-        'recommended',
+        'wpScriptsRecommended',
         'rules',
       ]);
       continue;
@@ -1448,6 +1467,8 @@ const MANAGED_SOURCE_EXCLUDED_DIRECTORIES = new Set([
   'node_modules',
 ]);
 
+const MANAGED_SOURCE_EXCLUDED_FILES = new Set(['.pnp.cjs', '.pnp.loader.mjs']);
+
 function isManagedSourceDirectory(entry: fs.Dirent): boolean {
   return (
     entry.isDirectory() &&
@@ -1463,6 +1484,7 @@ function getManagedSourcePath(
 ): string | null {
   return entry.isFile() &&
     !entry.isSymbolicLink() &&
+    !MANAGED_SOURCE_EXCLUDED_FILES.has(entry.name) &&
     !/\.d\.[cm]?ts$/u.test(entry.name) &&
     MANAGED_SOURCE_EXTENSIONS.has(path.extname(entry.name))
     ? path.relative(projectDir, entryPath).split(path.sep).join('/')
@@ -1473,11 +1495,11 @@ function selectManagedSourcePaths(
   blockSourcePaths: string[],
   sourcePaths: string[],
 ): string[] {
-  if (blockSourcePaths.length > 0) {
-    return blockSourcePaths;
-  }
-  return sourcePaths.length > 0
-    ? sourcePaths
+  const actualSourcePaths = Array.from(
+    new Set([...blockSourcePaths, ...sourcePaths]),
+  ).sort();
+  return actualSourcePaths.length > 0
+    ? actualSourcePaths
     : [...MANAGED_WORDPRESS_SOURCE_PATHS];
 }
 
@@ -1529,6 +1551,63 @@ async function collectManagedSourcePathsAsync(
   return sourcePathGroups.flat();
 }
 
+function isManagedJavaScriptSourcePath(sourcePath: string): boolean {
+  return /\.(?:[cm]?js|jsx)$/u.test(sourcePath);
+}
+
+function getRootManagedJavaScriptSourcePaths(
+  projectDir: string,
+  entries: readonly fs.Dirent[],
+): string[] {
+  return entries.flatMap((entry) => {
+    const sourcePath = getManagedSourcePath(
+      projectDir,
+      path.join(projectDir, entry.name),
+      entry,
+    );
+    return sourcePath !== null && isManagedJavaScriptSourcePath(sourcePath)
+      ? [sourcePath]
+      : [];
+  });
+}
+
+function findManagedJavaScriptToolingSourcePaths(projectDir: string): string[] {
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+  } catch {
+    // The source-tree fallback below still provides deterministic validation.
+  }
+  return [
+    ...getRootManagedJavaScriptSourcePaths(projectDir, rootEntries),
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'scripts')).filter(
+      isManagedJavaScriptSourcePath,
+    ),
+  ];
+}
+
+async function findManagedJavaScriptToolingSourcePathsAsync(
+  projectDir: string,
+): Promise<string[]> {
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = await fs.promises.readdir(projectDir, {
+      withFileTypes: true,
+    });
+  } catch {
+    // The source-tree fallback below still provides deterministic validation.
+  }
+  return [
+    ...getRootManagedJavaScriptSourcePaths(projectDir, rootEntries),
+    ...(
+      await collectManagedSourcePathsAsync(
+        projectDir,
+        path.join(projectDir, 'scripts'),
+      )
+    ).filter(isManagedJavaScriptSourcePath),
+  ];
+}
+
 /** Discover actual WordPress source files used to validate lint exclusions. */
 export function findManagedWordPressSourcePaths(projectDir: string): string[] {
   const sourceRoot = path.join(projectDir, 'src');
@@ -1545,12 +1624,10 @@ export function findManagedWordPressSourcePaths(projectDir: string): string[] {
   const blockSourcePaths = blockDirectories.flatMap((blockDir) =>
     collectManagedSourcePaths(projectDir, blockDir),
   );
-  return selectManagedSourcePaths(
-    blockSourcePaths,
-    blockSourcePaths.length === 0
-      ? collectManagedSourcePaths(projectDir, sourceRoot)
-      : [],
-  );
+  return selectManagedSourcePaths(blockSourcePaths, [
+    ...collectManagedSourcePaths(projectDir, sourceRoot),
+    ...findManagedJavaScriptToolingSourcePaths(projectDir),
+  ]);
 }
 
 /** Asynchronously discover source files for workspace doctor validation. */
@@ -1576,12 +1653,83 @@ export async function findManagedWordPressSourcePathsAsync(
       ),
     )
   ).flat();
-  return selectManagedSourcePaths(
-    blockSourcePaths,
-    blockSourcePaths.length === 0
-      ? await collectManagedSourcePathsAsync(projectDir, sourceRoot)
-      : [],
+  return selectManagedSourcePaths(blockSourcePaths, [
+    ...(await collectManagedSourcePathsAsync(projectDir, sourceRoot)),
+    ...(await findManagedJavaScriptToolingSourcePathsAsync(projectDir)),
+  ]);
+}
+
+/**
+ * Return a diagnostic when the default ttsc project cannot check JavaScript
+ * WordPress sources alongside TypeScript.
+ */
+export function getTtscJavaScriptCoverageIssue(
+  projectDir: string,
+): string | null {
+  const configPath = ts.findConfigFile(
+    projectDir,
+    ts.sys.fileExists,
+    'tsconfig.json',
   );
+  if (!configPath) {
+    return 'missing tsconfig.json for JavaScript code coverage';
+  }
+
+  const readResult = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (readResult.error) {
+    return `unable to read tsconfig.json for JavaScript code coverage: ${ts.flattenDiagnosticMessageText(readResult.error.messageText, ' ')}`;
+  }
+  const parsed = ts.parseJsonConfigFileContent(
+    readResult.config,
+    ts.sys,
+    path.dirname(configPath),
+    undefined,
+    configPath,
+  );
+  const configurationError = parsed.errors.find(
+    // TS18003 means the config currently has no input files. That is expected
+    // while doctor is diagnosing a JavaScript-only project without allowJs.
+    (diagnostic) => diagnostic.code !== 18003,
+  );
+  if (configurationError) {
+    return `unable to resolve tsconfig.json for JavaScript code coverage: ${ts.flattenDiagnosticMessageText(configurationError.messageText, ' ')}`;
+  }
+  if (parsed.options.allowJs !== true) {
+    return 'tsconfig.json must enable compilerOptions.allowJs for the combined JavaScript and TypeScript code gate';
+  }
+
+  let rootEntries: fs.Dirent[] = [];
+  try {
+    rootEntries = fs.readdirSync(projectDir, { withFileTypes: true });
+  } catch {
+    // The parsed tsconfig already proved the project root was readable.
+  }
+  const rootSourcePaths = rootEntries.flatMap((entry) => {
+    const sourcePath = getManagedSourcePath(
+      projectDir,
+      path.join(projectDir, entry.name),
+      entry,
+    );
+    return sourcePath === null ? [] : [sourcePath];
+  });
+  const javaScriptSources = [
+    ...rootSourcePaths,
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'scripts')),
+    ...collectManagedSourcePaths(projectDir, path.join(projectDir, 'src')),
+  ].filter(isManagedJavaScriptSourcePath);
+  if (javaScriptSources.length === 0) {
+    return null;
+  }
+  const includedFiles = new Set(
+    parsed.fileNames.map((filePath) => path.resolve(filePath)),
+  );
+  const excludedSources = javaScriptSources.filter(
+    (sourcePath) =>
+      !includedFiles.has(path.resolve(projectDir, sourcePath)),
+  );
+  return excludedSources.length === 0
+    ? null
+    : `tsconfig.json excludes JavaScript source files from the combined code gate: ${excludedSources.slice(0, 3).join(', ')}${excludedSources.length > 3 ? ', ...' : ''}`;
 }
 
 function getStaticStringArray(expression: ts.Expression): string[] | null {
@@ -1635,7 +1783,9 @@ function hasUsableManagedSourceTree(
   for (const property of config.properties) {
     if (ts.isSpreadAssignment(property)) {
       if (
-        !isWordPressConfigPath(property.expression, bindings, ['recommended'])
+        !isWordPressConfigPath(property.expression, bindings, [
+          'wpScriptsRecommended',
+        ])
       ) {
         ignorePatternsKnown = false;
       }
@@ -1670,7 +1820,7 @@ function hasUsableManagedSourceTree(
       }
     }
   }
-  return ![...ignored.values()].every(Boolean);
+  return ![...ignored.values()].some(Boolean);
 }
 
 interface CommonJsExportAssignment {
@@ -1922,7 +2072,8 @@ function sourceTerminatesModuleEvaluation(sourceFile: ts.SourceFile): boolean {
  * @param source TypeScript or JavaScript lint configuration source.
  * @param expectedTextDomain Project text domain required by the i18n rule.
  * @param configFilename Discovered filename used to enforce its module format.
- * @param packageModuleType Nearest package type used for ambiguous .js files.
+ * @param packageModuleType Nearest package type used for ambiguous .js and
+ * .ts files. Omit it only when validating a format-independent source fixture.
  * @param managedSourcePaths Actual source files that must remain lint-visible.
  * @returns Whether the exported config satisfies the managed contract.
  */
@@ -1930,7 +2081,7 @@ export function hasWordPressTtscLintConfigSource(
   source: string,
   expectedTextDomain: string,
   configFilename = 'lint.config.ts',
-  packageModuleType: 'commonjs' | 'module' = 'commonjs',
+  packageModuleType?: 'commonjs' | 'module',
   managedSourcePaths: readonly string[] = MANAGED_WORDPRESS_SOURCE_PATHS,
 ): boolean {
   let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
@@ -1946,6 +2097,11 @@ export function hasWordPressTtscLintConfigSource(
     // so both forms remain executable even though raw .cjs cannot parse ESM.
     moduleFormat = 'transpiled-commonjs';
   } else if (configFilename.endsWith('.js')) {
+    moduleFormat = packageModuleType ?? 'commonjs';
+  } else if (
+    configFilename.endsWith('.ts') &&
+    packageModuleType !== undefined
+  ) {
     moduleFormat = packageModuleType;
   }
   const sourceFile = ts.createSourceFile(
@@ -1999,7 +2155,10 @@ export function hasWordPressTtscLintConfigSource(
     return false;
   }
   const config = resolveObjectLiteral(exportExpression, sourceFile);
-  if (!config || !hasWordPressConfigSpread(config, bindings, ['recommended'])) {
+  if (
+    !config ||
+    !hasEffectiveWordPressConfigExtends(config, bindings)
+  ) {
     return false;
   }
   const rulesProperty = findEffectiveProperty(config, 'rules');
@@ -2012,11 +2171,6 @@ export function hasWordPressTtscLintConfigSource(
   return Boolean(
     rules &&
       hasEffectiveWordPressPlugin(config, sourceFile, bindings) &&
-      hasWordPressConfigSpread(
-        rules,
-        bindings,
-        ['recommended', 'rules'],
-      ) &&
       hasEffectiveRecommendedRule(
         rules,
         bindings,
@@ -2166,6 +2320,7 @@ function getTtscCommandIndex(tokens: readonly string[]): number | null {
 interface SimpleShellSegment {
   operatorAfter: '&&' | '||' | '&' | ';' | '|' | null;
   operatorBefore: '&&' | '||' | '&' | ';' | '|' | null;
+  rawTokens: string[];
   source: string;
   tokens: string[];
 }
@@ -2180,8 +2335,9 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
   let atTokenBoundary = true;
   let buffer = '';
   let escaped = false;
+  let groupingDepth = 0;
   let operatorBefore: SimpleShellSegment['operatorBefore'] = null;
-  let quote: "'" | '"' | null = null;
+  let quote: "'" | '"' | '`' | null = null;
   let valid = true;
   const pushSegment = () => {
     const source = buffer.trim();
@@ -2189,7 +2345,13 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       buffer.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/gu) ?? [];
     const tokens = rawTokens.map((token) => normalizeShellToken(token));
     if (tokens.length > 0) {
-      segments.push({ operatorAfter: null, operatorBefore, source, tokens });
+      segments.push({
+        operatorAfter: null,
+        operatorBefore,
+        rawTokens,
+        source,
+        tokens,
+      });
     }
     atTokenBoundary = true;
     buffer = '';
@@ -2235,7 +2397,7 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       }
       continue;
     }
-    if (character === "'" || character === '"') {
+    if (character === "'" || character === '"' || character === '`') {
       buffer += character;
       atTokenBoundary = false;
       quote = character;
@@ -2249,9 +2411,25 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       index = nextLineIndex - 1;
       continue;
     }
+    if (character === '(' || character === '{') {
+      buffer += character;
+      atTokenBoundary = false;
+      groupingDepth += 1;
+      continue;
+    }
+    if (character === ')' || character === '}') {
+      buffer += character;
+      atTokenBoundary = false;
+      if (groupingDepth === 0) {
+        valid = false;
+      } else {
+        groupingDepth -= 1;
+      }
+      continue;
+    }
 
     const pair = command.slice(index, index + 2);
-    if (pair === '&&' || pair === '||') {
+    if (groupingDepth === 0 && (pair === '&&' || pair === '||')) {
       const lengthBefore = segments.length;
       pushSegment();
       if (segments.length === lengthBefore) {
@@ -2278,10 +2456,11 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       continue;
     }
     if (
-      character === '&' ||
-      character === ';' ||
-      character === '|' ||
-      character === '\n'
+      groupingDepth === 0 &&
+      (character === '&' ||
+        character === ';' ||
+        character === '|' ||
+        character === '\n')
     ) {
       const lengthBefore = segments.length;
       pushSegment();
@@ -2310,7 +2489,7 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
     atTokenBoundary = /\s/u.test(character);
   }
   pushSegment();
-  if (quote !== null || escaped) {
+  if (quote !== null || escaped || groupingDepth !== 0) {
     valid = false;
   }
   const trailingOperator = segments[segments.length - 1]?.operatorAfter;
@@ -2322,6 +2501,37 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
     valid = false;
   }
   return { segments, valid };
+}
+
+/** Check whether a valid simple shell chain contains an exact command. */
+export function hasExactShellCommand(
+  command: unknown,
+  expectedCommand: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  const expectedSource = expectedCommand.trim();
+  return (
+    parsed.valid &&
+    parsed.segments.some((segment) => segment.source === expectedSource)
+  );
+}
+
+/** Check whether a valid shell chain runs an exact command and propagates failure. */
+export function hasPropagatingExactShellCommand(
+  command: unknown,
+  expectedCommand: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const expectedSource = expectedCommand.trim();
+  return hasPropagatingShellSegment(
+    command,
+    (_tokens, segment) => segment.source === expectedSource,
+  );
 }
 
 function doesShellSegmentPropagateFailure(
@@ -2358,19 +2568,29 @@ function doesShellSegmentPropagateFailure(
 
 function hasPropagatingShellSegment(
   command: string,
-  predicate: (tokens: readonly string[]) => boolean,
+  predicate: (
+    tokens: readonly string[],
+    segment: SimpleShellSegment,
+  ) => boolean,
 ): boolean {
   const parsed = getSimpleShellSegments(command);
-  return parsed.valid && parsed.segments.some(
-    (segment, segmentIndex) =>
-      !parsed.segments
-        .slice(0, segmentIndex)
-        .some(isTerminatingShellSegment) &&
-      doesShellSegmentPropagateFailure(
-        parsed.segments,
-        segmentIndex,
-      ) &&
-      predicate(segment.tokens),
+  return (
+    parsed.valid &&
+    parsed.segments.some(
+      (segment, segmentIndex) =>
+        isPropagatingShellSegment(parsed.segments, segmentIndex) &&
+        predicate(segment.tokens, segment),
+    )
+  );
+}
+
+function isPropagatingShellSegment(
+  segments: readonly SimpleShellSegment[],
+  segmentIndex: number,
+): boolean {
+  return (
+    !segments.slice(0, segmentIndex).some(isTerminatingShellSegment) &&
+    doesShellSegmentPropagateFailure(segments, segmentIndex)
   );
 }
 
@@ -2382,16 +2602,73 @@ function isTerminatingShellSegment(segment: SimpleShellSegment): boolean {
   ) {
     return false;
   }
-  let commandIndex = 0;
-  while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(segment.tokens[commandIndex] ?? '')) {
-    commandIndex += 1;
-  }
+  const commandIndex = getShellCommandStartIndex(segment.tokens);
   const command = getShellExecutableName(segment.tokens[commandIndex]);
+  const delegatedCommand = getShellExecutableName(
+    segment.tokens[commandIndex + 1],
+  );
+  let execCommandIndex: number | null = null;
+  if (command === 'exec') {
+    execCommandIndex = commandIndex;
+  } else if (
+    (command === 'builtin' || command === 'command') &&
+    delegatedCommand === 'exec'
+  ) {
+    execCommandIndex = commandIndex + 1;
+  }
   return (
     command === 'exit' ||
-    (command === 'builtin' &&
-      getShellExecutableName(segment.tokens[commandIndex + 1]) === 'exit')
+    ((command === 'builtin' || command === 'command') &&
+      delegatedCommand === 'exit') ||
+    (execCommandIndex !== null &&
+      hasExecCommandArgument(segment.tokens, execCommandIndex))
   );
+}
+
+function hasExecCommandArgument(
+  tokens: readonly string[],
+  execCommandIndex: number,
+): boolean {
+  let acceptsOptions = true;
+  for (let index = execCommandIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    if (acceptsOptions && token === '--') {
+      acceptsOptions = false;
+      continue;
+    }
+    if (acceptsOptions && /^-[^-]/u.test(token)) {
+      // `exec -a` takes a process-name argument; consume the next token.
+      if (token.slice(1).includes('a')) {
+        index += 1;
+      }
+      continue;
+    }
+    if (token.startsWith('<(') || token.startsWith('>(')) {
+      return true;
+    }
+    const redirection = token.match(
+      /^(?:[0-9]+)?(?:&>>?|<>|>>?|<<<|<<?|>&|<&|>\|)(.*)$/u,
+    );
+    if (redirection) {
+      if ((redirection[1] ?? '').length === 0) {
+        index += 1;
+      }
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+/** Check whether a top-level shell segment terminates the current shell. */
+export function hasTopLevelTerminatingShellCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  return parsed.valid && parsed.segments.some(isTerminatingShellSegment);
 }
 
 function getShellCommandStartIndex(tokens: readonly string[]): number {
@@ -2507,41 +2784,197 @@ function hasEnabledNoEmitOption(args: readonly string[]): boolean {
   return enabled === true;
 }
 
-/** Check whether a project-owned lint command invokes the managed ttsc lane. */
-export function hasTtscNoEmitLintCommand(command: unknown): boolean {
+function isTtscNoEmitCommandTokens(
+  tokens: readonly string[],
+  requireCheckSubcommand: boolean,
+): boolean {
+  const commandIndex = getTtscCommandIndex(tokens);
+  if (commandIndex === null) {
+    return false;
+  }
+  const commandArgs = tokens.slice(commandIndex + 1);
+  const packageManager = getShellExecutableName(
+    tokens[getShellCommandStartIndex(tokens)],
+  );
+  const args =
+    packageManager === 'npm' && commandArgs[0] === '--'
+      ? commandArgs.slice(1)
+      : commandArgs;
+  const checkArgs =
+    args[0]?.toLowerCase() === 'check' ? args.slice(1) : null;
+  if ((checkArgs !== null) !== requireCheckSubcommand) {
+    return false;
+  }
+  const effectiveArgs = checkArgs ?? args;
+  return (
+    hasEnabledNoEmitOption(effectiveArgs) &&
+    !effectiveArgs.some((argument) =>
+      TTSC_EXPLICIT_PROJECT_OPTIONS.has(
+        argument.split('=', 1)[0]?.toLowerCase() ?? '',
+      ),
+    ) &&
+    !effectiveArgs.some((argument) =>
+      TTSC_TERMINAL_OPTIONS.has(argument.split('=', 1)[0]?.toLowerCase() ?? ''),
+    ) &&
+    !hasPositionalTtscInput(effectiveArgs)
+  );
+}
+
+function hasTtscNoEmitCommand(
+  command: unknown,
+  requireCheckSubcommand: boolean,
+): boolean {
   if (typeof command !== 'string') {
     return false;
   }
-  // This intentionally recognizes only simple shell segments and quoted
-  // tokens. Subshells and escaped quote sequences fail closed.
-  return hasPropagatingShellSegment(command, (tokens) => {
-    const commandIndex = getTtscCommandIndex(tokens);
-    if (commandIndex === null) {
-      return false;
-    }
-    const commandArgs = tokens.slice(commandIndex + 1);
-    const packageManager = getShellExecutableName(
-      tokens[getShellCommandStartIndex(tokens)],
-    );
-    const args =
-      packageManager === 'npm' && commandArgs[0] === '--'
-        ? commandArgs.slice(1)
-        : commandArgs;
-    return (
-      hasEnabledNoEmitOption(args) &&
-      !args.some((argument) =>
-        TTSC_EXPLICIT_PROJECT_OPTIONS.has(
-          argument.split('=', 1)[0]?.toLowerCase() ?? '',
-        ),
-      ) &&
-      !args.some((argument) =>
-        TTSC_TERMINAL_OPTIONS.has(
-          argument.split('=', 1)[0]?.toLowerCase() ?? '',
-        ),
-      ) &&
-      !hasPositionalTtscInput(args)
-    );
-  });
+  // This intentionally recognizes only simple top-level shell segments and
+  // quoted tokens. Grouped commands remain opaque to the command predicate.
+  return hasPropagatingShellSegment(command, (tokens) =>
+    isTtscNoEmitCommandTokens(tokens, requireCheckSubcommand),
+  );
+}
+
+/** Check whether a legacy project-owned command invokes `ttsc --noEmit`. */
+export function hasTtscNoEmitLintCommand(command: unknown): boolean {
+  return hasTtscNoEmitCommand(command, false);
+}
+
+/** Check whether an entire legacy lint lane is one managed ttsc command. */
+export function isStandaloneTtscNoEmitLintCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  return (
+    parsed.valid &&
+    parsed.segments.length === 1 &&
+    (parsed.segments[0]?.operatorAfter === null ||
+      parsed.segments[0]?.operatorAfter === ';') &&
+    isTtscNoEmitCommandTokens(parsed.segments[0]?.tokens ?? [], false)
+  );
+}
+
+/** Check whether a project-owned code gate invokes `ttsc check --noEmit`. */
+export function hasTtscCheckNoEmitCommand(command: unknown): boolean {
+  return hasTtscNoEmitCommand(command, true);
+}
+
+/**
+ * Insert the managed sync gate before an existing top-level ttsc check while
+ * keeping any earlier fallback chain outside the opaque ttsc segment.
+ */
+export function prependManagedSyncBeforeTtscCheckNoEmitCommand(
+  command: string,
+  requiredSyncCommand: string,
+): string | null {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid || command.includes('#')) {
+    return null;
+  }
+  const ttscIndex = parsed.segments.findIndex(
+    (segment, segmentIndex) =>
+      isPropagatingShellSegment(parsed.segments, segmentIndex) &&
+      isTtscNoEmitCommandTokens(segment.tokens, true),
+  );
+  if (ttscIndex === -1) {
+    return null;
+  }
+
+  const earlierSegments = parsed.segments.slice(0, ttscIndex);
+  if (
+    earlierSegments.some(
+      (segment) =>
+        (segment.operatorBefore !== null &&
+          segment.operatorBefore !== '&&' &&
+          segment.operatorBefore !== '||') ||
+        (segment.operatorAfter !== '&&' &&
+          segment.operatorAfter !== '||'),
+    )
+  ) {
+    return null;
+  }
+
+  const renderSegments = (
+    segments: readonly SimpleShellSegment[],
+  ): string =>
+    segments
+      .map((segment, segmentIndex) => {
+        const isLast = segmentIndex === segments.length - 1;
+        return `${segment.source}${
+          isLast || segment.operatorAfter === null
+            ? ''
+            : ` ${segment.operatorAfter} `
+        }`;
+      })
+      .join('');
+  const earlierSource = renderSegments(earlierSegments);
+  const remainingSource = renderSegments(parsed.segments.slice(ttscIndex));
+  const projectPrefix = earlierSegments.some(
+    (segment) =>
+      segment.operatorBefore === '||' || segment.operatorAfter === '||',
+  )
+    ? `(${earlierSource})`
+    : earlierSource;
+  return [requiredSyncCommand, projectPrefix, remainingSource]
+    .filter((source) => source.length > 0)
+    .join(' && ');
+}
+
+const MANAGED_SYNC_CHECK_COMMANDS = new Set([
+  'bun run sync --check',
+  'npm run sync -- --check',
+  'pnpm run sync --check',
+  'yarn run sync --check',
+]);
+
+/** Normalize an existing managed sync segment to the selected package runner. */
+export function normalizeManagedSyncCheckCommand(
+  command: string,
+  requiredSyncCommand: string,
+): string {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid) {
+    return command;
+  }
+  let changed = false;
+  const normalized = parsed.segments
+    .map((segment) => {
+      const source = MANAGED_SYNC_CHECK_COMMANDS.has(segment.source)
+        ? requiredSyncCommand
+        : segment.source;
+      changed ||= source !== segment.source;
+      return `${source}${
+        segment.operatorAfter === null ? '' : ` ${segment.operatorAfter} `
+      }`;
+    })
+    .join('')
+    .trimEnd();
+  return changed ? normalized : command;
+}
+
+/** Check that managed sync runs and propagates failure before the ttsc gate. */
+export function hasManagedSyncBeforeTtscCheckNoEmitCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid) {
+    return false;
+  }
+  return parsed.segments.some(
+    (segment, ttscIndex) =>
+      isPropagatingShellSegment(parsed.segments, ttscIndex) &&
+      isTtscNoEmitCommandTokens(segment.tokens, true) &&
+      parsed.segments.slice(0, ttscIndex).some(
+        (earlierSegment, syncIndex) =>
+          MANAGED_SYNC_CHECK_COMMANDS.has(earlierSegment.source) &&
+          isPropagatingShellSegment(parsed.segments, syncIndex),
+      ),
+  );
 }
 
 const PACKAGE_MANAGER_TERMINAL_OPTIONS = SHELL_RUNNER_TERMINAL_OPTIONS;
@@ -2558,6 +2991,7 @@ const PACKAGE_MANAGER_PROJECT_SCOPE_OPTIONS = new Set([
 ]);
 
 const PACKAGE_MANAGER_ALTERNATE_EXECUTION_OPTIONS = new Set(['--call', '-c']);
+const NPM_RUN_SCRIPT_COMMANDS = new Set(['run-script', 'run-s', 'rum', 'urn']);
 
 function hasNonlocalPackageScriptOption(
   tokens: readonly string[],
@@ -2597,7 +3031,11 @@ function isPackageRunScriptInvocation(
   ) {
     return false;
   }
-  if (tokens[commandIndex] === 'run') {
+  const packageRunCommand =
+    tokens[commandIndex] === 'run' ||
+    (packageManager === 'npm' &&
+      NPM_RUN_SCRIPT_COMMANDS.has(tokens[commandIndex] ?? ''));
+  if (packageRunCommand) {
     const runOptionsStartIndex = commandIndex + 1;
     commandIndex = skipShellRunnerOptions(tokens, runOptionsStartIndex);
     if (
@@ -2631,10 +3069,61 @@ export function hasPackageRunScriptInvocation(
   );
 }
 
+/** Normalize exact managed package-script invocations to selected runners. */
+export function normalizePackageRunScriptCommands(
+  command: string,
+  requiredCommands: Readonly<Record<string, string>>,
+): string {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid || command.includes('#')) {
+    return command;
+  }
+  let changed = false;
+  const normalized = parsed.segments
+    .map((segment) => {
+      const requiredCommand = Object.entries(requiredCommands).find(
+        ([scriptName]) =>
+          isPackageRunScriptInvocation(segment.tokens, scriptName, false),
+      )?.[1];
+      const commandIndex = getShellCommandStartIndex(segment.tokens);
+      const source = requiredCommand
+        ? [
+            segment.rawTokens.slice(0, commandIndex).join(' '),
+            requiredCommand,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : segment.source;
+      changed ||= source !== segment.source;
+      return `${source}${
+        segment.operatorAfter === null ? '' : ` ${segment.operatorAfter} `
+      }`;
+    })
+    .join('')
+    .trimEnd();
+  return changed ? normalized : command;
+}
+
 /** Remove package-script invocations from a simple failure-propagating chain. */
 export function removePackageRunScriptInvocations(
   command: string,
   scriptName: string,
+): string | null {
+  return removePackageRunScriptSegments(command, scriptName, true);
+}
+
+/** Remove only argument-free package-script commands from a simple chain. */
+export function removeExactPackageRunScriptCommands(
+  command: string,
+  scriptName: string,
+): string | null {
+  return removePackageRunScriptSegments(command, scriptName, false);
+}
+
+function removePackageRunScriptSegments(
+  command: string,
+  scriptName: string,
+  allowArguments: boolean,
 ): string | null {
   const parsed = getSimpleShellSegments(command);
   if (
@@ -2653,7 +3142,11 @@ export function removePackageRunScriptInvocations(
   return parsed.segments
     .filter(
       (segment) =>
-        !isPackageRunScriptInvocation(segment.tokens, scriptName, true),
+        !isPackageRunScriptInvocation(
+          segment.tokens,
+          scriptName,
+          allowArguments,
+        ),
     )
     .map((segment) => segment.source)
     .join(' && ');

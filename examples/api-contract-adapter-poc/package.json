@@ -8,20 +8,20 @@
   "license": "GPL-2.0-or-later",
   "scripts": {
     "sync-typia-llm": "ttsx scripts/sync-typia-llm.ts",
-    "build": "bun run typecheck",
+    "build": "bun run check:code",
     "start": "ttsx src/server.ts",
-    "typecheck": "bun run sync-typia-llm --check && ttsc --noEmit",
-    "lint": "bun run typecheck",
+    "check:code": "bun run sync-typia-llm --check && ttsc check --noEmit",
+    "check": "bun run check:code",
     "format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"package.json\" \"src/**/*.json\" \"tsconfig*.json\""
   },
   "devDependencies": {
-    "@ttsc/lint": "^0.23.0",
+    "@ttsc/lint": "^0.26.2",
     "@wp-typia/api-client": "workspace:*",
     "@wp-typia/block-runtime": "workspace:*",
     "@types/node": "^24.0.0",
     "@wp-typia/project-tools": "workspace:*",
     "prettier": "3.8.2",
-    "ttsc": "^0.23.0",
+    "ttsc": "^0.26.2",
     "typescript": "^7.0.2",
     "typia": "^13.2.0"
   }

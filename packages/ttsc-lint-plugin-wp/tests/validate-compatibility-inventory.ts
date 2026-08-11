@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 
 import { compatibilityManifest, ruleNames } from '../src/index.js';
+
+const require = createRequire(import.meta.url);
+const baselinePackage = require('@ttsc/lint-baseline/package.json') as {
+  version?: string;
+};
 
 const compatibilityBySource = new Map(
   compatibilityManifest.compatibility.map((entry) => [entry.source, entry]),
@@ -8,7 +14,8 @@ const compatibilityBySource = new Map(
 
 assert.equal(compatibilityManifest.schemaVersion, 2);
 assert.equal(compatibilityManifest.namespace, 'wordpress');
-assert.equal(compatibilityManifest.ttscRange, '>=0.23.0 <0.26.0');
+assert.equal(compatibilityManifest.ttscRange, '>=0.23.0 <0.27.0');
+assert.equal(baselinePackage.version, '0.23.0');
 assert.equal(compatibilityManifest.wordpressRules.length, 35);
 assert.ok(compatibilityManifest.compiledPresets.recommended.entries.length > 0);
 assert.equal(
@@ -17,7 +24,32 @@ assert.equal(
 );
 assert.equal(
   compatibilityManifest.compiledPresets.recommended.optionDowngrades.length,
-  12,
+  11,
+);
+assert.deepEqual(
+  compatibilityManifest.compiledPresets.recommended.behaviorDowngrades,
+  [
+    {
+      reason: 'semantic-mismatch',
+      source: 'jsx-a11y/click-events-have-key-events',
+      target: 'jsx-a11y/click-events-have-key-events',
+    },
+    {
+      reason: 'semantic-mismatch',
+      source: 'jsx-a11y/no-static-element-interactions',
+      target: 'jsx-a11y/no-static-element-interactions',
+    },
+    {
+      reason: 'semantic-mismatch',
+      source: 'jsx-a11y/role-supports-aria-props',
+      target: 'jsx-a11y/role-supports-aria-props',
+    },
+    {
+      reason: 'engine-failure',
+      source: 'no-shadow',
+      target: 'no-shadow',
+    },
+  ],
 );
 assert.deepEqual(
   compatibilityManifest.compiledPresets.recommended.runnerRules,

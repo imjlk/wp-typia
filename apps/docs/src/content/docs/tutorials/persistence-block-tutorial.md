@@ -200,8 +200,8 @@ The generated `src/transport.ts` is the first place to customize runtime routing
 ```typescript
 import { type EndpointCallOptions, resolveRestRouteUrl } from '@wp-typia/rest';
 
-const FRONTEND_READ_BASE_URL: string | undefined = undefined;
-const FRONTEND_WRITE_BASE_URL: string | undefined = undefined;
+const FRONTEND_READ_BASE_URL = '';
+const FRONTEND_WRITE_BASE_URL = '';
 
 function buildCallOptions(
   endpointPath: string,
@@ -426,7 +426,7 @@ This creates:
 - `src/api-schemas/*.schema.json` - JSON Schema files
 - `src/api-schemas/*.openapi.json` - per-contract OpenAPI compatibility fragments
 
-Use `npm run sync` for the common-case metadata + REST refresh before `npm run build`, `npm run typecheck`, or commit. The generated `dev` workflow watches both sync commands for persistence scaffolds, `npm run start` still runs the same one-shot ordering, and both `npm run build` and `npm run typecheck` verify that the checked-in artifacts are already current. `npm run sync-types` and `npm run sync-rest` remain available for advanced/manual runs. `npm run sync-types` stays warn-only by default, `npm run sync-types -- --fail-on-lossy` fails only on lossy WordPress projection warnings, and `npm run sync-types -- --strict --report json` emits a CI-friendly JSON report while failing on every warning. `npm run sync-rest` now fails fast when type-derived artifacts are stale or missing, so run `npm run sync` or `npm run sync-types` first when it tells you the metadata layer is out of date. These commands do not create migration history.
+Use `npm run sync` for the common-case metadata + REST refresh before `npm run build`, `npm run check:code`, or commit. The generated `dev` workflow watches both sync commands for persistence scaffolds, `npm run start` still runs the same one-shot ordering, and both `npm run build` and `npm run check:code` verify that the checked-in artifacts are already current. `npm run sync-types` and `npm run sync-rest` remain available for advanced/manual runs. `npm run sync-types` stays warn-only by default, `npm run sync-types -- --fail-on-lossy` fails only on lossy WordPress projection warnings, and `npm run sync-types -- --strict --report json` emits a CI-friendly JSON report while failing on every warning. `npm run sync-rest` now fails fast when type-derived artifacts are stale or missing, so run `npm run sync` or `npm run sync-types` first when it tells you the metadata layer is out of date. These commands do not create migration history.
 
 For persistence scaffolds, `src/api.openapi.json` is the canonical REST document because it includes the actual route paths, methods, and auth policy metadata. The files in `src/api-schemas/` remain useful per-contract artifacts for validation and compatibility.
 

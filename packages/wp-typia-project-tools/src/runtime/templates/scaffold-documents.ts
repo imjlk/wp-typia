@@ -63,7 +63,7 @@ function getPackageManagerInstallGuidance(packageManager: PackageManagerId): str
   return [
 		'',
 		`> npm note: the scaffold uses \`${installCommand}\` for the first install so npm does not spend the initial create flow in the audit resolver. Run \`npm audit\` separately when you want npm vulnerability output.`,
-		'> If npm prints React peer dependency noise from WordPress block-editor packages, validate with `npm run typecheck` and `npm run build` before changing WordPress package ranges.',
+		'> If npm prints React peer dependency noise from WordPress block-editor packages, validate with `npm run check:code` and `npm run build` before changing WordPress package ranges.',
 	].join('\n');
 }
 
@@ -161,7 +161,7 @@ export function buildReadme(
           compoundPersistenceEnabled,
         })}`;
 
-  return `# ${variables.title}
+  const readme = `# ${variables.title}
 
 ${variables.description}
 
@@ -185,7 +185,7 @@ ${getQuickStartWorkflowNote(packageManager, templateId, {
 
 \`\`\`bash
 ${formatRunScript(packageManager, 'build')}
-${formatRunScript(packageManager, 'typecheck')}
+${formatRunScript(packageManager, 'check')}
 ${formatPackageExecCommand(
     packageManager,
     `wp-typia@${getPackageVersions().wpTypiaPackageExactVersion}`,
@@ -205,6 +205,8 @@ ${getInitialCommitNote()}
 
 ${sourceOfTruthNote}${publicPersistencePolicyNote ? `\n\n${publicPersistencePolicyNote}` : ''}${alternateRenderTargetSection ? `\n\n${alternateRenderTargetSection}` : ''}${compoundInnerBlocksSection ? `\n\n${compoundInnerBlocksSection}` : ''}${migrationSection ? `\n\n${migrationSection}` : ''}${compoundExtensionWorkflowSection ? `\n\n${compoundExtensionWorkflowSection}` : ''}${wpEnvSection ? `\n\n${wpEnvSection}` : ''}${testPresetSection ? `\n\n${testPresetSection}` : ''}${phpRestExtensionPointsSection ? `\n\n${phpRestExtensionPointsSection}` : ''}
 `;
+
+  return readme.replace(/\n{3,}/g, '\n\n');
 }
 
 /**

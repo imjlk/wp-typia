@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ttsc-version: ['0.23.0', '0.25.0']
+        ttsc-version: ['0.23.0', '0.26.2']
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -327,6 +327,7 @@ jobs:
         with:
           name: generated-smoke-package-dist
           path: |
+            packages/ttsc-lint-plugin-wp/dist/
             packages/wp-typia-api-client/dist/
             packages/wp-typia-block-runtime/dist/
             packages/wp-typia-block-types/dist/
@@ -414,11 +415,6 @@ jobs:
             template: compound
             package_manager: bun
             project_name: smoke-compound-bun
-          - runtime: bun
-            template: compound
-            persistence_policy: authenticated
-            package_manager: bun
-            project_name: smoke-compound-authenticated-bun
           - runtime: node
             template: compound
             data_storage: post-meta
@@ -433,34 +429,16 @@ jobs:
           - runtime: node
             template: '@wp-typia/create-workspace-template'
             package_manager: npm
-            project_name: smoke-workspace-add-variation-npm
+            project_name: smoke-workspace-add-workflows-npm
             with_migration_ui: true
             add_block_name: counter-card
             add_template: basic
             add_variation_name: hero-card
             add_variation_block: counter-card
-          - runtime: node
-            template: 'workspace'
-            package_manager: npm
-            project_name: smoke-workspace-add-pattern-npm
             add_pattern_name: hero-layout
-          - runtime: node
-            template: '@wp-typia/create-workspace-template'
-            package_manager: npm
-            project_name: smoke-workspace-add-binding-source-npm
             add_binding_source_name: hero-data
-          - runtime: node
-            template: '@wp-typia/create-workspace-template'
-            package_manager: npm
-            project_name: smoke-workspace-add-editor-plugin-npm
             add_editor_plugin_name: document-tools
             add_editor_plugin_slot: sidebar
-          - runtime: node
-            template: '@wp-typia/create-workspace-template'
-            package_manager: npm
-            project_name: smoke-workspace-add-hooked-block-npm
-            add_block_name: counter-card
-            add_template: basic
             add_hooked_block_slug: counter-card
             add_hooked_block_anchor: core/post-content
             add_hooked_block_position: after

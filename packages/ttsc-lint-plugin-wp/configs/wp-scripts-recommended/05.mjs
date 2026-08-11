@@ -4,7 +4,6 @@ const config = {
   files: ['**/*.ts', '**/*.tsx'],
   rules: {
     'no-duplicate-imports': 'off',
-    'no-shadow': 'off',
     'typescript/method-signature-style': 'error',
   },
 };

@@ -66,4 +66,11 @@ export declare function findWorkspaceProtocolLeaks(
 export declare function withTempDir<T>(
 	prefix: string,
 	callback: (tempDir: string) => T,
+	remove?: (tempDir: string) => void,
 ): T;
+
+/** Removes one validated directory beneath the operating-system temp root. */
+export declare function removeTempDir(
+	tempDir: string,
+	rmCommand?: string,
+): void;

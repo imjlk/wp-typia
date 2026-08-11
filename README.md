@@ -506,9 +506,10 @@ emitted PHP file against the scaffold's declared `Requires PHP: 8.0` floor.
 
 `ttsc` and `@ttsc/lint` own TypeScript/TSX type, lint, unused, and formatting
 diagnostics. Root ESLint covers JavaScript, CJS, and MJS infrastructure such as
-`scripts/**`, root config files, and package-side non-example sources. Example
-JavaScript stays under the existing `examples:lint` compatibility workflow
-powered by `@wordpress/scripts`.
+`scripts/**`, root config files, and package-side non-example sources. WordPress
+examples run `check:code`, which applies the compiled WordPress preset to both
+TypeScript and JavaScript through `ttsc check --noEmit`; their separate style
+gate remains powered by `@wordpress/scripts`.
 
 TypeScript/TSX uses the shared `ttsc` formatter contract. Repository-owned
 non-TypeScript docs/config/workflow files use a shared `Prettier 3.8.2`

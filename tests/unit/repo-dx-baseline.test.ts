@@ -103,6 +103,23 @@ describe('repository DX baseline', () => {
     expect(
       fs.existsSync(path.join(repoRoot, 'scripts', 'run-examples-lint.mjs')),
     ).toBe(true);
+    const examplesLintRunner = fs.readFileSync(
+      path.join(repoRoot, 'scripts', 'run-examples-lint.mjs'),
+      'utf8',
+    );
+    expect(examplesLintRunner).toContain(
+      "'@wp-typia/project-tools',",
+    );
+    expect(examplesLintRunner).toContain(
+      "'@wp-typia/ttsc-lint-plugin-wp',",
+    );
+    expect(examplesLintRunner).toContain(
+      "['run', '--filter', packageName, 'build']",
+    );
+    expect(examplesLintRunner.indexOf("'@wp-typia/project-tools'"))
+      .toBeLessThan(examplesLintRunner.indexOf('for (const relativePath'));
+    expect(examplesLintRunner.indexOf("'@wp-typia/ttsc-lint-plugin-wp'"))
+      .toBeLessThan(examplesLintRunner.indexOf('for (const relativePath'));
   });
 
   test('fast repo test lane avoids build-oriented coverage paths', () => {
@@ -187,7 +204,7 @@ describe('repository DX baseline', () => {
     }
   });
 
-  test('WordPress example workspaces keep the ESLint 8 compat wrapper', () => {
+  test('WordPress example workspaces use the combined ttsc code gate', () => {
     for (const relativePath of [
       'examples/my-typia-block/package.json',
       'examples/persistence-examples/package.json',
@@ -198,20 +215,20 @@ describe('repository DX baseline', () => {
         string,
         string
       >;
-      const exampleDevDependencies =
-        examplePackageJson.devDependencies as Record<string, string>;
-
-      expect(exampleScripts['lint:js']).toBe(
-        'node ../../scripts/run-wp-scripts-lint-js-compat.mjs',
+      expect(exampleScripts['check:code']).toBe(
+        'bun run sync --check && ttsc check --noEmit',
       );
-      expect(exampleDevDependencies.eslint).toBe('8.57.1');
+      expect(exampleScripts.check).toBe(
+        'bun run check:code && bun run check:style && bun run check:format',
+      );
+      expect(exampleScripts['lint:js']).toBeUndefined();
     }
 
     expect(
       fs.existsSync(
         path.join(repoRoot, 'scripts', 'run-wp-scripts-lint-js-compat.mjs'),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test('.vscode workspace baseline exists', () => {
@@ -532,9 +549,25 @@ describe('repository DX baseline', () => {
     expect(generatedSmokeJob).not.toContain('always() &&');
     expect(generatedSmokeJob).toContain("needs.build.result == 'success'");
     expect(generatedSmokeJob).not.toContain('publish-install-smoke');
+    expect(generatedSmokeJob).toContain(
+      'project_name: smoke-workspace-add-workflows-npm',
+    );
+    for (const workspaceAddInput of [
+      'add_variation_name: hero-card',
+      'add_pattern_name: hero-layout',
+      'add_binding_source_name: hero-data',
+      'add_editor_plugin_name: document-tools',
+      'add_hooked_block_slug: counter-card',
+    ]) {
+      expect(generatedSmokeJob).toContain(workspaceAddInput);
+    }
+    expect(generatedSmokeJob).not.toContain(
+      'smoke-workspace-add-pattern-npm',
+    );
     expect(buildJob).toContain('bun run --filter wp-typia build');
     expect(buildJob).toContain('name: generated-smoke-package-dist');
     for (const packageDir of [
+      'ttsc-lint-plugin-wp',
       'wp-typia-api-client',
       'wp-typia-block-runtime',
       'wp-typia-block-types',
@@ -717,8 +750,8 @@ describe('repository DX baseline', () => {
       '`@wp-typia/project-tools` keeps `@typescript/typescript6` in `dependencies`',
     );
     expect(contributing).toContain('`typia` 13.x');
-    expect(contributing).toContain('`ttsc` 0.23.x');
-    expect(contributing).toContain('`@ttsc/unplugin` 0.23.x');
+    expect(contributing).toContain('`ttsc` 0.26.x');
+    expect(contributing).toContain('`@ttsc/unplugin` 0.26.x');
     expect(contributing).toContain('`@wordpress/scripts` 30.x');
     expect(cliReadme).toMatch(
       /https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/[^/]+\/UPGRADE\.md/,

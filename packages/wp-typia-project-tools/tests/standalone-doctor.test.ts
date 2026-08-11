@@ -218,8 +218,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     const executionPackageJson = JSON.parse(originalPackageJsonSource) as {
       scripts: Record<string, string>;
     };
-    delete executionPackageJson.scripts['lint:ts'];
-    delete executionPackageJson.scripts.lint;
+    delete executionPackageJson.scripts['check:code'];
+    delete executionPackageJson.scripts.check;
     executionPackageJson.scripts.postinstall =
       'node --check scripts/apply-ttsc-lint-compat.mjs';
     fs.writeFileSync(
@@ -239,10 +239,10 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(missingExecutionCheck?.status).toBe('fail');
     expect(missingExecutionCheck?.detail).toContain(
-      'lint:ts must invoke `ttsc --noEmit`',
+      'package.json check:code must invoke `ttsc check --noEmit`',
     );
     expect(missingExecutionCheck?.detail).toContain(
-      'lint must include the lint:ts lane',
+      'package.json check must include the check:code lane',
     );
     expect(missingExecutionCheck?.detail).toContain(
       'missing or stale scripts/apply-ttsc-lint-compat.mjs',
@@ -251,8 +251,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'postinstall must invoke scripts/apply-ttsc-lint-compat.mjs',
     );
 
-    executionPackageJson.scripts['lint:ts'] =
-      'npx --version ttsc --noEmit';
+    executionPackageJson.scripts['check:code'] =
+      'npx --version ttsc check --noEmit';
     fs.writeFileSync(
       packageJsonPath,
       JSON.stringify(executionPackageJson, null, 2),
@@ -264,12 +264,26 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
     expect(terminalRunnerCheck?.status).toBe('fail');
     expect(terminalRunnerCheck?.detail).toContain(
-      'lint:ts must invoke `ttsc --noEmit`',
+      'package.json check:code must invoke `ttsc check --noEmit`',
+    );
+
+    executionPackageJson.scripts['check:code'] = 'ttsc check --noEmit';
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(executionPackageJson, null, 2),
+    );
+    const missingSyncCheck = getCheck(
+      await getDoctorChecks(targetDir),
+      STANDALONE_DOCTOR_CODES.PACKAGE,
+    );
+    expect(missingSyncCheck?.status).toBe('fail');
+    expect(missingSyncCheck?.detail).toContain(
+      'package.json check:code must run `sync --check` before the ttsc gate',
     );
     fs.writeFileSync(packageJsonPath, originalPackageJsonSource);
     fs.writeFileSync(compatPath, compatSource);
 
-    const lintConfigPath = path.join(targetDir, 'lint.config.ts');
+    const lintConfigPath = path.join(targetDir, 'lint.config.mts');
     const originalLintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
     fs.writeFileSync(
       lintConfigPath,
@@ -1201,8 +1215,8 @@ describe('@wp-typia/project-tools standalone doctor', () => {
       'exit 0; ttsx scripts/sync-project.ts';
     packageJson.scripts.build =
       'exit 0; npm run sync -- --check && wp-scripts build --experimental-modules';
-    packageJson.scripts.typecheck =
-      'exit 0; npm run sync -- --check && ttsc --noEmit';
+    packageJson.scripts['check:code'] =
+      'exit 0; npm run sync -- --check && ttsc check --noEmit';
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
     const packageCheck = getCheck(
@@ -1211,7 +1225,7 @@ describe('@wp-typia/project-tools standalone doctor', () => {
     );
 
     expect(packageCheck?.status).toBe('fail');
-    for (const scriptName of ['sync', 'build', 'typecheck']) {
+    for (const scriptName of ['sync', 'build', 'check:code']) {
       expect(packageCheck?.detail).toContain(
         `${scriptName} script must invoke`,
       );

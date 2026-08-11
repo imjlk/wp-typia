@@ -224,7 +224,7 @@ If you enabled persistence on the parent block:
 npm run sync-rest
 ```
 
-Use `npm run sync` for the common-case metadata + REST refresh before `npm run build`, `npm run typecheck`, or commit. `npm run sync-rest` remains available when you only want to refresh the parent REST layer, but it now fails fast when the block metadata artifacts are stale, so run `npm run sync` or `npm run sync-types` first when needed. The generated `dev` workflow watches the relevant sync steps for compound scaffolds, `npm run start` still runs them as one-shot syncs, and both `npm run build` and `npm run typecheck` verify that the checked-in artifacts are already current. They do not create migration history.
+Use `npm run sync` for the common-case metadata + REST refresh before `npm run build`, `npm run check:code`, or commit. `npm run sync-rest` remains available when you only want to refresh the parent REST layer, but it now fails fast when the block metadata artifacts are stale, so run `npm run sync` or `npm run sync-types` first when needed. The generated `dev` workflow watches the relevant sync steps for compound scaffolds, `npm run start` still runs them as one-shot syncs, and both `npm run build` and `npm run check:code` verify that the checked-in artifacts are already current. They do not create migration history.
 
 Then load the plugin in your WordPress environment and verify:
 

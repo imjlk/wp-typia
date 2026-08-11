@@ -13,8 +13,21 @@ const wpExamples = [
   'examples/compound-patterns',
 ];
 
+// Example checks execute sync scripts through published workspace entrypoints
+// before loading the lint contributor. Build both dependency surfaces so this
+// lane is reproducible from a clean checkout without stale dist directories.
+for (const packageName of [
+  '@wp-typia/project-tools',
+  '@wp-typia/ttsc-lint-plugin-wp',
+]) {
+  execFileSync('bun', ['run', '--filter', packageName, 'build'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+}
+
 for (const relativePath of wpExamples) {
-  execFileSync('bun', ['run', 'lint'], {
+  execFileSync('bun', ['run', 'check'], {
     cwd: path.join(repoRoot, relativePath),
     stdio: 'inherit',
   });
@@ -22,7 +35,7 @@ for (const relativePath of wpExamples) {
 
 execFileSync(
   'bun',
-  ['run', '--filter', 'api-contract-adapter-poc', '--if-present', 'lint'],
+  ['run', '--filter', 'api-contract-adapter-poc', '--if-present', 'check'],
   {
     cwd: repoRoot,
     stdio: 'inherit',

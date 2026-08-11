@@ -123,7 +123,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
         'utf8',
       );
       const generatedLintConfig = fs.readFileSync(
-        path.join(targetDir, 'lint.config.ts'),
+        path.join(targetDir, 'lint.config.mts'),
         'utf8',
       );
 
@@ -160,8 +160,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(packageJson.scripts.start).toBe(
         'npm run sync && wp-scripts start --experimental-modules',
       );
-      expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && ttsc --noEmit',
+      expect(packageJson.scripts['check:code']).toBe(
+        'npm run sync -- --check && ttsc check --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',
@@ -169,7 +169,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedLintConfig).toContain(
         "from '@wp-typia/ttsc-lint-plugin-wp'",
       );
-      expect(generatedLintConfig).toContain('...configs.recommended');
+      expect(generatedLintConfig).toContain('...configs.wpScriptsRecommended');
       expect(generatedLintConfig).toContain(
         "allowedTextDomain: 'demo-npm'",
       );
@@ -326,6 +326,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(readme).toContain('- Family: basic');
       expect(readme).toContain('- Type: built-in block scaffold');
       expect(readme).toContain('## Build and Verify');
+      expect(readme).toContain('npm run check');
+      expect(readme).not.toContain('npm run typecheck');
       expect(readme).toContain(
         `npx --yes wp-typia@${wpTypiaPackageManifest.version} doctor`,
       );
@@ -806,8 +808,8 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(packageJson.scripts.start).toBe(
         'npm run sync && wp-scripts start --experimental-modules',
       );
-      expect(packageJson.scripts.typecheck).toBe(
-        'npm run sync -- --check && ttsc --noEmit',
+      expect(packageJson.scripts['check:code']).toBe(
+        'npm run sync -- --check && ttsc check --noEmit',
       );
       expect(packageJson.scripts['watch:sync-types']).toBe(
         'chokidar "src/types.ts" --debounce 200 -c "npm run sync-types"',

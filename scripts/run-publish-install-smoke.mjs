@@ -26,6 +26,9 @@ const GENERATED_PROJECT_OVERRIDE_PACKAGES = PUBLISH_PACKAGE_CHAIN.filter(
 ).map(([, packageName]) => packageName);
 const npmCommand = getNpmCommand();
 const tarCommand = getTarCommand();
+const sharedTtscGoCacheDir =
+	process.env.TTSC_GO_CACHE_DIR ??
+	path.join(repoRoot, "node_modules", ".cache", "ttsc", "go-build");
 
 function run(command, args, options = {}) {
 	return execFileSync(command, args, {
@@ -184,14 +187,19 @@ function installGeneratedProject(projectDir, tarballs) {
 	run(npmCommand, ["install"], { cwd: projectDir });
 }
 
-function typecheckGeneratedProject(projectDir, ttscCacheDir) {
-	run(npmCommand, ["exec", "--", "ttsc", "--noEmit"], {
+function checkGeneratedProjectCode(projectDir, ttscCacheDir) {
+	run(npmCommand, ["exec", "--", "ttsc", "check", "--noEmit"], {
 		cwd: projectDir,
-		env: {
-			...process.env,
-			TTSC_CACHE_DIR: ttscCacheDir,
-		},
+		env: createTtscSmokeEnv(ttscCacheDir),
 	});
+}
+
+function createTtscSmokeEnv(ttscCacheDir) {
+	return {
+		...process.env,
+		TTSC_CACHE_DIR: ttscCacheDir,
+		TTSC_GO_CACHE_DIR: sharedTtscGoCacheDir,
+	};
 }
 
 const phaseTimer = createCiPhaseTimer({
@@ -246,7 +254,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 				.trim()
 				.split("\n");
 			const missingEntries = [
-				"package/lint.config.ts.mustache",
+				"package/lint.config.mts.mustache",
 				"package/prettier.config.mjs.mustache",
 				"package/scripts/sync-php-entrypoints.ts.mustache",
 				"package/src/bindings/wp-typia-modules.php.mustache",
@@ -402,10 +410,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			],
 			{
 				cwd: blockTypesTypecheckDir,
-				env: {
-					...process.env,
-					TTSC_CACHE_DIR: ttscCacheDir,
-				},
+				env: createTtscSmokeEnv(ttscCacheDir),
 			},
 		);
 	});
@@ -766,7 +771,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 	]);
 	phaseTimer.measureSync("install and typecheck basic scaffold", () => {
 		installGeneratedProject(basicDir, tarballs);
-		typecheckGeneratedProject(basicDir, ttscCacheDir);
+		checkGeneratedProjectCode(basicDir, ttscCacheDir);
 	});
 
 	const adminViewDir = path.join(projectDir, "demo-admin-view");
@@ -812,7 +817,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		throw new Error("Generated admin-view workspace is missing @wordpress/dataviews.");
 	}
 	assertFilesExist(adminViewDir, [
-		"lint.config.ts",
+		"lint.config.mts",
 		"scripts/sync-php-entrypoints.ts",
 		"src/admin-views/snapshots/index.tsx",
 		"src/admin-views/snapshots/Screen.tsx",
@@ -848,12 +853,9 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		installGeneratedProject(adminViewDir, tarballs);
 		run(npmCommand, ["run", "sync", "--", "--check"], {
 			cwd: adminViewDir,
-			env: {
-				...process.env,
-				TTSC_CACHE_DIR: ttscCacheDir,
-			},
+			env: createTtscSmokeEnv(ttscCacheDir),
 		});
-		typecheckGeneratedProject(adminViewDir, ttscCacheDir);
+		checkGeneratedProjectCode(adminViewDir, ttscCacheDir);
 	});
 
 	const compoundDir = path.join(projectDir, "demo-compound");
@@ -876,10 +878,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 		installGeneratedProject(compoundDir, tarballs);
 		run(npmCommand, ["exec", "--", "ttsx", "scripts/add-compound-child.ts", "--slug", "faq-item", "--title", "FAQ Item"], {
 			cwd: compoundDir,
-			env: {
-				...process.env,
-				TTSC_CACHE_DIR: ttscCacheDir,
-			},
+			env: createTtscSmokeEnv(ttscCacheDir),
 		});
 		assertFilesExist(compoundDir, [
 			"src/blocks/demo-compound/block-metadata.ts",
@@ -889,7 +888,7 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			"src/blocks/demo-compound-faq-item/manifest-document.ts",
 			"src/blocks/demo-compound-faq-item/manifest-defaults-document.ts",
 		]);
-		typecheckGeneratedProject(compoundDir, ttscCacheDir);
+		checkGeneratedProjectCode(compoundDir, ttscCacheDir);
 	});
 
 	process.stdout.write(

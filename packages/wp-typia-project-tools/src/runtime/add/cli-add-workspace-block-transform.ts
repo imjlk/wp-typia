@@ -19,11 +19,20 @@ import {
 } from './cli-add-shared.js';
 import { ensureWorkspaceRegistrationSettingsCall } from './cli-add-workspace-registration-hooks.js';
 import {
+  collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceScriptFilePaths,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
+import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 const BLOCK_TRANSFORMS_IMPORT_LINE =
 	"import { applyWorkspaceBlockTransforms } from './transforms';";
@@ -35,7 +44,7 @@ const BLOCK_TRANSFORMS_CALL_PATTERN =
 	/applyWorkspaceBlockTransforms\s*\(\s*registration\s*\.\s*settings\s*\)\s*;?/u;
 
 function buildWorkspaceConstName(prefix: string, slug: string): string {
-  return `workspace${prefix}_${toSnakeCase(slug)}`;
+  return `workspace${prefix}${toCollisionSafePascalCase(slug)}`;
 }
 
 function buildBlockTransformConfigEntry(options: {
@@ -55,13 +64,30 @@ function buildBlockTransformConfigEntry(options: {
 	].join('\n');
 }
 
-function getBlockTransformConstBindings(
+async function getBlockTransformConstBindings(
+	projectDir: string,
+	transformsDir: string,
 	transformSlugs: string[],
-): Array<{ constName: string; transformSlug: string }> {
+): Promise<Array<{ constName: string; transformSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return transformSlugs.map((transformSlug) => {
-    const constName = buildWorkspaceConstName('BlockTransform', transformSlug);
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; transformSlug: string }> = [];
+  for (const transformSlug of transformSlugs) {
+    bindings.push({
+      constName: await resolveAndMigrateGeneratedExportedConstName(
+        path.join(transformsDir, `${transformSlug}.ts`),
+        [
+          buildWorkspaceConstName('BlockTransform', transformSlug),
+          `workspaceBlockTransform_${toSnakeCase(transformSlug)}`,
+        ],
+        projectDir,
+      ),
+      transformSlug,
+    });
+  }
+  for (const { constName, transformSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== transformSlug) {
@@ -71,8 +97,8 @@ function getBlockTransformConstBindings(
     }
 
     seenConstNames.set(constName, transformSlug);
-    return { constName, transformSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildBlockTransformSource(options: {
@@ -111,8 +137,9 @@ export const ${transformConstName} = {
 `;
 }
 
-function buildBlockTransformIndexSource(transformSlugs: string[]): string {
-  const transformBindings = getBlockTransformConstBindings(transformSlugs);
+function buildBlockTransformIndexSource(
+	transformBindings: Array<{ constName: string; transformSlug: string }>,
+): string {
   const importLines = transformBindings
 		.map(
 			({ constName, transformSlug }) =>
@@ -171,15 +198,20 @@ async function writeBlockTransformRegistry(
   const transformsIndexPath = path.join(transformsDir, 'index.ts');
   await fsp.mkdir(transformsDir, { recursive: true });
 
-  const existingTransformSlugs = (await fsp.readdir(transformsDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingTransformSlugs = (
+    await collectGeneratedTypeScriptModulePaths(transformsDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextTransformSlugs = Array.from(
 		new Set([...existingTransformSlugs, transformSlug]),
 	).sort();
+  const transformBindings = await getBlockTransformConstBindings(
+    projectDir,
+    transformsDir,
+    nextTransformSlugs,
+  );
   await fsp.writeFile(
     transformsIndexPath,
-    buildBlockTransformIndexSource(nextTransformSlugs),
+    buildBlockTransformIndexSource(transformBindings),
     'utf8',
   );
 }
@@ -266,11 +298,17 @@ export async function runAddBlockTransformCommand({
   const shouldRemoveTransformsDirOnRollback = !(await pathExists(
     transformsDir,
   ));
+  const existingTransformModulePaths =
+    await collectGeneratedTypeScriptModulePaths(transformsDir);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			transformsIndexPath,
+			...existingTransformModulePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

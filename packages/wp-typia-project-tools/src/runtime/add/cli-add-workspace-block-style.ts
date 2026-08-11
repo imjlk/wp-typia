@@ -15,11 +15,20 @@ import {
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
 import {
+  collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceScriptFilePaths,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
+import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toSnakeCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 
 const BLOCK_STYLES_IMPORT_LINE =
 	"import { registerWorkspaceBlockStyles } from './styles';";
@@ -29,7 +38,7 @@ const BLOCK_STYLES_CALL_LINE = 'registerWorkspaceBlockStyles();';
 const BLOCK_STYLES_CALL_PATTERN = /registerWorkspaceBlockStyles\s*\(\s*\)\s*;?/u;
 
 function buildWorkspaceConstName(prefix: string, slug: string): string {
-  return `workspace${prefix}_${toSnakeCase(slug)}`;
+  return `workspace${prefix}${toCollisionSafePascalCase(slug)}`;
 }
 
 function buildBlockStyleConfigEntry(blockSlug: string, styleSlug: string): string {
@@ -42,13 +51,30 @@ function buildBlockStyleConfigEntry(blockSlug: string, styleSlug: string): strin
 	].join('\n');
 }
 
-function getBlockStyleConstBindings(
+async function getBlockStyleConstBindings(
+	projectDir: string,
+	stylesDir: string,
 	styleSlugs: string[],
-): Array<{ constName: string; styleSlug: string }> {
+): Promise<Array<{ constName: string; styleSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return styleSlugs.map((styleSlug) => {
-    const constName = buildWorkspaceConstName('BlockStyle', styleSlug);
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; styleSlug: string }> = [];
+  for (const styleSlug of styleSlugs) {
+    bindings.push({
+      constName: await resolveAndMigrateGeneratedExportedConstName(
+        path.join(stylesDir, `${styleSlug}.ts`),
+        [
+          buildWorkspaceConstName('BlockStyle', styleSlug),
+          `workspaceBlockStyle_${toSnakeCase(styleSlug)}`,
+        ],
+        projectDir,
+      ),
+      styleSlug,
+    });
+  }
+  for (const { constName, styleSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== styleSlug) {
@@ -58,8 +84,8 @@ function getBlockStyleConstBindings(
     }
 
     seenConstNames.set(constName, styleSlug);
-    return { constName, styleSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildBlockStyleSource(styleSlug: string, textDomain: string): string {
@@ -75,8 +101,9 @@ export const ${styleConstName} = {
 `;
 }
 
-function buildBlockStyleIndexSource(styleSlugs: string[]): string {
-  const styleBindings = getBlockStyleConstBindings(styleSlugs);
+function buildBlockStyleIndexSource(
+	styleBindings: Array<{ constName: string; styleSlug: string }>,
+): string {
   const importLines = styleBindings
 		.map(({ constName, styleSlug }) => `import { ${constName} } from './${styleSlug}';`)
 		.join('\n');
@@ -120,13 +147,18 @@ async function writeBlockStyleRegistry(
   const stylesIndexPath = path.join(stylesDir, 'index.ts');
   await fsp.mkdir(stylesDir, { recursive: true });
 
-  const existingStyleSlugs = (await fsp.readdir(stylesDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingStyleSlugs = (
+    await collectGeneratedTypeScriptModulePaths(stylesDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextStyleSlugs = Array.from(new Set([...existingStyleSlugs, styleSlug])).sort();
+  const styleBindings = await getBlockStyleConstBindings(
+    projectDir,
+    stylesDir,
+    nextStyleSlugs,
+  );
   await fsp.writeFile(
     stylesIndexPath,
-    buildBlockStyleIndexSource(nextStyleSlugs),
+    buildBlockStyleIndexSource(styleBindings),
     'utf8',
   );
 }
@@ -195,11 +227,17 @@ export async function runAddBlockStyleCommand({
   const styleFilePath = path.join(stylesDir, `${styleSlug}.ts`);
   const stylesIndexPath = path.join(stylesDir, 'index.ts');
   const shouldRemoveStylesDirOnRollback = !(await pathExists(stylesDir));
+  const existingStyleModulePaths =
+    await collectGeneratedTypeScriptModulePaths(stylesDir);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			stylesIndexPath,
+			...existingStyleModulePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

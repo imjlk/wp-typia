@@ -5,4 +5,3 @@
 ### Patch changes
 
 - Updated dependencies: block-runtime (npm)@0.7.2, block-types (npm)@0.4.0
-

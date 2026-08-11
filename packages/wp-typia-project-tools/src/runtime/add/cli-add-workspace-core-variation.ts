@@ -18,8 +18,16 @@ import {
   resolveEditorPluginRegistryPath,
   writeEditorPluginRegistry,
 } from './cli-add-workspace-editor-plugin.js';
+import {
+  collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceScriptFilePaths,
+  isGeneratedTypeScriptModuleFilename,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
 import { pathExists } from '../shared/fs-async.js';
 import {
+  toCollisionSafeCamelCase,
+  toCollisionSafePascalCase,
   toKebabCase,
   toPascalCase,
   toTitleCase,
@@ -180,11 +188,25 @@ function buildCoreVariationIdentifier(targetBlockName: string, variationSlug: st
 		.join('_');
 }
 
+function buildCoreVariationPascalIdentifier(
+	targetBlockName: string,
+	variationSlug: string,
+): string {
+  return toCollisionSafePascalCase(`${targetBlockName}-${variationSlug}`);
+}
+
+function buildCoreVariationCamelIdentifier(
+	targetBlockName: string,
+	variationSlug: string,
+): string {
+  return toCollisionSafeCamelCase(`${targetBlockName}-${variationSlug}`);
+}
+
 function buildCoreVariationConstName(
 	targetBlockName: string,
 	variationSlug: string,
 ): string {
-  return `coreVariation_${buildCoreVariationIdentifier(targetBlockName, variationSlug)}`;
+  return `coreVariation${buildCoreVariationPascalIdentifier(targetBlockName, variationSlug)}`;
 }
 
 function buildCoreVariationBlockConstName(
@@ -205,14 +227,14 @@ function buildCoreVariationAttributesConstName(
 	targetBlockName: string,
 	variationSlug: string,
 ): string {
-  return `${buildCoreVariationIdentifier(targetBlockName, variationSlug)}Attributes`;
+  return `${buildCoreVariationCamelIdentifier(targetBlockName, variationSlug)}Attributes`;
 }
 
 function buildCoreVariationInnerBlocksConstName(
 	targetBlockName: string,
 	variationSlug: string,
 ): string {
-  return `${buildCoreVariationIdentifier(targetBlockName, variationSlug)}InnerBlocks`;
+  return `${buildCoreVariationCamelIdentifier(targetBlockName, variationSlug)}InnerBlocks`;
 }
 
 function buildCoreVariationImportPath(ref: CoreVariationModuleRef): string {
@@ -510,13 +532,13 @@ async function readCoreVariationModuleRefs(
         withFileTypes: true,
       });
       for (const variationEntry of variationEntries) {
-        if (!variationEntry.isFile() || !variationEntry.name.endsWith('.ts')) {
+        if (
+          !variationEntry.isFile() ||
+          !isGeneratedTypeScriptModuleFilename(variationEntry.name)
+        ) {
           continue;
         }
         const variationSlug = variationEntry.name.replace(/\.ts$/u, '');
-        if (variationSlug === 'index') {
-          continue;
-        }
 
         refs.push({
           targetBlockName: `${namespaceEntry.name}/${blockEntry.name}`,
@@ -533,14 +555,39 @@ async function readCoreVariationModuleRefs(
   });
 }
 
-function buildCoreVariationIndexSource(refs: readonly CoreVariationModuleRef[]): string {
-  const importLines = refs
-		.map((ref, index) => {
+async function buildCoreVariationIndexSource(
+	projectDir: string,
+	refs: readonly CoreVariationModuleRef[],
+): Promise<string> {
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{
+    ref: CoreVariationModuleRef;
+    variationConstName: string;
+  }> = [];
+  for (const ref of refs) {
+    bindings.push({
+      ref,
+      variationConstName: await resolveAndMigrateGeneratedExportedConstName(
+        getCoreVariationFilePath(
+          projectDir,
+          ref.targetBlockName,
+          ref.variationSlug,
+        ),
+        [
+          buildCoreVariationConstName(ref.targetBlockName, ref.variationSlug),
+          `coreVariation_${buildCoreVariationIdentifier(
+            ref.targetBlockName,
+            ref.variationSlug,
+          )}`,
+        ],
+        projectDir,
+      ),
+    });
+  }
+  const importLines = bindings
+		.map(({ ref, variationConstName }, index) => {
 			const blockConstName = buildCoreVariationBlockConstName(
-				ref.targetBlockName,
-				ref.variationSlug,
-			);
-			const variationConstName = buildCoreVariationConstName(
 				ref.targetBlockName,
 				ref.variationSlug,
 			);
@@ -553,7 +600,7 @@ function buildCoreVariationIndexSource(refs: readonly CoreVariationModuleRef[]):
 			);
 		})
 		.join('\n');
-  const entryLines = refs
+  const entryLines = bindings
 		.map((_, index) => {
 			return `  {
     blockName: CORE_VARIATION_BLOCK_${index},
@@ -604,7 +651,7 @@ async function writeCoreVariationRegistry(
   const refs = await readCoreVariationModuleRefs(coreVariationsDir);
   await fsp.writeFile(
     getCoreVariationIndexPath(projectDir),
-    buildCoreVariationIndexSource(refs),
+    await buildCoreVariationIndexSource(projectDir, refs),
     'utf8',
   );
 }
@@ -695,6 +742,10 @@ export async function runAddCoreVariationCommand({
 		!shouldRemoveCoreVariationsDir &&
 		!shouldRemoveTargetNamespaceDir &&
 		!(await pathExists(targetBlockDir));
+  const existingCoreVariationModulePaths =
+    await collectGeneratedTypeScriptModulePaths(coreVariationsDir, true);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			bootstrapPath,
@@ -702,6 +753,8 @@ export async function runAddCoreVariationCommand({
 			editorPluginsIndexPath,
 			webpackConfigPath,
 			coreVariationsIndexPath,
+			...existingCoreVariationModulePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

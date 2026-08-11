@@ -29,10 +29,30 @@ Generated TypeScript workflows now use `ttsc` and `ttsx`:
 
 `wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
 migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
-and retrofitted projects pin `@ttsc/lint@0.23.0` and run the generated
+and retrofitted projects pin `@ttsc/lint@0.26.2` and run the generated
 `scripts/apply-ttsc-lint-compat.mjs` install hook until an unpatched upstream
 release passes the mapped/`infer` formatter regression. The hook affects only
 the development compiler plugin; it is not a WordPress runtime dependency.
+
+Generated project code checks now use one explicit combined workflow:
+
+- use `check:code` for sync validation and `ttsc check --noEmit`
+- use `check` to add Stylelint plus JavaScript and non-code Prettier validation
+- remove the old `lint`, `lint:ts`, `lint:js`, `lint:css`, `typecheck`, and
+  `format:check` scaffold aliases
+- set `allowJs: true` and include JavaScript, JSX, CJS, and MJS so the same ttsc
+  WordPress preset checks JavaScript and TypeScript code
+- name the contributor configuration `lint.config.mts` in CommonJS projects
+
+Generated lint configs leave ttsc format diagnostics disabled during checks.
+`ttsc format` remains the TypeScript write path, Prettier gates JavaScript and
+non-code formatting, and `ttsc check --noEmit` owns compiler and lint
+diagnostics.
+
+The combined code gate can report both compiler and lint diagnostics. It is not
+exposed under a lint-only alias because `ttsc` intentionally does not provide a
+lint-only command. Style diagnostics remain available separately through
+`check:style`.
 
 TypeScript 7 does not expose the JavaScript Compiler API. Custom tooling that
 imports `typescript` at runtime should use the isolated

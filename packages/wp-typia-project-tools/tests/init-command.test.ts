@@ -5,9 +5,15 @@ import * as path from 'node:path';
 import { applyInitPlan } from '../src/runtime/cli-init-apply.js';
 import { runInitCommand } from '../src/runtime/cli-init.js';
 import { getInitPlan } from '../src/runtime/cli-init-plan.js';
-import { buildOfficialWorkspaceLintScriptChanges } from '../src/runtime/cli/cli-init-package-json.js';
 import {
+  buildOfficialWorkspaceLintScriptChanges,
+  buildProjectPackageJsonSource,
+  buildScriptChanges,
+} from '../src/runtime/cli/cli-init-package-json.js';
+import {
+  buildPreviousManagedWordPressTtscLintConfigSource,
   buildWordPressTtscLintConfigSource,
+  getPreviousTtscLintCompatSource,
   getTtscLintCompatSource,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
@@ -15,6 +21,7 @@ import {
 import {
   findManagedWordPressSourcePaths,
   findManagedWordPressSourcePathsAsync,
+  getTtscJavaScriptCoverageIssue,
   hasWordPressTtscLintConfigSource,
 } from '../src/runtime/shared/ttsc-lint-config.js';
 import {
@@ -99,6 +106,21 @@ describe('wp-typia init', () => {
 		cleanupScaffoldTempRoot(tempRoot);
 	});
 
+	test('preserves package manifest indentation and line endings', () => {
+		const packageJson = {
+			name: 'format-preserving-project',
+			scripts: { check: 'npm run check:code' },
+		};
+		const currentSource =
+			'{\r\n\t"name": "format-preserving-project",\r\n\t"scripts": {}\r\n}\r\n';
+
+		expect(
+			buildProjectPackageJsonSource(packageJson, currentSource),
+		).toBe(
+			'{\r\n\t"name": "format-preserving-project",\r\n\t"scripts": {\r\n\t\t"check": "npm run check:code"\r\n\t}\r\n}\r\n',
+		);
+	});
+
 	test('detects single-block retrofit candidates and plans the minimum sync surface', () => {
 		const projectDir = path.join(tempRoot, 'retrofit-single-block');
 		scaffoldRetrofitProject(projectDir, {
@@ -129,7 +151,7 @@ describe('wp-typia init', () => {
 			})),
 		).toEqual([
 			{ action: 'add', path: 'scripts/apply-ttsc-lint-compat.mjs' },
-			{ action: 'add', path: 'lint.config.ts' },
+				{ action: 'add', path: 'lint.config.mts' },
 			{ action: 'add', path: 'scripts/block-config.ts' },
 			{ action: 'add', path: 'scripts/sync-types-to-block-json.ts' },
 			{ action: 'add', path: 'scripts/sync-project.ts' },
@@ -138,7 +160,8 @@ describe('wp-typia init', () => {
 			'postinstall',
 			'sync',
 			'sync-types',
-			'typecheck',
+				'check:code',
+				'check',
 		]);
 		expect(
 			plan.packageChanges.addDevDependencies.some(
@@ -230,9 +253,9 @@ describe('wp-typia init', () => {
 			}),
 		);
 		expect(
-			plan.packageChanges.scripts.find((script) => script.name === 'typecheck')
-				?.requiredValue,
-		).toBe('pnpm run sync --check && ttsc --noEmit');
+				plan.packageChanges.scripts.find((script) => script.name === 'check:code')
+					?.requiredValue,
+			).toBe('pnpm run sync --check && ttsc check --noEmit');
 		expect(plan.nextSteps).toContain(
 			`pnpm dlx wp-typia@${wpTypiaPackageManifest.version} doctor`,
 		);
@@ -309,8 +332,8 @@ describe('wp-typia init', () => {
 		expect(packageJson.scripts?.postinstall).toBe(
 			'node scripts/apply-ttsc-lint-compat.mjs',
 		);
-		expect(packageJson.scripts?.typecheck).toBe(
-			'pnpm run sync --check && ttsc --noEmit',
+			expect(packageJson.scripts?.['check:code']).toBe(
+				'pnpm run sync --check && ttsc check --noEmit',
 		);
 		expect(blockConfigSource).toContain("blockJsonFile: 'block.json'");
 		expect(blockConfigSource).toContain(
@@ -330,7 +353,7 @@ describe('wp-typia init', () => {
 			),
 		).toBe(true);
 		expect(
-			fs.readFileSync(path.join(projectDir, 'lint.config.ts'), 'utf8'),
+				fs.readFileSync(path.join(projectDir, 'lint.config.mts'), 'utf8'),
 		).toContain("allowedTextDomain: 'retrofit-legacy-root'");
 	});
 
@@ -554,19 +577,19 @@ describe('wp-typia init', () => {
 					action: 'update',
 					currentValue: '0.22.0',
 					name: '@ttsc/lint',
-					requiredValue: '0.23.0',
+					requiredValue: '0.26.2',
 				},
 				{
 					action: 'update',
 					currentValue: '^0.22.0',
 					name: '@ttsc/unplugin',
-					requiredValue: '^0.23.0',
+					requiredValue: '^0.26.2',
 				},
 				{
 					action: 'update',
 					currentValue: '^0.22.0',
 					name: 'ttsc',
-					requiredValue: '^0.23.0',
+					requiredValue: '^0.26.2',
 				},
 				{
 					action: 'update',
@@ -584,9 +607,9 @@ describe('wp-typia init', () => {
 		);
 		expect(applied.status).toBe('applied');
 		expect(packageJson.devDependencies).toMatchObject({
-			'@ttsc/lint': '0.23.0',
-			'@ttsc/unplugin': '^0.23.0',
-			ttsc: '^0.23.0',
+			'@ttsc/lint': '0.26.2',
+			'@ttsc/unplugin': '^0.26.2',
+			ttsc: '^0.26.2',
 			typescript: '^7.0.2',
 			typia: '^13.2.0',
 		});
@@ -737,6 +760,25 @@ describe('wp-typia init', () => {
 		}
 	});
 
+	test('applies a retrofit plan when package.json does not exist yet', async () => {
+		const projectDir = path.join(tempRoot, 'retrofit-without-package-json');
+		scaffoldRetrofitProject(projectDir, {
+			interfaceName: 'RetrofitWithoutPackageJsonAttributes',
+		});
+		fs.rmSync(path.join(projectDir, 'package.json'));
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.status).toBe('preview');
+
+		const applied = await applyInitPlan(projectDir);
+		const packageJson = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'),
+		) as { name?: string };
+
+		expect(applied.status).toBe('applied');
+		expect(packageJson.name).toBe('retrofit-without-package-json');
+	});
+
 	test('resolves official workspace package-manager guidance from the workspace root', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-init-package-manager');
 		await scaffoldOfficialWorkspace(projectDir);
@@ -774,7 +816,7 @@ describe('wp-typia init', () => {
 		);
 	});
 
-	test('does not mistake a lint:ts sub-lane for the managed lane', () => {
+	test('removes the managed lint:ts lane without mistaking a sub-lane for it', () => {
 		const changes = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -785,17 +827,616 @@ describe('wp-typia init', () => {
 			'pnpm',
 		);
 
-		expect(changes).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue:
-					'pnpm run lint:ts && pnpm run lint:ts:ci && pnpm run lint:css',
-			}),
-		);
-		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+		expect(changes).toContainEqual({
+			action: 'remove',
+			currentValue: 'ttsc --noEmit',
+			name: 'lint:ts',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'pnpm run lint:ts:ci && pnpm run lint:css',
+			name: 'lint',
+			requiredValue: 'pnpm run lint:ts:ci',
+		});
 	});
 
-	test('preserves project-owned flags on the managed lint:ts lane', () => {
+	test('preserves project-owned checks while adding the combined code gate once', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:php && npm run check:custom',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'npm run check:php && npm run check:custom',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:php && npm run check:custom',
+		});
+
+		const alreadyManaged = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code && npm run check:php',
+				},
+			},
+			'npm',
+		);
+		expect(alreadyManaged.some((change) => change.name === 'check')).toBe(
+			false,
+		);
+	});
+
+	test('places the compatibility helper before terminating postinstall commands', () => {
+		for (const [currentValue, requiredValue] of [
+			[
+				'exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && exit 0',
+			],
+			[
+				'setup; exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && (setup; exit 0)',
+			],
+			[
+				'env MODE=upgrade builtin exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && env MODE=upgrade builtin exit 0',
+			],
+			[
+				'exec node setup.js',
+				'node scripts/apply-ttsc-lint-compat.mjs && exec node setup.js',
+			],
+			[
+				'setup; command exec node finalize.js',
+				'node scripts/apply-ttsc-lint-compat.mjs && (setup; command exec node finalize.js)',
+			],
+		] as const) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{ scripts: { postinstall: currentValue } },
+				'npm',
+			);
+			expect(changes).toContainEqual({
+				action: 'update',
+				currentValue,
+				name: 'postinstall',
+				requiredValue,
+			});
+			expect(
+				buildOfficialWorkspaceLintScriptChanges(
+					{ scripts: { postinstall: requiredValue } },
+					'npm',
+				).some((change) => change.name === 'postinstall'),
+			).toBe(false);
+		}
+
+		for (const redirectionOnlyExec of [
+			'exec 2>/dev/null && node setup.js',
+			'exec &> setup.log && node setup.js',
+			'exec &>> setup.log && node setup.js',
+			'exec <<< "input" && node setup.js',
+		]) {
+			expect(
+				buildOfficialWorkspaceLintScriptChanges(
+					{ scripts: { postinstall: redirectionOnlyExec } },
+					'npm',
+				),
+			).toContainEqual({
+				action: 'update',
+				currentValue: redirectionOnlyExec,
+				name: 'postinstall',
+				requiredValue: `${redirectionOnlyExec} && node scripts/apply-ttsc-lint-compat.mjs`,
+			});
+		}
+	});
+
+	test('normalizes supported managed runner forms without dropping project commands', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'env CI=1 pnpm --silent run check:code && pnpm --silent check:style && echo report',
+					'check:style': 'stylelint "src/**/*.scss"',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'env CI=1 pnpm --silent run check:code && pnpm --silent check:style && echo report',
+			name: 'check',
+			requiredValue:
+				'env CI=1 npm run check:code && npm run check:style && echo report',
+		});
+	});
+
+	test('runs managed checks before terminal project-owned aggregates', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'setup; exit 0',
+					'check:code': 'eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'setup; exit 0',
+			name: 'check',
+			requiredValue: 'npm run check:code && (setup; exit 0)',
+		});
+	});
+
+	test('migrates legacy managed style and format lanes into the new aggregate', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:js && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:js': 'node scripts/run-wp-scripts-lint-js-compat.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'format:check': legacyFormatCheck,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'wp-scripts lint-style --allow-empty-input',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: legacyFormatCheck,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		for (const name of [
+			'lint',
+			'lint:ts',
+			'lint:js',
+			'lint:css',
+			'format:check',
+		]) {
+			expect(changes).toContainEqual(
+				expect.objectContaining({ action: 'remove', name }),
+			);
+		}
+	});
+
+	test('merges legacy checks into occupied destination lanes', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:style && npm run check:format',
+					'check:format': 'eslint scripts',
+					'check:style': 'eslint styles',
+					'format:check': legacyFormatCheck,
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint styles',
+			name: 'check:style',
+			requiredValue:
+				'wp-scripts lint-style --allow-empty-input && eslint styles',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint scripts',
+			name: 'check:format',
+			requiredValue: `${legacyFormatCheck} && eslint scripts`,
+		});
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint:css' }),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'format:check' }),
+		);
+	});
+
+	test('preserves lifecycle hooks around managed style and format aliases', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'prelint:css': 'node scripts/prepare-style.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'postlint:css': 'node scripts/report-style.mjs',
+					'preformat:check': 'node scripts/prepare-format.mjs',
+					'format:check': legacyFormatCheck,
+					'postformat:check': 'node scripts/report-format.mjs',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'npm run lint:css',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: 'npm run format:check',
+		});
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
+	test('does not copy forwarding aliases into their destination lanes', () => {
+		const missingDestinations = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'format:check': 'npm run check:format',
+					'lint:css': 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+		expect(
+			missingDestinations.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+		expect(missingDestinations).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue: 'npm run check:code',
+		});
+		expect(
+			missingDestinations.some(
+				(change) =>
+					change.name === 'lint:css' ||
+					change.name === 'format:check',
+			),
+		).toBe(false);
+
+		const occupiedDestinations = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:format': 'prettier --check .',
+					'check:style': 'wp-scripts lint-style',
+					'format:check': 'npm run check:format',
+					'lint:css': 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+		expect(
+			occupiedDestinations.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+	});
+
+	test('does not copy transitive forwarding aliases into destination lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:format': 'prettier --check .',
+					'check:style': 'stylelint src',
+					'format:check': 'npm run formatting',
+					formatting: 'npm run check:format',
+					'lint:css': 'npm run style',
+					style: 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+
+		expect(
+			changes.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+	});
+
+	test('does not duplicate legacy aliases already used by destination lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:style && npm run check:format',
+					'check:format': 'npm run format:check',
+					'check:style': 'npm run lint:css',
+					'format:check': 'prettier --check scripts',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(
+			changes.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
+	test('preserves managed lint aliases referenced by retained scripts', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:js && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:js':
+						'node scripts/run-wp-scripts-lint-js-compat.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'format:check': legacyFormatCheck,
+					'ci:style': 'npm run-script lint:css',
+					'ci:style:short': 'npm run-s lint:css',
+					'ci:js': 'npm urn lint:js',
+					'release:check': 'npm rum format:check',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint' }),
+		);
+		expect(
+			changes.some((change) => change.name === 'lint:css'),
+		).toBe(false);
+		expect(
+			changes.some((change) => change.name === 'lint:js'),
+		).toBe(false);
+		expect(
+			changes.some((change) => change.name === 'format:check'),
+		).toBe(false);
+
+		const transitivelyReferenced = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'ci:all': 'npm run lint',
+				},
+			},
+			'npm',
+		);
+		for (const name of ['lint', 'lint:ts', 'lint:css']) {
+			expect(
+				transitivelyReferenced.some((change) => change.name === name),
+			).toBe(false);
+		}
+	});
+
+	test('removes only the legacy managed retrofit typecheck alias', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					typecheck: 'npm run sync -- --check && ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+		expect(changes).toContainEqual({
+			action: 'remove',
+			currentValue: 'npm run sync -- --check && ttsc --noEmit',
+			name: 'typecheck',
+		});
+
+		const projectOwned = buildScriptChanges(
+			{
+				scripts: {
+					typecheck: 'npm run sync -- --check && ttsc --noEmit && npm test',
+				},
+			},
+			'npm',
+		);
+		expect(projectOwned.some((change) => change.name === 'typecheck')).toBe(
+			false,
+		);
+
+		const referenced = buildScriptChanges(
+			{
+				scripts: {
+					ci: 'npm run typecheck',
+					typecheck: 'npm run sync -- --check && ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+		expect(referenced).toContainEqual({
+			action: 'update',
+			currentValue: 'npm run sync -- --check && ttsc --noEmit',
+			name: 'typecheck',
+			requiredValue: 'npm run check:code',
+		});
+
+		const crossRunnerReferenced = buildScriptChanges(
+			{
+				scripts: {
+					ci: 'npm run typecheck',
+					typecheck: 'bun run sync --check && ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+		expect(crossRunnerReferenced).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run sync --check && ttsc --noEmit',
+			name: 'typecheck',
+			requiredValue: 'npm run check:code',
+		});
+		expect(
+			buildScriptChanges(
+				{
+					scripts: {
+						typecheck: 'bun run sync --check && ttsc --noEmit',
+					},
+				},
+				'npm',
+			),
+		).toContainEqual({
+			action: 'remove',
+			currentValue: 'bun run sync --check && ttsc --noEmit',
+			name: 'typecheck',
+		});
+	});
+
+	test('preserves retrofit check lanes while adding the managed code gate', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'vitest run',
+					'check:code': 'eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'vitest run',
+			name: 'check',
+			requiredValue: 'npm run check:code && vitest run',
+		});
+	});
+
+	test('normalizes the retrofit check runner for the selected package manager', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code && vitest run',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run check:code && vitest run',
+			name: 'check',
+			requiredValue: 'npm run check:code && vitest run',
+		});
+	});
+
+	test('carries managed legacy style and format lanes into retrofit check', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'format:check':
+						'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'wp-scripts lint-style --allow-empty-input',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue:
+				'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run check:code',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint:css' }),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'format:check' }),
+		);
+	});
+
+	test('repairs swallowed retrofit check invocations', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code || true',
+					'check:code': 'ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'npm run check:code || true',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && (npm run check:code || true)',
+		});
+	});
+
+	test('removes legacy managed lint aliases with supported flags', () => {
 		const changes = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -806,12 +1447,11 @@ describe('wp-typia init', () => {
 			'npm',
 		);
 
-		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
 		expect(changes).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue: 'npm run lint:ts && npm run lint:css',
-			}),
+			expect.objectContaining({ action: 'remove', name: 'lint:ts' }),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint' }),
 		);
 
 		const quotedFlagChanges = buildOfficialWorkspaceLintScriptChanges(
@@ -825,11 +1465,409 @@ describe('wp-typia init', () => {
 		);
 		expect(
 			quotedFlagChanges.some((change) => change.name === 'lint:ts'),
+		).toBe(true);
+	});
+
+	test('preserves project-owned lint work when removing managed aliases', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:custom && npm run lint:ts && npm run lint:css',
+					'lint:ts': 'ttsc --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:custom && npm run lint:ts && npm run lint:css',
+			name: 'lint',
+			requiredValue: 'npm run lint:custom',
+		});
+	});
+
+	test('preserves custom work appended to a legacy lint:ts lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit && eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes.some((change) => change.name === 'lint')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+	});
+
+	test('preserves managed aliases used by retained legacy lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit && npm run lint:css',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes.some((change) => change.name === 'lint')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:css')).toBe(false);
+
+		const transitiveAliasChanges =
+			buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						lint: 'npm run lint:ts',
+						'lint:ts': 'ttsc --noEmit && npm run style',
+						style: 'npm run lint:css',
+						'lint:css':
+							'wp-scripts lint-style --allow-empty-input',
+					},
+				},
+				'npm',
+			);
+		expect(
+			transitiveAliasChanges.some(
+				(change) => change.name === 'lint:css',
+			),
 		).toBe(false);
 	});
 
+	test('preserves arguments on customized legacy aggregate invocations', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:css -- --custom-formatter',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts && npm run lint:css -- --custom-formatter',
+			name: 'lint',
+			requiredValue: 'npm run lint:css -- --custom-formatter',
+		});
+		expect(changes.some((change) => change.name === 'lint:css')).toBe(false);
+	});
+
+	test('isolates project-owned fallback chains from managed checks', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'echo optional || true',
+					'check:code': 'eslint src || true',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						'npm run sync -- --check && ttsc check --noEmit && (eslint src || true)',
+			}),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'check',
+				requiredValue: 'npm run check:code && (echo optional || true)',
+			}),
+		);
+	});
+
+	test('isolates project-owned sequences that can override managed failures', () => {
+		for (const currentValue of [
+			'eslint src; echo done',
+			'eslint src\necho done',
+			'eslint src &',
+			'eslint src | cat',
+		]) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						check: currentValue,
+						'check:code': currentValue,
+					},
+				},
+				'npm',
+			);
+
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						`npm run sync -- --check && ttsc check --noEmit && (${currentValue})`,
+				}),
+			);
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check',
+					requiredValue: `npm run check:code && (${currentValue})`,
+				}),
+			);
+		}
+	});
+
+	test('repairs a partially adopted official check:code lane', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code': 'ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit',
+		});
+
+		const wrongOrder = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code':
+						'ttsc check --noEmit && npm run sync -- --check',
+				},
+			},
+			'npm',
+		);
+		expect(wrongOrder).toContainEqual({
+			action: 'update',
+			currentValue:
+				'ttsc check --noEmit && npm run sync -- --check',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && npm run sync -- --check',
+		});
+	});
+
+	test('keeps an existing ttsc gate outside project fallback grouping', () => {
+		const currentValue =
+			'eslint src || true && ttsc check --noEmit';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:code',
+					'check:code': currentValue,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue,
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && (eslint src || true) && ttsc check --noEmit',
+		});
+		const repairedValue =
+			'npm run sync -- --check && (eslint src || true) && ttsc check --noEmit';
+		expect(
+			buildOfficialWorkspaceLintScriptChanges(
+				{
+					scripts: {
+						check: 'npm run check:code',
+						'check:code': repairedValue,
+					},
+				},
+				'npm',
+			).some((change) => change.name === 'check:code'),
+		).toBe(false);
+	});
+
+	test('keeps grouped project-owned fallback chains idempotent', () => {
+		const scripts = {
+			check: 'npm run check:code && (echo optional || true)',
+			'check:code':
+				'npm run sync -- --check && ttsc check --noEmit && (eslint src || true)',
+			postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
+		};
+
+		expect(
+			buildOfficialWorkspaceLintScriptChanges({ scripts }, 'npm'),
+		).toEqual([]);
+	});
+
+	test('does not treat fallback operators inside substitutions as top level', () => {
+		for (const currentValue of [
+			'echo "$(false || echo recovered)"',
+			'echo $(false || echo recovered)',
+			'echo `false || echo recovered`',
+		]) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{ scripts: { 'check:code': currentValue } },
+				'npm',
+			);
+			expect(changes).toContainEqual(
+				expect.objectContaining({
+					name: 'check:code',
+					requiredValue:
+						`npm run sync -- --check && ttsc check --noEmit && ${currentValue}`,
+				}),
+			);
+		}
+	});
+
+	test('normalizes managed check subsets before adding discovered lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'lint:css': 'stylelint custom/**/*.scss',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual(
+			expect.objectContaining({
+				name: 'check',
+				requiredValue: 'npm run check:code && npm run check:style',
+			}),
+		);
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run sync --check && ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue: 'npm run sync -- --check && ttsc check --noEmit',
+		});
+	});
+
+	test('normalizes managed runners in customized complete check aggregates', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'bun run check:code && bun run check:style && echo report',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+					'check:style': 'stylelint "src/**/*.scss"',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'bun run check:code && bun run check:style && echo report',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && echo report',
+		});
+	});
+
+	test('removes dangling managed lanes from an existing check aggregate', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check:
+						'npm run check:code && npm run check:style && npm run check:format',
+					'check:code':
+						'npm run sync -- --check && ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+			name: 'check',
+			requiredValue: 'npm run check:code',
+		});
+	});
+
+	test('normalizes a managed sync runner without dropping code-check suffixes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit && eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'bun run sync --check && ttsc check --noEmit && eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
+	});
+
+	test('migrates customized legacy style and format lanes without orphaning them', () => {
+		const customStyle = 'stylelint custom/**/*.scss';
+		const customFormat = 'prettier --check custom-config.yml';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint:
+						'npm run lint:ts && npm run lint:css && npm run format:check',
+					'lint:ts': 'ttsc --noEmit',
+					'lint:css': customStyle,
+					'format:check': customFormat,
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: customStyle,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: customFormat,
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue:
+				'npm run check:code && npm run check:style && npm run check:format',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts && npm run lint:css && npm run format:check',
+			name: 'lint',
+			requiredValue: 'npm run lint:css && npm run format:check',
+		});
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
 	test('recognizes package runners without matching ttsc arguments', () => {
-		const plansLintTsReplacement = (command: string): boolean =>
+		const plansLintTsRemoval = (command: string): boolean =>
 			buildOfficialWorkspaceLintScriptChanges(
 				{
 					scripts: {
@@ -853,24 +1891,18 @@ describe('wp-typia init', () => {
 			'npm exec --silent ttsc -- --noEmit',
 			['ttsc \\', '--noEmit'].join('\n'),
 			['ttsc \\', '--noEmit'].join('\r\n'),
-			'echo label#value && ttsc --noEmit',
-			'echo escaped\\ #value && ttsc --noEmit',
 			'ttsc --noEmit;',
 			'ttsc --noEmit\n',
 			'ttsc --noEmit 2>&1',
 			'ttsc --noEmit &>lint.log',
-			'echo setup &&\nttsc --noEmit',
-			'exit 0 | cat && ttsc --noEmit',
-			'exit 0 & ttsc --noEmit',
-			'env WP_TYPIA_SKIP=1 exit; ttsc --noEmit',
 			'ttsc --noEmit # managed lint\n',
 			'ttsc --noEmit false --noEmit',
 			'ttsc --noEmit=false --noEmit=true',
 			'ttsc --baseUrl src --generateTrace traces --noEmit',
 		]) {
-			expect(plansLintTsReplacement(command)).toBe(false);
+			expect(plansLintTsRemoval(command)).toBe(true);
 		}
-		for (const command of [
+		const rejectedCommands = [
 			'echo ttsc --noEmit',
 			`echo 'next: && ttsc --noEmit'`,
 			'npx echo ttsc --noEmit',
@@ -908,12 +1940,19 @@ describe('wp-typia init', () => {
 			'ttsc --noEmit -- --project custom.tsconfig',
 			'ttsc --noEmit false',
 			'ttsc --noEmit=true --noEmit=false',
+			'echo label#value && ttsc --noEmit',
+			'echo escaped\\ #value && ttsc --noEmit',
+			'echo setup &&\nttsc --noEmit',
+			'exit 0 | cat && ttsc --noEmit',
+			'exit 0 & ttsc --noEmit',
+			'env WP_TYPIA_SKIP=1 exit; ttsc --noEmit',
 			'exit 0 && ttsc --noEmit',
 			'exit 0; ttsc --noEmit',
 			'WP_TYPIA_SKIP=1 exit 0 && ttsc --noEmit',
-		]) {
-			expect(plansLintTsReplacement(command)).toBe(true);
-		}
+		];
+		expect(
+			rejectedCommands.filter((command) => plansLintTsRemoval(command)),
+		).toEqual([]);
 
 		const noncanonicalAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -928,7 +1967,7 @@ describe('wp-typia init', () => {
 		);
 		expect(
 			noncanonicalAggregate.some((change) => change.name === 'lint'),
-		).toBe(false);
+		).toBe(true);
 
 		const terminalAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -952,18 +1991,11 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(unreachableAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue: 'npm run lint:ts && exit 0',
-			}),
+		expect(unreachableAggregate.some((change) => change.name === 'lint')).toBe(
+			false,
 		);
-		expect(terminalAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue:
-					'npm run lint:ts && npm --version run lint:ts',
-			}),
+		expect(terminalAggregate.some((change) => change.name === 'lint')).toBe(
+			false,
 		);
 		const forwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -976,11 +2008,8 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(forwardedAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue: 'npm run lint:ts',
-			}),
+		expect(forwardedAggregate.some((change) => change.name === 'lint')).toBe(
+			false,
 		);
 		for (const lintCommand of [
 			'npm --prefix=../other run lint:ts',
@@ -998,11 +2027,8 @@ describe('wp-typia init', () => {
 				},
 				'npm',
 			);
-			expect(scopedAggregate).toContainEqual(
-				expect.objectContaining({
-					name: 'lint',
-					requiredValue: `npm run lint:ts && ${lintCommand}`,
-				}),
+			expect(scopedAggregate.some((change) => change.name === 'lint')).toBe(
+				false,
 			);
 		}
 		const mixedForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
@@ -1017,12 +2043,13 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(mixedForwardedAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue: 'npm run lint:ts && npm run lint:css',
-			}),
-		);
+		expect(mixedForwardedAggregate).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:css && npm run lint:ts -- --noEmit false',
+			name: 'lint',
+			requiredValue: 'npm run lint:ts -- --noEmit false',
+		});
 		const scopedForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -1035,12 +2062,13 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(scopedForwardedAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue: 'npm run lint:ts && npm run lint:css',
-			}),
-		);
+		expect(scopedForwardedAggregate).toContainEqual({
+			action: 'update',
+			currentValue:
+				'npm run lint:ts -- --workspace other && npm run lint:css',
+			name: 'lint',
+			requiredValue: 'npm run lint:ts -- --workspace other',
+		});
 		const complexForwardedAggregate = buildOfficialWorkspaceLintScriptChanges(
 			{
 				scripts: {
@@ -1053,13 +2081,14 @@ describe('wp-typia init', () => {
 			},
 			'npm',
 		);
-		expect(complexForwardedAggregate).toContainEqual(
-			expect.objectContaining({
-				name: 'lint',
-				requiredValue:
-					'npm run lint:ts && npm run lint:ts -- --noEmit false || npm run lint:css',
-			}),
-		);
+		expect(
+			complexForwardedAggregate.some((change) => change.name === 'lint'),
+		).toBe(false);
+		expect(
+			complexForwardedAggregate.some(
+				(change) => change.name === 'lint:ts',
+			),
+		).toBe(false);
 
 		const echoedPostinstall = buildOfficialWorkspaceLintScriptChanges(
 			{
@@ -1312,7 +2341,7 @@ describe('wp-typia init', () => {
 				'templates',
 				'_shared',
 				'base',
-				'lint.config.ts.mustache',
+					'lint.config.mts.mustache',
 			),
 			'utf8',
 		);
@@ -1330,7 +2359,7 @@ describe('wp-typia init', () => {
 
 	test('validates ignores against actual compound block sources', async () => {
 		const projectDir = path.join(tempRoot, 'compound-lint-ignore');
-		const configPath = path.join(projectDir, 'lint.config.ts');
+		const configPath = path.join(projectDir, 'lint.config.mts');
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
 		fs.mkdirSync(path.join(projectDir, 'src', 'blocks', 'container'), {
 			recursive: true,
@@ -1338,6 +2367,22 @@ describe('wp-typia init', () => {
 		fs.writeFileSync(
 			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
 			'export const Edit = () => null;\n',
+		);
+		fs.mkdirSync(path.join(projectDir, 'src', 'admin-views', 'reports'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
+			'export const Reports = () => null;\n',
+		);
+		fs.mkdirSync(path.join(projectDir, 'scripts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'scripts', 'configure.mjs'),
+			'export {};\n',
 		);
 		fs.writeFileSync(
 			configPath,
@@ -1351,10 +2396,44 @@ describe('wp-typia init', () => {
 		expect(await findManagedWordPressSourcePathsAsync(projectDir)).toEqual(
 			findManagedWordPressSourcePaths(projectDir),
 		);
+		fs.writeFileSync(
+			configPath,
+			canonicalSource.replace(
+				"  ignores: ['build/**', 'node_modules/**'],",
+				"  ignores: ['src/admin-views/**'],",
+			),
+		);
+		expect(hasWordPressTtscLintConfig(configPath, 'fixture-domain')).toBe(false);
+		expect(findManagedWordPressSourcePaths(projectDir)).toEqual(
+			expect.arrayContaining([
+				'scripts/configure.mjs',
+				'webpack.config.js',
+			]),
+		);
+		for (const ignoredToolingPath of [
+			'scripts/**',
+			'webpack.config.js',
+		]) {
+			fs.writeFileSync(
+				configPath,
+				canonicalSource.replace(
+					"  ignores: ['build/**', 'node_modules/**'],",
+					`  ignores: ['${ignoredToolingPath}'],`,
+				),
+			);
+			expect(
+				hasWordPressTtscLintConfig(configPath, 'fixture-domain'),
+			).toBe(false);
+		}
 
 		fs.unlinkSync(
 			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
 		);
+		fs.unlinkSync(
+			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
+		);
+		fs.unlinkSync(path.join(projectDir, 'webpack.config.js'));
+		fs.rmSync(path.join(projectDir, 'scripts'), { recursive: true });
 		fs.mkdirSync(
 			path.join(
 				projectDir,
@@ -1396,6 +2475,68 @@ describe('wp-typia init', () => {
 		]);
 	});
 
+	test('requires effective JavaScript coverage for the combined code gate', () => {
+		const projectDir = path.join(tempRoot, 'javascript-code-coverage');
+		fs.mkdirSync(path.join(projectDir, 'src'), { recursive: true });
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'legacy.js'),
+			'export const legacy = true;\n',
+		);
+		const writeConfig = (config: Record<string, unknown>): void => {
+			fs.writeFileSync(
+				path.join(projectDir, 'tsconfig.json'),
+				`${JSON.stringify(config, null, 2)}\n`,
+			);
+		};
+
+		writeConfig({ compilerOptions: {}, include: ['src/**/*'] });
+		expect(getTtscJavaScriptCoverageIssue(projectDir)).toContain(
+			'compilerOptions.allowJs',
+		);
+
+		writeConfig({
+			compilerOptions: { allowJs: true },
+			include: ['src/**/*.ts'],
+		});
+		expect(getTtscJavaScriptCoverageIssue(projectDir)).toContain(
+			'src/legacy.js',
+		);
+
+		writeConfig({
+			compilerOptions: { allowJs: true },
+			include: ['src/**/*'],
+		});
+		expect(getTtscJavaScriptCoverageIssue(projectDir)).toBeNull();
+
+		fs.mkdirSync(path.join(projectDir, 'scripts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'webpack.config.js'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'scripts', 'configure.mjs'),
+			'export {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, '.pnp.cjs'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, '.pnp.loader.mjs'),
+			'export {};\n',
+		);
+		const rootCoverageIssue = getTtscJavaScriptCoverageIssue(projectDir);
+		expect(rootCoverageIssue).toContain('webpack.config.js');
+		expect(rootCoverageIssue).toContain('scripts/configure.mjs');
+		expect(rootCoverageIssue).not.toContain('.pnp');
+
+		writeConfig({
+			compilerOptions: { allowJs: true },
+			include: ['src/**/*', 'scripts/**/*', '*.js'],
+		});
+		expect(getTtscJavaScriptCoverageIssue(projectDir)).toBeNull();
+	});
+
 	test('requires the contributor preset and expected text domain', () => {
 		const canonicalSource = buildWordPressTtscLintConfigSource('fixture-domain');
 		const esmJavaScriptSource = canonicalSource
@@ -1412,6 +2553,36 @@ describe('wp-typia init', () => {
 		expect(
 			hasWordPressTtscLintConfigSource(canonicalSource, 'fixture-domain'),
 		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					"  ignores: ['build/**', 'node_modules/**'],",
+					"  extends: './project-config.mjs',\n  ignores: ['build/**', 'node_modules/**'],",
+				),
+				'fixture-domain',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					'  ...configs.wpScriptsRecommended,',
+					"  extends: './project-config.mjs',\n  ...configs.wpScriptsRecommended,",
+				),
+				'fixture-domain',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				replaceOnce(
+					canonicalSource,
+					"  ignores: ['build/**', 'node_modules/**'],",
+					"  ...projectConfig,\n  ignores: ['build/**', 'node_modules/**'],",
+				),
+				'fixture-domain',
+			),
+		).toBe(false);
 		const documentedDefaultPluginSource = replaceOnce(
 			replaceOnce(
 				canonicalSource,
@@ -1438,9 +2609,9 @@ describe('wp-typia init', () => {
 				hasWordPressTtscLintConfigSource(
 					`${typeOnlyImport}
 export default {
-  ...${typeOnlyConfigReference}.recommended,
+  ...${typeOnlyConfigReference}.wpScriptsRecommended,
   rules: {
-    ...${typeOnlyConfigReference}.recommended.rules,
+    ...${typeOnlyConfigReference}.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1567,8 +2738,8 @@ export default {
 		]) {
 			const disabledRuleSource = replaceOnce(
 				canonicalSource,
-				'    ...configs.recommended.rules,',
-				`    ...configs.recommended.rules,\n    '${ruleName}': 'off',`,
+				'  rules: {',
+				`  rules: {\n    '${ruleName}': 'off',`,
 			);
 			expect(
 				hasWordPressTtscLintConfigSource(
@@ -1579,8 +2750,8 @@ export default {
 
 			const restoredByPresetSource = replaceOnce(
 				canonicalSource,
-				'  rules: {\n    ...configs.recommended.rules,',
-				`  rules: {\n    '${ruleName}': 'off',\n    ...configs.recommended.rules,`,
+				'  rules: {',
+				`  rules: {\n    '${ruleName}': 'off',\n    '${ruleName}': 'error',`,
 			);
 			expect(
 				hasWordPressTtscLintConfigSource(
@@ -1610,9 +2781,9 @@ export default {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1628,9 +2799,9 @@ module.exports = {
 				`return;
 const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1645,9 +2816,9 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1662,9 +2833,9 @@ const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 		).toBe(false);
 		const exportEqualsSource = `import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 const config = {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1692,9 +2863,9 @@ export = config;
 				`let wp = require('@wp-typia/ttsc-lint-plugin-wp');
 [wp] = [{ configs: { recommended: { plugins: {}, rules: {} } } }];
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1710,9 +2881,9 @@ module.exports = {
 				`let wp = require('@wp-typia/ttsc-lint-plugin-wp');
 ({ wp } = { wp: { configs: { recommended: { plugins: {}, rules: {} } } } });
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1739,6 +2910,22 @@ module.exports = {
 				),
 			).toBe(true);
 		}
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource,
+				'fixture-domain',
+				'lint.config.ts',
+				'commonjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource,
+				'fixture-domain',
+				'lint.config.ts',
+				'module',
+			),
+		).toBe(true);
 		expect(
 			hasWordPressTtscLintConfigSource(
 				esmJavaScriptSource,
@@ -1779,9 +2966,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 export default {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1798,9 +2985,9 @@ export default {
 				`var module;
 const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1816,9 +3003,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1834,9 +3021,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1852,9 +3039,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1872,9 +3059,9 @@ module.exports = {
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module = { exports: {} };
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1890,13 +3077,13 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   plugins: {
-    ...wp.configs.recommended.plugins,
+    ...wp.configs.wpScriptsRecommended.plugins,
     [\`wordpress\`]: undefined,
   },
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1911,11 +3098,11 @@ module.exports = {
 		expect(
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
-wp.configs.recommended.plugins = {};
+wp.configs.wpScriptsRecommended.plugins = {};
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1930,12 +3117,12 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 [0].forEach(() => {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 });
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1950,13 +3137,13 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 [0].forEach(disable);
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1971,13 +3158,13 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 disable();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -1992,12 +3179,12 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 (function () {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 })();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2012,14 +3199,14 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 const helpers = { disable };
 helpers.disable();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2034,14 +3221,14 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 const [run] = [disable];
 run();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2056,14 +3243,14 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 const [{ run }] = [{ run: disable }];
 run();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2078,16 +3265,16 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 function disable() {
-  wp.configs.recommended.plugins = {};
+  wp.configs.wpScriptsRecommended.plugins = {};
 }
 function noop() {}
 const rest = [noop, noop];
 const [first, second, run] = [noop, ...rest, disable];
 run();
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2109,9 +3296,9 @@ module.exports = {
 }
 const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2126,11 +3313,11 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 const holder = { wp };
-holder.wp.configs.recommended.plugins = {};
+holder.wp.configs.wpScriptsRecommended.plugins = {};
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2156,7 +3343,7 @@ module.exports = {
 				replaceOnce(
 					canonicalSource,
 					'  rules: {',
-					'  plugins: { ...configs.recommended.plugins },\n  rules: {',
+					'  plugins: { ...configs.wpScriptsRecommended.plugins },\n  rules: {',
 				),
 				'fixture-domain',
 			),
@@ -2166,7 +3353,7 @@ module.exports = {
 				replaceOnce(
 					canonicalSource,
 					'  rules: {',
-					'  plugins: { wordpress: configs.recommended.plugins.wordpress },\n  rules: {',
+					'  plugins: { wordpress: configs.wpScriptsRecommended.plugins.wordpress },\n  rules: {',
 				),
 				'fixture-domain',
 			),
@@ -2178,7 +3365,7 @@ module.exports = {
 				"import { configs } from '@wp-typia/ttsc-lint-plugin-wp';\nconst localPlugins = { wordpress: undefined };",
 			),
 			'  rules: {',
-			'  plugins: { ...configs.recommended.plugins, ...localPlugins },\n  rules: {',
+			'  plugins: { ...configs.wpScriptsRecommended.plugins, ...localPlugins },\n  rules: {',
 		);
 		expect(
 			hasWordPressTtscLintConfigSource(
@@ -2352,9 +3539,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`import * as wp from '@wp-typia/ttsc-lint-plugin-wp';
 export default {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2379,13 +3566,13 @@ export default {
 			hasWordPressTtscLintConfigSource(
 				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 export default {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
     ],
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
   },
 };
 `,
@@ -2397,13 +3584,13 @@ export default {
 				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 export default {
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
     ],
   },
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
 };
 `,
 				'fixture-domain',
@@ -2413,9 +3600,9 @@ export default {
 			hasWordPressTtscLintConfigSource(
 				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wpConfigs.recommended,
+  ...wpConfigs.wpScriptsRecommended,
   rules: {
-    ...wpConfigs.recommended.rules,
+    ...wpConfigs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2430,9 +3617,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
 const config = {
-  ...wpConfigs.recommended,
+  ...wpConfigs.wpScriptsRecommended,
   rules: {
-    ...wpConfigs.recommended.rules,
+    ...wpConfigs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2449,9 +3636,9 @@ exports = module.exports = config;
 			hasWordPressTtscLintConfigSource(
 				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wpConfigs.recommended,
+  ...wpConfigs.wpScriptsRecommended,
   rules: {
-    ...wpConfigs.recommended.rules,
+    ...wpConfigs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2469,9 +3656,9 @@ exported.plugins = {};
 			hasWordPressTtscLintConfigSource(
 				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wpConfigs.recommended,
+  ...wpConfigs.wpScriptsRecommended,
   rules: {
-    ...wpConfigs.recommended.rules,
+    ...wpConfigs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2488,9 +3675,9 @@ Object.defineProperty(module.exports, 'plugins', { value: {} });
 			hasWordPressTtscLintConfigSource(
 				`const { configs: wpConfigs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...wpConfigs.recommended,
+  ...wpConfigs.wpScriptsRecommended,
   rules: {
-    ...wpConfigs.recommended.rules,
+    ...wpConfigs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2506,9 +3693,9 @@ module.exports.plugins = {};
 			hasWordPressTtscLintConfigSource(
 				`const { ...configs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2523,9 +3710,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const { configs } = require('@wp-typia/ttsc-lint-plugin-wp');
 module.exports = {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2542,9 +3729,9 @@ export default {};
 				`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 export default config;
 const config = {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2562,11 +3749,11 @@ function retain(...values) {
   return values[0];
 }
 const holder = retain(...[wp]);
-holder.configs.recommended.plugins = {};
+holder.configs.wpScriptsRecommended.plugins = {};
 module.exports = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2581,9 +3768,9 @@ module.exports = {
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 var config = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2600,9 +3787,9 @@ module.exports = config;
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 const config = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2619,9 +3806,9 @@ exports.default = config;
 			hasWordPressTtscLintConfigSource(
 				`const wp = require('@wp-typia/ttsc-lint-plugin-wp');
 const config = {
-  ...wp.configs.recommended,
+  ...wp.configs.wpScriptsRecommended,
   rules: {
-    ...wp.configs.recommended.rules,
+    ...wp.configs.wpScriptsRecommended.rules,
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 'fixture-domain' },
@@ -2723,6 +3910,7 @@ let exports;
 		};
 		delete packageJson.devDependencies['@ttsc/lint'];
 		delete packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
+		packageJson.devDependencies['@ttsc/unplugin'] = '^0.23.0';
 		packageJson.devDependencies['@wordpress/blocks'] = '^999.0.0';
 		packageJson.devDependencies['@wp-typia/block-runtime'] = '^9.0.0';
 		packageJson.devDependencies['@wp-typia/block-types'] = '^9.0.0';
@@ -2745,7 +3933,33 @@ let exports;
 			`${JSON.stringify(packageJson, null, 2)}\n`,
 			'utf8',
 		);
-		fs.rmSync(path.join(projectDir, 'lint.config.ts'));
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		const historicalVariationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'hero-card.ts',
+		);
+		fs.mkdirSync(path.dirname(historicalVariationPath), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			historicalVariationPath,
+			"export const workspaceVariation_hero_card = { name: 'hero-card' };\n",
+			'utf8',
+		);
+		const historicalConsumerPath = path.join(
+			projectDir,
+			'src',
+			'historical-variation-consumer.ts',
+		);
+		fs.writeFileSync(
+			historicalConsumerPath,
+			"import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\nexport const historicalVariation = workspaceVariation_hero_card;\n",
+			'utf8',
+		);
 
 		const preview = getInitPlan(path.join(projectDir, 'src'));
 		const applied = await applyInitPlan(path.join(projectDir, 'src'));
@@ -2756,16 +3970,20 @@ let exports;
 			scripts: Record<string, string>;
 		};
 		const lintConfigSource = fs.readFileSync(
-			path.join(projectDir, 'lint.config.ts'),
+			path.join(projectDir, 'lint.config.mts'),
 			'utf8',
 		);
 
 		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'Historical generated export identifiers will be migrated transactionally',
+		);
 		expect(preview.detectedLayout.kind).toBe('official-workspace');
 		const dependencyInstallStep = preview.nextSteps.find((step) =>
 			step.startsWith('pnpm add -D'),
 		);
 		expect(dependencyInstallStep).toContain('@ttsc/lint@');
+		expect(dependencyInstallStep).toContain('@ttsc/unplugin@');
 		expect(dependencyInstallStep).toContain(
 			'@wp-typia/ttsc-lint-plugin-wp@',
 		);
@@ -2777,13 +3995,16 @@ let exports;
 		expect(preview.plannedFiles).toContainEqual(
 			expect.objectContaining({
 				action: 'add',
-				path: 'lint.config.ts',
+				path: 'lint.config.mts',
 			}),
 		);
 		expect(applied.status).toBe('applied');
 		expect(
 			nextPackageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'],
 		).toBe(getPackageVersions().ttscLintPluginWpPackageVersion);
+		expect(nextPackageJson.devDependencies['@ttsc/unplugin']).toBe(
+			getPackageVersions().ttscUnpluginPackageVersion,
+		);
 		expect(nextPackageJson.devDependencies['@wordpress/blocks']).toBe(
 			'^999.0.0',
 		);
@@ -2809,19 +4030,39 @@ let exports;
 		expect(nextPackageJson.scripts.typecheck).toBe(
 			'pnpm run sync --check && ttsc --noEmit && bun test',
 		);
-		expect(nextPackageJson.scripts['lint:ts']).toBe('ttsc --noEmit');
-		expect(nextPackageJson.scripts.lint).toBe(
-			'pnpm run lint:ts && pnpm run lint:css',
+		expect(nextPackageJson.scripts['check:code']).toBe(
+			'pnpm run sync --check && ttsc check --noEmit',
 		);
+		expect(nextPackageJson.scripts.check).toBe(
+			'pnpm run check:code && pnpm run check:style && pnpm run check:format',
+		);
+		expect(nextPackageJson.scripts['lint:ts']).toBeUndefined();
+		expect(nextPackageJson.scripts.lint).toBeUndefined();
 		expect(lintConfigSource).toContain(
 			"from '@wp-typia/ttsc-lint-plugin-wp'",
 		);
 		expect(lintConfigSource).toContain(
 			"allowedTextDomain: 'workspace-lint-domain'",
 		);
+		for (const migratedPath of [
+			historicalVariationPath,
+			historicalConsumerPath,
+		]) {
+			const migratedSource = fs.readFileSync(migratedPath, 'utf8');
+			expect(migratedSource).toContain('workspaceVariationHeroCardL4L4');
+			expect(migratedSource).not.toContain(
+				'workspaceVariation_hero_card',
+			);
+		}
 
 		const currentPlan = getInitPlan(projectDir);
 		expect(currentPlan.status).toBe('already-initialized');
+		fs.appendFileSync(
+			historicalVariationPath,
+			'\nexport const workspaceVariation_hero_card = workspaceVariationHeroCardL4L4;\n',
+			'utf8',
+		);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
 
 		const compatPath = path.join(
 			projectDir,
@@ -2847,10 +4088,128 @@ let exports;
 		expect(fs.existsSync(compatPath)).toBe(true);
 	});
 
+	test('reports export-only workspace migrations as planned changes', async () => {
+		const projectDir = path.join(
+			tempRoot,
+			'workspace-historical-export-only',
+		);
+		await scaffoldOfficialWorkspace(projectDir);
+		await applyInitPlan(projectDir);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
+
+		const variationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'hero-card.ts',
+		);
+		fs.mkdirSync(path.dirname(variationPath), { recursive: true });
+		fs.writeFileSync(
+			variationPath,
+			"export const workspaceVariation_hero_card = { name: 'hero-card' };\n",
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.packageChanges.addDevDependencies).toEqual([]);
+		expect(preview.packageChanges.scripts).toEqual([]);
+		expect(preview.plannedFiles).toContainEqual({
+			action: 'update',
+			path: 'src/blocks/counter-card/variations/hero-card.ts',
+			purpose: 'Migrate the historical generated export identifier.',
+		});
+		expect(preview.nextSteps[0]).toContain('wp-typia init --apply');
+
+		await applyInitPlan(projectDir);
+		expect(fs.readFileSync(variationPath, 'utf8')).toContain(
+			'workspaceVariationHeroCardL4L4',
+		);
+	});
+
+	test('rolls back historical export migrations when workspace init cannot finish', async () => {
+		const projectDir = path.join(
+			tempRoot,
+			'workspace-historical-export-init-rollback',
+		);
+		await scaffoldOfficialWorkspace(projectDir);
+		const packageJsonPath = path.join(projectDir, 'package.json');
+		const originalPackageJsonSource = fs.readFileSync(
+			packageJsonPath,
+			'utf8',
+		);
+		const variationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'alpha-card.ts',
+		);
+		fs.mkdirSync(path.dirname(variationPath), { recursive: true });
+		const historicalVariationSource =
+			"export const workspaceVariation_alpha_card = { name: 'alpha-card' };\n";
+		fs.writeFileSync(
+			variationPath,
+			historicalVariationSource,
+			'utf8',
+		);
+		const coreVariationDir = path.join(
+			projectDir,
+			'src',
+			'editor-plugins',
+			'core-variations',
+			'core',
+			'group',
+		);
+		fs.mkdirSync(coreVariationDir, { recursive: true });
+		const coreVariationPath = path.join(
+			coreVariationDir,
+			'zeta-card.ts',
+		);
+		const historicalCoreVariationSource =
+			"export const coreVariation_core_group_zeta_card = { name: 'zeta-card' };\n";
+		fs.writeFileSync(
+			coreVariationPath,
+			historicalCoreVariationSource,
+			'utf8',
+		);
+		const executableScriptPath = path.join(
+			projectDir,
+			'scripts',
+			'project-tool.mjs',
+		);
+		fs.writeFileSync(executableScriptPath, '#!/usr/bin/env node\n', 'utf8');
+		fs.chmodSync(executableScriptPath, 0o755);
+		fs.chmodSync(coreVariationDir, 0o555);
+
+		try {
+			await expect(applyInitPlan(projectDir)).rejects.toThrow(
+				/restored the previous package\.json\/helper-file\/package-manager snapshot/i,
+			);
+		} finally {
+			fs.chmodSync(coreVariationDir, 0o755);
+		}
+		expect(fs.readFileSync(packageJsonPath, 'utf8')).toBe(
+			originalPackageJsonSource,
+		);
+		expect(fs.readFileSync(variationPath, 'utf8')).toBe(
+			historicalVariationSource,
+		);
+		expect(fs.readFileSync(coreVariationPath, 'utf8')).toBe(
+			historicalCoreVariationSource,
+		);
+		expect(fs.statSync(executableScriptPath).mode & 0o777).toBe(0o755);
+		expect(getInitPlan(projectDir).status).toBe('preview');
+	});
+
 	test('preserves project-owned lint configs during official workspace upgrades', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-custom-lint-config');
 		await scaffoldOfficialWorkspace(projectDir);
-		const lintConfigPath = path.join(projectDir, 'lint.config.ts');
+		const lintConfigPath = path.join(projectDir, 'lint.config.mts');
 		const customSource = `export default { rules: { eqeqeq: 'warning' } };\n`;
 		fs.writeFileSync(lintConfigPath, customSource, 'utf8');
 
@@ -2866,10 +4225,344 @@ let exports;
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
 	});
 
+	test('refuses to upgrade a symlinked managed lint config', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-lint-config');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'symlinked-lint-domain',
+		});
+		const lintConfigPath = path.join(projectDir, 'lint.config.mts');
+		const sharedTargetPath = path.join(
+			tempRoot,
+			'shared-previous-lint.config.mts',
+		);
+		const sharedTargetSource =
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'symlinked-lint-domain',
+			);
+		fs.writeFileSync(sharedTargetPath, sharedTargetSource, 'utf8');
+		fs.rmSync(lintConfigPath);
+		fs.symlinkSync(sharedTargetPath, lintConfigPath, 'file');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'lint.config.mts is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'lint.config.mts' }),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves an existing ttsc lint config/u,
+		);
+		expect(fs.lstatSync(lintConfigPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(sharedTargetPath, 'utf8')).toBe(sharedTargetSource);
+	});
+
+	test('refuses to overwrite a project-owned ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-custom-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		const customSource = 'export const projectOwned = true;\n';
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(compatPath, customSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.readFileSync(compatPath, 'utf8')).toBe(customSource);
+	});
+
+	test('refuses to upgrade a symlinked ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		const sharedTargetPath = path.join(
+			tempRoot,
+			'shared-previous-ttsc-helper.mjs',
+		);
+		const sharedTargetSource = getPreviousTtscLintCompatSource();
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(sharedTargetPath, sharedTargetSource, 'utf8');
+		fs.rmSync(compatPath, { force: true });
+		fs.symlinkSync(sharedTargetPath, compatPath);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.lstatSync(compatPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(sharedTargetPath, 'utf8')).toBe(sharedTargetSource);
+	});
+
+	test('refuses to create the compatibility helper through a symlinked parent', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-scripts-dir');
+		await scaffoldOfficialWorkspace(projectDir);
+		const scriptsPath = path.join(projectDir, 'scripts');
+		const sharedScriptsPath = path.join(
+			tempRoot,
+			'workspace-shared-scripts-target',
+		);
+		fs.renameSync(scriptsPath, sharedScriptsPath);
+		const sharedCompatPath = path.join(
+			sharedScriptsPath,
+			'apply-ttsc-lint-compat.mjs',
+		);
+		fs.rmSync(sharedCompatPath, { force: true });
+		fs.symlinkSync(sharedScriptsPath, scriptsPath, 'dir');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.existsSync(sharedCompatPath)).toBe(false);
+	});
+
+	test('upgrades the exact preceding managed ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-previous-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(
+			compatPath,
+			getPreviousTtscLintCompatSource(),
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.notes.join('\n')).not.toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned',
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({
+				action: 'update',
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await applyInitPlan(projectDir);
+		expect(fs.readFileSync(compatPath, 'utf8')).toBe(
+			getTtscLintCompatSource(),
+		);
+	});
+
+	test('rejects ESM-style TypeScript lint configs in CommonJS workspaces', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-commonjs-ts-lint-config');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'commonjs-config-domain',
+		});
+		const packageJsonPath = path.join(projectDir, 'package.json');
+		const packageJson = JSON.parse(
+			fs.readFileSync(packageJsonPath, 'utf8'),
+		) as Record<string, unknown>;
+		packageJson.type = 'commonjs';
+		fs.writeFileSync(
+			packageJsonPath,
+			`${JSON.stringify(packageJson, null, 2)}\n`,
+			'utf8',
+		);
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		const lintConfigPath = path.join(projectDir, 'lint.config.ts');
+		const lintConfigSource = buildWordPressTtscLintConfigSource(
+			'commonjs-config-domain',
+		);
+		fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
+
+		expect(
+			hasWordPressTtscLintConfig(
+				lintConfigPath,
+				'commonjs-config-domain',
+			),
+		).toBe(false);
+		const preview = getInitPlan(projectDir);
+		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'project-owned and will not be overwritten',
+		);
+	});
+
+	test('migrates the preceding managed lint and tsconfig templates', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-managed-config-upgrade');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'managed-upgrade-domain',
+		});
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'managed-upgrade-domain',
+			),
+			'utf8',
+		);
+
+		const previousTsconfig = JSON.parse(
+			fs.readFileSync(
+				path.join(
+					import.meta.dir,
+					'fixtures',
+					'previous-managed-tsconfig.json',
+				),
+				'utf8',
+			),
+		) as {
+			compilerOptions: Record<string, unknown>;
+			include: string[];
+		};
+		fs.writeFileSync(
+			path.join(projectDir, 'tsconfig.json'),
+			`${JSON.stringify(previousTsconfig, null, 2)}\n`,
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).not.toContain(
+			'project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'remove', path: 'lint.config.ts' }),
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'add', path: 'lint.config.mts' }),
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({ action: 'update', path: 'tsconfig.json' }),
+		);
+
+		await applyInitPlan(projectDir);
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(false);
+		const nextLintConfig = fs.readFileSync(
+			path.join(projectDir, 'lint.config.mts'),
+			'utf8',
+		);
+		expect(nextLintConfig).toBe(
+			buildWordPressTtscLintConfigSource('managed-upgrade-domain'),
+		);
+		const nextTsconfig = JSON.parse(
+			fs.readFileSync(path.join(projectDir, 'tsconfig.json'), 'utf8'),
+		) as {
+			compilerOptions: { allowJs?: boolean };
+			include: string[];
+		};
+		expect(nextTsconfig.compilerOptions.allowJs).toBe(true);
+		expect(nextTsconfig.include).toEqual(
+			expect.arrayContaining(['*.js', '*.jsx', '*.cjs', '*.mjs']),
+		);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
+	});
+
+	test('does not upgrade a symlinked preceding managed tsconfig', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-tsconfig');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'symlinked-tsconfig-domain',
+		});
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'symlinked-tsconfig-domain',
+			),
+			'utf8',
+		);
+		const externalTsconfigPath = path.join(
+			tempRoot,
+			'workspace-symlinked-tsconfig-target.json',
+		);
+		const previousTsconfigSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'fixtures',
+				'previous-managed-tsconfig.json',
+			),
+			'utf8',
+		);
+		fs.writeFileSync(externalTsconfigPath, previousTsconfigSource, 'utf8');
+		const tsconfigPath = path.join(projectDir, 'tsconfig.json');
+		fs.rmSync(tsconfigPath);
+		fs.symlinkSync(externalTsconfigPath, tsconfigPath, 'file');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'tsconfig.json' }),
+		);
+
+		await applyInitPlan(projectDir);
+		expect(fs.lstatSync(tsconfigPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(externalTsconfigPath, 'utf8')).toBe(
+			previousTsconfigSource,
+		);
+	});
+
+	test('refuses a managed lint rename that conflicts with a project-owned destination', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-managed-config-conflict');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'managed-conflict-domain',
+		});
+		const destinationPath = path.join(projectDir, 'lint.config.mts');
+		const projectOwnedSource =
+			`export default { rules: { eqeqeq: 'warning' } };\n`;
+		fs.writeFileSync(destinationPath, projectOwnedSource, 'utf8');
+		const previousPath = path.join(projectDir, 'lint.config.ts');
+		const previousSource = buildPreviousManagedWordPressTtscLintConfigSource(
+			'managed-conflict-domain',
+		);
+		fs.writeFileSync(previousPath, previousSource, 'utf8');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'lint.config.mts is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'lint.config.mts' }),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/conflicts with the destination required to migrate lint\.config\.ts/u,
+		);
+		expect(fs.readFileSync(destinationPath, 'utf8')).toBe(projectOwnedSource);
+		expect(fs.readFileSync(previousPath, 'utf8')).toBe(previousSource);
+	});
+
 	test('does not discover unsupported JSON lint configs', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-json-lint-config');
 		await scaffoldOfficialWorkspace(projectDir);
-		fs.rmSync(path.join(projectDir, 'lint.config.ts'));
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
 		const jsonConfigPath = path.join(projectDir, 'lint.config.json');
 		const jsonConfigSource = '{"rules":{"eqeqeq":"error"}}\n';
 		fs.writeFileSync(jsonConfigPath, jsonConfigSource, 'utf8');
@@ -2877,11 +4570,11 @@ let exports;
 		const preview = getInitPlan(projectDir);
 
 		expect(preview.plannedFiles).toContainEqual(
-			expect.objectContaining({ action: 'add', path: 'lint.config.ts' }),
+				expect.objectContaining({ action: 'add', path: 'lint.config.mts' }),
 		);
 		await applyInitPlan(projectDir);
 		expect(fs.readFileSync(jsonConfigPath, 'utf8')).toBe(jsonConfigSource);
-		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(true);
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.mts'))).toBe(true);
 	});
 
 	test('preserves generated persistence helpers during lint-only upgrades', async () => {
@@ -2932,7 +4625,7 @@ let exports;
 				fs.readFileSync(path.join(projectDir, 'scripts', filename), 'utf8'),
 			).toBe(source);
 		}
-		expect(fs.existsSync(path.join(projectDir, 'lint.config.ts'))).toBe(true);
+		expect(fs.existsSync(path.join(projectDir, 'lint.config.mts'))).toBe(true);
 		expect(
 			fs.readFileSync(
 				path.join(projectDir, 'scripts', 'apply-ttsc-lint-compat.mjs'),
@@ -2955,7 +4648,8 @@ let exports;
 						postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
 						sync: 'ttsx scripts/sync-project.ts',
 						'sync-types': 'ttsx scripts/sync-types-to-block-json.ts',
-						typecheck: 'npm run sync -- --check && ttsc --noEmit',
+						'check:code': 'npm run sync -- --check && ttsc check --noEmit',
+						check: 'npm run check:code',
 					},
 					devDependencies: {
 						'@ttsc/lint': versions.ttscLintPackageVersion,
@@ -2998,12 +4692,12 @@ let exports;
 			'utf8',
 		);
 		fs.writeFileSync(
-			path.join(projectDir, 'lint.config.ts'),
+			path.join(projectDir, 'lint.config.mts'),
 			`import { configs } from '@wp-typia/ttsc-lint-plugin-wp';
 export default {
-  ...configs.recommended,
+  ...configs.wpScriptsRecommended,
   rules: {
-    ...configs.recommended.rules,
+    ...configs.wpScriptsRecommended.rules,
 		'wordpress/i18n-text-domain': [
 			'error',
 			{ allowedTextDomain: 'retrofit-already-initialized' },
@@ -3011,6 +4705,18 @@ export default {
   },
 };
 `,
+			'utf8',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, 'tsconfig.json'),
+			`${JSON.stringify(
+				{
+					compilerOptions: { allowJs: true },
+					include: ['scripts/**/*', 'src/**/*'],
+				},
+				null,
+				2,
+			)}\n`,
 			'utf8',
 		);
 
@@ -3022,5 +4728,37 @@ export default {
 		expect(plan.packageChanges.addDevDependencies).toEqual([]);
 		expect(plan.packageChanges.scripts).toEqual([]);
 		expect(plan.plannedFiles).toEqual([]);
+
+		const tsconfigPath = path.join(projectDir, 'tsconfig.json');
+		const tsconfig = JSON.parse(
+			fs.readFileSync(tsconfigPath, 'utf8'),
+		) as Record<string, unknown>;
+		fs.writeFileSync(
+			tsconfigPath,
+			`${JSON.stringify(
+				{
+					...tsconfig,
+					compilerOptions: {
+						...(tsconfig.compilerOptions as Record<string, unknown>),
+						allowJs: false,
+					},
+				},
+				null,
+				2,
+			)}\n`,
+			'utf8',
+		);
+
+		const uncoveredPlan = getInitPlan(projectDir);
+
+		expect(uncoveredPlan.status).toBe('preview');
+		expect(uncoveredPlan.notes.join('\n')).toContain(
+			'compilerOptions.allowJs',
+		);
+		expect(
+			uncoveredPlan.plannedFiles.some(
+				(file) => file.path === 'tsconfig.json',
+			),
+		).toBe(false);
 	});
 });

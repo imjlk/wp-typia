@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-const REQUIRED_VERSION = '0.23.0';
+const REQUIRED_VERSION = '0.26.2';
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const manifestPath = require.resolve('@ttsc/lint/package.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -11,21 +11,24 @@ if (manifest.version !== REQUIRED_VERSION) {
 	throw new Error(
 		`Expected @ttsc/lint ${REQUIRED_VERSION}, found ${String(
 			manifest.version
-		)}. Remove this compatibility hook only after the mapped/infer regression passes on the replacement version.`
+		)}. Remove this compatibility hook only after the mapped/infer and Node Buffer regressions pass on the replacement version.`
 	);
 }
 
-const sourcePath = path.join(
-	path.dirname(manifestPath),
+const packageRoot = path.dirname(manifestPath);
+const lintRulePath = path.join(
+	packageRoot,
 	'linthost',
 	'rules_format_trailing_comma.go'
 );
-const source = fs.readFileSync(sourcePath, 'utf8');
-const unpatchedSource = `    list := node.Parent.TypeParameterList()
+const lintIndexPath = path.join(packageRoot, 'src', 'index.ts');
+const lintRuntimePath = path.join(packageRoot, 'lib', 'index.js');
+const lintHostConfigPath = path.join(packageRoot, 'linthost', 'config.go');
+const unpatchedParentGuard = `    list := node.Parent.TypeParameterList()
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
     }`;
-const patchedSource = `    switch node.Parent.Kind {
+const patchedParentGuard = `    switch node.Parent.Kind {
     case shimast.KindClassDeclaration,
       shimast.KindClassExpression,
       shimast.KindInterfaceDeclaration,
@@ -43,27 +46,152 @@ const patchedSource = `    switch node.Parent.Kind {
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
     }`;
+const bufferTargetPattern =
+	/let target(?:: ([^=\r\n]+))? = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 
-if (source.includes(patchedSource)) {
-	process.exit(0);
+function countOccurrences(source, needle) {
+	let count = 0;
+	let offset = 0;
+	while ((offset = source.indexOf(needle, offset)) !== -1) {
+		count += 1;
+		offset += needle.length;
+	}
+	return count;
 }
-if (!source.includes(unpatchedSource)) {
+
+function prepareSourcePatches({ description, replacements, sourcePath }) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	const states = replacements.map((replacement) => ({
+		...replacement,
+		patchedCount: countOccurrences(source, replacement.patchedSource),
+		unpatchedCount: countOccurrences(
+			source.replaceAll(replacement.patchedSource, ''),
+			replacement.unpatchedSource
+		),
+	}));
+	if (
+		states.every(
+			(state) =>
+				state.patchedCount === state.expectedOccurrences &&
+				state.unpatchedCount === 0
+		)
+	) {
+		return { nextSource: source, sourcePath };
+	}
+	if (
+		states.every(
+			(state) =>
+				state.patchedCount === 0 &&
+				state.unpatchedCount === state.expectedOccurrences
+		)
+	) {
+		return {
+			nextSource: replacements.reduce(
+				(current, replacement) =>
+					current.replaceAll(
+						replacement.unpatchedSource,
+						replacement.patchedSource
+					),
+				source
+			),
+			sourcePath,
+		};
+	}
 	throw new Error(
-		`Refusing to patch unexpected @ttsc/lint source at ${sourcePath}.`
+		`Refusing to apply the ${description} compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
 	);
 }
 
-const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
-try {
-	fs.writeFileSync(
-		temporaryPath,
-		source.replace(unpatchedSource, patchedSource),
-		{
+function prepareBufferTargetRepair(sourcePath, functionNames, scopeMarker) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	let nextSource = source;
+	const searchStart =
+		scopeMarker === undefined ? 0 : nextSource.indexOf(scopeMarker);
+	if (searchStart === -1) {
+		throw new Error(
+			`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+		);
+	}
+	for (const functionName of functionNames) {
+		const functionStart = nextSource.indexOf(
+			`function ${functionName}(`,
+			searchStart
+		);
+		const functionEnd = nextSource.indexOf(
+			`function ${functionName}Record(`,
+			functionStart
+		);
+		if (functionStart === -1 || functionEnd === -1) {
+			throw new Error(
+				`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+			);
+		}
+		let functionSource = nextSource.slice(functionStart, functionEnd);
+		const matches = [...functionSource.matchAll(bufferTargetPattern)];
+		if (matches.length !== 2) {
+			throw new Error(
+				`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+			);
+		}
+		for (const match of matches) {
+			const annotation = match[1]?.trim();
+			if (
+				annotation !== undefined &&
+				!/^Buffer(?:<.+>)?$/u.test(annotation)
+			) {
+				throw new Error(
+					`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+				);
+			}
+		}
+		functionSource = functionSource.replace(
+			bufferTargetPattern,
+			() => 'let target: Buffer = Buffer.alloc(0);'
+		);
+		nextSource = `${nextSource.slice(
+			0,
+			functionStart
+		)}${functionSource}${nextSource.slice(functionEnd)}`;
+	}
+	return { nextSource, sourcePath };
+}
+const repairs = [
+	prepareSourcePatches({
+		description: 'mapped/infer type-parameter',
+		replacements: [
+			{
+				expectedOccurrences: 1,
+				patchedSource: patchedParentGuard,
+				unpatchedSource: unpatchedParentGuard,
+			},
+		],
+		sourcePath: lintRulePath,
+	}),
+	prepareBufferTargetRepair(lintIndexPath, [
+		'directoryDigest',
+		'configDirectoryDigest',
+	]),
+	prepareBufferTargetRepair(lintRuntimePath, ['directoryDigest']),
+	prepareBufferTargetRepair(
+		lintHostConfigPath,
+		['directoryDigest'],
+		'func typeScriptConfigLoaderSource('
+	),
+];
+
+for (const { nextSource, sourcePath } of repairs) {
+	const source = fs.readFileSync(sourcePath, 'utf8');
+	if (source === nextSource) {
+		continue;
+	}
+	const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
+	try {
+		fs.writeFileSync(temporaryPath, nextSource, {
 			encoding: 'utf8',
 			mode: fs.statSync(sourcePath).mode,
-		}
-	);
-	fs.renameSync(temporaryPath, sourcePath);
-} finally {
-	fs.rmSync(temporaryPath, { force: true });
+		});
+		fs.renameSync(temporaryPath, sourcePath);
+	} finally {
+		fs.rmSync(temporaryPath, { force: true });
+	}
 }

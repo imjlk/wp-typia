@@ -24,10 +24,10 @@ interface PersistenceTransportTargetResolvers {
 }
 
 // Replace any of these base URLs to route a given target through a contract-compatible proxy or BFF.
-const EDITOR_READ_BASE_URL: string | undefined = undefined;
-const EDITOR_WRITE_BASE_URL: string | undefined = undefined;
-const FRONTEND_READ_BASE_URL: string | undefined = undefined;
-const FRONTEND_WRITE_BASE_URL: string | undefined = undefined;
+const EDITOR_READ_BASE_URL = '';
+const EDITOR_WRITE_BASE_URL = '';
+const FRONTEND_READ_BASE_URL = '';
+const FRONTEND_WRITE_BASE_URL = '';
 
 function resolveEndpointUrl(endpointPath: string, baseUrl?: string): string {
   if (typeof baseUrl === 'string' && baseUrl.trim().length > 0) {

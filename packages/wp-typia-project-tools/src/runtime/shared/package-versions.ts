@@ -54,11 +54,11 @@ const DEFAULT_EXACT_VERSION = '0.0.0';
  * to packages installed by the target project: `wp-typia init --apply` must
  * upgrade a legacy project rather than preserve its pre-TS7 toolchain.
  */
-const DEFAULT_TTSC_PACKAGE_VERSION = '^0.23.0';
-const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.23.0';
+const DEFAULT_TTSC_PACKAGE_VERSION = '^0.26.2';
+const DEFAULT_TTSC_LINT_PACKAGE_VERSION = '0.26.2';
 const DEFAULT_TTSC_LINT_PLUGIN_WP_PACKAGE_VERSION = '^0.2.0';
-const DEFAULT_TTSC_LINT_PLUGIN_WP_TTSC_PEER_RANGE = '>=0.23.0 <0.26.0';
-const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.23.0';
+const DEFAULT_TTSC_LINT_PLUGIN_WP_TTSC_PEER_RANGE = '>=0.23.0 <0.27.0';
+const DEFAULT_TTSC_UNPLUGIN_PACKAGE_VERSION = '^0.26.2';
 const DEFAULT_TYPESCRIPT_PACKAGE_VERSION = '^7.0.2';
 const DEFAULT_TYPIA_PACKAGE_VERSION = '^13.2.0';
 /**

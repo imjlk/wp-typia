@@ -529,22 +529,13 @@ function main() {
     phaseTimer.measureSync('build project', () => {
       run(buildCommand, buildArgs, { cwd: projectDir });
     });
-    if (typeof packageJson.scripts?.lint === 'string') {
-      const [lintCommand, lintArgs] = getRunScriptCommand(
+    if (typeof packageJson.scripts?.check === 'string') {
+      const [checkCommand, checkArgs] = getRunScriptCommand(
         packageManager,
-        'lint',
+        'check',
       );
-      phaseTimer.measureSync('lint project', () => {
-        run(lintCommand, lintArgs, { cwd: projectDir });
-      });
-    }
-    if (typeof packageJson.scripts?.['format:check'] === 'string') {
-      const [formatCheckCommand, formatCheckArgs] = getRunScriptCommand(
-        packageManager,
-        'format:check',
-      );
-      phaseTimer.measureSync('check project formatting', () => {
-        run(formatCheckCommand, formatCheckArgs, { cwd: projectDir });
+      phaseTimer.measureSync('check project', () => {
+        run(checkCommand, checkArgs, { cwd: projectDir });
       });
     }
     phaseTimer.measureSync('lint generated PHP', () => {

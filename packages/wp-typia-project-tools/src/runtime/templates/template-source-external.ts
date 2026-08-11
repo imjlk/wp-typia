@@ -95,8 +95,8 @@ async function loadExternalTemplateConfig<
 >(
   sourceDir: string,
 ): Promise<{
-  config: ExternalTemplateConfig<TView>
-  warnings: string[]
+  config: ExternalTemplateConfig<TView>;
+  warnings: string[];
 }> {
   const entryPath = await findExternalTemplateEntry(sourceDir);
   if (!entryPath) {
@@ -156,8 +156,8 @@ function getVariantConfig<TView extends UnknownRecord>(
   config: ExternalTemplateConfig<TView>,
   requestedVariant?: string,
 ): {
-  selectedVariant: string | null
-  variantConfig: Partial<TView>
+  selectedVariant: string | null;
+  variantConfig: Partial<TView>;
 } {
   const variantKeys = getVariantKeys(config);
   if (variantKeys.length === 0) {
@@ -202,9 +202,9 @@ function resolveConfiguredTemplatePath<TView extends UnknownRecord>(
   config: ExternalTemplateConfig<TView>,
   variantConfig: Partial<TView>,
 ): {
-  folderName: string
-  formatHint: 'create-block-subset' | 'wp-typia'
-  templatePath: string
+  folderName: string;
+  formatHint: 'create-block-subset' | 'wp-typia';
+  templatePath: string;
 } {
   const variantPluginTemplatesPath =
     typeof variantConfig.pluginTemplatesPath === 'string'

@@ -31,9 +31,11 @@ import {
 } from '../shared/project-package-resolution.js';
 import {
   findManagedWordPressSourcePaths,
+  getTtscJavaScriptCoverageIssue,
+  hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasPackageRunScriptCommand,
+  hasTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
-  hasTtscNoEmitLintCommand,
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
@@ -3003,14 +3005,30 @@ function getStandaloneTtscLintExecutionIssues(
   project: StandaloneScaffoldProject,
 ): string[] {
   const issues: string[] = [];
-  if (!hasTtscNoEmitLintCommand(project.packageJson.scripts?.['lint:ts'])) {
-    issues.push('package.json lint:ts must invoke `ttsc --noEmit`');
+  if (
+    !hasTtscCheckNoEmitCommand(project.packageJson.scripts?.['check:code'])
+  ) {
+    issues.push('package.json check:code must invoke `ttsc check --noEmit`');
+  } else if (
+    !hasManagedSyncBeforeTtscCheckNoEmitCommand(
+      project.packageJson.scripts?.['check:code'],
+    )
+  ) {
+    issues.push(
+      'package.json check:code must run `sync --check` before the ttsc gate',
+    );
   }
   if (!hasPackageRunScriptCommand(
-    project.packageJson.scripts?.lint,
-    'lint:ts',
+    project.packageJson.scripts?.check,
+    'check:code',
   )) {
-    issues.push('package.json lint must include the lint:ts lane');
+    issues.push('package.json check must include the check:code lane');
+  }
+  const javaScriptCoverageIssue = getTtscJavaScriptCoverageIssue(
+    project.projectDir,
+  );
+  if (javaScriptCoverageIssue) {
+    issues.push(javaScriptCoverageIssue);
   }
   if (!hasCurrentTtscLintCompatFile(project.projectDir)) {
     issues.push('missing or stale scripts/apply-ttsc-lint-compat.mjs');
@@ -3143,10 +3161,10 @@ function getPackageMetadataCheck(
     },
     {
       allowTrailingArguments: true,
-      commands: [syncCheckCommand, 'ttsc --noEmit'],
-      name: 'typecheck',
+      commands: [syncCheckCommand, 'ttsc check --noEmit'],
+      name: 'check:code',
       orderedPrerequisite: syncCheckCommand,
-      orderedTarget: 'ttsc --noEmit',
+      orderedTarget: 'ttsc check --noEmit',
     },
   ] as const;
   for (const requirement of scriptRequirements) {

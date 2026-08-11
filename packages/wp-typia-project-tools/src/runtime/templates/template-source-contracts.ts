@@ -11,90 +11,90 @@ export type TemplateSourceFormat =
  */
 export interface TemplateVariableContext extends UnknownRecord {
   /** Version string for `@wp-typia/api-client` used in generated dependencies. */
-  apiClientPackageVersion: string
+  apiClientPackageVersion: string;
   /** Version string for `@wp-typia/block-runtime` used in generated dependencies. */
-  blockRuntimePackageVersion: string
+  blockRuntimePackageVersion: string;
   /** Version string for `@wp-typia/block-types` used in generated dependencies. */
-  blockTypesPackageVersion: string
+  blockTypesPackageVersion: string;
   /** Version string for `wp-typia` used when templates include the CLI binary locally. */
-  wpTypiaPackageVersion: string
+  wpTypiaPackageVersion: string;
   /** Version string for `@wp-typia/ttsc-lint-plugin-wp` used in generated dependencies. */
-  ttscLintPluginWpPackageVersion: string
+  ttscLintPluginWpPackageVersion: string;
   /** PascalCase block type name derived from the scaffold slug. */
-  pascalCase: string
+  pascalCase: string;
   /** Snake_case PHP symbol prefix used for generated functions, constants, and keys. */
-  phpPrefix: string
+  phpPrefix: string;
   /** Human-readable block title. */
-  title: string
+  title: string;
   /** Human-readable project or block description. */
-  description: string
+  description: string;
   /** Keyword string derived from the slug for generated block metadata. */
-  keyword: string
+  keyword: string;
   /** Block namespace used in generated block names such as `namespace/slug`. */
-  namespace: string
+  namespace: string;
   /** Kebab-case scaffold slug used for package names, paths, and block slugs. */
-  slug: string
+  slug: string;
   /** Kebab-case text domain used for generated i18n strings and plugin headers. */
-  textDomain: string
+  textDomain: string;
 }
 
 export interface ResolvedTemplateSource {
-  id: string
-  defaultCategory: string
-  description: string
-  features: string[]
-  format: TemplateSourceFormat
-  isOfficialWorkspaceTemplate?: boolean
+  id: string;
+  defaultCategory: string;
+  description: string;
+  features: string[];
+  format: TemplateSourceFormat;
+  isOfficialWorkspaceTemplate?: boolean;
   /**
    * True when the resolved template can participate in scaffold migration UI
    * seeding, such as rendered wp-typia workspace templates.
    */
-  supportsMigrationUi?: boolean
-  templateDir: string
-  cleanup?: () => Promise<void>
-  selectedVariant?: string | null
-  warnings?: string[]
+  supportsMigrationUi?: boolean;
+  templateDir: string;
+  cleanup?: () => Promise<void>;
+  selectedVariant?: string | null;
+  warnings?: string[];
 }
 
 export interface GitHubTemplateLocator {
-  owner: string
-  repo: string
-  ref: string | null
-  sourcePath: string
+  owner: string;
+  repo: string;
+  ref: string | null;
+  sourcePath: string;
 }
 
 export interface NpmTemplateLocator {
-  fetchSpec: string
-  name: string
-  raw: string
-  rawSpec: string
-  type: string
+  fetchSpec: string;
+  name: string;
+  raw: string;
+  rawSpec: string;
+  type: string;
 }
 
 export interface ExternalTemplateConfig<
   TView extends UnknownRecord = TemplateVariableContext,
 > {
-  assetsPath?: string
-  blockTemplatesPath?: string
-  defaultValues?: Partial<TView>
-  folderName?: string
+  assetsPath?: string;
+  blockTemplatesPath?: string;
+  defaultValues?: Partial<TView>;
+  folderName?: string;
   /**
    * Relative template root that renders a fuller wp-typia plugin/workspace
    * scaffold instead of a create-block subset.
    */
-  pluginTemplatesPath?: string
-  transformer?: (view: TView) => UnknownRecord | Promise<UnknownRecord>
-  variants?: Record<string, Partial<TView>>
+  pluginTemplatesPath?: string;
+  transformer?: (view: TView) => UnknownRecord | Promise<UnknownRecord>;
+  variants?: Record<string, Partial<TView>>;
 }
 
 export interface SeedSource {
-  assetsDir?: string
-  blockDir: string
-  cleanup?: () => Promise<void>
-  formatHint?: 'create-block-subset' | 'wp-typia'
-  rootDir: string
-  selectedVariant?: string | null
-  warnings?: string[]
+  assetsDir?: string;
+  blockDir: string;
+  cleanup?: () => Promise<void>;
+  formatHint?: 'create-block-subset' | 'wp-typia';
+  rootDir: string;
+  selectedVariant?: string | null;
+  warnings?: string[];
 }
 
 export type RemoteTemplateLocator =

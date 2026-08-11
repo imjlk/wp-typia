@@ -54,6 +54,7 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 
 	const nextConfig = {
 		compilerOptions: {
+			allowJs: true,
 			jsx: "react-jsx",
 			module: "esnext",
 			moduleResolution: "bundler",
@@ -65,10 +66,25 @@ export function rewriteCopiedExampleTsconfig(projectDir) {
 			types: ["bun-types", "node"],
 		},
 		exclude: ["node_modules", "build"],
-		include: ["src/**/*", "scripts/**/*", "../../types/assets.d.ts"],
+		include: [
+			"src/**/*",
+			"scripts/**/*",
+			"*.js",
+			"*.jsx",
+			"*.cjs",
+			"*.mjs",
+			"../../types/assets.d.ts",
+		],
 	};
 
 	fs.writeFileSync(tsconfigPath, `${JSON.stringify(nextConfig, null, "\t")}\n`, "utf8");
+}
+
+function hasExecutableCompatCommand(command, compatCommand) {
+	const escapedCommand = compatCommand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	return new RegExp(
+		`(?:^|&&|\\|\\||;|\\n)\\s*${escapedCommand}(?=\\s*(?:$|&&|\\|\\||;|#|\\n))`,
+	).test(command);
 }
 
 export function ensureCopiedExampleSupportDependencies(projectDir) {
@@ -84,6 +100,14 @@ export function ensureCopiedExampleSupportDependencies(projectDir) {
 	const devDependencies = {
 		...(packageJson.devDependencies ?? {}),
 	};
+	const scripts = {
+		...(packageJson.scripts ?? {}),
+	};
+	const ttscLintVersion = repoPackageJson.devDependencies?.["@ttsc/lint"];
+	if (typeof ttscLintVersion !== "string") {
+		throw new Error('Root devDependencies must pin "@ttsc/lint".');
+	}
+	devDependencies["@ttsc/lint"] = ttscLintVersion;
 
 	if (!devDependencies["bun-types"]) {
 		devDependencies["bun-types"] =
@@ -94,7 +118,38 @@ export function ensureCopiedExampleSupportDependencies(projectDir) {
 			repoPackageJson.devDependencies?.["@types/node"] ?? "^24.0.0";
 	}
 
+	const compatCommand = "node scripts/apply-ttsc-lint-compat.mjs";
+	const currentPostinstall = scripts.postinstall;
+	if (
+		typeof currentPostinstall !== "string" ||
+		!hasExecutableCompatCommand(currentPostinstall, compatCommand)
+	) {
+		scripts.postinstall =
+			typeof currentPostinstall === "string" &&
+			currentPostinstall.trim().length > 0
+				? `(${currentPostinstall}) && ${compatCommand}`
+				: compatCommand;
+	}
+	const compatSourcePath = path.join(
+		repoRoot,
+		"packages",
+		"wp-typia-project-tools",
+		"templates",
+		"_shared",
+		"base",
+		"scripts",
+		"apply-ttsc-lint-compat.mjs.mustache",
+	);
+	const compatTargetPath = path.join(
+		projectDir,
+		"scripts",
+		"apply-ttsc-lint-compat.mjs",
+	);
+	fs.mkdirSync(path.dirname(compatTargetPath), { recursive: true });
+	fs.copyFileSync(compatSourcePath, compatTargetPath);
+
 	packageJson.devDependencies = devDependencies;
+	packageJson.scripts = scripts;
 	fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
@@ -115,6 +170,21 @@ export function prepareExampleProject(exampleProject, projectDir) {
 
 	rewriteCopiedExampleTsconfig(projectDir);
 	ensureCopiedExampleSupportDependencies(projectDir);
+}
+
+export function formatCopiedExampleConfigFiles(projectDir) {
+	const prettierPath = path.join(
+		repoRoot,
+		"node_modules",
+		"prettier",
+		"bin",
+		"prettier.cjs",
+	);
+	run(
+		process.execPath,
+		[prettierPath, "--write", "package.json", "tsconfig.json"],
+		{ cwd: projectDir },
+	);
 }
 
 function readCurrentMigrationVersion(projectDir) {
@@ -143,6 +213,7 @@ export function runExampleProjectSmoke({
 	prepareExampleWorkspaceRoot(workspaceRoot);
 	prepareExampleProject(exampleProject, exampleDir);
 	rewriteWorkspaceDependencies(exampleDir, packageManager);
+	formatCopiedExampleConfigFiles(exampleDir);
 
 	const packageJson = JSON.parse(
 		fs.readFileSync(path.join(exampleDir, "package.json"), "utf8"),
@@ -204,17 +275,17 @@ export function runExampleProjectSmoke({
 	const [buildCommand, buildArgs] = getRunCommand(packageManager);
 	run(buildCommand, buildArgs, { cwd: exampleDir });
 
-	if (typeof packageJson.scripts?.typecheck !== "string") {
+	if (typeof packageJson.scripts?.check !== "string") {
 		throw new Error(
-			`Missing "typecheck" script in ${path.join(exampleDir, "package.json")} for example-project smoke`,
+			`Missing "check" script in ${path.join(exampleDir, "package.json")} for example-project smoke`,
 		);
 	}
 
-	const [typecheckCommand, typecheckArgs] = getRunScriptCommand(
+	const [checkCommand, checkArgs] = getRunScriptCommand(
 		packageManager,
-		"typecheck",
+		"check",
 	);
-	run(typecheckCommand, typecheckArgs, { cwd: exampleDir });
+	run(checkCommand, checkArgs, { cwd: exampleDir });
 	lintGeneratedProjectPhp(exampleDir, phpVersion);
 
 	assertExampleProjectScaffold(exampleDir, exampleProject);

@@ -15,11 +15,20 @@ import {
 } from './cli-add-shared.js';
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
 import {
+  collectGeneratedTypeScriptModulePaths,
+  collectWorkspaceScriptFilePaths,
+  resolveAndMigrateGeneratedExportedConstName,
+} from './cli-add-workspace-generated-exports.js';
+import {
   appendWorkspaceInventoryEntries,
   readWorkspaceInventoryAsync,
 } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
-import { toKebabCase, toTitleCase } from '../shared/string-case.js';
+import {
+  toCollisionSafePascalCase,
+  toSnakeCase,
+  toTitleCase,
+} from '../shared/string-case.js';
 import { TYPESCRIPT_PRINT_WIDTH } from '../shared/ts-string-literals.js';
 
 const VARIATIONS_IMPORT_LINE =
@@ -40,11 +49,7 @@ function buildVariationConfigEntry(blockSlug: string, variationSlug: string): st
 }
 
 function buildVariationConstName(variationSlug: string): string {
-  const identifierSegments = toKebabCase(variationSlug)
-		.split('-')
-		.filter(Boolean);
-
-  return `workspaceVariation_${identifierSegments.join('_')}`;
+  return `workspaceVariation${toCollisionSafePascalCase(variationSlug)}`;
 }
 
 function buildVariationTranslationProperty(
@@ -68,13 +73,30 @@ function buildVariationTranslationProperty(
   ].join('\n');
 }
 
-function getVariationConstBindings(
+async function getVariationConstBindings(
+	projectDir: string,
+	variationsDir: string,
 	variationSlugs: string[],
-): Array<{ constName: string; variationSlug: string }> {
+): Promise<Array<{ constName: string; variationSlug: string }>> {
   const seenConstNames = new Map<string, string>();
 
-  return variationSlugs.map((variationSlug) => {
-    const constName = buildVariationConstName(variationSlug);
+  // Rename migrations write workspace files, so keep them sequential to
+  // prevent a later failure from racing the command-level rollback.
+  const bindings: Array<{ constName: string; variationSlug: string }> = [];
+  for (const variationSlug of variationSlugs) {
+    bindings.push({
+      constName: await resolveAndMigrateGeneratedExportedConstName(
+        path.join(variationsDir, `${variationSlug}.ts`),
+        [
+          buildVariationConstName(variationSlug),
+          `workspaceVariation_${toSnakeCase(variationSlug)}`,
+        ],
+        projectDir,
+      ),
+      variationSlug,
+    });
+  }
+  for (const { constName, variationSlug } of bindings) {
     const previousSlug = seenConstNames.get(constName);
 
     if (previousSlug && previousSlug !== variationSlug) {
@@ -84,8 +106,8 @@ function getVariationConstBindings(
     }
 
     seenConstNames.set(constName, variationSlug);
-    return { constName, variationSlug };
-  });
+  }
+  return bindings;
 }
 
 function buildVariationSource(variationSlug: string, textDomain: string): string {
@@ -115,8 +137,9 @@ ${descriptionProperty}
 `;
 }
 
-function buildVariationIndexSource(variationSlugs: string[]): string {
-  const variationBindings = getVariationConstBindings(variationSlugs);
+function buildVariationIndexSource(
+	variationBindings: Array<{ constName: string; variationSlug: string }>,
+): string {
   const importLines = variationBindings
 		.map(({ constName, variationSlug }) => {
 			return `import { ${constName} } from './${variationSlug}';`;
@@ -168,13 +191,18 @@ async function writeVariationRegistry(
   const variationsIndexPath = path.join(variationsDir, 'index.ts');
   await fsp.mkdir(variationsDir, { recursive: true });
 
-  const existingVariationSlugs = (await fsp.readdir(variationsDir))
-		.filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
-		.map((entry) => entry.replace(/\.ts$/u, ''));
+  const existingVariationSlugs = (
+    await collectGeneratedTypeScriptModulePaths(variationsDir)
+  ).map((entry) => path.basename(entry, '.ts'));
   const nextVariationSlugs = Array.from(new Set([...existingVariationSlugs, variationSlug])).sort();
+  const variationBindings = await getVariationConstBindings(
+    projectDir,
+    variationsDir,
+    nextVariationSlugs,
+  );
   await fsp.writeFile(
     variationsIndexPath,
-    buildVariationIndexSource(nextVariationSlugs),
+    buildVariationIndexSource(variationBindings),
     'utf8',
   );
 }
@@ -245,11 +273,17 @@ export async function runAddVariationCommand({
   const shouldRemoveVariationsDirOnRollback = !(await pathExists(
     variationsDir,
   ));
+  const existingVariationModulePaths =
+    await collectGeneratedTypeScriptModulePaths(variationsDir);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			variationsIndexPath,
+			...existingVariationModulePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

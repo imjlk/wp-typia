@@ -112,9 +112,29 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
 
   expect(currentLintCheck?.status).toBe('pass');
-  expect(currentLintCheck?.detail).toContain('lint.config.ts');
+  expect(currentLintCheck?.detail).toContain('lint.config.mts');
 
-  const lintConfigPath = path.join(targetDir, 'lint.config.ts');
+  const tsconfigPath = path.join(targetDir, 'tsconfig.json');
+  const tsconfigSource = fs.readFileSync(tsconfigPath, 'utf8');
+  const tsconfig = JSON.parse(tsconfigSource) as {
+    compilerOptions: { allowJs?: boolean };
+  };
+  tsconfig.compilerOptions.allowJs = false;
+  fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
+  const missingJavaScriptCoverageCheck = (await getDoctorChecks(targetDir)).find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingJavaScriptCoverageCheck?.status).toBe('warn');
+  expect(missingJavaScriptCoverageCheck?.detail).toContain(
+    'compilerOptions.allowJs',
+  );
+  expect(missingJavaScriptCoverageCheck?.detail).toContain(
+    'If init does not plan tsconfig.json',
+  );
+  expect(missingJavaScriptCoverageCheck?.detail).toContain('*.mjs');
+  fs.writeFileSync(tsconfigPath, tsconfigSource, 'utf8');
+
+  const lintConfigPath = path.join(targetDir, 'lint.config.mts');
   const lintConfigSource = fs.readFileSync(lintConfigPath, 'utf8');
   const commonJsLintConfigPath = path.join(targetDir, 'lint.config.cjs');
   const commonJsLintConfigSource = lintConfigSource
@@ -134,7 +154,7 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(unreadableLintCheck?.status).toBe('warn');
   expect(unreadableLintCheck?.detail).toContain(
-    'unable to read lint.config.ts',
+    'unable to read lint.config.mts',
   );
   fs.rmdirSync(lintConfigPath);
   const commonJsChecks = await getDoctorChecks(targetDir);
@@ -185,10 +205,12 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     devDependencies: Record<string, string>;
     scripts: Record<string, string>;
   };
-  const managedLint = packageJson.scripts.lint;
-  const managedLintTs = packageJson.scripts['lint:ts'];
+  const managedCheck = packageJson.scripts.check;
+  const managedCheckCode = packageJson.scripts['check:code'];
   const managedPostinstall = packageJson.scripts.postinstall;
   const managedTtscLint = packageJson.devDependencies['@ttsc/lint'];
+  const managedTtscUnplugin =
+    packageJson.devDependencies['@ttsc/unplugin'];
   const managedContributor =
     packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
   packageJson.devDependencies['@ttsc/lint'] = '0.24.0';
@@ -206,6 +228,22 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     `@ttsc/lint dependency must be exactly ${managedTtscLint}`,
   );
   packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
+
+  packageJson.devDependencies['@ttsc/unplugin'] = '^0.23.0';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const wrongUnpluginVersionChecks = await getDoctorChecks(targetDir);
+  const wrongUnpluginVersionCheck = wrongUnpluginVersionChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(wrongUnpluginVersionCheck?.status).toBe('warn');
+  expect(wrongUnpluginVersionCheck?.detail).toContain(
+    `@ttsc/unplugin dependency must be exactly ${managedTtscUnplugin}`,
+  );
+  packageJson.devDependencies['@ttsc/unplugin'] = managedTtscUnplugin;
 
   packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'] = '0.0.0';
   fs.writeFileSync(
@@ -257,7 +295,7 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   packageJson.devDependencies.ttsc = managedTtsc;
 
-  packageJson.scripts.lint = 'npm run lint:ts:ci';
+  packageJson.scripts.check = 'npm run check:code:ci';
   fs.writeFileSync(
     packageJsonPath,
     `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -269,10 +307,10 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(subLaneLintCheck?.status).toBe('warn');
   expect(subLaneLintCheck?.detail).toContain(
-    'lint must include the lint:ts lane',
+    'check must include the check:code lane',
   );
 
-  packageJson.scripts.lint = 'echo lint:ts';
+  packageJson.scripts.check = 'echo check:code';
   fs.writeFileSync(
     packageJsonPath,
     `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -284,10 +322,10 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(echoedLaneLintCheck?.status).toBe('warn');
   expect(echoedLaneLintCheck?.detail).toContain(
-    'lint must include the lint:ts lane',
+    'check must include the check:code lane',
   );
 
-  packageJson.scripts.lint = 'npm --version run lint:ts';
+  packageJson.scripts.check = 'npm --version run check:code';
   fs.writeFileSync(
     packageJsonPath,
     `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -299,11 +337,12 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(terminalAggregateLintCheck?.status).toBe('warn');
   expect(terminalAggregateLintCheck?.detail).toContain(
-    'lint must include the lint:ts lane',
+    'check must include the check:code lane',
   );
 
-  packageJson.scripts.lint = managedLint;
-  packageJson.scripts['lint:ts'] = 'ttsc --noEmit --listFilesOnly';
+  packageJson.scripts.check = managedCheck;
+  packageJson.scripts['check:code'] =
+    'ttsc check --noEmit --listFilesOnly';
   fs.writeFileSync(
     packageJsonPath,
     `${JSON.stringify(packageJson, null, 2)}\n`,
@@ -315,10 +354,25 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   );
   expect(terminalTtscLintCheck?.status).toBe('warn');
   expect(terminalTtscLintCheck?.detail).toContain(
-    'lint:ts must invoke `ttsc --noEmit`',
+    'check:code must invoke `ttsc check --noEmit`',
   );
 
-  packageJson.scripts['lint:ts'] = managedLintTs;
+  packageJson.scripts['check:code'] = 'ttsc check --noEmit';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const missingSyncChecks = await getDoctorChecks(targetDir);
+  const missingSyncLintCheck = missingSyncChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingSyncLintCheck?.status).toBe('warn');
+  expect(missingSyncLintCheck?.detail).toContain(
+    'check:code must run `sync --check` before the ttsc gate',
+  );
+
+  packageJson.scripts['check:code'] = managedCheckCode;
   packageJson.scripts.postinstall = 'echo apply-ttsc-lint-compat.mjs';
   fs.writeFileSync(
     packageJsonPath,
@@ -403,6 +457,20 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   expect(missingInstalledContributorCheck?.status).toBe('warn');
   expect(missingInstalledContributorCheck?.detail).toContain(
     'missing project-local installed package(s): @wp-typia/ttsc-lint-plugin-wp',
+  );
+  linkWorkspaceNodeModules(targetDir);
+
+  fs.rmSync(path.join(targetDir, 'node_modules', '@ttsc', 'unplugin'), {
+    force: true,
+    recursive: true,
+  });
+  const missingInstalledUnpluginChecks = await getDoctorChecks(targetDir);
+  const missingInstalledUnpluginCheck = missingInstalledUnpluginChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingInstalledUnpluginCheck?.status).toBe('warn');
+  expect(missingInstalledUnpluginCheck?.detail).toContain(
+    'missing project-local installed package(s): @ttsc/unplugin',
   );
   linkWorkspaceNodeModules(targetDir);
 

@@ -6,9 +6,10 @@
   "type": "module",
   "files": [
     "package.json.mustache",
+    ".prettierignore.mustache",
     "prettier.config.mjs.mustache",
     "tsconfig.json.mustache",
-    "lint.config.ts.mustache",
+    "lint.config.mts.mustache",
     "webpack.config.js.mustache",
     "inc/",
     "scripts/",

@@ -1756,6 +1756,8 @@ test('external template workspace variants scaffold richer wp-typia workspaces w
     fs.existsSync(path.join(targetDir, 'demo-external-workspace.php')),
   ).toBe(true);
   expect(readme).toContain('richer external `wp-typia` workspace shell');
+  expect(readme).toContain('npm run check');
+  expect(readme).not.toContain('bun run typecheck');
 });
 
 test('external template scaffolds honor explicit repository reference overrides', async () => {
@@ -2007,6 +2009,7 @@ test('official workspace template scaffolds through the local npm template resol
     textDomain: 'demo-space',
     phpPrefix: 'demo_space',
   });
+  expect(fs.existsSync(path.join(targetDir, 'CHANGELOG.md'))).toBe(false);
   expect(blockConfigSource).toContain('// wp-typia add block entries');
   expect(blockConfigSource).toContain('// wp-typia add variation entries');
   expect(blockConfigSource).toContain('// wp-typia add pattern entries');
@@ -2038,8 +2041,8 @@ test('official workspace template scaffolds through the local npm template resol
   );
   expect(packageJson.scripts.dev).toBe('npm run start');
   expect(packageJson.packageManager).toBeUndefined();
-  expect(packageJson.scripts.typecheck).toBe(
-    'npm run sync -- --check && ttsc --noEmit',
+  expect(packageJson.scripts['check:code']).toBe(
+    'npm run sync -- --check && ttsc check --noEmit',
   );
   expect(packageJson.devDependencies['wp-typia']).toBe(
     `^${wpTypiaPackageManifest.version}`,

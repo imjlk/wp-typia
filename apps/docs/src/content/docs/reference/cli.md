@@ -391,12 +391,18 @@ rollback-protected writes for `package.json` and the generated retrofit helper
 files.
 
 The adoption plan also adds `@wp-typia/ttsc-lint-plugin-wp`, creates a
-text-domain-aware `lint.config.ts`, and puts `ttsc --noEmit` in the TypeScript
-lint lane. Existing lint configs are project-owned and are never overwritten;
-`init --apply` stops with manual merge guidance when one exists without the
-WordPress contributor. The existing JavaScript/style lint commands remain
-separate while the lint-only upstream command is tracked in
-[samchon/ttsc#1127](https://github.com/samchon/ttsc/issues/1127).
+text-domain-aware `lint.config.mts`, and adds `check:code` with
+`ttsc check --noEmit`. Existing lint configs
+are project-owned and are never overwritten; `init --apply` stops with manual
+merge guidance when one exists without the WordPress contributor. The `check`
+aggregate retains existing project-owned checks and adds the combined code
+gate once. No lint-only alias is generated because compiler and lint
+diagnostics intentionally run together. WordPress Stylelint plus JavaScript
+and non-code Prettier checks remain separate lanes. New scaffolds enable JavaScript in their
+TypeScript project; doctor reports an adoption warning when an existing
+project's effective `tsconfig.json` does not set `allowJs` or excludes a
+JavaScript source file, leaving that project-owned config to be merged
+explicitly.
 
 ## `sync`
 
