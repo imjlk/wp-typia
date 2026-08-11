@@ -13,6 +13,7 @@ import {
 import {
   buildPreviousManagedWordPressTtscLintConfigSource,
   buildWordPressTtscLintConfigSource,
+  getPreviousTtscLintCompatSource,
   getTtscLintCompatSource,
   hasWordPressTtscLintConfig,
   resolveRetrofitTextDomain,
@@ -849,6 +850,40 @@ describe('wp-typia init', () => {
 		expect(alreadyManaged.some((change) => change.name === 'check')).toBe(
 			false,
 		);
+	});
+
+	test('places the compatibility helper before terminating postinstall commands', () => {
+		for (const [currentValue, requiredValue] of [
+			[
+				'exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && exit 0',
+			],
+			[
+				'setup; exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && (setup; exit 0)',
+			],
+			[
+				'env MODE=upgrade builtin exit 0',
+				'node scripts/apply-ttsc-lint-compat.mjs && env MODE=upgrade builtin exit 0',
+			],
+		] as const) {
+			const changes = buildOfficialWorkspaceLintScriptChanges(
+				{ scripts: { postinstall: currentValue } },
+				'npm',
+			);
+			expect(changes).toContainEqual({
+				action: 'update',
+				currentValue,
+				name: 'postinstall',
+				requiredValue,
+			});
+			expect(
+				buildOfficialWorkspaceLintScriptChanges(
+					{ scripts: { postinstall: requiredValue } },
+					'npm',
+				).some((change) => change.name === 'postinstall'),
+			).toBe(false);
+		}
 	});
 
 	test('normalizes supported managed runner forms without dropping project commands', () => {
@@ -3829,6 +3864,38 @@ let exports;
 			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
 		);
 		expect(fs.readFileSync(compatPath, 'utf8')).toBe(customSource);
+	});
+
+	test('upgrades the exact preceding managed ttsc compatibility helper', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-previous-ttsc-helper');
+		await scaffoldOfficialWorkspace(projectDir);
+		const compatPath = path.join(
+			projectDir,
+			'scripts',
+			'apply-ttsc-lint-compat.mjs',
+		);
+		fs.mkdirSync(path.dirname(compatPath), { recursive: true });
+		fs.writeFileSync(
+			compatPath,
+			getPreviousTtscLintCompatSource(),
+			'utf8',
+		);
+
+		const preview = getInitPlan(projectDir);
+
+		expect(preview.notes.join('\n')).not.toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned',
+		);
+		expect(preview.plannedFiles).toContainEqual(
+			expect.objectContaining({
+				action: 'update',
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await applyInitPlan(projectDir);
+		expect(fs.readFileSync(compatPath, 'utf8')).toBe(
+			getTtscLintCompatSource(),
+		);
 	});
 
 	test('rejects ESM-style TypeScript lint configs in CommonJS workspaces', async () => {

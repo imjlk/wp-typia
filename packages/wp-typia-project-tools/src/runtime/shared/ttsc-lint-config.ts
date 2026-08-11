@@ -2542,16 +2542,24 @@ function isTerminatingShellSegment(segment: SimpleShellSegment): boolean {
   ) {
     return false;
   }
-  let commandIndex = 0;
-  while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(segment.tokens[commandIndex] ?? '')) {
-    commandIndex += 1;
-  }
+  const commandIndex = getShellCommandStartIndex(segment.tokens);
   const command = getShellExecutableName(segment.tokens[commandIndex]);
   return (
     command === 'exit' ||
     (command === 'builtin' &&
       getShellExecutableName(segment.tokens[commandIndex + 1]) === 'exit')
   );
+}
+
+/** Check whether a top-level shell segment terminates the current shell. */
+export function hasTopLevelTerminatingShellCommand(
+  command: unknown,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  return parsed.valid && parsed.segments.some(isTerminatingShellSegment);
 }
 
 function getShellCommandStartIndex(tokens: readonly string[]): number {

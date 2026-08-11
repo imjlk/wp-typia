@@ -8,7 +8,10 @@ import {
   hasWordPressTtscLintConfigSource,
   TTSC_LINT_CONFIG_FILENAMES,
 } from '../shared/ttsc-lint-config.js';
-import { SHARED_BASE_TEMPLATE_ROOT } from '../templates/template-registry.js';
+import {
+  SHARED_BASE_TEMPLATE_ROOT,
+  SHARED_TEMPLATE_ROOT,
+} from '../templates/template-registry.js';
 import {
   CLI_DIAGNOSTIC_CODES,
   createCliDiagnosticCodeError,
@@ -461,6 +464,18 @@ export function getTtscLintCompatSource(): string {
   return source;
 }
 
+/** Read the exact helper emitted by the preceding managed release. */
+export function getPreviousTtscLintCompatSource(): string {
+  return fs.readFileSync(
+    path.join(
+      SHARED_TEMPLATE_ROOT,
+      'history',
+      'apply-ttsc-lint-compat.0.23.0.mjs',
+    ),
+    'utf8',
+  );
+}
+
 export interface TtscLintCompatFileState {
   conflictPath: string | null;
   current: boolean;
@@ -478,12 +493,17 @@ export function inspectTtscLintCompatFile(
   try {
     const normalizeLineEndings = (source: string) =>
       source.replace(/\r\n/gu, '\n');
+    const source = normalizeLineEndings(fs.readFileSync(compatPath, 'utf8'));
     const current =
-      normalizeLineEndings(fs.readFileSync(compatPath, 'utf8')) ===
-      normalizeLineEndings(getTtscLintCompatSource());
+      source === normalizeLineEndings(getTtscLintCompatSource());
+    if (current) {
+      return { conflictPath: null, current: true };
+    }
+    const precedingManaged =
+      source === normalizeLineEndings(getPreviousTtscLintCompatSource());
     return {
-      conflictPath: current ? null : compatPath,
-      current,
+      conflictPath: precedingManaged ? null : compatPath,
+      current: false,
     };
   } catch {
     return {

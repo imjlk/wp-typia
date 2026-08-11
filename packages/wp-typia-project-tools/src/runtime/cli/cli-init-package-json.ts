@@ -24,6 +24,7 @@ import {
   hasManagedSyncBeforeTtscCheckNoEmitCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscCheckNoEmitCommand,
+  hasTopLevelTerminatingShellCommand,
   isStandaloneTtscNoEmitLintCommand,
   normalizeManagedSyncCheckCommand,
   normalizePackageRunScriptCommands,
@@ -523,6 +524,9 @@ function mergePostinstallCommand(
   if (typeof currentValue === 'string' && currentValue.trim().length > 0) {
     if (hasTtscLintCompatPostinstallCommand(currentValue)) {
       return currentValue;
+    }
+    if (hasTopLevelTerminatingShellCommand(currentValue)) {
+      return prependRequiredCommands(currentValue, [requiredCommand]);
     }
     // Correctly parsing comments inside command substitutions requires a full
     // shell parser. Keep comment-only scripts intact after the managed hook;
