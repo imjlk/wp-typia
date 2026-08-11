@@ -108,6 +108,17 @@ test('REST manifest support repairs unusual metadata-core named imports', () => 
     "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
   );
 
+  const inlineCommentOnlySource =
+    "import { /* generated imports */ } from '@wp-typia/block-runtime/metadata-core';\n";
+  const repairedInlineCommentOnlySource =
+    ensureBlockConfigCanAddRestManifests(inlineCommentOnlySource);
+  expect(repairedInlineCommentOnlySource).toBe(
+    "import { /* generated imports */ defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n",
+  );
+  expect(
+    ensureBlockConfigCanAddRestManifests(repairedInlineCommentOnlySource),
+  ).toBe(repairedInlineCommentOnlySource);
+
   const trailingCommaSource =
     "import { defineBlockNesting, } from '@wp-typia/block-runtime/metadata-core';\n";
   expect(ensureBlockConfigCanAddRestManifests(trailingCommaSource)).toBe(
@@ -164,7 +175,45 @@ test('REST manifest support repairs unusual metadata-core named imports', () => 
   expect(() =>
     ensureBlockConfigCanAddRestManifests(aliasedLocalBindingSource),
   ).toThrow(
-    'the local import name "defineEndpointManifest" already aliases "endpointManifest"',
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const externalAliasedBindingSource =
+    "import { helper as defineEndpointManifest } from './helpers';\n";
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(externalAliasedBindingSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const externalTypeOnlyBindingSource =
+    "import type { defineEndpointManifest } from './helpers';\n";
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(externalTypeOnlyBindingSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const localTypeAliasSource =
+    'type defineEndpointManifest = <T>(value: T) => T;\n';
+  expect(ensureBlockConfigCanAddRestManifests(localTypeAliasSource)).toBe(
+    "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';\n\ntype defineEndpointManifest = <T>(value: T) => T;\n",
+  );
+
+  const localDeclarationSource =
+    'const defineEndpointManifest = <T>(value: T): T => value;\n';
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(localDeclarationSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
+  );
+
+  const destructuredLocalDeclarationSource =
+    'const [defineEndpointManifest] = helpers;\n';
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(destructuredLocalDeclarationSource),
+  ).toThrow(
+    'the local name "defineEndpointManifest" is already bound outside the canonical',
   );
 });
 

@@ -46,19 +46,84 @@ function isEndpointManifestBinding(binding: ts.ImportSpecifier): boolean {
   );
 }
 
-function assertEndpointManifestLocalBindingIsAvailable(
-  namedImports: ts.NamedImports,
-): void {
-  const conflictingBinding = namedImports.elements.find(
+function bindingNameContainsEndpointManifest(name: ts.BindingName): boolean {
+  if (ts.isIdentifier(name)) {
+    return name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  if (!ts.isObjectBindingPattern(name) && !ts.isArrayBindingPattern(name)) {
+    return false;
+  }
+  return name.elements.some(
+    (element) =>
+      !ts.isOmittedExpression(element) &&
+      bindingNameContainsEndpointManifest(element.name),
+  );
+}
+
+function importDeclarationConflictsWithEndpointManifest(
+  statement: ts.ImportDeclaration,
+): boolean {
+  const importClause = statement.importClause;
+  if (!importClause) {
+    return false;
+  }
+  if (importClause.name?.text === ENDPOINT_MANIFEST_IMPORT) {
+    return true;
+  }
+  const namedBindings = importClause.namedBindings;
+  if (!namedBindings) {
+    return false;
+  }
+  if (ts.isNamespaceImport(namedBindings)) {
+    return namedBindings.name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  const isMetadataCoreImport =
+    ts.isStringLiteral(statement.moduleSpecifier) &&
+    statement.moduleSpecifier.text === METADATA_CORE_MODULE;
+  // A type-only import alias still produces TS2300 when another import reuses
+  // its local name. Only an exact metadata-core binding can be promoted in place.
+  return namedBindings.elements.some(
     (binding) =>
       binding.name.text === ENDPOINT_MANIFEST_IMPORT &&
-      getImportedBindingName(binding) !== ENDPOINT_MANIFEST_IMPORT,
+      (!isMetadataCoreImport || !isEndpointManifestBinding(binding)),
   );
-  if (!conflictingBinding) {
+}
+
+function statementConflictsWithEndpointManifest(statement: ts.Statement): boolean {
+  if (ts.isImportDeclaration(statement)) {
+    return importDeclarationConflictsWithEndpointManifest(statement);
+  }
+  if (ts.isImportEqualsDeclaration(statement)) {
+    return statement.name.text === ENDPOINT_MANIFEST_IMPORT;
+  }
+  if (ts.isVariableStatement(statement)) {
+    return statement.declarationList.declarations.some((declaration) =>
+      bindingNameContainsEndpointManifest(declaration.name),
+    );
+  }
+  if (
+    ts.isFunctionDeclaration(statement) ||
+    ts.isClassDeclaration(statement) ||
+    ts.isEnumDeclaration(statement) ||
+    ts.isModuleDeclaration(statement)
+  ) {
+    return (
+      statement.name !== undefined &&
+      ts.isIdentifier(statement.name) &&
+      statement.name.text === ENDPOINT_MANIFEST_IMPORT
+    );
+  }
+  return false;
+}
+
+function assertEndpointManifestLocalBindingIsAvailable(
+  sourceFile: ts.SourceFile,
+): void {
+  if (!sourceFile.statements.some(statementConflictsWithEndpointManifest)) {
     return;
   }
   throw new Error(
-    `Unable to add REST manifest support because the local import name "${ENDPOINT_MANIFEST_IMPORT}" already aliases "${getImportedBindingName(conflictingBinding)}" from "${METADATA_CORE_MODULE}". Rename that local binding before retrying.`,
+    `Unable to add REST manifest support because the local name "${ENDPOINT_MANIFEST_IMPORT}" is already bound outside the canonical "${METADATA_CORE_MODULE}" import. Rename that local binding before retrying.`,
   );
 }
 
@@ -91,6 +156,12 @@ function addEndpointManifestToNamedImport(
   if (!currentBindings.includes('\n') && !currentBindings.includes('\r')) {
     if (currentBindings.trim() === '') {
       return `${source.slice(0, openBraceEnd)} ${ENDPOINT_MANIFEST_IMPORT} ${source.slice(closeBraceStart)}`;
+    }
+
+    if (namedImports.elements.length === 0) {
+      const trailingWhitespace = currentBindings.match(/\s*$/u)?.[0] ?? '';
+      const insertionIndex = closeBraceStart - trailingWhitespace.length;
+      return `${source.slice(0, insertionIndex)} ${ENDPOINT_MANIFEST_IMPORT}${source.slice(insertionIndex)}`;
     }
 
     const trailingWhitespace = currentBindings.match(/\s*$/u)?.[0] ?? '';
@@ -235,6 +306,8 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
     | { namedImports: ts.NamedImports; statement: ts.ImportDeclaration }
     | undefined;
 
+  assertEndpointManifestLocalBindingIsAvailable(sourceFile);
+
   for (const statement of sourceFile.statements) {
     if (
       !ts.isImportDeclaration(statement) ||
@@ -249,8 +322,6 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
     if (!importClause || !namedBindings || !ts.isNamedImports(namedBindings)) {
       continue;
     }
-
-    assertEndpointManifestLocalBindingIsAvailable(namedBindings);
 
     if (importClause.isTypeOnly) {
       if (
