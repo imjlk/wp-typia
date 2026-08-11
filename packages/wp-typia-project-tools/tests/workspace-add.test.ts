@@ -1405,6 +1405,68 @@ test('generated export migration preserves relocated existing diagnostics', asyn
   );
 });
 
+test('generated export migration resolves workspace package imports', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-export-package-imports');
+  const sourceDir = path.join(targetDir, 'src');
+  const modulePath = path.join(sourceDir, 'variation.ts');
+  const consumerPath = path.join(sourceDir, 'consumer.ts');
+  fs.mkdirSync(sourceDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(targetDir, 'package.json'),
+    `${JSON.stringify(
+      {
+        imports: { '#variation': './src/variation.ts' },
+        name: 'workspace-export-package-imports',
+        private: true,
+        type: 'module',
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(targetDir, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          target: 'ES2020',
+        },
+        include: ['src/**/*.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  );
+  fs.writeFileSync(
+    modulePath,
+    'export const workspaceVariation_hero = { name: "hero" };\n',
+    'utf8',
+  );
+  fs.writeFileSync(
+    consumerPath,
+    "import { workspaceVariation_hero } from '#variation';\n\nexport const variationName = workspaceVariation_hero.name;\n",
+    'utf8',
+  );
+
+  await expect(
+    resolveAndMigrateGeneratedExportedConstName(
+      modulePath,
+      ['workspaceVariationHeroL4', 'workspaceVariation_hero'],
+      targetDir,
+    ),
+  ).resolves.toBe('workspaceVariationHeroL4');
+  expect(fs.readFileSync(modulePath, 'utf8')).toContain(
+    'export const workspaceVariationHeroL4',
+  );
+  const consumerSource = fs.readFileSync(consumerPath, 'utf8');
+  expect(consumerSource).toContain('workspaceVariationHeroL4');
+  expect(consumerSource).not.toContain('workspaceVariation_hero');
+});
+
 test('registry rebuilds preserve symlinked generated-module neighbors', async () => {
   const targetDir = path.join(tempRoot, 'workspace-add-symlinked-variation');
   await scaffoldProject({

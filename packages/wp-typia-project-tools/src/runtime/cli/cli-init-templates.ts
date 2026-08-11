@@ -229,11 +229,12 @@ export function hasPreviousManagedWordPressTtscLintConfig(
 
 /** Check whether tsconfig.json is the untouched preceding managed template. */
 export function hasPreviousManagedTtsconfig(projectDir: string): boolean {
+  const configPath = path.join(projectDir, 'tsconfig.json');
   try {
-    const source = fs.readFileSync(
-      path.join(projectDir, 'tsconfig.json'),
-      'utf8',
-    );
+    if (!fs.lstatSync(configPath).isFile()) {
+      return false;
+    }
+    const source = fs.readFileSync(configPath, 'utf8');
     return isDeepStrictEqual(JSON.parse(source), PREVIOUS_MANAGED_TSCONFIG);
   } catch {
     return false;

@@ -4353,6 +4353,48 @@ let exports;
 		expect(getInitPlan(projectDir).status).toBe('already-initialized');
 	});
 
+	test('does not upgrade a symlinked preceding managed tsconfig', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-tsconfig');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'symlinked-tsconfig-domain',
+		});
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		fs.writeFileSync(
+			path.join(projectDir, 'lint.config.ts'),
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'symlinked-tsconfig-domain',
+			),
+			'utf8',
+		);
+		const externalTsconfigPath = path.join(
+			tempRoot,
+			'workspace-symlinked-tsconfig-target.json',
+		);
+		const previousTsconfigSource = fs.readFileSync(
+			path.join(
+				import.meta.dir,
+				'fixtures',
+				'previous-managed-tsconfig.json',
+			),
+			'utf8',
+		);
+		fs.writeFileSync(externalTsconfigPath, previousTsconfigSource, 'utf8');
+		const tsconfigPath = path.join(projectDir, 'tsconfig.json');
+		fs.rmSync(tsconfigPath);
+		fs.symlinkSync(externalTsconfigPath, tsconfigPath, 'file');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'tsconfig.json' }),
+		);
+
+		await applyInitPlan(projectDir);
+		expect(fs.lstatSync(tsconfigPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(externalTsconfigPath, 'utf8')).toBe(
+			previousTsconfigSource,
+		);
+	});
+
 	test('refuses a managed lint rename that conflicts with a project-owned destination', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-managed-config-conflict');
 		await scaffoldOfficialWorkspace(projectDir, {

@@ -246,11 +246,16 @@ const WORKSPACE_SCRIPT_EXCLUDED_FILES = new Set([
   '.pnp.loader.mjs',
 ]);
 
-export async function collectWorkspaceScriptFilePaths(
+interface WorkspaceFileEntry {
+  entry: fs.Dirent;
+  filePath: string;
+}
+
+async function collectWorkspaceFileEntries(
   directory: string,
-): Promise<string[]> {
+): Promise<WorkspaceFileEntry[]> {
   const entries = await fsp.readdir(directory, { withFileTypes: true });
-  const paths = await Promise.all(
+  const files = await Promise.all(
     entries.map(async (entry) => {
       const entryPath = path.join(directory, entry.name);
       if (entry.isSymbolicLink()) {
@@ -259,23 +264,60 @@ export async function collectWorkspaceScriptFilePaths(
       if (entry.isDirectory()) {
         return WORKSPACE_SCRIPT_EXCLUDED_DIRECTORIES.has(entry.name)
           ? []
-          : collectWorkspaceScriptFilePaths(entryPath);
+          : collectWorkspaceFileEntries(entryPath);
       }
-      return entry.isFile() &&
+      return entry.isFile() ? [{ entry, filePath: entryPath }] : [];
+    }),
+  );
+  return files.flat();
+}
+
+function getWorkspaceScriptFilePaths(
+  entries: readonly WorkspaceFileEntry[],
+): string[] {
+  return entries
+    .filter(
+      ({ entry }) =>
         !WORKSPACE_SCRIPT_EXCLUDED_FILES.has(entry.name) &&
         WORKSPACE_SCRIPT_EXTENSIONS.some((extension) =>
           entry.name.endsWith(extension),
-        )
-        ? [entryPath]
-        : [];
-    }),
+        ),
+    )
+    .map(({ filePath }) => filePath)
+    .sort();
+}
+
+export async function collectWorkspaceScriptFilePaths(
+  directory: string,
+): Promise<string[]> {
+  return getWorkspaceScriptFilePaths(
+    await collectWorkspaceFileEntries(directory),
   );
-  return paths.flat().sort();
+}
+
+async function collectWorkspacePackageManifestSources(
+  entries: readonly WorkspaceFileEntry[],
+): Promise<ReadonlyMap<string, string>> {
+  const manifests = entries.filter(
+    ({ entry }) => entry.name === 'package.json',
+  );
+  return new Map(
+    await Promise.all(
+      manifests.map(
+        async ({ filePath }) =>
+          [
+            path.resolve(filePath),
+            await fsp.readFile(filePath, 'utf8'),
+          ] as const,
+      ),
+    ),
+  );
 }
 
 function createWorkspaceLanguageService(
   sources: ReadonlyMap<string, string>,
   workspaceDir: string,
+  packageManifestSources: ReadonlyMap<string, string>,
 ): ts.LanguageService {
   const compilerOptions: ts.CompilerOptions = {
     ...getWorkspaceCompilerOptions(workspaceDir),
@@ -285,12 +327,18 @@ function createWorkspaceLanguageService(
   };
   const readWorkspaceSource = (requestedPath: string): string | undefined =>
     sources.get(path.resolve(requestedPath));
+  const readWorkspaceFile = (requestedPath: string): string | undefined => {
+    const resolvedPath = path.resolve(requestedPath);
+    return (
+      sources.get(resolvedPath) ?? packageManifestSources.get(resolvedPath)
+    );
+  };
   const host: ts.LanguageServiceHost = {
     // Rename only needs the workspace graph. Loading external declaration
     // trees makes this one-time migration disproportionately expensive and
     // cannot add rename locations to the project-owned source snapshot.
     fileExists: (requestedPath) =>
-      readWorkspaceSource(requestedPath) !== undefined,
+      readWorkspaceFile(requestedPath) !== undefined,
     getCompilationSettings: () => compilerOptions,
     getCurrentDirectory: () => workspaceDir,
     getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
@@ -303,7 +351,7 @@ function createWorkspaceLanguageService(
     },
     getScriptVersion: () => '0',
     readDirectory: ts.sys.readDirectory,
-    readFile: readWorkspaceSource,
+    readFile: readWorkspaceFile,
   };
   return ts.createLanguageService(host);
 }
@@ -313,9 +361,14 @@ function getGeneratedExportRenameLocations(
   sources: ReadonlyMap<string, string>,
   position: number,
   workspaceDir: string,
+  packageManifestSources: ReadonlyMap<string, string>,
 ): readonly ts.RenameLocation[] {
   const resolvedFilePath = path.resolve(filePath);
-  const languageService = createWorkspaceLanguageService(sources, workspaceDir);
+  const languageService = createWorkspaceLanguageService(
+    sources,
+    workspaceDir,
+    packageManifestSources,
+  );
   try {
     const locations = languageService.findRenameLocations(
       resolvedFilePath,
@@ -337,8 +390,13 @@ function getSemanticDiagnosticsByFile(
   filePaths: readonly string[],
   sources: ReadonlyMap<string, string>,
   workspaceDir: string,
+  packageManifestSources: ReadonlyMap<string, string>,
 ): ReadonlyMap<string, readonly ts.Diagnostic[]> {
-  const languageService = createWorkspaceLanguageService(sources, workspaceDir);
+  const languageService = createWorkspaceLanguageService(
+    sources,
+    workspaceDir,
+    packageManifestSources,
+  );
   try {
     return new Map(
       filePaths.map((filePath) => [
@@ -444,6 +502,7 @@ async function migrateGeneratedExportRenameLocations(options: {
   preferredName: string;
   sources: ReadonlyMap<string, string>;
   workspaceDir: string;
+  packageManifestSources: ReadonlyMap<string, string>;
 }): Promise<void> {
   const locationsByFile = new Map<string, ts.RenameLocation[]>();
   for (const location of options.locations) {
@@ -493,6 +552,7 @@ async function migrateGeneratedExportRenameLocations(options: {
     updatedFilePaths,
     options.sources,
     options.workspaceDir,
+    options.packageManifestSources,
   );
   const migratedSources = new Map(options.sources);
   for (const update of updates) {
@@ -502,6 +562,7 @@ async function migrateGeneratedExportRenameLocations(options: {
     updatedFilePaths,
     migratedSources,
     options.workspaceDir,
+    options.packageManifestSources,
   );
   for (const update of updates) {
     const baselineIdentityCounts = new Map<string, number>();
@@ -640,8 +701,10 @@ export async function resolveAndMigrateGeneratedExportedConstName(
         `Unable to locate historical export "${historicalName}".`,
       );
     }
-    const workspaceFilePaths = await collectWorkspaceScriptFilePaths(
-      workspaceDir,
+    const workspaceFileEntries =
+      await collectWorkspaceFileEntries(workspaceDir);
+    const workspaceFilePaths = getWorkspaceScriptFilePaths(
+      workspaceFileEntries,
     );
     const resolvedFilePath = path.resolve(filePath);
     const sources = new Map(
@@ -661,15 +724,19 @@ export async function resolveAndMigrateGeneratedExportedConstName(
         ] as const),
       ),
     );
+    const packageManifestSources =
+      await collectWorkspacePackageManifestSources(workspaceFileEntries);
     const renameLocations = getGeneratedExportRenameLocations(
       filePath,
       sources,
       historicalBinding.getStart(sourceFile),
       workspaceDir,
+      packageManifestSources,
     );
     await migrateGeneratedExportRenameLocations({
       historicalName,
       locations: renameLocations,
+      packageManifestSources,
       preferredName,
       sources,
       workspaceDir,
