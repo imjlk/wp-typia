@@ -16,7 +16,7 @@ import {
 import { ensureWorkspaceEntrypointCall } from './cli-add-workspace-registration-hooks.js';
 import {
   collectGeneratedTypeScriptModulePaths,
-  collectWorkspaceTypeScriptFilePaths,
+  collectWorkspaceScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -230,15 +230,15 @@ export async function runAddBlockStyleCommand({
   const shouldRemoveStylesDirOnRollback = !(await pathExists(stylesDir));
   const existingStyleModulePaths =
     await collectGeneratedTypeScriptModulePaths(stylesDir);
-  const workspaceTypeScriptFilePaths =
-    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			blockIndexPath,
 			stylesIndexPath,
 			...existingStyleModulePaths,
-			...workspaceTypeScriptFilePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

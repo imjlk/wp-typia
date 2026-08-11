@@ -20,7 +20,7 @@ import {
 } from './cli-add-workspace-editor-plugin.js';
 import {
   collectGeneratedTypeScriptModulePaths,
-  collectWorkspaceTypeScriptFilePaths,
+  collectWorkspaceScriptFilePaths,
   isGeneratedTypeScriptModuleFilename,
   resolveAndMigrateGeneratedExportedConstName,
 } from './cli-add-workspace-generated-exports.js';
@@ -744,8 +744,8 @@ export async function runAddCoreVariationCommand({
 		!(await pathExists(targetBlockDir));
   const existingCoreVariationModulePaths =
     await collectGeneratedTypeScriptModulePaths(coreVariationsDir, true);
-  const workspaceTypeScriptFilePaths =
-    await collectWorkspaceTypeScriptFilePaths(workspace.projectDir);
+  const workspaceScriptFilePaths =
+    await collectWorkspaceScriptFilePaths(workspace.projectDir);
   const mutationSnapshot: WorkspaceMutationSnapshot = {
 		fileSources: await snapshotWorkspaceFiles([
 			bootstrapPath,
@@ -754,7 +754,7 @@ export async function runAddCoreVariationCommand({
 			webpackConfigPath,
 			coreVariationsIndexPath,
 			...existingCoreVariationModulePaths,
-			...workspaceTypeScriptFilePaths,
+			...workspaceScriptFilePaths,
 		]),
 		snapshotDirs: [],
 		targetPaths: [

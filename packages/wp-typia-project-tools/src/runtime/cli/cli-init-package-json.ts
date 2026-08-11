@@ -20,6 +20,7 @@ import { readJsonFileSync } from '../shared/json-utils.js';
 import {
   hasPackageRunScriptCommand,
   hasPackageRunScriptInvocation,
+  hasExactShellCommand,
   hasTtscLintCompatPostinstallCommand,
   hasTtscCheckNoEmitCommand,
   hasTtscNoEmitLintCommand,
@@ -436,6 +437,19 @@ function prependRequiredCommands(
     : `${requiredValue}${SHELL_AND_SEPARATOR}${projectOwnedCommand}`;
 }
 
+function mergeLegacyCommandIntoCheckLane(
+  currentValue: string | undefined,
+  legacyCommand: string | undefined,
+): string | undefined {
+  if (!legacyCommand) {
+    return currentValue;
+  }
+  if (hasExactShellCommand(currentValue, legacyCommand)) {
+    return currentValue;
+  }
+  return prependRequiredCommands(currentValue, [legacyCommand]);
+}
+
 function mergePostinstallCommand(
   currentValue: string | undefined,
   requiredCommand: string,
@@ -644,6 +658,14 @@ export function buildOfficialWorkspaceLintScriptChanges(
     legacyStyleCommand === LEGACY_LINT_CSS_COMMAND;
   const hasManagedLegacyFormatCommand =
     legacyFormatCommand === LEGACY_FORMAT_CHECK_COMMAND;
+  const requiredCheckStyle = mergeLegacyCommandIntoCheckLane(
+    scripts['check:style'],
+    legacyStyleCommand,
+  );
+  const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
+    scripts['check:format'],
+    legacyFormatCommand,
+  );
   const requiredCheckLanes = [
     'check:code',
     ...(scripts['check:style'] || legacyStyleCommand ? ['check:style'] : []),
@@ -690,19 +712,19 @@ export function buildOfficialWorkspaceLintScriptChanges(
       currentCheckCode,
       requiredCheckCode,
     ),
-    ...(scripts['check:style'] || !legacyStyleCommand
+    ...(requiredCheckStyle === undefined
       ? []
       : buildOptionalScriptChange(
           'check:style',
           scripts['check:style'],
-          legacyStyleCommand,
+          requiredCheckStyle,
         )),
-    ...(scripts['check:format'] || !legacyFormatCommand
+    ...(requiredCheckFormat === undefined
       ? []
       : buildOptionalScriptChange(
           'check:format',
           scripts['check:format'],
-          legacyFormatCommand,
+          requiredCheckFormat,
         )),
     ...buildOptionalScriptChange('check', currentCheck, requiredCheck),
   ];

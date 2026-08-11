@@ -2016,7 +2016,8 @@ function sourceTerminatesModuleEvaluation(sourceFile: ts.SourceFile): boolean {
  * @param source TypeScript or JavaScript lint configuration source.
  * @param expectedTextDomain Project text domain required by the i18n rule.
  * @param configFilename Discovered filename used to enforce its module format.
- * @param packageModuleType Nearest package type used for ambiguous .js files.
+ * @param packageModuleType Nearest package type used for ambiguous .js and
+ * .ts files. Omit it only when validating a format-independent source fixture.
  * @param managedSourcePaths Actual source files that must remain lint-visible.
  * @returns Whether the exported config satisfies the managed contract.
  */
@@ -2024,7 +2025,7 @@ export function hasWordPressTtscLintConfigSource(
   source: string,
   expectedTextDomain: string,
   configFilename = 'lint.config.ts',
-  packageModuleType: 'commonjs' | 'module' = 'commonjs',
+  packageModuleType?: 'commonjs' | 'module',
   managedSourcePaths: readonly string[] = MANAGED_WORDPRESS_SOURCE_PATHS,
 ): boolean {
   let moduleFormat: TtscLintConfigModuleFormat = 'flexible';
@@ -2040,6 +2041,11 @@ export function hasWordPressTtscLintConfigSource(
     // so both forms remain executable even though raw .cjs cannot parse ESM.
     moduleFormat = 'transpiled-commonjs';
   } else if (configFilename.endsWith('.js')) {
+    moduleFormat = packageModuleType ?? 'commonjs';
+  } else if (
+    configFilename.endsWith('.ts') &&
+    packageModuleType !== undefined
+  ) {
     moduleFormat = packageModuleType;
   }
   const sourceFile = ts.createSourceFile(
@@ -2432,6 +2438,22 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
     valid = false;
   }
   return { segments, valid };
+}
+
+/** Check whether a valid simple shell chain contains an exact command. */
+export function hasExactShellCommand(
+  command: unknown,
+  expectedCommand: string,
+): boolean {
+  if (typeof command !== 'string') {
+    return false;
+  }
+  const parsed = getSimpleShellSegments(command);
+  const expectedSource = expectedCommand.trim();
+  return (
+    parsed.valid &&
+    parsed.segments.some((segment) => segment.source === expectedSource)
+  );
 }
 
 function doesShellSegmentPropagateFailure(

@@ -907,6 +907,43 @@ describe('wp-typia init', () => {
 		}
 	});
 
+	test('merges legacy checks into occupied destination lanes', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:style && npm run check:format',
+					'check:format': 'eslint scripts',
+					'check:style': 'eslint styles',
+					'format:check': legacyFormatCheck,
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint styles',
+			name: 'check:style',
+			requiredValue:
+				'wp-scripts lint-style --allow-empty-input && eslint styles',
+		});
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'eslint scripts',
+			name: 'check:format',
+			requiredValue: `${legacyFormatCheck} && eslint scripts`,
+		});
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'lint:css' }),
+		);
+		expect(changes).toContainEqual(
+			expect.objectContaining({ action: 'remove', name: 'format:check' }),
+		);
+	});
+
 	test('preserves managed lint aliases referenced by retained scripts', () => {
 		const legacyFormatCheck =
 			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
@@ -2163,6 +2200,22 @@ module.exports = {
 		}
 		expect(
 			hasWordPressTtscLintConfigSource(
+				canonicalSource,
+				'fixture-domain',
+				'lint.config.ts',
+				'commonjs',
+			),
+		).toBe(false);
+		expect(
+			hasWordPressTtscLintConfigSource(
+				canonicalSource,
+				'fixture-domain',
+				'lint.config.ts',
+				'module',
+			),
+		).toBe(true);
+		expect(
+			hasWordPressTtscLintConfigSource(
 				esmJavaScriptSource,
 				'fixture-domain',
 				'lint.config.js',
@@ -3295,6 +3348,41 @@ let exports;
 			/preserves an existing ttsc lint config/u,
 		);
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
+	});
+
+	test('rejects ESM-style TypeScript lint configs in CommonJS workspaces', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-commonjs-ts-lint-config');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'commonjs-config-domain',
+		});
+		const packageJsonPath = path.join(projectDir, 'package.json');
+		const packageJson = JSON.parse(
+			fs.readFileSync(packageJsonPath, 'utf8'),
+		) as Record<string, unknown>;
+		packageJson.type = 'commonjs';
+		fs.writeFileSync(
+			packageJsonPath,
+			`${JSON.stringify(packageJson, null, 2)}\n`,
+			'utf8',
+		);
+		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		const lintConfigPath = path.join(projectDir, 'lint.config.ts');
+		const lintConfigSource = buildWordPressTtscLintConfigSource(
+			'commonjs-config-domain',
+		);
+		fs.writeFileSync(lintConfigPath, lintConfigSource, 'utf8');
+
+		expect(
+			hasWordPressTtscLintConfig(
+				lintConfigPath,
+				'commonjs-config-domain',
+			),
+		).toBe(false);
+		const preview = getInitPlan(projectDir);
+		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'project-owned and will not be overwritten',
+		);
 	});
 
 	test('migrates the preceding managed lint and tsconfig templates', async () => {

@@ -47,8 +47,17 @@ export function isGeneratedTypeScriptModuleFilename(filename: string): boolean {
   );
 }
 
-const WORKSPACE_TYPESCRIPT_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts'];
-const WORKSPACE_TYPESCRIPT_EXCLUDED_DIRECTORIES = new Set([
+const WORKSPACE_SCRIPT_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+];
+const WORKSPACE_SCRIPT_EXCLUDED_DIRECTORIES = new Set([
   '.git',
   '.turbo',
   'build',
@@ -57,7 +66,7 @@ const WORKSPACE_TYPESCRIPT_EXCLUDED_DIRECTORIES = new Set([
   'node_modules',
 ]);
 
-export async function collectWorkspaceTypeScriptFilePaths(
+export async function collectWorkspaceScriptFilePaths(
   directory: string,
 ): Promise<string[]> {
   const entries = await fsp.readdir(directory, { withFileTypes: true });
@@ -68,12 +77,12 @@ export async function collectWorkspaceTypeScriptFilePaths(
         return [];
       }
       if (entry.isDirectory()) {
-        return WORKSPACE_TYPESCRIPT_EXCLUDED_DIRECTORIES.has(entry.name)
+        return WORKSPACE_SCRIPT_EXCLUDED_DIRECTORIES.has(entry.name)
           ? []
-          : collectWorkspaceTypeScriptFilePaths(entryPath);
+          : collectWorkspaceScriptFilePaths(entryPath);
       }
       return entry.isFile() &&
-        WORKSPACE_TYPESCRIPT_EXTENSIONS.some((extension) =>
+        WORKSPACE_SCRIPT_EXTENSIONS.some((extension) =>
           entry.name.endsWith(extension),
         ) &&
         !/\.d\.(?:cts|mts|ts)$/u.test(entry.name)
@@ -92,6 +101,7 @@ function getGeneratedExportRenameLocations(
 ): readonly ts.RenameLocation[] {
   const resolvedFilePath = path.resolve(filePath);
   const compilerOptions: ts.CompilerOptions = {
+    allowJs: true,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     target: ts.ScriptTarget.Latest,
@@ -135,6 +145,21 @@ function getGeneratedExportRenameLocations(
   }
 }
 
+function getWorkspaceScriptKind(filePath: string): ts.ScriptKind {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.js':
+    case '.mjs':
+    case '.cjs':
+      return ts.ScriptKind.JS;
+    case '.jsx':
+      return ts.ScriptKind.JSX;
+    case '.tsx':
+      return ts.ScriptKind.TSX;
+    default:
+      return ts.ScriptKind.TS;
+  }
+}
+
 async function migrateGeneratedExportRenameLocations(options: {
   historicalName: string;
   locations: readonly ts.RenameLocation[];
@@ -172,14 +197,14 @@ async function migrateGeneratedExportRenameLocations(options: {
       migratedSource,
       ts.ScriptTarget.Latest,
       false,
-      filePath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      getWorkspaceScriptKind(filePath),
     ) as ts.SourceFile & { parseDiagnostics?: readonly ts.Diagnostic[] };
     if (
       migratedSourceFile.parseDiagnostics &&
       migratedSourceFile.parseDiagnostics.length > 0
     ) {
       throw new Error(
-        `Renaming "${options.historicalName}" to "${options.preferredName}" in "${filePath}" produced invalid TypeScript.`,
+        `Renaming "${options.historicalName}" to "${options.preferredName}" in "${filePath}" produced an invalid workspace source file.`,
       );
     }
     return { filePath, migratedSource };
@@ -284,7 +309,7 @@ export async function resolveAndMigrateGeneratedExportedConstName(
         `Unable to locate historical export "${historicalName}".`,
       );
     }
-    const workspaceFilePaths = await collectWorkspaceTypeScriptFilePaths(
+    const workspaceFilePaths = await collectWorkspaceScriptFilePaths(
       workspaceDir,
     );
     const resolvedFilePath = path.resolve(filePath);

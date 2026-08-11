@@ -42,7 +42,8 @@ const PATCHED_TTSC_LINT_PARENT_GUARD = `    switch node.Parent.Kind {
       }
     }
 `;
-const TTSC_LINT_BUFFER_TARGET_PATTERN = /    for \(const entry of fs\.readdirSync\(location, \{\n      encoding: "buffer",\n      withFileTypes: true,\n    \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);\n      if \(entry\.isSymbolicLink\(\)\) \{\n        try \{\n          target = fs\.readlinkSync\(/gu;
+const TTSC_LINT_BUFFER_TARGET_PATTERN =
+  /let target(?:: [^=\r\n]+)? = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 const UNPATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(location, {
       encoding: "buffer",
       withFileTypes: true,
@@ -59,7 +60,6 @@ const PATCHED_TTSC_LINT_BUFFER_TARGET = `    for (const entry of fs.readdirSync(
       if (entry.isSymbolicLink()) {
         try {
           target = fs.readlinkSync(`;
-const TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN = /  if \(process\.platform === "win32"\) \{\n    for \(const entry of fs\.readdirSync\(location, \{ withFileTypes: true \}\)\) \{\n      let target(?:: Buffer(?:<[^>\n]+>)?)? = Buffer\.alloc\(0\);/gu;
 const UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET = `  if (process.platform === "win32") {
     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
       let target = Buffer.alloc(0);`;
@@ -80,21 +80,17 @@ function normalizeTtscLintBufferTargets(source: string): string {
       throw new Error(`Unable to locate ${functionName} compatibility scope.`);
     }
     let functionSource = normalized.slice(functionStart, functionEnd);
-    for (const [targetPattern, unpatchedTarget] of [
-      [TTSC_LINT_BUFFER_TARGET_PATTERN, UNPATCHED_TTSC_LINT_BUFFER_TARGET],
-      [
-        TTSC_LINT_WINDOWS_BUFFER_TARGET_PATTERN,
-        UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
-      ],
-    ] as const) {
-      const targetCount = functionSource.match(targetPattern)?.length ?? 0;
-      if (targetCount !== 1) {
-        throw new Error(
-          `Expected one compatibility target in ${functionName}, found ${targetCount}.`,
-        );
-      }
-      functionSource = functionSource.replace(targetPattern, unpatchedTarget);
+    const targetCount =
+      functionSource.match(TTSC_LINT_BUFFER_TARGET_PATTERN)?.length ?? 0;
+    if (targetCount !== 2) {
+      throw new Error(
+        `Expected two compatibility targets in ${functionName}, found ${targetCount}.`,
+      );
     }
+    functionSource = functionSource.replace(
+      TTSC_LINT_BUFFER_TARGET_PATTERN,
+      'let target = Buffer.alloc(0);',
+    );
     normalized = `${normalized.slice(
       0,
       functionStart,
@@ -315,7 +311,7 @@ export type Inferred<Value> =
     const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
     const cachedPatchedIndexSource = patchedIndexSource.replace(
       /let target: Buffer(?:<[^>\n]+>)? = Buffer\.alloc\(0\);/gu,
-      'let target: Buffer<ArrayBufferLike> = Buffer.alloc(0);',
+      'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
     );
     const unpatchedIndexSource =
       normalizeTtscLintBufferTargets(cachedPatchedIndexSource);

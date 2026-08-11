@@ -24,6 +24,7 @@ import {
   runAddPatternCommand,
 } from '../src/runtime/cli-core.js';
 import { scaffoldProject } from '../src/runtime/index.js';
+import { collectWorkspaceScriptFilePaths } from '../src/runtime/add/cli-add-workspace-generated-exports.js';
 
 const GENERATED_PROJECT_BUILD_TIMEOUT_MS = 300_000;
 const sharedWebpackEntryLoopSource =
@@ -1168,11 +1169,11 @@ test('add workflows migrate historical generated registry identifiers', async ()
   const externalHistoricalConsumerPath = path.join(
     targetDir,
     'src',
-    'historical-variation-consumer.ts',
+    'historical-variation-consumer.jsx',
   );
   fs.writeFileSync(
     externalHistoricalConsumerPath,
-    `import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\n\nexport const historicalVariationConsumer = workspaceVariation_hero_card;\n`,
+    `import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\n\nexport const HistoricalVariationConsumer = () => <div>{workspaceVariation_hero_card.name}</div>;\n`,
     'utf8',
   );
 
@@ -1283,6 +1284,31 @@ test('add workflows migrate historical generated registry identifiers', async ()
   );
 }, 60_000);
 
+test('workspace rename discovery includes JavaScript module variants', async () => {
+  const targetDir = path.join(tempRoot, 'workspace-script-discovery');
+  fs.mkdirSync(path.join(targetDir, 'src'), { recursive: true });
+  const filenames = [
+    'consumer.cjs',
+    'consumer.cts',
+    'consumer.js',
+    'consumer.jsx',
+    'consumer.mjs',
+    'consumer.mts',
+    'consumer.ts',
+    'consumer.tsx',
+  ];
+  for (const filename of filenames) {
+    fs.writeFileSync(path.join(targetDir, 'src', filename), '', 'utf8');
+  }
+  fs.writeFileSync(path.join(targetDir, 'src', 'types.d.ts'), '', 'utf8');
+
+  expect(
+		(await collectWorkspaceScriptFilePaths(targetDir)).map((filePath) =>
+			path.basename(filePath),
+		),
+	).toEqual(filenames);
+});
+
 test('failed registry rebuild rolls back completed historical export migrations', async () => {
   const targetDir = path.join(
     tempRoot,
@@ -1343,6 +1369,10 @@ test('failed registry rebuild rolls back completed historical export migrations'
     'historical alpha variation export',
   );
   fs.writeFileSync(alphaPath, alphaHistoricalSource, 'utf8');
+  const alphaConsumerPath = path.join(targetDir, 'src', 'alpha-consumer.js');
+  const alphaConsumerSource =
+    `import { workspaceVariation_alpha_card } from './blocks/counter-card/variations/alpha-card';\nexport const alphaConsumer = workspaceVariation_alpha_card;\n`;
+  fs.writeFileSync(alphaConsumerPath, alphaConsumerSource, 'utf8');
 
   const zetaPath = path.join(variationsDir, 'zeta-card.ts');
   const zetaManagedSource = fs.readFileSync(zetaPath, 'utf8');
@@ -1371,6 +1401,7 @@ test('failed registry rebuild rolls back completed historical export migrations'
     ),
   ).toThrow(/Unable to resolve a compatible generated export/u);
   expect(fs.readFileSync(alphaPath, 'utf8')).toBe(alphaHistoricalSource);
+  expect(fs.readFileSync(alphaConsumerPath, 'utf8')).toBe(alphaConsumerSource);
   expect(fs.readFileSync(zetaPath, 'utf8')).toBe(zetaUnsupportedSource);
   expect(fs.existsSync(path.join(variationsDir, 'beta-card.ts'))).toBe(false);
 }, 60_000);
