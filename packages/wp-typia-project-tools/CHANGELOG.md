@@ -1,5 +1,50 @@
 # @wp-typia/project-tools
 
+## 0.28.0 — 2026-08-11
+
+### Minor changes
+
+- [d4d8cd72](https://github.com/imjlk/wp-typia/commit/d4d8cd72bca2c8e1553ac479d343b85f481e4629) Added: integrate the WordPress ttsc lint contributor into generated and existing projects.
+  
+  - New scaffolds install `@wp-typia/ttsc-lint-plugin-wp` and bind its compiled WordPress Scripts recommended preset to the generated text domain.
+  - `wp-typia init --apply` can upgrade official workspaces and supported retrofit layouts without overwriting project-owned lint configs.
+  - Doctor reports the managed combined code gate and preserves project-owned checks during adoption. — Thanks @imjlk!
+- [c275a84e](https://github.com/imjlk/wp-typia/commit/c275a84ee7d8a975715e216c7d76740862de3f03) Changed: make `ttsc check --noEmit` the generated WordPress code-quality gate
+  for TypeScript and JavaScript, backed by the compiled WordPress Scripts preset.
+  Scaffolds and retrofit plans now expose explicit `check:code` and `check`
+  scripts without lint-only aliases, preserve existing project-owned aggregate
+  checks, use ESM-safe lint configuration files, and remove the legacy WordPress
+  ESLint and TypeScript 6 compatibility stack from consumer projects. Updated the
+  ttsc toolchain to 0.26.2 and retained the exact mapped-type formatting repair
+  until an unpatched upstream release passes the regression. The compiled preset
+  also publishes explicit behavior downgrades for one native engine failure and
+  three JSX semantic mismatches instead of enabling unsafe rules, covering two
+  component-classification false positives and valid progressbar ARIA values.
+  Generated checks keep ttsc formatting write-only, retain Prettier for
+  JavaScript and non-code formatting, and let `ttsc check` own TypeScript,
+  JavaScript, and WordPress lint diagnostics. — Thanks @imjlk!
+- [03a86a81](https://github.com/imjlk/wp-typia/commit/03a86a818f0e8e63eda3e558a5d493b118227130) Changed: replace generated PHP discovery globs and variable includes with
+  deterministic local manifests containing validated literal `__DIR__` entrypoints
+  for workspace blocks, bindings, patterns, abilities, admin views, AI features,
+  post meta, and REST resources. Project sync now creates and checks these
+  manifests, add workflows refresh them transactionally, and doctor rejects stale,
+  unsafe, traversing, or symbolic entrypoint paths. — Thanks @imjlk!
+- [98cd4ae0](https://github.com/imjlk/wp-typia/commit/98cd4ae056d2240d27d807ad25d5a6334d0aa8f3) Added: port the seven remaining WordPress internationalization rules to native
+  TypeScript-Go contributors, including diagnostics, safe fixes, translator
+  comment validation, and full parity for the WordPress-owned `i18n` preset.
+  Generated block placeholders now use a Unicode ellipsis so new projects satisfy
+  that preset without a follow-up lint fix. — Thanks @imjlk!
+
+### Patch changes
+
+- [383d8d13](https://github.com/imjlk/wp-typia/commit/383d8d13393927a53f319c0a29c39c364464aab9) Added: complete native contributor coverage for all 19 WordPress-owned rules
+  enabled by the upstream recommended preset. The new rules protect Design
+  System token usage, semantic render ordering, and expensive initializers before
+  early returns, with pinned ESLint parity and typed rule options.
+  Generated persistence templates now defer client-state initialization until
+  after their early-return guards and pass the completed preset unchanged. — Thanks @imjlk!
+- Updated dependencies: api-client (npm)@0.5.1, block-runtime (npm)@0.10.1, block-types (npm)@0.5.1, rest (npm)@0.4.1
+
 ## 0.27.0 — 2026-08-01
 
 ### Minor changes
