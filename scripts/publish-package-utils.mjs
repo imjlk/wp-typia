@@ -140,7 +140,17 @@ export function withTempDir(prefix, callback, remove = removeTempDir) {
 export function removeTempDir(tempDir, rmCommand = "rm") {
 	const resolvedTempRoot = path.resolve(os.tmpdir());
 	const resolvedTempDir = path.resolve(tempDir);
-	const relative = path.relative(resolvedTempRoot, resolvedTempDir);
+	let realTempDir;
+	try {
+		realTempDir = fs.realpathSync.native(resolvedTempDir);
+	} catch (error) {
+		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+			return;
+		}
+		throw error;
+	}
+	const realTempRoot = fs.realpathSync.native(resolvedTempRoot);
+	const relative = path.relative(realTempRoot, realTempDir);
 
 	if (
 		relative.length === 0 ||
@@ -148,18 +158,18 @@ export function removeTempDir(tempDir, rmCommand = "rm") {
 		relative.startsWith(`..${path.sep}`) ||
 		path.isAbsolute(relative)
 	) {
-		throw new Error(`Refusing to remove a directory outside ${resolvedTempRoot}.`);
+		throw new Error(`Refusing to remove a directory outside ${realTempRoot}.`);
 	}
 
 	if (process.platform === "win32") {
-		fs.rmSync(resolvedTempDir, { force: true, recursive: true });
+		fs.rmSync(realTempDir, { force: true, recursive: true });
 		return;
 	}
 
 	// Native rm traverses dependency-heavy npm fixtures substantially faster
 	// than Node's JavaScript recursive remover on macOS and Linux CI runners.
 	try {
-		execFileSync(rmCommand, ["-rf", "--", resolvedTempDir], {
+		execFileSync(rmCommand, ["-rf", "--", realTempDir], {
 			stdio: ["ignore", "ignore", "pipe"],
 		});
 	} catch (error) {
@@ -170,6 +180,6 @@ export function removeTempDir(tempDir, rmCommand = "rm") {
 		) {
 			throw error;
 		}
-		fs.rmSync(resolvedTempDir, { force: true, recursive: true });
+		fs.rmSync(realTempDir, { force: true, recursive: true });
 	}
 }

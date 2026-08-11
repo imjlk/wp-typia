@@ -540,12 +540,15 @@ function mergeLegacyCommandIntoCheckLane(
   scripts: Readonly<Record<string, string>>,
   currentValue: string | undefined,
   legacyCommand: string | undefined,
+  legacyName: 'format:check' | 'lint:css',
   destinationName: 'check:format' | 'check:style',
 ): string | undefined {
   if (!legacyCommand) {
     return currentValue;
   }
   if (
+    (currentValue !== undefined &&
+      packageScriptTransitivelyInvokes(scripts, currentValue, legacyName)) ||
     packageScriptTransitivelyInvokes(scripts, legacyCommand, destinationName) ||
     packageScriptTransitivelyInvokes(scripts, legacyCommand, 'check')
   ) {
@@ -774,12 +777,14 @@ export function buildOfficialWorkspaceLintScriptChanges(
     scripts,
     scripts['check:style'],
     legacyStyleCommand,
+    'lint:css',
     'check:style',
   );
   const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
     scripts,
     scripts['check:format'],
     legacyFormatCommand,
+    'format:check',
     'check:format',
   );
   const requiredCheckLanes = [

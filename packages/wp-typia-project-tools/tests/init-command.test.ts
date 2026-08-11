@@ -1137,6 +1137,32 @@ describe('wp-typia init', () => {
 		).toBe(false);
 	});
 
+	test('does not duplicate legacy aliases already used by destination lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					check: 'npm run check:style && npm run check:format',
+					'check:format': 'npm run format:check',
+					'check:style': 'npm run lint:css',
+					'format:check': 'prettier --check scripts',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(
+			changes.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
 	test('preserves managed lint aliases referenced by retained scripts', () => {
 		const legacyFormatCheck =
 			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';

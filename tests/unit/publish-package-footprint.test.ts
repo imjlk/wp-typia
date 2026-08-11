@@ -90,6 +90,33 @@ describe('publish package footprint policy', () => {
 		);
 	});
 
+	test('rejects cleanup targets reached through an escaping symlink', () => {
+		const outsideDir = fs.mkdtempSync(
+			path.join(repoRoot, '.publish-cleanup-boundary-'),
+		);
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'wp-typia-rm-symlink-'),
+		);
+		const linkedDir = path.join(tempDir, 'outside');
+		const cleanupTarget = path.join(linkedDir, 'fixture');
+		try {
+			fs.mkdirSync(path.join(outsideDir, 'fixture'));
+			fs.writeFileSync(
+				path.join(outsideDir, 'fixture', 'probe.txt'),
+				'probe',
+			);
+			fs.symlinkSync(outsideDir, linkedDir, 'dir');
+
+			expect(() => removeTempDir(cleanupTarget)).toThrow(
+				'Refusing to remove a directory outside',
+			);
+			expect(fs.existsSync(path.join(cleanupTarget, 'probe.txt'))).toBe(true);
+		} finally {
+			fs.rmSync(tempDir, { force: true, recursive: true });
+			fs.rmSync(outsideDir, { force: true, recursive: true });
+		}
+	});
+
 	test('falls back to Node cleanup when the native remover is unavailable', () => {
 		const tempDir = fs.mkdtempSync(
 			path.join(os.tmpdir(), 'wp-typia-rm-fallback-'),
