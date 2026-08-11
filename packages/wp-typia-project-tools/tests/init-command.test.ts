@@ -866,6 +866,14 @@ describe('wp-typia init', () => {
 				'env MODE=upgrade builtin exit 0',
 				'node scripts/apply-ttsc-lint-compat.mjs && env MODE=upgrade builtin exit 0',
 			],
+			[
+				'exec node setup.js',
+				'node scripts/apply-ttsc-lint-compat.mjs && exec node setup.js',
+			],
+			[
+				'setup; command exec node finalize.js',
+				'node scripts/apply-ttsc-lint-compat.mjs && (setup; command exec node finalize.js)',
+			],
 		] as const) {
 			const changes = buildOfficialWorkspaceLintScriptChanges(
 				{ scripts: { postinstall: currentValue } },
@@ -883,6 +891,25 @@ describe('wp-typia init', () => {
 					'npm',
 				).some((change) => change.name === 'postinstall'),
 			).toBe(false);
+		}
+
+		for (const redirectionOnlyExec of [
+			'exec 2>/dev/null && node setup.js',
+			'exec &> setup.log && node setup.js',
+			'exec &>> setup.log && node setup.js',
+			'exec <<< "input" && node setup.js',
+		]) {
+			expect(
+				buildOfficialWorkspaceLintScriptChanges(
+					{ scripts: { postinstall: redirectionOnlyExec } },
+					'npm',
+				),
+			).toContainEqual({
+				action: 'update',
+				currentValue: redirectionOnlyExec,
+				name: 'postinstall',
+				requiredValue: `${redirectionOnlyExec} && node scripts/apply-ttsc-lint-compat.mjs`,
+			});
 		}
 	});
 

@@ -2544,11 +2544,60 @@ function isTerminatingShellSegment(segment: SimpleShellSegment): boolean {
   }
   const commandIndex = getShellCommandStartIndex(segment.tokens);
   const command = getShellExecutableName(segment.tokens[commandIndex]);
+  const delegatedCommand = getShellExecutableName(
+    segment.tokens[commandIndex + 1],
+  );
+  let execCommandIndex: number | null = null;
+  if (command === 'exec') {
+    execCommandIndex = commandIndex;
+  } else if (
+    (command === 'builtin' || command === 'command') &&
+    delegatedCommand === 'exec'
+  ) {
+    execCommandIndex = commandIndex + 1;
+  }
   return (
     command === 'exit' ||
-    (command === 'builtin' &&
-      getShellExecutableName(segment.tokens[commandIndex + 1]) === 'exit')
+    ((command === 'builtin' || command === 'command') &&
+      delegatedCommand === 'exit') ||
+    (execCommandIndex !== null &&
+      hasExecCommandArgument(segment.tokens, execCommandIndex))
   );
+}
+
+function hasExecCommandArgument(
+  tokens: readonly string[],
+  execCommandIndex: number,
+): boolean {
+  let acceptsOptions = true;
+  for (let index = execCommandIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    if (acceptsOptions && token === '--') {
+      acceptsOptions = false;
+      continue;
+    }
+    if (acceptsOptions && /^-[^-]/u.test(token)) {
+      // `exec -a` takes a process-name argument; consume the next token.
+      if (token.slice(1).includes('a')) {
+        index += 1;
+      }
+      continue;
+    }
+    if (token.startsWith('<(') || token.startsWith('>(')) {
+      return true;
+    }
+    const redirection = token.match(
+      /^(?:[0-9]+)?(?:&>>?|<>|>>?|<<<|<<?|>&|<&|>\|)(.*)$/u,
+    );
+    if (redirection) {
+      if ((redirection[1] ?? '').length === 0) {
+        index += 1;
+      }
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 /** Check whether a top-level shell segment terminates the current shell. */
