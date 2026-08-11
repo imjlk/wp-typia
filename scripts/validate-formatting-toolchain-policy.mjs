@@ -770,7 +770,8 @@ function validateGeneratedTtscLintCompatSource(
     },
     {
       description: 'the guarded unpatched-to-patched state transition',
-      pattern: /patchedCount === 0 && unpatchedCount === 4/u,
+      pattern:
+        /functionSource\.replace\([\s\S]*?bufferTargetPattern,[\s\S]*?\(\) => 'let target: Buffer = Buffer\.alloc\(0\);'/u,
     },
     {
       description: 'the atomic temporary-file write',

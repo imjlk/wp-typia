@@ -944,6 +944,56 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('does not copy forwarding aliases into their destination lanes', () => {
+		const missingDestinations = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'format:check': 'npm run check:format',
+					'lint:css': 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+		expect(
+			missingDestinations.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+		expect(missingDestinations).toContainEqual({
+			action: 'add',
+			name: 'check',
+			requiredValue: 'npm run check:code',
+		});
+		expect(
+			missingDestinations.some(
+				(change) =>
+					change.name === 'lint:css' ||
+					change.name === 'format:check',
+			),
+		).toBe(false);
+
+		const occupiedDestinations = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:format': 'prettier --check .',
+					'check:style': 'wp-scripts lint-style',
+					'format:check': 'npm run check:format',
+					'lint:css': 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+		expect(
+			occupiedDestinations.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+	});
+
 	test('preserves managed lint aliases referenced by retained scripts', () => {
 		const legacyFormatCheck =
 			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
@@ -1258,6 +1308,33 @@ describe('wp-typia init', () => {
 				requiredValue: 'npm run check:code && npm run check:style',
 			}),
 		);
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run sync --check && ttsc check --noEmit',
+			name: 'check:code',
+			requiredValue: 'npm run sync -- --check && ttsc check --noEmit',
+		});
+	});
+
+	test('normalizes a managed sync runner without dropping code-check suffixes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit && eslint src',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue:
+				'bun run sync --check && ttsc check --noEmit && eslint src',
+			name: 'check:code',
+			requiredValue:
+				'npm run sync -- --check && ttsc check --noEmit && eslint src',
+		});
 	});
 
 	test('migrates customized legacy style and format lanes without orphaning them', () => {
@@ -1797,6 +1874,13 @@ describe('wp-typia init', () => {
 			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
 			'export const Edit = () => null;\n',
 		);
+		fs.mkdirSync(path.join(projectDir, 'src', 'admin-views', 'reports'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
+			'export const Reports = () => null;\n',
+		);
 		fs.writeFileSync(
 			configPath,
 			canonicalSource.replace(
@@ -1809,9 +1893,20 @@ describe('wp-typia init', () => {
 		expect(await findManagedWordPressSourcePathsAsync(projectDir)).toEqual(
 			findManagedWordPressSourcePaths(projectDir),
 		);
+		fs.writeFileSync(
+			configPath,
+			canonicalSource.replace(
+				"  ignores: ['build/**', 'node_modules/**'],",
+				"  ignores: ['src/admin-views/**'],",
+			),
+		);
+		expect(hasWordPressTtscLintConfig(configPath, 'fixture-domain')).toBe(false);
 
 		fs.unlinkSync(
 			path.join(projectDir, 'src', 'blocks', 'container', 'edit.tsx'),
+		);
+		fs.unlinkSync(
+			path.join(projectDir, 'src', 'admin-views', 'reports', 'index.tsx'),
 		);
 		fs.mkdirSync(
 			path.join(
@@ -3304,6 +3399,32 @@ let exports;
 			'utf8',
 		);
 		fs.rmSync(path.join(projectDir, 'lint.config.mts'));
+		const historicalVariationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'hero-card.ts',
+		);
+		fs.mkdirSync(path.dirname(historicalVariationPath), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			historicalVariationPath,
+			"export const workspaceVariation_hero_card = { name: 'hero-card' };\n",
+			'utf8',
+		);
+		const historicalConsumerPath = path.join(
+			projectDir,
+			'src',
+			'historical-variation-consumer.ts',
+		);
+		fs.writeFileSync(
+			historicalConsumerPath,
+			"import { workspaceVariation_hero_card } from './blocks/counter-card/variations/hero-card';\nexport const historicalVariation = workspaceVariation_hero_card;\n",
+			'utf8',
+		);
 
 		const preview = getInitPlan(path.join(projectDir, 'src'));
 		const applied = await applyInitPlan(path.join(projectDir, 'src'));
@@ -3319,6 +3440,9 @@ let exports;
 		);
 
 		expect(preview.status).toBe('preview');
+		expect(preview.notes.join('\n')).toContain(
+			'Historical generated export identifiers will be migrated transactionally',
+		);
 		expect(preview.detectedLayout.kind).toBe('official-workspace');
 		const dependencyInstallStep = preview.nextSteps.find((step) =>
 			step.startsWith('pnpm add -D'),
@@ -3368,23 +3492,33 @@ let exports;
 		expect(nextPackageJson.scripts['sync-types']).toBe(
 			'tsx scripts/sync-types-to-block-json.ts --custom',
 		);
-			expect(nextPackageJson.scripts.typecheck).toBe(
-				'pnpm run sync --check && ttsc --noEmit && bun test',
-			);
+		expect(nextPackageJson.scripts.typecheck).toBe(
+			'pnpm run sync --check && ttsc --noEmit && bun test',
+		);
 		expect(nextPackageJson.scripts['check:code']).toBe(
 			'pnpm run sync --check && ttsc check --noEmit',
 		);
 		expect(nextPackageJson.scripts.check).toBe(
 			'pnpm run check:code && pnpm run check:style && pnpm run check:format',
 		);
-			expect(nextPackageJson.scripts['lint:ts']).toBeUndefined();
-			expect(nextPackageJson.scripts.lint).toBeUndefined();
+		expect(nextPackageJson.scripts['lint:ts']).toBeUndefined();
+		expect(nextPackageJson.scripts.lint).toBeUndefined();
 		expect(lintConfigSource).toContain(
 			"from '@wp-typia/ttsc-lint-plugin-wp'",
 		);
 		expect(lintConfigSource).toContain(
 			"allowedTextDomain: 'workspace-lint-domain'",
 		);
+		for (const migratedPath of [
+			historicalVariationPath,
+			historicalConsumerPath,
+		]) {
+			const migratedSource = fs.readFileSync(migratedPath, 'utf8');
+			expect(migratedSource).toContain('workspaceVariationHeroCardL4L4');
+			expect(migratedSource).not.toContain(
+				'workspaceVariation_hero_card',
+			);
+		}
 
 		const currentPlan = getInitPlan(projectDir);
 		expect(currentPlan.status).toBe('already-initialized');
@@ -3411,6 +3545,74 @@ let exports;
 			'node scripts/apply-ttsc-lint-compat.mjs',
 		);
 		expect(fs.existsSync(compatPath)).toBe(true);
+	});
+
+	test('rolls back historical export migrations when workspace init cannot finish', async () => {
+		const projectDir = path.join(
+			tempRoot,
+			'workspace-historical-export-init-rollback',
+		);
+		await scaffoldOfficialWorkspace(projectDir);
+		const packageJsonPath = path.join(projectDir, 'package.json');
+		const originalPackageJsonSource = fs.readFileSync(
+			packageJsonPath,
+			'utf8',
+		);
+		const variationPath = path.join(
+			projectDir,
+			'src',
+			'blocks',
+			'counter-card',
+			'variations',
+			'alpha-card.ts',
+		);
+		fs.mkdirSync(path.dirname(variationPath), { recursive: true });
+		const historicalVariationSource =
+			"export const workspaceVariation_alpha_card = { name: 'alpha-card' };\n";
+		fs.writeFileSync(
+			variationPath,
+			historicalVariationSource,
+			'utf8',
+		);
+		const coreVariationDir = path.join(
+			projectDir,
+			'src',
+			'editor-plugins',
+			'core-variations',
+			'core',
+			'group',
+		);
+		fs.mkdirSync(coreVariationDir, { recursive: true });
+		const coreVariationPath = path.join(
+			coreVariationDir,
+			'zeta-card.ts',
+		);
+		const historicalCoreVariationSource =
+			"export const coreVariation_core_group_zeta_card = { name: 'zeta-card' };\n";
+		fs.writeFileSync(
+			coreVariationPath,
+			historicalCoreVariationSource,
+			'utf8',
+		);
+		fs.chmodSync(coreVariationDir, 0o555);
+
+		try {
+			await expect(applyInitPlan(projectDir)).rejects.toThrow(
+				/restored the previous package\.json\/helper-file\/package-manager snapshot/i,
+			);
+		} finally {
+			fs.chmodSync(coreVariationDir, 0o755);
+		}
+		expect(fs.readFileSync(packageJsonPath, 'utf8')).toBe(
+			originalPackageJsonSource,
+		);
+		expect(fs.readFileSync(variationPath, 'utf8')).toBe(
+			historicalVariationSource,
+		);
+		expect(fs.readFileSync(coreVariationPath, 'utf8')).toBe(
+			historicalCoreVariationSource,
+		);
+		expect(getInitPlan(projectDir).status).toBe('preview');
 	});
 
 	test('preserves project-owned lint configs during official workspace upgrades', async () => {

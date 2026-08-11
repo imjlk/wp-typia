@@ -54,6 +54,7 @@ import {
   type RetrofitInitPlan,
 } from './cli-init-types.js';
 import { tryResolveWorkspaceProject } from '../workspace/workspace-project.js';
+import { hasHistoricalGeneratedExportNames } from '../add/cli-add-workspace-generated-exports.js';
 
 const WORDPRESS_TTSC_LINT_CONFIG_PURPOSE =
   'Enable the wp-scripts-compatible ttsc preset and bind i18n diagnostics to the project text domain.';
@@ -539,13 +540,16 @@ export function getInitPlan(
     if (yarnPnpNodeModulesConfig) {
       rawPlannedFiles.push(yarnPnpNodeModulesConfig.filePlan);
     }
+    const historicalGeneratedExports =
+      hasHistoricalGeneratedExportNames(workspace.projectDir);
     const status: InitPlanStatus =
       dependencyChanges.length === 0 &&
       scriptChanges.length === 0 &&
       packageManagerFieldChange === undefined &&
       yarnPnpNodeModulesConfig === undefined &&
       rawPlannedFiles.length === 0 &&
-      wordpressLintIntegrated
+      wordpressLintIntegrated &&
+      !historicalGeneratedExports
         ? 'already-initialized'
         : 'preview';
     return createRetrofitPlan({
@@ -576,6 +580,11 @@ export function getInitPlan(
       notes: [
         ...(projectOwnedLintConfigPath
           ? [buildProjectOwnedLintConfigNote(projectOwnedLintConfigPath)]
+          : []),
+        ...(historicalGeneratedExports
+          ? [
+              'Historical generated export identifiers will be migrated transactionally before the combined code gate becomes current.',
+            ]
           : []),
         '`ttsc check --noEmit` is the combined TypeScript and JavaScript lint gate. Project-owned style and format checks remain separate.',
       ],

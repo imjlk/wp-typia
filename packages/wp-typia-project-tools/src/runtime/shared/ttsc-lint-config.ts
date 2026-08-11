@@ -1492,11 +1492,11 @@ function selectManagedSourcePaths(
   blockSourcePaths: string[],
   sourcePaths: string[],
 ): string[] {
-  if (blockSourcePaths.length > 0) {
-    return blockSourcePaths;
-  }
-  return sourcePaths.length > 0
-    ? sourcePaths
+  const actualSourcePaths = Array.from(
+    new Set([...blockSourcePaths, ...sourcePaths]),
+  ).sort();
+  return actualSourcePaths.length > 0
+    ? actualSourcePaths
     : [...MANAGED_WORDPRESS_SOURCE_PATHS];
 }
 
@@ -1566,9 +1566,7 @@ export function findManagedWordPressSourcePaths(projectDir: string): string[] {
   );
   return selectManagedSourcePaths(
     blockSourcePaths,
-    blockSourcePaths.length === 0
-      ? collectManagedSourcePaths(projectDir, sourceRoot)
-      : [],
+    collectManagedSourcePaths(projectDir, sourceRoot),
   );
 }
 
@@ -1597,9 +1595,7 @@ export async function findManagedWordPressSourcePathsAsync(
   ).flat();
   return selectManagedSourcePaths(
     blockSourcePaths,
-    blockSourcePaths.length === 0
-      ? await collectManagedSourcePathsAsync(projectDir, sourceRoot)
-      : [],
+    await collectManagedSourcePathsAsync(projectDir, sourceRoot),
   );
 }
 
@@ -1764,7 +1760,7 @@ function hasUsableManagedSourceTree(
       }
     }
   }
-  return ![...ignored.values()].every(Boolean);
+  return ![...ignored.values()].some(Boolean);
 }
 
 interface CommonJsExportAssignment {
@@ -2730,6 +2726,31 @@ const MANAGED_SYNC_CHECK_COMMANDS = new Set([
   'pnpm run sync --check',
   'yarn run sync --check',
 ]);
+
+/** Normalize an existing managed sync segment to the selected package runner. */
+export function normalizeManagedSyncCheckCommand(
+  command: string,
+  requiredSyncCommand: string,
+): string {
+  const parsed = getSimpleShellSegments(command);
+  if (!parsed.valid) {
+    return command;
+  }
+  let changed = false;
+  const normalized = parsed.segments
+    .map((segment) => {
+      const source = MANAGED_SYNC_CHECK_COMMANDS.has(segment.source)
+        ? requiredSyncCommand
+        : segment.source;
+      changed ||= source !== segment.source;
+      return `${source}${
+        segment.operatorAfter === null ? '' : ` ${segment.operatorAfter} `
+      }`;
+    })
+    .join('')
+    .trimEnd();
+  return changed ? normalized : command;
+}
 
 /** Check that managed sync runs and propagates failure before the ttsc gate. */
 export function hasManagedSyncBeforeTtscCheckNoEmitCommand(

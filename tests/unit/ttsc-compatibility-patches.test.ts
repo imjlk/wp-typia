@@ -50,7 +50,10 @@ const UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
   /let target = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 let tempDirs: string[] = [];
 
-function normalizeTtscLintBufferTargets(source: string): string {
+function rewriteTtscLintBufferTargets(
+  source: string,
+  targetSource: string,
+): string {
   let normalized = source;
   for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
     const functionStart = normalized.indexOf(`function ${functionName}(`);
@@ -71,7 +74,7 @@ function normalizeTtscLintBufferTargets(source: string): string {
     }
     functionSource = functionSource.replace(
       TTSC_LINT_BUFFER_TARGET_PATTERN,
-      'let target = Buffer.alloc(0);',
+      targetSource,
     );
     normalized = `${normalized.slice(
       0,
@@ -291,13 +294,11 @@ export type Inferred<Value> =
     );
     const lintIndexPath = path.join(scopedTtscDir, 'lint', 'src', 'index.ts');
     const patchedIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
-    const cachedPatchedIndexSource = patchedIndexSource.replace(
-      /let target: Buffer(?:<[^>\n]+>)? = Buffer\.alloc\(0\);/gu,
+    const cachedPatchedIndexSource = rewriteTtscLintBufferTargets(
+      patchedIndexSource,
       'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
     );
-    const unpatchedIndexSource =
-      normalizeTtscLintBufferTargets(cachedPatchedIndexSource);
-    writeText(lintIndexPath, unpatchedIndexSource);
+    writeText(lintIndexPath, cachedPatchedIndexSource);
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
         '@ttsc/lint': '0.26.1',

@@ -103,8 +103,6 @@ function prepareSourcePatches({ description, replacements, sourcePath }) {
 function prepareBufferTargetRepair(sourcePath) {
 	const source = fs.readFileSync(sourcePath, 'utf8');
 	let nextSource = source;
-	let patchedCount = 0;
-	let unpatchedCount = 0;
 	for (const functionName of ['directoryDigest', 'configDirectoryDigest']) {
 		const functionStart = nextSource.indexOf(`function ${functionName}(`);
 		const functionEnd = nextSource.indexOf(
@@ -125,11 +123,10 @@ function prepareBufferTargetRepair(sourcePath) {
 		}
 		for (const match of matches) {
 			const annotation = match[1]?.trim();
-			if (annotation === undefined) {
-				unpatchedCount += 1;
-			} else if (/^Buffer(?:<.+>)?$/u.test(annotation)) {
-				patchedCount += 1;
-			} else {
+			if (
+				annotation !== undefined &&
+				!/^Buffer(?:<.+>)?$/u.test(annotation)
+			) {
 				throw new Error(
 					`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
 				);
@@ -137,25 +134,14 @@ function prepareBufferTargetRepair(sourcePath) {
 		}
 		functionSource = functionSource.replace(
 			bufferTargetPattern,
-			(match, annotation) =>
-				annotation === undefined
-					? 'let target: Buffer = Buffer.alloc(0);'
-					: match
+			() => 'let target: Buffer = Buffer.alloc(0);'
 		);
 		nextSource = `${nextSource.slice(
 			0,
 			functionStart
 		)}${functionSource}${nextSource.slice(functionEnd)}`;
 	}
-	if (patchedCount === 4 && unpatchedCount === 0) {
-		return { nextSource: source, sourcePath };
-	}
-	if (patchedCount === 0 && unpatchedCount === 4) {
-		return { nextSource, sourcePath };
-	}
-	throw new Error(
-		`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
-	);
+	return { nextSource, sourcePath };
 }
 const repairs = [
 	prepareSourcePatches({

@@ -25,6 +25,7 @@ import {
   hasTtscLintCompatPostinstallCommand,
   hasTtscCheckNoEmitCommand,
   hasTtscNoEmitLintCommand,
+  normalizeManagedSyncCheckCommand,
   removePackageRunScriptInvocations,
 } from '../shared/ttsc-lint-config.js';
 import type {
@@ -172,7 +173,9 @@ function buildRequiredCheckCodeCommand(
     hasManagedSyncBeforeTtscCheckNoEmitCommand(currentValue);
   const hasTtscCommand = hasTtscCheckNoEmitCommand(currentValue);
   if (hasRequiredSequence) {
-    return currentValue ?? `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`;
+    return currentValue
+      ? normalizeManagedSyncCheckCommand(currentValue, syncCommand)
+      : `${syncCommand}${SHELL_AND_SEPARATOR}${ttscCommand}`;
   }
   if (hasTtscCommand) {
     return prependRequiredCommands(currentValue, [syncCommand]);
@@ -475,8 +478,15 @@ function prependRequiredCommands(
 function mergeLegacyCommandIntoCheckLane(
   currentValue: string | undefined,
   legacyCommand: string | undefined,
+  destinationName: 'check:format' | 'check:style',
 ): string | undefined {
   if (!legacyCommand) {
+    return currentValue;
+  }
+  if (
+    hasPackageRunScriptInvocation(legacyCommand, destinationName) ||
+    hasPackageRunScriptInvocation(legacyCommand, 'check')
+  ) {
     return currentValue;
   }
   if (hasExactShellCommand(currentValue, legacyCommand)) {
@@ -703,15 +713,17 @@ export function buildOfficialWorkspaceLintScriptChanges(
   const requiredCheckStyle = mergeLegacyCommandIntoCheckLane(
     scripts['check:style'],
     legacyStyleCommand,
+    'check:style',
   );
   const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
     scripts['check:format'],
     legacyFormatCommand,
+    'check:format',
   );
   const requiredCheckLanes = [
     'check:code',
-    ...(scripts['check:style'] || legacyStyleCommand ? ['check:style'] : []),
-    ...(scripts['check:format'] || legacyFormatCommand ? ['check:format'] : []),
+    ...(requiredCheckStyle ? ['check:style'] : []),
+    ...(requiredCheckFormat ? ['check:format'] : []),
   ];
   const checkLanes = requiredCheckLanes.map((name) => ({
     command: transformPackageManagerText(`bun run ${name}`, packageManager),

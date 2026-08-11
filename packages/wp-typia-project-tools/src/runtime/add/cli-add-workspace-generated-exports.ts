@@ -1,7 +1,13 @@
-import { promises as fsp } from 'node:fs';
+import fs, { promises as fsp } from 'node:fs';
 import path from 'node:path';
 
 import ts from '@typescript/typescript6';
+
+import {
+  toCollisionSafePascalCase,
+  toKebabCase,
+  toSnakeCase,
+} from '../shared/string-case.js';
 
 export async function collectGeneratedTypeScriptModulePaths(
   directory: string,
@@ -45,6 +51,160 @@ export function isGeneratedTypeScriptModuleFilename(filename: string): boolean {
     !/\.(?:d|spec|stories|story|test)\.ts$/u.test(filename) &&
     filename !== 'index.ts'
   );
+}
+
+interface HistoricalGeneratedExportDescriptor {
+  candidates: readonly [string, string];
+  filePath: string;
+}
+
+function collectGeneratedTypeScriptModulePathsSync(
+  directory: string,
+  recursive = false,
+): string[] {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+  return entries
+    .flatMap((entry) => {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) {
+        return [];
+      }
+      if (entry.isDirectory() && recursive) {
+        return collectGeneratedTypeScriptModulePathsSync(entryPath, true);
+      }
+      return entry.isFile() && isGeneratedTypeScriptModuleFilename(entry.name)
+        ? [entryPath]
+        : [];
+    })
+    .sort();
+}
+
+function getHistoricalGeneratedExportDescriptor(
+  workspaceDir: string,
+  filePath: string,
+): HistoricalGeneratedExportDescriptor | null {
+  const relativePath = path
+    .relative(workspaceDir, filePath)
+    .split(path.sep)
+    .join('/');
+  const blockModule =
+    /^src\/blocks\/[^/]+\/(variations|styles|transforms)\/([^/]+)\.ts$/u.exec(
+      relativePath,
+    );
+  if (blockModule) {
+    const [, family, slug] = blockModule;
+    const prefix =
+      family === 'variations'
+        ? 'Variation'
+        : family === 'styles'
+          ? 'BlockStyle'
+          : 'BlockTransform';
+    return {
+      candidates: [
+        `workspace${prefix}${toCollisionSafePascalCase(slug ?? '')}`,
+        `workspace${prefix}_${toSnakeCase(slug ?? '')}`,
+      ],
+      filePath,
+    };
+  }
+  const coreVariation =
+    /^src\/editor-plugins\/core-variations\/([^/]+)\/([^/]+)\/([^/]+)\.ts$/u.exec(
+      relativePath,
+    );
+  if (!coreVariation) {
+    return null;
+  }
+  const targetBlockName = `${coreVariation[1]}/${coreVariation[2]}`;
+  const variationSlug = coreVariation[3] ?? '';
+  const identifier = `${targetBlockName}-${variationSlug}`;
+  return {
+    candidates: [
+      `coreVariation${toCollisionSafePascalCase(identifier)}`,
+      `coreVariation_${toKebabCase(identifier)
+        .split('-')
+        .filter(Boolean)
+        .join('_')}`,
+    ],
+    filePath,
+  };
+}
+
+function collectHistoricalGeneratedExportDescriptors(
+  workspaceDir: string,
+): HistoricalGeneratedExportDescriptor[] {
+  const candidates = [
+    ...collectGeneratedTypeScriptModulePathsSync(
+      path.join(workspaceDir, 'src', 'blocks'),
+      true,
+    ),
+    ...collectGeneratedTypeScriptModulePathsSync(
+      path.join(
+        workspaceDir,
+        'src',
+        'editor-plugins',
+        'core-variations',
+      ),
+      true,
+    ),
+  ];
+  return candidates
+    .map((filePath) =>
+      getHistoricalGeneratedExportDescriptor(workspaceDir, filePath),
+    )
+    .filter(
+      (descriptor): descriptor is HistoricalGeneratedExportDescriptor =>
+        descriptor !== null,
+    )
+    .sort((left, right) => left.filePath.localeCompare(right.filePath));
+}
+
+function hasHistoricalBinding(
+  descriptor: HistoricalGeneratedExportDescriptor,
+): boolean {
+  const source = fs.readFileSync(descriptor.filePath, 'utf8');
+  const sourceFile = ts.createSourceFile(
+    descriptor.filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
+  return collectExportedConstBindings(sourceFile).has(descriptor.candidates[1]);
+}
+
+/** Return whether init must migrate a preceding generated-export convention. */
+export function hasHistoricalGeneratedExportNames(
+  workspaceDir: string,
+): boolean {
+  return collectHistoricalGeneratedExportDescriptors(workspaceDir).some(
+    hasHistoricalBinding,
+  );
+}
+
+/** Transactionally migrate every known historical generated export in a workspace. */
+export async function migrateHistoricalGeneratedExportNames(
+  workspaceDir: string,
+): Promise<void> {
+  for (const descriptor of collectHistoricalGeneratedExportDescriptors(
+    workspaceDir,
+  )) {
+    if (!hasHistoricalBinding(descriptor)) {
+      continue;
+    }
+    await resolveAndMigrateGeneratedExportedConstName(
+      descriptor.filePath,
+      descriptor.candidates,
+      workspaceDir,
+    );
+  }
 }
 
 const WORKSPACE_SCRIPT_EXTENSIONS = [
@@ -100,27 +260,33 @@ function getGeneratedExportRenameLocations(
   workspaceDir: string,
 ): readonly ts.RenameLocation[] {
   const resolvedFilePath = path.resolve(filePath);
-  const compilerOptions = getWorkspaceCompilerOptions(workspaceDir);
+  const compilerOptions: ts.CompilerOptions = {
+    ...getWorkspaceCompilerOptions(workspaceDir),
+    noLib: true,
+    skipLibCheck: true,
+    types: [],
+  };
+  const readWorkspaceSource = (requestedPath: string): string | undefined =>
+    sources.get(path.resolve(requestedPath));
   const host: ts.LanguageServiceHost = {
-    fileExists: ts.sys.fileExists,
+    // Rename only needs the workspace graph. Loading external declaration
+    // trees makes this one-time migration disproportionately expensive and
+    // cannot add rename locations to the project-owned source snapshot.
+    fileExists: (requestedPath) =>
+      readWorkspaceSource(requestedPath) !== undefined,
     getCompilationSettings: () => compilerOptions,
     getCurrentDirectory: () => workspaceDir,
     getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
     getScriptFileNames: () => Array.from(sources.keys()),
     getScriptSnapshot: (requestedPath) => {
-      const resolvedRequestedPath = path.resolve(requestedPath);
-      const workspaceSource = sources.get(resolvedRequestedPath);
-      if (workspaceSource !== undefined) {
-        return ts.ScriptSnapshot.fromString(workspaceSource);
-      }
-      const dependencySource = ts.sys.readFile(requestedPath);
-      return dependencySource === undefined
+      const workspaceSource = readWorkspaceSource(requestedPath);
+      return workspaceSource === undefined
         ? undefined
-        : ts.ScriptSnapshot.fromString(dependencySource);
+        : ts.ScriptSnapshot.fromString(workspaceSource);
     },
     getScriptVersion: () => '0',
     readDirectory: ts.sys.readDirectory,
-    readFile: ts.sys.readFile,
+    readFile: readWorkspaceSource,
   };
   const languageService = ts.createLanguageService(host);
   try {

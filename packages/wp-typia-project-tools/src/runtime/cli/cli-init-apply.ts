@@ -41,6 +41,10 @@ import {
   type ProjectPackageJson,
   type RetrofitInitPlan,
 } from './cli-init-types.js';
+import {
+  collectWorkspaceScriptFilePaths,
+  migrateHistoricalGeneratedExportNames,
+} from '../add/cli-add-workspace-generated-exports.js';
 
 async function createRetrofitMutationSnapshot(
 	projectDir: string,
@@ -145,8 +149,9 @@ function buildApplyNextSteps(
 /**
  * Apply the previewed retrofit init plan to disk.
  *
- * The command snapshots package.json and generated helper targets before
- * writing, then rolls those files back automatically if any write fails.
+ * The command snapshots package.json, generated helper targets, and workspace
+ * script consumers before writing, then rolls those files back automatically
+ * if any write or historical-export migration fails.
  *
  * @param projectDir Project root that should receive the retrofit surface.
  * @param options Optional package-manager override used for emitted scripts and
@@ -244,6 +249,10 @@ export async function applyInitPlan(
   const removedFiles = previewPlan.plannedFiles
 		.filter((file) => file.action === 'remove')
 		.map((file) => file.path);
+  const historicalMigrationFilePaths =
+    previewPlan.detectedLayout.kind === 'official-workspace'
+      ? await collectWorkspaceScriptFilePaths(previewPlan.projectDir)
+      : [];
   const filePaths = [
 		path.join(previewPlan.projectDir, 'package.json'),
 		...Object.keys(helperFiles).map((relativePath) =>
@@ -256,6 +265,7 @@ export async function applyInitPlan(
 			path.join(previewPlan.projectDir, relativePath),
 		),
 		...(yarnPnpNodeModulesConfig ? [yarnPnpNodeModulesConfig.path] : []),
+		...historicalMigrationFilePaths,
 	];
   const mutationSnapshot = await createRetrofitMutationSnapshot(
     previewPlan.projectDir,
@@ -271,6 +281,9 @@ export async function applyInitPlan(
       webpackChanges,
       yarnPnpNodeModulesConfig,
     });
+    if (previewPlan.detectedLayout.kind === 'official-workspace') {
+      await migrateHistoricalGeneratedExportNames(previewPlan.projectDir);
+    }
   } catch (error) {
     await rollbackWorkspaceMutation(mutationSnapshot);
     throw buildApplyFailureError(error);
