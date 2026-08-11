@@ -2988,6 +2988,7 @@ const PACKAGE_MANAGER_PROJECT_SCOPE_OPTIONS = new Set([
 ]);
 
 const PACKAGE_MANAGER_ALTERNATE_EXECUTION_OPTIONS = new Set(['--call', '-c']);
+const NPM_RUN_SCRIPT_COMMANDS = new Set(['run-script', 'rum', 'urn']);
 
 function hasNonlocalPackageScriptOption(
   tokens: readonly string[],
@@ -3027,7 +3028,11 @@ function isPackageRunScriptInvocation(
   ) {
     return false;
   }
-  if (tokens[commandIndex] === 'run') {
+  const packageRunCommand =
+    tokens[commandIndex] === 'run' ||
+    (packageManager === 'npm' &&
+      NPM_RUN_SCRIPT_COMMANDS.has(tokens[commandIndex] ?? ''));
+  if (packageRunCommand) {
     const runOptionsStartIndex = commandIndex + 1;
     commandIndex = skipShellRunnerOptions(tokens, runOptionsStartIndex);
     if (

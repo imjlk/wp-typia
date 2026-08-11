@@ -216,6 +216,9 @@ export function hasPreviousManagedWordPressTtscLintConfig(
     return false;
   }
   try {
+    if (!fs.lstatSync(configPath).isFile()) {
+      return false;
+    }
     return (
       normalizeLineEndings(fs.readFileSync(configPath, 'utf8')) ===
       normalizeLineEndings(
@@ -482,6 +485,39 @@ export interface TtscLintCompatFileState {
   current: boolean;
 }
 
+function hasUnsafeExistingParent(
+  projectDir: string,
+  targetPath: string,
+): boolean {
+  const relativePath = path.relative(projectDir, targetPath);
+  if (
+    relativePath === '' ||
+    path.isAbsolute(relativePath) ||
+    relativePath.split(path.sep).includes('..')
+  ) {
+    return true;
+  }
+  let currentPath = projectDir;
+  for (const segment of path.dirname(relativePath).split(path.sep)) {
+    if (!segment || segment === '.') {
+      continue;
+    }
+    currentPath = path.join(currentPath, segment);
+    try {
+      const entry = fs.lstatSync(currentPath);
+      if (entry.isSymbolicLink() || !entry.isDirectory()) {
+        return true;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Inspect the managed compatibility helper with one project-file read. */
 export function inspectTtscLintCompatFile(
   projectDir: string,
@@ -491,6 +527,9 @@ export function inspectTtscLintCompatFile(
     'scripts',
     'apply-ttsc-lint-compat.mjs',
   );
+  if (hasUnsafeExistingParent(projectDir, compatPath)) {
+    return { conflictPath: compatPath, current: false };
+  }
   try {
     if (!fs.lstatSync(compatPath).isFile()) {
       return { conflictPath: compatPath, current: false };

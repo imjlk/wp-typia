@@ -1150,8 +1150,9 @@ describe('wp-typia init', () => {
 						'node scripts/run-wp-scripts-lint-js-compat.mjs',
 					'lint:css': 'wp-scripts lint-style --allow-empty-input',
 					'format:check': legacyFormatCheck,
-					'ci:style': 'npm run lint:css',
-					'release:check': 'npm run format:check',
+					'ci:style': 'npm run-script lint:css',
+					'ci:js': 'npm urn lint:js',
+					'release:check': 'npm rum format:check',
 				},
 			},
 			'npm',
@@ -1162,6 +1163,9 @@ describe('wp-typia init', () => {
 		);
 		expect(
 			changes.some((change) => change.name === 'lint:css'),
+		).toBe(false);
+		expect(
+			changes.some((change) => change.name === 'lint:js'),
 		).toBe(false);
 		expect(
 			changes.some((change) => change.name === 'format:check'),
@@ -4153,6 +4157,38 @@ let exports;
 		expect(fs.readFileSync(lintConfigPath, 'utf8')).toBe(customSource);
 	});
 
+	test('refuses to upgrade a symlinked managed lint config', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-lint-config');
+		await scaffoldOfficialWorkspace(projectDir, {
+			textDomain: 'symlinked-lint-domain',
+		});
+		const lintConfigPath = path.join(projectDir, 'lint.config.mts');
+		const sharedTargetPath = path.join(
+			tempRoot,
+			'shared-previous-lint.config.mts',
+		);
+		const sharedTargetSource =
+			buildPreviousManagedWordPressTtscLintConfigSource(
+				'symlinked-lint-domain',
+			);
+		fs.writeFileSync(sharedTargetPath, sharedTargetSource, 'utf8');
+		fs.rmSync(lintConfigPath);
+		fs.symlinkSync(sharedTargetPath, lintConfigPath, 'file');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'lint.config.mts is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({ path: 'lint.config.mts' }),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves an existing ttsc lint config/u,
+		);
+		expect(fs.lstatSync(lintConfigPath).isSymbolicLink()).toBe(true);
+		expect(fs.readFileSync(sharedTargetPath, 'utf8')).toBe(sharedTargetSource);
+	});
+
 	test('refuses to overwrite a project-owned ttsc compatibility helper', async () => {
 		const projectDir = path.join(tempRoot, 'workspace-custom-ttsc-helper');
 		await scaffoldOfficialWorkspace(projectDir);
@@ -4215,6 +4251,37 @@ let exports;
 		);
 		expect(fs.lstatSync(compatPath).isSymbolicLink()).toBe(true);
 		expect(fs.readFileSync(sharedTargetPath, 'utf8')).toBe(sharedTargetSource);
+	});
+
+	test('refuses to create the compatibility helper through a symlinked parent', async () => {
+		const projectDir = path.join(tempRoot, 'workspace-symlinked-scripts-dir');
+		await scaffoldOfficialWorkspace(projectDir);
+		const scriptsPath = path.join(projectDir, 'scripts');
+		const sharedScriptsPath = path.join(
+			tempRoot,
+			'workspace-shared-scripts-target',
+		);
+		fs.renameSync(scriptsPath, sharedScriptsPath);
+		const sharedCompatPath = path.join(
+			sharedScriptsPath,
+			'apply-ttsc-lint-compat.mjs',
+		);
+		fs.rmSync(sharedCompatPath, { force: true });
+		fs.symlinkSync(sharedScriptsPath, scriptsPath, 'dir');
+
+		const preview = getInitPlan(projectDir);
+		expect(preview.notes.join('\n')).toContain(
+			'apply-ttsc-lint-compat.mjs is project-owned and will not be overwritten',
+		);
+		expect(preview.plannedFiles).not.toContainEqual(
+			expect.objectContaining({
+				path: 'scripts/apply-ttsc-lint-compat.mjs',
+			}),
+		);
+		await expect(applyInitPlan(projectDir)).rejects.toThrow(
+			/preserves the existing scripts\/apply-ttsc-lint-compat\.mjs because it is project-owned/u,
+		);
+		expect(fs.existsSync(sharedCompatPath)).toBe(false);
 	});
 
 	test('upgrades the exact preceding managed ttsc compatibility helper', async () => {

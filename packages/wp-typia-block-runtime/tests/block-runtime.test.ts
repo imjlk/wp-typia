@@ -399,7 +399,7 @@ describe('@wp-typia/block-runtime', () => {
 			await expect(
 				blocksModule.assertTypiaWebpackCompatibility({ projectRoot }),
 			).rejects.toThrow(
-				/Installed versions: typia=11\.0\.0, ttsc=0\.26\.1, typescript=7\.0\.2, @ttsc\/unplugin=0\.26\.1, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x, matching ttsc and @ttsc\/unplugin 0\.23\.x or 0\.26\.x, TypeScript 7\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
+				/Installed versions: typia=11\.0\.0, ttsc=0\.26\.2, typescript=7\.0\.2, @ttsc\/unplugin=0\.26\.2, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x, matching ttsc and @ttsc\/unplugin 0\.23\.x or 0\.26\.x, TypeScript 7\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
 			);
 		} finally {
 			rmSync(projectRoot, { force: true, recursive: true });
