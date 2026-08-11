@@ -234,6 +234,37 @@ test('REST manifest support scans every metadata-core import before mutating', (
   );
 });
 
+test('REST manifest support preserves a script prologue before imports', () => {
+  const source = [
+    '#!/usr/bin/env node',
+    "'use strict';",
+    "'use client';",
+    '',
+    'export const config = {};',
+    '',
+  ].join('\n');
+
+  const updated = ensureBlockConfigCanAddRestManifests(source);
+
+  expect(updated).toBe(
+    [
+      '#!/usr/bin/env node',
+      "'use strict';",
+      "'use client';",
+      "import { defineEndpointManifest } from '@wp-typia/block-runtime/metadata-core';",
+      '',
+      'export const config = {};',
+      '',
+    ].join('\n'),
+  );
+  expect(ensureBlockConfigCanAddRestManifests(updated)).toBe(updated);
+
+  const windowsSource = source.replace(/\n/gu, '\r\n');
+  expect(ensureBlockConfigCanAddRestManifests(windowsSource)).toBe(
+    updated.replace(/\n/gu, '\r\n'),
+  );
+});
+
 describe('@wp-typia/project-tools cli-add-workspace ai-feature', () => {
 	const tempRoot = createScaffoldTempRoot('wp-typia-add-ai-feature-');
 

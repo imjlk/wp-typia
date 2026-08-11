@@ -370,7 +370,42 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
   }
 
   const lineEnding = detectSourceLineEnding(source);
-  return `${importLine}${lineEnding}${lineEnding}${source}`;
+  const insertionOffset = getImportInsertionOffset(source, sourceFile);
+  if (insertionOffset === 0) {
+    return `${importLine}${lineEnding}${lineEnding}${source}`;
+  }
+  const prefix = source.slice(0, insertionOffset);
+  const suffix = source.slice(insertionOffset);
+  const beforeImport = prefix.endsWith('\n') ? '' : lineEnding;
+  const beforeSource = suffix.startsWith(lineEnding) ? '' : lineEnding;
+  return `${prefix}${beforeImport}${importLine}${lineEnding}${beforeSource}${suffix}`;
+}
+
+function getImportInsertionOffset(
+  source: string,
+  sourceFile: ts.SourceFile,
+): number {
+  let insertionOffset = 0;
+  if (source.startsWith('#!')) {
+    const lineEndingIndex = source.indexOf('\n');
+    insertionOffset =
+      lineEndingIndex === -1 ? source.length : lineEndingIndex + 1;
+  }
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isExpressionStatement(statement) ||
+      !ts.isStringLiteral(statement.expression)
+    ) {
+      break;
+    }
+    insertionOffset = statement.end;
+    if (source.startsWith('\r\n', insertionOffset)) {
+      insertionOffset += 2;
+    } else if (source.startsWith('\n', insertionOffset)) {
+      insertionOffset += 1;
+    }
+  }
+  return insertionOffset;
 }
 
 function shouldRefreshCompoundValidatorToolkit(source: string | null): boolean {

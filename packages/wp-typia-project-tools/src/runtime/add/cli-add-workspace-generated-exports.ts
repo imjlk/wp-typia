@@ -4,6 +4,7 @@ import path from 'node:path';
 import ts from '@typescript/typescript6';
 
 import {
+  toCollisionSafeCamelCase,
   toCollisionSafePascalCase,
   toKebabCase,
   toSnakeCase,
@@ -54,7 +55,7 @@ export function isGeneratedTypeScriptModuleFilename(filename: string): boolean {
 }
 
 interface HistoricalGeneratedExportDescriptor {
-  candidates: readonly [string, string];
+  bindings: readonly (readonly [string, string])[];
   filePath: string;
 }
 
@@ -108,9 +109,11 @@ function getHistoricalGeneratedExportDescriptor(
           ? 'BlockStyle'
           : 'BlockTransform';
     return {
-      candidates: [
-        `workspace${prefix}${toCollisionSafePascalCase(slug ?? '')}`,
-        `workspace${prefix}_${toSnakeCase(slug ?? '')}`,
+      bindings: [
+        [
+          `workspace${prefix}${toCollisionSafePascalCase(slug ?? '')}`,
+          `workspace${prefix}_${toSnakeCase(slug ?? '')}`,
+        ],
       ],
       filePath,
     };
@@ -125,13 +128,25 @@ function getHistoricalGeneratedExportDescriptor(
   const targetBlockName = `${coreVariation[1]}/${coreVariation[2]}`;
   const variationSlug = coreVariation[3] ?? '';
   const identifier = `${targetBlockName}-${variationSlug}`;
+  const historicalIdentifier = toKebabCase(identifier)
+    .split('-')
+    .filter(Boolean)
+    .join('_');
+  const preferredCamelIdentifier = toCollisionSafeCamelCase(identifier);
   return {
-    candidates: [
-      `coreVariation${toCollisionSafePascalCase(identifier)}`,
-      `coreVariation_${toKebabCase(identifier)
-        .split('-')
-        .filter(Boolean)
-        .join('_')}`,
+    bindings: [
+      [
+        `coreVariation${toCollisionSafePascalCase(identifier)}`,
+        `coreVariation_${historicalIdentifier}`,
+      ],
+      [
+        `${preferredCamelIdentifier}Attributes`,
+        `${historicalIdentifier}Attributes`,
+      ],
+      [
+        `${preferredCamelIdentifier}InnerBlocks`,
+        `${historicalIdentifier}InnerBlocks`,
+      ],
     ],
     filePath,
   };
@@ -166,9 +181,9 @@ function collectHistoricalGeneratedExportDescriptors(
     .sort((left, right) => left.filePath.localeCompare(right.filePath));
 }
 
-function hasHistoricalBinding(
+function collectHistoricalBindingCandidates(
   descriptor: HistoricalGeneratedExportDescriptor,
-): boolean {
+): readonly (readonly [string, string])[] {
   const source = fs.readFileSync(descriptor.filePath, 'utf8');
   const sourceFile = ts.createSourceFile(
     descriptor.filePath,
@@ -178,19 +193,30 @@ function hasHistoricalBinding(
     ts.ScriptKind.TS,
   );
   const exportedBindings = collectExportedConstBindings(sourceFile);
-  return (
-    !exportedBindings.has(descriptor.candidates[0]) &&
-    exportedBindings.has(descriptor.candidates[1])
+  return descriptor.bindings.filter(
+    (candidates) =>
+      !exportedBindings.has(candidates[0]) &&
+      exportedBindings.has(candidates[1]),
   );
+}
+
+function hasHistoricalBinding(
+  descriptor: HistoricalGeneratedExportDescriptor,
+): boolean {
+  return collectHistoricalBindingCandidates(descriptor).length > 0;
 }
 
 /** Return generated modules that still use the preceding export convention. */
 export function collectHistoricalGeneratedExportFilePaths(
   workspaceDir: string,
 ): string[] {
-  return collectHistoricalGeneratedExportDescriptors(workspaceDir)
-    .filter(hasHistoricalBinding)
-    .map((descriptor) => descriptor.filePath);
+  return Array.from(
+    new Set(
+      collectHistoricalGeneratedExportDescriptors(workspaceDir)
+        .filter(hasHistoricalBinding)
+        .map((descriptor) => descriptor.filePath),
+    ),
+  );
 }
 
 /** Return whether init must migrate a preceding generated-export convention. */
@@ -207,14 +233,14 @@ export async function migrateHistoricalGeneratedExportNames(
   for (const descriptor of collectHistoricalGeneratedExportDescriptors(
     workspaceDir,
   )) {
-    if (!hasHistoricalBinding(descriptor)) {
-      continue;
+    const historicalBindings = collectHistoricalBindingCandidates(descriptor);
+    if (historicalBindings.length > 0) {
+      await resolveAndMigrateGeneratedExportedConstNames(
+        descriptor.filePath,
+        historicalBindings,
+        workspaceDir,
+      );
     }
-    await resolveAndMigrateGeneratedExportedConstName(
-      descriptor.filePath,
-      descriptor.candidates,
-      workspaceDir,
-    );
   }
 }
 
@@ -356,13 +382,30 @@ function createWorkspaceLanguageService(
   return ts.createLanguageService(host);
 }
 
-function getGeneratedExportRenameLocations(
+interface GeneratedExportRenameBinding {
+  historicalName: string;
+  historicalPosition: number;
+  preferredName: string;
+}
+
+interface GeneratedExportRename {
+  historicalName: string;
+  locations: readonly ts.RenameLocation[];
+  preferredName: string;
+}
+
+interface GeneratedExportRenameEdit {
+  location: ts.RenameLocation;
+  preferredName: string;
+}
+
+function getGeneratedExportRenames(
   filePath: string,
   sources: ReadonlyMap<string, string>,
-  position: number,
+  bindings: readonly GeneratedExportRenameBinding[],
   workspaceDir: string,
   packageManifestSources: ReadonlyMap<string, string>,
-): readonly ts.RenameLocation[] {
+): readonly GeneratedExportRename[] {
   const resolvedFilePath = path.resolve(filePath);
   const languageService = createWorkspaceLanguageService(
     sources,
@@ -370,17 +413,25 @@ function getGeneratedExportRenameLocations(
     packageManifestSources,
   );
   try {
-    const locations = languageService.findRenameLocations(
-      resolvedFilePath,
-      position,
-      false,
-      false,
-      true,
-    );
-    if (!locations || locations.length === 0) {
-      throw new Error(`Unable to resolve rename locations in "${filePath}".`);
-    }
-    return locations;
+    return bindings.map((binding) => {
+      const locations = languageService.findRenameLocations(
+        resolvedFilePath,
+        binding.historicalPosition,
+        false,
+        false,
+        true,
+      );
+      if (!locations || locations.length === 0) {
+        throw new Error(
+          `Unable to resolve rename locations for "${binding.historicalName}" in "${filePath}".`,
+        );
+      }
+      return {
+        historicalName: binding.historicalName,
+        locations,
+        preferredName: binding.preferredName,
+      };
+    });
   } finally {
     languageService.dispose();
   }
@@ -411,16 +462,17 @@ function getSemanticDiagnosticsByFile(
 
 function mapMigratedPositionToOriginal(
   position: number | undefined,
-  locations: readonly ts.RenameLocation[],
-  preferredName: string,
+  edits: readonly GeneratedExportRenameEdit[],
 ): number | undefined {
   if (position === undefined) {
     return undefined;
   }
   let delta = 0;
-  for (const location of [...locations].sort(
-    (left, right) => left.textSpan.start - right.textSpan.start,
+  for (const edit of [...edits].sort(
+    (left, right) =>
+      left.location.textSpan.start - right.location.textSpan.start,
   )) {
+    const { location, preferredName } = edit;
     const replacementLength =
       (location.prefixText?.length ?? 0) +
       preferredName.length +
@@ -497,35 +549,44 @@ function getWorkspaceScriptKind(filePath: string): ts.ScriptKind {
 }
 
 async function migrateGeneratedExportRenameLocations(options: {
-  historicalName: string;
-  locations: readonly ts.RenameLocation[];
-  preferredName: string;
+  renames: readonly GeneratedExportRename[];
   sources: ReadonlyMap<string, string>;
   workspaceDir: string;
   packageManifestSources: ReadonlyMap<string, string>;
 }): Promise<void> {
-  const locationsByFile = new Map<string, ts.RenameLocation[]>();
-  for (const location of options.locations) {
-    const resolvedLocationPath = path.resolve(location.fileName);
-    const locations = locationsByFile.get(resolvedLocationPath) ?? [];
-    locations.push(location);
-    locationsByFile.set(resolvedLocationPath, locations);
+  const editsByFile = new Map<string, GeneratedExportRenameEdit[]>();
+  for (const rename of options.renames) {
+    for (const location of rename.locations) {
+      const resolvedLocationPath = path.resolve(location.fileName);
+      const edits = editsByFile.get(resolvedLocationPath) ?? [];
+      edits.push({ location, preferredName: rename.preferredName });
+      editsByFile.set(resolvedLocationPath, edits);
+    }
   }
+  const renameSummary = options.renames
+    .map(
+      ({ historicalName, preferredName }) =>
+        `"${historicalName}" to "${preferredName}"`,
+    )
+    .join(', ');
 
-  const updates = Array.from(locationsByFile, ([filePath, locations]) => {
+  const updates = Array.from(editsByFile, ([filePath, edits]) => {
     const source = options.sources.get(filePath);
     if (source === undefined) {
       throw new Error(
-        `Unable to read rename target "${filePath}" while migrating "${options.historicalName}".`,
+        `Unable to read rename target "${filePath}" while migrating ${renameSummary}.`,
       );
     }
-    const migratedSource = locations
-      .sort((left, right) => right.textSpan.start - left.textSpan.start)
+    const migratedSource = edits
+      .sort(
+        (left, right) =>
+          right.location.textSpan.start - left.location.textSpan.start,
+      )
       .reduce(
-        (current, location) =>
+        (current, { location, preferredName }) =>
           `${current.slice(0, location.textSpan.start)}${
             location.prefixText ?? ''
-          }${options.preferredName}${location.suffixText ?? ''}${current.slice(
+          }${preferredName}${location.suffixText ?? ''}${current.slice(
             location.textSpan.start + location.textSpan.length,
           )}`,
         source,
@@ -542,10 +603,10 @@ async function migrateGeneratedExportRenameLocations(options: {
       migratedSourceFile.parseDiagnostics.length > 0
     ) {
       throw new Error(
-        `Renaming "${options.historicalName}" to "${options.preferredName}" in "${filePath}" produced an invalid workspace source file.`,
+        `Renaming ${renameSummary} in "${filePath}" produced an invalid workspace source file.`,
       );
     }
-    return { filePath, locations, migratedSource };
+    return { edits, filePath, migratedSource };
   });
   const updatedFilePaths = updates.map((update) => update.filePath);
   const baselineDiagnostics = getSemanticDiagnosticsByFile(
@@ -580,8 +641,7 @@ async function migrateGeneratedExportRenameLocations(options: {
         diagnostic,
         mapMigratedPositionToOriginal(
           diagnostic.start,
-          update.locations,
-          options.preferredName,
+          update.edits,
         ),
       );
       const remainingBaselineCount = baselineIdentityCounts.get(identity) ?? 0;
@@ -597,7 +657,7 @@ async function migrateGeneratedExportRenameLocations(options: {
           `TS${diagnostic.code} at offset ${diagnostic.start ?? 'unknown'}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')}`,
       );
       throw new Error(
-        `Renaming "${options.historicalName}" to "${options.preferredName}" in "${update.filePath}" produced new semantic diagnostics: ${diagnosticDetails.join('; ')}.`,
+        `Renaming ${renameSummary} in "${update.filePath}" produced new semantic diagnostics: ${diagnosticDetails.join('; ')}.`,
       );
     }
   }
@@ -648,21 +708,12 @@ function collectExportedConstBindings(
   return bindings;
 }
 
-/**
- * Resolve the actual generated export used by an existing scaffold module.
- * New modules use the first candidate. Older managed modules are upgraded to
- * that lint-compatible identifier when a registry is regenerated.
- *
- * @param filePath Generated TypeScript module to inspect.
- * @param candidates Preferred identifier followed by compatible historical identifiers.
- * @returns The first candidate exported by the module, or the preferred candidate
- * when the file does not exist yet.
- */
-export async function resolveAndMigrateGeneratedExportedConstName(
-	filePath: string,
-	candidates: readonly [string, ...string[]],
-	workspaceDir = path.dirname(filePath),
-): Promise<string> {
+/** Resolve and migrate several exports from one module in a single analysis. */
+async function resolveAndMigrateGeneratedExportedConstNames(
+  filePath: string,
+  candidateSets: readonly (readonly [string, ...string[]])[],
+  workspaceDir = path.dirname(filePath),
+): Promise<string[]> {
   let source: string;
   try {
     source = await fsp.readFile(filePath, 'utf8');
@@ -673,7 +724,7 @@ export async function resolveAndMigrateGeneratedExportedConstName(
       'code' in error &&
       error.code === 'ENOENT'
     ) {
-      return candidates[0];
+      return candidateSets.map((candidates) => candidates[0]);
     }
     throw error;
   }
@@ -686,65 +737,98 @@ export async function resolveAndMigrateGeneratedExportedConstName(
     ts.ScriptKind.TS,
   );
   const exportedBindings = collectExportedConstBindings(sourceFile);
-  const preferredName = candidates[0];
-  if (exportedBindings.has(preferredName)) {
-    return preferredName;
-  }
-
-  const historicalName = candidates
-    .slice(1)
-    .find((candidate) => exportedBindings.has(candidate));
-  if (historicalName) {
+  const preferredNames: string[] = [];
+  const pendingBindings: GeneratedExportRenameBinding[] = [];
+  for (const candidates of candidateSets) {
+    const preferredName = candidates[0];
+    preferredNames.push(preferredName);
+    if (exportedBindings.has(preferredName)) {
+      continue;
+    }
+    const historicalName = candidates
+      .slice(1)
+      .find((candidate) => exportedBindings.has(candidate));
+    if (!historicalName) {
+      throw new Error(
+        `Unable to resolve a compatible generated export in "${filePath}". Expected one of: ${candidates.join(', ')}. Found: ${Array.from(exportedBindings.keys()).join(', ') || '(none)'}.`,
+      );
+    }
     const historicalBinding = exportedBindings.get(historicalName);
     if (!historicalBinding) {
       throw new Error(
         `Unable to locate historical export "${historicalName}".`,
       );
     }
-    const workspaceFileEntries =
-      await collectWorkspaceFileEntries(workspaceDir);
-    const workspaceFilePaths = getWorkspaceScriptFilePaths(
-      workspaceFileEntries,
-    );
-    const resolvedFilePath = path.resolve(filePath);
-    const sources = new Map(
-      await Promise.all(
-        Array.from(
-          new Set([
-            ...workspaceFilePaths.map((workspaceFilePath) =>
-              path.resolve(workspaceFilePath),
-            ),
-            resolvedFilePath,
-          ]),
-        ).map(async (workspaceFilePath) => [
-          workspaceFilePath,
-          workspaceFilePath === resolvedFilePath
-            ? source
-            : await fsp.readFile(workspaceFilePath, 'utf8'),
-        ] as const),
-      ),
-    );
-    const packageManifestSources =
-      await collectWorkspacePackageManifestSources(workspaceFileEntries);
-    const renameLocations = getGeneratedExportRenameLocations(
-      filePath,
-      sources,
-      historicalBinding.getStart(sourceFile),
-      workspaceDir,
-      packageManifestSources,
-    );
-    await migrateGeneratedExportRenameLocations({
+    pendingBindings.push({
       historicalName,
-      locations: renameLocations,
-      packageManifestSources,
+      historicalPosition: historicalBinding.getStart(sourceFile),
       preferredName,
-      sources,
-      workspaceDir,
     });
-    return preferredName;
+  }
+  if (pendingBindings.length === 0) {
+    return preferredNames;
   }
 
-  throw new Error(
-    `Unable to resolve a compatible generated export in "${filePath}". Expected one of: ${candidates.join(', ')}. Found: ${Array.from(exportedBindings.keys()).join(', ') || '(none)'}.`,
+  const workspaceFileEntries = await collectWorkspaceFileEntries(workspaceDir);
+  const workspaceFilePaths = getWorkspaceScriptFilePaths(workspaceFileEntries);
+  const resolvedFilePath = path.resolve(filePath);
+  const sources = new Map(
+    await Promise.all(
+      Array.from(
+        new Set([
+          ...workspaceFilePaths.map((workspaceFilePath) =>
+            path.resolve(workspaceFilePath),
+          ),
+          resolvedFilePath,
+        ]),
+      ).map(
+        async (workspaceFilePath) =>
+          [
+            workspaceFilePath,
+            workspaceFilePath === resolvedFilePath
+              ? source
+              : await fsp.readFile(workspaceFilePath, 'utf8'),
+          ] as const,
+      ),
+    ),
   );
+  const packageManifestSources =
+    await collectWorkspacePackageManifestSources(workspaceFileEntries);
+  const renames = getGeneratedExportRenames(
+    filePath,
+    sources,
+    pendingBindings,
+    workspaceDir,
+    packageManifestSources,
+  );
+  await migrateGeneratedExportRenameLocations({
+    packageManifestSources,
+    renames,
+    sources,
+    workspaceDir,
+  });
+  return preferredNames;
+}
+
+/**
+ * Resolve the actual generated export used by an existing scaffold module.
+ * New modules use the first candidate. Older managed modules are upgraded to
+ * that lint-compatible identifier when a registry is regenerated.
+ *
+ * @param filePath Generated TypeScript module to inspect.
+ * @param candidates Preferred identifier followed by compatible historical identifiers.
+ * @returns The first candidate exported by the module, or the preferred candidate
+ * when the file does not exist yet.
+ */
+export async function resolveAndMigrateGeneratedExportedConstName(
+  filePath: string,
+  candidates: readonly [string, ...string[]],
+  workspaceDir = path.dirname(filePath),
+): Promise<string> {
+  const [preferredName] = await resolveAndMigrateGeneratedExportedConstNames(
+    filePath,
+    [candidates],
+    workspaceDir,
+  );
+  return preferredName;
 }

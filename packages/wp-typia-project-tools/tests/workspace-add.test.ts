@@ -26,6 +26,7 @@ import {
 import { scaffoldProject } from '../src/runtime/index.js';
 import {
   collectWorkspaceScriptFilePaths,
+  migrateHistoricalGeneratedExportNames,
   resolveAndMigrateGeneratedExportedConstName,
 } from '../src/runtime/add/cli-add-workspace-generated-exports.js';
 
@@ -1315,6 +1316,78 @@ test('add workflows migrate historical generated registry identifiers', async ()
     'workspaceVariationHeroCardL4L4 as workspaceVariation_hero_card',
   );
 }, 60_000);
+
+test('historical core variation migration covers supporting exports', async () => {
+  const targetDir = path.join(
+    tempRoot,
+    'workspace-core-variation-supporting-export-migration',
+  );
+  const modulePath = path.join(
+    targetDir,
+    'src',
+    'editor-plugins',
+    'core-variations',
+    'core',
+    'group',
+    'section-hero.ts',
+  );
+  const consumerPath = path.join(targetDir, 'src', 'variation-consumer.ts');
+  const historicalNames = {
+    attributes: 'core_group_section_heroAttributes',
+    innerBlocks: 'core_group_section_heroInnerBlocks',
+    variation: 'coreVariation_core_group_section_hero',
+  } as const;
+  const preferredNames = {
+    attributes: 'coreGroupSectionHeroL4L5L7L4Attributes',
+    innerBlocks: 'coreGroupSectionHeroL4L5L7L4InnerBlocks',
+    variation: 'coreVariationCoreGroupSectionHeroL4L5L7L4',
+  } as const;
+  fs.mkdirSync(path.dirname(modulePath), { recursive: true });
+  fs.writeFileSync(
+    modulePath,
+    [
+      `export const ${historicalNames.attributes} = { className: 'hero' };`,
+      `export const ${historicalNames.innerBlocks} = [];`,
+      `export const ${historicalNames.variation} = {`,
+      `  attributes: ${historicalNames.attributes},`,
+      `  innerBlocks: ${historicalNames.innerBlocks},`,
+      '};',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    consumerPath,
+    [
+      'import {',
+      `  ${historicalNames.attributes},`,
+      `  ${historicalNames.innerBlocks},`,
+      `  ${historicalNames.variation},`,
+      "} from './editor-plugins/core-variations/core/group/section-hero';",
+      '',
+      'export const variationFixture = [',
+      `  ${historicalNames.attributes},`,
+      `  ${historicalNames.innerBlocks},`,
+      `  ${historicalNames.variation},`,
+      '];',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await migrateHistoricalGeneratedExportNames(targetDir);
+
+  const migratedSource = [
+    fs.readFileSync(modulePath, 'utf8'),
+    fs.readFileSync(consumerPath, 'utf8'),
+  ].join('\n');
+  for (const preferredName of Object.values(preferredNames)) {
+    expect(migratedSource).toContain(preferredName);
+  }
+  for (const historicalName of Object.values(historicalNames)) {
+    expect(migratedSource).not.toContain(historicalName);
+  }
+});
 
 test('workspace rename discovery includes JavaScript module variants', async () => {
   const targetDir = path.join(tempRoot, 'workspace-script-discovery');

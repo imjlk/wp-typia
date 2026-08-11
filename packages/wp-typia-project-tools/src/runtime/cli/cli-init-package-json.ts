@@ -560,6 +560,16 @@ function mergeLegacyCommandIntoCheckLane(
   return prependRequiredCommands(currentValue, [legacyCommand]);
 }
 
+function hasPackageScriptLifecycleHooks(
+  scripts: Readonly<Record<string, string>>,
+  scriptName: string,
+): boolean {
+  return (
+    typeof scripts[`pre${scriptName}`] === 'string' ||
+    typeof scripts[`post${scriptName}`] === 'string'
+  );
+}
+
 function mergePostinstallCommand(
   currentValue: string | undefined,
   requiredCommand: string,
@@ -773,17 +783,29 @@ export function buildOfficialWorkspaceLintScriptChanges(
     legacyStyleCommand === LEGACY_LINT_CSS_COMMAND;
   const hasManagedLegacyFormatCommand =
     legacyFormatCommand === LEGACY_FORMAT_CHECK_COMMAND;
+  const hasLegacyStyleLifecycleHooks = hasPackageScriptLifecycleHooks(
+    scripts,
+    'lint:css',
+  );
+  const hasLegacyFormatLifecycleHooks = hasPackageScriptLifecycleHooks(
+    scripts,
+    'format:check',
+  );
   const requiredCheckStyle = mergeLegacyCommandIntoCheckLane(
     scripts,
     scripts['check:style'],
-    legacyStyleCommand,
+    hasLegacyStyleLifecycleHooks && legacyStyleCommand
+      ? transformPackageManagerText('bun run lint:css', packageManager)
+      : legacyStyleCommand,
     'lint:css',
     'check:style',
   );
   const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
     scripts,
     scripts['check:format'],
-    legacyFormatCommand,
+    hasLegacyFormatLifecycleHooks && legacyFormatCommand
+      ? transformPackageManagerText('bun run format:check', packageManager)
+      : legacyFormatCommand,
     'format:check',
     'check:format',
   );
@@ -1014,6 +1036,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
   }
   if (
     hasManagedLegacyStyleCommand &&
+    !hasLegacyStyleLifecycleHooks &&
     shouldRemoveManagedLintScript(
       canRemoveManagedAliases,
       referencedManagedScripts,
@@ -1029,6 +1052,7 @@ export function buildOfficialWorkspaceLintScriptChanges(
   }
   if (
     hasManagedLegacyFormatCommand &&
+    !hasLegacyFormatLifecycleHooks &&
     shouldRemoveManagedLintScript(
       canRemoveManagedAliases,
       referencedManagedScripts,

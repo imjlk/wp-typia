@@ -1063,6 +1063,38 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('preserves lifecycle hooks around managed style and format aliases', () => {
+		const legacyFormatCheck =
+			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'prelint:css': 'node scripts/prepare-style.mjs',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+					'postlint:css': 'node scripts/report-style.mjs',
+					'preformat:check': 'node scripts/prepare-format.mjs',
+					'format:check': legacyFormatCheck,
+					'postformat:check': 'node scripts/report-format.mjs',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:style',
+			requiredValue: 'npm run lint:css',
+		});
+		expect(changes).toContainEqual({
+			action: 'add',
+			name: 'check:format',
+			requiredValue: 'npm run format:check',
+		});
+		for (const name of ['lint:css', 'format:check']) {
+			expect(changes.some((change) => change.name === name)).toBe(false);
+		}
+	});
+
 	test('does not copy forwarding aliases into their destination lanes', () => {
 		const missingDestinations = buildOfficialWorkspaceLintScriptChanges(
 			{
