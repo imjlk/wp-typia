@@ -77,23 +77,29 @@ function normalizeTtscLintBufferTargets(source: string): string {
     if (functionStart === -1 || functionEnd === -1) {
       throw new Error(`Unable to locate ${functionName} compatibility scope.`);
     }
-    const functionSource = normalized.slice(functionStart, functionEnd);
-    const targetPattern =
-      /let target(?:\s*:\s*[^=\n]+)?\s*=\s*Buffer\.alloc\(0\);/gu;
-    const targetCount = functionSource.match(targetPattern)?.length ?? 0;
-    if (targetCount !== 2) {
-      throw new Error(
-        `Expected two target buffers in ${functionName}, found ${targetCount}.`,
-      );
+    let functionSource = normalized.slice(functionStart, functionEnd);
+    for (const [unpatchedTarget, patchedTarget] of [
+      [UNPATCHED_TTSC_LINT_BUFFER_TARGET, PATCHED_TTSC_LINT_BUFFER_TARGET],
+      [
+        UNPATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
+        PATCHED_TTSC_LINT_WINDOWS_BUFFER_TARGET,
+      ],
+    ] as const) {
+      const patchedCount = functionSource.split(patchedTarget).length - 1;
+      const unpatchedCount = functionSource.split(unpatchedTarget).length - 1;
+      if (patchedCount + unpatchedCount !== 1) {
+        throw new Error(
+          `Expected one compatibility target in ${functionName}, found ${patchedCount} patched and ${unpatchedCount} unpatched.`,
+        );
+      }
+      functionSource = functionSource
+        .split(patchedTarget)
+        .join(unpatchedTarget);
     }
-    const normalizedFunction = functionSource.replace(
-      targetPattern,
-      'let target = Buffer.alloc(0);',
-    );
     normalized = `${normalized.slice(
       0,
       functionStart,
-    )}${normalizedFunction}${normalized.slice(functionEnd)}`;
+    )}${functionSource}${normalized.slice(functionEnd)}`;
   }
   return normalized;
 }
