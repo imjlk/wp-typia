@@ -114,12 +114,16 @@ function isManagedCheckAggregateSubset(
 
 function findReferencedManagedLintScripts(
   scripts: Readonly<Record<string, string>>,
+  retainedManagedRoots: ReadonlySet<string>,
 ): Set<string> {
   const managedNames = new Set<string>(MANAGED_LINT_SCRIPT_NAMES);
   const referenced = new Set<string>();
 
   for (const [scriptName, command] of Object.entries(scripts)) {
-    if (managedNames.has(scriptName)) {
+    if (
+      managedNames.has(scriptName) &&
+      !retainedManagedRoots.has(scriptName)
+    ) {
       continue;
     }
     for (const managedName of MANAGED_LINT_SCRIPT_NAMES) {
@@ -150,6 +154,37 @@ function findReferencedManagedLintScripts(
   }
 
   return referenced;
+}
+
+function packageScriptTransitivelyInvokes(
+  scripts: Readonly<Record<string, string>>,
+  command: string,
+  targetName: string,
+  visited = new Set<string>(),
+): boolean {
+  if (hasPackageRunScriptInvocation(command, targetName)) {
+    return true;
+  }
+  for (const [scriptName, scriptCommand] of Object.entries(scripts)) {
+    if (
+      visited.has(scriptName) ||
+      !hasPackageRunScriptInvocation(command, scriptName)
+    ) {
+      continue;
+    }
+    visited.add(scriptName);
+    if (
+      packageScriptTransitivelyInvokes(
+        scripts,
+        scriptCommand,
+        targetName,
+        visited,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isPackageScriptReferenced(
@@ -498,6 +533,7 @@ function prependRequiredCommands(
 }
 
 function mergeLegacyCommandIntoCheckLane(
+  scripts: Readonly<Record<string, string>>,
   currentValue: string | undefined,
   legacyCommand: string | undefined,
   destinationName: 'check:format' | 'check:style',
@@ -506,8 +542,8 @@ function mergeLegacyCommandIntoCheckLane(
     return currentValue;
   }
   if (
-    hasPackageRunScriptInvocation(legacyCommand, destinationName) ||
-    hasPackageRunScriptInvocation(legacyCommand, 'check')
+    packageScriptTransitivelyInvokes(scripts, legacyCommand, destinationName) ||
+    packageScriptTransitivelyInvokes(scripts, legacyCommand, 'check')
   ) {
     return currentValue;
   }
@@ -719,7 +755,6 @@ export function buildOfficialWorkspaceLintScriptChanges(
   packageManager: PackageManagerId,
 ): InitScriptChange[] {
   const scripts = packageJson?.scripts ?? {};
-  const referencedManagedScripts = findReferencedManagedLintScripts(scripts);
   const postinstallCommand = transformPackageManagerText(
     BASE_RETROFIT_SCRIPTS.postinstall,
     packageManager,
@@ -736,11 +771,13 @@ export function buildOfficialWorkspaceLintScriptChanges(
   const hasManagedLegacyFormatCommand =
     legacyFormatCommand === LEGACY_FORMAT_CHECK_COMMAND;
   const requiredCheckStyle = mergeLegacyCommandIntoCheckLane(
+    scripts,
     scripts['check:style'],
     legacyStyleCommand,
     'check:style',
   );
   const requiredCheckFormat = mergeLegacyCommandIntoCheckLane(
+    scripts,
     scripts['check:format'],
     legacyFormatCommand,
     'check:format',
@@ -865,6 +902,23 @@ export function buildOfficialWorkspaceLintScriptChanges(
       }
       return hasManagedLegacyFormatCommand;
     }),
+  );
+  const retainedManagedRoots = new Set<string>(
+    LEGACY_LINT_SCRIPT_NAMES.filter(
+      (name) =>
+        scripts[name] !== undefined &&
+        !removableLegacyLintInvocations.has(name),
+    ),
+  );
+  if (
+    typeof legacyLint === 'string' &&
+    !(canRemoveManagedAliases && hasRemovableManagedLintCommand)
+  ) {
+    retainedManagedRoots.add('lint');
+  }
+  const referencedManagedScripts = findReferencedManagedLintScripts(
+    scripts,
+    retainedManagedRoots,
   );
   if (
     typeof legacyLint === 'string' &&

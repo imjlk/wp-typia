@@ -1067,6 +1067,30 @@ describe('wp-typia init', () => {
 		).toBe(false);
 	});
 
+	test('does not copy transitive forwarding aliases into destination lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					'check:format': 'prettier --check .',
+					'check:style': 'stylelint src',
+					'format:check': 'npm run formatting',
+					formatting: 'npm run check:format',
+					'lint:css': 'npm run style',
+					style: 'npm run check:style',
+				},
+			},
+			'npm',
+		);
+
+		expect(
+			changes.some(
+				(change) =>
+					change.name === 'check:style' ||
+					change.name === 'check:format',
+			),
+		).toBe(false);
+	});
+
 	test('preserves managed lint aliases referenced by retained scripts', () => {
 		const legacyFormatCheck =
 			'prettier --check --no-error-on-unmatched-pattern "*.{cjs,js,mjs}" "scripts/**/*.{cjs,js,mjs}"';
@@ -1277,6 +1301,23 @@ describe('wp-typia init', () => {
 
 		expect(changes.some((change) => change.name === 'lint')).toBe(false);
 		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+	});
+
+	test('preserves managed aliases used by retained legacy lanes', () => {
+		const changes = buildOfficialWorkspaceLintScriptChanges(
+			{
+				scripts: {
+					lint: 'npm run lint:ts',
+					'lint:ts': 'ttsc --noEmit && npm run lint:css',
+					'lint:css': 'wp-scripts lint-style --allow-empty-input',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes.some((change) => change.name === 'lint')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:ts')).toBe(false);
+		expect(changes.some((change) => change.name === 'lint:css')).toBe(false);
 	});
 
 	test('isolates project-owned fallback chains from managed checks', () => {
@@ -4179,6 +4220,18 @@ export default {
 `,
 			'utf8',
 		);
+		fs.writeFileSync(
+			path.join(projectDir, 'tsconfig.json'),
+			`${JSON.stringify(
+				{
+					compilerOptions: { allowJs: true },
+					include: ['scripts/**/*', 'src/**/*'],
+				},
+				null,
+				2,
+			)}\n`,
+			'utf8',
+		);
 
 		const plan = getInitPlan(projectDir);
 
@@ -4188,5 +4241,37 @@ export default {
 		expect(plan.packageChanges.addDevDependencies).toEqual([]);
 		expect(plan.packageChanges.scripts).toEqual([]);
 		expect(plan.plannedFiles).toEqual([]);
+
+		const tsconfigPath = path.join(projectDir, 'tsconfig.json');
+		const tsconfig = JSON.parse(
+			fs.readFileSync(tsconfigPath, 'utf8'),
+		) as Record<string, unknown>;
+		fs.writeFileSync(
+			tsconfigPath,
+			`${JSON.stringify(
+				{
+					...tsconfig,
+					compilerOptions: {
+						...(tsconfig.compilerOptions as Record<string, unknown>),
+						allowJs: false,
+					},
+				},
+				null,
+				2,
+			)}\n`,
+			'utf8',
+		);
+
+		const uncoveredPlan = getInitPlan(projectDir);
+
+		expect(uncoveredPlan.status).toBe('preview');
+		expect(uncoveredPlan.notes.join('\n')).toContain(
+			'compilerOptions.allowJs',
+		);
+		expect(
+			uncoveredPlan.plannedFiles.some(
+				(file) => file.path === 'tsconfig.json',
+			),
+		).toBe(false);
 	});
 });

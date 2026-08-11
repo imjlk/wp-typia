@@ -13,6 +13,7 @@ import {
 } from '../shared/package-managers.js';
 import { getPackageVersions } from '../shared/package-versions.js';
 import { toPascalCase } from '../shared/string-case.js';
+import { getTtscJavaScriptCoverageIssue } from '../shared/ttsc-lint-config.js';
 import {
   buildDependencyChanges,
   buildOfficialWorkspaceLintDependencyChanges,
@@ -558,6 +559,11 @@ export function getInitPlan(
     }
     const historicalGeneratedExports =
       hasHistoricalGeneratedExportNames(workspace.projectDir);
+    const javascriptCoverageIssue = rawPlannedFiles.some(
+      (file) => file.path === 'tsconfig.json',
+    )
+      ? null
+      : getTtscJavaScriptCoverageIssue(workspace.projectDir);
     const status: InitPlanStatus =
       dependencyChanges.length === 0 &&
       scriptChanges.length === 0 &&
@@ -566,7 +572,8 @@ export function getInitPlan(
       rawPlannedFiles.length === 0 &&
       wordpressLintIntegrated &&
       !ttscLintCompatFileState.conflictPath &&
-      !historicalGeneratedExports
+      !historicalGeneratedExports &&
+      javascriptCoverageIssue === null
         ? 'already-initialized'
         : 'preview';
     return createRetrofitPlan({
@@ -606,6 +613,7 @@ export function getInitPlan(
               'Historical generated export identifiers will be migrated transactionally before the combined code gate becomes current.',
             ]
           : []),
+        ...(javascriptCoverageIssue ? [javascriptCoverageIssue] : []),
         '`ttsc check --noEmit` is the combined TypeScript and JavaScript lint gate. Project-owned style and format checks remain separate.',
       ],
       packageChanges: {
@@ -701,6 +709,11 @@ export function getInitPlan(
       wordpressLintIntegrated,
       previousManagedLintConfig,
     );
+  const javascriptCoverageIssue =
+    hasExistingSurface &&
+    !rawPlannedFiles.some((file) => file.path === 'tsconfig.json')
+      ? getTtscJavaScriptCoverageIssue(resolvedProjectDir)
+      : null;
   const status: InitPlanStatus =
 		hasExistingSurface &&
 		dependencyChanges.length === 0 &&
@@ -711,7 +724,8 @@ export function getInitPlan(
 		yarnPnpNodeModulesConfig === undefined &&
 		rawPlannedFiles.length === 0 &&
 		wordpressLintIntegrated &&
-		!ttscLintCompatFileState.conflictPath
+		!ttscLintCompatFileState.conflictPath &&
+		javascriptCoverageIssue === null
 			? 'already-initialized'
 			: 'preview';
   const plannedFiles = status === 'already-initialized' ? [] : rawPlannedFiles;
@@ -761,6 +775,7 @@ export function getInitPlan(
 				...(ttscLintCompatFileState.conflictPath
 					? [buildProjectOwnedTtscLintCompatNote()]
 					: []),
+				...(javascriptCoverageIssue ? [javascriptCoverageIssue] : []),
 				...layout.notes,
 			]),
 		),
