@@ -45,6 +45,27 @@ diff --git a/lib/index.js b/lib/index.js
        if (entry.isSymbolicLink()) {
          try {
            target = fs.readlinkSync(
+diff --git a/linthost/config.go b/linthost/config.go
+--- a/linthost/config.go
++++ b/linthost/config.go
+@@ -3421,7 +3421,7 @@ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+@@ -3439,7 +3439,7 @@ function directoryDigest(location: string): string {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
 diff --git a/src/index.ts b/src/index.ts
 --- a/src/index.ts
 +++ b/src/index.ts

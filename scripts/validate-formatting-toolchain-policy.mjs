@@ -159,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      '39ab0732163138e1614fde7fa4c052fba773ebce6a80cb73f06b5e13e04cfea8',
+      '3eb8ce9c2a18347c9f3192f556a77f6d1cfe97d7c72e14fb123b34efcd311c51',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),
@@ -757,6 +757,11 @@ function validateGeneratedTtscLintCompatSource(
         /const lintRuntimePath = path\.join\(packageRoot, ['"]lib['"], ['"]index\.js['"]\);/u,
     },
     {
+      description: 'the native @ttsc/lint sidecar config path',
+      pattern:
+        /const lintHostConfigPath = path\.join\(packageRoot, ['"]linthost['"], ['"]config\.go['"]\);/u,
+    },
+    {
       description: 'the mapped/infer FunctionLikeData guard',
       pattern: /^\s*if node\.Parent\.FunctionLikeData\(\) == nil \{$/mu,
     },
@@ -773,6 +778,11 @@ function validateGeneratedTtscLintCompatSource(
       description: 'the distributed loader digest scope',
       pattern:
         /prepareBufferTargetRepair\(lintRuntimePath, \[['"]directoryDigest['"]\]\)/u,
+    },
+    {
+      description: 'the native sidecar embedded TypeScript loader digest scope',
+      pattern:
+        /prepareBufferTargetRepair\(\s*lintHostConfigPath,\s*\[['"]directoryDigest['"]\],\s*['"]func typeScriptConfigLoaderSource\(['"]\s*\)/u,
     },
     {
       description: 'the two Node Buffer targets per digest function',

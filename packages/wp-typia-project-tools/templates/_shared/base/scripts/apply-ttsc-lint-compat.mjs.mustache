@@ -23,6 +23,7 @@ const lintRulePath = path.join(
 );
 const lintIndexPath = path.join(packageRoot, 'src', 'index.ts');
 const lintRuntimePath = path.join(packageRoot, 'lib', 'index.js');
+const lintHostConfigPath = path.join(packageRoot, 'linthost', 'config.go');
 const unpatchedParentGuard = `    list := node.Parent.TypeParameterList()
     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
       return
@@ -101,11 +102,21 @@ function prepareSourcePatches({ description, replacements, sourcePath }) {
 	);
 }
 
-function prepareBufferTargetRepair(sourcePath, functionNames) {
+function prepareBufferTargetRepair(sourcePath, functionNames, scopeMarker) {
 	const source = fs.readFileSync(sourcePath, 'utf8');
 	let nextSource = source;
+	const searchStart =
+		scopeMarker === undefined ? 0 : nextSource.indexOf(scopeMarker);
+	if (searchStart === -1) {
+		throw new Error(
+			`Refusing to apply the Node Buffer generic compatibility repair to unexpected @ttsc/lint source at ${sourcePath}.`
+		);
+	}
 	for (const functionName of functionNames) {
-		const functionStart = nextSource.indexOf(`function ${functionName}(`);
+		const functionStart = nextSource.indexOf(
+			`function ${functionName}(`,
+			searchStart
+		);
 		const functionEnd = nextSource.indexOf(
 			`function ${functionName}Record(`,
 			functionStart
@@ -161,6 +172,11 @@ const repairs = [
 		'configDirectoryDigest',
 	]),
 	prepareBufferTargetRepair(lintRuntimePath, ['directoryDigest']),
+	prepareBufferTargetRepair(
+		lintHostConfigPath,
+		['directoryDigest'],
+		'func typeScriptConfigLoaderSource('
+	),
 ];
 
 for (const { nextSource, sourcePath } of repairs) {

@@ -54,10 +54,17 @@ function rewriteTtscLintBufferTargets(
   source: string,
   targetSource: string,
   functionNames = ['directoryDigest', 'configDirectoryDigest'],
+  scopeMarker?: string,
 ): string {
   let normalized = source;
+  const searchStart =
+    scopeMarker === undefined ? 0 : normalized.indexOf(scopeMarker);
+  expect(searchStart).not.toBe(-1);
   for (const functionName of functionNames) {
-    const functionStart = normalized.indexOf(`function ${functionName}(`);
+    const functionStart = normalized.indexOf(
+      `function ${functionName}(`,
+      searchStart,
+    );
     const functionEnd = normalized.indexOf(
       `function ${functionName}Record(`,
       functionStart,
@@ -319,6 +326,31 @@ export type Inferred<Value> =
         ['directoryDigest'],
       ),
     );
+    const lintHostConfigPath = path.join(
+      scopedTtscDir,
+      'lint',
+      'linthost',
+      'config.go',
+    );
+    const patchedLintHostConfigSource = fs.readFileSync(
+      lintHostConfigPath,
+      'utf8',
+    );
+    const typeScriptLoaderMarker = 'func typeScriptConfigLoaderSource(';
+    expect(
+      patchedLintHostConfigSource
+        .slice(patchedLintHostConfigSource.indexOf(typeScriptLoaderMarker))
+        .match(PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)?.length ?? 0,
+    ).toBe(2);
+    writeText(
+      lintHostConfigPath,
+      rewriteTtscLintBufferTargets(
+        patchedLintHostConfigSource,
+        'let target = Buffer.alloc(0);',
+        ['directoryDigest'],
+        typeScriptLoaderMarker,
+      ),
+    );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
         '@ttsc/lint': '0.26.1',
@@ -399,6 +431,23 @@ export type Inferred<Value> =
     expect(
       repairedRuntimeSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
         ?.length ?? 0,
+    ).toBe(0);
+    const repairedLintHostConfigSource = fs.readFileSync(
+      lintHostConfigPath,
+      'utf8',
+    );
+    const repairedTypeScriptLoaderSource = repairedLintHostConfigSource.slice(
+      repairedLintHostConfigSource.indexOf(typeScriptLoaderMarker),
+    );
+    expect(
+      repairedTypeScriptLoaderSource.match(
+        PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN,
+      )?.length ?? 0,
+    ).toBe(2);
+    expect(
+      repairedTypeScriptLoaderSource.match(
+        UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN,
+      )?.length ?? 0,
     ).toBe(0);
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,

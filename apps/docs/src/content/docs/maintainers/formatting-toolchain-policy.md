@@ -108,14 +108,15 @@ The root Bun workspace carries two exact-version development-tool patches:
   `--strict` reach the tsgo program used by typia transforms
 - `@ttsc/lint@0.26.1` guards mapped and `infer` type parameters while formatting
   trailing commas, preventing a TypeScript-Go declaration lookup panic, and
-  widens the affected symlink-target buffers in both the TypeScript source and
-  distributed config-loader runtime so executable lint configs compile across
-  the supported Node 24 type-definition range
+  widens the affected symlink-target buffers in the TypeScript source, the
+  distributed JavaScript runtime, and the native sidecar's embedded TypeScript
+  config loader so executable lint configs compile across the supported Node 24
+  type-definition range
 
 Registry `@ttsc/lint@0.26.1` still reproduces both lint-host failures. Generated
 and retrofitted projects therefore exact-pin that version and run
 `scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
-package version and expected source/runtime files, applies the same narrow
+package version and expected source/runtime/sidecar files, applies the same narrow
 repairs atomically per file, and fails closed if the upstream layout changes.
 Yarn scaffolds use the `node-modules` linker so the helper never edits a shared
 Plug'n'Play archive.
