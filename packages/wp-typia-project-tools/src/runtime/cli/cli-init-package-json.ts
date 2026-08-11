@@ -713,11 +713,20 @@ export function buildScriptChanges(
 					packageManager,
 				);
 			} else if (name === 'check') {
+				const normalizedCurrentValue =
+					typeof currentValue === 'string'
+						? normalizePackageRunScriptCommands(currentValue, {
+								'check:code': command,
+							})
+						: currentValue;
 				requiredValue =
-					typeof currentValue === 'string' &&
-					hasPackageRunScriptCommand(currentValue, 'check:code')
-						? currentValue
-						: prependRequiredCommands(currentValue, [command]);
+					typeof normalizedCurrentValue === 'string' &&
+					hasPackageRunScriptCommand(
+						normalizedCurrentValue,
+						'check:code',
+					)
+						? normalizedCurrentValue
+						: prependRequiredCommands(normalizedCurrentValue, [command]);
 			}
 			return buildOptionalScriptChange(name, currentValue, requiredValue);
 		},

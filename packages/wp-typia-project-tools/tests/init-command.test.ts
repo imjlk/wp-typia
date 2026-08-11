@@ -1255,6 +1255,26 @@ describe('wp-typia init', () => {
 		});
 	});
 
+	test('normalizes the retrofit check runner for the selected package manager', () => {
+		const changes = buildScriptChanges(
+			{
+				scripts: {
+					check: 'bun run check:code && vitest run',
+					'check:code':
+						'bun run sync --check && ttsc check --noEmit',
+				},
+			},
+			'npm',
+		);
+
+		expect(changes).toContainEqual({
+			action: 'update',
+			currentValue: 'bun run check:code && vitest run',
+			name: 'check',
+			requiredValue: 'npm run check:code && vitest run',
+		});
+	});
+
 	test('repairs swallowed retrofit check invocations', () => {
 		const changes = buildScriptChanges(
 			{
