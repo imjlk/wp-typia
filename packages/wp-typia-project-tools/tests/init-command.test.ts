@@ -1087,6 +1087,19 @@ describe('wp-typia init', () => {
 		);
 	});
 
+	test('keeps grouped project-owned fallback chains idempotent', () => {
+		const scripts = {
+			check: 'npm run check:code && (echo optional || true)',
+			'check:code':
+				'npm run sync -- --check && ttsc check --noEmit && (eslint src || true)',
+			postinstall: 'node scripts/apply-ttsc-lint-compat.mjs',
+		};
+
+		expect(
+			buildOfficialWorkspaceLintScriptChanges({ scripts }, 'npm'),
+		).toEqual([]);
+	});
+
 	test('does not treat fallback operators inside substitutions as top level', () => {
 		for (const currentValue of [
 			'echo "$(false || echo recovered)"',

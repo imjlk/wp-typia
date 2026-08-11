@@ -2272,8 +2272,9 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
   let atTokenBoundary = true;
   let buffer = '';
   let escaped = false;
+  let groupingDepth = 0;
   let operatorBefore: SimpleShellSegment['operatorBefore'] = null;
-  let quote: "'" | '"' | null = null;
+  let quote: "'" | '"' | '`' | null = null;
   let valid = true;
   const pushSegment = () => {
     const source = buffer.trim();
@@ -2327,7 +2328,7 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       }
       continue;
     }
-    if (character === "'" || character === '"') {
+    if (character === "'" || character === '"' || character === '`') {
       buffer += character;
       atTokenBoundary = false;
       quote = character;
@@ -2341,9 +2342,25 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       index = nextLineIndex - 1;
       continue;
     }
+    if (character === '(' || character === '{') {
+      buffer += character;
+      atTokenBoundary = false;
+      groupingDepth += 1;
+      continue;
+    }
+    if (character === ')' || character === '}') {
+      buffer += character;
+      atTokenBoundary = false;
+      if (groupingDepth === 0) {
+        valid = false;
+      } else {
+        groupingDepth -= 1;
+      }
+      continue;
+    }
 
     const pair = command.slice(index, index + 2);
-    if (pair === '&&' || pair === '||') {
+    if (groupingDepth === 0 && (pair === '&&' || pair === '||')) {
       const lengthBefore = segments.length;
       pushSegment();
       if (segments.length === lengthBefore) {
@@ -2370,10 +2387,11 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
       continue;
     }
     if (
-      character === '&' ||
-      character === ';' ||
-      character === '|' ||
-      character === '\n'
+      groupingDepth === 0 &&
+      (character === '&' ||
+        character === ';' ||
+        character === '|' ||
+        character === '\n')
     ) {
       const lengthBefore = segments.length;
       pushSegment();
@@ -2402,7 +2420,7 @@ function getSimpleShellSegments(command: string): SimpleShellParseResult {
     atTokenBoundary = /\s/u.test(character);
   }
   pushSegment();
-  if (quote !== null || escaped) {
+  if (quote !== null || escaped || groupingDepth !== 0) {
     valid = false;
   }
   const trailingOperator = segments[segments.length - 1]?.operatorAfter;
@@ -2606,8 +2624,8 @@ function hasTtscNoEmitCommand(
   if (typeof command !== 'string') {
     return false;
   }
-  // This intentionally recognizes only simple shell segments and quoted
-  // tokens. Subshells and escaped quote sequences fail closed.
+  // This intentionally recognizes only simple top-level shell segments and
+  // quoted tokens. Grouped commands remain opaque to the command predicate.
   return hasPropagatingShellSegment(command, (tokens) => {
     const commandIndex = getTtscCommandIndex(tokens);
     if (commandIndex === null) {
