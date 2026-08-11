@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ttsc-version: ['0.23.0', '0.26.1']
+        ttsc-version: ['0.23.0', '0.26.2']
     steps:
       - name: Checkout
         uses: actions/checkout@v7

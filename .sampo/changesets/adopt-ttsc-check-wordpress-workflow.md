@@ -16,7 +16,7 @@ Scaffolds and retrofit plans now expose explicit `check:code` and `check`
 scripts without lint-only aliases, preserve existing project-owned aggregate
 checks, use ESM-safe lint configuration files, and remove the legacy WordPress
 ESLint and TypeScript 6 compatibility stack from consumer projects. Updated the
-ttsc toolchain to 0.26.1 and retained the exact mapped-type formatting repair
+ttsc toolchain to 0.26.2 and retained the exact mapped-type formatting repair
 until an unpatched upstream release passes the regression. The compiled preset
 also publishes explicit behavior downgrades for one native engine failure and
 three JSX semantic mismatches instead of enabling unsafe rules, covering two
