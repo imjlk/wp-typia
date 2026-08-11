@@ -4,6 +4,12 @@
 **/dist/**
 **/node_modules/**
 **/vendor/**
+**/bun.lock
+**/bun.lockb
+**/npm-shrinkwrap.json
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
 **/api-schemas/**/*.json
 **/api.openapi.json
 **/*.abilities.json

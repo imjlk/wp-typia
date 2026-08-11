@@ -228,6 +228,44 @@ export default {
 }
 
 describe('validateFormattingToolchainPolicy', () => {
+  test('keeps package-manager lockfiles outside the Prettier contract', () => {
+    for (const lockfilePattern of [
+      '**/bun.lock',
+      '**/bun.lockb',
+      '**/npm-shrinkwrap.json',
+      '**/package-lock.json',
+      '**/pnpm-lock.yaml',
+      '**/yarn.lock',
+    ]) {
+      expect(
+        FORMATTING_TOOLCHAIN_POLICY.generatedPrettierIgnorePatterns,
+      ).toContain(lockfilePattern);
+    }
+
+    const repoRoot = createFormattingPolicyRepo();
+    const prettierIgnorePath = path.join(
+      repoRoot,
+      'packages/wp-typia-project-tools/templates/_shared/base/.prettierignore.mustache',
+    );
+    writeText(
+      prettierIgnorePath,
+      fs
+        .readFileSync(prettierIgnorePath, 'utf8')
+        .replace('**/pnpm-lock.yaml\n', ''),
+    );
+
+    const result = validateFormattingToolchainPolicy(repoRoot);
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) =>
+        error.startsWith(
+          'packages/wp-typia-project-tools/templates/_shared/base/.prettierignore.mustache must ignore generated metadata and build outputs',
+        ),
+      ),
+    ).toBe(true);
+  });
+
   test('passes when the repo matches the documented formatting baseline', () => {
     const repoRoot = createFormattingPolicyRepo();
 

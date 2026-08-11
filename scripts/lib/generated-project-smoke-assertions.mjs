@@ -252,8 +252,7 @@ export function assertGeneratedPackageBoundary(projectDir) {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const allowWorkspaceCliHelperScripts =
     isOfficialWorkspaceTemplatePackage(packageJson);
-  const expectedStyleCheckScript =
-    'wp-scripts lint-style --allow-empty-input';
+  const expectedStyleCheckScript = 'wp-scripts lint-style --allow-empty-input';
 
   if (
     typeof packageJson.scripts?.['check:code'] !== 'string' ||
@@ -263,9 +262,7 @@ export function assertGeneratedPackageBoundary(projectDir) {
       `Expected generated project check:code to invoke ttsc check --noEmit, found ${JSON.stringify(packageJson.scripts?.['check:code'] ?? null)}`,
     );
   }
-  if (
-    packageJson.scripts?.['check:style'] !== expectedStyleCheckScript
-  ) {
+  if (packageJson.scripts?.['check:style'] !== expectedStyleCheckScript) {
     throw new Error(
       `Expected generated project check:style to use "${expectedStyleCheckScript}", found ${JSON.stringify(packageJson.scripts?.['check:style'] ?? null)}`,
     );
@@ -330,11 +327,32 @@ export function assertGeneratedPackageBoundary(projectDir) {
     }
   }
   for (const relativePath of [
+    '.prettierignore',
     'prettier.config.mjs',
     'scripts/apply-ttsc-lint-compat.mjs',
   ]) {
     if (!fs.existsSync(path.join(projectDir, relativePath))) {
       throw new Error(`Expected generated project to include ${relativePath}`);
+    }
+  }
+  const prettierIgnorePatterns = new Set(
+    fs
+      .readFileSync(path.join(projectDir, '.prettierignore'), 'utf8')
+      .split(/\r?\n/gu)
+      .filter(Boolean),
+  );
+  for (const lockfilePattern of [
+    '**/bun.lock',
+    '**/bun.lockb',
+    '**/npm-shrinkwrap.json',
+    '**/package-lock.json',
+    '**/pnpm-lock.yaml',
+    '**/yarn.lock',
+  ]) {
+    if (!prettierIgnorePatterns.has(lockfilePattern)) {
+      throw new Error(
+        `Expected generated .prettierignore to exclude package-manager lockfile pattern ${lockfilePattern}`,
+      );
     }
   }
 
