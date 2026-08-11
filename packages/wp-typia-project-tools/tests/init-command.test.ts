@@ -1151,6 +1151,7 @@ describe('wp-typia init', () => {
 					'lint:css': 'wp-scripts lint-style --allow-empty-input',
 					'format:check': legacyFormatCheck,
 					'ci:style': 'npm run-script lint:css',
+					'ci:style:short': 'npm run-s lint:css',
 					'ci:js': 'npm urn lint:js',
 					'release:check': 'npm rum format:check',
 				},
@@ -2458,9 +2459,18 @@ describe('wp-typia init', () => {
 			path.join(projectDir, 'scripts', 'configure.mjs'),
 			'export {};\n',
 		);
+		fs.writeFileSync(
+			path.join(projectDir, '.pnp.cjs'),
+			'module.exports = {};\n',
+		);
+		fs.writeFileSync(
+			path.join(projectDir, '.pnp.loader.mjs'),
+			'export {};\n',
+		);
 		const rootCoverageIssue = getTtscJavaScriptCoverageIssue(projectDir);
 		expect(rootCoverageIssue).toContain('webpack.config.js');
 		expect(rootCoverageIssue).toContain('scripts/configure.mjs');
+		expect(rootCoverageIssue).not.toContain('.pnp');
 
 		writeConfig({
 			compilerOptions: { allowJs: true },

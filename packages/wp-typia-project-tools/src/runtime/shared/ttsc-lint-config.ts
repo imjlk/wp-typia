@@ -1467,6 +1467,8 @@ const MANAGED_SOURCE_EXCLUDED_DIRECTORIES = new Set([
   'node_modules',
 ]);
 
+const MANAGED_SOURCE_EXCLUDED_FILES = new Set(['.pnp.cjs', '.pnp.loader.mjs']);
+
 function isManagedSourceDirectory(entry: fs.Dirent): boolean {
   return (
     entry.isDirectory() &&
@@ -1482,6 +1484,7 @@ function getManagedSourcePath(
 ): string | null {
   return entry.isFile() &&
     !entry.isSymbolicLink() &&
+    !MANAGED_SOURCE_EXCLUDED_FILES.has(entry.name) &&
     !/\.d\.[cm]?ts$/u.test(entry.name) &&
     MANAGED_SOURCE_EXTENSIONS.has(path.extname(entry.name))
     ? path.relative(projectDir, entryPath).split(path.sep).join('/')
@@ -2988,7 +2991,7 @@ const PACKAGE_MANAGER_PROJECT_SCOPE_OPTIONS = new Set([
 ]);
 
 const PACKAGE_MANAGER_ALTERNATE_EXECUTION_OPTIONS = new Set(['--call', '-c']);
-const NPM_RUN_SCRIPT_COMMANDS = new Set(['run-script', 'rum', 'urn']);
+const NPM_RUN_SCRIPT_COMMANDS = new Set(['run-script', 'run-s', 'rum', 'urn']);
 
 function hasNonlocalPackageScriptOption(
   tokens: readonly string[],
