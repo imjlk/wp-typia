@@ -35,6 +35,33 @@ const COMPATIBLE_COMPOUND_TOOLKIT_PATTERNS = [
 const METADATA_CORE_MODULE = '@wp-typia/block-runtime/metadata-core';
 const ENDPOINT_MANIFEST_IMPORT = 'defineEndpointManifest';
 
+function getImportedBindingName(binding: ts.ImportSpecifier): string {
+  return (binding.propertyName ?? binding.name).text;
+}
+
+function isEndpointManifestBinding(binding: ts.ImportSpecifier): boolean {
+  return (
+    getImportedBindingName(binding) === ENDPOINT_MANIFEST_IMPORT &&
+    binding.name.text === ENDPOINT_MANIFEST_IMPORT
+  );
+}
+
+function assertEndpointManifestLocalBindingIsAvailable(
+  namedImports: ts.NamedImports,
+): void {
+  const conflictingBinding = namedImports.elements.find(
+    (binding) =>
+      binding.name.text === ENDPOINT_MANIFEST_IMPORT &&
+      getImportedBindingName(binding) !== ENDPOINT_MANIFEST_IMPORT,
+  );
+  if (!conflictingBinding) {
+    return;
+  }
+  throw new Error(
+    `Unable to add REST manifest support because the local import name "${ENDPOINT_MANIFEST_IMPORT}" already aliases "${getImportedBindingName(conflictingBinding)}" from "${METADATA_CORE_MODULE}". Rename that local binding before retrying.`,
+  );
+}
+
 function detectLeadingLineEnding(value: string): string {
   if (value.startsWith('\r\n')) {
     return '\r\n';
@@ -125,7 +152,7 @@ function convertEndpointManifestTypeOnlyBindingToRuntime(
 ): string {
   const typeOnlyBinding = namedImports.elements.find(
     (element) =>
-      element.isTypeOnly && element.name.text === ENDPOINT_MANIFEST_IMPORT,
+      element.isTypeOnly && isEndpointManifestBinding(element),
   );
   if (!typeOnlyBinding) {
     return source;
@@ -143,9 +170,7 @@ function convertEndpointManifestClauseTypeOnlyBindingToRuntime(
   statement: ts.ImportDeclaration,
   namedImports: ts.NamedImports,
 ): string {
-  const typeOnlyBinding = namedImports.elements.find(
-    (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
-  );
+  const typeOnlyBinding = namedImports.elements.find(isEndpointManifestBinding);
   if (!typeOnlyBinding) {
     return source;
   }
@@ -225,11 +250,11 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
       continue;
     }
 
+    assertEndpointManifestLocalBindingIsAvailable(namedBindings);
+
     if (importClause.isTypeOnly) {
       if (
-        namedBindings.elements.some(
-          (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
-        )
+        namedBindings.elements.some(isEndpointManifestBinding)
       ) {
         clauseTypeOnlyCandidate ??= { namedImports: namedBindings, statement };
       }
@@ -238,14 +263,14 @@ export function ensureBlockConfigCanAddRestManifests(source: string): string {
 
     const hasRuntimeBinding = namedBindings.elements.some(
       (element) =>
-        !element.isTypeOnly && element.name.text === ENDPOINT_MANIFEST_IMPORT,
+        !element.isTypeOnly && isEndpointManifestBinding(element),
     );
     if (hasRuntimeBinding) {
       return source;
     }
 
     const hasTypeOnlyBinding = namedBindings.elements.some(
-      (element) => element.name.text === ENDPOINT_MANIFEST_IMPORT,
+      isEndpointManifestBinding,
     );
     if (hasTypeOnlyBinding) {
       typeOnlyCandidate ??= namedBindings;

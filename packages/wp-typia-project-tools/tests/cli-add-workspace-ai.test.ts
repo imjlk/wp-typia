@@ -161,8 +161,10 @@ test('REST manifest support repairs unusual metadata-core named imports', () => 
 
   const aliasedLocalBindingSource =
     "import { type endpointManifest as defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n";
-  expect(ensureBlockConfigCanAddRestManifests(aliasedLocalBindingSource)).toBe(
-    "import { endpointManifest as defineEndpointManifest, defineBlockNesting } from '@wp-typia/block-runtime/metadata-core';\n",
+  expect(() =>
+    ensureBlockConfigCanAddRestManifests(aliasedLocalBindingSource),
+  ).toThrow(
+    'the local import name "defineEndpointManifest" already aliases "endpointManifest"',
   );
 });
 

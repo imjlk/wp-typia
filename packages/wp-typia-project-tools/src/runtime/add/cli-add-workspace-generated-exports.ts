@@ -177,7 +177,11 @@ function hasHistoricalBinding(
     false,
     ts.ScriptKind.TS,
   );
-  return collectExportedConstBindings(sourceFile).has(descriptor.candidates[1]);
+  const exportedBindings = collectExportedConstBindings(sourceFile);
+  return (
+    !exportedBindings.has(descriptor.candidates[0]) &&
+    exportedBindings.has(descriptor.candidates[1])
+  );
 }
 
 /** Return whether init must migrate a preceding generated-export convention. */

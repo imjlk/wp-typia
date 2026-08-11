@@ -3862,6 +3862,12 @@ let exports;
 
 		const currentPlan = getInitPlan(projectDir);
 		expect(currentPlan.status).toBe('already-initialized');
+		fs.appendFileSync(
+			historicalVariationPath,
+			'\nexport const workspaceVariation_hero_card = workspaceVariationHeroCardL4L4;\n',
+			'utf8',
+		);
+		expect(getInitPlan(projectDir).status).toBe('already-initialized');
 
 		const compatPath = path.join(
 			projectDir,
