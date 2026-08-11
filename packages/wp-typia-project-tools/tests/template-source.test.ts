@@ -1756,6 +1756,8 @@ test('external template workspace variants scaffold richer wp-typia workspaces w
     fs.existsSync(path.join(targetDir, 'demo-external-workspace.php')),
   ).toBe(true);
   expect(readme).toContain('richer external `wp-typia` workspace shell');
+  expect(readme).toContain('npm run check');
+  expect(readme).not.toContain('bun run typecheck');
 });
 
 test('external template scaffolds honor explicit repository reference overrides', async () => {

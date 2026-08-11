@@ -209,6 +209,8 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   const managedCheckCode = packageJson.scripts['check:code'];
   const managedPostinstall = packageJson.scripts.postinstall;
   const managedTtscLint = packageJson.devDependencies['@ttsc/lint'];
+  const managedTtscUnplugin =
+    packageJson.devDependencies['@ttsc/unplugin'];
   const managedContributor =
     packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'];
   packageJson.devDependencies['@ttsc/lint'] = '0.24.0';
@@ -226,6 +228,22 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
     `@ttsc/lint dependency must be exactly ${managedTtscLint}`,
   );
   packageJson.devDependencies['@ttsc/lint'] = managedTtscLint;
+
+  packageJson.devDependencies['@ttsc/unplugin'] = '^0.23.0';
+  fs.writeFileSync(
+    packageJsonPath,
+    `${JSON.stringify(packageJson, null, 2)}\n`,
+    'utf8',
+  );
+  const wrongUnpluginVersionChecks = await getDoctorChecks(targetDir);
+  const wrongUnpluginVersionCheck = wrongUnpluginVersionChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(wrongUnpluginVersionCheck?.status).toBe('warn');
+  expect(wrongUnpluginVersionCheck?.detail).toContain(
+    `@ttsc/unplugin dependency must be exactly ${managedTtscUnplugin}`,
+  );
+  packageJson.devDependencies['@ttsc/unplugin'] = managedTtscUnplugin;
 
   packageJson.devDependencies['@wp-typia/ttsc-lint-plugin-wp'] = '0.0.0';
   fs.writeFileSync(
@@ -439,6 +457,20 @@ test('doctor reports the managed WordPress ttsc lint integration', async () => {
   expect(missingInstalledContributorCheck?.status).toBe('warn');
   expect(missingInstalledContributorCheck?.detail).toContain(
     'missing project-local installed package(s): @wp-typia/ttsc-lint-plugin-wp',
+  );
+  linkWorkspaceNodeModules(targetDir);
+
+  fs.rmSync(path.join(targetDir, 'node_modules', '@ttsc', 'unplugin'), {
+    force: true,
+    recursive: true,
+  });
+  const missingInstalledUnpluginChecks = await getDoctorChecks(targetDir);
+  const missingInstalledUnpluginCheck = missingInstalledUnpluginChecks.find(
+    (check) => check.label === 'WordPress ttsc lint',
+  );
+  expect(missingInstalledUnpluginCheck?.status).toBe('warn');
+  expect(missingInstalledUnpluginCheck?.detail).toContain(
+    'missing project-local installed package(s): @ttsc/unplugin',
   );
   linkWorkspaceNodeModules(targetDir);
 

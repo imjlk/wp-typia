@@ -66,6 +66,10 @@ const WORKSPACE_TTSC_LINT_INSTALLED_PACKAGES = [
     resolutionSpecifier: '@ttsc/lint/package.json',
   },
   {
+    packageName: '@ttsc/unplugin',
+    resolutionSpecifier: '@ttsc/unplugin/package.json',
+  },
+  {
     packageName: '@wp-typia/ttsc-lint-plugin-wp',
     resolutionSpecifier: '@wp-typia/ttsc-lint-plugin-wp/package.json',
   },
@@ -195,14 +199,24 @@ export function getWorkspaceTtscLintCheck(
   };
   const packageVersions = getPackageVersions();
   const requiredTtscLintVersion = packageVersions.ttscLintPackageVersion;
+  const requiredTtscUnpluginVersion =
+    packageVersions.ttscUnpluginPackageVersion;
   const requiredContributorVersion =
     packageVersions.ttscLintPluginWpPackageVersion;
   const supportedTtscRange = packageVersions.ttscLintPluginWpTtscPeerRange;
+  const ttscUnpluginDependency = dependencies['@ttsc/unplugin'];
   if (typeof dependencies['@ttsc/lint'] !== 'string') {
     issues.push('missing @ttsc/lint dependency');
   } else if (dependencies['@ttsc/lint'] !== requiredTtscLintVersion) {
     issues.push(
       `@ttsc/lint dependency must be exactly ${requiredTtscLintVersion}`,
+    );
+  }
+  if (typeof ttscUnpluginDependency !== 'string') {
+    issues.push('missing @ttsc/unplugin dependency');
+  } else if (ttscUnpluginDependency !== requiredTtscUnpluginVersion) {
+    issues.push(
+      `@ttsc/unplugin dependency must be exactly ${requiredTtscUnpluginVersion}`,
     );
   }
   if (typeof dependencies['@wp-typia/ttsc-lint-plugin-wp'] !== 'string') {
