@@ -65,11 +65,11 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   rootLintScript: 'eslint . --max-warnings=0';
   rootTypecheckScript: 'ttsc --noEmit';
   rootPolicyValidateScript: 'node scripts/validate-formatting-toolchain-policy.mjs';
-  ttscLintVersion: '0.26.1';
-  ttscVersion: '0.26.1';
+  ttscLintVersion: '0.26.2';
+  ttscVersion: '0.26.2';
   typiaVersion: '13.2.0';
   compatibilityPatches: Readonly<{
-    '@ttsc/lint@0.26.1': 'patches/@ttsc%2Flint@0.26.1.patch';
+    '@ttsc/lint@0.26.2': 'patches/@ttsc%2Flint@0.26.2.patch';
     'typia@13.2.0': 'patches/typia@13.2.0.patch';
   }>;
   generatedPackageManifestPaths: readonly string[];

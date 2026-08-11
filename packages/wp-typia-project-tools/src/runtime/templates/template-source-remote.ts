@@ -135,8 +135,8 @@ export async function getDefaultCategoryAsync(sourceDir: string): Promise<string
 function readTemplatePackageJson(
   sourceDir: string,
 ): {
-  packageJson: { wpTypia?: { projectType?: unknown } }
-  sourcePath: string
+  packageJson: { wpTypia?: { projectType?: unknown } };
+  sourcePath: string;
 } | null {
   for (const candidate of [
     path.join(sourceDir, 'package.json.mustache'),
@@ -153,7 +153,7 @@ function readTemplatePackageJson(
       });
       return {
         packageJson: safeJsonParse<{
-          wpTypia?: { projectType?: unknown }
+          wpTypia?: { projectType?: unknown };
         }>(fs.readFileSync(candidate, 'utf8'), {
           context: 'template metadata file',
           filePath: candidate,
@@ -175,8 +175,8 @@ function readTemplatePackageJson(
 async function readTemplatePackageJsonAsync(
   sourceDir: string,
 ): Promise<{
-  packageJson: { wpTypia?: { projectType?: unknown } }
-  sourcePath: string
+  packageJson: { wpTypia?: { projectType?: unknown } };
+  sourcePath: string;
 } | null> {
   for (const candidate of [
     path.join(sourceDir, 'package.json.mustache'),
@@ -193,7 +193,7 @@ async function readTemplatePackageJsonAsync(
       });
       return {
         packageJson: safeJsonParse<{
-          wpTypia?: { projectType?: unknown }
+          wpTypia?: { projectType?: unknown };
         }>(await fsp.readFile(candidate, 'utf8'), {
           context: 'template metadata file',
           filePath: candidate,
@@ -469,8 +469,8 @@ async function patchRemotePackageJson(
 ): Promise<void> {
   const packageJsonPath = path.join(templateDir, 'package.json.mustache');
   const packageJson = await readJsonFile<{
-    dependencies?: Record<string, string>
-    devDependencies?: Record<string, string>
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
   }>(packageJsonPath, {
     context: 'remote package template manifest',
   });

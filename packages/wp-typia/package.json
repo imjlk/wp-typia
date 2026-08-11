@@ -61,7 +61,7 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "ttsc": "^0.26.1",
+    "ttsc": "^0.26.2",
     "typescript": "^7.0.2"
   }
 }

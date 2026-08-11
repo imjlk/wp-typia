@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from '@typescript/typescript6';
 
-const TTSC_LINT_VERSION = '0.26.1';
+const TTSC_LINT_VERSION = '0.26.2';
 const TYPIA_VERSION = '13.2.0';
 const TTSC_LINT_FORMAT = Object.freeze({
   severity: 'error',
@@ -159,7 +159,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
   ttscLintVersion: TTSC_LINT_VERSION,
-  ttscVersion: '0.26.1',
+  ttscVersion: '0.26.2',
   typiaVersion: TYPIA_VERSION,
   compatibilityPatches: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]: `patches/@ttsc%2Flint@${TTSC_LINT_VERSION}.patch`,
@@ -167,7 +167,7 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   }),
   compatibilityPatchSha256: Object.freeze({
     [`@ttsc/lint@${TTSC_LINT_VERSION}`]:
-      '3eb8ce9c2a18347c9f3192f556a77f6d1cfe97d7c72e14fb123b34efcd311c51',
+      'e759369db3fa00a826f59f4bc7ea1b4861b3ee2d0135a490576e25ec07cbf2cb',
     [`typia@${TYPIA_VERSION}`]:
       '545b153b7dfc5d0c2964c831899b4930f216674ca8af810951028b2bbc2db2b6',
   }),

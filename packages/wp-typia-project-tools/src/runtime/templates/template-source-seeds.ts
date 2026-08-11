@@ -51,7 +51,7 @@ const GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE =
   'github-template-cache-revision-race';
 
 type GitHubTemplateCacheRevisionRaceError = Error & {
-  code: typeof GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE
+  code: typeof GITHUB_TEMPLATE_CACHE_REVISION_RACE_CODE;
 };
 
 function createGitHubTemplateCacheRevisionRaceError(
@@ -593,13 +593,13 @@ function getGitHubTemplateRevisionPatterns(
 }
 
 type GitHubTemplateResolvedRevision = {
-  resolvedRef: string
-  revision: string
+  resolvedRef: string;
+  revision: string;
 };
 
 type GitHubTemplateCacheRevisionResolution = {
-  lookupUnavailable: boolean
-  revision: string | null
+  lookupUnavailable: boolean;
+  revision: string | null;
 };
 
 function pickGitHubTemplateCacheRevision(

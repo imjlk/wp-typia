@@ -4,42 +4,42 @@ import type { ParsedMigrationArgs, RenderLine } from './migration-types.js';
 import { formatLegacyMigrationWorkspaceResetGuidance } from './migration-utils.js';
 
 export type CommandRenderOptions = {
-  prompt?: ReadlinePrompt
-  renderLine?: RenderLine
+  prompt?: ReadlinePrompt;
+  renderLine?: RenderLine;
 };
 
 export type DiffLikeOptions = {
-  fromMigrationVersion?: string
-  renderLine?: RenderLine
-  toMigrationVersion?: string
+  fromMigrationVersion?: string;
+  renderLine?: RenderLine;
+  toMigrationVersion?: string;
 };
 
 export type VerifyOptions = {
-  all?: boolean
-  fromMigrationVersion?: string
-  renderLine?: RenderLine
+  all?: boolean;
+  fromMigrationVersion?: string;
+  renderLine?: RenderLine;
 };
 
 export type FixturesOptions = {
-  all?: boolean
-  confirmOverwrite?: ((message: string) => boolean) | undefined
-  force?: boolean
-  fromMigrationVersion?: string
-  isInteractive?: boolean
-  renderLine?: RenderLine
-  toMigrationVersion?: string
+  all?: boolean;
+  confirmOverwrite?: ((message: string) => boolean) | undefined;
+  force?: boolean;
+  fromMigrationVersion?: string;
+  isInteractive?: boolean;
+  renderLine?: RenderLine;
+  toMigrationVersion?: string;
 };
 
 export type FuzzOptions = {
-  all?: boolean
-  fromMigrationVersion?: string
-  iterations?: number
-  renderLine?: RenderLine
-  seed?: number
+  all?: boolean;
+  fromMigrationVersion?: string;
+  iterations?: number;
+  renderLine?: RenderLine;
+  seed?: number;
 };
 
 export type WizardOptions = CommandRenderOptions & {
-  isInteractive?: boolean
+  isInteractive?: boolean;
 };
 
 /**

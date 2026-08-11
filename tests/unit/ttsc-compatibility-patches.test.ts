@@ -216,7 +216,7 @@ export function acceptsImplicitAny(value) {
     const projectDir = createTtscFixture('wp-typia-ttsc-lint-patch-');
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.26.1',
+        '@ttsc/lint': '0.26.2',
       },
       private: true,
       type: 'module',
@@ -353,8 +353,8 @@ export type Inferred<Value> =
     );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.26.1',
-        ttsc: '0.26.1',
+        '@ttsc/lint': '0.26.2',
+        ttsc: '0.26.2',
         typescript: '7.0.2',
       },
       private: true,

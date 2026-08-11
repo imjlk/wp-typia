@@ -20,8 +20,8 @@
 		"format": "ttsc format --singleThreaded && prettier --write --no-error-on-unmatched-pattern \"**/*.{css,json,md,scss,yaml,yml}\" \"*.{cjs,js,jsx,mjs}\" \"scripts/**/*.{cjs,js,jsx,mjs}\" \"src/**/*.{cjs,js,jsx,mjs}\""
 	},
 	"devDependencies": {
-		"@ttsc/lint": "^0.26.1",
-		"@ttsc/unplugin": "^0.26.1",
+		"@ttsc/lint": "^0.26.2",
+		"@ttsc/unplugin": "^0.26.2",
 		"@wp-typia/block-runtime": "workspace:*",
 		"@wp-typia/block-types": "workspace:*",
 		"@wordpress/browserslist-config": "^6.42.0",
@@ -32,7 +32,7 @@
 		"@types/wordpress__blocks": "^12.5.18",
 		"@wp-typia/ttsc-lint-plugin-wp": "workspace:*",
 		"prettier": "3.8.2",
-		"ttsc": "^0.26.1",
+		"ttsc": "^0.26.2",
 		"typescript": "^7.0.2",
 		"typia": "^13.2.0"
 	},

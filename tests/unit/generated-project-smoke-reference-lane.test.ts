@@ -57,7 +57,7 @@ function addGeneratedLintBoundary(
 ): GeneratedPackageFixture {
   packageJson.devDependencies = {
     ...packageJson.devDependencies,
-    '@ttsc/lint': '0.26.1',
+    '@ttsc/lint': '0.26.2',
     '@types/react': '^18.3.28',
     '@types/react-dom': '^18.3.7',
     react: '^18.3.1',
@@ -214,7 +214,7 @@ test('reference example copies pin and apply the standalone lint repair', async 
     join(projectDir, 'package.json'),
     `${JSON.stringify(
       {
-        devDependencies: { '@ttsc/lint': '^0.26.1' },
+        devDependencies: { '@ttsc/lint': '^0.26.2' },
         scripts: {
           postinstall:
             'echo node scripts/apply-ttsc-lint-compat.mjs || true',

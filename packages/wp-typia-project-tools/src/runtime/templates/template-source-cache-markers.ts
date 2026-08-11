@@ -27,14 +27,14 @@ const URL_LIKE_METADATA_KEY = /(url|uri|registry|tarball)/iu;
 export type ExternalTemplateCacheMetadata = Record<string, string | null>;
 
 export interface ExternalTemplateCacheEntryMarker {
-  createdAtMs: number
-  metadata: ExternalTemplateCacheMetadata
+  createdAtMs: number;
+  metadata: ExternalTemplateCacheMetadata;
 }
 
 export interface ExternalTemplateCachePruneMarker {
-  prunedAtMs: number
-  pruneIntervalMs: number | null
-  ttlMs: number
+  prunedAtMs: number;
+  pruneIntervalMs: number | null;
+  ttlMs: number;
 }
 
 function sanitizeExternalTemplateCacheMetadataValue(
@@ -177,10 +177,10 @@ export function formatExternalTemplateCacheEntryMarker({
   metadata,
   namespace,
 }: {
-  cacheKey: string
-  createdAt: Date
-  metadata: ExternalTemplateCacheMetadata
-  namespace: string
+  cacheKey: string;
+  createdAt: Date;
+  metadata: ExternalTemplateCacheMetadata;
+  namespace: string;
 }): string {
   return `${JSON.stringify(
     {
@@ -199,9 +199,9 @@ export function formatExternalTemplateCachePruneMarker({
   pruneIntervalMs,
   ttlMs,
 }: {
-  nowMs: number
-  pruneIntervalMs: number | null
-  ttlMs: number
+  nowMs: number;
+  pruneIntervalMs: number | null;
+  ttlMs: number;
 }): string {
   return `${JSON.stringify(
     {

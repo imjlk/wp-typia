@@ -9,7 +9,7 @@ allowing each package to assemble a different lint stack.
 
 - the repository root owns TypeScript `7.0.2`
 - the repository root owns `ttsc`, `@ttsc/lint`, and `@ttsc/unplugin` at
-  `0.26.1`
+  `0.26.2`
 - packaged project tools fall back to `@wp-typia/ttsc-lint-plugin-wp` `^0.2.0`
 - the repository root owns ESLint `9.39.4` for repo JavaScript and Prettier
   `3.8.2` for selected non-TypeScript files
@@ -106,14 +106,14 @@ The root Bun workspace carries two exact-version development-tool patches:
 
 - `typia@13.2.0` forwards the JSON `--tsgo-args` envelope so CLI flags such as
   `--strict` reach the tsgo program used by typia transforms
-- `@ttsc/lint@0.26.1` guards mapped and `infer` type parameters while formatting
+- `@ttsc/lint@0.26.2` guards mapped and `infer` type parameters while formatting
   trailing commas, preventing a TypeScript-Go declaration lookup panic, and
   widens the affected symlink-target buffers in the TypeScript source, the
   distributed JavaScript runtime, and the native sidecar's embedded TypeScript
   config loader so executable lint configs compile across the supported Node 24
   type-definition range
 
-Registry `@ttsc/lint@0.26.1` still reproduces both lint-host failures. Generated
+Registry `@ttsc/lint@0.26.2` still reproduces both lint-host failures. Generated
 and retrofitted projects therefore exact-pin that version and run
 `scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
 package version and expected source/runtime/sidecar files, applies the same narrow

@@ -63,11 +63,11 @@
     "ttsc": ">=0.23.0 <0.27.0"
   },
   "devDependencies": {
-    "@ttsc/lint": "^0.26.1",
+    "@ttsc/lint": "^0.26.2",
     "@ttsc/lint-baseline": "npm:@ttsc/lint@0.23.0",
     "eslint": "9.39.4",
     "prettier": "3.8.2",
-    "ttsc": "^0.26.1",
+    "ttsc": "^0.26.2",
     "typescript": "^7.0.2"
   }
 }
