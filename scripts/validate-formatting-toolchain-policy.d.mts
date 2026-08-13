@@ -65,6 +65,8 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   rootLintScript: 'eslint . --max-warnings=0';
   rootTypecheckScript: 'ttsc --noEmit';
   rootPolicyValidateScript: 'node scripts/validate-formatting-toolchain-policy.mjs';
+  rootTtscLintCompatCheckScript: 'node scripts/sync-generated-ttsc-lint-compat.mjs';
+  rootTtscLintCompatSyncScript: 'node scripts/sync-generated-ttsc-lint-compat.mjs --write';
   ttscLintVersion: '0.26.2';
   ttscVersion: '0.26.2';
   typiaVersion: '13.2.0';

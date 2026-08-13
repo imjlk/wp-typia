@@ -56,6 +56,8 @@ function createFormattingPolicyRepo() {
       'lint:fix': policy.rootLintFixScript,
       'lint:repo': policy.rootLintScript,
       'formatting-policy:validate': policy.rootPolicyValidateScript,
+      'ttsc-lint-compat:check': policy.rootTtscLintCompatCheckScript,
+      'ttsc-lint-compat:sync': policy.rootTtscLintCompatSyncScript,
       typecheck: policy.rootTypecheckScript,
     },
     patchedDependencies: policy.compatibilityPatches,
@@ -537,6 +539,8 @@ describe('validateFormattingToolchainPolicy', () => {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     packageJson.scripts['lint:fix'] = 'eslint . --fix';
     packageJson.scripts['format:write'] = 'prettier --write .';
+    packageJson.scripts['ttsc-lint-compat:check'] = 'true';
+    delete packageJson.scripts['ttsc-lint-compat:sync'];
     writeJson(packageJsonPath, packageJson);
 
     const result = validateFormattingToolchainPolicy(repoRoot);
@@ -547,6 +551,12 @@ describe('validateFormattingToolchainPolicy', () => {
     );
     expect(result.errors).toContain(
       `package.json must keep scripts["format:write"]="${FORMATTING_TOOLCHAIN_POLICY.rootFormatWriteScript}", found "prettier --write .".`,
+    );
+    expect(result.errors).toContain(
+      `package.json must keep scripts["ttsc-lint-compat:check"]="${FORMATTING_TOOLCHAIN_POLICY.rootTtscLintCompatCheckScript}", found "true".`,
+    );
+    expect(result.errors).toContain(
+      `package.json must keep scripts["ttsc-lint-compat:sync"]="${FORMATTING_TOOLCHAIN_POLICY.rootTtscLintCompatSyncScript}", found null.`,
     );
   });
 

@@ -7,6 +7,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { ESLint } from 'eslint';
 
+const require = createRequire(import.meta.url);
+const installedTtscPackage = require('ttsc/package.json') as {
+  version?: string;
+};
 const UPSTREAM_VERSION = '25.8.0';
 const UPSTREAM_INTEGRITY =
   'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==';
@@ -15,7 +19,13 @@ const UPSTREAM_THEME_VERSION = '1.1.0';
 const UPSTREAM_THEME_INTEGRITY =
   'sha512-SWEGYY/HnSzmKDJnDhWVfxUDyLlJkz9EtpfAWhgPcCLSaZVc/pp99Fxr+/ueB2mHlQ9gpaWCPAMBxq8knDCbXw==';
 const UPSTREAM_THEME_TARBALL = `https://registry.npmjs.org/@wordpress/theme/-/theme-${UPSTREAM_THEME_VERSION}.tgz`;
-const TTSC_CONSUMER_VERSION = process.env.TTSC_CONSUMER_VERSION ?? '0.23.0';
+const TTSC_CONSUMER_VERSION =
+  process.env.TTSC_CONSUMER_VERSION ?? installedTtscPackage.version ?? '';
+assert.match(
+  TTSC_CONSUMER_VERSION,
+  /^\d+\.\d+\.\d+$/u,
+  'the parity consumer must resolve an exact ttsc version',
+);
 const NETWORK_TIMEOUT_MS = 60_000;
 const PACKAGE_INSTALL_TIMEOUT_MS = 300_000;
 const TTSC_PROCESS_TIMEOUT_MS = 300_000;
@@ -38,7 +48,6 @@ const fixtureSource = fs.readFileSync(
 );
 
 const upstreamRoot = await prepareUpstreamPackage();
-const require = createRequire(import.meta.url);
 verifyEmbeddedDesignTokens(upstreamRoot, require);
 const upstreamRules = {
   'i18n-ellipsis': require(path.join(upstreamRoot, 'rules/i18n-ellipsis.js')),
@@ -177,6 +186,7 @@ assert.equal(
 );
 verifySafeI18nFixes(fixtureRoot, ttscBinary, ttscEnv);
 verifyInvalidOptionsFailClosed(fixtureRoot, ttscBinary, ttscEnv);
+verifyBehaviorDowngradesRemainRequired(fixtureRoot, ttscBinary, ttscEnv);
 console.log(
   `Matched ${actual.length} diagnostics and autofixes against @wordpress/eslint-plugin ${UPSTREAM_VERSION} from a packed, unpatched ttsc ${TTSC_CONSUMER_VERSION} registry install.`,
 );
@@ -716,6 +726,92 @@ export default {
   } finally {
     fs.writeFileSync(configPath, validConfig);
   }
+}
+
+function verifyBehaviorDowngradesRemainRequired(
+  fixtureRoot: string,
+  ttscBinary: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const fixturePath = path.join(fixtureRoot, 'fixture.tsx');
+  const configPath = path.join(fixtureRoot, 'lint.config.mjs');
+  const validFixture = fs.readFileSync(fixturePath, 'utf8');
+  const validConfig = fs.readFileSync(configPath, 'utf8');
+  try {
+    fs.writeFileSync(
+      fixturePath,
+      `import { Link } from '@wordpress/ui';
+
+const error = 'outer';
+try {
+  throw new Error('inner');
+} catch (error) {
+  console.log(error);
+}
+console.log(error);
+
+export const View = () => (
+  <>
+    <Link onClick={() => undefined}>Open</Link>
+    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} />
+  </>
+);
+`,
+    );
+    fs.writeFileSync(
+      configPath,
+      `export default {
+  rules: {
+    'jsx-a11y/click-events-have-key-events': 'error',
+    'jsx-a11y/no-static-element-interactions': 'error',
+    'jsx-a11y/role-supports-aria-props': 'error',
+    'no-shadow': 'error',
+  },
+};
+`,
+    );
+    const result = spawnSync(
+      ttscBinary,
+      ['--noEmit', '--pretty', 'false', '--project', 'tsconfig.json'],
+      {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env,
+        timeout: TTSC_PROCESS_TIMEOUT_MS,
+      },
+    );
+    assert.ifError(result.error);
+    assert.notEqual(
+      result.status,
+      null,
+      'behavior-downgrade ttsc process was killed by a signal',
+    );
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(
+      result.status,
+      0,
+      'documented behavior downgrades must remain observable until removed',
+    );
+    for (const expectedFailure of [
+      'Rule "no-shadow" panicked',
+      '[jsx-a11y/click-events-have-key-events]',
+      '[jsx-a11y/no-static-element-interactions]',
+      '[jsx-a11y/role-supports-aria-props]',
+    ]) {
+      assert.match(
+        output,
+        new RegExp(escapeRegExp(expectedFailure), 'u'),
+        `Remove or update the corresponding behavior downgrade when ${expectedFailure} no longer reproduces.\n${output}`,
+      );
+    }
+  } finally {
+    fs.writeFileSync(fixturePath, validFixture);
+    fs.writeFileSync(configPath, validConfig);
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 function parseTtscDiagnostics(output: string) {

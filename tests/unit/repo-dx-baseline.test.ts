@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -439,20 +438,14 @@ describe('repository DX baseline', () => {
     expect(prepareJob).toContain(
       'bun x ttsc prepare --project .github/fixtures/ttsc-wordpress-prepare/tsconfig.json',
     );
-    expect(prepareJob).toContain(
-      'node scripts/resolve-native-typescript-binary.mjs',
-    );
     expect(prepareJob).toContain('set -euo pipefail');
-    expect(prepareJob).toContain('test -n "$TTSC_NATIVE_BINARY"');
-    expect(prepareJob).toContain('TTSC_TSGO_BINARY="$TTSC_NATIVE_BINARY"');
-    const nativeTypeScript = spawnSync(
-      process.execPath,
-      [path.join(repoRoot, 'scripts/resolve-native-typescript-binary.mjs')],
-      { encoding: 'utf8' },
-    );
-    expect(nativeTypeScript.status).toBe(0);
-    expect(nativeTypeScript.stderr).toBe('');
-    expect(fs.statSync(nativeTypeScript.stdout).isFile()).toBe(true);
+    expect(prepareJob).not.toContain('TTSC_TSGO_BINARY');
+    expect(prepareJob).not.toContain('TTSC_NATIVE_BINARY');
+    expect(
+      fs.existsSync(
+        path.join(repoRoot, 'scripts/resolve-native-typescript-binary.mjs'),
+      ),
+    ).toBe(false);
     const wordpressPreparePackage = readJson(
       '.github/fixtures/ttsc-wordpress-prepare/package.json',
     );

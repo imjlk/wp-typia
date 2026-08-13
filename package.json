@@ -81,6 +81,8 @@
     "format:check": "node scripts/check-repo-format.mjs",
     "format:write": "ttsc format --singleThreaded && node scripts/check-repo-format.mjs --write",
     "formatting-policy:validate": "node scripts/validate-formatting-toolchain-policy.mjs",
+    "ttsc-lint-compat:check": "node scripts/sync-generated-ttsc-lint-compat.mjs",
+    "ttsc-lint-compat:sync": "node scripts/sync-generated-ttsc-lint-compat.mjs --write",
     "toolchain-policy:validate": "bun scripts/validate-local-toolchain-policy.mjs",
     "maintenance-automation:validate": "node scripts/validate-maintenance-automation-policy.mjs",
     "samchon-graph:validate": "bun scripts/validate-samchon-graph-config.mjs",
