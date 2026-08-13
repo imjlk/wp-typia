@@ -280,10 +280,11 @@ try {
 		}
 		const temporaryPath = `${sourcePath}.wp-typia-${process.pid}.tmp`;
 		try {
+			const sourceMode = fs.statSync(sourcePath).mode % 0o1000;
 			fs.writeFileSync(temporaryPath, nextSource, {
 				encoding: 'utf8',
-				mode: fs.statSync(sourcePath).mode % 0o1000,
 			});
+			fs.chmodSync(temporaryPath, sourceMode);
 			fs.renameSync(temporaryPath, sourcePath);
 		} finally {
 			fs.rmSync(temporaryPath, { force: true });

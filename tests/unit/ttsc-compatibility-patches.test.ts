@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..');
 const ttscLauncher = path.join(
@@ -410,12 +411,21 @@ export type Inferred<Value> =
     writeText(freshTemporaryPath, 'fresh');
     const staleTime = new Date(Date.now() - 2 * 60 * 60 * 1000);
     fs.utimesSync(staleTemporaryPath, staleTime, staleTime);
+    fs.chmodSync(lintRuntimePath, 0o764);
     const runtimeMode = fs.statSync(lintRuntimePath).mode % 0o1000;
 
-    const patchResult = spawnSync('node', [compatScriptPath], {
-      cwd: projectDir,
-      encoding: 'utf8',
-    });
+    const patchResult = spawnSync(
+      'node',
+      [
+        '--input-type=module',
+        '--eval',
+        `process.umask(0o077); await import(${JSON.stringify(pathToFileURL(compatScriptPath).href)});`,
+      ],
+      {
+        cwd: projectDir,
+        encoding: 'utf8',
+      },
+    );
     expect(patchResult.error).toBeUndefined();
     expect(
       patchResult.status,
@@ -555,12 +565,29 @@ export type Inferred<Value> =
     );
     const lintIndexPath = path.join(lintPackageRoot, 'src', 'index.ts');
     const originalIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
-    const unexpectedIndexSource = originalIndexSource.replace(
+    const presentTarget = [
+      'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
       'let target: Buffer = Buffer.alloc(0);',
+      'let target = Buffer.alloc(0);',
+    ].find((candidate) => originalIndexSource.includes(candidate));
+    expect(
+      presentTarget,
+      'expected a recognized Buffer target declaration in @ttsc/lint src/index.ts',
+    ).toBeDefined();
+    const unexpectedIndexSource = originalIndexSource.replace(
+      presentTarget!,
       'let target: Uint8Array = Buffer.alloc(0);',
     );
     expect(unexpectedIndexSource).not.toBe(originalIndexSource);
     writeText(lintIndexPath, unexpectedIndexSource);
+    const unchangedRepairSources = [
+      path.join(lintPackageRoot, 'linthost', 'rules_format_trailing_comma.go'),
+      path.join(lintPackageRoot, 'lib', 'index.js'),
+      path.join(lintPackageRoot, 'linthost', 'config.go'),
+    ].map((sourcePath) => ({
+      source: fs.readFileSync(sourcePath, 'utf8'),
+      sourcePath,
+    }));
 
     const result = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
@@ -579,6 +606,9 @@ export type Inferred<Value> =
       "Re-run the project's package-manager install command",
     );
     expect(fs.readFileSync(lintIndexPath, 'utf8')).toBe(unexpectedIndexSource);
+    for (const { source, sourcePath } of unchangedRepairSources) {
+      expect(fs.readFileSync(sourcePath, 'utf8')).toBe(source);
+    }
   });
 
   test('keeps every generated ttsc lint compatibility hook identical', () => {

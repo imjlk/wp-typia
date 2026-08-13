@@ -818,7 +818,8 @@ function validateGeneratedTtscLintCompatSource(
     },
     {
       description: 'the source permission preservation',
-      pattern: /mode: fs\.statSync\(sourcePath\)\.mode % 0o1000/u,
+      pattern:
+        /const sourceMode = fs\.statSync\(sourcePath\)\.mode % 0o1000;[\s\S]*?fs\.chmodSync\(temporaryPath, sourceMode\);/u,
     },
     {
       description: 'package-manager-neutral recovery guidance',
