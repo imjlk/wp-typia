@@ -70,20 +70,24 @@
       "target": "wordpress/no-base-control-with-label-without-id"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-dom-globals-in-constructor"
+      "kind": "contributor",
+      "source": "@wordpress/no-dom-globals-in-constructor",
+      "target": "wordpress/no-dom-globals-in-constructor"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-dom-globals-in-module-scope"
+      "kind": "contributor",
+      "source": "@wordpress/no-dom-globals-in-module-scope",
+      "target": "wordpress/no-dom-globals-in-module-scope"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-dom-globals-in-react-cc-render"
+      "kind": "contributor",
+      "source": "@wordpress/no-dom-globals-in-react-cc-render",
+      "target": "wordpress/no-dom-globals-in-react-cc-render"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-dom-globals-in-react-fc"
+      "kind": "contributor",
+      "source": "@wordpress/no-dom-globals-in-react-fc",
+      "target": "wordpress/no-dom-globals-in-react-fc"
     },
     {
       "kind": "unsupported",

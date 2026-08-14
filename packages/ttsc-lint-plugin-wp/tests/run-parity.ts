@@ -7,6 +7,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { ESLint } from 'eslint';
 
+import {
+  installPinnedGlobals,
+  pinnedGlobalsRoot,
+  verifyEmbeddedDomGlobals,
+} from '../scripts/upstream-dom-globals';
+import { installPinnedTarball } from '../scripts/pinned-tarball';
+
 const require = createRequire(import.meta.url);
 const installedTtscPackage = require('ttsc/package.json') as {
   version?: string;
@@ -49,6 +56,7 @@ const fixtureSource = fs.readFileSync(
 
 const upstreamRoot = await prepareUpstreamPackage();
 verifyEmbeddedDesignTokens(upstreamRoot, require);
+verifyEmbeddedDomGlobals(packageRoot, pinnedGlobalsRoot(upstreamRoot));
 const upstreamRules = {
   'i18n-ellipsis': require(path.join(upstreamRoot, 'rules/i18n-ellipsis.js')),
   'i18n-hyphenated-range': require(
@@ -77,6 +85,18 @@ const upstreamRules = {
   ),
   'no-base-control-with-label-without-id': require(
     path.join(upstreamRoot, 'rules/no-base-control-with-label-without-id.js'),
+  ),
+  'no-dom-globals-in-constructor': require(
+    path.join(upstreamRoot, 'rules/no-dom-globals-in-constructor.js'),
+  ),
+  'no-dom-globals-in-module-scope': require(
+    path.join(upstreamRoot, 'rules/no-dom-globals-in-module-scope.js'),
+  ),
+  'no-dom-globals-in-react-cc-render': require(
+    path.join(upstreamRoot, 'rules/no-dom-globals-in-react-cc-render.js'),
+  ),
+  'no-dom-globals-in-react-fc': require(
+    path.join(upstreamRoot, 'rules/no-dom-globals-in-react-fc.js'),
   ),
   'no-global-active-element': require(
     path.join(upstreamRoot, 'rules/no-global-active-element.js'),
@@ -222,6 +242,10 @@ function createUpstreamEslint(fix: boolean): ESLint {
         ],
         '@wordpress/i18n-translator-comments': 'error',
         '@wordpress/no-base-control-with-label-without-id': 'error',
+        '@wordpress/no-dom-globals-in-constructor': 'error',
+        '@wordpress/no-dom-globals-in-module-scope': 'error',
+        '@wordpress/no-dom-globals-in-react-cc-render': 'error',
+        '@wordpress/no-dom-globals-in-react-fc': 'error',
         '@wordpress/no-global-active-element': 'error',
         '@wordpress/no-global-get-selection': 'error',
         '@wordpress/no-setting-ds-tokens': 'error',
@@ -378,6 +402,10 @@ export default {
     ],
     'wordpress/i18n-translator-comments': 'error',
     'wordpress/no-base-control-with-label-without-id': 'error',
+    'wordpress/no-dom-globals-in-constructor': 'error',
+    'wordpress/no-dom-globals-in-module-scope': 'error',
+    'wordpress/no-dom-globals-in-react-cc-render': 'error',
+    'wordpress/no-dom-globals-in-react-fc': 'error',
     'wordpress/no-global-active-element': 'error',
     'wordpress/no-global-get-selection': 'error',
     'wordpress/no-setting-ds-tokens': 'error',
@@ -482,6 +510,9 @@ async function prepareUpstreamPackage(): Promise<string> {
   if (fs.existsSync(cacheRoot)) {
     const extractedRoot = validateUpstreamCache(cacheRoot);
     await prepareUpstreamTheme(cacheRoot, extractedRoot);
+    await installPinnedGlobals(cacheRoot, extractedRoot, {
+      networkTimeoutMs: NETWORK_TIMEOUT_MS,
+    });
     return extractedRoot;
   }
 
@@ -520,6 +551,9 @@ async function prepareUpstreamPackage(): Promise<string> {
   }
   const extractedRoot = validateUpstreamCache(cacheRoot);
   await prepareUpstreamTheme(cacheRoot, extractedRoot);
+  await installPinnedGlobals(cacheRoot, extractedRoot, {
+    networkTimeoutMs: NETWORK_TIMEOUT_MS,
+  });
   return extractedRoot;
 }
 
@@ -527,77 +561,25 @@ async function prepareUpstreamTheme(
   cacheRoot: string,
   upstreamRoot: string,
 ): Promise<void> {
-  const tarballPath = path.join(
-    cacheRoot,
-    `theme-${UPSTREAM_THEME_VERSION}.tgz`,
-  );
-  const themeRoot = path.join(upstreamRoot, 'node_modules/@wordpress/theme');
-  const hasTheme = fs.existsSync(themeRoot);
-  if (hasTheme) {
-    const metadata = JSON.parse(
-      fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
-    ) as { name?: string; version?: string };
-    assert.equal(metadata.name, '@wordpress/theme');
-    assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
-  }
+  await installPinnedTarball({
+    label: `@wordpress/theme ${UPSTREAM_THEME_VERSION}`,
+    url: UPSTREAM_THEME_TARBALL,
+    integrity: UPSTREAM_THEME_INTEGRITY,
+    cachePath: path.join(cacheRoot, `theme-${UPSTREAM_THEME_VERSION}.tgz`),
+    stagingParent: cacheRoot,
+    stagingPrefix: `.wp-typia-theme-${UPSTREAM_THEME_VERSION}-`,
+    destination: path.join(upstreamRoot, 'node_modules/@wordpress/theme'),
+    verify: verifyUpstreamTheme,
+    networkTimeoutMs: NETWORK_TIMEOUT_MS,
+  });
+}
 
-  let tarball: Buffer;
-  if (fs.existsSync(tarballPath)) {
-    tarball = fs.readFileSync(tarballPath);
-  } else {
-    const response = await fetch(UPSTREAM_THEME_TARBALL, {
-      signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
-    });
-    assert.equal(
-      response.ok,
-      true,
-      `Unable to download ${UPSTREAM_THEME_TARBALL}`,
-    );
-    tarball = Buffer.from(await response.arrayBuffer());
-  }
-  const integrity = `sha512-${crypto.createHash('sha512').update(tarball).digest('base64')}`;
-  assert.equal(
-    integrity,
-    UPSTREAM_THEME_INTEGRITY,
-    `@wordpress/theme ${UPSTREAM_THEME_VERSION} tarball integrity mismatch`,
-  );
-  if (hasTheme) {
-    if (!fs.existsSync(tarballPath)) fs.writeFileSync(tarballPath, tarball);
-    return;
-  }
-
-  const stagingRoot = fs.mkdtempSync(
-    path.join(cacheRoot, `.wp-typia-theme-${UPSTREAM_THEME_VERSION}-`),
-  );
-  try {
-    const stagingTarballPath = path.join(stagingRoot, 'package.tgz');
-    fs.writeFileSync(stagingTarballPath, tarball);
-    execFileSync('tar', ['-xzf', stagingTarballPath, '-C', stagingRoot], {
-      timeout: NETWORK_TIMEOUT_MS,
-    });
-    const metadata = JSON.parse(
-      fs.readFileSync(path.join(stagingRoot, 'package/package.json'), 'utf8'),
-    ) as { name?: string; version?: string };
-    assert.equal(metadata.name, '@wordpress/theme');
-    assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
-    fs.mkdirSync(path.dirname(themeRoot), { recursive: true });
-    try {
-      fs.renameSync(path.join(stagingRoot, 'package'), themeRoot);
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'EEXIST' && code !== 'ENOTEMPTY') {
-        throw error;
-      }
-      const installedMetadata = JSON.parse(
-        fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
-      ) as { name?: string; version?: string };
-      assert.equal(installedMetadata.name, '@wordpress/theme');
-      assert.equal(installedMetadata.version, UPSTREAM_THEME_VERSION);
-    }
-    fs.writeFileSync(tarballPath, tarball);
-  } finally {
-    fs.rmSync(stagingRoot, { force: true, recursive: true });
-  }
+function verifyUpstreamTheme(themeRoot: string): void {
+  const metadata = JSON.parse(
+    fs.readFileSync(path.join(themeRoot, 'package.json'), 'utf8'),
+  ) as { name?: string; version?: string };
+  assert.equal(metadata.name, '@wordpress/theme');
+  assert.equal(metadata.version, UPSTREAM_THEME_VERSION);
 }
 
 function validateUpstreamCache(cacheRoot: string): string {

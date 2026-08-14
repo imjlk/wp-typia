@@ -75,6 +75,10 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/i18n-text-domain`
 - `wordpress/i18n-translator-comments`
 - `wordpress/no-base-control-with-label-without-id`
+- `wordpress/no-dom-globals-in-constructor`
+- `wordpress/no-dom-globals-in-module-scope`
+- `wordpress/no-dom-globals-in-react-cc-render`
+- `wordpress/no-dom-globals-in-react-fc`
 - `wordpress/no-global-active-element`
 - `wordpress/no-global-get-selection`
 - `wordpress/no-setting-ds-tokens`
@@ -94,6 +98,15 @@ components imported from relative paths. `no-unused-vars-before-return`
 accepts an `excludePattern` for call names that should not be treated as
 expensive initializers. The pattern uses Go RE2 syntax; JavaScript-only
 lookaheads, lookbehinds, and backreferences are not supported.
+
+The `no-dom-globals-*` rules embed the browser-minus-node global list from
+`globals` 16.5.0, the revision satisfying the `globals@^16.0.0` dependency that
+`@wordpress/eslint-plugin` 25.8.0 declares. The parity harness installs the
+same pinned revision for its ESLint oracle and verifies the generated Go data
+remains byte-equivalent, so the repository's own transitive `globals` copy can
+never skew which identifiers the two engines treat as DOM-only globals. The
+upstream rules are not part of any WordPress preset, so the compiled presets
+are unchanged; enable the rules individually when SSR safety is required.
 
 The Design System token rules embed the 167-token list from
 `@wordpress/theme` 1.1.0 used by the pinned ESLint oracle. The parity harness
