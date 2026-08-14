@@ -79,8 +79,10 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/no-dom-globals-in-module-scope`
 - `wordpress/no-dom-globals-in-react-cc-render`
 - `wordpress/no-dom-globals-in-react-fc`
+- `wordpress/no-ds-tokens`
 - `wordpress/no-global-active-element`
 - `wordpress/no-global-get-selection`
+- `wordpress/no-i18n-in-save`
 - `wordpress/no-setting-ds-tokens`
 - `wordpress/no-unguarded-get-range-at`
 - `wordpress/no-unknown-ds-tokens`
@@ -88,7 +90,9 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/no-unsafe-wp-apis`
 - `wordpress/no-unused-vars-before-return`
 - `wordpress/no-wp-process-env`
+- `wordpress/react-no-unsafe-timeout`
 - `wordpress/valid-sprintf`
+- `wordpress/wp-global-usage`
 
 `i18n-text-domain` accepts the upstream `allowedTextDomain` string or string
 array. `no-unsafe-wp-apis` accepts a map from an `@wordpress/*` package to the

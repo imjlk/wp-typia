@@ -17,8 +17,10 @@ export const ruleNames = [
   'no-dom-globals-in-module-scope',
   'no-dom-globals-in-react-cc-render',
   'no-dom-globals-in-react-fc',
+  'no-ds-tokens',
   'no-global-active-element',
   'no-global-get-selection',
+  'no-i18n-in-save',
   'no-setting-ds-tokens',
   'no-unguarded-get-range-at',
   'no-unknown-ds-tokens',
@@ -26,7 +28,9 @@ export const ruleNames = [
   'no-unsafe-wp-apis',
   'no-unused-vars-before-return',
   'no-wp-process-env',
+  'react-no-unsafe-timeout',
   'valid-sprintf',
+  'wp-global-usage',
 ] as const;
 
 export const plugin = {

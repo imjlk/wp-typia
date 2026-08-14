@@ -134,6 +134,7 @@ const process = {
   },
 };
 const BaseControl = (_properties) => null;
+class Component {}
 
 <BaseControl label="Missing id" />;
 <BaseControl id="allowed" label="Allowed" />;
@@ -355,3 +356,95 @@ const parameterDefaultDomGlobal = (value = window) => {
 // the bare nor the member extends expression is reported.
 class HeritageBare extends window {}
 class HeritageMember extends window.HTMLElement {}
+
+// wordpress/no-ds-tokens reports every literal or template element that
+// mentions the --wpds- namespace, including known tokens.
+const disallowedTokenUsage = 'var(--wpds-color-foreground-content-neutral)';
+const disallowedTemplateToken = `padding: var(--wpds-dimension-gap-md)`;
+const disallowedMultiPartTemplate = `color: var(--wpds-color-foreground-content-neutral)`;
+
+// wordpress/wp-global-usage.
+if (globalThis.IS_GUTENBERG_PLUGIN) {
+  void 0;
+}
+const capturedConditional = globalThis.IS_WORDPRESS_CORE ? 'core' : 'plugin';
+if (!globalThis.SCRIPT_DEBUG) {
+  void 0;
+}
+window.IS_GUTENBERG_PLUGIN;
+window['SCRIPT_DEBUG'];
+process.env.IS_GUTENBERG_PLUGIN;
+IS_WORDPRESS_CORE;
+const ternaryFromBare = !IS_WORDPRESS_CORE ? 'yes' : 'no';
+const shorthandGlobalUsage = { SCRIPT_DEBUG };
+const destructuredGlobalUsage = { IS_GUTENBERG_PLUGIN };
+
+// wordpress/no-i18n-in-save.
+const save = () => {
+  return <div>{__('Saved label', 'my-plugin')}</div>;
+};
+function saveAsDeclaration() {
+  return __('Declared save', 'my-plugin');
+}
+const notSave = () => {
+  return __('Regular render', 'my-plugin');
+};
+
+// wordpress/react-no-unsafe-timeout.
+function ScheduledComponent() {
+  setTimeout(() => void 0, 100);
+  return <div />;
+}
+const handledTimeoutComponent = () => {
+  const timer = setTimeout(() => void 0, 100);
+  clearTimeout(timer);
+  return <div />;
+};
+const outsideComponent = () => {
+  setTimeout(() => void 0, 100);
+  return null;
+};
+function lowercasedHelper() {
+  setTimeout(() => void 0, 100);
+}
+const blockSettingsWithSaveProperty = {
+  save: () => __('Saved from property', 'my-plugin'),
+};
+const blockSettingsWithSaveMethod = {
+  save() {
+    return __('Saved from method', 'my-plugin');
+  },
+};
+class TimeoutClassComponent extends Component {
+  render() {
+    setTimeout(() => void 0, 100);
+    return <div />;
+  }
+}
+const localSetTimeoutBinding = () => {
+  const setTimeout = () => 1;
+  setTimeout(() => void 0, 100);
+  return null;
+};
+if ((globalThis.IS_GUTENBERG_PLUGIN)) {
+  void 0;
+}
+if (!(globalThis.SCRIPT_DEBUG)) {
+  void 0;
+}
+const parenSaveWrapper = () => {
+  const save = () => __('Paren save', 'my-plugin');
+  return save;
+};
+const ParenCaptureComponent = () => {
+  const timer = (setTimeout(() => void 0, 100));
+  clearTimeout(timer);
+  return <div />;
+};
+const React = { Component };
+class MemberSuperComponent extends React.Component {
+  render() {
+    setTimeout(() => void 0, 100);
+    return <div />;
+  }
+}
