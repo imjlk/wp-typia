@@ -90,8 +90,9 @@
       "target": "wordpress/no-dom-globals-in-react-fc"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-ds-tokens"
+      "kind": "contributor",
+      "source": "@wordpress/no-ds-tokens",
+      "target": "wordpress/no-ds-tokens"
     },
     {
       "kind": "contributor",
@@ -104,8 +105,9 @@
       "target": "wordpress/no-global-get-selection"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-i18n-in-save"
+      "kind": "contributor",
+      "source": "@wordpress/no-i18n-in-save",
+      "target": "wordpress/no-i18n-in-save"
     },
     {
       "kind": "unsupported",
@@ -151,8 +153,9 @@
       "target": "wordpress/no-wp-process-env"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/react-no-unsafe-timeout"
+      "kind": "contributor",
+      "source": "@wordpress/react-no-unsafe-timeout",
+      "target": "wordpress/react-no-unsafe-timeout"
     },
     {
       "kind": "unsupported",
@@ -168,8 +171,9 @@
       "target": "wordpress/valid-sprintf"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/wp-global-usage"
+      "kind": "contributor",
+      "source": "@wordpress/wp-global-usage",
+      "target": "wordpress/wp-global-usage"
     }
   ],
   "presets": {

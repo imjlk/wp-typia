@@ -53,6 +53,26 @@ const fixtureSource = fs.readFileSync(
   path.join(sourceFixtureRoot, 'fixture.tsx'),
   'utf8',
 );
+// Script-variant sources exercise the no-i18n-in-save file-name checks; the
+// paths must carry a directory prefix because the upstream rule matches
+// `/save.*` and `/deprecated.*` suffixes.
+const parityLintTargets = [
+  { filePath: 'fixture.tsx', source: fixtureSource },
+  {
+    filePath: 'src/save.tsx',
+    source: fs.readFileSync(
+      path.join(sourceFixtureRoot, 'save-fixture.tsx'),
+      'utf8',
+    ),
+  },
+  {
+    filePath: 'src/deprecated.tsx',
+    source: fs.readFileSync(
+      path.join(sourceFixtureRoot, 'deprecated-fixture.tsx'),
+      'utf8',
+    ),
+  },
+] as const;
 
 const upstreamRoot = await prepareUpstreamPackage();
 verifyEmbeddedDesignTokens(upstreamRoot, require);
@@ -98,11 +118,15 @@ const upstreamRules = {
   'no-dom-globals-in-react-fc': require(
     path.join(upstreamRoot, 'rules/no-dom-globals-in-react-fc.js'),
   ),
+  'no-ds-tokens': require(path.join(upstreamRoot, 'rules/no-ds-tokens.js')),
   'no-global-active-element': require(
     path.join(upstreamRoot, 'rules/no-global-active-element.js'),
   ),
   'no-global-get-selection': require(
     path.join(upstreamRoot, 'rules/no-global-get-selection.js'),
+  ),
+  'no-i18n-in-save': require(
+    path.join(upstreamRoot, 'rules/no-i18n-in-save.js'),
   ),
   'no-setting-ds-tokens': require(
     path.join(upstreamRoot, 'rules/no-setting-ds-tokens.js'),
@@ -119,26 +143,38 @@ const upstreamRules = {
   'no-wp-process-env': require(
     path.join(upstreamRoot, 'rules/no-wp-process-env.js'),
   ),
+  'react-no-unsafe-timeout': require(
+    path.join(upstreamRoot, 'rules/react-no-unsafe-timeout.js'),
+  ),
   'no-unused-vars-before-return': require(
     path.join(upstreamRoot, 'rules/no-unused-vars-before-return.js'),
   ),
   'valid-sprintf': require(path.join(upstreamRoot, 'rules/valid-sprintf.js')),
+  'wp-global-usage': require(
+    path.join(upstreamRoot, 'rules/wp-global-usage.js'),
+  ),
 };
 
 const eslint = createUpstreamEslint(false);
-const [eslintResult] = await eslint.lintText(fixtureSource, {
-  filePath: 'fixture.tsx',
-});
-assert.ok(eslintResult);
-const expected = eslintResult.messages
-  .filter(({ ruleId }) => ruleId?.startsWith('@wordpress/'))
-  .map(({ column, line, message, ruleId }) => ({
-    column,
-    line,
-    message,
-    ruleId,
-  }))
-  .sort(compareDiagnostic);
+const expected = [];
+for (const target of parityLintTargets) {
+  const [eslintResult] = await eslint.lintText(target.source, {
+    filePath: target.filePath,
+  });
+  assert.ok(eslintResult);
+  expected.push(
+    ...eslintResult.messages
+      .filter(({ ruleId }) => ruleId?.startsWith('@wordpress/'))
+      .map(({ column, line, message, ruleId }) => ({
+        column,
+        file: path.basename(target.filePath),
+        line,
+        message,
+        ruleId,
+      })),
+  );
+}
+expected.sort(compareDiagnostic);
 
 const { consumerRoot, fixtureRoot } = prepareConsumerProject();
 const ttscBinary = path.join(consumerRoot, 'node_modules/.bin/ttsc');
@@ -246,8 +282,10 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress/no-dom-globals-in-module-scope': 'error',
         '@wordpress/no-dom-globals-in-react-cc-render': 'error',
         '@wordpress/no-dom-globals-in-react-fc': 'error',
+        '@wordpress/no-ds-tokens': 'error',
         '@wordpress/no-global-active-element': 'error',
         '@wordpress/no-global-get-selection': 'error',
+        '@wordpress/no-i18n-in-save': 'error',
         '@wordpress/no-setting-ds-tokens': 'error',
         '@wordpress/no-unknown-ds-tokens': 'error',
         '@wordpress/no-unguarded-get-range-at': 'error',
@@ -264,7 +302,9 @@ function createUpstreamEslint(fix: boolean): ESLint {
           { excludePattern: '^ignore' },
         ],
         '@wordpress/no-wp-process-env': 'error',
+        '@wordpress/react-no-unsafe-timeout': 'error',
         '@wordpress/valid-sprintf': 'error',
+        '@wordpress/wp-global-usage': 'error',
       },
     },
   });
@@ -357,6 +397,14 @@ function prepareConsumerProject(): {
     path.join(sourceFixtureRoot, 'local-ui.js'),
     path.join(fixtureRoot, 'local-ui.js'),
   );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'save-fixture.tsx'),
+    path.join(fixtureRoot, 'save.tsx'),
+  );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'deprecated-fixture.tsx'),
+    path.join(fixtureRoot, 'deprecated.tsx'),
+  );
   fs.writeFileSync(
     path.join(fixtureRoot, 'tsconfig.json'),
     `${JSON.stringify(
@@ -377,6 +425,8 @@ function prepareConsumerProject(): {
           './fixture.tsx',
           './local-ui.js',
           './wordpress-components.d.ts',
+          './save.tsx',
+          './deprecated.tsx',
         ],
       },
       null,
@@ -406,8 +456,10 @@ export default {
     'wordpress/no-dom-globals-in-module-scope': 'error',
     'wordpress/no-dom-globals-in-react-cc-render': 'error',
     'wordpress/no-dom-globals-in-react-fc': 'error',
+    'wordpress/no-ds-tokens': 'error',
     'wordpress/no-global-active-element': 'error',
     'wordpress/no-global-get-selection': 'error',
+    'wordpress/no-i18n-in-save': 'error',
     'wordpress/no-setting-ds-tokens': 'error',
     'wordpress/no-unknown-ds-tokens': 'error',
     'wordpress/no-unguarded-get-range-at': 'error',
@@ -424,7 +476,9 @@ export default {
       { excludePattern: '^ignore' },
     ],
     'wordpress/no-wp-process-env': 'error',
+    'wordpress/react-no-unsafe-timeout': 'error',
     'wordpress/valid-sprintf': 'error',
+    'wordpress/wp-global-usage': 'error',
   },
 };
 `,
@@ -799,19 +853,20 @@ function escapeRegExp(value: string): string {
 function parseTtscDiagnostics(output: string) {
   const diagnostics: Array<{
     column: number;
+    file: string;
     line: number;
     message: string;
     ruleId: string | null;
   }> = [];
   const lines = output.replace(/\u001b\[[0-9;]*m/g, '').split(/\r?\n/);
   const pattern =
-    /^fixture\.tsx:(\d+):(\d+) - error TS\d+: \[wordpress\/([^\]]+)\] (.*)$/u;
+    /^([\w.@/-]+\.tsx):(\d+):(\d+) - error TS\d+: \[wordpress\/([^\]]+)\] (.*)$/u;
   for (let index = 0; index < lines.length; index += 1) {
     const match = pattern.exec(lines[index] ?? '');
     if (!match) {
       continue;
     }
-    const messageLines = [match[4] ?? ''];
+    const messageLines = [match[5] ?? ''];
     let next = index + 1;
     for (; next < lines.length; next += 1) {
       const line = lines[next] ?? '';
@@ -822,10 +877,11 @@ function parseTtscDiagnostics(output: string) {
     }
     index = next - 1;
     diagnostics.push({
-      column: Number(match[2]),
-      line: Number(match[1]),
+      column: Number(match[3]),
+      file: path.basename(match[1] ?? ''),
+      line: Number(match[2]),
       message: messageLines.join('\n').trim(),
-      ruleId: `@wordpress/${match[3]}`,
+      ruleId: `@wordpress/${match[4]}`,
     });
   }
   return diagnostics;
@@ -834,18 +890,21 @@ function parseTtscDiagnostics(output: string) {
 function compareDiagnostic(
   left: {
     column: number;
+    file?: string;
     line: number;
     message: string;
     ruleId: string | null;
   },
   right: {
     column: number;
+    file?: string;
     line: number;
     message: string;
     ruleId: string | null;
   },
 ) {
   return (
+    (left.file ?? '').localeCompare(right.file ?? '') ||
     left.line - right.line ||
     left.column - right.column ||
     (left.ruleId ?? '').localeCompare(right.ruleId ?? '') ||

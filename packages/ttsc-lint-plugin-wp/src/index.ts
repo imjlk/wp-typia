@@ -25,13 +25,17 @@ declare module '@ttsc/lint' {
     'wordpress/no-dom-globals-in-module-scope'?: TtscLintRuleSetting;
     'wordpress/no-dom-globals-in-react-cc-render'?: TtscLintRuleSetting;
     'wordpress/no-dom-globals-in-react-fc'?: TtscLintRuleSetting;
+    'wordpress/no-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-global-active-element'?: TtscLintRuleSetting;
     'wordpress/no-global-get-selection'?: TtscLintRuleSetting;
+    'wordpress/no-i18n-in-save'?: TtscLintRuleSetting;
     'wordpress/no-setting-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-unguarded-get-range-at'?: TtscLintRuleSetting;
     'wordpress/no-unknown-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-wp-process-env'?: TtscLintRuleSetting;
+    'wordpress/react-no-unsafe-timeout'?: TtscLintRuleSetting;
     'wordpress/valid-sprintf'?: TtscLintRuleSetting;
+    'wordpress/wp-global-usage'?: TtscLintRuleSetting;
   }
 
   interface ITtscLintRuleOptionsMap {

@@ -79,7 +79,7 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
       compatibilityManifest.wordpressRules.filter(
         ({ kind }) => kind === 'contributor',
       ),
-    ).toHaveLength(23);
+    ).toHaveLength(27);
     expect(
       compatibilityManifest.compiledPresets.recommended.supportedRules,
     ).toHaveLength(109);

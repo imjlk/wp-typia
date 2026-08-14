@@ -34,8 +34,10 @@ registerImplementedRule('no-dom-globals-in-constructor');
 registerImplementedRule('no-dom-globals-in-module-scope');
 registerImplementedRule('no-dom-globals-in-react-cc-render');
 registerImplementedRule('no-dom-globals-in-react-fc');
+registerImplementedRule('no-ds-tokens');
 registerImplementedRule('no-global-active-element');
 registerImplementedRule('no-global-get-selection');
+registerImplementedRule('no-i18n-in-save');
 registerImplementedRule('no-setting-ds-tokens');
 registerImplementedRule('no-unguarded-get-range-at');
 registerImplementedRule('no-unknown-ds-tokens');
@@ -43,7 +45,9 @@ registerImplementedRule('no-unsafe-render-order');
 registerImplementedRule('no-unsafe-wp-apis');
 registerImplementedRule('no-unused-vars-before-return');
 registerImplementedRule('no-wp-process-env');
+registerImplementedRule('react-no-unsafe-timeout');
 registerImplementedRule('valid-sprintf');
+registerImplementedRule('wp-global-usage');
 
 // WordPress presets use the react-hooks namespace while @ttsc/lint exposes
 // the equivalent native rules under react.
