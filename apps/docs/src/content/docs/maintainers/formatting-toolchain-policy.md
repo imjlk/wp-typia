@@ -72,7 +72,9 @@ baseline omits `no-shadow` because its native implementation panics on catch
 clauses, omits two JSX accessibility rules that misclassify imported WordPress
 components as DOM elements, and omits `role-supports-aria-props` because it
 rejects valid progressbar value properties. These omissions are manifest-backed
-and must be removed when their dedicated regressions pass on a newer toolchain.
+and executable parity probes require every failure to remain reproducible. A
+new toolchain that fixes one of them intentionally fails the probe until the
+corresponding downgrade and documentation are removed.
 
 CommonJS package manifests use `lint.config.mts`. This makes the configuration
 module unambiguously ESM when `ttsc` loads the ESM WordPress contributor.
@@ -94,6 +96,14 @@ CI stores content-addressed `ttsc` source-plugin binaries in
 and built workspace packages are shared with downstream project-tool and
 generated-project jobs. Large Go build caches are runner-local and are not
 uploaded for every matrix entry.
+
+`ttsc` 0.26.2 resolves its launcher and native TypeScript compiler from the
+project that owns the lint config. CI therefore exercises normal project
+resolution and does not inject `TTSC_TSGO_BINARY`; environment overrides would
+hide regressions in the same resolution path generated projects use. Contributor
+parity runs against both the minimum supported ttsc release and the repository's
+installed release. A local parity run defaults to the installed release rather
+than silently falling back to the minimum compatibility lane.
 
 Generated smoke coverage is intentionally representative rather than a full
 Cartesian product. Unit and template-source tests cover deterministic manifest
@@ -117,9 +127,19 @@ Registry `@ttsc/lint@0.26.2` still reproduces both lint-host failures. Generated
 and retrofitted projects therefore exact-pin that version and run
 `scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
 package version and expected source/runtime/sidecar files, applies the same narrow
-repairs atomically per file, and fails closed if the upstream layout changes.
-Yarn scaffolds use the `node-modules` linker so the helper never edits a shared
+repairs atomically per file, preserves file permissions, cleans abandoned
+temporary files, and fails closed before writing if the upstream layout changes.
+Its distributed JavaScript check is scoped to the embedded ttsx TypeScript
+template so the container remains valid JavaScript. Production-only installs
+that omit the development lint dependency skip the hook successfully. Yarn
+scaffolds use the `node-modules` linker so the helper never edits a shared
 Plug'n'Play archive.
+
+The project-tools template is the canonical helper source. Run
+`bun run ttsc-lint-compat:sync` after changing it and
+`bun run ttsc-lint-compat:check` to verify the create-workspace template and
+external-template fixture remain byte-identical. The formatting policy validator
+also enforces these invariants.
 
 The generated helper is a development compiler repair, not a WordPress runtime
 dependency. It does not inherit Bun's root `patchedDependencies`; publish and

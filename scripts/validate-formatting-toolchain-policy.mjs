@@ -158,6 +158,10 @@ export const FORMATTING_TOOLCHAIN_POLICY = Object.freeze({
   rootFormatCheckScript: 'node scripts/check-repo-format.mjs',
   rootPolicyValidateScript:
     'node scripts/validate-formatting-toolchain-policy.mjs',
+  rootTtscLintCompatCheckScript:
+    'node scripts/sync-generated-ttsc-lint-compat.mjs',
+  rootTtscLintCompatSyncScript:
+    'node scripts/sync-generated-ttsc-lint-compat.mjs --write',
   ttscLintVersion: TTSC_LINT_VERSION,
   ttscVersion: '0.26.2',
   typiaVersion: TYPIA_VERSION,
@@ -780,26 +784,47 @@ function validateGeneratedTtscLintCompatSource(
     {
       description: 'the TypeScript source digest scopes',
       pattern:
-        /prepareBufferTargetRepair\(lintIndexPath, \[\s*['"]directoryDigest['"],\s*['"]configDirectoryDigest['"],?\s*\]\)/u,
+        /prepareBufferTargetRepair\(\s*lintIndexPath,\s*\[\s*['"]directoryDigest['"],\s*['"]configDirectoryDigest['"],?\s*\],\s*\{[\s\S]*?legacyTargets: \[cachedGenericBufferTarget\][\s\S]*?\}\s*\)/u,
     },
     {
       description: 'the distributed loader digest scope',
       pattern:
-        /prepareBufferTargetRepair\(lintRuntimePath, \[['"]directoryDigest['"]\]\)/u,
+        /prepareBufferTargetRepair\(lintRuntimePath, \[['"]directoryDigest['"]\], \{[\s\S]*?scopeMarker: ['"]exports\.TTSX_EXTRACTOR_SCRIPT = `['"][\s\S]*?\}\)/u,
     },
     {
       description: 'the native sidecar embedded TypeScript loader digest scope',
       pattern:
-        /prepareBufferTargetRepair\(\s*lintHostConfigPath,\s*\[['"]directoryDigest['"]\],\s*['"]func typeScriptConfigLoaderSource\(['"]\s*\)/u,
+        /prepareBufferTargetRepair\(lintHostConfigPath, \[['"]directoryDigest['"]\], \{[\s\S]*?scopeMarker: ['"]func typeScriptConfigLoaderSource\(['"][\s\S]*?\}\)/u,
     },
     {
       description: 'the two Node Buffer targets per digest function',
-      pattern: /if \(matches\.length !== 2\)/u,
+      pattern:
+        /if \(activeStates\.length !== 1 \|\| activeStates\[0\]\.count !== 2\)/u,
     },
     {
       description: 'the guarded unpatched-to-patched state transition',
       pattern:
-        /functionSource\.replace\([\s\S]*?bufferTargetPattern,[\s\S]*?\(\) => 'let target: Buffer = Buffer\.alloc\(0\);'/u,
+        /functionSource = functionSource\.replaceAll\([\s\S]*?activeStates\[0\]\.target,[\s\S]*?patchedTarget[\s\S]*?\);/u,
+    },
+    {
+      description: 'the production-only install escape hatch',
+      pattern:
+        /if \(error\?\.code === ['"]MODULE_NOT_FOUND['"]\) \{[\s\S]*?process\.exit\(0\);/u,
+    },
+    {
+      description: 'the stale temporary-file cleanup',
+      pattern:
+        /function removeStaleTemporaryFiles\(sourcePath\) \{[\s\S]*?STALE_TEMPORARY_FILE_AGE_MS[\s\S]*?fs\.rmSync\(temporaryPath, \{ force: true \}\);/u,
+    },
+    {
+      description: 'the source permission preservation',
+      pattern:
+        /const sourceMode = fs\.statSync\(sourcePath\)\.mode % 0o1000;[\s\S]*?fs\.chmodSync\(temporaryPath, sourceMode\);/u,
+    },
+    {
+      description: 'package-manager-neutral recovery guidance',
+      pattern:
+        /Re-run the project's package-manager install command to recover from a partial write\./u,
     },
     {
       description: 'the atomic temporary-file write',
@@ -1033,6 +1058,22 @@ export function validateFormattingToolchainPolicy(
   ) {
     errors.push(
       `package.json must keep scripts["formatting-policy:validate"]="${policy.rootPolicyValidateScript}", found ${JSON.stringify(scripts['formatting-policy:validate'] ?? null)}.`,
+    );
+  }
+
+  if (
+    scripts['ttsc-lint-compat:check'] !== policy.rootTtscLintCompatCheckScript
+  ) {
+    errors.push(
+      `package.json must keep scripts["ttsc-lint-compat:check"]="${policy.rootTtscLintCompatCheckScript}", found ${JSON.stringify(scripts['ttsc-lint-compat:check'] ?? null)}.`,
+    );
+  }
+
+  if (
+    scripts['ttsc-lint-compat:sync'] !== policy.rootTtscLintCompatSyncScript
+  ) {
+    errors.push(
+      `package.json must keep scripts["ttsc-lint-compat:sync"]="${policy.rootTtscLintCompatSyncScript}", found ${JSON.stringify(scripts['ttsc-lint-compat:sync'] ?? null)}.`,
     );
   }
 

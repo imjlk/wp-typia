@@ -61,6 +61,7 @@ const patterns = [
   '.sampo/changesets/*.md',
   'scripts/audit-public-docs.mjs',
   'scripts/check-repo-format.mjs',
+  'scripts/sync-generated-ttsc-lint-compat.mjs',
   'scripts/validate-formatting-toolchain-policy.mjs',
 ];
 execFileSync(

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..');
 const ttscLauncher = path.join(
@@ -48,6 +49,8 @@ const PATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
   /let target: Buffer = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
 const UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN =
   /let target = Buffer\.alloc\(0\);(?=\r?\n\s*if \(entry\.isSymbolicLink\(\)\))/gu;
+const LEGACY_JSDOC_TTSC_LINT_BUFFER_TARGET =
+  '/** @type {Buffer} */ let target = Buffer.alloc(0);';
 let tempDirs: string[] = [];
 
 function rewriteTtscLintBufferTargets(
@@ -322,7 +325,7 @@ export type Inferred<Value> =
       lintRuntimePath,
       rewriteTtscLintBufferTargets(
         patchedRuntimeSource,
-        'let target = Buffer.alloc(0);',
+        LEGACY_JSDOC_TTSC_LINT_BUFFER_TARGET,
         ['directoryDigest'],
       ),
     );
@@ -402,15 +405,34 @@ export type Inferred<Value> =
       fs.readFileSync(GENERATED_TTSC_LINT_COMPAT_TEMPLATE, 'utf8'),
     );
 
-    const patchResult = spawnSync('node', [compatScriptPath], {
-      cwd: projectDir,
-      encoding: 'utf8',
-    });
+    const staleTemporaryPath = `${lintIndexPath}.wp-typia-12345.tmp`;
+    const freshTemporaryPath = `${lintIndexPath}.wp-typia-67890.tmp`;
+    writeText(staleTemporaryPath, 'stale');
+    writeText(freshTemporaryPath, 'fresh');
+    const staleTime = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    fs.utimesSync(staleTemporaryPath, staleTime, staleTime);
+    fs.chmodSync(lintRuntimePath, 0o764);
+    const runtimeMode = fs.statSync(lintRuntimePath).mode % 0o1000;
+
+    const patchResult = spawnSync(
+      'node',
+      [
+        '--input-type=module',
+        '--eval',
+        `process.umask(0o077); await import(${JSON.stringify(pathToFileURL(compatScriptPath).href)});`,
+      ],
+      {
+        cwd: projectDir,
+        encoding: 'utf8',
+      },
+    );
     expect(patchResult.error).toBeUndefined();
     expect(
       patchResult.status,
       `${patchResult.stdout ?? ''}${patchResult.stderr ?? ''}`,
     ).toBe(0);
+    expect(fs.existsSync(staleTemporaryPath)).toBe(false);
+    expect(fs.existsSync(freshTemporaryPath)).toBe(true);
     expect(fs.readFileSync(lintRulePath, 'utf8')).toContain(
       'Mapped and infer type parameters do not expose TypeParameterList.',
     );
@@ -432,6 +454,13 @@ export type Inferred<Value> =
       repairedRuntimeSource.match(UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN)
         ?.length ?? 0,
     ).toBe(0);
+    expect(repairedRuntimeSource).not.toContain(
+      LEGACY_JSDOC_TTSC_LINT_BUFFER_TARGET,
+    );
+    expect(fs.statSync(lintRuntimePath).mode % 0o1000).toBe(runtimeMode);
+    const runtimeSyntaxResult = spawnSync('node', ['--check', lintRuntimePath]);
+    expect(runtimeSyntaxResult.error).toBeUndefined();
+    expect(runtimeSyntaxResult.status).toBe(0);
     const repairedLintHostConfigSource = fs.readFileSync(
       lintHostConfigPath,
       'utf8',
@@ -449,6 +478,9 @@ export type Inferred<Value> =
         UNPATCHED_TTSC_LINT_BUFFER_TARGET_PATTERN,
       )?.length ?? 0,
     ).toBe(0);
+    const repeatedStaleTemporaryPath = `${lintIndexPath}.wp-typia-24680.tmp`;
+    writeText(repeatedStaleTemporaryPath, 'stale after repair');
+    fs.utimesSync(repeatedStaleTemporaryPath, staleTime, staleTime);
     const repeatedPatchResult = spawnSync('node', [compatScriptPath], {
       cwd: projectDir,
       encoding: 'utf8',
@@ -458,6 +490,7 @@ export type Inferred<Value> =
       repeatedPatchResult.status,
       `${repeatedPatchResult.stdout ?? ''}${repeatedPatchResult.stderr ?? ''}`,
     ).toBe(0);
+    expect(fs.existsSync(repeatedStaleTemporaryPath)).toBe(false);
 
     const result = runTtsc(projectDir, [
       '--project',
@@ -468,6 +501,115 @@ export type Inferred<Value> =
     expect(result.status, result.output).toBe(0);
     expect(result.output.toLowerCase()).not.toContain('panic');
   }, TTSC_PROCESS_TIMEOUT_MS);
+
+  test('skips the generated compatibility hook when production installs omit lint tooling', () => {
+    const projectDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-generated-lint-production-'),
+    );
+    tempDirs.push(projectDir);
+    writeJson(path.join(projectDir, 'package.json'), {
+      private: true,
+      type: 'module',
+    });
+    const compatScriptPath = path.join(
+      projectDir,
+      'scripts',
+      'apply-ttsc-lint-compat.mjs',
+    );
+    writeText(
+      compatScriptPath,
+      fs.readFileSync(GENERATED_TTSC_LINT_COMPAT_TEMPLATE, 'utf8'),
+    );
+
+    const result = spawnSync('node', [compatScriptPath], {
+      cwd: projectDir,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain(
+      '@ttsc/lint is not installed; skipping development-only compatibility repairs.',
+    );
+  });
+
+  test('fails closed on unexpected lint sources before writing partial repairs', () => {
+    const projectDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'wp-typia-generated-lint-unexpected-'),
+    );
+    tempDirs.push(projectDir);
+    const lintPackageRoot = path.join(
+      projectDir,
+      'node_modules',
+      '@ttsc',
+      'lint',
+    );
+    fs.mkdirSync(path.dirname(lintPackageRoot), { recursive: true });
+    fs.cpSync(
+      fs.realpathSync(path.join(repoRoot, 'node_modules', '@ttsc', 'lint')),
+      lintPackageRoot,
+      { recursive: true },
+    );
+    writeJson(path.join(projectDir, 'package.json'), {
+      private: true,
+      type: 'module',
+    });
+    const compatScriptPath = path.join(
+      projectDir,
+      'scripts',
+      'apply-ttsc-lint-compat.mjs',
+    );
+    writeText(
+      compatScriptPath,
+      fs.readFileSync(GENERATED_TTSC_LINT_COMPAT_TEMPLATE, 'utf8'),
+    );
+    const lintIndexPath = path.join(lintPackageRoot, 'src', 'index.ts');
+    const originalIndexSource = fs.readFileSync(lintIndexPath, 'utf8');
+    const presentTarget = [
+      'let target: Buffer<ArrayBufferLike<ArrayBuffer>> = Buffer.alloc(0);',
+      'let target: Buffer = Buffer.alloc(0);',
+      'let target = Buffer.alloc(0);',
+    ].find((candidate) => originalIndexSource.includes(candidate));
+    expect(
+      presentTarget,
+      'expected a recognized Buffer target declaration in @ttsc/lint src/index.ts',
+    ).toBeDefined();
+    const unexpectedIndexSource = originalIndexSource.replace(
+      presentTarget!,
+      'let target: Uint8Array = Buffer.alloc(0);',
+    );
+    expect(unexpectedIndexSource).not.toBe(originalIndexSource);
+    writeText(lintIndexPath, unexpectedIndexSource);
+    const unchangedRepairSources = [
+      path.join(lintPackageRoot, 'linthost', 'rules_format_trailing_comma.go'),
+      path.join(lintPackageRoot, 'lib', 'index.js'),
+      path.join(lintPackageRoot, 'linthost', 'config.go'),
+    ].map((sourcePath) => ({
+      source: fs.readFileSync(sourcePath, 'utf8'),
+      sourcePath,
+    }));
+
+    const result = spawnSync('node', [compatScriptPath], {
+      cwd: projectDir,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      'Failed to apply the @ttsc/lint compatibility repairs.',
+    );
+    expect(result.stderr).toContain(
+      "unexpected type annotation 'Uint8Array'",
+    );
+    expect(result.stderr).toContain(
+      "Re-run the project's package-manager install command",
+    );
+    expect(fs.readFileSync(lintIndexPath, 'utf8')).toBe(unexpectedIndexSource);
+    for (const { source, sourcePath } of unchangedRepairSources) {
+      expect(fs.readFileSync(sourcePath, 'utf8')).toBe(source);
+    }
+  });
 
   test('keeps every generated ttsc lint compatibility hook identical', () => {
     const canonicalSource = fs.readFileSync(
