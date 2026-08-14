@@ -244,3 +244,114 @@ void closureReferenceCountsAsUsage;
 void shorthandReferenceCountsAsUsage;
 void propertyReferenceCountsAsUsage;
 void arrayBindingsReportPerVariable;
+
+// wordpress/no-dom-globals-* coverage. Bare blocks, catch clauses, and class
+// scopes terminate the upstream scope walk, so those references stay
+// unreported even though a matching scope exists further out.
+document;
+window.location;
+location.reload?.();
+const domGlobalShorthand = { screen };
+const [destructuredDomGlobal = history] = [];
+if (true) {
+  document;
+}
+{
+  screen;
+}
+try {
+  document;
+} catch (error) {
+  document;
+}
+for (const domKey in window) {
+  break;
+}
+labeledDomUsage: location;
+const domTypeofGuard = typeof window !== 'undefined';
+const domGlobalsTemplate = `${screen}`;
+const shadowedDomReference = () => {
+  const window = { location: null };
+  return window.location;
+};
+const readDomOutsideRender = () => document.body;
+class DomGlobalsClass {
+  field = document;
+  constructor() {
+    screen;
+  }
+  notConstructorMethod() {
+    {
+      location;
+    }
+  }
+  render() {
+    return <div>{history.length}</div>;
+  }
+  helperReturningJsx() {
+    return <span>{location.href}</span>;
+  }
+  plainMethod() {
+    return window;
+  }
+}
+const DomFunctionComponent = () => {
+  document;
+  return <div />;
+};
+const NotJsxReturnComponent = () => {
+  location;
+  return null;
+};
+const ConciseJsxComponent = () => <div>{history.length}</div>;
+function DeclaredFunctionComponent() {
+  document;
+  return <div />;
+}
+const domCallbackOutsideRender = () => {
+  [].forEach(() => {
+    document;
+  });
+  return <div />;
+};
+const domBlockInsideRenderCycle = () => {
+  {
+    screen;
+  }
+  return <div />;
+};
+
+// Codex review follow-ups: each case mirrors oracle-verified scope semantics.
+const parenthesizedTypeofGuard = typeof (window);
+const objectRenderMethod = {
+  render() {
+    return <>{window}</>;
+  },
+};
+const namedWindowExpression = function window() {
+  return <>{window}</>;
+};
+function switchScopedDomGlobal(value) {
+  switch (value) {
+    case 1:
+      // biome-ignore lint/correctness/noSwitchDeclarations: Verifies switch-scoped shadowing without a block.
+      const window = 1;
+    case 2:
+      return () => <>{window}</>;
+  }
+  return null;
+}
+class StaticBlockVarClass {
+  static {
+    var document;
+  }
+}
+document;
+const parameterDefaultDomGlobal = (value = window) => {
+  var window = { length: 1 };
+  return <div />;
+};
+// Class heritage clauses resolve inside the class scope upstream, so neither
+// the bare nor the member extends expression is reported.
+class HeritageBare extends window {}
+class HeritageMember extends window.HTMLElement {}

@@ -21,6 +21,10 @@ declare module '@ttsc/lint' {
     'wordpress/i18n-no-variables'?: TtscLintRuleSetting;
     'wordpress/i18n-translator-comments'?: TtscLintRuleSetting;
     'wordpress/no-base-control-with-label-without-id'?: TtscLintRuleSetting;
+    'wordpress/no-dom-globals-in-constructor'?: TtscLintRuleSetting;
+    'wordpress/no-dom-globals-in-module-scope'?: TtscLintRuleSetting;
+    'wordpress/no-dom-globals-in-react-cc-render'?: TtscLintRuleSetting;
+    'wordpress/no-dom-globals-in-react-fc'?: TtscLintRuleSetting;
     'wordpress/no-global-active-element'?: TtscLintRuleSetting;
     'wordpress/no-global-get-selection'?: TtscLintRuleSetting;
     'wordpress/no-setting-ds-tokens'?: TtscLintRuleSetting;
