@@ -1,5 +1,14 @@
 # @wp-typia/create-workspace-template
 
+## 0.20.1 — 2026-08-14
+
+### Patch changes
+
+- [15cfc2d2](https://github.com/imjlk/wp-typia/commit/15cfc2d21d98cd398e86c9c019a7d9424d7dcd5b) Fixed: harden generated-project compatibility with `@ttsc/lint` 0.26.2.
+  
+  - Production-only installs now skip the development compiler repair when lint tooling is absent.
+  - Compatibility repairs preserve permissions, clean abandoned temporary files, validate embedded TypeScript boundaries, and fail closed before partial writes. — Thanks @imjlk!
+
 ## 0.20.0 — 2026-08-11
 
 ### Minor changes
