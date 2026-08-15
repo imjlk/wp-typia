@@ -1,6 +1,6 @@
 {
   "name": "@wp-typia/ttsc-lint-plugin-wp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "WordPress lint rule and preset compatibility for @ttsc/lint",
   "type": "module",
   "main": "dist/index.js",
