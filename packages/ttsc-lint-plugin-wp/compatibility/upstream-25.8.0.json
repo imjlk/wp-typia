@@ -2403,8 +2403,9 @@
       "source": "array-element-newline"
     },
     {
-      "kind": "unsupported",
-      "source": "arrow-parens"
+      "kind": "runner",
+      "source": "arrow-parens",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -2436,8 +2437,9 @@
       "target": "camelcase"
     },
     {
-      "kind": "unsupported",
-      "source": "comma-dangle"
+      "kind": "runner",
+      "source": "comma-dangle",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -2470,8 +2472,9 @@
       "target": "dot-notation"
     },
     {
-      "kind": "unsupported",
-      "source": "eol-last"
+      "kind": "runner",
+      "source": "eol-last",
+      "target": "ttsc format"
     },
     {
       "kind": "builtin",
@@ -2572,8 +2575,9 @@
       "source": "import/no-unresolved"
     },
     {
-      "kind": "unsupported",
-      "source": "indent"
+      "kind": "runner",
+      "source": "indent",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -3267,8 +3271,9 @@
       "target": "no-multi-str"
     },
     {
-      "kind": "unsupported",
-      "source": "no-multiple-empty-lines"
+      "kind": "runner",
+      "source": "no-multiple-empty-lines",
+      "target": "ttsc format"
     },
     {
       "kind": "builtin",
@@ -3326,8 +3331,9 @@
       "target": "no-this-before-super"
     },
     {
-      "kind": "unsupported",
-      "source": "no-trailing-spaces"
+      "kind": "runner",
+      "source": "no-trailing-spaces",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -3403,8 +3409,9 @@
       "source": "object-curly-newline"
     },
     {
-      "kind": "unsupported",
-      "source": "object-curly-spacing"
+      "kind": "runner",
+      "source": "object-curly-spacing",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -3624,8 +3631,9 @@
       "source": "quote-props"
     },
     {
-      "kind": "unsupported",
-      "source": "quotes"
+      "kind": "runner",
+      "source": "quotes",
+      "target": "ttsc format"
     },
     {
       "kind": "mapped",
@@ -3806,8 +3814,9 @@
       "source": "rest-spread-spacing"
     },
     {
-      "kind": "unsupported",
-      "source": "semi"
+      "kind": "runner",
+      "source": "semi",
+      "target": "ttsc format"
     },
     {
       "kind": "unsupported",
@@ -4359,7 +4368,16 @@
         }
       ],
       "runnerRules": [
-        "prettier/prettier"
+        "arrow-parens",
+        "comma-dangle",
+        "eol-last",
+        "indent",
+        "no-multiple-empty-lines",
+        "no-trailing-spaces",
+        "object-curly-spacing",
+        "prettier/prettier",
+        "quotes",
+        "semi"
       ],
       "sourceEntryCount": 17,
       "supportedRules": [
@@ -4478,22 +4496,18 @@
         "@typescript-eslint/no-unused-vars",
         "array-bracket-spacing",
         "array-callback-return",
-        "arrow-parens",
         "arrow-spacing",
         "brace-style",
-        "comma-dangle",
         "comma-spacing",
         "comma-style",
         "computed-property-spacing",
         "constructor-super",
-        "eol-last",
         "func-call-spacing",
         "import/default",
         "import/named",
         "import/no-duplicates",
         "import/no-extraneous-dependencies",
         "import/no-unresolved",
-        "indent",
         "jsdoc/check-access",
         "jsdoc/check-alignment",
         "jsdoc/check-line-alignment",
@@ -4528,18 +4542,14 @@
         "no-extra-semi",
         "no-mixed-spaces-and-tabs",
         "no-multi-spaces",
-        "no-multiple-empty-lines",
         "no-shadow",
-        "no-trailing-spaces",
         "no-undef",
         "no-unused-vars",
         "no-whitespace-before-property",
-        "object-curly-spacing",
         "one-var-declaration-per-line",
         "operator-linebreak",
         "padded-blocks",
         "quote-props",
-        "quotes",
         "react/jsx-curly-spacing",
         "react/jsx-equals-spacing",
         "react/jsx-indent",
@@ -4554,7 +4564,6 @@
         "react/prop-types",
         "react/react-in-jsx-scope",
         "react/require-render-return",
-        "semi",
         "semi-spacing",
         "space-before-blocks",
         "space-before-function-paren",

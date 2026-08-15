@@ -57,6 +57,21 @@ registerImplementedRule('use-recommended-components');
 registerImplementedRule('valid-sprintf');
 registerImplementedRule('wp-global-usage');
 
+// Stylistic rules whose concern the `ttsc format` runner normalizes. Every
+// entry is re-verified by the parity harness's formatter coverage probe, so a
+// formatter regression downgrades the claim instead of silently rotting.
+const FORMATTER_RULES = new Set([
+  'arrow-parens',
+  'comma-dangle',
+  'eol-last',
+  'indent',
+  'no-multiple-empty-lines',
+  'no-trailing-spaces',
+  'object-curly-spacing',
+  'quotes',
+  'semi',
+]);
+
 // WordPress presets use the react-hooks namespace while @ttsc/lint exposes
 // the equivalent native rules under react.
 const RULE_ALIASES = new Map<string, string>([
@@ -498,7 +513,7 @@ function classifyRule(
   if (source.startsWith('@wordpress/')) {
     return { kind: 'unsupported', source };
   }
-  if (source === 'prettier/prettier') {
+  if (source === 'prettier/prettier' || FORMATTER_RULES.has(source)) {
     return { kind: 'runner', source, target: 'ttsc format' };
   }
   const aliasTarget = RULE_ALIASES.get(source);

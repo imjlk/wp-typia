@@ -53,7 +53,18 @@ assert.deepEqual(
 );
 assert.deepEqual(
   compatibilityManifest.compiledPresets.recommended.runnerRules,
-  ['prettier/prettier'],
+  [
+    'arrow-parens',
+    'comma-dangle',
+    'eol-last',
+    'indent',
+    'no-multiple-empty-lines',
+    'no-trailing-spaces',
+    'object-curly-spacing',
+    'prettier/prettier',
+    'quotes',
+    'semi',
+  ],
 );
 assert.ok(
   compatibilityManifest.compiledPresets.recommended.supportedRules.length > 0,

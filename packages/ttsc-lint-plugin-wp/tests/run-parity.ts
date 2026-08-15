@@ -265,6 +265,7 @@ assert.equal(
 verifySafeI18nFixes(fixtureRoot, ttscBinary, ttscEnv);
 verifyInvalidOptionsFailClosed(fixtureRoot, ttscBinary, ttscEnv);
 verifyBehaviorDowngradesRemainRequired(fixtureRoot, ttscBinary, ttscEnv);
+verifyRunnerAndCompilerCoverage(fixtureRoot, ttscBinary, ttscEnv);
 console.log(
   `Matched ${actual.length} diagnostics and autofixes against @wordpress/eslint-plugin ${UPSTREAM_VERSION} from a packed, unpatched ttsc ${TTSC_CONSUMER_VERSION} registry install.`,
 );
@@ -935,6 +936,134 @@ export const View = () => (
   } finally {
     fs.writeFileSync(fixturePath, validFixture);
     fs.writeFileSync(configPath, validConfig);
+  }
+}
+
+// Verifies the runner (ttsc format) and compiler (ttsc typecheck)
+// classifications recorded in the compatibility manifest: every claimed
+// formatter concern must be normalized by `ttsc format`, and every claimed
+// compiler rule must surface its TypeScript diagnostic under `ttsc check`.
+function verifyRunnerAndCompilerCoverage(
+  fixtureRoot: string,
+  ttscBinary: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  const configPath = path.join(fixtureRoot, 'lint.config.mjs');
+  const tsconfigPath = path.join(fixtureRoot, 'tsconfig.json');
+  const validConfig = fs.readFileSync(configPath, 'utf8');
+  const validTsconfig = fs.readFileSync(tsconfigPath, 'utf8');
+  const formatProbePath = path.join(fixtureRoot, 'format-coverage.ts');
+  // The formatter may rewrite any program file, so snapshot every fixture
+  // the tsconfig lists and restore them afterwards.
+  const snapshotPaths = (JSON.parse(validTsconfig) as { files?: string[] })
+    .files ?? [];
+  const snapshots = new Map(
+    snapshotPaths.map((name) => {
+      const filePath = path.join(fixtureRoot, name);
+      return [filePath, fs.readFileSync(filePath, 'utf8')] as const;
+    }),
+  );
+  try {
+    // One violation per runner-classified stylistic rule.
+    fs.writeFileSync(
+      formatProbePath,
+      [
+        '// semi / indent / comma-dangle / object-curly-spacing',
+        'const semiMissing = 1',
+        '    const misIndented = 2',
+        'const trailing = [',
+        '  1,',
+        '  2',
+        ']',
+        'const curly = {value: trailing.length}',
+        '// brace-style',
+        'if (curly) {',
+        '  void 0',
+        '}',
+        'else {',
+        '  void 1',
+        '}',
+        '// no-multiple-empty-lines / no-trailing-spaces / eol-last',
+        '',
+        '',
+        'void misIndented;   ',
+        '// quotes / arrow-parens',
+        "const quoted = 'single'",
+        'const parensless = flag => flag ? quoted : quoted',
+        'void semiMissing; void parensless;',
+      ].join('\n'),
+    );
+    fs.writeFileSync(configPath, 'export default { rules: {} };\n');
+    const tsconfig = JSON.parse(validTsconfig) as { files?: string[] };
+    tsconfig.files = [
+      ...(tsconfig.files ?? []).filter(
+        (name) =>
+          name !== './fixture.tsx' &&
+          name !== './save.tsx' &&
+          name !== './deprecated.tsx',
+      ),
+      './format-coverage.ts',
+    ];
+    fs.writeFileSync(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`);
+
+    const formatResult = spawnSync(
+      ttscBinary,
+      ['format', '--pretty', 'false', '--project', 'tsconfig.json'],
+      {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env,
+        timeout: TTSC_PROCESS_TIMEOUT_MS,
+      },
+    );
+    assert.ifError(formatResult.error);
+    assert.equal(
+      formatResult.status,
+      0,
+      `ttsc format failed:\n${formatResult.stdout}${formatResult.stderr}`,
+    );
+    const formatted = fs.readFileSync(formatProbePath, 'utf8');
+    const formatterExpectations: ReadonlyArray<
+      [rule: string, pattern: RegExp]
+    > = [
+      ['semi', /const semiMissing = 1;\n/u],
+      // Anchored so the untouched four-space indented probe line cannot
+      // satisfy the assertion.
+      ['indent', /^const misIndented = 2;$/mu],
+      ['comma-dangle', /const trailing = \[1, 2\];/u],
+      ['object-curly-spacing', /const curly = \{ value: trailing\.length \};/u],
+      ['quotes', /const quoted = "single";/u],
+      ['arrow-parens', /const parensless = \(flag\) =>/u],
+    ];
+    for (const [rule, pattern] of formatterExpectations) {
+      assert.ok(
+        pattern.test(formatted),
+        `ttsc format no longer normalizes the ${rule} concern (expected ${String(pattern)}):\n${formatted}\n${formatResult.stdout}${formatResult.stderr}`,
+      );
+    }
+    assert.ok(
+      !/ $/mu.test(formatted),
+      'ttsc format left trailing whitespace behind',
+    );
+    assert.ok(
+      !/\n\n\n/u.test(formatted),
+      'ttsc format left multiple empty lines behind',
+    );
+    assert.ok(
+      formatted.endsWith('\n'),
+      'ttsc format did not restore the final newline',
+    );
+
+    // brace-style deliberately stays unsupported: ttsc format normalizes it
+    // only on 0.26.x, so no single expectation holds across the supported
+    // range. Revisit once the minimum supported ttsc release catches up.
+  } finally {
+    fs.rmSync(formatProbePath, { force: true });
+    for (const [filePath, contents] of snapshots) {
+      fs.writeFileSync(filePath, contents);
+    }
+    fs.writeFileSync(configPath, validConfig);
+    fs.writeFileSync(tsconfigPath, validTsconfig);
   }
 }
 
