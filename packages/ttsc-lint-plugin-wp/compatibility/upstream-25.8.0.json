@@ -9,20 +9,24 @@
   "ttscRange": ">=0.23.0 <0.27.0",
   "wordpressRules": [
     {
-      "kind": "unsupported",
-      "source": "@wordpress/components-no-missing-40px-size-prop"
+      "kind": "contributor",
+      "source": "@wordpress/components-no-missing-40px-size-prop",
+      "target": "wordpress/components-no-missing-40px-size-prop"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/components-no-unsafe-button-disabled"
+      "kind": "contributor",
+      "source": "@wordpress/components-no-unsafe-button-disabled",
+      "target": "wordpress/components-no-unsafe-button-disabled"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/data-no-store-string-literals"
+      "kind": "contributor",
+      "source": "@wordpress/data-no-store-string-literals",
+      "target": "wordpress/data-no-store-string-literals"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/dependency-group"
+      "kind": "contributor",
+      "source": "@wordpress/dependency-group",
+      "target": "wordpress/dependency-group"
     },
     {
       "kind": "contributor",
@@ -110,8 +114,9 @@
       "target": "wordpress/no-i18n-in-save"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-non-module-stylesheet-imports"
+      "kind": "contributor",
+      "source": "@wordpress/no-non-module-stylesheet-imports",
+      "target": "wordpress/no-non-module-stylesheet-imports"
     },
     {
       "kind": "contributor",
@@ -129,8 +134,9 @@
       "target": "wordpress/no-unknown-ds-tokens"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/no-unmerged-classname"
+      "kind": "contributor",
+      "source": "@wordpress/no-unmerged-classname",
+      "target": "wordpress/no-unmerged-classname"
     },
     {
       "kind": "contributor",
@@ -158,12 +164,14 @@
       "target": "wordpress/react-no-unsafe-timeout"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/use-import-as"
+      "kind": "contributor",
+      "source": "@wordpress/use-import-as",
+      "target": "wordpress/use-import-as"
     },
     {
-      "kind": "unsupported",
-      "source": "@wordpress/use-recommended-components"
+      "kind": "contributor",
+      "source": "@wordpress/use-recommended-components",
+      "target": "wordpress/use-recommended-components"
     },
     {
       "kind": "contributor",

@@ -66,6 +66,10 @@ command. Stylelint and non-code formatting remain separate concerns.
 
 ## Native rules
 
+- `wordpress/components-no-missing-40px-size-prop`
+- `wordpress/components-no-unsafe-button-disabled`
+- `wordpress/data-no-store-string-literals`
+- `wordpress/dependency-group`
 - `wordpress/i18n-ellipsis`
 - `wordpress/i18n-hyphenated-range`
 - `wordpress/i18n-no-collapsible-whitespace`
@@ -83,18 +87,24 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/no-global-active-element`
 - `wordpress/no-global-get-selection`
 - `wordpress/no-i18n-in-save`
+- `wordpress/no-non-module-stylesheet-imports`
 - `wordpress/no-setting-ds-tokens`
 - `wordpress/no-unguarded-get-range-at`
 - `wordpress/no-unknown-ds-tokens`
+- `wordpress/no-unmerged-classname`
 - `wordpress/no-unsafe-render-order`
 - `wordpress/no-unsafe-wp-apis`
 - `wordpress/no-unused-vars-before-return`
 - `wordpress/no-wp-process-env`
 - `wordpress/react-no-unsafe-timeout`
+- `wordpress/use-import-as`
+- `wordpress/use-recommended-components`
 - `wordpress/valid-sprintf`
 - `wordpress/wp-global-usage`
 
-`i18n-text-domain` accepts the upstream `allowedTextDomain` string or string
+The two `components-*` rules accept the upstream `checkLocalImports` boolean
+to also track relative default imports. `i18n-text-domain` accepts the upstream
+`allowedTextDomain` string or string
 array. `no-unsafe-wp-apis` accepts a map from an `@wordpress/*` package to the
 unstable or experimental named imports allowed from that package.
 `no-unsafe-render-order` accepts `checkLocalImports` to include tracked

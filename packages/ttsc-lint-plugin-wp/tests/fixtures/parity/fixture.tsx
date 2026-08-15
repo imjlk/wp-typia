@@ -1,7 +1,22 @@
 import {
   __experimentalBlocked,
   __unstableAllowed,
+  Button,
+  ClipboardButton,
+  IconButton,
 } from '@wordpress/components';
+import LocalButton from './button';
+import LocalIconButton from './icon-button';
+import { privateApis } from '@wordpress/components';
+
+const dynamicSize = 'compact';
+const dynamicStoreName = 'core/dynamic';
+const storeDefinition = {};
+import './style.css';
+import './build/module.css';
+import styles from './styles.module.scss';
+import './theme.css?ver=2';
+void styles;
 import { Link, Text, VisuallyHidden } from '@wordpress/ui';
 import { Link as LocalLink, Text as LocalText } from './local-ui.js';
 
@@ -448,3 +463,93 @@ class MemberSuperComponent extends React.Component {
     return <div />;
   }
 }
+
+// wordpress/components-no-unsafe-button-disabled and
+// wordpress/components-no-missing-40px-size-prop.
+<Button disabled>Save</Button>;
+<Button disabled accessibleWhenDisabled>Accessible</Button>;
+<Button disabled={false}>Not Disabled</Button>;
+<Button __next40pxDefaultSize>Forty</Button>;
+<Button size="compact">Compact</Button>;
+<Button size="default">Explicit Default</Button>;
+<Button size={dynamicSize}>Dynamic Size</Button>;
+<Button variant="link">Link Variant</Button>;
+<Button variant="primary">Primary Variant</Button>;
+<ClipboardButton size="compact">Copy</ClipboardButton>;
+<IconButton>Icon</IconButton>;
+<LocalButton disabled size="compact">Local Disabled</LocalButton>;
+<LocalButton __next40pxDefaultSize>Local Forty</LocalButton>;
+<LocalIconButton size="compact">Local Icon</LocalIconButton>;
+
+// wordpress/no-unmerged-classname.
+function PlainPropsComponent(props) {
+  return <div className="root" {...props} />;
+}
+function DestructuredWithoutMerge({ label, ...rest }) {
+  return <div className="root" {...rest} label={label} />;
+}
+function DestructuredWithMerge({ className, ...rest }) {
+  return <div className={`root ${className}`} {...rest} />;
+}
+function NoRestElementComponent({ className }) {
+  return <div className="root" data-class-name={className} />;
+}
+function NoSpreadComponent({ ...rest }) {
+  return <div className="root" data-rest={rest} />;
+}
+
+// wordpress/use-recommended-components.
+import {
+  Card,
+  Animate,
+  ExternalLink,
+  NotFromComponents,
+} from '@wordpress/components';
+import { NotRecommended } from '@wordpress/ui';
+import { unlock } from './local-ui.js';
+void Card;
+void Animate;
+void ExternalLink;
+void NotFromComponents;
+void NotRecommended;
+const unlockedComponents = unlock(privateApis);
+const { Card: LocalCard, __experimentalGrid } = unlockedComponents;
+void LocalCard;
+const { Animate: WrongUnlockName } = unlock(privateApis);
+void WrongUnlockName;
+const notPrivateApisUnlock = unlock(NotFromComponents);
+void notPrivateApisUnlock;
+
+// wordpress/use-import-as.
+import { Button as WrongButtonName } from '@wordpress/components';
+void WrongButtonName;
+const { Button: AlsoWrongButtonName } = unlock(privateApis);
+void AlsoWrongButtonName;
+
+// wordpress/data-no-store-string-literals.
+import {
+  controls,
+  createRegistrySelector,
+  dispatch,
+  resolveSelect,
+  select,
+  useDispatch,
+  useSelect,
+  withDispatch,
+  withSelect,
+} from '@wordpress/data';
+select('core/editor');
+resolveSelect('core/annotations');
+dispatch('core/blocks')();
+useDispatch('core/edit-site');
+useSelect(select('core/editor'));
+withSelect((selectedStore) => selectedStore('core/editor'));
+withDispatch((selectedDispatch) => selectedDispatch('core/blocks'));
+createRegistrySelector((selectedRegistry) => selectedRegistry('core/editor'));
+controls.dispatch('core/editor');
+controls.select('core/blocks');
+select(dynamicStoreName);
+select(storeDefinition);
+
+// wordpress/dependency-group: the fixture's existing grouped imports satisfy
+// the rule for some localities; the data import above needs a WordPress block.
