@@ -160,6 +160,19 @@ rules and every rule enabled or disabled across the 13 upstream presets in
 - `runner`: an external formatter such as Prettier owns the behavior;
 - `unsupported`: parity work remains.
 
+The compiled preset records formatter-classified rules in `runnerRules`.
+Nine stylistic rules (`semi`, `quotes`, `indent`, `comma-dangle`,
+`object-curly-spacing`, `arrow-parens`, `no-trailing-spaces`,
+`no-multiple-empty-lines`, and `eol-last`) are runner-classified because
+`ttsc format` provably normalizes each concern. The parity harness
+re-verifies every claim on each run — a formatter regression fails the
+build instead of silently invalidating the classification. Rules the
+formatter leaves untouched (such as `key-spacing`, `space-infix-ops`, and
+`brace-style`, which normalizes only on newer ttsc releases) deliberately
+stay `unsupported`. Correctness rules like `no-undef` stay unsupported too:
+the TypeScript checker reports them only for TypeScript files, and the
+upstream preset also applies them to unchecked JavaScript.
+
 ```ts
 import { compatibilityManifest } from '@wp-typia/ttsc-lint-plugin-wp';
 ```
