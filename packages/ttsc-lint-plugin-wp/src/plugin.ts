@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
 
 export const ruleNames = [
+  'components-no-missing-40px-size-prop',
+  'components-no-unsafe-button-disabled',
+  'data-no-store-string-literals',
+  'dependency-group',
   'i18n-ellipsis',
   'i18n-hyphenated-range',
   'i18n-no-collapsible-whitespace',
@@ -21,14 +25,18 @@ export const ruleNames = [
   'no-global-active-element',
   'no-global-get-selection',
   'no-i18n-in-save',
+  'no-non-module-stylesheet-imports',
   'no-setting-ds-tokens',
   'no-unguarded-get-range-at',
   'no-unknown-ds-tokens',
+  'no-unmerged-classname',
   'no-unsafe-render-order',
   'no-unsafe-wp-apis',
   'no-unused-vars-before-return',
   'no-wp-process-env',
   'react-no-unsafe-timeout',
+  'use-import-as',
+  'use-recommended-components',
   'valid-sprintf',
   'wp-global-usage',
 ] as const;

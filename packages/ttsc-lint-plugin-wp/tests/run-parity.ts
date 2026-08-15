@@ -78,6 +78,18 @@ const upstreamRoot = await prepareUpstreamPackage();
 verifyEmbeddedDesignTokens(upstreamRoot, require);
 verifyEmbeddedDomGlobals(packageRoot, pinnedGlobalsRoot(upstreamRoot));
 const upstreamRules = {
+  'components-no-missing-40px-size-prop': require(
+    path.join(upstreamRoot, 'rules/components-no-missing-40px-size-prop.js'),
+  ),
+  'components-no-unsafe-button-disabled': require(
+    path.join(upstreamRoot, 'rules/components-no-unsafe-button-disabled.js'),
+  ),
+  'data-no-store-string-literals': require(
+    path.join(upstreamRoot, 'rules/data-no-store-string-literals.js'),
+  ),
+  'dependency-group': require(
+    path.join(upstreamRoot, 'rules/dependency-group.js'),
+  ),
   'i18n-ellipsis': require(path.join(upstreamRoot, 'rules/i18n-ellipsis.js')),
   'i18n-hyphenated-range': require(
     path.join(upstreamRoot, 'rules/i18n-hyphenated-range.js'),
@@ -128,11 +140,17 @@ const upstreamRules = {
   'no-i18n-in-save': require(
     path.join(upstreamRoot, 'rules/no-i18n-in-save.js'),
   ),
+  'no-non-module-stylesheet-imports': require(
+    path.join(upstreamRoot, 'rules/no-non-module-stylesheet-imports.js'),
+  ),
   'no-setting-ds-tokens': require(
     path.join(upstreamRoot, 'rules/no-setting-ds-tokens.js'),
   ),
   'no-unknown-ds-tokens': require(
     path.join(upstreamRoot, 'rules/no-unknown-ds-tokens.js'),
+  ),
+  'no-unmerged-classname': require(
+    path.join(upstreamRoot, 'rules/no-unmerged-classname.js'),
   ),
   'no-unguarded-get-range-at': require(
     path.join(upstreamRoot, 'rules/no-unguarded-get-range-at.js'),
@@ -145,6 +163,10 @@ const upstreamRules = {
   ),
   'react-no-unsafe-timeout': require(
     path.join(upstreamRoot, 'rules/react-no-unsafe-timeout.js'),
+  ),
+  'use-import-as': require(path.join(upstreamRoot, 'rules/use-import-as.js')),
+  'use-recommended-components': require(
+    path.join(upstreamRoot, 'rules/use-recommended-components.js'),
   ),
   'no-unused-vars-before-return': require(
     path.join(upstreamRoot, 'rules/no-unused-vars-before-return.js'),
@@ -266,6 +288,16 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress': { rules: upstreamRules },
       },
       rules: {
+        '@wordpress/components-no-missing-40px-size-prop': [
+          'error',
+          { checkLocalImports: true },
+        ],
+        '@wordpress/components-no-unsafe-button-disabled': [
+          'error',
+          { checkLocalImports: true },
+        ],
+        '@wordpress/data-no-store-string-literals': 'error',
+        '@wordpress/dependency-group': 'error',
         '@wordpress/i18n-ellipsis': 'error',
         '@wordpress/i18n-hyphenated-range': 'error',
         '@wordpress/i18n-no-collapsible-whitespace': 'error',
@@ -286,8 +318,10 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress/no-global-active-element': 'error',
         '@wordpress/no-global-get-selection': 'error',
         '@wordpress/no-i18n-in-save': 'error',
+        '@wordpress/no-non-module-stylesheet-imports': 'error',
         '@wordpress/no-setting-ds-tokens': 'error',
         '@wordpress/no-unknown-ds-tokens': 'error',
+        '@wordpress/no-unmerged-classname': 'error',
         '@wordpress/no-unguarded-get-range-at': 'error',
         '@wordpress/no-unsafe-render-order': [
           'error',
@@ -303,6 +337,11 @@ function createUpstreamEslint(fix: boolean): ESLint {
         ],
         '@wordpress/no-wp-process-env': 'error',
         '@wordpress/react-no-unsafe-timeout': 'error',
+        '@wordpress/use-import-as': [
+          'error',
+          { '@wordpress/components': { Button: 'RenamedButton' } },
+        ],
+        '@wordpress/use-recommended-components': 'error',
         '@wordpress/valid-sprintf': 'error',
         '@wordpress/wp-global-usage': 'error',
       },
@@ -405,6 +444,14 @@ function prepareConsumerProject(): {
     path.join(sourceFixtureRoot, 'deprecated-fixture.tsx'),
     path.join(fixtureRoot, 'deprecated.tsx'),
   );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'button.js'),
+    path.join(fixtureRoot, 'button.js'),
+  );
+  fs.copyFileSync(
+    path.join(sourceFixtureRoot, 'icon-button.js'),
+    path.join(fixtureRoot, 'icon-button.js'),
+  );
   fs.writeFileSync(
     path.join(fixtureRoot, 'tsconfig.json'),
     `${JSON.stringify(
@@ -427,6 +474,8 @@ function prepareConsumerProject(): {
           './wordpress-components.d.ts',
           './save.tsx',
           './deprecated.tsx',
+          './button.js',
+          './icon-button.js',
         ],
       },
       null,
@@ -440,6 +489,16 @@ function prepareConsumerProject(): {
 export default {
   plugins: { wordpress: plugin },
   rules: {
+    'wordpress/components-no-missing-40px-size-prop': [
+      'error',
+      { checkLocalImports: true },
+    ],
+    'wordpress/components-no-unsafe-button-disabled': [
+      'error',
+      { checkLocalImports: true },
+    ],
+    'wordpress/data-no-store-string-literals': 'error',
+    'wordpress/dependency-group': 'error',
     'wordpress/i18n-ellipsis': 'error',
     'wordpress/i18n-hyphenated-range': 'error',
     'wordpress/i18n-no-collapsible-whitespace': 'error',
@@ -460,8 +519,10 @@ export default {
     'wordpress/no-global-active-element': 'error',
     'wordpress/no-global-get-selection': 'error',
     'wordpress/no-i18n-in-save': 'error',
+    'wordpress/no-non-module-stylesheet-imports': 'error',
     'wordpress/no-setting-ds-tokens': 'error',
     'wordpress/no-unknown-ds-tokens': 'error',
+    'wordpress/no-unmerged-classname': 'error',
     'wordpress/no-unguarded-get-range-at': 'error',
     'wordpress/no-unsafe-render-order': [
       'error',
@@ -477,6 +538,11 @@ export default {
     ],
     'wordpress/no-wp-process-env': 'error',
     'wordpress/react-no-unsafe-timeout': 'error',
+    'wordpress/use-import-as': [
+      'error',
+      { '@wordpress/components': { Button: 'RenamedButton' } },
+    ],
+    'wordpress/use-recommended-components': 'error',
     'wordpress/valid-sprintf': 'error',
     'wordpress/wp-global-usage': 'error',
   },
@@ -708,6 +774,15 @@ function verifyInvalidOptionsFailClosed(
 export default {
   plugins: { wordpress: plugin },
   rules: {
+    'wordpress/components-no-missing-40px-size-prop': [
+      'error',
+      { checkLocalImports: 'yes' },
+    ],
+    'wordpress/components-no-unsafe-button-disabled': [
+      'error',
+      { checkLocalImports: 'yes' },
+    ],
+    'wordpress/dependency-group': ['error', 'sometimes'],
     'wordpress/i18n-text-domain': [
       'error',
       { allowedTextDomain: 42 },
@@ -721,6 +796,7 @@ export default {
       'error',
       { excludePattern: '[' },
     ],
+    'wordpress/use-import-as': ['error', 42],
   },
 };
 `,
@@ -745,7 +821,23 @@ export default {
     assert.notEqual(result.status, 0, 'invalid options must fail closed');
     assert.match(
       output,
+      /\[wordpress\/components-no-missing-40px-size-prop\] Invalid wordpress\/components-no-missing-40px-size-prop options/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/components-no-unsafe-button-disabled\] Invalid wordpress\/components-no-unsafe-button-disabled options/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/dependency-group\] Invalid wordpress\/dependency-group options/u,
+    );
+    assert.match(
+      output,
       /\[wordpress\/i18n-text-domain\] Invalid wordpress\/i18n-text-domain options/u,
+    );
+    assert.match(
+      output,
+      /\[wordpress\/use-import-as\] Invalid wordpress\/use-import-as options/u,
     );
     assert.match(
       output,
