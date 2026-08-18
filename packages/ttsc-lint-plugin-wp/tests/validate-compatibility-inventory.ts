@@ -89,12 +89,17 @@ assert.deepEqual(
   ),
   [],
 );
-assert.deepEqual(
-  contributorRules
-    .map(({ target }) => target?.replace('wordpress/', ''))
-    .sort(),
-  [...ruleNames].sort(),
+// Every contributor rule must be reachable from either a WordPress-owned
+// classification or a preset-mapped ecosystem source.
+const contributorTargets = new Set(
+  compatibilityManifest.compatibility
+    .filter(({ kind }) => kind === 'contributor')
+    .map(({ target }) => target?.replace('wordpress/', '')),
 );
+for (const { target } of contributorRules) {
+  contributorTargets.add(target?.replace('wordpress/', ''));
+}
+assert.deepEqual([...contributorTargets].sort(), [...ruleNames].sort());
 
 for (const [presetName, presetRules] of Object.entries(
   compatibilityManifest.presets,

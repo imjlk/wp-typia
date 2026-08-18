@@ -57,6 +57,17 @@ registerImplementedRule('use-recommended-components');
 registerImplementedRule('valid-sprintf');
 registerImplementedRule('wp-global-usage');
 
+// Ecosystem rules ported by this contributor keep their upstream source
+// namespace but resolve to the contributor's wordpress/ rule names.
+IMPLEMENTED_RULES.set(
+  'react/jsx-no-comment-textnodes',
+  'wordpress/jsx-no-comment-textnodes',
+);
+IMPLEMENTED_RULES.set(
+  'react/no-render-return-value',
+  'wordpress/no-render-return-value',
+);
+
 // Stylistic rules whose concern the `ttsc format` runner normalizes. Every
 // entry is re-verified by the parity harness's formatter coverage probe, so a
 // formatter regression downgrades the claim instead of silently rotting.
