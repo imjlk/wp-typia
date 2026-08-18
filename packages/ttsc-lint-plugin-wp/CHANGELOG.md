@@ -1,5 +1,18 @@
 # @wp-typia/ttsc-lint-plugin-wp
 
+## 0.6.0 — 2026-08-18
+
+### Minor changes
+
+- [e810a4e0](https://github.com/imjlk/wp-typia/commit/e810a4e01f213b3f91be1c1b95e131560111f86c) Classify nine more compiled-preset rules as verified `runner` coverage instead of leaving them unsupported.
+  
+  `semi`, `quotes`, `indent`, `comma-dangle`, `object-curly-spacing`, `arrow-parens`, `no-trailing-spaces`, `no-multiple-empty-lines`, and `eol-last` move to the `runner` classification because `ttsc format` provably normalizes each concern. The parity harness re-verifies every claim on each run across both the minimum (0.23.0) and current (0.26.x) supported ttsc releases: a formatter probe starts from real violations and asserts each concern is normalized with anchored assertions, so an engine regression fails the build instead of silently invalidating the classification.
+  
+  Rules the formatter leaves untouched (such as `key-spacing` and `space-infix-ops`) stay unsupported, as does `brace-style`, which normalizes only on 0.26.x. Correctness rules like `no-undef` and `import/no-unresolved` also stay unsupported: the TypeScript checker reports their diagnostics only for TypeScript files, while the upstream preset also enables them for unchecked JavaScript. Unsupported preset rules drop from 89 to 80. — Thanks @imjlk!
+- [089938b1](https://github.com/imjlk/wp-typia/commit/089938b198cbc10f3f11cb65cb7fdb828cd3bfeb) Port two React correctness rules enabled by the WordPress recommended presets as native `@ttsc/lint` contributors: `react/jsx-no-comment-textnodes` and `react/no-render-return-value`, exposed as `wordpress/jsx-no-comment-textnodes` and `wordpress/no-render-return-value`.
+  
+  The parity oracle now loads `eslint-plugin-react` 7.37.5 from the pinned Bun store so the react-namespace diagnostics compare directly, and the compiled preset maps the two upstream `react/*` sources to the contributor rule names. Unsupported preset rules drop from 80 to 78. — Thanks @imjlk!
+
 ## 0.5.0 — 2026-08-15
 
 ### Minor changes
