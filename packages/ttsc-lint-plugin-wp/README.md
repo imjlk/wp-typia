@@ -78,6 +78,7 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/i18n-no-variables`
 - `wordpress/i18n-text-domain`
 - `wordpress/i18n-translator-comments`
+- `wordpress/jsx-no-comment-textnodes`
 - `wordpress/no-base-control-with-label-without-id`
 - `wordpress/no-dom-globals-in-constructor`
 - `wordpress/no-dom-globals-in-module-scope`
@@ -88,6 +89,7 @@ command. Stylelint and non-code formatting remain separate concerns.
 - `wordpress/no-global-get-selection`
 - `wordpress/no-i18n-in-save`
 - `wordpress/no-non-module-stylesheet-imports`
+- `wordpress/no-render-return-value`
 - `wordpress/no-setting-ds-tokens`
 - `wordpress/no-unguarded-get-range-at`
 - `wordpress/no-unknown-ds-tokens`

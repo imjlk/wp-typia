@@ -82,10 +82,10 @@ describe('@wp-typia/ttsc-lint-plugin-wp contracts', () => {
     ).toHaveLength(35);
     expect(
       compatibilityManifest.compiledPresets.recommended.supportedRules,
-    ).toHaveLength(109);
+    ).toHaveLength(111);
     expect(
       compatibilityManifest.compiledPresets.recommended.unsupportedRules,
-    ).toHaveLength(80);
+    ).toHaveLength(78);
     expect(
       compatibilityManifest.compiledPresets.recommended.optionDowngrades,
     ).toHaveLength(11);

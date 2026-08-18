@@ -41,6 +41,19 @@ const repoRoot = path.resolve(packageRoot, '../..');
 const rootPackageJson = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'),
 ) as { devDependencies?: { typescript?: string } };
+// Contributor rules ported from ecosystem plugins keep their upstream
+// namespace so parity compares apples to apples.
+const WP_REACT_RANGE = '^7.37.0';
+
+const TTSC_RULE_ID_ALIASES: Readonly<Record<string, string>> = {
+  '@wordpress/jsx-no-comment-textnodes': 'react/jsx-no-comment-textnodes',
+  '@wordpress/no-render-return-value': 'react/no-render-return-value',
+};
+
+function ttscRuleIdAlias(ruleId: string): string {
+  return TTSC_RULE_ID_ALIASES[ruleId] ?? ruleId;
+}
+
 const TYPESCRIPT_CONSUMER_VERSION =
   rootPackageJson.devDependencies?.typescript ?? '';
 assert.match(
@@ -74,6 +87,7 @@ const parityLintTargets = [
   },
 ] as const;
 
+const reactPluginRoot = resolveReactPluginRoot();
 const upstreamRoot = await prepareUpstreamPackage();
 verifyEmbeddedDesignTokens(upstreamRoot, require);
 verifyEmbeddedDomGlobals(packageRoot, pinnedGlobalsRoot(upstreamRoot));
@@ -177,6 +191,14 @@ const upstreamRules = {
   ),
 };
 
+const reactPlugin = require(reactPluginRoot) as import('eslint').ESLint.Plugin;
+for (const name of ['jsx-no-comment-textnodes', 'no-render-return-value']) {
+  assert.ok(
+    reactPlugin.rules?.[name] !== null &&
+      reactPlugin.rules?.[name] !== undefined,
+    `eslint-plugin-react must expose ${name}`,
+  );
+}
 const eslint = createUpstreamEslint(false);
 const expected = [];
 for (const target of parityLintTargets) {
@@ -186,7 +208,9 @@ for (const target of parityLintTargets) {
   assert.ok(eslintResult);
   expected.push(
     ...eslintResult.messages
-      .filter(({ ruleId }) => ruleId?.startsWith('@wordpress/'))
+      .filter(({ ruleId }) =>
+        ruleId?.startsWith('@wordpress/') || ruleId?.startsWith('react/'),
+      )
       .map(({ column, line, message, ruleId }) => ({
         column,
         file: path.basename(target.filePath),
@@ -287,6 +311,7 @@ function createUpstreamEslint(fix: boolean): ESLint {
       },
       plugins: {
         '@wordpress': { rules: upstreamRules },
+        react: reactPlugin,
       },
       rules: {
         '@wordpress/components-no-missing-40px-size-prop': [
@@ -310,6 +335,8 @@ function createUpstreamEslint(fix: boolean): ESLint {
           { allowedTextDomain: 'my-plugin' },
         ],
         '@wordpress/i18n-translator-comments': 'error',
+        'react/jsx-no-comment-textnodes': 'error',
+        'react/no-render-return-value': 'error',
         '@wordpress/no-base-control-with-label-without-id': 'error',
         '@wordpress/no-dom-globals-in-constructor': 'error',
         '@wordpress/no-dom-globals-in-module-scope': 'error',
@@ -511,6 +538,8 @@ export default {
       { allowedTextDomain: 'my-plugin' },
     ],
     'wordpress/i18n-translator-comments': 'error',
+    'wordpress/jsx-no-comment-textnodes': 'error',
+    'wordpress/no-render-return-value': 'error',
     'wordpress/no-base-control-with-label-without-id': 'error',
     'wordpress/no-dom-globals-in-constructor': 'error',
     'wordpress/no-dom-globals-in-module-scope': 'error',
@@ -1071,6 +1100,65 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
+// The react plugin version is not hard-coded: the oracle accepts whatever
+// satisfies the eslint-plugin-react range that the pinned
+// @wordpress/eslint-plugin declares, so a routine lockfile bump keeps the
+// oracle working while a range change fails loudly.
+function satisfiesReactRange(version: string): boolean {
+  const parsed = /^(\d+)\.(\d+)\.(\d+)/u.exec(version);
+  assert.ok(parsed, `Unsupported eslint-plugin-react version ${version}`);
+  const [, major, minor, patch] = parsed;
+  const range = /^\^(\d+)\.(\d+)\.(\d+)$/u.exec(WP_REACT_RANGE);
+  assert.ok(range, `Unsupported range shape ${WP_REACT_RANGE}`);
+  const [, rMajor, rMinor, rPatch] = range;
+  return (
+    major === rMajor &&
+    (Number(minor) > Number(rMinor) ||
+      (minor === rMinor && Number(patch) >= Number(rPatch)))
+  );
+}
+
+// Prefers a directly resolvable eslint-plugin-react install and only falls
+// back to Bun's store layout, which is a Bun implementation detail.
+function resolveReactPluginRoot(): string {
+  const candidates: string[] = [];
+  const directPath = path.join(repoRoot, 'node_modules/eslint-plugin-react');
+  if (fs.existsSync(path.join(directPath, 'package.json'))) {
+    candidates.push(directPath);
+  }
+  const storeRoot = path.join(repoRoot, 'node_modules/.bun');
+  if (fs.existsSync(storeRoot)) {
+    candidates.push(
+      ...fs
+        .readdirSync(storeRoot)
+        .filter(
+          (name) =>
+            name.startsWith('eslint-plugin-react@') &&
+            name.includes('+') &&
+            !name.endsWith('.node'),
+        )
+        .map((name) =>
+          path.join(storeRoot, name, 'node_modules/eslint-plugin-react'),
+        ),
+    );
+  }
+  for (const pluginRoot of candidates) {
+    const metadata = JSON.parse(
+      fs.readFileSync(path.join(pluginRoot, 'package.json'), 'utf8'),
+    ) as { name?: string; version?: string };
+    if (
+      metadata.name === 'eslint-plugin-react' &&
+      metadata.version !== undefined &&
+      satisfiesReactRange(metadata.version)
+    ) {
+      return pluginRoot;
+    }
+  }
+  assert.fail(
+    'eslint-plugin-react satisfying the @wordpress/eslint-plugin range must be installed (checked node_modules and the Bun store)',
+  );
+}
+
 function parseTtscDiagnostics(output: string) {
   const diagnostics: Array<{
     column: number;
@@ -1102,7 +1190,7 @@ function parseTtscDiagnostics(output: string) {
       file: path.basename(match[1] ?? ''),
       line: Number(match[2]),
       message: messageLines.join('\n').trim(),
-      ruleId: `@wordpress/${match[4]}`,
+      ruleId: ttscRuleIdAlias(`@wordpress/${match[4]}`),
     });
   }
   return diagnostics;

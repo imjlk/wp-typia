@@ -3700,8 +3700,9 @@
       "source": "react/jsx-newline"
     },
     {
-      "kind": "unsupported",
-      "source": "react/jsx-no-comment-textnodes"
+      "kind": "contributor",
+      "source": "react/jsx-no-comment-textnodes",
+      "target": "wordpress/jsx-no-comment-textnodes"
     },
     {
       "kind": "builtin",
@@ -3776,8 +3777,9 @@
       "target": "react/no-is-mounted"
     },
     {
-      "kind": "unsupported",
-      "source": "react/no-render-return-value"
+      "kind": "contributor",
+      "source": "react/no-render-return-value",
+      "target": "wordpress/no-render-return-value"
     },
     {
       "kind": "builtin",
@@ -4194,6 +4196,8 @@
             "react/no-is-mounted": "error",
             "react/no-string-refs": "error",
             "react/no-unescaped-entities": "error",
+            "wordpress/jsx-no-comment-textnodes": "error",
+            "wordpress/no-render-return-value": "error",
             "react/exhaustive-deps": "warn",
             "react/rules-of-hooks": "error",
             "wordpress/no-unused-vars-before-return": [
@@ -4478,6 +4482,7 @@
         "react-hooks/rules-of-hooks",
         "react/display-name",
         "react/jsx-key",
+        "react/jsx-no-comment-textnodes",
         "react/jsx-no-duplicate-props",
         "react/jsx-no-target-blank",
         "react/jsx-no-undef",
@@ -4486,6 +4491,7 @@
         "react/no-direct-mutation-state",
         "react/no-find-dom-node",
         "react/no-is-mounted",
+        "react/no-render-return-value",
         "react/no-string-refs",
         "react/no-unescaped-entities",
         "valid-typeof",
@@ -4554,12 +4560,10 @@
         "react/jsx-equals-spacing",
         "react/jsx-indent",
         "react/jsx-indent-props",
-        "react/jsx-no-comment-textnodes",
         "react/jsx-tag-spacing",
         "react/jsx-uses-react",
         "react/jsx-uses-vars",
         "react/no-deprecated",
-        "react/no-render-return-value",
         "react/no-unknown-property",
         "react/prop-types",
         "react/react-in-jsx-scope",

@@ -15,6 +15,8 @@ const config = {
     'react/no-is-mounted': 'error',
     'react/no-string-refs': 'error',
     'react/no-unescaped-entities': 'error',
+    'wordpress/jsx-no-comment-textnodes': 'error',
+    'wordpress/no-render-return-value': 'error',
     'react/exhaustive-deps': 'warn',
     'react/rules-of-hooks': 'error',
     'wordpress/no-unused-vars-before-return': [

@@ -24,6 +24,7 @@ declare module '@ttsc/lint' {
     'wordpress/i18n-no-placeholders-only'?: TtscLintRuleSetting;
     'wordpress/i18n-no-variables'?: TtscLintRuleSetting;
     'wordpress/i18n-translator-comments'?: TtscLintRuleSetting;
+    'wordpress/jsx-no-comment-textnodes'?: TtscLintRuleSetting;
     'wordpress/no-base-control-with-label-without-id'?: TtscLintRuleSetting;
     'wordpress/no-dom-globals-in-constructor'?: TtscLintRuleSetting;
     'wordpress/no-dom-globals-in-module-scope'?: TtscLintRuleSetting;
@@ -34,6 +35,7 @@ declare module '@ttsc/lint' {
     'wordpress/no-global-get-selection'?: TtscLintRuleSetting;
     'wordpress/no-i18n-in-save'?: TtscLintRuleSetting;
     'wordpress/no-non-module-stylesheet-imports'?: TtscLintRuleSetting;
+    'wordpress/no-render-return-value'?: TtscLintRuleSetting;
     'wordpress/no-setting-ds-tokens'?: TtscLintRuleSetting;
     'wordpress/no-unguarded-get-range-at'?: TtscLintRuleSetting;
     'wordpress/no-unknown-ds-tokens'?: TtscLintRuleSetting;

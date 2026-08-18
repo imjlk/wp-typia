@@ -10,6 +10,8 @@ import LocalIconButton from './icon-button';
 import { privateApis } from '@wordpress/components';
 
 const dynamicSize = 'compact';
+const mountPoint = { nodeType: 1 };
+let assignedLater;
 const dynamicStoreName = 'core/dynamic';
 const storeDefinition = {};
 import './style.css';
@@ -553,3 +555,45 @@ select(storeDefinition);
 
 // wordpress/dependency-group: the fixture's existing grouped imports satisfy
 // the rule for some localities; the data import above needs a WordPress block.
+
+// react/jsx-no-comment-textnodes.
+const CommentTextComponent = () => (
+  <div>
+    // this looks like a comment but renders as text
+    {'// brace-wrapped comments are fine'}
+    /* block-comment-looking text also reports */
+  </div>
+);
+
+// react/no-render-return-value.
+const mounted = ReactDOM.render(<div />, mountPoint);
+void ReactDOM.render(<div />, mountPoint) + 1;
+void [ReactDOM.render(<div />, mountPoint)];
+void true ? ReactDOM.render(<div />, mountPoint) : null;
+void use(ReactDOM.render(<div />, mountPoint));
+const parenMounted = (ReactDOM.render(<div />, mountPoint));
+void mounted;
+void parenMounted;
+function renderToProps() {
+  return ReactDOM.render(<div />, mountPoint);
+void ReactDOM.render(<div />, mountPoint) + 1;
+void [ReactDOM.render(<div />, mountPoint)];
+void true ? ReactDOM.render(<div />, mountPoint) : null;
+void use(ReactDOM.render(<div />, mountPoint));
+}
+const arrowRender = () => ReactDOM.render(<div />, mountPoint);
+void ReactDOM.render(<div />, mountPoint) + 1;
+void [ReactDOM.render(<div />, mountPoint)];
+void true ? ReactDOM.render(<div />, mountPoint) : null;
+void use(ReactDOM.render(<div />, mountPoint));
+const renderProp = { root: ReactDOM.render(<div />, mountPoint) };
+assignedLater = ReactDOM.render(<div />, mountPoint);
+void ReactDOM.render(<div />, mountPoint) + 1;
+void [ReactDOM.render(<div />, mountPoint)];
+void true ? ReactDOM.render(<div />, mountPoint) : null;
+void use(ReactDOM.render(<div />, mountPoint));
+ReactDOM.render(<div />, mountPoint);
+void ReactDOM.render(<div />, mountPoint) + 1;
+void [ReactDOM.render(<div />, mountPoint)];
+void true ? ReactDOM.render(<div />, mountPoint) : null;
+void use(ReactDOM.render(<div />, mountPoint));
