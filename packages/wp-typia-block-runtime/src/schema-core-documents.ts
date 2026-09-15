@@ -48,12 +48,26 @@ const WP_TYPIA_OPENAPI_LITERALS = {
   WP_REST_NONCE_SCHEME: 'wpRestNonce',
 } as const;
 
+const PROTOTYPE_POLLUTION_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+]);
+
+function isSafeSchemaKey(key: string): boolean {
+  return !PROTOTYPE_POLLUTION_KEYS.has(key);
+}
+
 function applyConstraintIfNumber(
 	schema: JsonSchemaObject,
 	key: string,
 	value: number | null | undefined,
 ): void {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    isSafeSchemaKey(key)
+  ) {
     schema[key] = value;
   }
 }
@@ -63,7 +77,7 @@ function applyConstraintIfString(
 	key: string,
 	value: string | null | undefined,
 ): void {
-  if (typeof value === 'string' && value.length > 0) {
+  if (typeof value === 'string' && value.length > 0 && isSafeSchemaKey(key)) {
     schema[key] = value;
   }
 }

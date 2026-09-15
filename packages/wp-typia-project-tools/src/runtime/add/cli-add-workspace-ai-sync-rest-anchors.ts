@@ -52,7 +52,7 @@ function replaceBlockConfigImportForAiFeatures(
   syncRestScriptPath: string,
 ): string {
   const importPatterns = [
-    /^import\s*\{\r?\n(?:[ \t]+[^\r\n]*\r?\n)+\}\s+from ["']\.\/block-config["'];?$/mu,
+    /^import\s*\{\r?\n(?:[^\r\n]*\r?\n)+\}\s+from ["']\.\/block-config["'];?$/mu,
     /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
   ];
   const importMatch =

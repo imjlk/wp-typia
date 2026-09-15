@@ -81,7 +81,7 @@ export interface OptionalOnboardingGuidance {
 function quoteShellValue(value: string): string {
   if (
 		!value.startsWith('-') &&
-		/^[A-Za-z0-9._/@:-]+(?:\/[A-Za-z0-9._@:-]+)*$/.test(value)
+		/^[A-Za-z0-9._@:-]+(?:\/[A-Za-z0-9._@:-]+)*$/.test(value)
 	) {
     return value;
   }

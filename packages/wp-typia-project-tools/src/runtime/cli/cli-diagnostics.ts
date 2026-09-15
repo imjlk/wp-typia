@@ -391,7 +391,7 @@ function inferCliDiagnosticCode(options: {
   if (/dependencies have not been installed yet/u.test(haystack)) {
     return CLI_DIAGNOSTIC_CODES.DEPENDENCIES_NOT_INSTALLED;
   }
-  if (/Timed out while .*external template|Timed out while .*npm template|Timed out while .*GitHub template/u.test(
+  if (/Timed out while [^|]{0,200}(?:external|npm|GitHub) template/u.test(
     haystack,
   )) {
     return CLI_DIAGNOSTIC_CODES.TEMPLATE_SOURCE_TIMEOUT;
@@ -405,7 +405,7 @@ function inferCliDiagnosticCode(options: {
   if (/requires <|requires --|requires a value/u.test(haystack)) {
     return CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT;
   }
-  if (/Unknown (?:add-block )?template\s+(?:"|\\")/u.test(haystack)) {
+  if (/Unknown (?:add-block )?template [\\"/]/u.test(haystack)) {
     return CLI_DIAGNOSTIC_CODES.UNKNOWN_TEMPLATE;
   }
   if (

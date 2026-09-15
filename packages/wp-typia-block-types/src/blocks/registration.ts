@@ -140,8 +140,6 @@ export function registerScaffoldBlockType<
 ): RegisterBlockTypeResult<TAttributes> {
   return registerBlockType(
     blockName,
-    settings as unknown as Partial<
-      WordPressRegisteredBlockType<Record<string, unknown>>
-    >,
+    settings as unknown as Parameters<typeof registerBlockType>[1],
   ) as RegisterBlockTypeResult<TAttributes>;
 }
