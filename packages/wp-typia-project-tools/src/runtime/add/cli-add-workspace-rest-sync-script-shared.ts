@@ -25,7 +25,7 @@ export function getSyncRestPatchErrorMessage(
 }
 
 const BLOCK_CONFIG_IMPORT_PATTERNS = [
-  /^import\s*\{\r?\n(?:[ \t]+[^\r\n]*\r?\n)+\}\s*from\s*["']\.\/block-config["'];?$/mu,
+  /^import\s*\{\r?\n(?:[^\r\n]*\r?\n)+\}\s*from\s*["']\.\/block-config["'];?$/mu,
   /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
 ] as const;
 
