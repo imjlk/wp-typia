@@ -21,10 +21,7 @@ const result = await Bun.build({
     entry: 'cli.js',
   },
   outdir,
-  // Bundle npm dependencies into the output so the CLI is self-contained
-  // when spawned via Node.js; only @wp-typia/* workspace packages stay
-  // external because they resolve to their own built dist/ output.
-  external: [...WP_TYPIA_EXTERNALS, '@wp-typia/project-tools', '@wp-typia/project-tools/*'],
+  packages: 'external',
   sourcemap: 'external',
   target: 'node',
 });

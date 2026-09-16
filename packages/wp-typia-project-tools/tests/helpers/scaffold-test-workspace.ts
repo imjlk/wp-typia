@@ -51,10 +51,15 @@ const generatedProjectTypecheckSupportPackages = [
   '@types/react-dom',
 ] as const;
 
-// npm packages that @wp-typia/project-tools imports at runtime; they must
-// be resolvable from the generated workspace when tests spawn the CLI as
-// a Node.js subprocess that resolves external workspace packages.
-const projectToolsRuntimeNpmDependencies = ['mustache'] as const;
+// npm packages that the wp-typia CLI and @wp-typia/project-tools import
+// at runtime; they must be resolvable from the generated workspace when
+// tests spawn the CLI as a Node.js subprocess resolving external packages.
+const cliRuntimeNpmDependencies = [
+  'mustache',
+  'gunshi',
+  'zod',
+  '@gunshi/plugin-completion',
+] as const;
 
 const builtWorkspacePackages = new Set<string>();
 const buildLockRoot = path.join(
@@ -356,7 +361,7 @@ export function linkWorkspaceNodeModules(targetDir: string) {
     linkPackageBins(targetDir, packageName, sourcePath);
   }
 
-  for (const npmDependency of projectToolsRuntimeNpmDependencies) {
+  for (const npmDependency of cliRuntimeNpmDependencies) {
     const target = path.join(nodeModulesPath, npmDependency);
     if (fs.existsSync(target)) {
       continue;
