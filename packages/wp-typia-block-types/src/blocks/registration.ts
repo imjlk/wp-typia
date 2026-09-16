@@ -140,6 +140,11 @@ export function registerScaffoldBlockType<
 ): RegisterBlockTypeResult<TAttributes> {
   return registerBlockType(
     blockName,
-    settings as unknown as Parameters<typeof registerBlockType>[1],
+    // Omit `name` because blockName is passed as the first argument; the
+    // @wordpress/blocks overload requires it in the settings otherwise.
+    settings as unknown as Omit<
+      Parameters<typeof registerBlockType>[1],
+      'name'
+    >,
   ) as RegisterBlockTypeResult<TAttributes>;
 }

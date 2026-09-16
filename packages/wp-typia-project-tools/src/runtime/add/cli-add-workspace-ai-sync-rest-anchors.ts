@@ -1,7 +1,10 @@
 import path from 'node:path';
 
 import { patchFile } from './cli-add-shared.js';
-import { FINAL_SYNC_SUMMARY_PATTERN } from './cli-add-workspace-rest-sync-script-shared.js';
+import {
+  BLOCK_CONFIG_IMPORT_PATTERNS,
+  FINAL_SYNC_SUMMARY_PATTERN,
+} from './cli-add-workspace-rest-sync-script-shared.js';
 import { detectSourceLineEnding } from '../shared/ts-source-masking.js';
 import type { WorkspaceProject } from '../workspace/workspace-project.js';
 
@@ -51,10 +54,7 @@ function replaceBlockConfigImportForAiFeatures(
 	nextSource: string,
   syncRestScriptPath: string,
 ): string {
-  const importPatterns = [
-    /^import\s*\{\r?\n(?:[^\r\n]*\r?\n)+\}\s+from ["']\.\/block-config["'];?$/mu,
-    /^import\s*\{[^\n]*\}\s*from\s*["']\.\/block-config["'];?$/mu,
-  ];
+  const importPatterns = BLOCK_CONFIG_IMPORT_PATTERNS;
   const importMatch =
 		importPatterns.map((pattern) => pattern.exec(nextSource)).find(Boolean) ??
 		null;
