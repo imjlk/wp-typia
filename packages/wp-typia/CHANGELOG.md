@@ -1,5 +1,21 @@
 # wp-typia
 
+## 0.28.2 — 2026-09-16
+
+### Patch changes
+
+- [8f3ff3df](https://github.com/imjlk/wp-typia/commit/8f3ff3dfeeeb6fa9701e33d0b02efc414d6ad448) Fix six high-severity CodeQL security alerts and a pre-existing `@wp-typia/block-types` build failure.
+  
+  Four ReDoS regex patterns (import matching in `cli-add-workspace-rest-sync-script-shared.ts` and `cli-add-workspace-ai-sync-rest-anchors.ts`, timeout and unknown-template matchers in `cli-diagnostics.ts`, path validation in `cli-scaffold-output.ts`) are rewritten to eliminate nested quantifiers with overlapping match domains — the import patterns now match one line per iteration, the timeout alternation uses a bounded character class, and the path validator treats `/` as a pure delimiter. A shared `isSafeSchemaKey` guard protects the JSON Schema constraint assignments against `__proto__`, `constructor`, and `prototype` keys.
+  
+  The `registerScaffoldBlockType` cast in `@wp-typia/block-types` now uses the actual `registerBlockType` parameter type instead of `Partial<BlockType>`, which no longer satisfies the `@wordpress/blocks` 15.27 `SettingsBlockConfiguration` signature under `exactOptionalPropertyTypes: true`. — Thanks @imjlk!
+- [9ab124f5](https://github.com/imjlk/wp-typia/commit/9ab124f5554affb0492bf76b1dab0396355a6c08) Fix 123 workspace test failures caused by two issues in the `wp-typia add` command chain.
+  
+  The block-config import patterns in `cli-add-workspace-rest-sync-script-shared.ts` and `cli-add-workspace-ai-sync-rest-anchors.ts` previously used `(?:[^\r\n]*\r?\n)+` for the import member lines, which greedily backtracked across multiple import statements — swallowing the `import * as workspaceConfig from './block-config';` namespace import between the block-runtime and block-config named imports, so generated `sync-rest-contracts.ts` scripts failed with `workspaceConfig is not defined`. The patterns now require each member line to start with indentation followed by a non-whitespace character (`(?:[ \t]+[^\s][^\r\n]*\r?\n)+`), which both prevents the cross-import backtracking and keeps the pattern ReDoS-safe.
+  
+  The `wp-typia` CLI build used `packages: 'external'`, keeping all npm dependencies external. Since Bun's lockfile stores them in `node_modules/.bun/node_modules/` rather than the root `node_modules/`, spawned Node.js subprocesses could not resolve `mustache` (used by project-tools templates at runtime). The build now bundles npm dependencies (`mustache`, `gunshi`, `zod`, `@gunshi/plugin-completion`) and externalizes only the `@wp-typia/*` workspace packages. The `BlockConfiguration` type now omits `name` alongside `attributes` and `example`, fixing TS1360 errors in type contract tests after the `@wordpress/blocks` 15.27 upgrade made the property required. — Thanks @imjlk!
+- Updated dependencies: project-tools (npm)@0.28.2
+
 ## 0.28.1 — 2026-08-14
 
 ### Patch changes
