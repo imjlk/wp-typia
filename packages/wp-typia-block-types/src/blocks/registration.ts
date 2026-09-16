@@ -70,7 +70,10 @@ type BlockConfigurationAttributes<
 
 export type BlockConfiguration<
   TAttributes extends BlockAttributes = BlockAttributes,
-> = Omit<WordPressBlockConfiguration<TAttributes>, 'attributes' | 'example'> &
+> = Omit<
+    WordPressBlockConfiguration<TAttributes>,
+    'attributes' | 'example' | 'name'
+  > &
   BlockConfigurationAttributes<TAttributes> & {
     example?: BlockExample<TAttributes>;
   };
