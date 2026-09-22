@@ -157,9 +157,12 @@ same PR.
 Generated project Webpack defaults are currently regression-covered against:
 
 - `typia` 14.x
-- TypeScript 7.x with `ttsc` 0.26.x
-- `@ttsc/unplugin` 0.26.x
+- TypeScript 7.x with `ttsc` 0.30.x
+- `@ttsc/unplugin` 0.30.x
 - `@wordpress/scripts` 30.x with Webpack 5
+
+The compatibility guard also retains typia 13.x and matching ttsc/unplugin
+0.23.x and 0.26.x pairs for existing projects.
 
 The generated Webpack helpers now fail fast outside that matrix so broken
 version tuples surface as a clear compatibility error instead of a cryptic

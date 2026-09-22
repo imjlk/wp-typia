@@ -27,6 +27,11 @@ Generated TypeScript workflows now use `ttsc` and `ttsx`:
 - upgrade `typia` to 14.x and use `@ttsc/unplugin` for Webpack integration
 - remove `@typia/unplugin`, `ts-patch`, and other superseded transformer wiring
 
+Typia 14 counts Unicode code points for `MinLength` and `MaxLength`. Generated
+PHP validators, migration checks, and generated example values use the same
+definition. A Korean character or an emoji counts as one; combining marks count
+separately. Regenerate validators with the managed sync command when upgrading.
+
 `wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
 migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
 and retrofitted projects pin `@ttsc/lint@0.30.4` and run the generated
