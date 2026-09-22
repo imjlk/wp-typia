@@ -1,0 +1,125 @@
+===================================================================
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -976,9 +976,9 @@
+ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+             fs.readlinkSync(path.join(location, entry.name)),
+@@ -994,9 +994,9 @@
+     for (const entry of fs.readdirSync(location, {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+             Buffer.concat([
+@@ -2485,9 +2485,9 @@
+ function configDirectoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+             fs.readlinkSync(path.join(location, entry.name)),
+@@ -2505,9 +2505,9 @@
+     for (const entry of fs.readdirSync(location, {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+             Buffer.concat([
+===================================================================
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -837,9 +837,9 @@
+ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+             fs.readlinkSync(path.join(location, entry.name)),
+@@ -855,9 +855,9 @@
+     for (const entry of fs.readdirSync(location, {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+             Buffer.concat([
+===================================================================
+--- a/linthost/config.go
++++ b/linthost/config.go
+@@ -3684,9 +3684,9 @@
+ function directoryDigest(location: string): string {
+   const entries: Buffer[] = [];
+   if (process.platform === "win32") {
+     for (const entry of fs.readdirSync(location, { withFileTypes: true })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = Buffer.from(
+             fs.readlinkSync(path.join(location, entry.name)),
+@@ -3702,9 +3702,9 @@
+     for (const entry of fs.readdirSync(location, {
+       encoding: "buffer",
+       withFileTypes: true,
+     })) {
+-      let target = Buffer.alloc(0);
++      let target: Buffer = Buffer.alloc(0);
+       if (entry.isSymbolicLink()) {
+         try {
+           target = fs.readlinkSync(
+             Buffer.concat([
+===================================================================
+--- a/linthost/rules_format_trailing_comma.go
++++ b/linthost/rules_format_trailing_comma.go
+@@ -236,8 +236,24 @@
+   case shimast.KindTypeParameter:
+     if node.Parent == nil {
+       return
+     }
++    switch node.Parent.Kind {
++    case shimast.KindClassDeclaration,
++      shimast.KindClassExpression,
++      shimast.KindInterfaceDeclaration,
++      shimast.KindTypeAliasDeclaration,
++      shimast.KindJSTypeAliasDeclaration,
++      shimast.KindJSDocTemplateTag:
++      // These declaration kinds own an actual type-parameter list.
++    default:
++      if node.Parent.FunctionLikeData() == nil {
++        // Type parameters used by mapped and infer types are represented by
++        // the same node kind, but their parents do not expose
++        // TypeParameterList and the TypeScript-Go shim panics when asked.
++        return
++      }
++    }
+     list := node.Parent.TypeParameterList()
+     if list == nil || len(list.Nodes) == 0 || list.Nodes[len(list.Nodes)-1] != node {
+       return
+     }

@@ -298,14 +298,14 @@ describe('validateFormattingToolchainPolicy', () => {
     const repoRoot = createFormattingPolicyRepo();
     const packageJsonPath = path.join(repoRoot, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    delete packageJson.patchedDependencies['typia@13.2.0'];
+    delete packageJson.patchedDependencies['typia@13.3.0'];
     writeJson(packageJsonPath, packageJson);
 
     const result = validateFormattingToolchainPolicy(repoRoot);
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'package.json must declare patchedDependencies["typia@13.2.0"]="patches/typia@13.2.0.patch", found null.',
+      'package.json must declare patchedDependencies["typia@13.3.0"]="patches/typia@13.3.0.patch", found null.',
     );
   });
 
@@ -314,10 +314,10 @@ describe('validateFormattingToolchainPolicy', () => {
     const packageJsonPath = path.join(repoRoot, 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     packageJson.dependencies.typia = '13.2.1';
-    delete packageJson.patchedDependencies['typia@13.2.0'];
+    delete packageJson.patchedDependencies['typia@13.3.0'];
     packageJson.patchedDependencies['typia@13.2.1'] =
       'patches/typia@13.2.1.patch';
-    packageJson.patchedDependencies['@ttsc/lint@0.26.2'] =
+    packageJson.patchedDependencies['@ttsc/lint@0.30.4'] =
       'patches/lint.patch';
     writeJson(packageJsonPath, packageJson);
 
@@ -325,13 +325,13 @@ describe('validateFormattingToolchainPolicy', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'package.json must declare dependencies.typia="13.2.0", found "13.2.1".',
+      'package.json must declare dependencies.typia="13.3.0", found "13.2.1".',
     );
     expect(result.errors).toContain(
-      'package.json must declare patchedDependencies["typia@13.2.0"]="patches/typia@13.2.0.patch", found null.',
+      'package.json must declare patchedDependencies["typia@13.3.0"]="patches/typia@13.3.0.patch", found null.',
     );
     expect(result.errors).toContain(
-      'package.json must declare patchedDependencies["@ttsc/lint@0.26.2"]="patches/@ttsc%2Flint@0.26.2.patch", found "patches/lint.patch".',
+      'package.json must declare patchedDependencies["@ttsc/lint@0.30.4"]="patches/@ttsc%2Flint@0.30.4.patch", found "patches/lint.patch".',
     );
     expect(result.errors).toContain(
       'package.json must not declare undocumented compatibility patch "typia@13.2.1".',
@@ -340,19 +340,19 @@ describe('validateFormattingToolchainPolicy', () => {
 
   test('fails when a required compatibility patch file is missing', () => {
     const repoRoot = createFormattingPolicyRepo();
-    fs.rmSync(path.join(repoRoot, 'patches/typia@13.2.0.patch'));
+    fs.rmSync(path.join(repoRoot, 'patches/typia@13.3.0.patch'));
 
     const result = validateFormattingToolchainPolicy(repoRoot);
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'patches/typia@13.2.0.patch must exist as the compatibility patch for "typia@13.2.0".',
+      'patches/typia@13.3.0.patch must exist as the compatibility patch for "typia@13.3.0".',
     );
   });
 
   test('fails when a compatibility patch digest drifts', () => {
     const repoRoot = createFormattingPolicyRepo();
-    const patchPath = 'patches/typia@13.2.0.patch';
+    const patchPath = 'patches/typia@13.3.0.patch';
     fs.appendFileSync(path.join(repoRoot, patchPath), 'unexpected patch hunk\n');
 
     const result = validateFormattingToolchainPolicy(repoRoot);
@@ -361,7 +361,7 @@ describe('validateFormattingToolchainPolicy', () => {
     expect(
       result.errors.some((error) =>
         error.startsWith(
-          `${patchPath} must match the expected SHA-256 compatibility patch digest for "typia@13.2.0"`,
+          `${patchPath} must match the expected SHA-256 compatibility patch digest for "typia@13.3.0"`,
         ),
       ),
     ).toBe(true);
@@ -374,7 +374,7 @@ describe('validateFormattingToolchainPolicy', () => {
       'packages/create-workspace-template/package.json.mustache',
     );
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    manifest.devDependencies['@ttsc/lint'] = '^0.26.2';
+    manifest.devDependencies['@ttsc/lint'] = '^0.30.4';
     delete manifest.scripts.postinstall;
     writeJson(manifestPath, manifest);
     fs.rmSync(
@@ -389,7 +389,7 @@ describe('validateFormattingToolchainPolicy', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors).toContain(
-      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@ttsc/lint"]="0.26.2" while the generated compatibility hook targets that exact source, found "^0.26.2".',
+      'packages/create-workspace-template/package.json.mustache must declare devDependencies["@ttsc/lint"]="0.30.4" while the generated compatibility hook targets that exact source, found "^0.30.4".',
     );
     expect(result.errors).toContain(
       'packages/create-workspace-template/package.json.mustache must keep scripts.postinstall="node scripts/apply-ttsc-lint-compat.mjs", found null.',
