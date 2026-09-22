@@ -124,7 +124,7 @@ output directories and requires a separate route migration.
 
 The root Bun workspace carries two exact-version development-tool patches:
 
-- `typia@13.3.0` forwards the JSON `--tsgo-args` envelope so CLI flags such as
+- `typia@14.0.6` forwards the JSON `--tsgo-args` envelope so CLI flags such as
   `--strict` reach the tsgo program used by typia transforms
 - `@ttsc/lint@0.30.4` guards mapped and `infer` type parameters while formatting
   trailing commas, preventing a TypeScript-Go declaration lookup panic, and

@@ -69,10 +69,10 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   rootTtscLintCompatSyncScript: 'node scripts/sync-generated-ttsc-lint-compat.mjs --write';
   ttscLintVersion: '0.30.4';
   ttscVersion: '0.30.4';
-  typiaVersion: '13.3.0';
+  typiaVersion: '14.0.6';
   compatibilityPatches: Readonly<{
     '@ttsc/lint@0.30.4': 'patches/@ttsc%2Flint@0.30.4.patch';
-    'typia@13.3.0': 'patches/typia@13.3.0.patch';
+    'typia@14.0.6': 'patches/typia@14.0.6.patch';
   }>;
   generatedPackageManifestPaths: readonly string[];
   generatedWpScriptsStyleLintManifestPaths: readonly string[];

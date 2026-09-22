@@ -145,7 +145,7 @@ describe('ttsc compatibility patches', () => {
     const projectDir = createTtscFixture('wp-typia-ttsc-typia-patch-');
     writeJson(path.join(projectDir, 'package.json'), {
       dependencies: {
-        typia: '13.3.0',
+        typia: '14.0.6',
       },
       private: true,
       type: 'module',

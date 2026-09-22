@@ -174,7 +174,7 @@
     "npm-package-arg": "^13.0.0",
     "semver": "^7.7.3",
     "tar": "^7.4.3",
-    "typia": "^13.3.0",
+    "typia": "^14.0.6",
     "yaml": "^2.9.0"
   },
   "devDependencies": {

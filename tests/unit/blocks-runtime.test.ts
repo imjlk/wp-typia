@@ -76,7 +76,7 @@ function createSupportedWebpackProjectRoot() {
     path.join(projectRoot, 'package.json'),
     JSON.stringify({ name: 'webpack-project', private: true }, null, 2),
   );
-  writeMockPackage(projectRoot, 'typia', '13.3.0');
+  writeMockPackage(projectRoot, 'typia', '14.0.6');
   writeMockPackage(projectRoot, 'ttsc', '0.30.4');
   writeMockPackage(projectRoot, 'typescript', '7.0.2');
   writeMockPackage(projectRoot, '@ttsc/unplugin', '0.30.4');

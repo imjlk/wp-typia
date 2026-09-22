@@ -320,7 +320,7 @@ describe('@wp-typia/block-runtime', () => {
 				JSON.stringify({ name: 'compat-ok', private: true }, null, 2),
 				'utf8',
 			);
-			writeMockPackage(projectRoot, 'typia', '13.3.0');
+			writeMockPackage(projectRoot, 'typia', '14.0.6');
 			writeMockPackage(projectRoot, 'ttsc', '0.30.4');
 			writeMockPackage(projectRoot, 'typescript', '7.0.2');
 			writeMockPackage(projectRoot, '@ttsc/unplugin', '0.30.4');
@@ -335,7 +335,7 @@ describe('@wp-typia/block-runtime', () => {
 					'@wordpress/scripts': '30.23.0',
 					ttsc: '0.30.4',
 					typescript: '7.0.2',
-					typia: '13.3.0',
+					typia: '14.0.6',
 					webpack: '5.106.0',
 				}),
 			);
@@ -399,7 +399,7 @@ describe('@wp-typia/block-runtime', () => {
 			await expect(
 				blocksModule.assertTypiaWebpackCompatibility({ projectRoot }),
 			).rejects.toThrow(
-				/Installed versions: typia=11\.0\.0, ttsc=0\.26\.2, typescript=7\.0\.2, @ttsc\/unplugin=0\.26\.2, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x, matching ttsc and @ttsc\/unplugin 0\.23\.x or 0\.26\.x, TypeScript 7\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
+				/Installed versions: typia=11\.0\.0, ttsc=0\.30\.4, typescript=7\.0\.2, @ttsc\/unplugin=0\.30\.4, @wordpress\/scripts=30\.23\.0, webpack=5\.106\.0\..*Supported matrix: typia 13\.x or 14\.x, matching ttsc and @ttsc\/unplugin 0\.23\.x, 0\.26\.x or 0\.30\.x, TypeScript 7\.x, @wordpress\/scripts 30\.x with webpack 5\.x\./s,
 			);
 		} finally {
 			rmSync(projectRoot, { force: true, recursive: true });
@@ -416,7 +416,7 @@ describe('@wp-typia/block-runtime', () => {
 				JSON.stringify({ name: 'compat-nested', private: true }, null, 2),
 				'utf8',
 			);
-			writeMockPackage(projectRoot, 'typia', '13.3.0');
+			writeMockPackage(projectRoot, 'typia', '14.0.6');
 			writeMockPackage(projectRoot, 'ttsc', '0.30.4');
 			writeMockPackage(projectRoot, 'typescript', '7.0.2');
 			writeMockPackage(projectRoot, '@ttsc/unplugin', '0.30.4');

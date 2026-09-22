@@ -163,7 +163,7 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "typia": "13.3.0"
+    "typia": "14.0.6"
   },
   "engines": {
     "node": ">=24.0.0",
@@ -172,6 +172,6 @@
   },
   "patchedDependencies": {
     "@ttsc/lint@0.30.4": "patches/@ttsc%2Flint@0.30.4.patch",
-    "typia@13.3.0": "patches/typia@13.3.0.patch"
+    "typia@14.0.6": "patches/typia@14.0.6.patch"
   }
 }

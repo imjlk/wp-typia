@@ -156,7 +156,7 @@ same PR.
 
 Generated project Webpack defaults are currently regression-covered against:
 
-- `typia` 13.x
+- `typia` 14.x
 - TypeScript 7.x with `ttsc` 0.26.x
 - `@ttsc/unplugin` 0.26.x
 - `@wordpress/scripts` 30.x with Webpack 5

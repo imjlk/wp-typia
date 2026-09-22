@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import ts from '@typescript/typescript6';
 
 const TTSC_LINT_VERSION = '0.30.4';
-const TYPIA_VERSION = '13.3.0';
+const TYPIA_VERSION = '14.0.6';
 const TTSC_LINT_FORMAT = Object.freeze({
   severity: 'error',
   printWidth: 80,

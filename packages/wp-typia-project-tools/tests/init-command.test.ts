@@ -601,7 +601,7 @@ describe('wp-typia init', () => {
 					action: 'update',
 					currentValue: '^12.2.0',
 					name: 'typia',
-					requiredValue: '^13.3.0',
+					requiredValue: '^14.0.6',
 				},
 			]),
 		);
@@ -611,7 +611,7 @@ describe('wp-typia init', () => {
 			'@ttsc/unplugin': '^0.30.4',
 			ttsc: '^0.30.4',
 			typescript: '^7.0.2',
-			typia: '^13.3.0',
+			typia: '^14.0.6',
 		});
 	});
 

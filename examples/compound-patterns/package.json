@@ -34,7 +34,7 @@
 		"prettier": "3.8.2",
 		"ttsc": "^0.30.4",
 		"typescript": "^7.0.2",
-		"typia": "^13.3.0"
+		"typia": "^14.0.6"
 	},
 	"dependencies": {
 		"@wordpress/block-editor": "^15.2.0",
