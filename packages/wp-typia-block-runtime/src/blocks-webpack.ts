@@ -269,7 +269,7 @@ export async function assertTypiaWebpackCompatibility({
       matchesMajorMinor(versionMatrix['@ttsc/unplugin'], 0, minor),
   );
   const isSupported =
-    [13, 14].includes(parseMajorVersion(versionMatrix.typia) ?? -1) &&
+    parseMajorVersion(versionMatrix.typia) === 14 &&
     hasSupportedTtscPair &&
     parseMajorVersion(versionMatrix.typescript) === 7 &&
     parseMajorVersion(versionMatrix['@wordpress/scripts']) === 30 &&
@@ -283,7 +283,7 @@ export async function assertTypiaWebpackCompatibility({
     [
       'Unsupported Typia/Webpack toolchain for generated wp-typia projects.',
       `Installed versions: ${formatInstalledMatrix(versionMatrix)}.`,
-      'Supported matrix: typia 13.x or 14.x, matching ttsc and @ttsc/unplugin 0.23.x, 0.26.x or 0.30.x, TypeScript 7.x, @wordpress/scripts 30.x with webpack 5.x.',
+      'Supported matrix: typia 14.x, matching ttsc and @ttsc/unplugin 0.23.x, 0.26.x or 0.30.x, TypeScript 7.x, @wordpress/scripts 30.x with webpack 5.x.',
       'Generated project defaults were tested against this matrix.',
     ].join(' '),
   );

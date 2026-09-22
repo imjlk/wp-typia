@@ -161,8 +161,9 @@ Generated project Webpack defaults are currently regression-covered against:
 - `@ttsc/unplugin` 0.30.x
 - `@wordpress/scripts` 30.x with Webpack 5
 
-The compatibility guard also retains typia 13.x and matching ttsc/unplugin
-0.23.x and 0.26.x pairs for existing projects.
+The compatibility guard also retains matching ttsc/unplugin 0.23.x and 0.26.x
+pairs with typia 14. Typia 13 is rejected because its UTF-16 length semantics
+do not match the generated validators' Unicode code-point contract.
 
 The generated Webpack helpers now fail fast outside that matrix so broken
 version tuples surface as a clear compatibility error instead of a cryptic

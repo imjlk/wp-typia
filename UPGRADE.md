@@ -31,6 +31,8 @@ Typia 14 counts Unicode code points for `MinLength` and `MaxLength`. Generated
 PHP validators, migration checks, and generated example values use the same
 definition. A Korean character or an emoji counts as one; combining marks count
 separately. Regenerate validators with the managed sync command when upgrading.
+The Webpack preflight now rejects typia 13 to prevent client/PHP length-check
+disagreements; upgrade typia together with block-runtime.
 
 `wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
 migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
