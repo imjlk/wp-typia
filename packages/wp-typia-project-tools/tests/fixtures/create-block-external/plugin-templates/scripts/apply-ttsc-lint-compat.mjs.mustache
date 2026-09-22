@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-const REQUIRED_VERSION = '0.26.2';
+const REQUIRED_VERSION = '0.30.4';
 const STALE_TEMPORARY_FILE_AGE_MS = 60 * 60 * 1000;
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 let manifestPath;
@@ -143,7 +143,7 @@ function prepareBufferTargetRepair(
 			`function ${functionName}(`,
 			searchStart
 		);
-		// @ttsc/lint 0.26.2 places each digest function directly before its
+		// @ttsc/lint 0.30.4 places each digest function directly before its
 		// Record variant. The exact version lock and validations below fail closed
 		// if that upstream layout changes.
 		const functionEnd = nextSource.indexOf(

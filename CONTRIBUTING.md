@@ -76,7 +76,7 @@ Linting ownership is intentionally split:
 
 Formatting ownership is also explicit:
 
-- the repo root uses TypeScript `7.0.2`, `ttsc`/`@ttsc/lint` `0.26.2`, ESLint `9.39.4`, and `@eslint/js` `9.39.4`
+- the repo root uses TypeScript `7.0.2`, `ttsc`/`@ttsc/lint` `0.30.4`, ESLint `9.39.4`, and `@eslint/js` `9.39.4`
 - `ttsc` formats TypeScript/TSX at 80 columns, two spaces, semicolons, single quotes, trailing commas, and LF endings
 - the repo root uses Prettier `3.8.2` for repo-owned non-TypeScript docs, config, workflow, and policy files
 - example apps and built-in scaffold package manifests stay aligned on compatible `ttsc`/`@ttsc/lint` and Prettier ranges when they declare direct formatter dependencies
@@ -156,10 +156,14 @@ same PR.
 
 Generated project Webpack defaults are currently regression-covered against:
 
-- `typia` 13.x
-- TypeScript 7.x with `ttsc` 0.26.x
-- `@ttsc/unplugin` 0.26.x
+- `typia` 14.x
+- TypeScript 7.x with `ttsc` 0.30.x
+- `@ttsc/unplugin` 0.30.x
 - `@wordpress/scripts` 30.x with Webpack 5
+
+The compatibility guard also retains matching ttsc/unplugin 0.23.x and 0.26.x
+pairs with typia 14. Typia 13 is rejected because its UTF-16 length semantics
+do not match the generated validators' Unicode code-point contract.
 
 The generated Webpack helpers now fail fast outside that matrix so broken
 version tuples surface as a clear compatibility error instead of a cryptic

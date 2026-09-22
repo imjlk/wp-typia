@@ -9,7 +9,7 @@ allowing each package to assemble a different lint stack.
 
 - the repository root owns TypeScript `7.0.2`
 - the repository root owns `ttsc`, `@ttsc/lint`, and `@ttsc/unplugin` at
-  `0.26.2`
+  `0.30.4`
 - packaged project tools fall back to `@wp-typia/ttsc-lint-plugin-wp` `^0.2.0`
 - the repository root owns ESLint `9.39.4` for repo JavaScript and Prettier
   `3.8.2` for selected non-TypeScript files
@@ -97,7 +97,7 @@ and built workspace packages are shared with downstream project-tool and
 generated-project jobs. Large Go build caches are runner-local and are not
 uploaded for every matrix entry.
 
-`ttsc` 0.26.2 resolves its launcher and native TypeScript compiler from the
+`ttsc` 0.30.4 resolves its launcher and native TypeScript compiler from the
 project that owns the lint config. CI therefore exercises normal project
 resolution and does not inject `TTSC_TSGO_BINARY`; environment overrides would
 hide regressions in the same resolution path generated projects use. Contributor
@@ -112,18 +112,28 @@ boundary, and workspace add workflow at least once.
 
 ## Compatibility patches
 
+The ttsc 0.30.4 update rebuilds the lint patch against the registry source:
+source offsets and embedded loader locations changed from 0.26.2, so copying
+the previous patch can corrupt the config evaluator. The generated hook keeps
+its scope checks and the standalone-consumer regression remains required.
+
+The documentation site uses Astro 7 and Starlight 0.42 with
+`starlight-typedoc` 0.22.0. This version supports the updated sidebar schema
+while preserving the existing nested API routes; 0.23 rejects overlapping
+output directories and requires a separate route migration.
+
 The root Bun workspace carries two exact-version development-tool patches:
 
-- `typia@13.2.0` forwards the JSON `--tsgo-args` envelope so CLI flags such as
+- `typia@14.0.6` forwards the JSON `--tsgo-args` envelope so CLI flags such as
   `--strict` reach the tsgo program used by typia transforms
-- `@ttsc/lint@0.26.2` guards mapped and `infer` type parameters while formatting
+- `@ttsc/lint@0.30.4` guards mapped and `infer` type parameters while formatting
   trailing commas, preventing a TypeScript-Go declaration lookup panic, and
   widens the affected symlink-target buffers in the TypeScript source, the
   distributed JavaScript runtime, and the native sidecar's embedded TypeScript
   config loader so executable lint configs compile across the supported Node 24
   type-definition range
 
-Registry `@ttsc/lint@0.26.2` still reproduces both lint-host failures. Generated
+Registry `@ttsc/lint@0.30.4` still reproduces both lint-host failures. Generated
 and retrofitted projects therefore exact-pin that version and run
 `scripts/apply-ttsc-lint-compat.mjs` from `postinstall`. The helper verifies the
 package version and expected source/runtime/sidecar files, applies the same narrow

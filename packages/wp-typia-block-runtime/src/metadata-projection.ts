@@ -295,22 +295,22 @@ function fitStringExampleToConstraints(
 	value: string,
 	constraints: AttributeNode['constraints'],
 ): string {
-  let nextValue = value;
+  let characters = Array.from(value);
 
   if (
 		constraints.maxLength !== null &&
-		nextValue.length > constraints.maxLength
+		characters.length > constraints.maxLength
 	) {
-    nextValue = nextValue.slice(0, constraints.maxLength);
+    characters = characters.slice(0, constraints.maxLength);
   }
   if (
 		constraints.minLength !== null &&
-		nextValue.length < constraints.minLength
+		characters.length < constraints.minLength
 	) {
-    nextValue = nextValue.padEnd(constraints.minLength, 'x');
+    return characters.join('') + 'x'.repeat(constraints.minLength - characters.length);
   }
 
-  return nextValue;
+  return characters.join('');
 }
 
 function createNumericExample(node: AttributeNode): number {

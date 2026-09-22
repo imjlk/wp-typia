@@ -16,7 +16,7 @@ const UPSTREAM_VERSION = '25.8.0';
 const UPSTREAM_INTEGRITY =
   'sha512-QqYfiAVUYFLUhiLlVwB1MoGHcyNElwAPFeXnfZhYUPvFYOmQucsn4dxEGpl67PfcM2XWimni5z+mUquv4y1Mow==';
 const TTSC_BASELINE = '0.23.0';
-const TTSC_NEXT_UNSUPPORTED = '0.27.0';
+const TTSC_NEXT_UNSUPPORTED = '0.31.0';
 const IMPLEMENTED_RULES = new Map<string, string>();
 const registerImplementedRule = (name: string): void => {
   IMPLEMENTED_RULES.set(`@wordpress/${name}`, `wordpress/${name}`);

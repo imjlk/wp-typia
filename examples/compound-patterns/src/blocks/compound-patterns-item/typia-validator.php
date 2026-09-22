@@ -337,10 +337,16 @@ return new class {
 	{
 		$constraints = $attribute['typia']['constraints'] ?? [];
 
-		if (isset($constraints['minLength']) && is_int($constraints['minLength']) && strlen($value) < $constraints['minLength']) {
+		// Typia 14 and JSON Schema count Unicode code points, not UTF-8 bytes.
+		$length = preg_match_all('/./us', $value);
+		if ($length === false) {
+			$errors[] = sprintf('%s must be valid UTF-8', $path);
+			return;
+		}
+		if (isset($constraints['minLength']) && is_int($constraints['minLength']) && $length < $constraints['minLength']) {
 			$errors[] = sprintf('%s must be at least %d characters', $path, $constraints['minLength']);
 		}
-		if (isset($constraints['maxLength']) && is_int($constraints['maxLength']) && strlen($value) > $constraints['maxLength']) {
+		if (isset($constraints['maxLength']) && is_int($constraints['maxLength']) && $length > $constraints['maxLength']) {
 			$errors[] = sprintf('%s must be at most %d characters', $path, $constraints['maxLength']);
 		}
 		if (

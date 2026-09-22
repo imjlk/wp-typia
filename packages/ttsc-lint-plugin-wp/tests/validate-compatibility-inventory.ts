@@ -14,7 +14,7 @@ const compatibilityBySource = new Map(
 
 assert.equal(compatibilityManifest.schemaVersion, 2);
 assert.equal(compatibilityManifest.namespace, 'wordpress');
-assert.equal(compatibilityManifest.ttscRange, '>=0.23.0 <0.27.0');
+assert.equal(compatibilityManifest.ttscRange, '>=0.23.0 <0.31.0');
 assert.equal(baselinePackage.version, '0.23.0');
 assert.equal(compatibilityManifest.wordpressRules.length, 35);
 assert.ok(compatibilityManifest.compiledPresets.recommended.entries.length > 0);

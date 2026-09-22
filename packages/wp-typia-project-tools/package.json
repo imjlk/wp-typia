@@ -174,12 +174,12 @@
     "npm-package-arg": "^13.0.0",
     "semver": "^7.7.3",
     "tar": "^7.4.3",
-    "typia": "^13.2.0",
+    "typia": "^14.0.6",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "react": "^19.2.0",
-    "ttsc": "^0.26.2",
+    "ttsc": "^0.30.4",
     "typescript": "^7.0.2"
   }
 }

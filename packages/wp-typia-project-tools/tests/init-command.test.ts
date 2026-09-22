@@ -577,19 +577,19 @@ describe('wp-typia init', () => {
 					action: 'update',
 					currentValue: '0.22.0',
 					name: '@ttsc/lint',
-					requiredValue: '0.26.2',
+					requiredValue: '0.30.4',
 				},
 				{
 					action: 'update',
 					currentValue: '^0.22.0',
 					name: '@ttsc/unplugin',
-					requiredValue: '^0.26.2',
+					requiredValue: '^0.30.4',
 				},
 				{
 					action: 'update',
 					currentValue: '^0.22.0',
 					name: 'ttsc',
-					requiredValue: '^0.26.2',
+					requiredValue: '^0.30.4',
 				},
 				{
 					action: 'update',
@@ -601,17 +601,17 @@ describe('wp-typia init', () => {
 					action: 'update',
 					currentValue: '^12.2.0',
 					name: 'typia',
-					requiredValue: '^13.2.0',
+					requiredValue: '^14.0.6',
 				},
 			]),
 		);
 		expect(applied.status).toBe('applied');
 		expect(packageJson.devDependencies).toMatchObject({
-			'@ttsc/lint': '0.26.2',
-			'@ttsc/unplugin': '^0.26.2',
-			ttsc: '^0.26.2',
+			'@ttsc/lint': '0.30.4',
+			'@ttsc/unplugin': '^0.30.4',
+			ttsc: '^0.30.4',
 			typescript: '^7.0.2',
-			typia: '^13.2.0',
+			typia: '^14.0.6',
 		});
 	});
 

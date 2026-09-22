@@ -145,8 +145,8 @@
   },
   "devDependencies": {
     "react": "^19.2.0",
-    "ttsc": "^0.26.2",
-    "typia": "^13.2.0",
+    "ttsc": "^0.30.4",
+    "typia": "^14.0.6",
     "typescript": "^7.0.2"
   }
 }

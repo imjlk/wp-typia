@@ -169,8 +169,8 @@ describe('package version cache invalidation', () => {
       import { getPackageVersions } from ${JSON.stringify(packageVersionsModuleUrl)};
 
       const versions = getPackageVersions();
-      assert.equal(versions.ttscLintPluginWpPackageVersion, "^0.2.0");
-      assert.equal(versions.ttscLintPluginWpTtscPeerRange, ">=0.23.0 <0.27.0");
+      assert.equal(versions.ttscLintPluginWpPackageVersion, "^0.6.1");
+      assert.equal(versions.ttscLintPluginWpTtscPeerRange, ">=0.23.0 <0.31.0");
     `;
     const bunBinary =
       process.env.BUN_BINARY ??

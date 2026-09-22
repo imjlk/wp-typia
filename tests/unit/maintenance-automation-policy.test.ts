@@ -10,6 +10,18 @@ import {
 
 let tempDirs: string[] = [];
 
+test('scheduled matrix builds workspace exports before running consumer tests', () => {
+  const workflow = fs.readFileSync(
+    path.resolve(import.meta.dir, '../../.github/workflows/test-matrix.yml'),
+    'utf8',
+  );
+  const build = workflow.indexOf('run: bun run packages:build');
+  const tests = workflow.indexOf('run: bun run test');
+  expect(build).toBeGreaterThan(-1);
+  expect(tests).toBeGreaterThan(build);
+  expect(workflow.match(/run: bun run packages:build/g)).toHaveLength(1);
+});
+
 afterEach(() => {
   for (const tempDir of tempDirs) {
     fs.rmSync(tempDir, { force: true, recursive: true });
