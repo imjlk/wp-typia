@@ -946,7 +946,7 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivity).not.toContain('onInteraction:');
       expect(generatedInteractivity).not.toContain('onDestroy:');
       expect(generatedInteractivity).toContain(
-        "import {\n  demoInteractivityStore,\n  type DemoInteractivityStoreActions,\n} from './interactivity-store';",
+        "import {\n  demoInteractivityStore,\n  type DemoInteractivityStoreActions,\n  type DemoInteractivityStoreCallbacks,\n} from './interactivity-store';",
       );
       expect(generatedInteractivity).toContain(
         "import type { DemoInteractivityContext, DemoInteractivityState } from './types';",
@@ -958,7 +958,23 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivity).toContain('const state = {');
       expect(generatedInteractivity).toContain('} satisfies DemoInteractivityState;');
       expect(generatedInteractivity).toContain('store(demoInteractivityStore.namespace, {');
-      expect(generatedInteractivity).toContain('callbacks: demoInteractivityStore.callbacks,');
+      expect(generatedInteractivity).toContain(
+        'const callbacks: DemoInteractivityStoreCallbacks = {',
+      );
+      expect(generatedInteractivity).toContain('init: () => {');
+      expect(generatedInteractivity).toContain('watchClicks: () => {');
+      expect(generatedInteractivity).toContain(
+        'function useTrackElement(): void {',
+      );
+      expect(generatedInteractivity).toContain(
+        'trackElement: useTrackElement,',
+      );
+      expect(generatedInteractivity).toContain('useState(false)');
+      expect(generatedInteractivity).toContain('useEffect(');
+      expect(generatedInteractivity).toContain('callbacks,');
+      expect(generatedInteractivity).not.toContain(
+        'callbacks: demoInteractivityStore.callbacks,',
+      );
       expect(generatedInteractivity).toContain('withSyncEvent');
       expect(generatedInteractivity).toContain('reset: withSyncEvent');
       expect(generatedInteractivity).toContain('event.stopPropagation();');
@@ -1055,6 +1071,17 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedSave).toContain(
         'data-wp-on--click={clickActionDirective}',
       );
+      for (const source of [generatedEdit, generatedSave]) {
+        expect(source).toContain('data-wp-each={notesDirective}');
+        expect(source).toContain('data-wp-init={initDirective}');
+        expect(source).toContain('data-wp-watch={watchClicksDirective}');
+        expect(source).toContain('data-wp-run={trackElementDirective}');
+        expect(source).toContain('data-wp-text="context.item"');
+      }
+      expect(generatedTypes).toContain('notes: string[];');
+      expect(generatedTypes).toContain('isReady: boolean;');
+      expect(generatedTypes).toContain('watchedClicks: number;');
+      expect(generatedTypes).toContain('hasElement: boolean;');
       expect(generatedSave).toContain(
         'data-wp-bind--hidden={visibilityHiddenDirective}',
       );
@@ -1076,7 +1103,21 @@ describe('@wp-typia/project-tools scaffold core', () => {
       expect(generatedInteractivityStore).toContain('callback<Key extends InteractivityMethodKey<Callbacks>>');
       expect(generatedInteractivityStore).toContain('negate<Path extends string>(');
       expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreActions');
-      expect(generatedInteractivityStore).toContain('export interface DemoInteractivityStoreCallbacks {}');
+      expect(generatedInteractivityStore).toContain(
+        'export interface DemoInteractivityStoreCallbacks {',
+      );
+      expect(generatedInteractivityStore).toContain(
+        'init: InteractivityActionHandler;',
+      );
+      expect(generatedInteractivityStore).toContain(
+        'watchClicks: InteractivityActionHandler;',
+      );
+      expect(generatedInteractivityStore).toContain(
+        'trackElement: InteractivityActionHandler;',
+      );
+      expect(generatedInteractivityStore).not.toContain(
+        'export interface DemoInteractivityStoreCallbacks {}',
+      );
       expect(generatedInteractivityStore).toContain(
         'export const demoInteractivityStore = defineInteractivityStore({',
       );
@@ -1100,6 +1141,10 @@ void demoInteractivityStore.createContext({
   isVisible: true,
   animation: 'none',
   maxClicks: 1,
+  notes: ['Click the block'],
+  isReady: false,
+  watchedClicks: 0,
+  hasElement: false,
 });
 
 const customStore = defineInteractivityStore({

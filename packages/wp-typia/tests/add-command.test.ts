@@ -157,13 +157,22 @@ describe('wp-typia add command bridge', () => {
       'export interface SignalBoardStoreActions',
     );
     expect(generatedInteractivityStore).toContain(
+      'export interface SignalBoardStoreCallbacks {',
+    );
+    expect(generatedInteractivityStore).toContain(
+      'init: InteractivityActionHandler;',
+    );
+    expect(generatedInteractivityStore).toContain(
+      'trackElement: InteractivityActionHandler;',
+    );
+    expect(generatedInteractivityStore).not.toContain(
       'export interface SignalBoardStoreCallbacks {}',
     );
     expect(generatedInteractivityStore).toContain(
       'export const signalBoardStore = defineInteractivityStore({',
     );
     expect(generatedInteractivityRuntime).toContain(
-      "import {\n  signalBoardStore,\n  type SignalBoardStoreActions,\n} from './interactivity-store';",
+      "import {\n  signalBoardStore,\n  type SignalBoardStoreActions,\n  type SignalBoardStoreCallbacks,\n} from './interactivity-store';",
     );
     expect(generatedInteractivityRuntime).toContain(
       'const actions: SignalBoardStoreActions = {',
@@ -172,8 +181,21 @@ describe('wp-typia add command bridge', () => {
       'store(signalBoardStore.namespace, {',
     );
     expect(generatedInteractivityRuntime).toContain(
+      'function useTrackElement(): void {',
+    );
+    expect(generatedInteractivityRuntime).toContain(
+      'const callbacks: SignalBoardStoreCallbacks = {',
+    );
+    expect(generatedInteractivityRuntime).toContain(
+      'trackElement: useTrackElement,',
+    );
+    expect(generatedInteractivityRuntime).not.toContain(
       'callbacks: signalBoardStore.callbacks,',
     );
+    expect(generatedSave).toContain('data-wp-each={notesDirective}');
+    expect(generatedSave).toContain('data-wp-init={initDirective}');
+    expect(generatedSave).toContain('data-wp-watch={watchClicksDirective}');
+    expect(generatedSave).toContain('data-wp-run={trackElementDirective}');
     expect(generatedSave).toMatch(
       /const clickActionDirective =\s+signalBoardStore\.directive\.action\('handleClick'\);/u,
     );

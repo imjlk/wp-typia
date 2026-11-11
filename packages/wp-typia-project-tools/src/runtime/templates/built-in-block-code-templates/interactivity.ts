@@ -86,27 +86,54 @@ export default function Edit({
     'animation',
     'none',
   ) as NonNullable<{{pascalCase}}Attributes['animation']>;
+  const notes = [
+    __('Click the block', '{{textDomain}}'),
+    __('Watch the counter', '{{textDomain}}'),
+    __('Reset the counter', '{{textDomain}}'),
+  ];
 
   const blockProps = useBlockProps({
     className: \`{{cssClassName}} {{cssClassName}}--\${interactiveMode}\`,
     'data-wp-interactive': {{slugCamelCase}}Store.directive.interactive,
     'data-wp-context': JSON.stringify(
       {{slugCamelCase}}Store.createContext({
-        clicks: clickCount,
-        isAnimating,
-        isVisible,
         animation,
+        clicks: clickCount,
+        hasElement: false,
+        isAnimating,
+        isReady: false,
+        isVisible,
         maxClicks,
+        notes,
+        watchedClicks: clickCount,
       }),
     ),
   });
   const previewContentStyle = { textAlign: alignmentValue };
   const progressBarStyle = { width: \`\${(clickCount / maxClicks) * 100}%\` };
 {{interactivityClicksDirective}}
+  const hasElementHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.context('hasElement'),
+    );
+  const initDirective =
+    {{slugCamelCase}}Store.directive.callback('init');
   const isAnimatingDirective =
     {{slugCamelCase}}Store.directive.state('isAnimating');
+  const isReadyHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.context('isReady'),
+    );
+  const notesDirective =
+    {{slugCamelCase}}Store.directive.context('notes');
   const progressDirective =
     {{slugCamelCase}}Store.directive.state('progress') + " + '%'";
+  const trackElementDirective =
+    {{slugCamelCase}}Store.directive.callback('trackElement');
+  const watchClicksDirective =
+    {{slugCamelCase}}Store.directive.callback('watchClicks');
+  const watchedClicksDirective =
+    {{slugCamelCase}}Store.directive.context('watchedClicks');
 
   const resetCounter = () => {
     updateField('clickCount', 0);
@@ -284,6 +311,41 @@ export default function Edit({
               {animation}
             </div>
           )}
+
+          <ul
+            className="{{cssClassName}}__notes"
+            data-wp-bind--hidden={isReadyHiddenDirective}
+            data-wp-init={initDirective}
+          >
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+            {/* wp-each stores each note on context.item. */}
+            <template data-wp-each={notesDirective}>
+              <li data-wp-text="context.item" />
+            </template>
+          </ul>
+
+          <span className="{{cssClassName}}__watched">
+            <span className="{{cssClassName}}__counter-label">
+              {__('Watched:', '{{textDomain}}')}
+            </span>
+            <span
+              className="{{cssClassName}}__counter-value"
+              data-wp-text={watchedClicksDirective}
+              data-wp-watch={watchClicksDirective}
+            >
+              {clickCount}
+            </span>
+          </span>
+
+          <p
+            className="{{cssClassName}}__run"
+            data-wp-bind--hidden={hasElementHiddenDirective}
+            data-wp-run={trackElementDirective}
+          >
+            {__('Element mounted', '{{textDomain}}')}
+          </p>
         </div>
       </div>
     </>
@@ -308,6 +370,11 @@ export default function Save({
   const isVisible = attributes.isVisible ?? true;
   const maxClicks = attributes.maxClicks ?? 0;
   const showCounter = attributes.showCounter ?? true;
+  const notes = [
+    __('Click the block', '{{textDomain}}'),
+    __('Watch the counter', '{{textDomain}}'),
+    __('Reset the counter', '{{textDomain}}'),
+  ];
   const contentStyle = { textAlign: attributes.alignment };
   const clickActionDirective =
     {{slugCamelCase}}Store.directive.action('handleClick');
@@ -318,24 +385,46 @@ export default function Save({
 {{interactivityClicksDirective}}
   const clampedClicksDirective =
     {{slugCamelCase}}Store.directive.state('clampedClicks');
+  const hasElementHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.context('hasElement'),
+    );
+  const initDirective =
+    {{slugCamelCase}}Store.directive.callback('init');
   const isAnimatingDirective =
     {{slugCamelCase}}Store.directive.state('isAnimating');
+  const isReadyHiddenDirective =
+    {{slugCamelCase}}Store.directive.negate(
+      {{slugCamelCase}}Store.directive.context('isReady'),
+    );
   const completionHiddenDirective =
     {{slugCamelCase}}Store.directive.negate(
       {{slugCamelCase}}Store.directive.state('isComplete'),
     );
+  const notesDirective =
+    {{slugCamelCase}}Store.directive.context('notes');
   const resetActionDirective =
     {{slugCamelCase}}Store.directive.action('reset');
+  const trackElementDirective =
+    {{slugCamelCase}}Store.directive.callback('trackElement');
+  const watchClicksDirective =
+    {{slugCamelCase}}Store.directive.callback('watchClicks');
+  const watchedClicksDirective =
+    {{slugCamelCase}}Store.directive.context('watchedClicks');
   const blockProps = useBlockProps.save({
     className: \`{{cssClassName}} {{cssClassName}}--\${interactiveMode}\`,
     'data-wp-interactive': {{slugCamelCase}}Store.directive.interactive,
     'data-wp-context': JSON.stringify(
       {{slugCamelCase}}Store.createContext({
-        clicks: clickCount,
-        isAnimating,
-        isVisible,
         animation,
+        clicks: clickCount,
+        hasElement: false,
+        isAnimating,
+        isReady: false,
+        isVisible,
         maxClicks,
+        notes,
+        watchedClicks: clickCount,
       }),
     ),
   });
@@ -417,6 +506,38 @@ export default function Save({
             {__('🎉 Complete!', '{{textDomain}}')}
           </div>
         )}
+
+        <ul
+          className="{{cssClassName}}__notes"
+          data-wp-bind--hidden={isReadyHiddenDirective}
+          data-wp-init={initDirective}
+        >
+          {/* wp-each stores each note on context.item. */}
+          <template data-wp-each={notesDirective}>
+            <li data-wp-text="context.item" />
+          </template>
+        </ul>
+
+        <span className="{{cssClassName}}__watched">
+          <span className="{{cssClassName}}__counter-label">
+            {__('Watched:', '{{textDomain}}')}
+          </span>
+          <span
+            className="{{cssClassName}}__counter-value"
+            data-wp-text={watchedClicksDirective}
+            data-wp-watch={watchClicksDirective}
+          >
+            {clickCount}
+          </span>
+        </span>
+
+        <p
+          className="{{cssClassName}}__run"
+          data-wp-bind--hidden={hasElementHiddenDirective}
+          data-wp-run={trackElementDirective}
+        >
+          {__('Element mounted', '{{textDomain}}')}
+        </p>
 
         <button
           className="{{cssClassName}}__reset"
@@ -599,7 +720,11 @@ export interface {{pascalCase}}StoreActions {
   reset: InteractivityActionHandler;
 }
 
-export interface {{pascalCase}}StoreCallbacks {}
+export interface {{pascalCase}}StoreCallbacks {
+  init: InteractivityActionHandler;
+  watchClicks: InteractivityActionHandler;
+  trackElement: InteractivityActionHandler;
+}
 
 export const {{slugCamelCase}}Store = defineInteractivityStore({
   namespace: '{{slugKebabCase}}',
@@ -617,11 +742,14 @@ import {
   store,
   getContext,
   getElement,
+  useEffect,
+  useState,
   withSyncEvent,
 } from '@wordpress/interactivity';
 import {
   {{slugCamelCase}}Store,
   type {{pascalCase}}StoreActions,
+  type {{pascalCase}}StoreCallbacks,
 } from './interactivity-store';
 {{interactivityTypesImport}}
 
@@ -703,6 +831,33 @@ const actions: {{pascalCase}}StoreActions = {
   }),
 };
 
+// data-wp-run may call hooks. Keep them in a use* function so
+// rules-of-hooks accepts the generated view script.
+function useTrackElement(): void {
+  const [hasElement, setHasElement] = useState(false);
+
+  useEffect(() => {
+    const { ref } = getElement();
+    setHasElement(ref !== null);
+  }, [getElement]);
+
+  useEffect(() => {
+    getBlockContext().hasElement = hasElement;
+  }, [getBlockContext, hasElement]);
+}
+
+const callbacks: {{pascalCase}}StoreCallbacks = {
+  init: () => {
+    const context = getBlockContext();
+    context.isReady = true;
+  },
+  watchClicks: () => {
+    const context = getBlockContext();
+    context.watchedClicks = context.clicks;
+  },
+  trackElement: useTrackElement,
+};
+
 const state = {
   get clicks() {
     return getBlockContext().clicks;
@@ -740,7 +895,7 @@ store({{slugCamelCase}}Store.namespace, {
   // State - reactive data that updates the UI
   state,
   actions,
-  callbacks: {{slugCamelCase}}Store.callbacks,
+  callbacks,
 });
 `;
 

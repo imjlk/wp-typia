@@ -61,6 +61,17 @@ const INTERACTIVITY_STYLE_TEMPLATE = `.{{cssClassName}} {
 		background: transparent;
 		cursor: pointer;
 	}
+
+	&__notes {
+		margin: 0;
+		padding-left: 1.1rem;
+	}
+
+	&__watched,
+	&__run {
+		margin: 0;
+		font-size: 0.85rem;
+	}
 }
 `;
 
