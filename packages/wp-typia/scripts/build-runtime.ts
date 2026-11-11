@@ -4,7 +4,6 @@ import path from 'node:path';
 import {
   ensureRuntimeBuildDependencies,
   packageRoot,
-  WP_TYPIA_EXTERNALS,
 } from './runtime-build-dependencies';
 
 const runtimeEntrypoint = path.resolve(packageRoot, 'src', 'gunshi-cli.ts');

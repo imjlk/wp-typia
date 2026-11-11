@@ -55,7 +55,7 @@ export interface CompatibilityManifest {
     Record<string, Readonly<Record<string, 'enabled' | 'mixed' | 'off'>>>
   >;
   schemaVersion: 2;
-  ttscRange: '>=0.23.0 <0.27.0';
+  ttscRange: '>=0.23.0 <0.31.0';
   upstream: {
     integrity: string;
     package: '@wordpress/eslint-plugin';

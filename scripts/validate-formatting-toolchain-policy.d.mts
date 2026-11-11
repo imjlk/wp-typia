@@ -67,12 +67,12 @@ export declare const FORMATTING_TOOLCHAIN_POLICY: Readonly<{
   rootPolicyValidateScript: 'node scripts/validate-formatting-toolchain-policy.mjs';
   rootTtscLintCompatCheckScript: 'node scripts/sync-generated-ttsc-lint-compat.mjs';
   rootTtscLintCompatSyncScript: 'node scripts/sync-generated-ttsc-lint-compat.mjs --write';
-  ttscLintVersion: '0.26.2';
-  ttscVersion: '0.26.2';
-  typiaVersion: '13.2.0';
+  ttscLintVersion: '0.30.4';
+  ttscVersion: '0.30.4';
+  typiaVersion: '14.0.6';
   compatibilityPatches: Readonly<{
-    '@ttsc/lint@0.26.2': 'patches/@ttsc%2Flint@0.26.2.patch';
-    'typia@13.2.0': 'patches/typia@13.2.0.patch';
+    '@ttsc/lint@0.30.4': 'patches/@ttsc%2Flint@0.30.4.patch';
+    'typia@14.0.6': 'patches/typia@14.0.6.patch';
   }>;
   generatedPackageManifestPaths: readonly string[];
   generatedWpScriptsStyleLintManifestPaths: readonly string[];

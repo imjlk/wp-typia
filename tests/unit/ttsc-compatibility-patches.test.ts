@@ -145,7 +145,7 @@ describe('ttsc compatibility patches', () => {
     const projectDir = createTtscFixture('wp-typia-ttsc-typia-patch-');
     writeJson(path.join(projectDir, 'package.json'), {
       dependencies: {
-        typia: '13.2.0',
+        typia: '14.0.6',
       },
       private: true,
       type: 'module',
@@ -215,11 +215,11 @@ export function acceptsImplicitAny(value) {
     expect(strictResult.output).toContain("implicitly has an 'any' type");
   }, TTSC_PROCESS_TIMEOUT_MS);
 
-  test('formats mapped and infer type parameters without a lint host panic', () => {
+  test.each(['ts', 'mjs'])('formats mapped and infer types with a %s config without a lint host panic', (extension) => {
     const projectDir = createTtscFixture('wp-typia-ttsc-lint-patch-');
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.26.2',
+        '@ttsc/lint': '0.30.4',
       },
       private: true,
       type: 'module',
@@ -237,7 +237,7 @@ export function acceptsImplicitAny(value) {
       include: ['src/**/*.ts'],
     });
     writeText(
-      path.join(projectDir, 'lint.config.ts'),
+      path.join(projectDir, `lint.config.${extension}`),
       `export default {
   format: {
     severity: 'error',
@@ -356,8 +356,8 @@ export type Inferred<Value> =
     );
     writeJson(path.join(projectDir, 'package.json'), {
       devDependencies: {
-        '@ttsc/lint': '0.26.2',
-        ttsc: '0.26.2',
+        '@ttsc/lint': '0.30.4',
+        ttsc: '0.30.4',
         typescript: '7.0.2',
       },
       private: true,

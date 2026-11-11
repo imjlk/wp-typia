@@ -394,10 +394,10 @@ function isValidString(
   if ( enumValues && ! enumValues.includes( value ) ) {
     return false;
   }
-  if ( typeof minLength === 'number' && value.length < minLength ) {
+  if ( typeof minLength === 'number' && Array.from(value).length < minLength ) {
     return false;
   }
-  if ( typeof maxLength === 'number' && value.length > maxLength ) {
+  if ( typeof maxLength === 'number' && Array.from(value).length > maxLength ) {
     return false;
   }
   if ( pattern ) {

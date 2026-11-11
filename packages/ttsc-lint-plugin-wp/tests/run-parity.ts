@@ -313,6 +313,9 @@ function createUpstreamEslint(fix: boolean): ESLint {
         '@wordpress': { rules: upstreamRules },
         react: reactPlugin,
       },
+      settings: {
+        react: { version: '19.3' },
+      },
       rules: {
         '@wordpress/components-no-missing-40px-size-prop': [
           'error',

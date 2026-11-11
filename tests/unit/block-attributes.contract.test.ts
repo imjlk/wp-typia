@@ -192,13 +192,13 @@ function validatePayload(
     }
 
     if (typeof value === 'string') {
-      if (attribute.typia.constraints.minLength !== null && value.length < attribute.typia.constraints.minLength) {
+      if (attribute.typia.constraints.minLength !== null && Array.from(value).length < attribute.typia.constraints.minLength) {
         errors.push(
           `${attributeName} must be at least ${attribute.typia.constraints.minLength} characters`,
         );
       }
 
-      if (attribute.typia.constraints.maxLength !== null && value.length > attribute.typia.constraints.maxLength) {
+      if (attribute.typia.constraints.maxLength !== null && Array.from(value).length > attribute.typia.constraints.maxLength) {
         errors.push(
           `${attributeName} must be at most ${attribute.typia.constraints.maxLength} characters`,
         );
