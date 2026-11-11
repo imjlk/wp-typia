@@ -62,10 +62,14 @@ test('ability templates keep representative generated output stable after the sp
 });
 
 test('ability config accepts an explicit category and public MCP metadata', () => {
-  const configSource = buildAbilityConfigSource('review-workflow', 'demo-space', {
-    categorySlug: 'editorial',
-    publicMcp: true,
-  });
+  const configSource = buildAbilityConfigSource(
+    'review-workflow',
+    'demo-space',
+    {
+      categorySlug: 'editorial',
+      publicMcp: true,
+    },
+  );
 
   expect(configSource).toContain('"slug": "editorial"');
   expect(configSource).toContain('"label": "Editorial"');

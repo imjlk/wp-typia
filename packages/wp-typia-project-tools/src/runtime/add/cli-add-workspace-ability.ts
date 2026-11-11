@@ -40,8 +40,8 @@ export async function runAddAbilityCommand({
   );
   const resolvedCategorySlug =
 		typeof categorySlug === 'string'
-			? assertValidAbilityCategorySlug(categorySlug)
-			: undefined;
+      ? assertValidAbilityCategorySlug(categorySlug)
+      : undefined;
 
   const inventory = await readWorkspaceInventoryAsync(workspace.projectDir);
   assertAbilityDoesNotExist(workspace.projectDir, abilitySlug, inventory);

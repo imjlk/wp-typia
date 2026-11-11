@@ -41,6 +41,11 @@ export const ADD_OPTION_METADATA = {
       'Human-readable title for typed pattern catalog entries; defaults to the pattern slug title.',
     type: 'string',
   },
+  category: {
+    description:
+      'Ability category slug for add ability workflows. Defaults to <namespace>-workflows.',
+    type: 'string',
+  },
   'controller-class': {
     description:
       'REST resource controller class used for generated route callbacks or declared manual/provider route ownership.',
@@ -150,6 +155,12 @@ export const ADD_OPTION_METADATA = {
   position: {
     description: 'Hook position for hooked-block workflows.',
     type: 'string',
+  },
+  public: {
+    argumentKind: 'flag',
+    description:
+      'Mark a generated ability meta.mcp.public so an opt-in MCP adapter can expose it. The default stays private.',
+    type: 'boolean',
   },
   'query-type': {
     description:
