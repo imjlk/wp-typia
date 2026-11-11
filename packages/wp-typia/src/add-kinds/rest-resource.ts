@@ -18,7 +18,7 @@ import {
 const REST_RESOURCE_GENERATED_USAGE =
   'Generated: wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <list,read,create,update,delete>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]';
 const REST_RESOURCE_MANUAL_USAGE =
-  'Manual: wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--dry-run]';
+  'Manual: wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--secret-storage <option|secrets-api>] [--dry-run]';
 const REST_RESOURCE_USAGE = `${REST_RESOURCE_GENERATED_USAGE}\n${REST_RESOURCE_MANUAL_USAGE}`;
 const REST_RESOURCE_MISSING_NAME_MESSAGE = [
   '`wp-typia add rest-resource` requires <name>. Usage:',
@@ -27,6 +27,7 @@ const REST_RESOURCE_MISSING_NAME_MESSAGE = [
 ].join('\n');
 const SECRET_PRESERVE_ON_EMPTY_TRUE_VALUES = new Set(['1', 'true', 'yes']);
 const SECRET_PRESERVE_ON_EMPTY_FALSE_VALUES = new Set(['0', 'false', 'no']);
+const SECRET_STORAGE_VALUES = new Set(['option', 'secrets-api']);
 
 function readOptionalSecretPreserveOnEmptyFlag(
   flags: Record<string, unknown>,
@@ -65,6 +66,53 @@ function readOptionalSecretPreserveOnEmptyFlag(
   );
 }
 
+function readOptionalSecretStorageFlag(
+  flags: Record<string, unknown>,
+  options: {
+    manual: boolean;
+    secretFieldName: string | undefined;
+  },
+): 'option' | 'secrets-api' | undefined {
+  const value = flags['secret-storage'] ?? flags.secretStorage;
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
+      '`--secret-storage` requires a value.',
+    );
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.MISSING_ARGUMENT,
+      '`--secret-storage` requires a value.',
+    );
+  }
+  if (!SECRET_STORAGE_VALUES.has(normalized)) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'Manual REST contract --secret-storage must be option or secrets-api.',
+    );
+  }
+  if (!options.manual) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'Manual REST contract --secret-storage requires --manual and --secret-field.',
+    );
+  }
+  if (!options.secretFieldName) {
+    throw createCliDiagnosticCodeError(
+      CLI_DIAGNOSTIC_CODES.INVALID_ARGUMENT,
+      'Manual REST contract --secret-storage requires --secret-field.',
+    );
+  }
+
+  return normalized as 'option' | 'secrets-api';
+}
+
 export const restResourceAddKindEntry =
   defineAddKindRegistryEntry<AddRestResourceResult>({
     completion: {
@@ -73,6 +121,11 @@ export const restResourceAddKindEntry =
           ? [
               `Review src/rest/${values.restResourceSlug}/ and edit the manual contract types to match the external route owner.`,
               'Run sync-rest --check after changing the contract types to verify schemas, OpenAPI, and client artifacts.',
+              ...(values.secretStorage === 'secrets-api'
+                ? [
+                    `Call the server-side helpers in inc/rest/${values.restResourceSlug}-secret.php from the route owner. Responses stay limited to the masked boolean.`,
+                  ]
+                : []),
             ]
           : [
               `Review src/rest/${values.restResourceSlug}/ and inc/rest/${values.restResourceSlug}.php.`,
@@ -90,6 +143,9 @@ export const restResourceAddKindEntry =
                 ? [
                     `Secret field: ${values.secretFieldName} -> ${values.secretStateFieldName}`,
                     `Secret preserve on empty: ${values.secretPreserveOnEmpty}`,
+                    ...(values.secretStorage === 'secrets-api'
+                      ? [`Secret storage: ${values.secretStorage}`]
+                      : []),
                   ]
                 : []),
               ...(values.permissionCallback
@@ -136,6 +192,7 @@ export const restResourceAddKindEntry =
       'secret-masked-response-field',
       'secret-preserve-on-empty',
       'secret-state-field',
+      'secret-storage',
     ],
     nameLabel: 'REST resource name',
     async prepareExecution(context) {
@@ -199,6 +256,10 @@ export const restResourceAddKindEntry =
       const secretPreserveOnEmpty = readOptionalSecretPreserveOnEmptyFlag(
         context.flags,
       );
+      const secretStorage = readOptionalSecretStorageFlag(context.flags, {
+        manual,
+        secretFieldName,
+      });
       const secretStateFieldName = readOptionalDashedOrCamelStringFlag(
         context.flags,
         'secret-state-field',
@@ -228,6 +289,7 @@ export const restResourceAddKindEntry =
             secretMaskedResponseFieldName,
             secretPreserveOnEmpty,
             secretStateFieldName,
+            secretStorage,
           }),
         getValues: (result) => ({
           auth: result.auth ?? '',
@@ -247,6 +309,9 @@ export const restResourceAddKindEntry =
               ? ''
               : String(result.secretPreserveOnEmpty),
           secretStateFieldName: result.secretStateFieldName ?? '',
+          ...(result.secretStorage === 'secrets-api'
+            ? { secretStorage: result.secretStorage }
+            : {}),
         }),
         missingNameMessage: REST_RESOURCE_MISSING_NAME_MESSAGE,
         name,

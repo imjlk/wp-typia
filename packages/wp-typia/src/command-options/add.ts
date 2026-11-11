@@ -207,6 +207,11 @@ export const ADD_OPTION_METADATA = {
       'Masked response boolean field for --secret-field; defaults to has<SecretField> and may also be provided as --secret-has-value-field.',
     type: 'string',
   },
+  'secret-storage': {
+    description:
+      'Where a manual REST --secret-field is stored. option keeps the current plaintext option path (default). secrets-api uses the WordPress Secrets API when wp_set_secret, wp_get_secret, and wp_delete_secret exist and falls back to option storage otherwise. Requires --secret-field.',
+    type: 'string',
+  },
   service: {
     description:
       'Optional local service starter for integration-env workflows (none or docker-compose).',

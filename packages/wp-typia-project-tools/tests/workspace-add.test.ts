@@ -5248,6 +5248,18 @@ test('canonical CLI can add a type-only manual REST contract to an official work
     fs.existsSync(path.join(targetDir, 'inc', 'rest', 'external-record.php')),
   ).toBe(false);
   expect(
+    fs.existsSync(
+      path.join(targetDir, 'inc', 'rest', 'external-record-secret.php'),
+    ),
+  ).toBe(false);
+  expect(fs.readFileSync(blockConfigPath, 'utf8')).not.toContain('secretStorage');
+  expect(
+    fs.readFileSync(
+      path.join(targetDir, 'demo-workspace-add-manual-rest-contract.php'),
+      'utf8',
+    ),
+  ).not.toContain('wp_set_secret');
+  expect(
     fs.existsSync(path.join(targetDir, 'src', 'rest', 'external-record', 'data.ts')),
   ).toBe(false);
 

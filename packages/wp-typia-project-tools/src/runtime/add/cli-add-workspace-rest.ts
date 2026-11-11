@@ -11,6 +11,34 @@ import { type RunAddRestResourceCommandResult } from './cli-add-workspace-rest-t
 import { readWorkspaceInventoryAsync } from '../workspace/workspace-inventory.js';
 import { resolveWorkspaceProject } from '../workspace/workspace-project.js';
 
+function assertManualRestSecretStorage(options: {
+  manual: boolean | undefined;
+  secretFieldName: string | undefined;
+  secretStorage: string | undefined;
+}): void {
+  if (options.secretStorage === undefined) {
+    return;
+  }
+  if (
+    options.secretStorage !== 'option' &&
+    options.secretStorage !== 'secrets-api'
+  ) {
+    throw new Error(
+      'Manual REST contract --secret-storage must be option or secrets-api.',
+    );
+  }
+  if (!options.manual) {
+    throw new Error(
+      'Manual REST contract --secret-storage requires --manual and --secret-field.',
+    );
+  }
+  if (!options.secretFieldName) {
+    throw new Error(
+      'Manual REST contract --secret-storage requires --secret-field.',
+    );
+  }
+}
+
 /**
  * Scaffold a workspace-level REST resource and synchronize its generated
  * TypeScript and PHP artifacts.
@@ -39,7 +67,13 @@ export async function runAddRestResourceCommand({
 	secretMaskedResponseFieldName,
 	secretPreserveOnEmpty,
 	secretStateFieldName,
+	secretStorage,
 }: RunAddRestResourceCommandOptions): Promise<RunAddRestResourceCommandResult> {
+  assertManualRestSecretStorage({
+    manual,
+    secretFieldName,
+    secretStorage,
+  });
   const workspace = resolveWorkspaceProject(cwd);
   const restResourceSlug = assertValidGeneratedPhpModuleSlug(
     'REST resource name',
@@ -77,6 +111,7 @@ export async function runAddRestResourceCommand({
       secretMaskedResponseFieldName,
       secretPreserveOnEmpty,
       secretStateFieldName,
+      secretStorage,
       workspace,
     });
   }

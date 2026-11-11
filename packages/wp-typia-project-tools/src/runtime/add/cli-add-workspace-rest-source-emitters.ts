@@ -14,6 +14,9 @@ export {
 export {
   buildManualRestContractApiSource,
   buildManualRestContractConfigEntry,
+  buildManualRestSecretStoragePhpPath,
+  buildManualRestSecretStoragePhpSource,
+  buildManualRestSecretStorageRequireSnippet,
   buildManualRestContractTypesSource,
   buildManualRestContractValidatorsSource,
 } from './cli-add-workspace-rest-manual-source-emitters.js';

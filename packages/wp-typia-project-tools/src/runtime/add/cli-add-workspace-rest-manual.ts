@@ -7,6 +7,8 @@ import {
   assertValidManualRestContractHttpMethod,
   assertValidTypeScriptIdentifier,
   collectRestRouteNamedCaptureNames,
+  getWorkspaceBootstrapPath,
+  patchFile,
   resolveOptionalPhpCallbackReference,
   resolveOptionalPhpClassReference,
   resolveManualRestContractPathPattern,
@@ -14,6 +16,7 @@ import {
   type WorkspaceMutationSnapshot,
   snapshotWorkspaceFiles,
 } from './cli-add-shared.js';
+import { appendPhpSnippetBeforeClosingTag } from './cli-add-workspace-mutation.js';
 import {
 	ensureRestResourceSyncScriptAnchors,
 } from './cli-add-workspace-rest-resource-sync-anchors.js';
@@ -22,6 +25,9 @@ import {
   buildManualRestContractConfigEntry,
   buildManualRestContractTypesSource,
   buildManualRestContractValidatorsSource,
+  buildManualRestSecretStoragePhpPath,
+  buildManualRestSecretStoragePhpSource,
+  buildManualRestSecretStorageRequireSnippet,
 } from './cli-add-workspace-rest-manual-source-emitters.js';
 import {
   type ManualRestContractScaffoldOptions,
@@ -30,6 +36,7 @@ import {
 import { syncManualRestContractArtifacts } from './rest-resource-artifacts.js';
 import { toPascalCase, toTitleCase } from '../shared/string-case.js';
 import { appendWorkspaceInventoryEntries } from '../workspace/workspace-inventory.js';
+import { ensureManualRestSecretStorageConfigField } from '../workspace/workspace-inventory-mutations.js';
 
 const MANUAL_REST_REQUEST_BODY_FIELD_NAMES = new Set(['payload', 'comment']);
 const MANUAL_REST_RESPONSE_FIELD_NAMES = new Set([
@@ -119,6 +126,7 @@ export async function scaffoldManualRestContract({
 	secretMaskedResponseFieldName,
 	secretPreserveOnEmpty,
 	secretStateFieldName,
+	secretStorage,
 	workspace,
 }: ManualRestContractScaffoldOptions): Promise<RunAddRestResourceCommandResult> {
   const blockConfigPath = path.join(
@@ -198,6 +206,11 @@ export async function scaffoldManualRestContract({
     secretMaskedResponseFieldName,
     secretStateFieldName,
   });
+  if (secretStorage !== undefined && !secretFieldName) {
+    throw new Error(
+      'Manual REST contract --secret-storage requires --secret-field.',
+    );
+  }
   if (secretPreserveOnEmpty !== undefined && !secretFieldName) {
     throw new Error(
       'Manual REST contract --secret-preserve-on-empty requires --secret-field.',
@@ -260,6 +273,19 @@ export async function scaffoldManualRestContract({
       'Manual REST contract secret state field must be different from the raw secret field.',
     );
   }
+  const usesSecretsApi =
+		secretStorage === 'secrets-api' &&
+		resolvedSecretFieldName !== undefined &&
+		resolvedSecretStateFieldName !== undefined;
+  const secretStoragePhpRelativePath = usesSecretsApi
+    ? buildManualRestSecretStoragePhpPath(restResourceSlug)
+    : undefined;
+  const secretStoragePhpPath = secretStoragePhpRelativePath
+    ? path.join(workspace.projectDir, secretStoragePhpRelativePath)
+    : undefined;
+  const bootstrapPath = usesSecretsApi
+    ? getWorkspaceBootstrapPath(workspace)
+    : undefined;
   const manualTypeNames = [
 		resolvedQueryTypeName,
 		resolvedResponseTypeName,
@@ -281,9 +307,13 @@ export async function scaffoldManualRestContract({
 		fileSources: await snapshotWorkspaceFiles([
 			blockConfigPath,
 			syncRestScriptPath,
+			...(bootstrapPath ? [bootstrapPath] : []),
 		]),
 		snapshotDirs: [],
-		targetPaths: [restResourceDir],
+		targetPaths: [
+			restResourceDir,
+			...(secretStoragePhpPath ? [secretStoragePhpPath] : []),
+		],
 	};
 
   try {
@@ -333,6 +363,34 @@ export async function scaffoldManualRestContract({
 			}),
 			'utf8',
 		);
+    if (
+			usesSecretsApi &&
+			secretStoragePhpPath &&
+			bootstrapPath &&
+			resolvedSecretFieldName &&
+			resolvedSecretStateFieldName
+		) {
+      await fsp.mkdir(path.dirname(secretStoragePhpPath), { recursive: true });
+      await fsp.writeFile(
+        secretStoragePhpPath,
+        buildManualRestSecretStoragePhpSource({
+          phpPrefix: workspace.workspace.phpPrefix,
+          preserveOnEmpty: resolvedSecretPreserveOnEmpty ?? true,
+          restResourceSlug,
+          secretFieldName: resolvedSecretFieldName,
+          secretStateFieldName: resolvedSecretStateFieldName,
+          textDomain: workspace.workspace.textDomain,
+        }),
+        'utf8',
+      );
+      const requireSnippet =
+				buildManualRestSecretStorageRequireSnippet(restResourceSlug);
+      await patchFile(bootstrapPath, (source) =>
+        source.includes(requireSnippet)
+          ? source
+          : appendPhpSnippetBeforeClosingTag(source, requireSnippet),
+      );
+    }
     await syncManualRestContractArtifacts({
 			clientFile: `src/rest/${restResourceSlug}/api-client.ts`,
 			outputDir: restResourceDir,
@@ -385,9 +443,15 @@ export async function scaffoldManualRestContract({
 					...(resolvedSecretStateFieldName
 						? { secretStateFieldName: resolvedSecretStateFieldName }
 						: {}),
+					...(usesSecretsApi ? { secretStorage: 'secrets-api' as const } : {}),
 				}),
 			],
-			transformSource: ensureBlockConfigCanAddRestManifests,
+			transformSource: usesSecretsApi
+				? (source) =>
+						ensureManualRestSecretStorageConfigField(
+							ensureBlockConfigCanAddRestManifests(source),
+						)
+				: ensureBlockConfigCanAddRestManifests,
 		});
 
     return {
@@ -422,6 +486,7 @@ export async function scaffoldManualRestContract({
 			...(resolvedSecretStateFieldName
 				? { secretStateFieldName: resolvedSecretStateFieldName }
 				: {}),
+			...(usesSecretsApi ? { secretStorage: 'secrets-api' as const } : {}),
 		};
   } catch (error) {
     await rollbackWorkspaceMutation(mutationSnapshot);

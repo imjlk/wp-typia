@@ -21,6 +21,8 @@ import type { WorkspaceProject } from '../workspace/workspace-project.js';
  * @property restResourceSlug Normalized kebab-case REST resource slug.
  * @property secretPreserveOnEmpty Whether blank settings secret submissions
  * should preserve the stored value when `secretFieldName` is set.
+ * @property secretStorage `secrets-api` when the scaffold wrote a WordPress
+ * Secrets API helper. Omitted for the default option path.
  */
 export interface RunAddRestResourceCommandResult {
   auth?: ManualRestContractAuthId;
@@ -43,6 +45,7 @@ export interface RunAddRestResourceCommandResult {
   secretMaskedResponseFieldName?: string;
   secretPreserveOnEmpty?: boolean;
   secretStateFieldName?: string;
+  secretStorage?: 'option' | 'secrets-api';
 }
 
 /**
@@ -66,6 +69,8 @@ export interface RunAddRestResourceCommandResult {
  * @property secretFieldName Optional write-only request secret field.
  * @property secretPreserveOnEmpty Optional normalized boolean for blank-secret
  * preservation. Defaults to true when `secretFieldName` is set.
+ * @property secretStorage Optional secret persistence mode. `option` matches
+ * the default plaintext option path. `secrets-api` emits a Secrets API helper.
  * @property workspace Resolved official workspace project.
  */
 export interface ManualRestContractScaffoldOptions {
@@ -86,6 +91,7 @@ export interface ManualRestContractScaffoldOptions {
   secretMaskedResponseFieldName: string | undefined;
   secretPreserveOnEmpty: boolean | undefined;
   secretStateFieldName: string | undefined;
+  secretStorage: 'option' | 'secrets-api' | undefined;
   workspace: WorkspaceProject;
 }
 
