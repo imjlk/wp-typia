@@ -106,7 +106,7 @@ export const ADD_OPTION_METADATA = {
   },
   'meta-path': {
     description:
-      'Top-level post-meta field used as the default binding-source field when --post-meta or --from-post-meta is provided.',
+      'Post-meta field used as the default binding-source field when --post-meta or --from-post-meta is provided. Accepts a top-level field or one nested object property such as parent.child.',
     type: 'string',
   },
   method: {
