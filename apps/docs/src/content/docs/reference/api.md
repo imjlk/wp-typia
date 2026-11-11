@@ -199,10 +199,12 @@ wp-typia migrate verify --all
 wp-typia migrate fuzz --all --iterations 25 --seed 1
 ```
 
-For broader existing-project adoption, `wp-typia init [project-dir]` now acts as
-a preview-only retrofit planner. It detects supported single-block and
-multi-block layouts, then prints the minimum dependency, script, generated
-artifact, and follow-up command surface that a future write mode will apply.
+For broader existing-project adoption, `wp-typia init [project-dir]` previews
+the minimum dependency, script, helper-file, and follow-up command surface.
+`wp-typia init --apply` writes that plan for supported single-block,
+multi-block, generated-project, and official-workspace layouts, with
+rollback if a write fails. See
+[Retrofitting an Existing Project](../guides/retrofit-init.md).
 
 For older projects, `wp-typia migrate init --current-migration-version <label>` now
 auto-detects supported retrofit layouts:
