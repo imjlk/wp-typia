@@ -214,11 +214,13 @@ test('generated binding sources read one-level nested meta paths', () => {
     'utf8',
   );
 
-  expect(bindingSource).toContain('toEmittedPostMetaBindingField(selectedField)');
+  expect(bindingSource).toContain(
+    'toEmittedPostMetaBindingField(selectedField)',
+  );
   expect(emitterSource).toContain('postMeta.metaPath');
   expect(emitterSource).toContain("explode( '.', $field, 3 )");
   expect(emitterSource).toContain('$meta[ $segments[0] ][ $segments[1] ]');
-  expect(emitterSource).toContain("array_key_exists( $field, $meta )");
+  expect(emitterSource).toContain('array_key_exists( $field, $meta )');
   expect(emitterSource).toContain("$fields[] = $name . '.' . $child_name;");
   expect(emitterSource).toContain('options.postMeta.metaPath');
 });

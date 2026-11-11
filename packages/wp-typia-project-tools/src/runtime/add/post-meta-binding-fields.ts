@@ -178,8 +178,9 @@ function extractPostMetaBindingFields(
   }
 
   const required = readRequiredNames(schema.required);
-  const fields = Object.entries(schema.properties).map(([name, propertySchema]) =>
-    extractBindingField(name, propertySchema, required, true),
+  const fields = Object.entries(schema.properties).map(
+    ([name, propertySchema]) =>
+      extractBindingField(name, propertySchema, required, true),
   );
 
   if (fields.length === 0) {

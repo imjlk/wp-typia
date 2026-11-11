@@ -64,7 +64,9 @@ function buildBindingPostMetaServerSource(options: {
   if (!fieldNames.includes(options.postMeta.metaPath)) {
     fieldNames.push(options.postMeta.metaPath);
   }
-  const supportedSchemaTypes = buildPhpStringList(POST_META_BINDING_SCHEMA_TYPES);
+  const supportedSchemaTypes = buildPhpStringList(
+    POST_META_BINDING_SCHEMA_TYPES,
+  );
   const nestedScalarSchemaTypes = buildPhpStringList(
     BINDABLE_NESTED_POST_META_SCHEMA_TYPES,
   );
