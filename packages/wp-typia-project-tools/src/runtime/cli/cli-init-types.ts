@@ -104,6 +104,9 @@ export type ProjectPackageJson = WorkspacePackageJson & {
 export const SUPPORTED_RETROFIT_LAYOUT_NOTE =
 	'Supported retrofit layouts currently mirror the migration bootstrap detector: `src/block.json` + `src/types.ts` + `src/save.tsx`, legacy root `block.json` + `src/types.ts` + `src/save.tsx`, or multi-block `src/blocks/*/block.json` workspaces.';
 
+export const RETROFIT_PREVIEW_ONLY_NOTE =
+	'Preview only: no files were written. Re-run `wp-typia init --apply` to write this plan.';
+
 export const RETROFIT_APPLY_PREVIEW_NOTE =
 	'If you rerun with `wp-typia init --apply`, package.json, generated helper files, and any package-manager configuration updates are snapshotted and rolled back automatically if a write fails.';
 

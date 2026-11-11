@@ -38,6 +38,7 @@ import {
 } from './cli-init-webpack.js';
 import {
   RETROFIT_APPLY_PREVIEW_NOTE,
+  RETROFIT_PREVIEW_ONLY_NOTE,
   RETROFIT_ROLLBACK_NOTE,
   type ProjectPackageJson,
   type RetrofitInitPlan,
@@ -130,7 +131,7 @@ function toApplyNotes(previewNotes: readonly string[]): string[] {
 		new Set([
 			...previewNotes.filter(
 				(note) =>
-					note !== 'Preview only: `wp-typia init` does not write files yet.' &&
+					note !== RETROFIT_PREVIEW_ONLY_NOTE &&
 					note !== RETROFIT_APPLY_PREVIEW_NOTE,
 			),
 			RETROFIT_ROLLBACK_NOTE,
