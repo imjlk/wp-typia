@@ -1,3 +1,4 @@
+import { readOptionalStrictStringFlag } from '../cli-string-flags';
 import {
   createNamedExecutionPlan,
   defineAddKindRegistryEntry,
@@ -17,6 +18,8 @@ export const abilityAddKindEntry =
       ],
       summaryLines: (values, projectDir) => [
         `Ability: ${values.abilitySlug}`,
+        `Category: ${values.categorySlug}`,
+        `MCP public: ${values.publicMcp}`,
         `Project directory: ${projectDir}`,
       ],
       title: 'Added workflow ability',
@@ -24,14 +27,21 @@ export const abilityAddKindEntry =
     description: 'Add a typed server/client workflow ability scaffold',
     nameLabel: 'Ability name',
     async prepareExecution(context) {
+      const categorySlug = readOptionalStrictStringFlag(context.flags, 'category');
+      const publicMcp = Boolean(context.flags.public);
+
       return createNamedExecutionPlan(context, {
         execute: ({ cwd, name }) =>
           context.addRuntime.runAddAbilityCommand({
             abilityName: name,
+            ...(categorySlug ? { categorySlug } : {}),
             cwd,
+            publicMcp,
           }),
         getValues: (result) => ({
           abilitySlug: result.abilitySlug,
+          categorySlug: result.categorySlug,
+          publicMcp: String(result.publicMcp),
         }),
         getWarnings: (result) => result.warnings,
         missingNameMessage: ABILITY_MISSING_NAME_MESSAGE,
@@ -39,7 +49,10 @@ export const abilityAddKindEntry =
       });
     },
     sortOrder: 90,
+    hiddenBooleanSubmitFields: ['public'],
+    hiddenStringSubmitFields: ['category'],
     supportsDryRun: true,
-    usage: 'wp-typia add ability <name> [--dry-run]',
+    usage:
+      'wp-typia add ability <name> [--category <slug>] [--public] [--dry-run]',
     visibleFieldNames: () => NAME_ONLY_VISIBLE_FIELDS,
   });

@@ -61,6 +61,17 @@ test('ability templates keep representative generated output stable after the sp
   expect(typesSource).toContain('export interface ReviewWorkflowAbilityOutput');
 });
 
+test('ability config accepts an explicit category and public MCP metadata', () => {
+  const configSource = buildAbilityConfigSource('review-workflow', 'demo-space', {
+    categorySlug: 'editorial',
+    publicMcp: true,
+  });
+
+  expect(configSource).toContain('"slug": "editorial"');
+  expect(configSource).toContain('"label": "Editorial"');
+  expect(configSource).toContain('"public": true');
+});
+
 test('ability type clauses wrap when generated names exceed print width', () => {
   const dataSource = buildAbilityDataSource(
     'extraordinarily-long-review-workflow',

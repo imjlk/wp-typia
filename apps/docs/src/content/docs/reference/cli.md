@@ -251,7 +251,7 @@ wp-typia add rest-resource <name> --namespace <vendor/v1> --methods read,update 
 wp-typia add rest-resource integration-settings --manual --namespace <vendor/v1> --method POST --secret-field apiKey
 wp-typia add admin-view integration-settings --source rest-resource:integration-settings
 wp-typia add post-meta <name> --post-type post --type IntegrationStateMeta
-wp-typia add ability <name>
+wp-typia add ability <name> [--category <slug>] [--public]
 wp-typia add ai-feature <name> --namespace <vendor/v1>
 wp-typia add editor-plugin <name> --slot sidebar
 wp-typia add editor-plugin seo-notes --slot document-setting-panel
@@ -287,6 +287,8 @@ Common flags:
 | `--wp-env`                                                       | Add a local `@wordpress/env` preset for integration environment smoke workflows.                                                                                                                                                                                    |
 | `--release-zip`                                                  | Add `release:zip`, `release:zip:check`, and `qa:check` scripts for plugin QA packaging workflows.                                                                                                                                                                   |
 | `--type <ExportedTypeName>`                                      | Exported TypeScript type or interface for standalone contract schema artifacts.                                                                                                                                                                                     |
+| `--category <slug>`                                              | Ability category slug for `add ability`. Defaults to `<namespace>-workflows`.                                                                                                                                                                                       |
+| `--public`                                                       | Mark a generated ability `meta.mcp.public` so an opt-in MCP adapter can expose it. The default stays private.                                                                                                                                                       |
 | `--post-type <post-type>`                                        | WordPress post type key for post-meta contract scaffolds.                                                                                                                                                                                                           |
 | `--meta-key <meta-key>`                                          | Optional WordPress meta key for post-meta workflows. Defaults to `_<phpPrefix>_<name>`.                                                                                                                                                                             |
 | `--hide-from-rest`                                               | Keep generated post-meta registration out of REST/editor responses.                                                                                                                                                                                                 |

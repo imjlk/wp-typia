@@ -20,7 +20,7 @@ function renderNamedTypeClause(
     : `${prefix}{\n${typeNames.map((typeName) => `  ${typeName},`).join('\n')}\n}${suffix}`;
 }
 
-function toAbilityCategorySlug(workspaceNamespace: string): string {
+export function toAbilityCategorySlug(workspaceNamespace: string): string {
   const normalizedNamespace = workspaceNamespace
 		.replace(/[^a-z0-9-]+/gu, '-')
 		.replace(/-{2,}/gu, '-')
@@ -63,16 +63,24 @@ export function buildAbilityConfigEntry(
 export function buildAbilityConfigSource(
 	abilitySlug: string,
 	workspaceNamespace: string,
+	options: {
+		categorySlug?: string;
+		publicMcp?: boolean;
+	} = {},
 ): string {
   const abilityTitle = toTitleCase(abilitySlug);
+  const categorySlug =
+		options.categorySlug ?? toAbilityCategorySlug(workspaceNamespace);
 
   return `${JSON.stringify(
 		{
 			abilityId: `${workspaceNamespace}/${abilitySlug}`,
 			category: {
 				description: `Typed editor and admin workflows exposed by the ${workspaceNamespace} workspace.`,
-				label: `${toTitleCase(workspaceNamespace)} Workflows`,
-				slug: toAbilityCategorySlug(workspaceNamespace),
+				label: options.categorySlug
+					? toTitleCase(options.categorySlug)
+					: `${toTitleCase(workspaceNamespace)} Workflows`,
+				slug: categorySlug,
 			},
 			description: `Runs the ${abilityTitle} workflow using a typed server callback.`,
 			label: abilityTitle,
@@ -83,7 +91,7 @@ export function buildAbilityConfigSource(
 					readonly: false,
 				},
 				mcp: {
-					public: false,
+					public: options.publicMcp === true,
 				},
 				showInRest: true,
 			},

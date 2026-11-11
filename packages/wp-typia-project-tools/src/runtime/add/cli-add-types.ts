@@ -377,7 +377,11 @@ export interface RunAddAdminViewCommandOptions {
  */
 export interface RunAddAbilityCommandOptions {
   abilityName: string;
+  /** Ability category slug. Defaults to `<namespace>-workflows`. */
+  categorySlug?: string;
   cwd?: string;
+  /** When true, generated `meta.mcp.public` is true. Defaults to false. */
+  publicMcp?: boolean;
 }
 
 /**

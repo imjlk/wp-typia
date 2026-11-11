@@ -35,6 +35,7 @@ Extend an existing workspace with:
 - `wp-typia add rest-resource integration-settings --manual --namespace my-plugin/v1 --method POST --secret-field apiKey`
 - `wp-typia add post-meta integration-state --post-type post --type IntegrationStateMeta`
 - `wp-typia add ability review-workflow`
+- `wp-typia add ability review-workflow --category editorial --public`
 - `wp-typia add ai-feature brief-suggestions --namespace my-plugin/v1`
 - `wp-typia add editor-plugin review-workflow --slot sidebar`
 - `wp-typia add editor-plugin seo-notes --slot document-setting-panel`
