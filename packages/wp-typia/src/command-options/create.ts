@@ -109,7 +109,7 @@ export const CREATE_OPTION_METADATA = {
   },
   'wp-version': {
     description:
-      'WordPress target for generated plugin headers; one of 6.9 or 7.0. Defaults to 7.0.',
+      'WordPress target for generated plugin headers; one of 6.9, 7.0, or 7.1. Defaults to 7.0.',
     type: 'string',
   },
   yes: {

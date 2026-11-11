@@ -13,6 +13,18 @@ It does not replace per-package `CHANGELOG.md` files.
 
 ## Recent upgrade checkpoints
 
+### WordPress 7.1 is a selectable scaffold target
+
+`wp-typia create --wp-version 7.1` writes WordPress 7.1 `Tested up to` plugin
+headers. The default target remains 7.0, and `--wp-version 6.9` still selects
+the legacy target. Choosing 7.1 does not raise `Requires at least`.
+
+Workspace `doctor` already includes always-iframed editor checks. Those
+iframe/API v3 warnings cover `block.json` `apiVersion` 3, registered block
+styles, direct `window`/`document`/`parent`/`top` access, and missing
+`useBlockProps` or `useInnerBlocksProps` wrappers. They do not depend on
+selecting `--wp-version 7.1`.
+
 ### Node.js 24, TypeScript 7, typia 14, and ttsc are now the baseline
 
 Published packages and newly generated projects now require Node.js 24 or

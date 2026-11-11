@@ -42,10 +42,10 @@ export interface ScaffoldCompatibilityPolicy {
 /**
  * Supported WordPress target versions for generated scaffold plugin headers.
  */
-export const SCAFFOLD_WORDPRESS_TARGET_VERSIONS = ['6.9', '7.0'] as const;
+export const SCAFFOLD_WORDPRESS_TARGET_VERSIONS = ['6.9', '7.0', '7.1'] as const;
 
 /**
- * String literal union for scaffold WordPress targets, currently `6.9` or `7.0`.
+ * String literal union for scaffold WordPress targets, currently `6.9`, `7.0`, or `7.1`.
  */
 export type ScaffoldWordPressTargetVersion =
   (typeof SCAFFOLD_WORDPRESS_TARGET_VERSIONS)[number];
