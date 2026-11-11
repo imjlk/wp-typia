@@ -540,12 +540,17 @@ withTempDir("wp-typia-publish-install-smoke-", (tempRoot) => {
 			"wp-typia": `file:${tarballs.get("wp-typia")}`,
 		},
 		name: "wp-typia-publish-install-smoke",
-		overrides: Object.fromEntries(
-			[...tarballs.entries()].map(([packageName, tarballPath]) => [
-				packageName,
-				`file:${tarballPath}`,
-			]),
-		),
+		// @wordpress/blocks floats rich-text onto a second private-apis copy.
+		// That copy throws "Cannot unlock an object that was not locked before" on import.
+		overrides: {
+			...Object.fromEntries(
+				[...tarballs.entries()].map(([packageName, tarballPath]) => [
+					packageName,
+					`file:${tarballPath}`,
+				]),
+			),
+			"@wordpress/private-apis": "1.55.0",
+		},
 		private: true,
 		packageManager: "bun@1.3.11",
 	});
