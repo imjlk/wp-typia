@@ -7,6 +7,7 @@ import {
   ADMIN_VIEWS_STYLE,
   ADMIN_VIEWS_STYLE_RTL,
   formatAdminViewSourceLocator,
+  type AdminViewCoreDataSource,
   type AdminViewSource,
 } from './cli-add-workspace-admin-view-types.js';
 import { quotePhpString } from '../shared/php-utils.js';
@@ -179,15 +180,69 @@ export function buildAdminViewStyleSource(): string {
 }
 
 /**
+ * Builds the server field registration for one core-data admin view.
+ *
+ * The origin is the plugin slug. Older WordPress builds omit
+ * `wp_register_entity_fields()`, and the callback returns without calling it.
+ *
+ * @param options - Plugin slug, entity identity, and admin-view slug.
+ * @returns PHP that registers one plugin-owned entity field.
+ */
+function buildAdminViewEntityFieldsPhpSource(options: {
+  adminViewSlug: string;
+  coreDataSource: AdminViewCoreDataSource;
+  functionPrefix: string;
+  pluginSlug: string;
+  textDomain: string;
+}): string {
+  const fieldId = `${options.adminViewSlug}_note`;
+  const label = `${toTitleCase(options.adminViewSlug)} note`;
+  const registerFunctionName =
+    `${options.functionPrefix}_register_entity_fields`;
+  const translatedLabel = `__( ${quotePhpString(label)}, ${quotePhpString(
+    options.textDomain,
+  )} )`;
+
+  return [
+    `if ( ! function_exists( '${registerFunctionName}' ) ) {`,
+    `\tfunction ${registerFunctionName}() : void {`,
+    `\t\tif ( ! function_exists( 'wp_register_entity_fields' ) ) {`,
+    '\t\t\treturn;',
+    '\t\t}',
+    '',
+    '\t\twp_register_entity_fields(',
+    `\t\t\t${quotePhpString(options.pluginSlug)},`,
+    `\t\t\t${quotePhpString(options.coreDataSource.entityKind)},`,
+    `\t\t\t${quotePhpString(options.coreDataSource.entityName)},`,
+    '\t\t\tarray(',
+    '\t\t\t\tarray(',
+    `\t\t\t\t\t'id'    => ${quotePhpString(fieldId)},`,
+    `\t\t\t\t\t'label' => ${translatedLabel},`,
+    '\t\t\t\t),',
+    '\t\t\t)',
+    '\t\t);',
+    '\t}',
+    '}',
+    '',
+    `add_action( 'wp_entity_fields_api_init', '${registerFunctionName}' );`,
+  ].join('\n');
+}
+
+/**
  * Builds the PHP registration module for a generated admin-view page.
+ *
+ * Core-data views also register one plugin-owned entity field. Default and
+ * REST views keep the Tools screen without server field registration.
  *
  * @param adminViewSlug - Admin-view slug used for hooks, handles, and root ids.
  * @param workspace - Workspace metadata used for PHP prefixes and text domains.
+ * @param coreDataSource - Core-data entity to register, when the view has one.
  * @returns Generated PHP source for registering and enqueueing the admin view.
  */
 export function buildAdminViewPhpSource(
   adminViewSlug: string,
   workspace: WorkspaceProject,
+  coreDataSource?: AdminViewCoreDataSource,
 ): string {
   const workspaceBaseName =
     workspace.packageName.split('/').pop() ?? workspace.packageName;
@@ -200,6 +255,15 @@ export function buildAdminViewPhpSource(
   const hookGlobalName = `${functionPrefix}_admin_view_hook`;
   const rootId = `wp-typia-admin-view-${adminViewSlug}`;
   const title = toTitleCase(adminViewSlug);
+  const entityFieldsSource = coreDataSource
+    ? `\n${buildAdminViewEntityFieldsPhpSource({
+        adminViewSlug,
+        coreDataSource,
+        functionPrefix,
+        pluginSlug: workspaceBaseName,
+        textDomain: workspace.workspace.textDomain,
+      })}\n`
+    : '';
 
   return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
@@ -290,5 +354,5 @@ if ( ! function_exists( '${enqueueFunctionName}' ) ) {
 
 add_action( 'admin_menu', '${registerFunctionName}' );
 add_action( 'admin_enqueue_scripts', '${enqueueFunctionName}' );
-`;
+${entityFieldsSource}`;
 }
