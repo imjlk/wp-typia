@@ -29,7 +29,7 @@ export function formatAddHelpText(): string {
   wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <${REST_RESOURCE_METHOD_IDS.join(',')}>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]
   wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--dry-run]
   wp-typia add post-meta <name> --post-type <post-type> [--type <ExportedTypeName>] [--meta-key <meta-key>] [--hide-from-rest] [--dry-run]
-  wp-typia add ability <name> [--dry-run]
+  wp-typia add ability <name> [--category <slug>] [--public] [--dry-run]
   wp-typia add ai-feature <name> [--namespace <vendor/v1>] [--dry-run]
   wp-typia add hooked-block <block-slug> --anchor <anchor-block-name> --position <${HOOKED_BLOCK_POSITION_IDS.join('|')}> [--dry-run]
   wp-typia add editor-plugin <name> [--slot <${EDITOR_PLUGIN_SLOT_IDS.join('|')}>] [--dry-run]
@@ -57,7 +57,7 @@ Notes:
   \`add rest-resource\` scaffolds plugin-level TypeScript REST contracts under \`src/rest/\` and PHP route glue under \`inc/rest/\`. Use \`--route-pattern\`, \`--permission-callback\`, \`--controller-class\`, and \`--controller-extends\` when an existing WordPress controller or permission model needs to own part of the generated route surface.
   Pass \`--manual\` with \`add rest-resource\` to track an external/provider REST route with typed schemas, OpenAPI, clients, and drift checks without generating PHP route/controller files. Manual routes may still declare \`--permission-callback\`, \`--controller-class\`, and \`--controller-extends\` as metadata for the route owner. Settings contracts can add \`--secret-field\` with \`--secret-preserve-on-empty\` metadata so generated schemas, clients, and admin forms treat blank secret submissions as preserve-by-default.
   \`add post-meta\` scaffolds a typed post meta contract under \`src/post-meta/\`, generates a schema artifact, and wires \`register_post_meta()\` helpers under \`inc/post-meta/\`.
-  \`add ability\` scaffolds typed workflow abilities under \`src/abilities/\` and server registration under \`inc/abilities/\`.
+  \`add ability\` scaffolds typed workflow abilities under \`src/abilities/\` and server registration under \`inc/abilities/\`. \`--category\` overrides the default \`<namespace>-workflows\` category slug, and \`--public\` sets \`meta.mcp.public\` for an opt-in MCP adapter.
   \`add ai-feature\` scaffolds server-owned AI feature endpoints under \`src/ai-features/\` and PHP route glue under \`inc/ai-features/\`.
   \`add hooked-block\` patches an existing workspace block's \`block.json\` \`blockHooks\` metadata.
   \`add editor-plugin\` scaffolds a document-level editor extension under \`src/editor-plugins/\`; legacy aliases \`PluginSidebar\` and \`PluginDocumentSettingPanel\` resolve to \`sidebar\` and \`document-setting-panel\`.`;

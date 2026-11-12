@@ -42,7 +42,9 @@ import { toPascalCase } from '../shared/string-case.js';
  */
 export async function scaffoldAbilityWorkspace({
 	abilitySlug,
+	categorySlug,
 	compatibilityPolicy,
+	publicMcp,
 	workspace,
 }: ScaffoldAbilityWorkspaceOptions): Promise<{
   warnings: string[];
@@ -126,7 +128,10 @@ export async function scaffoldAbilityWorkspace({
 			await fsp.writeFile(syncAbilitiesScriptPath, buildAbilitySyncScriptSource(), 'utf8');
 			await fsp.writeFile(
 				configFilePath,
-				buildAbilityConfigSource(abilitySlug, workspace.workspace.namespace),
+				buildAbilityConfigSource(abilitySlug, workspace.workspace.namespace, {
+					...(categorySlug ? { categorySlug } : {}),
+					publicMcp,
+				}),
 				'utf8',
 			);
 			await fsp.writeFile(typesFilePath, buildAbilityTypesSource(abilitySlug), 'utf8');

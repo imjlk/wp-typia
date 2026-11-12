@@ -20,8 +20,12 @@ export const WP_CORE_ABILITIES_SCRIPT_MODULE_ID = '@wordpress/core-abilities';
 export interface ScaffoldAbilityWorkspaceOptions {
 	/** Kebab-case ability slug used for directory names and registry ids. */
   abilitySlug: string;
+	/** Optional category slug. Defaults to `<namespace>-workflows`. */
+  categorySlug?: string;
 	/** Compatibility metadata applied to the generated workspace bootstrap. */
   compatibilityPolicy: ScaffoldCompatibilityPolicy;
+	/** When true, the generated ability config marks MCP metadata public. */
+  publicMcp?: boolean;
 	/** Resolved workspace metadata and filesystem paths for the target project. */
   workspace: WorkspaceProject;
 }

@@ -21,6 +21,7 @@ import {
 import { readOptionalFile } from '../src/runtime/cli-add-filesystem.js';
 import {
   assertValidManualRestContractAuth,
+  assertValidAbilityCategorySlug,
   assertValidGeneratedPhpModuleSlug,
   assertValidGeneratedSlug,
   assertValidRestResourceMethods,
@@ -63,6 +64,13 @@ test('generated PHP module slugs reserve the managed manifest basename', () => {
       'wp-typia add ability <name>',
     ),
   ).toThrow('reserved wp-typia-modules manifest name');
+});
+
+test('ability category slugs stay lowercase and hyphenated', () => {
+  expect(assertValidAbilityCategorySlug(' editorial ')).toBe('editorial');
+  expect(() => assertValidAbilityCategorySlug('Editorial')).toThrow(
+    'Ability category must start with a letter',
+  );
 });
 
 function readRuntimeSource(fileName: string): string {

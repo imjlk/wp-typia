@@ -149,6 +149,26 @@ export function assertValidGeneratedSlug(label: string, slug: string, usage: str
   return slug;
 }
 
+const ABILITY_CATEGORY_SLUG_PATTERN = /^[a-z][a-z0-9-]*$/u;
+
+/**
+ * Validate an ability category slug passed to `wp-typia add ability --category`.
+ *
+ * @param value Raw category slug from the CLI.
+ * @returns The trimmed category slug.
+ * @throws {Error} When the slug is empty or contains unsupported characters.
+ */
+export function assertValidAbilityCategorySlug(value: string): string {
+  const slug = value.trim();
+  if (!ABILITY_CATEGORY_SLUG_PATTERN.test(slug)) {
+    throw new Error(
+      'Ability category must start with a letter and contain only lowercase letters, numbers, and hyphens. Use `wp-typia add ability <name> [--category <slug>] [--public]`.',
+    );
+  }
+
+  return slug;
+}
+
 /** Reject slugs that would overwrite a managed PHP entrypoint manifest. */
 export function assertValidGeneratedPhpModuleSlug(
   label: string,

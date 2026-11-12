@@ -803,6 +803,7 @@ wp-typia add pattern hero-photo-section --scope section --section-role hero --ca
 wp-typia add binding-source hero-data
 wp-typia add binding-source hero-data --block counter-card --attribute headline
 wp-typia add ability review-workflow
+wp-typia add ability review-workflow --category editorial --public
 wp-typia add ai-feature brief-suggestions --namespace my-plugin/v1
 wp-typia add hooked-block counter-card --anchor core/post-content --position after
 ```
