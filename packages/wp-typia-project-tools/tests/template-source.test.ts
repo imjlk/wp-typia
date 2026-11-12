@@ -2123,7 +2123,7 @@ test('official workspace template scaffolds through the local npm template resol
   expect(workspaceSyncProjectSource).not.toContain('getLocalTtsxBinary');
 });
 
-test.each(['7.0', '6.9'] as const)(
+test.each(['7.1', '7.0', '6.9'] as const)(
   'official workspace templates accept local path references with WordPress %s compatibility',
   async (wpVersion) => {
     const targetDir = path.join(

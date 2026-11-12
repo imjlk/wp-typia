@@ -119,12 +119,36 @@ test('writes WordPress target plugin headers through the portable CLI bin', () =
         env: withoutLocalBunEnv(),
       },
     );
+    const wp71Result = runCapturedCommand(
+      process.execPath,
+      [
+        entryPath,
+        'create',
+        'demo-wp71',
+        '--template',
+        'basic',
+        '--package-manager',
+        'npm',
+        '--yes',
+        '--no-install',
+        '--wp-version',
+        '7.1',
+      ],
+      {
+        cwd: tempRoot,
+        env: withoutLocalBunEnv(),
+      },
+    );
     const wp70Bootstrap = fs.readFileSync(
       path.join(tempRoot, 'demo-wp70', 'demo-wp70.php'),
       'utf8',
     );
     const wp69Bootstrap = fs.readFileSync(
       path.join(tempRoot, 'demo-wp69', 'demo-wp69.php'),
+      'utf8',
+    );
+    const wp71Bootstrap = fs.readFileSync(
+      path.join(tempRoot, 'demo-wp71', 'demo-wp71.php'),
       'utf8',
     );
 
@@ -136,6 +160,10 @@ test('writes WordPress target plugin headers through the portable CLI bin', () =
     expect(wp69Result.stderr).toBe('');
     expect(wp69Bootstrap).toContain('Requires at least: 6.7');
     expect(wp69Bootstrap).toMatch(/Tested up to:\s+6\.9/);
+    expect(wp71Result.status).toBe(0);
+    expect(wp71Result.stderr).toBe('');
+    expect(wp71Bootstrap).toContain('Requires at least: 6.7');
+    expect(wp71Bootstrap).toMatch(/Tested up to:\s+7\.1/);
   } finally {
     fs.rmSync(tempRoot, { force: true, recursive: true });
   }
@@ -411,7 +439,7 @@ test('emits a machine-readable invalid-argument error code for unsupported WordP
         '--template',
         'basic',
         '--wp-version',
-        '7.1',
+        '7.2',
         '--yes',
         '--no-install',
         '--format',
@@ -432,7 +460,7 @@ test('emits a machine-readable invalid-argument error code for unsupported WordP
     expect(parsed.error?.command).toBe('create');
     expect(parsed.error?.code).toBe('invalid-argument');
     expect(parsed.error?.message).toContain(
-      'Unsupported --wp-version "7.1". Expected one of: 6.9, 7.0.',
+      'Unsupported --wp-version "7.2". Expected one of: 6.9, 7.0, 7.1.',
     );
   } finally {
     fs.rmSync(targetDir, { force: true, recursive: true });

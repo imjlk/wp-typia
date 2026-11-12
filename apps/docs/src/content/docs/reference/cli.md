@@ -163,7 +163,7 @@ Common flags:
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--template <id \| path \| github:... \| npm-package>` | Template id or external template source. Built-ins include `basic`, `interactivity`, `persistence`, `compound`, `query-loop`, and the `workspace` alias. |
 | `--package-manager <bun \| npm \| pnpm \| yarn>`       | Package manager for generated install and script commands.                                                                                               |
-| `--wp-version <6.9 \| 7.0>`                            | WordPress target for generated `Tested up to` plugin headers. Defaults to `7.0`; use `6.9` for legacy scaffold output.                                   |
+| `--wp-version <6.9 \| 7.0 \| 7.1>`                     | WordPress target for generated `Tested up to` plugin headers. Defaults to `7.0`; use `6.9` for legacy scaffold output or `7.1` for the newer target.     |
 | `--yes`                                                | Accept non-interactive defaults.                                                                                                                         |
 | `--no-install`                                         | Skip dependency installation.                                                                                                                            |
 | `--dry-run`                                            | Preview generated files without writing the target directory.                                                                                            |
@@ -190,7 +190,8 @@ unambiguous create invocations with a single local project directory.
 7.0. This target does not by itself raise `Requires at least`; the minimum
 header stays at the selected scaffold feature floor, such as the baseline 6.7
 for a basic scaffold. Pass `--wp-version 6.9` to reproduce legacy 6.9 target
-headers.
+headers, or `--wp-version 7.1` to select the WordPress 7.1 target. The default
+remains 7.0.
 
 ### Generated slug casing and acronyms
 
