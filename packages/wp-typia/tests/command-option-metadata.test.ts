@@ -435,6 +435,9 @@ describe('command option metadata helpers', () => {
       '- --secret-preserve-on-empty <value>: Whether blank manual settings secret submissions should preserve the stored secret (true by default).',
     );
     expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
+      '- --secret-storage <value>: Where a manual REST --secret-field is stored. option keeps the current plaintext option path (default). secrets-api uses the WordPress Secrets API when wp_set_secret, wp_get_secret, and wp_delete_secret exist and falls back to option storage otherwise. Requires --secret-field.',
+    );
+    expect(formatPortableCliOptionHelp(ADD_OPTION_METADATA)).toContain(
       '- --template <value>, -t <value>: Built-in block family for add block; interactive runs prompt when omitted. Choices: basic, interactivity, persistence, compound. Default: basic.',
     );
     expect(formatPortableCliOptionHelp(CREATE_OPTION_METADATA)).toContain(

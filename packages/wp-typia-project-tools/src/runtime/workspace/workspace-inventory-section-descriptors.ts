@@ -366,6 +366,20 @@ export const INVENTORY_SECTIONS: readonly InventorySectionDescriptor[] = [
 					{ key: 'secretFieldName' },
 					{ key: 'secretPreserveOnEmpty', kind: 'boolean' },
 					{ key: 'secretStateFieldName' },
+					{
+						key: 'secretStorage',
+						validate: (value, context) => {
+							if (
+								typeof value === 'string' &&
+								value !== 'option' &&
+								value !== 'secrets-api'
+							) {
+								throw new Error(
+									`${context.entryName}[${context.elementIndex}].${context.key} must be option or secrets-api.`,
+								);
+							}
+						},
+					},
 					{ key: 'slug', required: true },
 					{ key: 'typesFile', required: true },
 					{ key: 'validatorsFile', required: true },

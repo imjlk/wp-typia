@@ -92,6 +92,7 @@ export interface WorkspaceRestResourceInventoryEntry {
   secretFieldName?: string;
   secretPreserveOnEmpty?: boolean;
   secretStateFieldName?: string;
+  secretStorage?: 'option' | 'secrets-api';
   slug: string;
   typesFile: string;
   validatorsFile: string;

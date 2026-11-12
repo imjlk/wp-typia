@@ -224,7 +224,7 @@ test('aggregates one registry entry for every canonical add kind', () => {
 test('splits rest-resource usage by generated and manual modes', () => {
   expect(getAddKindUsage('rest-resource').split('\n')).toEqual([
     'Generated: wp-typia add rest-resource <name> [--namespace <vendor/v1>] [--methods <list,read,create,update,delete>] [--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--dry-run]',
-    'Manual: wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--dry-run]',
+    'Manual: wp-typia add rest-resource <name> --manual [--namespace <vendor/v1>] [--method <GET|POST|PUT|PATCH|DELETE>] [--auth <public|authenticated|public-write-protected>] [--path <route-pattern>|--route-pattern <route-pattern>] [--permission-callback <callback>] [--controller-class <ClassName>] [--controller-extends <BaseClass>] [--query-type <Type>] [--body-type <Type>] [--response-type <Type>] [--secret-field <field>] [--secret-state-field|--secret-has-value-field <field>] [--secret-preserve-on-empty <true|false>] [--secret-storage <option|secrets-api>] [--dry-run]',
   ]);
 });
 
@@ -475,6 +475,77 @@ test('normalizes manual REST secret preserve values before runtime execution', a
     const options = await captureRestResourceRuntimeOptions(testCase.flags);
     expect(options.secretPreserveOnEmpty).toBe(testCase.expected);
   }
+});
+
+test('passes manual REST secret storage with a secret field', async () => {
+  const omitted = await captureRestResourceRuntimeOptions({});
+  expect(omitted.secretStorage).toBeUndefined();
+  expect('secretStorage' in omitted).toBe(true);
+
+  const optionStorage = await captureRestResourceRuntimeOptions({
+    'secret-storage': 'option',
+  });
+  expect(optionStorage.secretStorage).toBe('option');
+
+  const secretsApi = await captureRestResourceRuntimeOptions({
+    secretStorage: 'secrets-api',
+  });
+  expect(secretsApi.secretStorage).toBe('secrets-api');
+});
+
+test('rejects manual REST secret storage without its required flags', async () => {
+  const baseContext = {
+    addRuntime: {} as AddKindExecutionContext['addRuntime'],
+    cwd: '/tmp/wp-typia-rest-resource-test',
+    getOrCreatePrompt: async () => {
+      throw new Error('rest-resource add-kind should not prompt in this test');
+    },
+    isInteractiveSession: false,
+    name: 'integration-settings',
+    warnLine: () => {},
+  };
+
+  await expect(
+    ADD_KIND_REGISTRY['rest-resource'].prepareExecution({
+      ...baseContext,
+      flags: {
+        'secret-storage': 'vault',
+      },
+    }),
+  ).rejects.toThrow(
+    'Manual REST contract --secret-storage must be option or secrets-api.',
+  );
+  await expect(
+    ADD_KIND_REGISTRY['rest-resource'].prepareExecution({
+      ...baseContext,
+      flags: {
+        manual: true,
+        'secret-storage': '',
+      },
+    }),
+  ).rejects.toThrow('`--secret-storage` requires a value.');
+  await expect(
+    ADD_KIND_REGISTRY['rest-resource'].prepareExecution({
+      ...baseContext,
+      flags: {
+        'secret-field': 'apiKey',
+        'secret-storage': 'option',
+      },
+    }),
+  ).rejects.toThrow(
+    'Manual REST contract --secret-storage requires --manual and --secret-field.',
+  );
+  await expect(
+    ADD_KIND_REGISTRY['rest-resource'].prepareExecution({
+      ...baseContext,
+      flags: {
+        manual: true,
+        'secret-storage': 'secrets-api',
+      },
+    }),
+  ).rejects.toThrow(
+    'Manual REST contract --secret-storage requires --secret-field.',
+  );
 });
 
 test('rejects invalid manual REST secret preserve values during preparation', async () => {

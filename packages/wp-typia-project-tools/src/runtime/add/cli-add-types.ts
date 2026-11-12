@@ -326,6 +326,9 @@ export interface RunAddPostMetaCommandOptions {
  * preserve the existing value. Defaults to true when `secretFieldName` is set.
  * @property secretStateFieldName Optional masked response boolean field for
  * `secretFieldName`. Defaults to `has<PascalSecretField>`.
+ * @property secretStorage Where a manual `--secret-field` is stored. `option`
+ * keeps the current plaintext option path. `secrets-api` stores through the
+ * WordPress Secrets API when those functions exist. Requires `secretFieldName`.
  */
 export interface RunAddRestResourceCommandOptions {
   auth?: string;
@@ -348,6 +351,7 @@ export interface RunAddRestResourceCommandOptions {
   secretMaskedResponseFieldName?: string;
   secretPreserveOnEmpty?: boolean;
   secretStateFieldName?: string;
+  secretStorage?: 'option' | 'secrets-api';
 }
 
 /**

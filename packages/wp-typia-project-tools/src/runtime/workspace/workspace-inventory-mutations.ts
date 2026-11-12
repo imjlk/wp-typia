@@ -282,6 +282,35 @@ function upsertInterfaceField(
 	);
 }
 
+const MANUAL_REST_SECRET_STORAGE_FIELD =
+	"\tsecretStorage?: 'option' | 'secrets-api';";
+
+/**
+ * Add the optional manual REST secret storage field to workspace config types.
+ *
+ * Current templates declare `WorkspaceRestResourceBaseConfig`. Older inventories
+ * flatten that shape into `WorkspaceRestResourceConfig`. The field is inserted
+ * only for secrets-api scaffolds so the default option path stays unchanged.
+ *
+ * @param source Existing `scripts/block-config.ts` source.
+ * @returns Source with `secretStorage` on each present REST config interface.
+ */
+export function ensureManualRestSecretStorageConfigField(source: string): string {
+  let nextSource = source;
+  for (const interfaceName of [
+    'WorkspaceRestResourceBaseConfig',
+    'WorkspaceRestResourceConfig',
+  ]) {
+    nextSource = upsertInterfaceField(
+      nextSource,
+      interfaceName,
+      'secretStorage',
+      MANUAL_REST_SECRET_STORAGE_FIELD,
+    );
+  }
+  return nextSource;
+}
+
 function normalizeInterfaceFieldBlock(
 	source: string,
 	interfaceName: string,
