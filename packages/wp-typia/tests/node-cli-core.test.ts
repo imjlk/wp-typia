@@ -665,14 +665,14 @@ describe('Gunshi CLI core routing', () => {
       expect(result.error).toBeUndefined();
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain(
-        'Preview only: `wp-typia init` does not write files yet.',
+        'Preview only: no files were written. Re-run `wp-typia init --apply` to write this plan.',
       );
       expect(result.stderr).toContain(
         'package.json, generated helper files, and any package-manager configuration updates are snapshotted',
       );
       expect(result.stdout).toContain('Retrofit init plan for node-init-warning');
       expect(result.stdout).not.toContain(
-        'Preview only: `wp-typia init` does not write files yet.',
+        'Preview only: no files were written. Re-run `wp-typia init --apply` to write this plan.',
       );
     } finally {
       removeTempRoot(tempRoot);

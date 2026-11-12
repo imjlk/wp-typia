@@ -47,6 +47,7 @@ import {
 } from './cli-init-plan-presentation.js';
 import {
   RETROFIT_APPLY_PREVIEW_NOTE,
+  RETROFIT_PREVIEW_ONLY_NOTE,
   SUPPORTED_RETROFIT_LAYOUT_NOTE,
   type InitCommandMode,
   type InitFilePlan,
@@ -479,7 +480,7 @@ export function createRetrofitPlan(options: {
  * @param projectDir Project root or nested path that should be analyzed.
  * @param options Optional package-manager override used for emitted scripts and
  * follow-up guidance.
- * @returns The preview-only retrofit init plan for the resolved project.
+ * @returns The preview retrofit init plan for the resolved project.
  */
 export function getInitPlan(
 	projectDir: string,
@@ -764,7 +765,7 @@ export function getInitPlan(
 				: layout.generatedArtifacts,
 		notes: Array.from(
 			new Set([
-				'Preview only: `wp-typia init` does not write files yet.',
+				RETROFIT_PREVIEW_ONLY_NOTE,
 				RETROFIT_APPLY_PREVIEW_NOTE,
 				...(obsoleteTypiaUnplugin
 					? [

@@ -192,7 +192,7 @@ describe('wp-typia init', () => {
 			`npx --yes wp-typia@${wpTypiaPackageManifest.version} doctor`,
 		);
 		expect(plan.notes).toContain(
-			'Preview only: `wp-typia init` does not write files yet.',
+			'Preview only: no files were written. Re-run `wp-typia init --apply` to write this plan.',
 		);
 		expect(
 			plan.notes.some((note) =>
