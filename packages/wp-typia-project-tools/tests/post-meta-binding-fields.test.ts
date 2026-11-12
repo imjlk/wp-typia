@@ -95,3 +95,132 @@ test('post meta binding fields resolve nullable schema types', async () => {
     'number',
   );
 });
+
+function createNestedStateSchema(): Record<string, unknown> {
+  return {
+    properties: {
+      score: { type: 'number' },
+      status: {
+        properties: {
+          count: { type: ['integer', 'null'] },
+          details: { enum: ['ready', null], type: 'string' },
+          payload: {
+            properties: {
+              note: { type: 'string' },
+            },
+            type: 'object',
+          },
+        },
+        required: ['details'],
+        type: ['object', 'null'],
+      },
+    },
+    required: ['status'],
+    type: 'object',
+  };
+}
+
+test('top-level post meta binding paths still resolve', async () => {
+  const projectDir = createSchemaProject(createNestedStateSchema());
+  const fields = await loadPostMetaBindingFields(projectDir, createPostMetaEntry());
+
+  expect(assertPostMetaBindingPath(fields, 'state', 'score')).toEqual({
+    fallbackValue: '0',
+    label: 'Score',
+    name: 'score',
+    required: false,
+    schemaType: 'number',
+  });
+});
+
+test('one nested object field resolves to the full meta path', async () => {
+  const projectDir = createSchemaProject(createNestedStateSchema());
+  const fields = await loadPostMetaBindingFields(projectDir, createPostMetaEntry());
+  const status = fields.find((field) => field.name === 'status');
+
+  expect(status?.schemaType).toBe('object');
+  expect(status?.properties?.map((field) => field.name)).toEqual([
+    'count',
+    'details',
+    'payload',
+  ]);
+  expect(assertPostMetaBindingPath(fields, 'state', 'status.details')).toEqual({
+    fallbackValue: 'ready',
+    label: 'Status Details',
+    name: 'status.details',
+    required: true,
+    schemaType: 'string',
+  });
+  expect(assertPostMetaBindingPath(fields, 'state', 'status.count')).toEqual({
+    fallbackValue: '0',
+    label: 'Status Count',
+    name: 'status.count',
+    required: false,
+    schemaType: 'integer',
+  });
+});
+
+test('missing nested post meta binding fields fail', async () => {
+  const projectDir = createSchemaProject(createNestedStateSchema());
+  const fields = await loadPostMetaBindingFields(projectDir, createPostMetaEntry());
+
+  expect(() => assertPostMetaBindingPath(fields, 'state', '   ')).toThrow(
+    'Post meta binding path must include a value.',
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'status.')).toThrow(
+    'must use non-empty field names',
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'status.missing')).toThrow(
+    /Post meta path "status\.missing" does not exist in the "state" schema\. Expected one of: status\.count, status\.details\./u,
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'score.value')).toThrow(
+    'because "score" is not an object',
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'status.payload')).toThrow(
+    'is not a bindable scalar field',
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'missing.details')).toThrow(
+    'does not exist in the "state" schema',
+  );
+});
+
+test('post meta binding paths deeper than one property fail', async () => {
+  const projectDir = createSchemaProject(createNestedStateSchema());
+  const fields = await loadPostMetaBindingFields(projectDir, createPostMetaEntry());
+
+  expect(() =>
+    assertPostMetaBindingPath(fields, 'state', 'status.details.note'),
+  ).toThrow(
+    'Post meta path "status.details.note" for "state" is deeper than one nested property.',
+  );
+  expect(() => assertPostMetaBindingPath(fields, 'state', 'status.payload.note')).toThrow(
+    'is deeper than one nested property',
+  );
+});
+
+test('generated binding sources read one-level nested meta paths', () => {
+  const bindingSource = fs.readFileSync(
+    path.join(
+      import.meta.dir,
+      '../src/runtime/add/cli-add-workspace-binding-source.ts',
+    ),
+    'utf8',
+  );
+  const emitterSource = fs.readFileSync(
+    path.join(
+      import.meta.dir,
+      '../src/runtime/add/cli-add-workspace-binding-source-source-emitters.ts',
+    ),
+    'utf8',
+  );
+
+  expect(bindingSource).toContain(
+    'toEmittedPostMetaBindingField(selectedField)',
+  );
+  expect(emitterSource).toContain('postMeta.metaPath');
+  expect(emitterSource).toContain("explode( '.', $field, 3 )");
+  expect(emitterSource).toContain('$meta[ $segments[0] ][ $segments[1] ]');
+  expect(emitterSource).toContain('array_key_exists( $field, $meta )');
+  expect(emitterSource).toContain("$fields[] = $name . '.' . $child_name;");
+  expect(emitterSource).toContain('options.postMeta.metaPath');
+});

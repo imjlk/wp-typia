@@ -43,6 +43,7 @@ import { getPropertyNameText } from '../shared/ts-property-names.js';
 import {
   assertPostMetaBindingPath,
   loadPostMetaBindingFields,
+  type PostMetaBindingField,
 } from './post-meta-binding-fields.js';
 import type { WorkspacePostMetaInventoryEntry } from '../workspace/workspace-inventory-types.js';
 import { WORKSPACE_PHP_ENTRYPOINT_MANIFEST_PATHS } from '../workspace/workspace-php-entrypoint-manifests.js';
@@ -120,6 +121,18 @@ function resolvePostMetaInventoryEntry(
   return postMeta;
 }
 
+function toEmittedPostMetaBindingField(
+	field: PostMetaBindingField,
+): PostMetaBindingField {
+  return {
+    fallbackValue: field.fallbackValue,
+    label: field.label,
+    name: field.name,
+    required: field.required,
+    schemaType: field.schemaType,
+  };
+}
+
 async function resolveBindingPostMetaSource(
 	projectDir: string,
 	inventory: WorkspaceInventory,
@@ -147,8 +160,13 @@ async function resolveBindingPostMetaSource(
     );
   }
 
+  const bindingFields = fields.map(toEmittedPostMetaBindingField);
+  if (!bindingFields.some((field) => field.name === selectedField.name)) {
+    bindingFields.push(toEmittedPostMetaBindingField(selectedField));
+  }
+
   return {
-    fields,
+    fields: bindingFields,
     metaKey: postMeta.metaKey,
     metaPath: selectedField.name,
     postMetaSlug: postMeta.slug,
@@ -319,8 +337,9 @@ async function ensureBindingTargetBlockAttributeType(
  * be normalized and validated before files are written.
  * @param options.cwd Working directory used to resolve the nearest official
  * workspace. Defaults to `process.cwd()`.
- * @param options.metaPath Optional top-level post-meta field used as the
- * binding source's default `field` arg. Requires `postMetaName`.
+ * @param options.metaPath Optional post-meta field used as the binding
+ * source's default `field` arg. Accepts a top-level field or one
+ * `parent.child` path. Requires `postMetaName`.
  * @param options.postMetaName Optional generated post-meta contract slug used
  * to back the binding source with `get_post_meta()`.
  * @returns A promise that resolves with the normalized `bindingSourceSlug` and
@@ -331,7 +350,7 @@ async function ensureBindingTargetBlockAttributeType(
  * @throws {Error} When the command is run outside an official workspace, when
  * the slug is invalid, when a binding target is incomplete or unknown, or when
  * a conflicting file or inventory entry exists. Post-meta backed runs also
- * throw when the referenced contract or requested top-level field cannot be
+ * throw when the referenced contract or requested field path cannot be
  * resolved.
  */
 export async function runAddBindingSourceCommand({

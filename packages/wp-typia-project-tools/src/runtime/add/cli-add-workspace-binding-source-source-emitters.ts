@@ -1,4 +1,8 @@
 import { quoteTsString } from './cli-add-shared.js';
+import {
+  BINDABLE_NESTED_POST_META_SCHEMA_TYPES,
+  POST_META_BINDING_SCHEMA_TYPES,
+} from './post-meta-binding-fields.js';
 import { quotePhpString } from '../shared/php-utils.js';
 import { toTitleCase } from '../shared/string-case.js';
 import type {
@@ -51,11 +55,21 @@ function buildBindingPostMetaServerSource(options: {
   const bindingSourceTitle = toTitleCase(options.bindingSourceSlug);
   const bindingSourcePhpId = options.bindingSourceSlug.replace(/-/g, '_');
   const functionPrefix = `${options.phpPrefix}_${bindingSourcePhpId}`;
+  const schemaTypeFunctionName = `${functionPrefix}_post_meta_binding_schema_type`;
   const fieldsFunctionName = `${functionPrefix}_post_meta_binding_fields`;
   const canReadFunctionName = `${functionPrefix}_can_read_post_meta`;
   const resolveFunctionName = `${functionPrefix}_resolve_binding_source_value`;
   const supportedAttributesFunctionName = `${functionPrefix}_supported_binding_attributes`;
   const fieldNames = options.postMeta.fields.map((field) => field.name);
+  if (!fieldNames.includes(options.postMeta.metaPath)) {
+    fieldNames.push(options.postMeta.metaPath);
+  }
+  const supportedSchemaTypes = buildPhpStringList(
+    POST_META_BINDING_SCHEMA_TYPES,
+  );
+  const nestedScalarSchemaTypes = buildPhpStringList(
+    BINDABLE_NESTED_POST_META_SCHEMA_TYPES,
+  );
   const supportedAttributesSource = options.target
 		? `
 if ( ! function_exists( '${supportedAttributesFunctionName}' ) ) {
@@ -89,13 +103,67 @@ if ( ! function_exists( 'register_block_bindings_source' ) ) {
 \treturn;
 }
 
+if ( ! function_exists( '${schemaTypeFunctionName}' ) ) {
+\tfunction ${schemaTypeFunctionName}( $schema ) : string {
+\t\t$supported = ${supportedSchemaTypes};
+\t\tif ( ! is_array( $schema ) ) {
+\t\t\treturn 'unknown';
+\t\t}
+\t\tif ( isset( $schema['type'] ) && is_string( $schema['type'] ) && in_array( $schema['type'], $supported, true ) ) {
+\t\t\treturn $schema['type'];
+\t\t}
+\t\tif ( isset( $schema['type'] ) && is_array( $schema['type'] ) ) {
+\t\t\t$all_strings = true;
+\t\t\tforeach ( $schema['type'] as $entry ) {
+\t\t\t\tif ( ! is_string( $entry ) ) {
+\t\t\t\t\t$all_strings = false;
+\t\t\t\t\tbreak;
+\t\t\t\t}
+\t\t\t}
+\t\t\tif ( $all_strings ) {
+\t\t\t\tforeach ( $schema['type'] as $entry ) {
+\t\t\t\t\tif ( 'null' !== $entry && in_array( $entry, $supported, true ) ) {
+\t\t\t\t\t\treturn $entry;
+\t\t\t\t\t}
+\t\t\t\t}
+\t\t\t}
+\t\t}
+\t\tif ( isset( $schema['enum'] ) && is_array( $schema['enum'] ) && ! empty( $schema['enum'] ) ) {
+\t\t\treturn 'string';
+\t\t}
+
+\t\treturn 'unknown';
+\t}
+}
+
 if ( ! function_exists( '${fieldsFunctionName}' ) ) {
 \tfunction ${fieldsFunctionName}() : array {
 \t\t$schema_file = dirname( __DIR__, 3 ) . '/${options.postMeta.schemaFile}';
 \t\tif ( file_exists( $schema_file ) ) {
 \t\t\t$schema = json_decode( (string) file_get_contents( $schema_file ), true );
 \t\t\tif ( is_array( $schema ) && isset( $schema['properties'] ) && is_array( $schema['properties'] ) ) {
-\t\t\t\treturn array_values( array_filter( array_keys( $schema['properties'] ), 'is_string' ) );
+\t\t\t\t$fields = array();
+\t\t\t\tforeach ( $schema['properties'] as $name => $property ) {
+\t\t\t\t\tif ( ! is_string( $name ) ) {
+\t\t\t\t\t\tcontinue;
+\t\t\t\t\t}
+\t\t\t\t\t$fields[] = $name;
+\t\t\t\t\tif ( ! is_array( $property ) || 'object' !== ${schemaTypeFunctionName}( $property ) || ! isset( $property['properties'] ) || ! is_array( $property['properties'] ) ) {
+\t\t\t\t\t\tcontinue;
+\t\t\t\t\t}
+\t\t\t\t\tforeach ( $property['properties'] as $child_name => $child_property ) {
+\t\t\t\t\t\tif ( ! is_string( $child_name ) || ! is_array( $child_property ) ) {
+\t\t\t\t\t\t\tcontinue;
+\t\t\t\t\t\t}
+\t\t\t\t\t\t$child_type = ${schemaTypeFunctionName}( $child_property );
+\t\t\t\t\t\tif ( ! in_array( $child_type, ${nestedScalarSchemaTypes}, true ) ) {
+\t\t\t\t\t\t\tcontinue;
+\t\t\t\t\t\t}
+\t\t\t\t\t\t$fields[] = $name . '.' . $child_name;
+\t\t\t\t\t}
+\t\t\t\t}
+
+\t\t\t\treturn array_values( $fields );
 \t\t\t}
 \t\t}
 
@@ -151,8 +219,20 @@ if ( ! function_exists( '${resolveFunctionName}' ) ) {
 \t\t$value = null;
 \t\tif ( $post_id ) {
 \t\t\t$meta = get_post_meta( $post_id, ${quotePhpString(options.postMeta.metaKey)}, true );
-\t\t\tif ( is_array( $meta ) && array_key_exists( $field, $meta ) ) {
+\t\t\tif ( is_array( $meta ) && ! str_contains( $field, '.' ) && array_key_exists( $field, $meta ) ) {
 \t\t\t\t$value = $meta[ $field ];
+\t\t\t} elseif ( is_array( $meta ) && str_contains( $field, '.' ) ) {
+\t\t\t\t$segments = explode( '.', $field, 3 );
+\t\t\t\tif (
+\t\t\t\t\t2 === count( $segments ) &&
+\t\t\t\t\t'' !== $segments[0] &&
+\t\t\t\t\t'' !== $segments[1] &&
+\t\t\t\t\tarray_key_exists( $segments[0], $meta ) &&
+\t\t\t\t\tis_array( $meta[ $segments[0] ] ) &&
+\t\t\t\t\tarray_key_exists( $segments[1], $meta[ $segments[0] ] )
+\t\t\t\t) {
+\t\t\t\t\t$value = $meta[ $segments[0] ][ $segments[1] ];
+\t\t\t\t}
 \t\t\t}
 \t\t}
 \t\tif ( null === $value ) {
