@@ -302,28 +302,26 @@ missing or malformed schema files.
 
 ## Retrofitting Existing Projects
 
-`wp-typia init` now exists as a **preview-only** retrofit planner for existing
-plugins or block repos:
+`wp-typia init` previews the minimum sync surface for an existing plugin or
+block repo. `wp-typia init --apply` writes that plan. Existing block source
+stays in place.
 
 ```bash
 npx wp-typia init
+npx wp-typia init --apply
 ```
 
-Today that command does not write files yet. Instead it inspects the current
-directory, reports the detected retrofit layout, and previews the minimum
-dependency/script/file layer needed to adopt the typed `sync` / `doctor`
-workflow incrementally.
+Supported shapes are a single block (`src/block.json` or legacy root
+`block.json`, plus `src/types.ts` and `src/save.tsx`), a multi-block
+`src/blocks/<slug>/` tree, an existing generated `wp-typia` project, and an
+official workspace. Other layouts stay unsupported, and `--apply` stops
+instead of guessing. Project-owned lint configs are preserved.
 
-The currently supported retrofit path is narrower:
+`wp-typia migrate init` is a later, optional step. It bootstraps migration
+support only and does not convert the project into a scaffold.
 
-- `wp-typia migrate init` bootstraps **migration support only**
-- it expects an existing project that already matches supported first-party
-  `wp-typia` block layouts
-- it does not try to convert an arbitrary project into a full scaffolded
-  `wp-typia` workspace
-
-The broader project-level adoption path is tracked in
-[Retrofit and Init Direction](RETROFIT_INIT_DIRECTION.md).
+- [Retrofitting an Existing Project](https://imjlk.github.io/wp-typia/guides/retrofit-init/)
+- [Retrofit and Init](RETROFIT_INIT_DIRECTION.md)
 
 ## Remote templates
 
@@ -384,7 +382,8 @@ npx wp-typia create my-block --template @scope/create-block-template --variant h
 - [External Template-Layer Composition RFC](https://imjlk.github.io/wp-typia/architecture/external-template-layer-composition/)
 - [API Guide](https://imjlk.github.io/wp-typia/reference/api/)
 - [Migration Guide](https://imjlk.github.io/wp-typia/guides/migrations/)
-- [Retrofit and Init Direction](RETROFIT_INIT_DIRECTION.md)
+- [Retrofitting an Existing Project](https://imjlk.github.io/wp-typia/guides/retrofit-init/)
+- [Retrofit and Init](RETROFIT_INIT_DIRECTION.md)
 - [Error and Export Contract Guide](https://imjlk.github.io/wp-typia/reference/error-export-contracts/)
 - [Formatting Toolchain Policy](https://imjlk.github.io/wp-typia/maintainers/formatting-toolchain-policy/)
 - [Core Data Adapter Boundary](https://imjlk.github.io/wp-typia/maintainers/core-data-adapter-boundary/)

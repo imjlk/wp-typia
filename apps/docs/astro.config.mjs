@@ -107,6 +107,10 @@ export default defineConfig({
             { label: 'Interactivity Guide', link: '/guides/interactivity/' },
             { label: 'Migration Guide', link: '/guides/migrations/' },
             {
+              label: 'Retrofit an Existing Project',
+              link: '/guides/retrofit-init/',
+            },
+            {
               label: 'Nesting Contracts Guide',
               link: '/guides/nesting-contracts/',
             },

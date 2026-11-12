@@ -12,6 +12,7 @@ description: Hosted documentation for wp-typia guides, runtime architecture, tut
 - [API Overview](./reference/api.md)
 - [Architecture Guide](./guides/architecture.md)
 - [Migration Guide](./guides/migrations.md)
+- [Retrofitting an Existing Project](./guides/retrofit-init.md)
 - [Basic Block Tutorial](./tutorials/basic-block-tutorial.md)
 - [Core API](/api/readme/)
 - [Advanced Helpers](/api/advanced/readme/)

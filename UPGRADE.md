@@ -34,9 +34,13 @@ separately. Regenerate validators with the managed sync command when upgrading.
 The Webpack preflight now rejects typia 13 to prevent client/PHP length-check
 disagreements; upgrade typia together with block-runtime.
 
+`wp-typia init` previews the retrofit adoption plan and does not write files.
 `wp-typia init --apply` removes the obsolete `@typia/unplugin` dependency and
-migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack`. New
-and retrofitted projects pin `@ttsc/lint@0.30.4` and run the generated
+migrates standard `webpack.config.*` imports to `@ttsc/unplugin/webpack` on
+supported retrofit layouts. Unsupported layouts and project-owned lint configs
+stop the write. See
+[Retrofitting an Existing Project](https://imjlk.github.io/wp-typia/guides/retrofit-init/).
+New and retrofitted projects pin `@ttsc/lint@0.30.4` and run the generated
 `scripts/apply-ttsc-lint-compat.mjs` install hook until an unpatched upstream
 release passes the mapped/`infer` formatter regression. The hook affects only
 the development compiler plugin; it is not a WordPress runtime dependency.
