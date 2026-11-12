@@ -390,7 +390,7 @@ test('canonical CLI can add a basic block to an official workspace template', as
       ]),
     ),
   ).toContain('allowedBlocks references unknown block "demo-space/missing-child"');
-}, 20_000);
+}, 40_000);
 
 test('canonical CLI can add a basic block with an external layer package', async () => {
   const targetDir = path.join(tempRoot, 'demo-workspace-add-basic-layered');

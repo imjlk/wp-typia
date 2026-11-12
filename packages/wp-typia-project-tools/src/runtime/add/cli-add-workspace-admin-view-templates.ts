@@ -118,13 +118,22 @@ export function buildAdminViewScreenSource(
 /**
  * Delegates admin-view PHP registration generation to buildSharedAdminViewPhpSource.
  *
+ * Core-data views also register one plugin-owned entity field. Default and
+ * REST views do not.
+ *
  * @param adminViewSlug - Slug for the generated admin view.
  * @param workspace - Workspace project metadata for PHP prefixes and paths.
+ * @param coreDataSource - Core-data entity for the view, when one exists.
  * @returns Generated PHP source for registering and enqueueing the admin view.
  */
 export function buildAdminViewPhpSource(
   adminViewSlug: string,
   workspace: WorkspaceProject,
+  coreDataSource?: AdminViewCoreDataSource,
 ): string {
-  return buildSharedAdminViewPhpSource(adminViewSlug, workspace);
+  return buildSharedAdminViewPhpSource(
+    adminViewSlug,
+    workspace,
+    coreDataSource,
+  );
 }

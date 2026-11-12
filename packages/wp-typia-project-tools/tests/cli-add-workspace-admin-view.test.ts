@@ -6,6 +6,7 @@ import {
 } from '../src/runtime/cli-add-workspace-admin-view-source.js';
 import {
   buildAdminViewConfigSource,
+  buildAdminViewPhpSource,
   buildAdminViewTypesSource,
 } from '../src/runtime/cli-add-workspace-admin-view-templates.js';
 import { buildCoreDataAdminViewConfigSource } from '../src/runtime/cli-add-workspace-admin-view-templates-core-data.js';
@@ -32,6 +33,21 @@ import {
   toCamelCase,
   toPascalCase,
 } from '../src/runtime/shared/string-case.js';
+import type { WorkspaceProject } from '../src/runtime/workspace-project.js';
+
+const ADMIN_VIEW_WORKSPACE: WorkspaceProject = {
+  author: 'Demo Author',
+  packageManager: 'npm',
+  packageName: 'demo-plugin',
+  projectDir: '/tmp/demo-plugin',
+  workspace: {
+    namespace: 'demo-space',
+    phpPrefix: 'demo_space',
+    projectType: 'workspace',
+    templatePackage: '@wp-typia/create-workspace-template',
+    textDomain: 'demo-space',
+  },
+};
 
 test('admin-view source parsing accepts supported rest-resource and core-data locators', () => {
   expect(parseAdminViewSource()).toBeUndefined();
@@ -263,3 +279,81 @@ test('admin-view emitters preformat breakable long TypeScript constructs', () =>
       "} from './types';",
   );
 });
+
+test('core-data admin-view PHP registers one plugin-owned entity field', () => {
+  const postTypeSource: AdminViewCoreDataSource = {
+    entityKind: 'postType',
+    entityName: 'post',
+    kind: 'core-data',
+  };
+  const phpSource = buildAdminViewPhpSource(
+    'posts',
+    ADMIN_VIEW_WORKSPACE,
+    postTypeSource,
+  );
+  const guard = "if ( ! function_exists( 'wp_register_entity_fields' ) ) {";
+  const guardIndex = phpSource.indexOf(guard);
+  const returnIndex = phpSource.indexOf('\t\t\treturn;', guardIndex);
+  const callIndex = phpSource.indexOf('wp_register_entity_fields(', guardIndex);
+
+  expect(phpSource).toContain('add_submenu_page');
+  expect(phpSource).toContain("add_action( 'wp_entity_fields_api_init'");
+  expect(guardIndex).toBeGreaterThanOrEqual(0);
+  expect(returnIndex).toBeGreaterThan(guardIndex);
+  expect(callIndex).toBeGreaterThan(returnIndex);
+  expect(phpSource).toContain(
+    [
+      '\t\twp_register_entity_fields(',
+      "\t\t\t'demo-plugin',",
+      "\t\t\t'postType',",
+      "\t\t\t'post',",
+      '\t\t\tarray(',
+      '\t\t\t\tarray(',
+      "\t\t\t\t\t'id'    => 'posts_note',",
+      "\t\t\t\t\t'label' => __( 'Posts note', 'demo-space' ),",
+      '\t\t\t\t),',
+      '\t\t\t)',
+      '\t\t);',
+    ].join('\n'),
+  );
+  expect(phpSource).not.toContain('WP_Entity_Fields_Registry');
+  expect(phpSource).not.toContain('WP_Fields_Registry');
+  expect(phpSource).not.toContain("'origin'");
+  expect(phpSource).not.toContain("'core'");
+
+  const taxonomyPhp = buildAdminViewPhpSource(
+    'categories',
+    ADMIN_VIEW_WORKSPACE,
+    {
+      entityKind: 'taxonomy',
+      entityName: 'category',
+      kind: 'core-data',
+    },
+  );
+  expect(taxonomyPhp).toContain("'taxonomy'");
+  expect(taxonomyPhp).toContain("'category'");
+  expect(taxonomyPhp).toContain("'categories_note'");
+
+  const hyphenatedPhp = buildAdminViewPhpSource(
+    'audit-logs',
+    ADMIN_VIEW_WORKSPACE,
+    {
+      entityKind: 'postType',
+      entityName: '2fa_logs',
+      kind: 'core-data',
+    },
+  );
+  expect(hyphenatedPhp).toContain("'audit-logs_note'");
+  expect(hyphenatedPhp).toContain("'2fa_logs'");
+});
+
+test(
+  'default and rest-resource admin-view PHP does not register entity fields',
+  () => {
+  const phpSource = buildAdminViewPhpSource('snapshots', ADMIN_VIEW_WORKSPACE);
+
+  expect(phpSource).toContain('add_submenu_page');
+  expect(phpSource).not.toContain('wp_register_entity_fields');
+  expect(phpSource).not.toContain('wp_entity_fields_api_init');
+  },
+);

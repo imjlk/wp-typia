@@ -567,7 +567,11 @@ export async function scaffoldAdminViewWorkspace(options: {
       );
       await fsp.writeFile(
         adminViewPhpPath,
-        buildAdminViewPhpSource(adminViewSlug, workspace),
+        buildAdminViewPhpSource(
+          adminViewSlug,
+          workspace,
+          coreDataSource,
+        ),
         'utf8',
       );
       await ensureAdminViewBootstrapAnchors(workspace);
