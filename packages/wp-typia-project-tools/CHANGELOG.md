@@ -1,5 +1,43 @@
 # @wp-typia/project-tools
 
+## 0.29.0 — 2026-11-12
+
+### Minor changes
+
+- [d969ddd4](https://github.com/imjlk/wp-typia/commit/d969ddd4ec1aa5d34c1bd53d5e0c790e47c288a8) Update the supported build toolchain to ttsc 0.30.4 and typia 14.0.6,
+  including generated projects and the WordPress lint contributor compatibility
+  range. Retain the version-pinned native compatibility repairs and their
+  regression coverage.
+  
+  Generated and retrofitted projects now require typia 14. Its standalone CLI was
+  removed upstream; use the managed ttsc/ttsx commands and @ttsc/unplugin integration.
+  
+  Match typia 14 Unicode code-point length checks in generated PHP validators,
+  migration helpers, and example-value generation. Non-ASCII limits now count
+  characters instead of UTF-8 bytes or UTF-16 code units. — Thanks @imjlk!
+
+### Patch changes
+
+- [c35fa37a](https://github.com/imjlk/wp-typia/commit/c35fa37aa288627b8e9aafa0e6f334d7ea330b1a) Let `wp-typia add ability` set the category slug with `--category` and opt the
+  ability into public MCP metadata with `--public`. The default category and
+  private MCP metadata stay unchanged. — Thanks @imjlk!
+- [fcc4626f](https://github.com/imjlk/wp-typia/commit/fcc4626f8268a25b23a0774579ae95d782b11a74) Register one plugin-owned entity field when `wp-typia add admin-view` targets
+  a core-data source. The generated PHP hooks `wp_entity_fields_api_init` and
+  calls `wp_register_entity_fields()` only when that function exists. Default
+  and REST admin views keep the existing Tools screen without server field
+  registration. — Thanks @imjlk!
+- [48f42b3f](https://github.com/imjlk/wp-typia/commit/48f42b3fa4a1cbac4bd1a5b03d12329987037b90) Accept one-level nested post-meta paths in binding-source --meta-path. — Thanks @imjlk!
+- [5c0e389d](https://github.com/imjlk/wp-typia/commit/5c0e389d45ab8043338a4a325384fd9d1ab1e1e0) Tell `wp-typia init` preview mode that no files were written, and point the
+  write path at `wp-typia init --apply`. — Thanks @imjlk!
+- [8ae09c39](https://github.com/imjlk/wp-typia/commit/8ae09c39ca8de76b8a0d1d5588e92aacf46fc566) Add --secret-storage secrets-api for manual REST secret fields, with a function_exists fallback. — Thanks @imjlk!
+- [a65d0c4c](https://github.com/imjlk/wp-typia/commit/a65d0c4c98f7fa456d595f88e8f2b039f0dd0c58) Show `data-wp-each`, `data-wp-init`, `data-wp-watch`, and `data-wp-run`
+  in the built-in interactivity block template. The list example keeps notes
+  in context and renders each one from a template through `context.item`.
+  Init, watch, and run use the documented zero-argument callback shapes, and
+  the run callback calls `useState` and `useEffect`. — Thanks @imjlk!
+- [5fad5e8a](https://github.com/imjlk/wp-typia/commit/5fad5e8acbc0b221644da4e70fbc9047fcce14dd) Add WordPress 7.1 as a selectable scaffold target. The default remains 7.0. — Thanks @imjlk!
+- Updated dependencies: api-client (npm)@0.5.2, block-runtime (npm)@0.11.0, block-types (npm)@0.5.3, rest (npm)@0.4.2
+
 ## 0.28.2 — 2026-09-16
 
 ### Patch changes

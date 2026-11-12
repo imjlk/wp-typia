@@ -1,5 +1,25 @@
 # @wp-typia/block-runtime
 
+## 0.11.0 — 2026-11-12
+
+### Minor changes
+
+- [d969ddd4](https://github.com/imjlk/wp-typia/commit/d969ddd4ec1aa5d34c1bd53d5e0c790e47c288a8) Update the supported build toolchain to ttsc 0.30.4 and typia 14.0.6,
+  including generated projects and the WordPress lint contributor compatibility
+  range. Retain the version-pinned native compatibility repairs and their
+  regression coverage.
+  
+  Generated and retrofitted projects now require typia 14. Its standalone CLI was
+  removed upstream; use the managed ttsc/ttsx commands and @ttsc/unplugin integration.
+  
+  Match typia 14 Unicode code-point length checks in generated PHP validators,
+  migration helpers, and example-value generation. Non-ASCII limits now count
+  characters instead of UTF-8 bytes or UTF-16 code units. — Thanks @imjlk!
+
+### Patch changes
+
+- Updated dependencies: api-client (npm)@0.5.2
+
 ## 0.10.2 — 2026-09-16
 
 ### Patch changes
